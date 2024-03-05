@@ -102,6 +102,7 @@ func (m *RouteConfiguration) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouteConfigurationMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -282,6 +283,7 @@ func (m *Route) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouteMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -443,6 +445,7 @@ func (m *RouteMatch) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouteMatchMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -567,12 +570,33 @@ func (m *RouteAction) validate(all bool) error {
 		}
 	}
 
-	switch m.ClusterSpecifier.(type) {
-
+	oneofClusterSpecifierPresent := false
+	switch v := m.ClusterSpecifier.(type) {
 	case *RouteAction_Cluster:
+		if v == nil {
+			err := RouteActionValidationError{
+				field:  "ClusterSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofClusterSpecifierPresent = true
 		// no validation rules for Cluster
-
 	case *RouteAction_WeightedClusters:
+		if v == nil {
+			err := RouteActionValidationError{
+				field:  "ClusterSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofClusterSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetWeightedClusters()).(type) {
@@ -604,6 +628,9 @@ func (m *RouteAction) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofClusterSpecifierPresent {
 		err := RouteActionValidationError{
 			field:  "ClusterSpecifier",
 			reason: "value is required",
@@ -612,12 +639,12 @@ func (m *RouteAction) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RouteActionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -791,6 +818,7 @@ func (m *MethodMatch) validate(all bool) error {
 	if len(errors) > 0 {
 		return MethodMatchMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -925,6 +953,7 @@ func (m *MultipleRouteConfiguration) validate(all bool) error {
 	if len(errors) > 0 {
 		return MultipleRouteConfigurationMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1024,12 +1053,30 @@ func (m *MethodMatch_ParameterMatchSpecifier) validate(all bool) error {
 
 	var errors []error
 
-	switch m.ParameterMatchSpecifier.(type) {
-
+	switch v := m.ParameterMatchSpecifier.(type) {
 	case *MethodMatch_ParameterMatchSpecifier_ExactMatch:
+		if v == nil {
+			err := MethodMatch_ParameterMatchSpecifierValidationError{
+				field:  "ParameterMatchSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for ExactMatch
-
 	case *MethodMatch_ParameterMatchSpecifier_RangeMatch:
+		if v == nil {
+			err := MethodMatch_ParameterMatchSpecifierValidationError{
+				field:  "ParameterMatchSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRangeMatch()).(type) {
@@ -1060,11 +1107,14 @@ func (m *MethodMatch_ParameterMatchSpecifier) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return MethodMatch_ParameterMatchSpecifierMultiError(errors)
 	}
+
 	return nil
 }
 

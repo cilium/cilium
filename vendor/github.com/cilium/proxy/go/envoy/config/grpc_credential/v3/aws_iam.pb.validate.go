@@ -73,6 +73,7 @@ func (m *AwsIamConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return AwsIamConfigMultiError(errors)
 	}
+
 	return nil
 }
 

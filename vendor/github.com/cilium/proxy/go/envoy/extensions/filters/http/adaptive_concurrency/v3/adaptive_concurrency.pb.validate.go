@@ -169,6 +169,7 @@ func (m *GradientControllerConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return GradientControllerConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -325,9 +326,20 @@ func (m *AdaptiveConcurrency) validate(all bool) error {
 		}
 	}
 
-	switch m.ConcurrencyControllerConfig.(type) {
-
+	oneofConcurrencyControllerConfigPresent := false
+	switch v := m.ConcurrencyControllerConfig.(type) {
 	case *AdaptiveConcurrency_GradientControllerConfig:
+		if v == nil {
+			err := AdaptiveConcurrencyValidationError{
+				field:  "ConcurrencyControllerConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConcurrencyControllerConfigPresent = true
 
 		if m.GetGradientControllerConfig() == nil {
 			err := AdaptiveConcurrencyValidationError{
@@ -370,6 +382,9 @@ func (m *AdaptiveConcurrency) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofConcurrencyControllerConfigPresent {
 		err := AdaptiveConcurrencyValidationError{
 			field:  "ConcurrencyControllerConfig",
 			reason: "value is required",
@@ -378,12 +393,12 @@ func (m *AdaptiveConcurrency) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return AdaptiveConcurrencyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -544,6 +559,7 @@ func (m *GradientControllerConfig_ConcurrencyLimitCalculationParams) validate(al
 	if len(errors) > 0 {
 		return GradientControllerConfig_ConcurrencyLimitCalculationParamsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -790,6 +806,7 @@ func (m *GradientControllerConfig_MinimumRTTCalculationParams) validate(all bool
 	if len(errors) > 0 {
 		return GradientControllerConfig_MinimumRTTCalculationParamsMultiError(errors)
 	}
+
 	return nil
 }
 

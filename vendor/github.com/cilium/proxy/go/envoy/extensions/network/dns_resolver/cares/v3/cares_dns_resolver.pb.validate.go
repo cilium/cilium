@@ -138,6 +138,7 @@ func (m *CaresDnsResolverConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return CaresDnsResolverConfigMultiError(errors)
 	}
+
 	return nil
 }
 

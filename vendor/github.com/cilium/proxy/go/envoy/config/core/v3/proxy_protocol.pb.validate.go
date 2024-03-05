@@ -78,6 +78,7 @@ func (m *ProxyProtocolPassThroughTLVs) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProxyProtocolPassThroughTLVsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -211,6 +212,7 @@ func (m *ProxyProtocolConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProxyProtocolConfigMultiError(errors)
 	}
+
 	return nil
 }
 

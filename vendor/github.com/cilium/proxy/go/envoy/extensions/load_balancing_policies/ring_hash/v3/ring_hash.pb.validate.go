@@ -176,6 +176,7 @@ func (m *RingHash) validate(all bool) error {
 	if len(errors) > 0 {
 		return RingHashMultiError(errors)
 	}
+
 	return nil
 }
 

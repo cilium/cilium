@@ -123,6 +123,7 @@ func (m *LoadStatsRequest) validate(all bool) error {
 	if len(errors) > 0 {
 		return LoadStatsRequestMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -255,6 +256,7 @@ func (m *LoadStatsResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return LoadStatsResponseMultiError(errors)
 	}
+
 	return nil
 }
 

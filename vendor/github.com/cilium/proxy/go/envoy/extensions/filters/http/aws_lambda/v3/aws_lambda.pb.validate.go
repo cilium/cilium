@@ -83,6 +83,7 @@ func (m *Config) validate(all bool) error {
 	if len(errors) > 0 {
 		return ConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -210,6 +211,7 @@ func (m *PerRouteConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return PerRouteConfigMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -31,6 +31,8 @@ import (
 	"strings"
 
 	"golang.org/x/tools/internal/typeparams"
+
+	_ "unsafe" // for go:linkname
 )
 
 // A Path is an opaque name that identifies a types.Object
@@ -111,20 +113,6 @@ const (
 	opObj    = 'O' // .Obj()		 (Named, TypeParam)
 )
 
-// For is equivalent to new(Encoder).For(obj).
-//
-// It may be more efficient to reuse a single Encoder across several calls.
-func For(obj types.Object) (Path, error) {
-	return new(Encoder).For(obj)
-}
-
-// An Encoder amortizes the cost of encoding the paths of multiple objects.
-// The zero value of an Encoder is ready to use.
-type Encoder struct {
-	scopeMemo        map[*types.Scope][]types.Object // memoization of scopeObjects
-	namedMethodsMemo map[*types.Named][]*types.Func  // memoization of namedMethods()
-}
-
 // For returns the path to an object relative to its package,
 // or an error if the object is not accessible from the package's Scope.
 //
@@ -157,7 +145,24 @@ type Encoder struct {
 //	.Type().Field(0)					(field Var X)
 //
 // where p is the package (*types.Package) to which X belongs.
-func (enc *Encoder) For(obj types.Object) (Path, error) {
+func For(obj types.Object) (Path, error) {
+	return newEncoderFor()(obj)
+}
+
+// An encoder amortizes the cost of encoding the paths of multiple objects.
+// Nonexported pending approval of proposal 58668.
+type encoder struct {
+	scopeNamesMemo   map[*types.Scope][]string      // memoization of Scope.Names()
+	namedMethodsMemo map[*types.Named][]*types.Func // memoization of namedMethods()
+}
+
+// Exposed to gopls via golang.org/x/tools/internal/typesinternal
+// pending approval of proposal 58668.
+//
+//go:linkname newEncoderFor
+func newEncoderFor() func(types.Object) (Path, error) { return new(encoder).For }
+
+func (enc *encoder) For(obj types.Object) (Path, error) {
 	pkg := obj.Pkg()
 
 	// This table lists the cases of interest.
@@ -255,14 +260,15 @@ func (enc *Encoder) For(obj types.Object) (Path, error) {
 	// the best paths because non-types may
 	// refer to types, but not the reverse.
 	empty := make([]byte, 0, 48) // initial space
-	objs := enc.scopeObjects(scope)
-	for _, o := range objs {
+	names := enc.scopeNames(scope)
+	for _, name := range names {
+		o := scope.Lookup(name)
 		tname, ok := o.(*types.TypeName)
 		if !ok {
 			continue // handle non-types in second pass
 		}
 
-		path := append(empty, o.Name()...)
+		path := append(empty, name...)
 		path = append(path, opType)
 
 		T := o.Type()
@@ -288,8 +294,9 @@ func (enc *Encoder) For(obj types.Object) (Path, error) {
 
 	// Then inspect everything else:
 	// non-types, and declared methods of defined types.
-	for _, o := range objs {
-		path := append(empty, o.Name()...)
+	for _, name := range names {
+		o := scope.Lookup(name)
+		path := append(empty, name...)
 		if _, ok := o.(*types.TypeName); !ok {
 			if o.Exported() {
 				// exported non-type (const, var, func)
@@ -334,7 +341,7 @@ func appendOpArg(path []byte, op byte, arg int) []byte {
 // This function is just an optimization that avoids the general scope walking
 // approach. You are expected to fall back to the general approach if this
 // function fails.
-func (enc *Encoder) concreteMethod(meth *types.Func) (Path, bool) {
+func (enc *encoder) concreteMethod(meth *types.Func) (Path, bool) {
 	// Concrete methods can only be declared on package-scoped named types. For
 	// that reason we can skip the expensive walk over the package scope: the
 	// path will always be package -> named type -> method. We can trivially get
@@ -414,13 +421,7 @@ func (enc *Encoder) concreteMethod(meth *types.Func) (Path, bool) {
 		}
 	}
 
-	// Due to golang/go#59944, go/types fails to associate the receiver with
-	// certain methods on cgo types.
-	//
-	// TODO(rfindley): replace this panic once golang/go#59944 is fixed in all Go
-	// versions gopls supports.
-	return "", false
-	// panic(fmt.Sprintf("couldn't find method %s on type %s; methods: %#v", meth, named, enc.namedMethods(named)))
+	panic(fmt.Sprintf("couldn't find method %s on type %s", meth, named))
 }
 
 // find finds obj within type T, returning the path to it, or nil if not found.
@@ -729,8 +730,23 @@ func namedMethods(named *types.Named) []*types.Func {
 	return methods
 }
 
+// scopeNames is a memoization of scope.Names. Callers must not modify the result.
+func (enc *encoder) scopeNames(scope *types.Scope) []string {
+	m := enc.scopeNamesMemo
+	if m == nil {
+		m = make(map[*types.Scope][]string)
+		enc.scopeNamesMemo = m
+	}
+	names, ok := m[scope]
+	if !ok {
+		names = scope.Names() // allocates and sorts
+		m[scope] = names
+	}
+	return names
+}
+
 // namedMethods is a memoization of the namedMethods function. Callers must not modify the result.
-func (enc *Encoder) namedMethods(named *types.Named) []*types.Func {
+func (enc *encoder) namedMethods(named *types.Named) []*types.Func {
 	m := enc.namedMethodsMemo
 	if m == nil {
 		m = make(map[*types.Named][]*types.Func)
@@ -742,24 +758,5 @@ func (enc *Encoder) namedMethods(named *types.Named) []*types.Func {
 		m[named] = methods
 	}
 	return methods
-}
 
-// scopeObjects is a memoization of scope objects.
-// Callers must not modify the result.
-func (enc *Encoder) scopeObjects(scope *types.Scope) []types.Object {
-	m := enc.scopeMemo
-	if m == nil {
-		m = make(map[*types.Scope][]types.Object)
-		enc.scopeMemo = m
-	}
-	objs, ok := m[scope]
-	if !ok {
-		names := scope.Names() // allocates and sorts
-		objs = make([]types.Object, len(names))
-		for i, name := range names {
-			objs[i] = scope.Lookup(name)
-		}
-		m[scope] = objs
-	}
-	return objs
 }

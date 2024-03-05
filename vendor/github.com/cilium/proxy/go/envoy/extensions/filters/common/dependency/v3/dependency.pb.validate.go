@@ -73,6 +73,7 @@ func (m *Dependency) validate(all bool) error {
 	if len(errors) > 0 {
 		return DependencyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -307,6 +308,7 @@ func (m *FilterDependencies) validate(all bool) error {
 	if len(errors) > 0 {
 		return FilterDependenciesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -437,6 +439,7 @@ func (m *MatchingRequirements) validate(all bool) error {
 	if len(errors) > 0 {
 		return MatchingRequirementsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -540,6 +543,7 @@ func (m *MatchingRequirements_DataInputAllowList) validate(all bool) error {
 	if len(errors) > 0 {
 		return MatchingRequirements_DataInputAllowListMultiError(errors)
 	}
+
 	return nil
 }
 

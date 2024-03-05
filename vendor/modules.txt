@@ -208,8 +208,8 @@ github.com/cilium/kafka/proto
 # github.com/cilium/lumberjack/v2 v2.2.2
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20231202123106-38b645b854f3
-## explicit; go 1.21
+# github.com/cilium/proxy v0.0.0-20230911173141-49b6a7c9c075
+## explicit; go 1.20
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
 github.com/cilium/proxy/go/envoy/admin/v3
@@ -241,6 +241,7 @@ github.com/cilium/proxy/go/envoy/data/tap/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/file/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/filters/cel/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/grpc/v3
+github.com/cilium/proxy/go/envoy/extensions/access_loggers/open_telemetry/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3
@@ -274,8 +275,10 @@ github.com/cilium/proxy/go/envoy/extensions/filters/http/cache/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/cdn_loop/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/composite/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/compressor/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/connect_grpc_bridge/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/cors/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/csrf/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/custom_response/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/decompressor/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3
@@ -283,12 +286,15 @@ github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_proc/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/fault/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/file_system_buffer/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/gcp_authn/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/geoip/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_field_extraction/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_http1_bridge/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_http1_reverse_bridge/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_json_transcoder/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_stats/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_web/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/gzip/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/header_mutation/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/header_to_metadata/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/ip_tagging/v3
@@ -309,6 +315,7 @@ github.com/cilium/proxy/go/envoy/extensions/filters/http/tap/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/upstream_codec/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/listener/http_inspector/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/listener/local_ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/listener/original_dst/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/listener/original_src/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/listener/proxy_protocol/v3
@@ -329,6 +336,7 @@ github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/thrift_proxy/filters/header_to_metadata/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/thrift_proxy/filters/payload_to_metadata/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/thrift_proxy/filters/ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/thrift_proxy/router/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/thrift_proxy/v3
@@ -336,10 +344,17 @@ github.com/cilium/proxy/go/envoy/extensions/filters/network/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/zookeeper_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/udp/dns_filter/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/udp/udp_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/formatter/cel/v3
 github.com/cilium/proxy/go/envoy/extensions/formatter/metadata/v3
 github.com/cilium/proxy/go/envoy/extensions/formatter/req_without_query/v3
+github.com/cilium/proxy/go/envoy/extensions/health_check/event_sinks/file/v3
 github.com/cilium/proxy/go/envoy/extensions/health_checkers/redis/v3
 github.com/cilium/proxy/go/envoy/extensions/health_checkers/thrift/v3
+github.com/cilium/proxy/go/envoy/extensions/http/cache/file_system_http_cache/v3
+github.com/cilium/proxy/go/envoy/extensions/http/cache/simple_http_cache/v3
+github.com/cilium/proxy/go/envoy/extensions/http/custom_response/local_response_policy/v3
+github.com/cilium/proxy/go/envoy/extensions/http/custom_response/redirect_policy/v3
+github.com/cilium/proxy/go/envoy/extensions/http/early_header_mutation/header_mutation/v3
 github.com/cilium/proxy/go/envoy/extensions/http/header_formatters/preserve_case/v3
 github.com/cilium/proxy/go/envoy/extensions/http/header_validators/envoy_default/v3
 github.com/cilium/proxy/go/envoy/extensions/http/original_ip_detection/custom_header/v3
@@ -350,30 +365,39 @@ github.com/cilium/proxy/go/envoy/extensions/internal_redirect/allow_listed_route
 github.com/cilium/proxy/go/envoy/extensions/internal_redirect/previous_routes/v3
 github.com/cilium/proxy/go/envoy/extensions/internal_redirect/safe_cross_scheme/v3
 github.com/cilium/proxy/go/envoy/extensions/key_value/file_based/v3
+github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/client_side_weighted_round_robin/v3
+github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/cluster_provided/v3
 github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/common/v3
 github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/least_request/v3
 github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/maglev/v3
+github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/pick_first/v3
 github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/random/v3
 github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/ring_hash/v3
 github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/round_robin/v3
+github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/subset/v3
 github.com/cilium/proxy/go/envoy/extensions/load_balancing_policies/wrr_locality/v3
 github.com/cilium/proxy/go/envoy/extensions/matching/common_inputs/environment_variable/v3
 github.com/cilium/proxy/go/envoy/extensions/matching/common_inputs/network/v3
 github.com/cilium/proxy/go/envoy/extensions/matching/common_inputs/ssl/v3
 github.com/cilium/proxy/go/envoy/extensions/matching/input_matchers/consistent_hashing/v3
 github.com/cilium/proxy/go/envoy/extensions/matching/input_matchers/ip/v3
+github.com/cilium/proxy/go/envoy/extensions/matching/input_matchers/runtime_fraction/v3
 github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/apple/v3
 github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/cares/v3
 github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/getaddrinfo/v3
 github.com/cilium/proxy/go/envoy/extensions/network/socket_interface/v3
 github.com/cilium/proxy/go/envoy/extensions/path/match/uri_template/v3
 github.com/cilium/proxy/go/envoy/extensions/path/rewrite/uri_template/v3
+github.com/cilium/proxy/go/envoy/extensions/quic/connection_id_generator/v3
 github.com/cilium/proxy/go/envoy/extensions/quic/crypto_stream/v3
 github.com/cilium/proxy/go/envoy/extensions/quic/proof_source/v3
+github.com/cilium/proxy/go/envoy/extensions/quic/server_preferred_address/v3
 github.com/cilium/proxy/go/envoy/extensions/rate_limit_descriptors/expr/v3
+github.com/cilium/proxy/go/envoy/extensions/rbac/audit_loggers/stream/v3
 github.com/cilium/proxy/go/envoy/extensions/rbac/matchers/upstream_ip_port/v3
 github.com/cilium/proxy/go/envoy/extensions/regex_engines/v3
 github.com/cilium/proxy/go/envoy/extensions/request_id/uuid/v3
+github.com/cilium/proxy/go/envoy/extensions/resource_monitors/downstream_connections/v3
 github.com/cilium/proxy/go/envoy/extensions/resource_monitors/fixed_heap/v3
 github.com/cilium/proxy/go/envoy/extensions/resource_monitors/injected_resource/v3
 github.com/cilium/proxy/go/envoy/extensions/retry/host/omit_canary_hosts/v3
@@ -381,6 +405,7 @@ github.com/cilium/proxy/go/envoy/extensions/retry/host/omit_host_metadata/v3
 github.com/cilium/proxy/go/envoy/extensions/retry/host/previous_hosts/v3
 github.com/cilium/proxy/go/envoy/extensions/retry/priority/previous_priorities/v3
 github.com/cilium/proxy/go/envoy/extensions/stat_sinks/graphite_statsd/v3
+github.com/cilium/proxy/go/envoy/extensions/stat_sinks/open_telemetry/v3
 github.com/cilium/proxy/go/envoy/extensions/stat_sinks/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/alts/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/http_11_proxy/v3
@@ -397,8 +422,10 @@ github.com/cilium/proxy/go/envoy/extensions/udp_packet_writer/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/generic/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3
+github.com/cilium/proxy/go/envoy/extensions/upstreams/http/udp/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/tcp/generic/v3
+github.com/cilium/proxy/go/envoy/extensions/upstreams/tcp/v3
 github.com/cilium/proxy/go/envoy/extensions/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/watchdog/profile_action/v3
 github.com/cilium/proxy/go/envoy/service/accesslog/v3
@@ -421,9 +448,7 @@ github.com/cilium/proxy/go/envoy/service/secret/v3
 github.com/cilium/proxy/go/envoy/service/status/v3
 github.com/cilium/proxy/go/envoy/service/tap/v3
 github.com/cilium/proxy/go/envoy/service/trace/v3
-github.com/cilium/proxy/go/envoy/type
 github.com/cilium/proxy/go/envoy/type/http/v3
-github.com/cilium/proxy/go/envoy/type/matcher
 github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
@@ -534,7 +559,7 @@ github.com/eapache/queue
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/envoyproxy/protoc-gen-validate v1.0.2
+# github.com/envoyproxy/protoc-gen-validate v1.0.1
 ## explicit; go 1.19
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v5.6.0+incompatible
@@ -944,8 +969,8 @@ github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/testutil
 github.com/prometheus/client_golang/prometheus/testutil/promlint
-# github.com/prometheus/client_model v0.3.0
-## explicit; go 1.9
+# github.com/prometheus/client_model v0.4.0
+## explicit; go 1.18
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.37.0
 ## explicit; go 1.16
@@ -1016,7 +1041,7 @@ github.com/spf13/viper/internal/encoding/javaproperties
 github.com/spf13/viper/internal/encoding/json
 github.com/spf13/viper/internal/encoding/toml
 github.com/spf13/viper/internal/encoding/yaml
-# github.com/stretchr/testify v1.8.1
+# github.com/stretchr/testify v1.8.2
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
@@ -1101,6 +1126,9 @@ go.opentelemetry.io/otel/semconv/v1.12.0
 # go.opentelemetry.io/otel/trace v1.11.2
 ## explicit; go 1.18
 go.opentelemetry.io/otel/trace
+# go.opentelemetry.io/proto/otlp v1.0.0
+## explicit; go 1.17
+go.opentelemetry.io/proto/otlp/common/v1
 # go.uber.org/atomic v1.9.0
 ## explicit; go 1.13
 go.uber.org/atomic
@@ -1191,8 +1219,8 @@ golang.org/x/net/trace
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.3.0
-## explicit; go 1.17
+# golang.org/x/sync v0.2.0
+## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 # golang.org/x/sys v0.15.0
@@ -1231,7 +1259,7 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.2.0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.10.0
+# golang.org/x/tools v0.8.0
 ## explicit; go 1.18
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/cover
@@ -1254,7 +1282,6 @@ golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
 golang.org/x/tools/internal/event/label
-golang.org/x/tools/internal/event/tag
 golang.org/x/tools/internal/facts
 golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/internal/gcimporter
@@ -1305,19 +1332,19 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20230822172742-b8732ec3820d
+# google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/internal
-# google.golang.org/genproto/googleapis/api v0.0.0-20230822172742-b8732ec3820d
+# google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.59.0
-## explicit; go 1.19
+# google.golang.org/grpc v1.57.0
+## explicit; go 1.17
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -1349,7 +1376,6 @@ google.golang.org/grpc/internal/grpclog
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/grpcutil
-google.golang.org/grpc/internal/idle
 google.golang.org/grpc/internal/metadata
 google.golang.org/grpc/internal/pretty
 google.golang.org/grpc/internal/resolver

@@ -130,32 +130,34 @@ func (m *ExternalProcessor) validate(all bool) error {
 
 	// no validation rules for AsyncMode
 
-	if all {
-		switch v := interface{}(m.GetMessageTimeout()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ExternalProcessorValidationError{
-					field:  "MessageTimeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ExternalProcessorValidationError{
-					field:  "MessageTimeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetMessageTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ExternalProcessorValidationError{
+	if d := m.GetMessageTimeout(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = ExternalProcessorValidationError{
 				field:  "MessageTimeout",
-				reason: "embedded message failed validation",
+				reason: "value is not a valid duration",
 				cause:  err,
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lte := time.Duration(3600*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur > lte {
+				err := ExternalProcessorValidationError{
+					field:  "MessageTimeout",
+					reason: "value must be inside range [0s, 1h0m0s]",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
 		}
 	}
 
@@ -190,12 +192,45 @@ func (m *ExternalProcessor) validate(all bool) error {
 		}
 	}
 
+	if d := m.GetMaxMessageTimeout(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = ExternalProcessorValidationError{
+				field:  "MaxMessageTimeout",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lte := time.Duration(3600*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur > lte {
+				err := ExternalProcessorValidationError{
+					field:  "MaxMessageTimeout",
+					reason: "value must be inside range [0s, 1h0m0s]",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	// no validation rules for DisableClearRouteCache
+
 	if all {
-		switch v := interface{}(m.GetMaxMessageTimeout()).(type) {
+		switch v := interface{}(m.GetForwardRules()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
 				errors = append(errors, ExternalProcessorValidationError{
-					field:  "MaxMessageTimeout",
+					field:  "ForwardRules",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
@@ -203,25 +238,57 @@ func (m *ExternalProcessor) validate(all bool) error {
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
 				errors = append(errors, ExternalProcessorValidationError{
-					field:  "MaxMessageTimeout",
+					field:  "ForwardRules",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
 			}
 		}
-	} else if v, ok := interface{}(m.GetMaxMessageTimeout()).(interface{ Validate() error }); ok {
+	} else if v, ok := interface{}(m.GetForwardRules()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ExternalProcessorValidationError{
-				field:  "MaxMessageTimeout",
+				field:  "ForwardRules",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetFilterMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExternalProcessorValidationError{
+					field:  "FilterMetadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExternalProcessorValidationError{
+					field:  "FilterMetadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFilterMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExternalProcessorValidationError{
+				field:  "FilterMetadata",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for AllowModeOverride
+
 	if len(errors) > 0 {
 		return ExternalProcessorMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -298,6 +365,166 @@ var _ interface {
 	ErrorName() string
 } = ExternalProcessorValidationError{}
 
+// Validate checks the field values on HeaderForwardingRules with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *HeaderForwardingRules) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HeaderForwardingRules with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HeaderForwardingRulesMultiError, or nil if none found.
+func (m *HeaderForwardingRules) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HeaderForwardingRules) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAllowedHeaders()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HeaderForwardingRulesValidationError{
+					field:  "AllowedHeaders",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HeaderForwardingRulesValidationError{
+					field:  "AllowedHeaders",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAllowedHeaders()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HeaderForwardingRulesValidationError{
+				field:  "AllowedHeaders",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetDisallowedHeaders()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HeaderForwardingRulesValidationError{
+					field:  "DisallowedHeaders",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HeaderForwardingRulesValidationError{
+					field:  "DisallowedHeaders",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDisallowedHeaders()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HeaderForwardingRulesValidationError{
+				field:  "DisallowedHeaders",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return HeaderForwardingRulesMultiError(errors)
+	}
+
+	return nil
+}
+
+// HeaderForwardingRulesMultiError is an error wrapping multiple validation
+// errors returned by HeaderForwardingRules.ValidateAll() if the designated
+// constraints aren't met.
+type HeaderForwardingRulesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HeaderForwardingRulesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HeaderForwardingRulesMultiError) AllErrors() []error { return m }
+
+// HeaderForwardingRulesValidationError is the validation error returned by
+// HeaderForwardingRules.Validate if the designated constraints aren't met.
+type HeaderForwardingRulesValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HeaderForwardingRulesValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HeaderForwardingRulesValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HeaderForwardingRulesValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HeaderForwardingRulesValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HeaderForwardingRulesValidationError) ErrorName() string {
+	return "HeaderForwardingRulesValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e HeaderForwardingRulesValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHeaderForwardingRules.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HeaderForwardingRulesValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HeaderForwardingRulesValidationError{}
+
 // Validate checks the field values on ExtProcPerRoute with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -320,9 +547,20 @@ func (m *ExtProcPerRoute) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Override.(type) {
-
+	oneofOverridePresent := false
+	switch v := m.Override.(type) {
 	case *ExtProcPerRoute_Disabled:
+		if v == nil {
+			err := ExtProcPerRouteValidationError{
+				field:  "Override",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofOverridePresent = true
 
 		if m.GetDisabled() != true {
 			err := ExtProcPerRouteValidationError{
@@ -336,6 +574,17 @@ func (m *ExtProcPerRoute) validate(all bool) error {
 		}
 
 	case *ExtProcPerRoute_Overrides:
+		if v == nil {
+			err := ExtProcPerRouteValidationError{
+				field:  "Override",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofOverridePresent = true
 
 		if all {
 			switch v := interface{}(m.GetOverrides()).(type) {
@@ -367,6 +616,9 @@ func (m *ExtProcPerRoute) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofOverridePresent {
 		err := ExtProcPerRouteValidationError{
 			field:  "Override",
 			reason: "value is required",
@@ -375,12 +627,12 @@ func (m *ExtProcPerRoute) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return ExtProcPerRouteMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -540,6 +792,7 @@ func (m *ExtProcOverrides) validate(all bool) error {
 	if len(errors) > 0 {
 		return ExtProcOverridesMultiError(errors)
 	}
+
 	return nil
 }
 

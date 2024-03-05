@@ -730,14 +730,10 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool) *e
 		ingressIPv4 := node.GetIngressIPv4()
 		if ingressIPv4 != nil {
 			conf.Ipv4SourceAddress = ingressIPv4.String()
-			// Enforce ingress policy for Ingress
-			conf.EnforcePolicyOnL7Lb = true
 		}
 		ingressIPv6 := node.GetIngressIPv6()
 		if ingressIPv6 != nil {
 			conf.Ipv6SourceAddress = ingressIPv6.String()
-			// Enforce ingress policy for Ingress
-			conf.EnforcePolicyOnL7Lb = true
 		}
 		log.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
 		log.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())

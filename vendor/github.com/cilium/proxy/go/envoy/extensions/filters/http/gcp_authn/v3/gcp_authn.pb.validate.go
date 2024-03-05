@@ -187,6 +187,7 @@ func (m *GcpAuthnFilterConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return GcpAuthnFilterConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -299,6 +300,7 @@ func (m *Audience) validate(all bool) error {
 	if len(errors) > 0 {
 		return AudienceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -412,6 +414,7 @@ func (m *TokenCacheConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return TokenCacheConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -544,6 +547,7 @@ func (m *TokenHeader) validate(all bool) error {
 	if len(errors) > 0 {
 		return TokenHeaderMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -230,17 +230,20 @@ func Import(packages map[string]*types.Package, path, srcDir string, lookup func
 		// Or, define a new standard go/types/gcexportdata package.
 		fset := token.NewFileSet()
 
-		// Select appropriate importer.
+		// The indexed export format starts with an 'i'; the older
+		// binary export format starts with a 'c', 'd', or 'v'
+		// (from "version"). Select appropriate importer.
 		if len(data) > 0 {
 			switch data[0] {
-			case 'v', 'c', 'd': // binary, till go1.10
-				return nil, fmt.Errorf("binary (%c) import format is no longer supported", data[0])
-
-			case 'i': // indexed, till go1.19
+			case 'i':
 				_, pkg, err := IImportData(fset, packages, data[1:], id)
 				return pkg, err
 
-			case 'u': // unified, from go1.20
+			case 'v', 'c', 'd':
+				_, pkg, err := BImportData(fset, packages, data, id)
+				return pkg, err
+
+			case 'u':
 				_, pkg, err := UImportData(fset, packages, data[1:size], id)
 				return pkg, err
 

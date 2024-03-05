@@ -240,6 +240,7 @@ func (m *ApiConfigSource) validate(all bool) error {
 	if len(errors) > 0 {
 		return ApiConfigSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -339,6 +340,7 @@ func (m *AggregatedConfigSource) validate(all bool) error {
 	if len(errors) > 0 {
 		return AggregatedConfigSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -451,6 +453,7 @@ func (m *SelfConfigSource) validate(all bool) error {
 	if len(errors) > 0 {
 		return SelfConfigSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -594,6 +597,7 @@ func (m *RateLimitSettings) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitSettingsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -735,6 +739,7 @@ func (m *PathConfigSource) validate(all bool) error {
 	if len(errors) > 0 {
 		return PathConfigSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -905,12 +910,33 @@ func (m *ConfigSource) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.ConfigSourceSpecifier.(type) {
-
+	oneofConfigSourceSpecifierPresent := false
+	switch v := m.ConfigSourceSpecifier.(type) {
 	case *ConfigSource_Path:
+		if v == nil {
+			err := ConfigSourceValidationError{
+				field:  "ConfigSourceSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSourceSpecifierPresent = true
 		// no validation rules for Path
-
 	case *ConfigSource_PathConfigSource:
+		if v == nil {
+			err := ConfigSourceValidationError{
+				field:  "ConfigSourceSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetPathConfigSource()).(type) {
@@ -942,6 +968,17 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	case *ConfigSource_ApiConfigSource:
+		if v == nil {
+			err := ConfigSourceValidationError{
+				field:  "ConfigSourceSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetApiConfigSource()).(type) {
@@ -973,6 +1010,17 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	case *ConfigSource_Ads:
+		if v == nil {
+			err := ConfigSourceValidationError{
+				field:  "ConfigSourceSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAds()).(type) {
@@ -1004,6 +1052,17 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	case *ConfigSource_Self:
+		if v == nil {
+			err := ConfigSourceValidationError{
+				field:  "ConfigSourceSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetSelf()).(type) {
@@ -1035,6 +1094,9 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofConfigSourceSpecifierPresent {
 		err := ConfigSourceValidationError{
 			field:  "ConfigSourceSpecifier",
 			reason: "value is required",
@@ -1043,12 +1105,12 @@ func (m *ConfigSource) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return ConfigSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1204,6 +1266,7 @@ func (m *ExtensionConfigSource) validate(all bool) error {
 	if len(errors) > 0 {
 		return ExtensionConfigSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1279,307 +1342,3 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ExtensionConfigSourceValidationError{}
-
-// Validate checks the field values on RestSubscription with the rules defined
-// in the proto definition for this message. If any rules are violated, the
-// first error encountered is returned, or nil if there are no violations.
-func (m *RestSubscription) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on RestSubscription with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the result is a list of violation errors wrapped in
-// RestSubscriptionMultiError, or nil if none found.
-func (m *RestSubscription) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *RestSubscription) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	if len(errors) > 0 {
-		return RestSubscriptionMultiError(errors)
-	}
-	return nil
-}
-
-// RestSubscriptionMultiError is an error wrapping multiple validation errors
-// returned by RestSubscription.ValidateAll() if the designated constraints
-// aren't met.
-type RestSubscriptionMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m RestSubscriptionMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m RestSubscriptionMultiError) AllErrors() []error { return m }
-
-// RestSubscriptionValidationError is the validation error returned by
-// RestSubscription.Validate if the designated constraints aren't met.
-type RestSubscriptionValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e RestSubscriptionValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e RestSubscriptionValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e RestSubscriptionValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e RestSubscriptionValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e RestSubscriptionValidationError) ErrorName() string { return "RestSubscriptionValidationError" }
-
-// Error satisfies the builtin error interface
-func (e RestSubscriptionValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sRestSubscription.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = RestSubscriptionValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = RestSubscriptionValidationError{}
-
-// Validate checks the field values on FilesystemSubscription with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the first error encountered is returned, or nil if there are no violations.
-func (m *FilesystemSubscription) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on FilesystemSubscription with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the result is a list of violation errors wrapped in
-// FilesystemSubscriptionMultiError, or nil if none found.
-func (m *FilesystemSubscription) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *FilesystemSubscription) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	if len(errors) > 0 {
-		return FilesystemSubscriptionMultiError(errors)
-	}
-	return nil
-}
-
-// FilesystemSubscriptionMultiError is an error wrapping multiple validation
-// errors returned by FilesystemSubscription.ValidateAll() if the designated
-// constraints aren't met.
-type FilesystemSubscriptionMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m FilesystemSubscriptionMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m FilesystemSubscriptionMultiError) AllErrors() []error { return m }
-
-// FilesystemSubscriptionValidationError is the validation error returned by
-// FilesystemSubscription.Validate if the designated constraints aren't met.
-type FilesystemSubscriptionValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e FilesystemSubscriptionValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e FilesystemSubscriptionValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e FilesystemSubscriptionValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e FilesystemSubscriptionValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e FilesystemSubscriptionValidationError) ErrorName() string {
-	return "FilesystemSubscriptionValidationError"
-}
-
-// Error satisfies the builtin error interface
-func (e FilesystemSubscriptionValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sFilesystemSubscription.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = FilesystemSubscriptionValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = FilesystemSubscriptionValidationError{}
-
-// Validate checks the field values on FilesystemCollectionSubscription with
-// the rules defined in the proto definition for this message. If any rules
-// are violated, the first error encountered is returned, or nil if there are
-// no violations.
-func (m *FilesystemCollectionSubscription) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on FilesystemCollectionSubscription with
-// the rules defined in the proto definition for this message. If any rules
-// are violated, the result is a list of violation errors wrapped in
-// FilesystemCollectionSubscriptionMultiError, or nil if none found.
-func (m *FilesystemCollectionSubscription) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *FilesystemCollectionSubscription) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	if len(errors) > 0 {
-		return FilesystemCollectionSubscriptionMultiError(errors)
-	}
-	return nil
-}
-
-// FilesystemCollectionSubscriptionMultiError is an error wrapping multiple
-// validation errors returned by
-// FilesystemCollectionSubscription.ValidateAll() if the designated
-// constraints aren't met.
-type FilesystemCollectionSubscriptionMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m FilesystemCollectionSubscriptionMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m FilesystemCollectionSubscriptionMultiError) AllErrors() []error { return m }
-
-// FilesystemCollectionSubscriptionValidationError is the validation error
-// returned by FilesystemCollectionSubscription.Validate if the designated
-// constraints aren't met.
-type FilesystemCollectionSubscriptionValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e FilesystemCollectionSubscriptionValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e FilesystemCollectionSubscriptionValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e FilesystemCollectionSubscriptionValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e FilesystemCollectionSubscriptionValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e FilesystemCollectionSubscriptionValidationError) ErrorName() string {
-	return "FilesystemCollectionSubscriptionValidationError"
-}
-
-// Error satisfies the builtin error interface
-func (e FilesystemCollectionSubscriptionValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sFilesystemCollectionSubscription.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = FilesystemCollectionSubscriptionValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = FilesystemCollectionSubscriptionValidationError{}

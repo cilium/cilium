@@ -60,6 +60,7 @@ func (m *DefaultEarlyDataPolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return DefaultEarlyDataPolicyMultiError(errors)
 	}
+
 	return nil
 }
 

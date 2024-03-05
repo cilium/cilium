@@ -61,6 +61,7 @@ func (m *Redis) validate(all bool) error {
 	if len(errors) > 0 {
 		return RedisMultiError(errors)
 	}
+
 	return nil
 }
 

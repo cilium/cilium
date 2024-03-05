@@ -62,6 +62,7 @@ func (m *ExpressionFilter) validate(all bool) error {
 	if len(errors) > 0 {
 		return ExpressionFilterMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -93,6 +93,7 @@ func (m *FileBasedMetadataConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return FileBasedMetadataConfigMultiError(errors)
 	}
+
 	return nil
 }
 

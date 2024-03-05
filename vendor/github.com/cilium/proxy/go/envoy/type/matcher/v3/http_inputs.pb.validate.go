@@ -71,6 +71,7 @@ func (m *HttpRequestHeaderMatchInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpRequestHeaderMatchInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -186,6 +187,7 @@ func (m *HttpRequestTrailerMatchInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpRequestTrailerMatchInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -301,6 +303,7 @@ func (m *HttpResponseHeaderMatchInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpResponseHeaderMatchInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -416,6 +419,7 @@ func (m *HttpResponseTrailerMatchInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpResponseTrailerMatchInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -531,6 +535,7 @@ func (m *HttpRequestQueryParamMatchInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpRequestQueryParamMatchInputMultiError(errors)
 	}
+
 	return nil
 }
 

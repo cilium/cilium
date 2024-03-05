@@ -129,6 +129,7 @@ func (m *StartTlsConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return StartTlsConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -297,6 +298,7 @@ func (m *UpstreamStartTlsConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return UpstreamStartTlsConfigMultiError(errors)
 	}
+
 	return nil
 }
 

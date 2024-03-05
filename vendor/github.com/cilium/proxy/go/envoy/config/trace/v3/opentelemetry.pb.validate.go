@@ -91,6 +91,7 @@ func (m *OpenTelemetryConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return OpenTelemetryConfigMultiError(errors)
 	}
+
 	return nil
 }
 

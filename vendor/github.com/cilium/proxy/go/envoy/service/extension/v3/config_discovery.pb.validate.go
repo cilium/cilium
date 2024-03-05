@@ -60,6 +60,7 @@ func (m *EcdsDummy) validate(all bool) error {
 	if len(errors) > 0 {
 		return EcdsDummyMultiError(errors)
 	}
+
 	return nil
 }
 

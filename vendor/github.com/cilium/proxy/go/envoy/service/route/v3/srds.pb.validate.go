@@ -60,6 +60,7 @@ func (m *SrdsDummy) validate(all bool) error {
 	if len(errors) > 0 {
 		return SrdsDummyMultiError(errors)
 	}
+
 	return nil
 }
 

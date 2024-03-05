@@ -73,6 +73,7 @@ func (m *MySQLProxy) validate(all bool) error {
 	if len(errors) > 0 {
 		return MySQLProxyMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -98,6 +98,7 @@ func (m *Clusters) validate(all bool) error {
 	if len(errors) > 0 {
 		return ClustersMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -325,6 +326,7 @@ func (m *ClusterStatus) validate(all bool) error {
 	if len(errors) > 0 {
 		return ClusterStatusMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -609,6 +611,7 @@ func (m *HostStatus) validate(all bool) error {
 	if len(errors) > 0 {
 		return HostStatusMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -723,6 +726,7 @@ func (m *HostHealthStatus) validate(all bool) error {
 	if len(errors) > 0 {
 		return HostHealthStatusMultiError(errors)
 	}
+
 	return nil
 }
 

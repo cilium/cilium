@@ -66,6 +66,7 @@ func (m *SimpleMetric) validate(all bool) error {
 	if len(errors) > 0 {
 		return SimpleMetricMultiError(errors)
 	}
+
 	return nil
 }
 

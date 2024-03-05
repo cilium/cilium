@@ -116,6 +116,7 @@ func (m *IPTagging) validate(all bool) error {
 	if len(errors) > 0 {
 		return IPTaggingMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -250,6 +251,7 @@ func (m *IPTagging_IPTag) validate(all bool) error {
 	if len(errors) > 0 {
 		return IPTagging_IPTagMultiError(errors)
 	}
+
 	return nil
 }
 

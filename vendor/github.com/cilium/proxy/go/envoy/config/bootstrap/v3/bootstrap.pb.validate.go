@@ -239,6 +239,35 @@ func (m *Bootstrap) validate(all bool) error {
 	}
 
 	if all {
+		switch v := interface{}(m.GetDeferredStatOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DeferredStatOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DeferredStatOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDeferredStatOptions()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BootstrapValidationError{
+				field:  "DeferredStatOptions",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
 		switch v := interface{}(m.GetStatsConfig()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
@@ -896,9 +925,47 @@ func (m *Bootstrap) validate(all bool) error {
 		}
 	}
 
-	switch m.StatsFlush.(type) {
+	if all {
+		switch v := interface{}(m.GetApplicationLogConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "ApplicationLogConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "ApplicationLogConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetApplicationLogConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BootstrapValidationError{
+				field:  "ApplicationLogConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
+	switch v := m.StatsFlush.(type) {
 	case *Bootstrap_StatsFlushOnAdmin:
+		if v == nil {
+			err := BootstrapValidationError{
+				field:  "StatsFlush",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if m.GetStatsFlushOnAdmin() != true {
 			err := BootstrapValidationError{
@@ -911,11 +978,14 @@ func (m *Bootstrap) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return BootstrapMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1116,6 +1186,7 @@ func (m *Admin) validate(all bool) error {
 	if len(errors) > 0 {
 		return AdminMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1303,6 +1374,7 @@ func (m *ClusterManager) validate(all bool) error {
 	if len(errors) > 0 {
 		return ClusterManagerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1460,6 +1532,7 @@ func (m *Watchdogs) validate(all bool) error {
 	if len(errors) > 0 {
 		return WatchdogsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1767,6 +1840,7 @@ func (m *Watchdog) validate(all bool) error {
 	if len(errors) > 0 {
 		return WatchdogMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1894,6 +1968,7 @@ func (m *FatalAction) validate(all bool) error {
 	if len(errors) > 0 {
 		return FatalActionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2026,6 +2101,7 @@ func (m *Runtime) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2132,9 +2208,20 @@ func (m *RuntimeLayer) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.LayerSpecifier.(type) {
-
+	oneofLayerSpecifierPresent := false
+	switch v := m.LayerSpecifier.(type) {
 	case *RuntimeLayer_StaticLayer:
+		if v == nil {
+			err := RuntimeLayerValidationError{
+				field:  "LayerSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLayerSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetStaticLayer()).(type) {
@@ -2166,6 +2253,17 @@ func (m *RuntimeLayer) validate(all bool) error {
 		}
 
 	case *RuntimeLayer_DiskLayer_:
+		if v == nil {
+			err := RuntimeLayerValidationError{
+				field:  "LayerSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLayerSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetDiskLayer()).(type) {
@@ -2197,6 +2295,17 @@ func (m *RuntimeLayer) validate(all bool) error {
 		}
 
 	case *RuntimeLayer_AdminLayer_:
+		if v == nil {
+			err := RuntimeLayerValidationError{
+				field:  "LayerSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLayerSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAdminLayer()).(type) {
@@ -2228,6 +2337,17 @@ func (m *RuntimeLayer) validate(all bool) error {
 		}
 
 	case *RuntimeLayer_RtdsLayer_:
+		if v == nil {
+			err := RuntimeLayerValidationError{
+				field:  "LayerSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLayerSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRtdsLayer()).(type) {
@@ -2259,6 +2379,9 @@ func (m *RuntimeLayer) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofLayerSpecifierPresent {
 		err := RuntimeLayerValidationError{
 			field:  "LayerSpecifier",
 			reason: "value is required",
@@ -2267,12 +2390,12 @@ func (m *RuntimeLayer) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RuntimeLayerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2405,6 +2528,7 @@ func (m *LayeredRuntime) validate(all bool) error {
 	if len(errors) > 0 {
 		return LayeredRuntimeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2537,6 +2661,7 @@ func (m *CustomInlineHeader) validate(all bool) error {
 	if len(errors) > 0 {
 		return CustomInlineHeaderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2742,6 +2867,7 @@ func (m *Bootstrap_StaticResources) validate(all bool) error {
 	if len(errors) > 0 {
 		return Bootstrap_StaticResourcesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2934,6 +3060,7 @@ func (m *Bootstrap_DynamicResources) validate(all bool) error {
 	if len(errors) > 0 {
 		return Bootstrap_DynamicResourcesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3010,6 +3137,420 @@ var _ interface {
 	ErrorName() string
 } = Bootstrap_DynamicResourcesValidationError{}
 
+// Validate checks the field values on Bootstrap_ApplicationLogConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *Bootstrap_ApplicationLogConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Bootstrap_ApplicationLogConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// Bootstrap_ApplicationLogConfigMultiError, or nil if none found.
+func (m *Bootstrap_ApplicationLogConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Bootstrap_ApplicationLogConfig) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetLogFormat()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Bootstrap_ApplicationLogConfigValidationError{
+					field:  "LogFormat",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Bootstrap_ApplicationLogConfigValidationError{
+					field:  "LogFormat",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLogFormat()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return Bootstrap_ApplicationLogConfigValidationError{
+				field:  "LogFormat",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return Bootstrap_ApplicationLogConfigMultiError(errors)
+	}
+
+	return nil
+}
+
+// Bootstrap_ApplicationLogConfigMultiError is an error wrapping multiple
+// validation errors returned by Bootstrap_ApplicationLogConfig.ValidateAll()
+// if the designated constraints aren't met.
+type Bootstrap_ApplicationLogConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Bootstrap_ApplicationLogConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Bootstrap_ApplicationLogConfigMultiError) AllErrors() []error { return m }
+
+// Bootstrap_ApplicationLogConfigValidationError is the validation error
+// returned by Bootstrap_ApplicationLogConfig.Validate if the designated
+// constraints aren't met.
+type Bootstrap_ApplicationLogConfigValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Bootstrap_ApplicationLogConfigValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Bootstrap_ApplicationLogConfigValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Bootstrap_ApplicationLogConfigValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Bootstrap_ApplicationLogConfigValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Bootstrap_ApplicationLogConfigValidationError) ErrorName() string {
+	return "Bootstrap_ApplicationLogConfigValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e Bootstrap_ApplicationLogConfigValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBootstrap_ApplicationLogConfig.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Bootstrap_ApplicationLogConfigValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Bootstrap_ApplicationLogConfigValidationError{}
+
+// Validate checks the field values on Bootstrap_DeferredStatOptions with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *Bootstrap_DeferredStatOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Bootstrap_DeferredStatOptions with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// Bootstrap_DeferredStatOptionsMultiError, or nil if none found.
+func (m *Bootstrap_DeferredStatOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Bootstrap_DeferredStatOptions) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for EnableDeferredCreationStats
+
+	if len(errors) > 0 {
+		return Bootstrap_DeferredStatOptionsMultiError(errors)
+	}
+
+	return nil
+}
+
+// Bootstrap_DeferredStatOptionsMultiError is an error wrapping multiple
+// validation errors returned by Bootstrap_DeferredStatOptions.ValidateAll()
+// if the designated constraints aren't met.
+type Bootstrap_DeferredStatOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Bootstrap_DeferredStatOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Bootstrap_DeferredStatOptionsMultiError) AllErrors() []error { return m }
+
+// Bootstrap_DeferredStatOptionsValidationError is the validation error
+// returned by Bootstrap_DeferredStatOptions.Validate if the designated
+// constraints aren't met.
+type Bootstrap_DeferredStatOptionsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Bootstrap_DeferredStatOptionsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Bootstrap_DeferredStatOptionsValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Bootstrap_DeferredStatOptionsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Bootstrap_DeferredStatOptionsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Bootstrap_DeferredStatOptionsValidationError) ErrorName() string {
+	return "Bootstrap_DeferredStatOptionsValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e Bootstrap_DeferredStatOptionsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBootstrap_DeferredStatOptions.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Bootstrap_DeferredStatOptionsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Bootstrap_DeferredStatOptionsValidationError{}
+
+// Validate checks the field values on Bootstrap_ApplicationLogConfig_LogFormat
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
+func (m *Bootstrap_ApplicationLogConfig_LogFormat) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Bootstrap_ApplicationLogConfig_LogFormat with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// Bootstrap_ApplicationLogConfig_LogFormatMultiError, or nil if none found.
+func (m *Bootstrap_ApplicationLogConfig_LogFormat) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Bootstrap_ApplicationLogConfig_LogFormat) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	oneofLogFormatPresent := false
+	switch v := m.LogFormat.(type) {
+	case *Bootstrap_ApplicationLogConfig_LogFormat_JsonFormat:
+		if v == nil {
+			err := Bootstrap_ApplicationLogConfig_LogFormatValidationError{
+				field:  "LogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLogFormatPresent = true
+
+		if all {
+			switch v := interface{}(m.GetJsonFormat()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Bootstrap_ApplicationLogConfig_LogFormatValidationError{
+						field:  "JsonFormat",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Bootstrap_ApplicationLogConfig_LogFormatValidationError{
+						field:  "JsonFormat",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetJsonFormat()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return Bootstrap_ApplicationLogConfig_LogFormatValidationError{
+					field:  "JsonFormat",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *Bootstrap_ApplicationLogConfig_LogFormat_TextFormat:
+		if v == nil {
+			err := Bootstrap_ApplicationLogConfig_LogFormatValidationError{
+				field:  "LogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLogFormatPresent = true
+		// no validation rules for TextFormat
+	default:
+		_ = v // ensures v is used
+	}
+	if !oneofLogFormatPresent {
+		err := Bootstrap_ApplicationLogConfig_LogFormatValidationError{
+			field:  "LogFormat",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return Bootstrap_ApplicationLogConfig_LogFormatMultiError(errors)
+	}
+
+	return nil
+}
+
+// Bootstrap_ApplicationLogConfig_LogFormatMultiError is an error wrapping
+// multiple validation errors returned by
+// Bootstrap_ApplicationLogConfig_LogFormat.ValidateAll() if the designated
+// constraints aren't met.
+type Bootstrap_ApplicationLogConfig_LogFormatMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Bootstrap_ApplicationLogConfig_LogFormatMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Bootstrap_ApplicationLogConfig_LogFormatMultiError) AllErrors() []error { return m }
+
+// Bootstrap_ApplicationLogConfig_LogFormatValidationError is the validation
+// error returned by Bootstrap_ApplicationLogConfig_LogFormat.Validate if the
+// designated constraints aren't met.
+type Bootstrap_ApplicationLogConfig_LogFormatValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Bootstrap_ApplicationLogConfig_LogFormatValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Bootstrap_ApplicationLogConfig_LogFormatValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Bootstrap_ApplicationLogConfig_LogFormatValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Bootstrap_ApplicationLogConfig_LogFormatValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Bootstrap_ApplicationLogConfig_LogFormatValidationError) ErrorName() string {
+	return "Bootstrap_ApplicationLogConfig_LogFormatValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e Bootstrap_ApplicationLogConfig_LogFormatValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBootstrap_ApplicationLogConfig_LogFormat.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Bootstrap_ApplicationLogConfig_LogFormatValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Bootstrap_ApplicationLogConfig_LogFormatValidationError{}
+
 // Validate checks the field values on ClusterManager_OutlierDetection with the
 // rules defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -3066,6 +3607,7 @@ func (m *ClusterManager_OutlierDetection) validate(all bool) error {
 	if len(errors) > 0 {
 		return ClusterManager_OutlierDetectionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3208,6 +3750,7 @@ func (m *Watchdog_WatchdogAction) validate(all bool) error {
 	if len(errors) > 0 {
 		return Watchdog_WatchdogActionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3315,6 +3858,7 @@ func (m *RuntimeLayer_DiskLayer) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeLayer_DiskLayerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3416,6 +3960,7 @@ func (m *RuntimeLayer_AdminLayer) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeLayer_AdminLayerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3548,6 +4093,7 @@ func (m *RuntimeLayer_RtdsLayer) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeLayer_RtdsLayerMultiError(errors)
 	}
+
 	return nil
 }
 

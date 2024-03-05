@@ -59,6 +59,7 @@ func (m *Echo) validate(all bool) error {
 	if len(errors) > 0 {
 		return EchoMultiError(errors)
 	}
+
 	return nil
 }
 

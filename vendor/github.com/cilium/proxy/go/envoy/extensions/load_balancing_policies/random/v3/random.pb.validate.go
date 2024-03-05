@@ -88,6 +88,7 @@ func (m *Random) validate(all bool) error {
 	if len(errors) > 0 {
 		return RandomMultiError(errors)
 	}
+
 	return nil
 }
 
