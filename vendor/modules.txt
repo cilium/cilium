@@ -665,6 +665,9 @@ github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.23.0
 ## explicit; go 1.19
 github.com/go-openapi/validate
+# github.com/go-viper/mapstructure/v2 v2.0.0-alpha.1
+## explicit; go 1.18
+github.com/go-viper/mapstructure/v2
 # github.com/gobuffalo/flect v1.0.2
 ## explicit; go 1.16
 github.com/gobuffalo/flect
