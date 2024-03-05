@@ -34,7 +34,7 @@ func NewCiliumCommand(hooks Hooks) *cobra.Command {
 type (
 	Hooks                 = cmd.Hooks
 	ConnectivityTestHooks = cmd.ConnectivityTestHooks
-	SysdumpHooks          = cmd.SysdumpHooks
+	SysdumpHooks          = sysdump.Hooks
 )
 
 type NopHooks struct{}
