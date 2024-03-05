@@ -685,7 +685,7 @@ func TestDB_ReadAfterWrite(t *testing.T) {
 
 	txn.Commit()
 
-	iter, _ = table.All(txn)
+	iter, _ = table.All(db.ReadTxn())
 	require.Len(t, Collect(iter), 1)
 }
 
