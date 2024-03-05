@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium-cli/k8s"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type validationCheck interface {
@@ -39,25 +40,13 @@ func (p Parameters) checkDisabled(name string) bool {
 	return false
 }
 
-func (k *K8sInstaller) detectDatapathMode() error {
+func (k *K8sInstaller) detectDatapathMode(helmValues map[string]interface{}) error {
 	if k.params.DatapathMode != "" {
 		k.Log("ℹ️  Custom datapath mode: %s", k.params.DatapathMode)
 		return nil
 	}
 
-	vals, err := k.getHelmValues()
-	if err != nil {
-		return err
-	}
-
-	routingMode := ""
-	for _, val := range vals {
-		val, ok := val.(string)
-		if ok && strings.HasPrefix(val, "routingMode") {
-			routingMode = strings.Split(val, "=")[1]
-		}
-
-	}
+	routingMode, _, _ := unstructured.NestedString(helmValues, "routingMode")
 	if routingMode == "native" {
 		k.params.DatapathMode = DatapathNative
 		return nil
@@ -105,14 +94,7 @@ func (k *K8sInstaller) autodetect(ctx context.Context) {
 }
 
 func getClusterName(helmValues map[string]interface{}) string {
-	cluster, ok := helmValues["cluster"].(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	clusterName, ok := cluster["name"].(string)
-	if !ok {
-		return ""
-	}
+	clusterName, _, _ := unstructured.NestedString(helmValues, "cluster", "name")
 	return clusterName
 }
 
@@ -152,7 +134,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 		k.Log("ℹ️  Using cluster name %q", k.params.ClusterName)
 	}
 
-	if err := k.detectDatapathMode(); err != nil {
+	if err := k.detectDatapathMode(helmValues); err != nil {
 		return err
 	}
 
