@@ -258,8 +258,14 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 
 #ifdef ENABLE_NODEPORT
 	if ((ct_entry_types & CT_ENTRY_NODEPORT) &&
-	    entry->node_port && entry->rev_nat_index)
-		return true;
+	    entry->node_port && entry->rev_nat_index) {
+		if (!state || !state->rev_nat_index)
+			return true;
+
+		/* Only match CT entries that were created for the expected service: */
+		if (entry->rev_nat_index == state->rev_nat_index)
+			return true;
+	}
 
 # ifdef ENABLE_DSR
 	if ((ct_entry_types & CT_ENTRY_DSR) && entry->dsr_internal)
