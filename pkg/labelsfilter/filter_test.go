@@ -26,11 +26,12 @@ var _ = Suite(&LabelsPrefCfgSuite{})
 
 func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	wanted := labels.Labels{
-		"id.lizards":                  labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
-		"id.lizards.k8s":              labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
-		"io.kubernetes.pod.namespace": labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
-		"app.kubernetes.io":           labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
-		"foo2.lizards.k8s":            labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s),
+		"id.lizards":                   labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
+		"id.lizards.k8s":               labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
+		"io.kubernetes.pod.namespace":  labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
+		"app.kubernetes.io":            labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
+		"foo2.lizards.k8s":             labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s),
+		"io.cilium.k8s.policy.cluster": labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceContainer),
 	}
 
 	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, []string{}, "")
@@ -55,22 +56,23 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"ignorE":                                                    "foo",
 		"annotation.kubernetes.io/config.seen":                      "2017-05-30T14:22:17.691491034Z",
 		"controller-revision-hash":                                  "123456",
+		"io.cilium.k8s.policy.cluster":                              "default",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	filtered, _ := dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 2)
+	c.Assert(len(filtered), Equals, 3)
 	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer)
 	allLabels["id.lizards.k8s"] = labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 4)
+	c.Assert(len(filtered), Equals, 5)
 	// Checking that it does not need to an exact match of "foo", but "foo2" also works since it's not a regex
 	allLabels["foo2.lizards.k8s"] = labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 5)
+	c.Assert(len(filtered), Equals, 6)
 	// Checking that "foo" only works if it's the prefix of a label
 	allLabels["lizards.foo.lizards.k8s"] = labels.NewLabel("lizards.foo.lizards.k8s", "web", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 5)
+	c.Assert(len(filtered), Equals, 6)
 	c.Assert(filtered, checker.DeepEquals, wanted)
 	// Making sure we are deep copying the labels
 	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", "I can change this and doesn't affect any one")
@@ -79,14 +81,15 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 
 func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 	wanted := labels.Labels{
-		"app.kubernetes.io":           labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
-		"id.lizards.k8s":              labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
-		"id.lizards":                  labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
-		"ignorE":                      labels.NewLabel("ignorE", "foo", labels.LabelSourceContainer),
-		"ignore":                      labels.NewLabel("ignore", "foo", labels.LabelSourceContainer),
-		"host":                        labels.NewLabel("host", "", labels.LabelSourceReserved),
-		"io.kubernetes.pod.namespace": labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
-		"ioXkubernetes":               labels.NewLabel("ioXkubernetes", "foo", labels.LabelSourceContainer),
+		"app.kubernetes.io":            labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
+		"id.lizards.k8s":               labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
+		"id.lizards":                   labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
+		"ignorE":                       labels.NewLabel("ignorE", "foo", labels.LabelSourceContainer),
+		"ignore":                       labels.NewLabel("ignore", "foo", labels.LabelSourceContainer),
+		"host":                         labels.NewLabel("host", "", labels.LabelSourceReserved),
+		"io.kubernetes.pod.namespace":  labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
+		"ioXkubernetes":                labels.NewLabel("ioXkubernetes", "foo", labels.LabelSourceContainer),
+		"io.cilium.k8s.policy.cluster": labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceContainer),
 	}
 
 	err := ParseLabelPrefixCfg([]string{}, []string{}, "")
@@ -115,6 +118,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"statefulset.kubernetes.io/pod-name":                        "my-nginx-0",
 		"batch.kubernetes.io/job-completion-index":                  "42",
 		"apps.kubernetes.io/pod-index":                              "0",
+		"io.cilium.k8s.policy.cluster":                              "default",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
@@ -134,9 +138,10 @@ func (s *LabelsPrefCfgSuite) TestFilterLabelsDocExample(c *C) {
 		"name-defined":                   labels.NewLabel("name-defined", "foo", labels.LabelSourceK8s),
 		"host":                           labels.NewLabel("host", "", labels.LabelSourceReserved),
 		"io.kubernetes.pod.namespace":    labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceAny),
+		"io.cilium.k8s.policy.cluster":   labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceK8s),
 	}
 
-	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name"}, []string{}, "")
+	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name", "k8s:io.cilium.k8s.policy.cluster"}, []string{}, "")
 	c.Assert(err, IsNil)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -159,10 +164,15 @@ func (s *LabelsPrefCfgSuite) TestFilterLabelsDocExample(c *C) {
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 6)
 
+	// io.cilium.k8s.policy.cluster=default matches because the default list has k8s:io.cilium.k8s.policy.cluster.
+	allLabels["io.cilium.k8s.policy.cluster"] = labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceK8s)
+	filtered, _ = dlpcfg.filterLabels(allLabels)
+	c.Assert(len(filtered), Equals, 7)
+
 	// container:k8s-app-role=foo doesn't match because it doesn't have source k8s.
 	allLabels["k8s-app-role"] = labels.NewLabel("k8s-app-role", "foo", labels.LabelSourceContainer)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 6)
+	c.Assert(len(filtered), Equals, 7)
 	c.Assert(filtered, checker.DeepEquals, wanted)
 }
 
