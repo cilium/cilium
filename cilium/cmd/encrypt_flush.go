@@ -16,11 +16,13 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 )
 
 const (
 	spiFlagName    = "spi"
 	nodeIDFlagName = "node-id"
+	staleFlagName  = "stale"
 )
 
 var encryptFlushCmd = &cobra.Command{
@@ -37,12 +39,17 @@ var (
 	spiToFilter    uint8
 	nodeIDToFilter uint16
 	nodeIDParam    string
+	cleanStale     bool
 )
 
 func runXFRMFlush() {
-	if spiToFilter == 0 && nodeIDParam == "" {
+	if spiToFilter == 0 && nodeIDParam == "" && !cleanStale {
 		flushEverything()
 		return
+	}
+
+	if cleanStale && (spiToFilter != 0 || nodeIDParam != "") {
+		Fatalf("--%s cannot be combined with other flags except for --%s", staleFlagName, forceFlagName)
 	}
 
 	if spiToFilter > linux_defaults.IPsecMaxKeyVersion {
@@ -74,11 +81,21 @@ func runXFRMFlush() {
 	if nodeIDToFilter != 0 {
 		policies, states = filterXFRMByNodeID(policies, states)
 	}
+	if cleanStale {
+		policies, states = filterStaleXFRMs(policies, states)
+	}
 
 	confirmationMsg := ""
 	if len(policies) == nbPolicies || len(states) == nbStates {
 		confirmationMsg = "Running this command will delete all XFRM states and/or policies. " +
 			"It will lead to transient connectivity disruption and plain-text pod-to-pod traffic."
+	} else if cleanStale {
+		if len(policies) == 0 && len(states) == 0 {
+			fmt.Printf("No stale XFRM states or policies found.")
+			return
+		}
+		confirmationMsg = fmt.Sprintf("This command will delete %d XFRM policies and %d XFRM states.",
+			len(policies), len(states))
 	}
 	if confirmationMsg != "" && !confirmXFRMCleanup(confirmationMsg) {
 		return
@@ -168,6 +185,45 @@ func filterXFRMs(policies []netlink.XfrmPolicy, states []netlink.XfrmState,
 	return policiesToDel, statesToDel
 }
 
+func filterStaleXFRMs(policies []netlink.XfrmPolicy, states []netlink.XfrmState) ([]netlink.XfrmPolicy, []netlink.XfrmState) {
+	bpfNodeIDs := map[uint16]bool{}
+	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
+		bpfNodeIDs[val.NodeID] = true
+	}
+	err := nodemap.NodeMap().OpenOrCreate()
+	if err != nil {
+		Fatalf("Cannot load node bpf map: %s", err)
+	}
+
+	if err := nodemap.NodeMap().IterateWithCallback(parse); err != nil {
+		Fatalf("Error dumping contents of the node ID map: %s\n", err)
+	}
+
+	policiesToDel := []netlink.XfrmPolicy{}
+	for _, pol := range policies {
+		nodeID := ipsec.GetNodeIDFromXfrmMark(pol.Mark)
+		if nodeID == 0 {
+			continue
+		}
+		if _, found := bpfNodeIDs[nodeID]; !found {
+			policiesToDel = append(policiesToDel, pol)
+		}
+	}
+
+	statesToDel := []netlink.XfrmState{}
+	for _, state := range states {
+		nodeID := ipsec.GetNodeIDFromXfrmMark(state.Mark)
+		if nodeID == 0 {
+			continue
+		}
+		if _, found := bpfNodeIDs[nodeID]; !found {
+			statesToDel = append(statesToDel, state)
+		}
+	}
+
+	return policiesToDel, statesToDel
+}
+
 func flushEverything() {
 	confirmationMsg := "Flushing all XFRM states and policies can lead to transient " +
 		"connectivity interruption and plain-text pod-to-pod traffic."
@@ -193,6 +249,7 @@ func init() {
 	encryptFlushCmd.Flags().BoolVarP(&force, forceFlagName, "f", false, "Skip confirmation")
 	encryptFlushCmd.Flags().Uint8Var(&spiToFilter, spiFlagName, 0, "Only delete states and policies with this SPI. If multiple filters are used, they all apply")
 	encryptFlushCmd.Flags().StringVar(&nodeIDParam, nodeIDFlagName, "", "Only delete states and policies with this node ID. Decimal or hexadecimal (0x) format. If multiple filters are used, they all apply")
+	encryptFlushCmd.Flags().BoolVar(&cleanStale, staleFlagName, false, "Delete stale states and policies based on the current node ID map content")
 	encryptCmd.AddCommand(encryptFlushCmd)
 	command.AddOutputOption(encryptFlushCmd)
 }
