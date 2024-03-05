@@ -555,6 +555,8 @@ If a ``CiliumBGPPeeringPolicy`` is deployed with an ``authSecretRef`` that Ciliu
 
    level=error msg="Failed to fetch secret \"secretname\": not found (will continue with empty password)" component=manager.fetchPeerPassword subsys=bgp-control-plane
 
+.. _bgp_control_plane_graceful_restart:
+
 Graceful Restart
 ^^^^^^^^^^^^^^^^
 The Cilium BGP Control Plane can be configured to act as a graceful restart
