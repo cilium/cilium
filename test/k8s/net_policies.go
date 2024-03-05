@@ -681,7 +681,6 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			var (
-				cnpFromEntitiesHost       string
 				cnpFromEntitiesRemoteNode string
 				cnpFromEntitiesCluster    string
 				cnpFromEntitiesAll        string
@@ -695,7 +694,6 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			BeforeAll(func() {
-				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
 				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
 				cnpFromEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-cluster.yaml")
 				cnpFromEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-all.yaml")
@@ -787,34 +785,11 @@ var _ = SkipDescribeIf(func() bool {
 				wg.Wait()
 			}
 
-			Context("with remote-node identity disabled", func() {
-				BeforeAll(func() {
-					By("Reconfiguring Cilium to disable remote-node identity")
-					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
-						map[string]string{
-							"remoteNodeIdentity":   "false",
-							"enableIPv4Masquerade": "false",
-							"enableIPv6Masquerade": "false",
-							"bpf.masquerade":       "false",
-						})
-				})
-
-				It("Allows from all hosts with cnp fromEntities host policy", func() {
-
-					By("Installing fromEntities host policy")
-					importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
-
-					By("Checking policy correctness")
-					validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
-				})
-			})
-
 			Context("with remote-node identity enabled", func() {
 				BeforeAll(func() {
 					By("Reconfiguring Cilium to enable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"remoteNodeIdentity":   "true",
 							"enableIPv4Masquerade": "false",
 							"enableIPv6Masquerade": "false",
 							"bpf.masquerade":       "false",

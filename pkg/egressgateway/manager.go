@@ -189,12 +189,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	}
 
-	if !dcfg.EnableRemoteNodeIdentity {
-		// datapath code depends on remote node identities to distinguish between
-		// cluster-local and cluster-egress traffic.
-		return out, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\")", option.EnableRemoteNodeIdentity)
-	}
-
 	if dcfg.EnableL7Proxy {
 		log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19642").
 			Warningf("both egress gateway and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
