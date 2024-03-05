@@ -660,6 +660,35 @@ func TestDB_CompareAndSwap_CompareAndDelete(t *testing.T) {
 	wtxn.Abort()
 }
 
+func TestDB_ReadAfterWrite(t *testing.T) {
+	t.Parallel()
+
+	db, table, _ := newTestDB(t, tagsIndex)
+
+	txn := db.WriteTxn(table)
+
+	iter, _ := table.All(txn)
+	require.Len(t, Collect(iter), 0)
+
+	table.Insert(txn, testObject{ID: 1})
+
+	iter, _ = table.All(txn)
+	require.Len(t, Collect(iter), 1)
+
+	table.Delete(txn, testObject{ID: 1})
+	iter, _ = table.All(txn)
+	require.Len(t, Collect(iter), 0)
+
+	table.Insert(txn, testObject{ID: 2})
+	iter, _ = table.All(txn)
+	require.Len(t, Collect(iter), 1)
+
+	txn.Commit()
+
+	iter, _ = table.All(txn)
+	require.Len(t, Collect(iter), 1)
+}
+
 func TestWriteJSON(t *testing.T) {
 	t.Parallel()
 
