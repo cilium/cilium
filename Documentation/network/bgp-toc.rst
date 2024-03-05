@@ -15,6 +15,7 @@ BGP
 
    bgp-control-plane
    bgp-control-plane-troubleshooting
+   bgp-control-plane-operation
    lb-ipam
    bgp
    kube-router
