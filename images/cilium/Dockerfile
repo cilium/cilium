@@ -7,7 +7,7 @@ ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:a83a56dbedd41d0b53415122e
 
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:v1.26.6-38b645b854f300f988e6cbbabc09a71e81ef66a4@sha256:8e64ad7599744fde6e32c6256a4d97e12fb8406cbb5029d8c3f7a9ec226769b1 as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:v1.27.0-49b6a7c9c075b587f26255e73eda3fa08506b3e4@sha256:37168e791fd1bcb456988554e17dea85a200287a30011b6601791b25a354a7d7 as cilium-envoy
 
 #
 # Hubble CLI
@@ -81,7 +81,8 @@ ARG TARGETOS
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 RUN echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
-COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/
+COPY --from=cilium-envoy /usr/lib/libcilium.so /usr/lib/libcilium.so
+COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /usr/bin/
 # When used within the Cilium container, Hubble CLI should target the
 # local unix domain socket instead of Hubble Relay.
 ENV HUBBLE_SERVER=unix:///var/run/cilium/hubble.sock
