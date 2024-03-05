@@ -1099,7 +1099,7 @@
    * - :spelling:ignore:`envoy.affinity`
      - Affinity for cilium-envoy.
      - object
-     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+     - ``{"podAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"},"weight":1}]},"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - :spelling:ignore:`envoy.annotations`
      - Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
      - object

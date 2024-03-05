@@ -1936,6 +1936,15 @@ envoy:
           labelSelector:
             matchLabels:
               k8s-app: cilium-envoy
+    podAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                k8s-app: cilium
+
   # -- Node selector for cilium-envoy.
   nodeSelector:
     kubernetes.io/os: linux
