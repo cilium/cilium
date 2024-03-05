@@ -68,8 +68,8 @@ func (h *queryHandler) Handle(params restapi.GetStatedbQueryTableParams) middlew
 	})
 }
 
-func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject func(object) error) {
-	iter := indexTxn.txn.Root().Iterator()
+func runQuery(indexTxn indexTxn, lowerbound bool, queryKey []byte, onObject func(object) error) {
+	iter := indexTxn.Root().Iterator()
 	if lowerbound {
 		iter.SeekLowerBound(queryKey)
 	} else {

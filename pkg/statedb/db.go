@@ -217,7 +217,7 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 		db:             db,
 		rootReadTxn:    rootReadTxn,
 		modifiedTables: tableEntries,
-		writeTxns:      make(map[tableIndex]indexWriteTxn),
+		writeTxns:      make(map[tableIndex]indexTxn),
 		smus:           smus,
 		acquiredAt:     acquiredAt,
 		tableNames:     strings.Join(tableNames, "+"),
