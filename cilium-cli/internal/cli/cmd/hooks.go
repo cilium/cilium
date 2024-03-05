@@ -13,7 +13,7 @@ import (
 // Hooks to extend the default cilium-cli command with additional functionality.
 type Hooks interface {
 	ConnectivityTestHooks
-	SysdumpHooks
+	sysdump.Hooks
 }
 
 // ConnectivityTestHooks to extend cilium-cli with additional connectivity tests and related flags.
@@ -21,10 +21,4 @@ type ConnectivityTestHooks interface {
 	connectivity.Hooks
 	// AddConnectivityTestFlags is an hook to register additional connectivity test flags.
 	AddConnectivityTestFlags(flags *pflag.FlagSet)
-}
-
-// SysdumpHooks to extend cilium-cli with additional sysdump tasks and related flags.
-type SysdumpHooks interface {
-	AddSysdumpFlags(flags *pflag.FlagSet)
-	AddSysdumpTasks(*sysdump.Collector) error
 }

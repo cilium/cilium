@@ -19,6 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/workerpool"
 	"github.com/mholt/archiver/v3"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -2529,4 +2531,117 @@ func detectCiliumSPIRENamespace(k KubernetesClient) (string, error) {
 		return ns.Name, nil
 	}
 	return "", fmt.Errorf("failed to detect Cilium SPIRE namespace, could not find Cilium SPIRE installation in namespaces: %v", DefaultCiliumSPIRENamespaces)
+}
+
+func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string, hooks Hooks) {
+	cmd.Flags().StringVar(&options.CiliumLabelSelector,
+		optionPrefix+"cilium-label-selector", DefaultCiliumLabelSelector,
+		"The labels used to target Cilium pods")
+	cmd.Flags().StringVar(&options.CiliumNamespace,
+		optionPrefix+"cilium-namespace", "",
+		"The namespace Cilium is running in. If not provided then the --namespace global flag is used (if provided)")
+	cmd.Flags().StringVar(&options.CiliumOperatorNamespace,
+		optionPrefix+"cilium-operator-namespace", "",
+		"The namespace Cilium operator is running in")
+	cmd.Flags().StringVar(&options.CiliumSPIRENamespace,
+		optionPrefix+"cilium-spire-namespace", "",
+		"The namespace Cilium SPIRE installation is running in")
+	cmd.Flags().StringVar(&options.CiliumDaemonSetSelector,
+		optionPrefix+"cilium-daemon-set-label-selector", DefaultCiliumLabelSelector,
+		"The labels used to target Cilium daemon set")
+	cmd.Flags().StringVar(&options.CiliumEnvoyLabelSelector,
+		optionPrefix+"cilium-envoy-label-selector", DefaultCiliumEnvoyLabelSelector,
+		"The labels used to target Cilium Envoy pods")
+	cmd.Flags().StringVar(&options.CiliumHelmReleaseName,
+		"cilium-helm-release-name", DefaultCiliumHelmReleaseName,
+		"The Cilium Helm release name for which to get values")
+	cmd.Flags().StringVar(&options.CiliumOperatorLabelSelector,
+		optionPrefix+"cilium-operator-label-selector", DefaultCiliumOperatorLabelSelector,
+		"The labels used to target Cilium operator pods")
+	cmd.Flags().StringVar(&options.ClustermeshApiserverLabelSelector,
+		optionPrefix+"clustermesh-apiserver-label-selector", DefaultClustermeshApiserverLabelSelector,
+		"The labels used to target 'clustermesh-apiserver' pods")
+	cmd.Flags().StringVar(&options.CiliumNodeInitLabelSelector,
+		optionPrefix+"cilium-node-init-selector", DefaultCiliumNodeInitLabelSelector,
+		"The labels used to target Cilium node init pods")
+	cmd.Flags().StringVar(&options.CiliumSPIREAgentLabelSelector,
+		optionPrefix+"cilium-spire-agent-selector", DefaultCiliumSpireAgentLabelSelector,
+		"The labels used to target Cilium spire-agent pods")
+	cmd.Flags().StringVar(&options.CiliumSPIREServerLabelSelector,
+		optionPrefix+"cilium-spire-server-selector", DefaultCiliumSpireServerLabelSelector,
+		"The labels used to target Cilium spire-server pods")
+	cmd.Flags().BoolVar(&options.Debug,
+		optionPrefix+"debug", DefaultDebug,
+		"Whether to enable debug logging")
+	cmd.Flags().BoolVar(&options.Profiling,
+		optionPrefix+"profiling", DefaultProfiling,
+		"Whether to enable scraping profiling data")
+	cmd.Flags().BoolVar(&options.Tracing,
+		optionPrefix+"tracing", DefaultTracing,
+		"Whether to enable scraping tracing data")
+	cmd.Flags().StringArrayVar(&options.ExtraLabelSelectors,
+		optionPrefix+"extra-label-selectors", nil,
+		"Optional set of labels selectors used to target additional pods for log collection.")
+	cmd.Flags().StringVar(&options.HubbleLabelSelector,
+		optionPrefix+"hubble-label-selector", DefaultHubbleLabelSelector,
+		"The labels used to target Hubble pods")
+	cmd.Flags().Int64Var(&options.HubbleFlowsCount,
+		optionPrefix+"hubble-flows-count", DefaultHubbleFlowsCount,
+		"Number of Hubble flows to collect. Setting to zero disables collecting Hubble flows.")
+	cmd.Flags().DurationVar(&options.HubbleFlowsTimeout,
+		optionPrefix+"hubble-flows-timeout", DefaultHubbleFlowsTimeout,
+		"Timeout for collecting Hubble flows")
+	cmd.Flags().StringVar(&options.HubbleRelayLabelSelector,
+		optionPrefix+"hubble-relay-labels", DefaultHubbleRelayLabelSelector,
+		"The labels used to target Hubble Relay pods")
+	cmd.Flags().StringVar(&options.HubbleUILabelSelector,
+		optionPrefix+"hubble-ui-labels", DefaultHubbleUILabelSelector,
+		"The labels used to target Hubble UI pods")
+	cmd.Flags().Int64Var(&options.LogsLimitBytes,
+		optionPrefix+"logs-limit-bytes", DefaultLogsLimitBytes,
+		"The limit on the number of bytes to retrieve when collecting logs")
+	cmd.Flags().DurationVar(&options.LogsSinceTime,
+		optionPrefix+"logs-since-time", DefaultLogsSinceTime,
+		"How far back in time to go when collecting logs")
+	cmd.Flags().StringVar(&options.NodeList,
+		optionPrefix+"node-list", DefaultNodeList,
+		"Comma-separated list of node IPs or names to filter pods for which to collect gops and logs")
+	cmd.Flags().StringVar(&options.OutputFileName,
+		optionPrefix+"output-filename", DefaultOutputFileName,
+		"The name of the resulting file (without extension)\n'<ts>' can be used as the placeholder for the timestamp")
+	cmd.Flags().BoolVar(&options.Quick,
+		optionPrefix+"quick", DefaultQuick,
+		"Whether to enable quick mode (i.e. skip collection of 'cilium-bugtool' output and logs)")
+	cmd.Flags().IntVar(&options.WorkerCount,
+		optionPrefix+"worker-count", DefaultWorkerCount,
+		"The number of workers to use\nNOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards.")
+	cmd.Flags().StringArrayVar(&options.CiliumBugtoolFlags,
+		optionPrefix+"cilium-bugtool-flags", nil,
+		"Optional set of flags to pass to cilium-bugtool command.")
+	cmd.Flags().BoolVar(&options.DetectGopsPID,
+		optionPrefix+"detect-gops-pid", false,
+		"Whether to automatically detect the gops agent PID.")
+	cmd.Flags().StringVar(&options.CNIConfigDirectory,
+		optionPrefix+"cni-config-directory", DefaultCNIConfigDirectory,
+		"Directory where CNI configs are located")
+	cmd.Flags().StringVar(&options.CNIConfigMapName,
+		optionPrefix+"cni-configmap-name", DefaultCNIConfigMapName,
+		"The name of the CNI config map")
+	cmd.Flags().StringVar(&options.TetragonNamespace,
+		optionPrefix+"tetragon-namespace", DefaultTetragonNamespace,
+		"The namespace Tetragon is running in")
+	cmd.Flags().StringVar(&options.TetragonLabelSelector,
+		optionPrefix+"tetragon-label-selector", DefaultTetragonLabelSelector,
+		"The labels used to target Tetragon pods")
+	cmd.Flags().IntVar(&options.CopyRetryLimit,
+		optionPrefix+"copy-retry-limit", DefaultCopyRetryLimit,
+		"Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection.")
+
+	hooks.AddSysdumpFlags(cmd.Flags())
+}
+
+// Hooks to extend cilium-cli with additional sysdump tasks and related flags.
+type Hooks interface {
+	AddSysdumpFlags(flags *pflag.FlagSet)
+	AddSysdumpTasks(*Collector) error
 }
