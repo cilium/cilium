@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -82,18 +83,22 @@ func runXFRMFlush() {
 		}
 	}
 
+	nbDeleted := len(states)
 	for _, state := range states {
 		if err := netlink.XfrmStateDel(&state); err != nil {
-			Fatalf("Stopped XFRM states deletion due to error: %s", err)
+			fmt.Fprintf(os.Stderr, "Failed to delete XFRM state: %s", err)
+			nbDeleted--
 		}
 	}
-	fmt.Printf("Deleted %d XFRM states.\n", len(states))
+	fmt.Printf("Deleted %d XFRM states.\n", nbDeleted)
+	nbDeleted = len(policies)
 	for _, pol := range policies {
 		if err := netlink.XfrmPolicyDel(&pol); err != nil {
-			Fatalf("Stopped XFRM policies deletion due to error: %s", err)
+			fmt.Fprintf(os.Stderr, "Failed to delete XFRM policy: %s", err)
+			nbDeleted--
 		}
 	}
-	fmt.Printf("Deleted %d XFRM policies.\n", len(policies))
+	fmt.Printf("Deleted %d XFRM policies.\n", nbDeleted)
 }
 
 func parseNodeID(nodeID string) (uint16, error) {
