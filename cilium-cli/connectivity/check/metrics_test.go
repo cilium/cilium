@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	dto "github.com/prometheus/client_model/go"
 	prommodel "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 )
@@ -66,7 +65,7 @@ func TestMetricsIncrease(t *testing.T) {
 	valueEgressAfter := 1599128.
 	valueIngressAfter := 3789798.
 
-	ciliumForwardCountTotalBefore := dto.MetricFamily{
+	ciliumForwardCountTotalBefore := prommodel.MetricFamily{
 		Name: &metricName,
 		Help: &metricHelp,
 		Type: &metricTypeCounter,
@@ -82,7 +81,7 @@ func TestMetricsIncrease(t *testing.T) {
 		},
 	}
 
-	ciliumForwardCountTotalAfter := dto.MetricFamily{
+	ciliumForwardCountTotalAfter := prommodel.MetricFamily{
 		Name: &metricName,
 		Help: &metricHelp,
 		Type: &metricTypeCounter,
@@ -99,8 +98,8 @@ func TestMetricsIncrease(t *testing.T) {
 	}
 
 	tt := map[string]struct {
-		before *dto.MetricFamily
-		after  *dto.MetricFamily
+		before *prommodel.MetricFamily
+		after  *prommodel.MetricFamily
 		err    bool
 	}{
 		"metric increases": {
