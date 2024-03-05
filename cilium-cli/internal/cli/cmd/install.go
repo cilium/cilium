@@ -108,7 +108,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				TestNamespace:   params.TestNamespace,
 				FlowValidation:  check.FlowValidationModeDisabled,
 				Writer:          os.Stdout,
-			}, version)
+			}, defaults.CLIVersion)
 			if err != nil {
 				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s\n", err)
 			} else {
