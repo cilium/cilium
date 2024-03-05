@@ -22,7 +22,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -2369,7 +2368,7 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, portName, filenameTmpl string) error {
 	for _, p := range pods.Items {
 		p := p
-		if p.Status.Phase != v1.PodRunning {
+		if p.Status.Phase != corev1.PodRunning {
 			continue
 		}
 		err := c.Pool.Submit(fmt.Sprintf("metrics-%s-%s-%s", p.Name, containerName, portName), func(ctx context.Context) error {

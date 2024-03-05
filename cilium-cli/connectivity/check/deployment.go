@@ -16,7 +16,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -725,11 +724,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			},
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientCPDeployment), metav1.CreateOptions{})
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil && !k8sErrors.IsAlreadyExists(err) {
 			return fmt.Errorf("unable to create service account %s: %s", clientCPDeployment, err)
 		}
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil && !k8sErrors.IsAlreadyExists(err) {
 			return fmt.Errorf("unable to create deployment %s: %s", clientCPDeployment, err)
 		}
 	}

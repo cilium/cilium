@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/api/v1/flow"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
@@ -206,7 +205,7 @@ func (s Service) Address(family features.IPFamily) string {
 		return fmt.Sprintf("%s.%s", s.Service.Name, s.Service.Namespace)
 	}
 
-	getClusterIPForIPFamily := func(family v1.IPFamily) string {
+	getClusterIPForIPFamily := func(family corev1.IPFamily) string {
 		for i, f := range s.Service.Spec.IPFamilies {
 			if f == family {
 				return s.Service.Spec.ClusterIPs[i]
@@ -218,9 +217,9 @@ func (s Service) Address(family features.IPFamily) string {
 
 	switch family {
 	case features.IPFamilyV4:
-		return getClusterIPForIPFamily(v1.IPv4Protocol)
+		return getClusterIPForIPFamily(corev1.IPv4Protocol)
 	case features.IPFamilyV6:
-		return getClusterIPForIPFamily(v1.IPv6Protocol)
+		return getClusterIPForIPFamily(corev1.IPv6Protocol)
 	}
 
 	return ""
@@ -250,7 +249,7 @@ func (s Service) FlowFilters() []*flow.FlowFilter {
 	return nil
 }
 
-func (s Service) ToNodeportService(node *v1.Node) NodeportService {
+func (s Service) ToNodeportService(node *corev1.Node) NodeportService {
 	return NodeportService{
 		Service: s,
 		Node:    node,
@@ -261,7 +260,7 @@ func (s Service) ToNodeportService(node *v1.Node) NodeportService {
 // It implements interface TestPeer.
 type NodeportService struct {
 	Service
-	Node *v1.Node
+	Node *corev1.Node
 }
 
 // Address returns the node IP of the wrapped Service.
@@ -271,7 +270,7 @@ func (s NodeportService) Address(family features.IPFamily) string {
 	}
 
 	for _, address := range s.Node.Status.Addresses {
-		if address.Type == v1.NodeInternalIP {
+		if address.Type == corev1.NodeInternalIP {
 			parsedAddress := net.ParseIP(address.Address)
 
 			switch family {
