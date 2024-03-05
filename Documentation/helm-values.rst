@@ -2888,10 +2888,6 @@
      - interval between checks of the readiness probe
      - int
      - ``30``
-   * - :spelling:ignore:`remoteNodeIdentity`
-     - Enable use of the remote node identity. ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
-     - bool
-     - ``true``
    * - :spelling:ignore:`resourceQuotas`
      - Enable resource quotas for priority classes used in the cluster.
      - object
