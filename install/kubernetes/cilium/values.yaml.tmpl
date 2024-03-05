@@ -2179,7 +2179,20 @@ envoy:
         labelSelector:
           matchLabels:
             k8s-app: cilium-envoy
-
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            k8s-app: cilium
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: cilium.io/no-schedule
+              operator: NotIn
+              values:
+              - "true"
   # -- Node selector for cilium-envoy.
   nodeSelector:
     kubernetes.io/os: linux
