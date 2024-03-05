@@ -139,6 +139,7 @@ func (m *DnsTable) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsTableMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -264,6 +265,7 @@ func (m *DnsTable_AddressList) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsTable_AddressListMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -362,9 +364,20 @@ func (m *DnsTable_DnsServiceProtocol) validate(all bool) error {
 
 	var errors []error
 
-	switch m.ProtocolConfig.(type) {
-
+	oneofProtocolConfigPresent := false
+	switch v := m.ProtocolConfig.(type) {
 	case *DnsTable_DnsServiceProtocol_Number:
+		if v == nil {
+			err := DnsTable_DnsServiceProtocolValidationError{
+				field:  "ProtocolConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofProtocolConfigPresent = true
 
 		if m.GetNumber() >= 255 {
 			err := DnsTable_DnsServiceProtocolValidationError{
@@ -378,6 +391,17 @@ func (m *DnsTable_DnsServiceProtocol) validate(all bool) error {
 		}
 
 	case *DnsTable_DnsServiceProtocol_Name:
+		if v == nil {
+			err := DnsTable_DnsServiceProtocolValidationError{
+				field:  "ProtocolConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofProtocolConfigPresent = true
 
 		if utf8.RuneCountInString(m.GetName()) < 1 {
 			err := DnsTable_DnsServiceProtocolValidationError{
@@ -402,6 +426,9 @@ func (m *DnsTable_DnsServiceProtocol) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofProtocolConfigPresent {
 		err := DnsTable_DnsServiceProtocolValidationError{
 			field:  "ProtocolConfig",
 			reason: "value is required",
@@ -410,12 +437,12 @@ func (m *DnsTable_DnsServiceProtocol) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return DnsTable_DnsServiceProtocolMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -550,9 +577,20 @@ func (m *DnsTable_DnsServiceTarget) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.EndpointType.(type) {
-
+	oneofEndpointTypePresent := false
+	switch v := m.EndpointType.(type) {
 	case *DnsTable_DnsServiceTarget_HostName:
+		if v == nil {
+			err := DnsTable_DnsServiceTargetValidationError{
+				field:  "EndpointType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEndpointTypePresent = true
 
 		if utf8.RuneCountInString(m.GetHostName()) < 1 {
 			err := DnsTable_DnsServiceTargetValidationError{
@@ -577,6 +615,17 @@ func (m *DnsTable_DnsServiceTarget) validate(all bool) error {
 		}
 
 	case *DnsTable_DnsServiceTarget_ClusterName:
+		if v == nil {
+			err := DnsTable_DnsServiceTargetValidationError{
+				field:  "EndpointType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEndpointTypePresent = true
 
 		if utf8.RuneCountInString(m.GetClusterName()) < 1 {
 			err := DnsTable_DnsServiceTargetValidationError{
@@ -601,6 +650,9 @@ func (m *DnsTable_DnsServiceTarget) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofEndpointTypePresent {
 		err := DnsTable_DnsServiceTargetValidationError{
 			field:  "EndpointType",
 			reason: "value is required",
@@ -609,12 +661,12 @@ func (m *DnsTable_DnsServiceTarget) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return DnsTable_DnsServiceTargetMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -846,6 +898,7 @@ func (m *DnsTable_DnsService) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsTable_DnsServiceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -994,6 +1047,7 @@ func (m *DnsTable_DnsServiceList) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsTable_DnsServiceListMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1092,9 +1146,20 @@ func (m *DnsTable_DnsEndpoint) validate(all bool) error {
 
 	var errors []error
 
-	switch m.EndpointConfig.(type) {
-
+	oneofEndpointConfigPresent := false
+	switch v := m.EndpointConfig.(type) {
 	case *DnsTable_DnsEndpoint_AddressList:
+		if v == nil {
+			err := DnsTable_DnsEndpointValidationError{
+				field:  "EndpointConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEndpointConfigPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAddressList()).(type) {
@@ -1126,9 +1191,30 @@ func (m *DnsTable_DnsEndpoint) validate(all bool) error {
 		}
 
 	case *DnsTable_DnsEndpoint_ClusterName:
+		if v == nil {
+			err := DnsTable_DnsEndpointValidationError{
+				field:  "EndpointConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEndpointConfigPresent = true
 		// no validation rules for ClusterName
-
 	case *DnsTable_DnsEndpoint_ServiceList:
+		if v == nil {
+			err := DnsTable_DnsEndpointValidationError{
+				field:  "EndpointConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEndpointConfigPresent = true
 
 		if all {
 			switch v := interface{}(m.GetServiceList()).(type) {
@@ -1160,6 +1246,9 @@ func (m *DnsTable_DnsEndpoint) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofEndpointConfigPresent {
 		err := DnsTable_DnsEndpointValidationError{
 			field:  "EndpointConfig",
 			reason: "value is required",
@@ -1168,12 +1257,12 @@ func (m *DnsTable_DnsEndpoint) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return DnsTable_DnsEndpointMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1356,6 +1445,7 @@ func (m *DnsTable_DnsVirtualDomain) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsTable_DnsVirtualDomainMultiError(errors)
 	}
+
 	return nil
 }
 

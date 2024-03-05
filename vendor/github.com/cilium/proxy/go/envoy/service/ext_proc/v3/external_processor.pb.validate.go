@@ -59,9 +59,20 @@ func (m *ProcessingRequest) validate(all bool) error {
 
 	// no validation rules for AsyncMode
 
-	switch m.Request.(type) {
-
+	oneofRequestPresent := false
+	switch v := m.Request.(type) {
 	case *ProcessingRequest_RequestHeaders:
+		if v == nil {
+			err := ProcessingRequestValidationError{
+				field:  "Request",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequestPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequestHeaders()).(type) {
@@ -93,6 +104,17 @@ func (m *ProcessingRequest) validate(all bool) error {
 		}
 
 	case *ProcessingRequest_ResponseHeaders:
+		if v == nil {
+			err := ProcessingRequestValidationError{
+				field:  "Request",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequestPresent = true
 
 		if all {
 			switch v := interface{}(m.GetResponseHeaders()).(type) {
@@ -124,6 +146,17 @@ func (m *ProcessingRequest) validate(all bool) error {
 		}
 
 	case *ProcessingRequest_RequestBody:
+		if v == nil {
+			err := ProcessingRequestValidationError{
+				field:  "Request",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequestPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequestBody()).(type) {
@@ -155,6 +188,17 @@ func (m *ProcessingRequest) validate(all bool) error {
 		}
 
 	case *ProcessingRequest_ResponseBody:
+		if v == nil {
+			err := ProcessingRequestValidationError{
+				field:  "Request",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequestPresent = true
 
 		if all {
 			switch v := interface{}(m.GetResponseBody()).(type) {
@@ -186,6 +230,17 @@ func (m *ProcessingRequest) validate(all bool) error {
 		}
 
 	case *ProcessingRequest_RequestTrailers:
+		if v == nil {
+			err := ProcessingRequestValidationError{
+				field:  "Request",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequestPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequestTrailers()).(type) {
@@ -217,6 +272,17 @@ func (m *ProcessingRequest) validate(all bool) error {
 		}
 
 	case *ProcessingRequest_ResponseTrailers:
+		if v == nil {
+			err := ProcessingRequestValidationError{
+				field:  "Request",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequestPresent = true
 
 		if all {
 			switch v := interface{}(m.GetResponseTrailers()).(type) {
@@ -248,6 +314,9 @@ func (m *ProcessingRequest) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofRequestPresent {
 		err := ProcessingRequestValidationError{
 			field:  "Request",
 			reason: "value is required",
@@ -256,12 +325,12 @@ func (m *ProcessingRequest) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return ProcessingRequestMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -447,9 +516,20 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 	}
 
-	switch m.Response.(type) {
-
+	oneofResponsePresent := false
+	switch v := m.Response.(type) {
 	case *ProcessingResponse_RequestHeaders:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequestHeaders()).(type) {
@@ -481,6 +561,17 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 
 	case *ProcessingResponse_ResponseHeaders:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
 
 		if all {
 			switch v := interface{}(m.GetResponseHeaders()).(type) {
@@ -512,6 +603,17 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 
 	case *ProcessingResponse_RequestBody:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequestBody()).(type) {
@@ -543,6 +645,17 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 
 	case *ProcessingResponse_ResponseBody:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
 
 		if all {
 			switch v := interface{}(m.GetResponseBody()).(type) {
@@ -574,6 +687,17 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 
 	case *ProcessingResponse_RequestTrailers:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequestTrailers()).(type) {
@@ -605,6 +729,17 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 
 	case *ProcessingResponse_ResponseTrailers:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
 
 		if all {
 			switch v := interface{}(m.GetResponseTrailers()).(type) {
@@ -636,6 +771,17 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 
 	case *ProcessingResponse_ImmediateResponse:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
 
 		if all {
 			switch v := interface{}(m.GetImmediateResponse()).(type) {
@@ -667,6 +813,9 @@ func (m *ProcessingResponse) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofResponsePresent {
 		err := ProcessingResponseValidationError{
 			field:  "Response",
 			reason: "value is required",
@@ -675,12 +824,12 @@ func (m *ProcessingResponse) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return ProcessingResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -859,6 +1008,7 @@ func (m *HttpHeaders) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpHeadersMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -961,6 +1111,7 @@ func (m *HttpBody) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpBodyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1088,6 +1239,7 @@ func (m *HttpTrailers) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpTrailersMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1215,6 +1367,7 @@ func (m *HeadersResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeadersResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1343,6 +1496,7 @@ func (m *TrailersResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return TrailersResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1471,6 +1625,7 @@ func (m *BodyResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return BodyResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1669,6 +1824,7 @@ func (m *CommonResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return CommonResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1870,6 +2026,7 @@ func (m *ImmediateResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return ImmediateResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1973,6 +2130,7 @@ func (m *GrpcStatus) validate(all bool) error {
 	if len(errors) > 0 {
 		return GrpcStatusMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2105,6 +2263,7 @@ func (m *HeaderMutation) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderMutationMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2201,19 +2360,39 @@ func (m *BodyMutation) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Mutation.(type) {
-
+	switch v := m.Mutation.(type) {
 	case *BodyMutation_Body:
+		if v == nil {
+			err := BodyMutationValidationError{
+				field:  "Mutation",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Body
-
 	case *BodyMutation_ClearBody:
+		if v == nil {
+			err := BodyMutationValidationError{
+				field:  "Mutation",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for ClearBody
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return BodyMutationMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -60,6 +60,7 @@ func (m *DestinationIPInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return DestinationIPInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -161,6 +162,7 @@ func (m *DestinationPortInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return DestinationPortInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -262,6 +264,7 @@ func (m *SourceIPInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return SourceIPInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -361,6 +364,7 @@ func (m *SourcePortInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return SourcePortInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -460,6 +464,7 @@ func (m *DirectSourceIPInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return DirectSourceIPInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -561,6 +566,7 @@ func (m *SourceTypeInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return SourceTypeInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -660,6 +666,7 @@ func (m *ServerNameInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return ServerNameInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -759,6 +766,7 @@ func (m *TransportProtocolInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return TransportProtocolInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -860,6 +868,7 @@ func (m *ApplicationProtocolInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return ApplicationProtocolInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -972,6 +981,7 @@ func (m *FilterStateInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return FilterStateInputMultiError(errors)
 	}
+
 	return nil
 }
 

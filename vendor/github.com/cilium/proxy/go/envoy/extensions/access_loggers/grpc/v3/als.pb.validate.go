@@ -104,6 +104,7 @@ func (m *HttpGrpcAccessLogConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpGrpcAccessLogConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -245,6 +246,7 @@ func (m *TcpGrpcAccessLogConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return TcpGrpcAccessLogConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -530,6 +532,7 @@ func (m *CommonGrpcAccessLogConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return CommonGrpcAccessLogConfigMultiError(errors)
 	}
+
 	return nil
 }
 

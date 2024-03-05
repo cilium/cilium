@@ -66,6 +66,7 @@ func (m *Locality) validate(all bool) error {
 	if len(errors) > 0 {
 		return LocalityMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -222,6 +223,7 @@ func (m *BuildVersion) validate(all bool) error {
 	if len(errors) > 0 {
 		return BuildVersionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -357,6 +359,7 @@ func (m *Extension) validate(all bool) error {
 	if len(errors) > 0 {
 		return ExtensionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -629,12 +632,30 @@ func (m *Node) validate(all bool) error {
 
 	}
 
-	switch m.UserAgentVersionType.(type) {
-
+	switch v := m.UserAgentVersionType.(type) {
 	case *Node_UserAgentVersion:
+		if v == nil {
+			err := NodeValidationError{
+				field:  "UserAgentVersionType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for UserAgentVersion
-
 	case *Node_UserAgentBuildVersion:
+		if v == nil {
+			err := NodeValidationError{
+				field:  "UserAgentVersionType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetUserAgentBuildVersion()).(type) {
@@ -665,11 +686,14 @@ func (m *Node) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return NodeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -860,6 +884,7 @@ func (m *Metadata) validate(all bool) error {
 	if len(errors) > 0 {
 		return MetadataMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -971,6 +996,7 @@ func (m *RuntimeUInt32) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeUInt32MultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1110,6 +1136,7 @@ func (m *RuntimePercent) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimePercentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1222,6 +1249,7 @@ func (m *RuntimeDouble) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeDoubleMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1372,6 +1400,7 @@ func (m *RuntimeFeatureFlag) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeFeatureFlagMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1486,6 +1515,7 @@ func (m *QueryParameter) validate(all bool) error {
 	if len(errors) > 0 {
 		return QueryParameterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1637,9 +1667,21 @@ func (m *HeaderValue) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if l := len(m.GetRawValue()); l < 0 || l > 16384 {
+		err := HeaderValueValidationError{
+			field:  "RawValue",
+			reason: "value length must be between 0 and 16384 bytes, inclusive",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if len(errors) > 0 {
 		return HeaderValueMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1824,6 +1866,7 @@ func (m *HeaderValueOption) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderValueOptionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1959,6 +2002,7 @@ func (m *HeaderMap) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderMapMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2068,6 +2112,7 @@ func (m *WatchedDirectory) validate(all bool) error {
 	if len(errors) > 0 {
 		return WatchedDirectoryMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2164,9 +2209,20 @@ func (m *DataSource) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Specifier.(type) {
-
+	oneofSpecifierPresent := false
+	switch v := m.Specifier.(type) {
 	case *DataSource_Filename:
+		if v == nil {
+			err := DataSourceValidationError{
+				field:  "Specifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSpecifierPresent = true
 
 		if utf8.RuneCountInString(m.GetFilename()) < 1 {
 			err := DataSourceValidationError{
@@ -2180,12 +2236,43 @@ func (m *DataSource) validate(all bool) error {
 		}
 
 	case *DataSource_InlineBytes:
+		if v == nil {
+			err := DataSourceValidationError{
+				field:  "Specifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSpecifierPresent = true
 		// no validation rules for InlineBytes
-
 	case *DataSource_InlineString:
+		if v == nil {
+			err := DataSourceValidationError{
+				field:  "Specifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSpecifierPresent = true
 		// no validation rules for InlineString
-
 	case *DataSource_EnvironmentVariable:
+		if v == nil {
+			err := DataSourceValidationError{
+				field:  "Specifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSpecifierPresent = true
 
 		if utf8.RuneCountInString(m.GetEnvironmentVariable()) < 1 {
 			err := DataSourceValidationError{
@@ -2199,6 +2286,9 @@ func (m *DataSource) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofSpecifierPresent {
 		err := DataSourceValidationError{
 			field:  "Specifier",
 			reason: "value is required",
@@ -2207,12 +2297,12 @@ func (m *DataSource) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return DataSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2369,6 +2459,7 @@ func (m *RetryPolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return RetryPolicyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2547,6 +2638,7 @@ func (m *RemoteDataSource) validate(all bool) error {
 	if len(errors) > 0 {
 		return RemoteDataSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2643,9 +2735,20 @@ func (m *AsyncDataSource) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Specifier.(type) {
-
+	oneofSpecifierPresent := false
+	switch v := m.Specifier.(type) {
 	case *AsyncDataSource_Local:
+		if v == nil {
+			err := AsyncDataSourceValidationError{
+				field:  "Specifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetLocal()).(type) {
@@ -2677,6 +2780,17 @@ func (m *AsyncDataSource) validate(all bool) error {
 		}
 
 	case *AsyncDataSource_Remote:
+		if v == nil {
+			err := AsyncDataSourceValidationError{
+				field:  "Specifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRemote()).(type) {
@@ -2708,6 +2822,9 @@ func (m *AsyncDataSource) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofSpecifierPresent {
 		err := AsyncDataSourceValidationError{
 			field:  "Specifier",
 			reason: "value is required",
@@ -2716,12 +2833,12 @@ func (m *AsyncDataSource) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return AsyncDataSourceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2829,9 +2946,18 @@ func (m *TransportSocket) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.ConfigType.(type) {
-
+	switch v := m.ConfigType.(type) {
 	case *TransportSocket_TypedConfig:
+		if v == nil {
+			err := TransportSocketValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedConfig()).(type) {
@@ -2862,11 +2988,14 @@ func (m *TransportSocket) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return TransportSocketMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3008,6 +3137,7 @@ func (m *RuntimeFractionalPercent) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeFractionalPercentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3111,6 +3241,7 @@ func (m *ControlPlane) validate(all bool) error {
 	if len(errors) > 0 {
 		return ControlPlaneMultiError(errors)
 	}
+
 	return nil
 }
 

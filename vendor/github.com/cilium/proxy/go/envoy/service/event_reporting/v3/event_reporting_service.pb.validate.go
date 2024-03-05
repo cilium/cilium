@@ -134,6 +134,7 @@ func (m *StreamEventsRequest) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamEventsRequestMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -235,6 +236,7 @@ func (m *StreamEventsResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamEventsResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -376,6 +378,7 @@ func (m *StreamEventsRequest_Identifier) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamEventsRequest_IdentifierMultiError(errors)
 	}
+
 	return nil
 }
 

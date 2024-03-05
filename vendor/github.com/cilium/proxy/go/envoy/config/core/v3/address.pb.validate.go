@@ -81,6 +81,7 @@ func (m *Pipe) validate(all bool) error {
 	if len(errors) > 0 {
 		return PipeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -178,12 +179,25 @@ func (m *EnvoyInternalAddress) validate(all bool) error {
 
 	// no validation rules for EndpointId
 
-	switch m.AddressNameSpecifier.(type) {
-
+	oneofAddressNameSpecifierPresent := false
+	switch v := m.AddressNameSpecifier.(type) {
 	case *EnvoyInternalAddress_ServerListenerName:
+		if v == nil {
+			err := EnvoyInternalAddressValidationError{
+				field:  "AddressNameSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofAddressNameSpecifierPresent = true
 		// no validation rules for ServerListenerName
-
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofAddressNameSpecifierPresent {
 		err := EnvoyInternalAddressValidationError{
 			field:  "AddressNameSpecifier",
 			reason: "value is required",
@@ -192,12 +206,12 @@ func (m *EnvoyInternalAddress) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return EnvoyInternalAddressMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -322,9 +336,20 @@ func (m *SocketAddress) validate(all bool) error {
 
 	// no validation rules for Ipv4Compat
 
-	switch m.PortSpecifier.(type) {
-
+	oneofPortSpecifierPresent := false
+	switch v := m.PortSpecifier.(type) {
 	case *SocketAddress_PortValue:
+		if v == nil {
+			err := SocketAddressValidationError{
+				field:  "PortSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofPortSpecifierPresent = true
 
 		if m.GetPortValue() > 65535 {
 			err := SocketAddressValidationError{
@@ -338,9 +363,22 @@ func (m *SocketAddress) validate(all bool) error {
 		}
 
 	case *SocketAddress_NamedPort:
+		if v == nil {
+			err := SocketAddressValidationError{
+				field:  "PortSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofPortSpecifierPresent = true
 		// no validation rules for NamedPort
-
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofPortSpecifierPresent {
 		err := SocketAddressValidationError{
 			field:  "PortSpecifier",
 			reason: "value is required",
@@ -349,12 +387,12 @@ func (m *SocketAddress) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return SocketAddressMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -541,6 +579,7 @@ func (m *TcpKeepalive) validate(all bool) error {
 	if len(errors) > 0 {
 		return TcpKeepaliveMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -708,6 +747,7 @@ func (m *ExtraSourceAddress) validate(all bool) error {
 	if len(errors) > 0 {
 		return ExtraSourceAddressMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -969,6 +1009,7 @@ func (m *BindConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return BindConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1063,9 +1104,20 @@ func (m *Address) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Address.(type) {
-
+	oneofAddressPresent := false
+	switch v := m.Address.(type) {
 	case *Address_SocketAddress:
+		if v == nil {
+			err := AddressValidationError{
+				field:  "Address",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofAddressPresent = true
 
 		if all {
 			switch v := interface{}(m.GetSocketAddress()).(type) {
@@ -1097,6 +1149,17 @@ func (m *Address) validate(all bool) error {
 		}
 
 	case *Address_Pipe:
+		if v == nil {
+			err := AddressValidationError{
+				field:  "Address",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofAddressPresent = true
 
 		if all {
 			switch v := interface{}(m.GetPipe()).(type) {
@@ -1128,6 +1191,17 @@ func (m *Address) validate(all bool) error {
 		}
 
 	case *Address_EnvoyInternalAddress:
+		if v == nil {
+			err := AddressValidationError{
+				field:  "Address",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofAddressPresent = true
 
 		if all {
 			switch v := interface{}(m.GetEnvoyInternalAddress()).(type) {
@@ -1159,6 +1233,9 @@ func (m *Address) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofAddressPresent {
 		err := AddressValidationError{
 			field:  "Address",
 			reason: "value is required",
@@ -1167,12 +1244,12 @@ func (m *Address) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return AddressMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1297,6 +1374,7 @@ func (m *CidrRange) validate(all bool) error {
 	if len(errors) > 0 {
 		return CidrRangeMultiError(errors)
 	}
+
 	return nil
 }
 

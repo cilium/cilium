@@ -127,6 +127,7 @@ func (m *Config) validate(all bool) error {
 	if len(errors) > 0 {
 		return ConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -282,6 +283,7 @@ func (m *Config_KeyValuePair) validate(all bool) error {
 	if len(errors) > 0 {
 		return Config_KeyValuePairMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -465,6 +467,7 @@ func (m *Config_Rule) validate(all bool) error {
 	if len(errors) > 0 {
 		return Config_RuleMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -70,6 +70,7 @@ func (m *Percent) validate(all bool) error {
 	if len(errors) > 0 {
 		return PercentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -181,6 +182,7 @@ func (m *FractionalPercent) validate(all bool) error {
 	if len(errors) > 0 {
 		return FractionalPercentMultiError(errors)
 	}
+
 	return nil
 }
 

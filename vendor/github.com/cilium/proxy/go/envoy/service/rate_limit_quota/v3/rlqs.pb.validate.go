@@ -116,6 +116,7 @@ func (m *RateLimitQuotaUsageReports) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitQuotaUsageReportsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -262,6 +263,7 @@ func (m *RateLimitQuotaResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitQuotaResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -411,6 +413,7 @@ func (m *BucketId) validate(all bool) error {
 	if len(errors) > 0 {
 		return BucketIdMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -596,6 +599,7 @@ func (m *RateLimitQuotaUsageReports_BucketQuotaUsage) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitQuotaUsageReports_BucketQuotaUsageMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -737,9 +741,20 @@ func (m *RateLimitQuotaResponse_BucketAction) validate(all bool) error {
 		}
 	}
 
-	switch m.BucketAction.(type) {
-
+	oneofBucketActionPresent := false
+	switch v := m.BucketAction.(type) {
 	case *RateLimitQuotaResponse_BucketAction_QuotaAssignmentAction_:
+		if v == nil {
+			err := RateLimitQuotaResponse_BucketActionValidationError{
+				field:  "BucketAction",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofBucketActionPresent = true
 
 		if all {
 			switch v := interface{}(m.GetQuotaAssignmentAction()).(type) {
@@ -771,6 +786,17 @@ func (m *RateLimitQuotaResponse_BucketAction) validate(all bool) error {
 		}
 
 	case *RateLimitQuotaResponse_BucketAction_AbandonAction_:
+		if v == nil {
+			err := RateLimitQuotaResponse_BucketActionValidationError{
+				field:  "BucketAction",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofBucketActionPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAbandonAction()).(type) {
@@ -802,6 +828,9 @@ func (m *RateLimitQuotaResponse_BucketAction) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofBucketActionPresent {
 		err := RateLimitQuotaResponse_BucketActionValidationError{
 			field:  "BucketAction",
 			reason: "value is required",
@@ -810,12 +839,12 @@ func (m *RateLimitQuotaResponse_BucketAction) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RateLimitQuotaResponse_BucketActionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -981,6 +1010,7 @@ func (m *RateLimitQuotaResponse_BucketAction_QuotaAssignmentAction) validate(all
 	if len(errors) > 0 {
 		return RateLimitQuotaResponse_BucketAction_QuotaAssignmentActionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1097,6 +1127,7 @@ func (m *RateLimitQuotaResponse_BucketAction_AbandonAction) validate(all bool) e
 	if len(errors) > 0 {
 		return RateLimitQuotaResponse_BucketAction_AbandonActionMultiError(errors)
 	}
+
 	return nil
 }
 

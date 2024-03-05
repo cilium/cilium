@@ -60,6 +60,7 @@ func (m *RtdsDummy) validate(all bool) error {
 	if len(errors) > 0 {
 		return RtdsDummyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -197,6 +198,7 @@ func (m *Runtime) validate(all bool) error {
 	if len(errors) > 0 {
 		return RuntimeMultiError(errors)
 	}
+
 	return nil
 }
 

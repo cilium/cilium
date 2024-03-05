@@ -125,6 +125,7 @@ func (m *ProxyProtocol) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProxyProtocolMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -237,6 +238,7 @@ func (m *ProxyProtocol_KeyValuePair) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProxyProtocol_KeyValuePairMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -378,6 +380,7 @@ func (m *ProxyProtocol_Rule) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProxyProtocol_RuleMultiError(errors)
 	}
+
 	return nil
 }
 

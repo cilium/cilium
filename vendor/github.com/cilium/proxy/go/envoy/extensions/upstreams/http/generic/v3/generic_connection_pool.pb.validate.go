@@ -60,6 +60,7 @@ func (m *GenericConnectionPoolProto) validate(all bool) error {
 	if len(errors) > 0 {
 		return GenericConnectionPoolProtoMultiError(errors)
 	}
+
 	return nil
 }
 

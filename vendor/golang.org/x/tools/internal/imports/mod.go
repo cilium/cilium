@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"golang.org/x/mod/module"
-	"golang.org/x/tools/internal/event"
 	"golang.org/x/tools/internal/gocommand"
 	"golang.org/x/tools/internal/gopathwalk"
 )
@@ -38,7 +37,7 @@ type ModuleResolver struct {
 	mains         []*gocommand.ModuleJSON
 	mainByDir     map[string]*gocommand.ModuleJSON
 	modsByModPath []*gocommand.ModuleJSON // All modules, ordered by # of path components in module Path...
-	modsByDir     []*gocommand.ModuleJSON // ...or number of path components in their Dir.
+	modsByDir     []*gocommand.ModuleJSON // ...or Dir.
 
 	// moduleCacheCache stores information about the module cache.
 	moduleCacheCache *dirInfoCache
@@ -124,7 +123,7 @@ func (r *ModuleResolver) init() error {
 	})
 	sort.Slice(r.modsByDir, func(i, j int) bool {
 		count := func(x int) int {
-			return strings.Count(r.modsByDir[x].Dir, string(filepath.Separator))
+			return strings.Count(r.modsByDir[x].Dir, "/")
 		}
 		return count(j) < count(i) // descending order
 	})
@@ -328,10 +327,6 @@ func (r *ModuleResolver) findModuleByDir(dir string) *gocommand.ModuleJSON {
 	// - in /vendor/ in -mod=vendor mode.
 	//    - nested module? Dunno.
 	// Rumor has it that replace targets cannot contain other replace targets.
-	//
-	// Note that it is critical here that modsByDir is sorted to have deeper dirs
-	// first. This ensures that findModuleByDir finds the innermost module.
-	// See also golang/go#56291.
 	for _, m := range r.modsByDir {
 		if !strings.HasPrefix(dir, m.Dir) {
 			continue
@@ -429,9 +424,6 @@ func (r *ModuleResolver) loadPackageNames(importPaths []string, srcDir string) (
 }
 
 func (r *ModuleResolver) scan(ctx context.Context, callback *scanCallback) error {
-	ctx, done := event.Start(ctx, "imports.ModuleResolver.scan")
-	defer done()
-
 	if err := r.init(); err != nil {
 		return err
 	}

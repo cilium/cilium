@@ -59,6 +59,7 @@ func (m *Router) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouterMultiError(errors)
 	}
+
 	return nil
 }
 

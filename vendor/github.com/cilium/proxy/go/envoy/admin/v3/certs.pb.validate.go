@@ -94,6 +94,7 @@ func (m *Certificates) validate(all bool) error {
 	if len(errors) > 0 {
 		return CertificatesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -260,6 +261,7 @@ func (m *Certificate) validate(all bool) error {
 	if len(errors) > 0 {
 		return CertificateMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -485,6 +487,7 @@ func (m *CertificateDetails) validate(all bool) error {
 	if len(errors) > 0 {
 		return CertificateDetailsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -583,22 +586,51 @@ func (m *SubjectAlternateName) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Name.(type) {
-
+	switch v := m.Name.(type) {
 	case *SubjectAlternateName_Dns:
+		if v == nil {
+			err := SubjectAlternateNameValidationError{
+				field:  "Name",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Dns
-
 	case *SubjectAlternateName_Uri:
+		if v == nil {
+			err := SubjectAlternateNameValidationError{
+				field:  "Name",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Uri
-
 	case *SubjectAlternateName_IpAddress:
+		if v == nil {
+			err := SubjectAlternateNameValidationError{
+				field:  "Name",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for IpAddress
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return SubjectAlternateNameMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -758,6 +790,7 @@ func (m *CertificateDetails_OcspDetails) validate(all bool) error {
 	if len(errors) > 0 {
 		return CertificateDetails_OcspDetailsMultiError(errors)
 	}
+
 	return nil
 }
 

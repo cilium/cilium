@@ -190,6 +190,7 @@ func (m *RBAC) validate(all bool) error {
 	if len(errors) > 0 {
 		return RBACMultiError(errors)
 	}
+
 	return nil
 }
 

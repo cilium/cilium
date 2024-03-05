@@ -73,6 +73,7 @@ func (m *PreserveCaseFormatterConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return PreserveCaseFormatterConfigMultiError(errors)
 	}
+
 	return nil
 }
 

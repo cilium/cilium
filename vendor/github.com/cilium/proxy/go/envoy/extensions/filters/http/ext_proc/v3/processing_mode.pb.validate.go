@@ -126,6 +126,7 @@ func (m *ProcessingMode) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProcessingModeMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -121,9 +121,44 @@ func (m *Endpoint) validate(all bool) error {
 
 	// no validation rules for Hostname
 
+	for idx, item := range m.GetAdditionalAddresses() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EndpointValidationError{
+						field:  fmt.Sprintf("AdditionalAddresses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EndpointValidationError{
+						field:  fmt.Sprintf("AdditionalAddresses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return EndpointValidationError{
+					field:  fmt.Sprintf("AdditionalAddresses[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return EndpointMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -265,9 +300,18 @@ func (m *LbEndpoint) validate(all bool) error {
 
 	}
 
-	switch m.HostIdentifier.(type) {
-
+	switch v := m.HostIdentifier.(type) {
 	case *LbEndpoint_Endpoint:
+		if v == nil {
+			err := LbEndpointValidationError{
+				field:  "HostIdentifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetEndpoint()).(type) {
@@ -299,13 +343,25 @@ func (m *LbEndpoint) validate(all bool) error {
 		}
 
 	case *LbEndpoint_EndpointName:
+		if v == nil {
+			err := LbEndpointValidationError{
+				field:  "HostIdentifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for EndpointName
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return LbEndpointMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -435,6 +491,7 @@ func (m *LedsClusterLocalityConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return LedsClusterLocalityConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -651,9 +708,18 @@ func (m *LocalityLbEndpoints) validate(all bool) error {
 		}
 	}
 
-	switch m.LbConfig.(type) {
-
+	switch v := m.LbConfig.(type) {
 	case *LocalityLbEndpoints_LoadBalancerEndpoints:
+		if v == nil {
+			err := LocalityLbEndpointsValidationError{
+				field:  "LbConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetLoadBalancerEndpoints()).(type) {
@@ -685,6 +751,16 @@ func (m *LocalityLbEndpoints) validate(all bool) error {
 		}
 
 	case *LocalityLbEndpoints_LedsClusterLocalityConfig:
+		if v == nil {
+			err := LocalityLbEndpointsValidationError{
+				field:  "LbConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetLedsClusterLocalityConfig()).(type) {
@@ -715,11 +791,14 @@ func (m *LocalityLbEndpoints) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return LocalityLbEndpointsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -865,6 +944,7 @@ func (m *Endpoint_HealthCheckConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Endpoint_HealthCheckConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -941,6 +1021,137 @@ var _ interface {
 	ErrorName() string
 } = Endpoint_HealthCheckConfigValidationError{}
 
+// Validate checks the field values on Endpoint_AdditionalAddress with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *Endpoint_AdditionalAddress) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Endpoint_AdditionalAddress with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Endpoint_AdditionalAddressMultiError, or nil if none found.
+func (m *Endpoint_AdditionalAddress) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Endpoint_AdditionalAddress) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Endpoint_AdditionalAddressValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Endpoint_AdditionalAddressValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return Endpoint_AdditionalAddressValidationError{
+				field:  "Address",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return Endpoint_AdditionalAddressMultiError(errors)
+	}
+
+	return nil
+}
+
+// Endpoint_AdditionalAddressMultiError is an error wrapping multiple
+// validation errors returned by Endpoint_AdditionalAddress.ValidateAll() if
+// the designated constraints aren't met.
+type Endpoint_AdditionalAddressMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Endpoint_AdditionalAddressMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Endpoint_AdditionalAddressMultiError) AllErrors() []error { return m }
+
+// Endpoint_AdditionalAddressValidationError is the validation error returned
+// by Endpoint_AdditionalAddress.Validate if the designated constraints aren't met.
+type Endpoint_AdditionalAddressValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Endpoint_AdditionalAddressValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Endpoint_AdditionalAddressValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Endpoint_AdditionalAddressValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Endpoint_AdditionalAddressValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Endpoint_AdditionalAddressValidationError) ErrorName() string {
+	return "Endpoint_AdditionalAddressValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e Endpoint_AdditionalAddressValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sEndpoint_AdditionalAddress.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Endpoint_AdditionalAddressValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Endpoint_AdditionalAddressValidationError{}
+
 // Validate checks the field values on LocalityLbEndpoints_LbEndpointList with
 // the rules defined in the proto definition for this message. If any rules
 // are violated, the first error encountered is returned, or nil if there are
@@ -1001,6 +1212,7 @@ func (m *LocalityLbEndpoints_LbEndpointList) validate(all bool) error {
 	if len(errors) > 0 {
 		return LocalityLbEndpoints_LbEndpointListMultiError(errors)
 	}
+
 	return nil
 }
 

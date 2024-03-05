@@ -64,6 +64,7 @@ func (m *KeyValue) validate(all bool) error {
 	if len(errors) > 0 {
 		return KeyValueMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -276,6 +277,7 @@ func (m *HttpLogEntry) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpLogEntryMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -382,6 +384,7 @@ func (m *KafkaLogEntry) validate(all bool) error {
 	if len(errors) > 0 {
 		return KafkaLogEntryMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -485,6 +488,7 @@ func (m *L7LogEntry) validate(all bool) error {
 	if len(errors) > 0 {
 		return L7LogEntryMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -598,9 +602,18 @@ func (m *LogEntry) validate(all bool) error {
 
 	// no validation rules for DestinationAddress
 
-	switch m.L7.(type) {
-
+	switch v := m.L7.(type) {
 	case *LogEntry_Http:
+		if v == nil {
+			err := LogEntryValidationError{
+				field:  "L7",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetHttp()).(type) {
@@ -632,6 +645,16 @@ func (m *LogEntry) validate(all bool) error {
 		}
 
 	case *LogEntry_Kafka:
+		if v == nil {
+			err := LogEntryValidationError{
+				field:  "L7",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetKafka()).(type) {
@@ -663,6 +686,16 @@ func (m *LogEntry) validate(all bool) error {
 		}
 
 	case *LogEntry_GenericL7:
+		if v == nil {
+			err := LogEntryValidationError{
+				field:  "L7",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetGenericL7()).(type) {
@@ -693,11 +726,14 @@ func (m *LogEntry) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return LogEntryMultiError(errors)
 	}
+
 	return nil
 }
 

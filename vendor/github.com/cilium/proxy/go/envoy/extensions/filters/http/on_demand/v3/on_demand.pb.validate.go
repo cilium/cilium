@@ -131,6 +131,7 @@ func (m *OnDemandCds) validate(all bool) error {
 	if len(errors) > 0 {
 		return OnDemandCdsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -258,6 +259,7 @@ func (m *OnDemand) validate(all bool) error {
 	if len(errors) > 0 {
 		return OnDemandMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -385,6 +387,7 @@ func (m *PerRouteConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return PerRouteConfigMultiError(errors)
 	}
+
 	return nil
 }
 

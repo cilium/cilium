@@ -60,6 +60,7 @@ func (m *GetAddrInfoDnsResolverConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return GetAddrInfoDnsResolverConfigMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -182,6 +182,7 @@ func (m *ServerInfo) validate(all bool) error {
 	if len(errors) > 0 {
 		return ServerInfoMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -425,6 +426,7 @@ func (m *CommandLineOptions) validate(all bool) error {
 	if len(errors) > 0 {
 		return CommandLineOptionsMultiError(errors)
 	}
+
 	return nil
 }
 

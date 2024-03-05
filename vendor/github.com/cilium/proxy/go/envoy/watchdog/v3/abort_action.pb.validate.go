@@ -89,6 +89,7 @@ func (m *AbortActionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return AbortActionConfigMultiError(errors)
 	}
+
 	return nil
 }
 

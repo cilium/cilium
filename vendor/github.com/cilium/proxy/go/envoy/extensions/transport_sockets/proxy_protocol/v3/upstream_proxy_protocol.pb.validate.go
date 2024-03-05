@@ -129,6 +129,7 @@ func (m *ProxyProtocolUpstreamTransport) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProxyProtocolUpstreamTransportMultiError(errors)
 	}
+
 	return nil
 }
 

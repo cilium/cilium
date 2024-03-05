@@ -60,6 +60,7 @@ func (m *CryptoServerStreamConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return CryptoServerStreamConfigMultiError(errors)
 	}
+
 	return nil
 }
 

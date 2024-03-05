@@ -71,6 +71,7 @@ func (m *HeaderBasedSessionState) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderBasedSessionStateMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -99,6 +99,7 @@ func (m *Filter) validate(all bool) error {
 	if len(errors) > 0 {
 		return FilterMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -183,6 +183,7 @@ func (m *CacheConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return CacheConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -353,6 +354,7 @@ func (m *CacheConfig_KeyCreatorParams) validate(all bool) error {
 	if len(errors) > 0 {
 		return CacheConfig_KeyCreatorParamsMultiError(errors)
 	}
+
 	return nil
 }
 

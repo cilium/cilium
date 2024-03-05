@@ -60,6 +60,7 @@ func (m *UdpGsoBatchWriterFactory) validate(all bool) error {
 	if len(errors) > 0 {
 		return UdpGsoBatchWriterFactoryMultiError(errors)
 	}
+
 	return nil
 }
 

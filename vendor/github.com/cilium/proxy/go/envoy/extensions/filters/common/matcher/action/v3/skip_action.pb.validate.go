@@ -60,6 +60,7 @@ func (m *SkipFilter) validate(all bool) error {
 	if len(errors) > 0 {
 		return SkipFilterMultiError(errors)
 	}
+
 	return nil
 }
 

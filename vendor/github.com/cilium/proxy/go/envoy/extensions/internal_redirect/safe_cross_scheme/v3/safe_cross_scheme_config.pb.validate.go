@@ -60,6 +60,7 @@ func (m *SafeCrossSchemeConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return SafeCrossSchemeConfigMultiError(errors)
 	}
+
 	return nil
 }
 

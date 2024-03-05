@@ -70,6 +70,7 @@ func (m *Alts) validate(all bool) error {
 	if len(errors) > 0 {
 		return AltsMultiError(errors)
 	}
+
 	return nil
 }
 

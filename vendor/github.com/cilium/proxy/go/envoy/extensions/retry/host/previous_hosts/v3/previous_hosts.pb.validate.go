@@ -60,6 +60,7 @@ func (m *PreviousHostsPredicate) validate(all bool) error {
 	if len(errors) > 0 {
 		return PreviousHostsPredicateMultiError(errors)
 	}
+
 	return nil
 }
 

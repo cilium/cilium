@@ -101,6 +101,7 @@ func (m *Drds) validate(all bool) error {
 	if len(errors) > 0 {
 		return DrdsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -297,9 +298,18 @@ func (m *DubboProxy) validate(all bool) error {
 
 	}
 
-	switch m.RouteSpecifier.(type) {
-
+	switch v := m.RouteSpecifier.(type) {
 	case *DubboProxy_Drds:
+		if v == nil {
+			err := DubboProxyValidationError{
+				field:  "RouteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetDrds()).(type) {
@@ -331,6 +341,16 @@ func (m *DubboProxy) validate(all bool) error {
 		}
 
 	case *DubboProxy_MultipleRouteConfig:
+		if v == nil {
+			err := DubboProxyValidationError{
+				field:  "RouteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetMultipleRouteConfig()).(type) {
@@ -361,11 +381,14 @@ func (m *DubboProxy) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return DubboProxyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -504,6 +527,7 @@ func (m *DubboFilter) validate(all bool) error {
 	if len(errors) > 0 {
 		return DubboFilterMultiError(errors)
 	}
+
 	return nil
 }
 

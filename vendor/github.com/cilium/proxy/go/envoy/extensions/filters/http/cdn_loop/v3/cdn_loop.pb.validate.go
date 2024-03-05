@@ -73,6 +73,7 @@ func (m *CdnLoopConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return CdnLoopConfigMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -71,6 +71,7 @@ func (m *UriTemplateRewriteConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return UriTemplateRewriteConfigMultiError(errors)
 	}
+
 	return nil
 }
 
