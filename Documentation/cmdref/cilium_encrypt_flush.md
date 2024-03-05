@@ -20,6 +20,7 @@ cilium encrypt flush [flags]
       --node-id string   Only delete states and policies with this node ID. Decimal or hexadecimal (0x) format. If multiple filters are used, they all apply
   -o, --output string    json| yaml| jsonpath='{}'
       --spi uint8        Only delete states and policies with this SPI. If multiple filters are used, they all apply
+      --stale            Delete stale states and policies based on the current node ID map content
 ```
 
 ### Options inherited from parent commands
