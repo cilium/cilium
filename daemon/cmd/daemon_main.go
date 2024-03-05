@@ -282,10 +282,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	option.BindEnv(vp, option.IPv6MCastDevice)
 
-	flags.Bool(option.EnableRemoteNodeIdentity, defaults.EnableRemoteNodeIdentity, "Enable use of remote node identity")
-	flags.MarkDeprecated(option.EnableRemoteNodeIdentity, "Remote Node Identity is needed for various other features to work or work fully, including EgressGateway and Policies. There is no benefit to having it turned off. It will be removed in v1.16.")
-	option.BindEnv(vp, option.EnableRemoteNodeIdentity)
-
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(vp, option.EncryptInterface)
 
@@ -1378,10 +1374,6 @@ func initEnv(vp *viper.Viper) {
 	if option.Config.EnableHostFirewall {
 		if option.Config.EnableIPSec {
 			log.Fatal("IPSec cannot be used with the host firewall.")
-		}
-		if option.Config.EnableEndpointRoutes && !option.Config.EnableRemoteNodeIdentity {
-			log.Fatalf("The host firewall requires remote-node identities (%s) when running with %s",
-				option.EnableRemoteNodeIdentity, option.EnableEndpointRoutes)
 		}
 	}
 
