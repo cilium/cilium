@@ -22,6 +22,7 @@ linters:
     - reassign
     - revive
     - staticcheck
+    - stylecheck
     - typecheck
     - unused
 
@@ -44,6 +45,8 @@ linters-settings:
       - shadow
   staticcheck:
     go: "1.21"
+  stylecheck:
+    checks: ["ST1019"]
   unused:
     go: "1.21"
 
