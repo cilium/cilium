@@ -6,6 +6,7 @@
 package bpf
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,6 +63,15 @@ func CiliumPath() string {
 // Use this for ensuring the existence of directories on bpffs.
 func MkdirBPF(path string) error {
 	return os.MkdirAll(path, 0755)
+}
+
+// Remove path ignoring ErrNotExist.
+func Remove(path string) error {
+	err := os.RemoveAll(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("removing bpffs directory at %s: %w", path, err)
+	}
+	return err
 }
 
 func tcPathFromMountInfo(name string) string {

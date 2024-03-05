@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -65,6 +66,7 @@ type replaceDatapathOptions struct {
 	elf      string           // path to object file
 	programs []progDefinition // programs that we want to attach/replace
 	xdpMode  string           // XDP driver mode, only applies when attaching XDP programs
+	linkDir  string           // path to bpffs dir holding bpf_links for the device/endpoint
 }
 
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
@@ -84,6 +86,10 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+
+	if opts.linkDir == "" {
+		return nil, errors.New("opts.linkDir not set in replaceDatapath")
 	}
 
 	link, err := netlink.LinkByName(opts.device)
@@ -229,17 +235,17 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 	// flow in.
 	for _, prog := range opts.programs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
-		if opts.xdpMode != "" {
-			linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
-			if err := bpf.MkdirBPF(linkDir); err != nil {
-				return nil, fmt.Errorf("creating bpffs link dir for device %s: %w", link.Attrs().Name, err)
-			}
 
+		if err := bpf.MkdirBPF(opts.linkDir); err != nil {
+			return nil, fmt.Errorf("creating bpffs link dir for device %s: %w", link.Attrs().Name, err)
+		}
+
+		if opts.xdpMode != "" {
 			scopedLog.Debug("Attaching XDP program to interface")
-			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, linkDir, xdpConfigModeToFlag(opts.xdpMode))
+			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, xdpConfigModeToFlag(opts.xdpMode))
 		} else {
 			scopedLog.Debug("Attaching TC program to interface")
-			err = attachTCProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction))
+			err = attachTCProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, directionToParent(prog.direction))
 		}
 
 		if err != nil {
@@ -282,9 +288,22 @@ func resolveAndInsertCalls(coll *ebpf.Collection, mapName string, calls []ebpf.M
 }
 
 // attachTCProgram attaches the TC program 'prog' to link.
-func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName string, qdiscParent uint32) error {
+func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName, bpffsDir string, qdiscParent uint32) error {
 	if prog == nil {
 		return errors.New("cannot attach a nil program")
+	}
+
+	// Remove tcx bpf_links created by newer versions of Cilium. They cannot be
+	// overwritten by netlink-based tc attachments, as tcx is a separate hook
+	// altogether. Remove the tcx link first to avoid tc programs being run twice
+	// for every packet. This cannot be done seamlessly and will cause a small
+	// window of connection interruption.
+	pin := filepath.Join(bpffsDir, progName)
+	if err := os.Remove(pin); err == nil {
+		log.WithField("device", link.Attrs().Name).WithField("pinPath", pin).
+			Info("Removed tcx link before legacy tc downgrade, possible connectivity interruption")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 	}
 
 	if err := replaceQdisc(link); err != nil {
