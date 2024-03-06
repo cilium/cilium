@@ -525,14 +525,23 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		return false, "device has no addresses"
 	}
 
-	// Skip devices that have an excluded interface flag set.
-	if d.RawFlags&excludedIfFlagsMask != 0 {
-		return false, fmt.Sprintf("excluded flag set (mask=0x%x, flags=0x%x)", excludedIfFlagsMask, d.RawFlags)
-	}
-
 	// Skip devices that don't have the required flags set.
 	if d.RawFlags&requiredIfFlagsMask == 0 {
 		return false, fmt.Sprintf("missing required flag (mask=0x%x, flags=0x%x)", requiredIfFlagsMask, d.RawFlags)
+	}
+
+	// If user specified devices or wildcards, then skip the device if it doesn't match.
+	// If the device does match, then skip further checks.
+	if dc.filter.nonEmpty() {
+		if dc.filter.match(d.Name) {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not matching user filter %v", dc.filter)
+	}
+
+	// Skip devices that have an excluded interface flag set.
+	if d.RawFlags&excludedIfFlagsMask != 0 {
+		return false, fmt.Sprintf("excluded flag set (mask=0x%x, flags=0x%x)", excludedIfFlagsMask, d.RawFlags)
 	}
 
 	// Ignore bridge and bonding slave devices
@@ -544,15 +553,6 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 	hasMacAddr := len(d.HardwareAddr) != 0
 	if !dc.l3DevSupported && !hasMacAddr {
 		return false, "L3 device, kernel too old, >= 5.8 required"
-	}
-
-	// If user specified devices or wildcards, then skip the device if it doesn't match.
-	// If the device does match, then skip further checks.
-	if dc.filter.nonEmpty() {
-		if dc.filter.match(d.Name) {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not matching user filter %v", dc.filter)
 	}
 
 	// Never consider devices with any of the excluded devices.
