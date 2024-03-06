@@ -46,22 +46,27 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *next
 	int i, len = sizeof(struct ipv6hdr);
 	struct ipv6_opt_hdr opthdr __align_stack_8;
 	__u8 nh = *nexthdr;
+	volatile int ret = 0;
 
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
 		switch (nh) {
 		case NEXTHDR_NONE:
-			return DROP_INVALID_EXTHDR;
+			ret = DROP_INVALID_EXTHDR;
+			goto exit;
 
 		case NEXTHDR_FRAGMENT:
-			return DROP_FRAG_NOSUPPORT;
+			ret = DROP_FRAG_NOSUPPORT;
+			goto exit;
 
 		case NEXTHDR_HOP:
 		case NEXTHDR_ROUTING:
 		case NEXTHDR_AUTH:
 		case NEXTHDR_DEST:
-			if (ctx_load_bytes(ctx, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
-				return DROP_INVALID;
+			if (ctx_load_bytes(ctx, l3_off + len, &opthdr, sizeof(opthdr)) < 0) {
+				ret = DROP_INVALID;
+				goto exit;
+			}
 
 			if (nh == NEXTHDR_AUTH)
 				len += ipv6_authlen(&opthdr);
@@ -78,7 +83,9 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *next
 	}
 
 	/* Reached limit of supported extension headers */
-	return DROP_INVALID_EXTHDR;
+	ret = DROP_INVALID_EXTHDR;
+exit:
+	return ret;
 }
 
 static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
