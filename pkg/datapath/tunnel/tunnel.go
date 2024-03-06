@@ -108,7 +108,7 @@ func newConfig(in newConfigIn) (Config, error) {
 }
 
 // NewTestConfig returns a new TunnelConfig for testing purposes.
-func NewTestConfig(proto Protocol) Config {
+func NewTestConfig(proto Protocol, port uint16) Config {
 	cfg := Config{protocol: proto}
 
 	switch proto {

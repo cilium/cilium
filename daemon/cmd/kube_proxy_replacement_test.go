@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -39,6 +40,7 @@ type kprConfig struct {
 
 	routingMode    string
 	tunnelProtocol tunnel.Protocol
+	tunnelPort     uint16
 	nodePortMode   string
 	dispatchMode   string
 }
@@ -242,6 +244,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.VXLAN
+				cfg.tunnelPort = defaults.TunnelPortVXLAN
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchOption
 			},
@@ -264,6 +267,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeNative
 				cfg.tunnelProtocol = tunnel.Geneve
+				cfg.tunnelPort = defaults.TunnelPortGeneve
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -284,6 +288,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.Geneve
+				cfg.tunnelPort = defaults.TunnelPortGeneve
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -304,6 +309,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.VXLAN
+				cfg.tunnelPort = defaults.TunnelPortVXLAN
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -326,6 +332,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeNative
 				cfg.tunnelProtocol = tunnel.Geneve
+				cfg.tunnelPort = defaults.TunnelPortGeneve
 				cfg.nodePortMode = option.NodePortModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -346,6 +353,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.Geneve
+				cfg.tunnelPort = defaults.TunnelPortGeneve
 				cfg.nodePortMode = option.NodePortModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -366,6 +374,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.VXLAN
+				cfg.tunnelPort = defaults.TunnelPortVXLAN
 				cfg.nodePortMode = option.NodePortModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -389,7 +398,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 		cfg := def
 		testCase.mod(&cfg)
 		cfg.set()
-		testCase.out.verify(c, tunnel.NewTestConfig(cfg.tunnelProtocol))
+		testCase.out.verify(c, tunnel.NewTestConfig(cfg.tunnelProtocol, cfg.tunnelPort))
 		def.set()
 	}
 }

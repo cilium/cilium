@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,10 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -30,7 +26,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -96,76 +91,6 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
 	return fw.Flush()
-}
-
-func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
-	// AWS ENI mode requires symmetric routing, see
-	// iptables.addCiliumENIRules().
-	// The default AWS daemonset installs the following rules that are used
-	// for NodePort traffic between nodes:
-	//
-	// # sysctl -w net.ipv4.conf.eth0.rp_filter=2
-	// # iptables -t mangle -A PREROUTING -i eth0 -m comment --comment "AWS, primary ENI" -m addrtype --dst-type LOCAL --limit-iface-in -j CONNMARK --set-xmark 0x80/0x80
-	// # iptables -t mangle -A PREROUTING -i eni+ -m comment --comment "AWS, primary ENI" -j CONNMARK --restore-mark --nfmask 0x80 --ctmask 0x80
-	// # ip rule add fwmark 0x80/0x80 lookup main
-	//
-	// It marks packets coming from another node through eth0, and restores
-	// the mark on the return path to force a lookup into the main routing
-	// table. Without these rules, the "ip rules" set by the cilium-cni
-	// plugin tell the host to lookup into the table related to the VPC for
-	// which the CIDR used by the endpoint has been configured.
-	//
-	// We want to reproduce equivalent rules to ensure correct routing.
-	if !option.Config.EnableIPv4 {
-		return sysSettings, nil
-	}
-
-	iface, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find interface with default route: %w", err)
-	}
-
-	retSettings := append(sysSettings, tables.Sysctl{
-		Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface.Attrs().Name),
-		Val:       "2",
-		IgnoreErr: false,
-	})
-	if err := route.ReplaceRule(route.Rule{
-		Priority: linux_defaults.RulePriorityNodeport,
-		Mark:     linux_defaults.MarkMultinodeNodeport,
-		Mask:     linux_defaults.MaskMultinodeNodeport,
-		Table:    route.MainTable,
-		Protocol: linux_defaults.RTProto,
-	}); err != nil {
-		return nil, fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
-	}
-
-	return retSettings, nil
-}
-
-func cleanIngressQdisc() error {
-	for _, iface := range option.Config.GetDevices() {
-		link, err := netlink.LinkByName(iface)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
-		}
-		qdiscs, err := netlink.QdiscList(link)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve qdisc list of link %s: %q", iface, err)
-		}
-		for _, q := range qdiscs {
-			if q.Type() != "ingress" {
-				continue
-			}
-			err = netlink.QdiscDel(q)
-			if err != nil {
-				return fmt.Errorf("failed to delete ingress qdisc of link %s: %q", iface, err)
-			} else {
-				log.WithField(logfields.Device, iface).Info("Removed prior present ingress qdisc from device so that Cilium's datapath can be loaded")
-			}
-		}
-	}
-	return nil
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
@@ -303,77 +228,12 @@ func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	sysSettings := []tables.Sysctl{
-		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
-		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
-		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
-		{Name: "kernel.unprivileged_bpf_disabled", Val: "1", IgnoreErr: true},
-		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
-	}
-
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	o.GetCompilationLock().Lock()
 	defer o.GetCompilationLock().Unlock()
 	defer func() { firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
-
-	var nodeIPv4, nodeIPv6 net.IP
-	if option.Config.EnableIPv4 {
-		nodeIPv4 = node.GetInternalIPv4Router()
-	}
-	if option.Config.EnableIPv6 {
-		nodeIPv6 = node.GetIPv6Router()
-		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
-		// interface (https://github.com/docker/libnetwork/issues/1720)
-		// Enable IPv6 for now
-		sysSettings = append(sysSettings,
-			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
-	}
-
-	// Datapath initialization
-	hostDev1, _, err := setupBaseDevice(l.sysctl, deviceMTU)
-	if err != nil {
-		return fmt.Errorf("failed to setup base devices: %w", err)
-	}
-
-	if option.Config.EnableHealthDatapath {
-		sysSettings = append(
-			sysSettings,
-			tables.Sysctl{
-				Name: "net.core.fb_tunnels_only_for_init_net", Val: "2", IgnoreErr: true,
-			},
-		)
-		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
-			return fmt.Errorf("unable to create ipip encapsulation devices for health datapath")
-		}
-	}
-
-	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), deviceMTU); err != nil {
-		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
-	}
-
-	if option.Config.IPAM == ipamOption.IPAMENI {
-		var err error
-		if sysSettings, err = addENIRules(sysSettings); err != nil {
-			return fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
-		}
-	}
-
-	// Any code that relies on sysctl settings being applied needs to be called after this.
-	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
-		return err
-	}
-
-	// add internal ipv4 and ipv6 addresses to cilium_host
-	if err := addHostDeviceAddr(hostDev1, nodeIPv4, nodeIPv6); err != nil {
-		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
-	}
-
-	if err := cleanIngressQdisc(); err != nil {
-		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
-		return err
-	}
 
 	if err := l.writeNodeConfigHeader(o); err != nil {
 		log.WithError(err).Error("Unable to write node config header")
