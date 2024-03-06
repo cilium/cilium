@@ -524,9 +524,7 @@ case $K8S_VERSION in
         # kubeadm <= 1.24 requires conntrack to be installed, we can remove this
         # once we have upgraded the VM image version.
         sudo apt-get install -y conntrack
-        # We don't need to define dthe kubernetes CNI version once we have stable
-        # releases.
-        # KUBERNETES_CNI_VERSION="0.8.7"
+        KUBERNETES_CNI_VERSION="1.1.1"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.25.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
