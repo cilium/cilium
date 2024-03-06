@@ -165,6 +165,9 @@ func (cache *PolicyCache) GetAuthTypes(localID, remoteID identityPkg.NumericIden
 
 	// SelectorPolicy is const after it has been created, so no locking needed to access it
 	selPolicy := cip.getPolicy()
+	if selPolicy.L4Policy == nil {
+		return nil // Local identity added, but policy not computed yet
+	}
 
 	var resTypes AuthTypes
 	for cs, authTypes := range selPolicy.L4Policy.AuthMap {
@@ -203,7 +206,7 @@ func newCachedSelectorPolicy(identity *identityPkg.Identity, selectorCache *Sele
 	cip := &cachedSelectorPolicy{
 		identity: identity,
 	}
-	cip.setPolicy(newSelectorPolicy(selectorCache))
+	cip.setPolicy(newSelectorPolicy(0, selectorCache))
 	return cip
 }
 
