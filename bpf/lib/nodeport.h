@@ -29,6 +29,8 @@
 #include "fib.h"
 
 #define nodeport_nat_egress_ipv4_hook(ctx, ip4, info, tuple, l4_off, ext_err) CTX_ACT_OK
+#define nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, tuple, tunnel_endpoint, src_sec_identity, \
+		dst_sec_identity) -1
 
 #ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
@@ -2427,6 +2429,13 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 	if (!check_revdnat)
 		goto out;
+
+	ret = nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, &tuple, &tunnel_endpoint,
+						  &src_sec_identity, &dst_sec_identity);
+	if (ret == CTX_ACT_OK)
+		return ret;
+	else if (ret == CTX_ACT_REDIRECT)
+		goto redirect;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, ipv4_is_fragment(ip4),
 			      l4_off, has_l4_header, CT_INGRESS, SCOPE_REVERSE,
