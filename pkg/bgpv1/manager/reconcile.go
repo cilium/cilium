@@ -17,6 +17,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 
 	"github.com/sirupsen/logrus"
@@ -352,7 +353,12 @@ type ExportPodCIDRReconcilerOut struct {
 
 type ExportPodCIDRReconciler struct{}
 
-func NewExportPodCIDRReconciler() ExportPodCIDRReconcilerOut {
+func NewExportPodCIDRReconciler(dc *option.DaemonConfig) ExportPodCIDRReconcilerOut {
+	// Don't provide the reconciler if the IPAM mode is not supported
+	if !types.CanAdvertisePodCIDR(dc.IPAMMode()) {
+		log.Info("Unsupported IPAM mode, disabling PodCIDR advertisements. exportPodCIDR doesn't take effect.")
+		return ExportPodCIDRReconcilerOut{}
+	}
 	return ExportPodCIDRReconcilerOut{
 		Reconciler: &ExportPodCIDRReconciler{},
 	}
