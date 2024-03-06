@@ -20,7 +20,6 @@ reachability within the cluster.
 Prerequisites
 -------------
 
-- Cilium must be configured with IPAM mode ``cluster-pool``, ``kubernetes``, or ``multi-pool``.
 - If you are using the older MetalLB-based :ref:`bgp` feature, it must be disabled.
 
 Installation
@@ -283,6 +282,13 @@ io.cilium.podippool.name        ``.meta.name``
 =============================== ===================
 
 For additional details regarding CiliumPodIPPools, see the :ref:`ipam_crd_multi_pool` section.
+
+Other IPAM Types
+^^^^^^^^^^^^^^^^
+
+When using other IPAM types, the BGP Control Plane does not support advertising
+PodCIDRs and specifying ``virtualRouters[*].exportPodCIDR`` doesn't take any
+effect.
 
 Advertising Service Virtual IPs
 -------------------------------
