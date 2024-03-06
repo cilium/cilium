@@ -27,8 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -197,27 +195,6 @@ func (p *proxyPolicy) GetProtocol() uint8 {
 	return p.protocol
 }
 
-// policyIdentitiesLabelLookup is an implementation of the policy.Identities interface.
-type policyIdentitiesLabelLookup struct {
-	*Endpoint
-}
-
-// GetLabels implements the policy.Identites interface{} method GetLabels,
-// which allows Endpoint.addNewRedirectsFromDesiredPolicy to call `l4.ToMapState`
-// with a label cache. This enables `l4.ToMapstate` to look up CIDRs associated with
-// identites to make a final determination about whether they should even be inserted into
-// an Endpoint's policy map.
-//
-// Note that while other policy implementations use the SelectorCache as the
-// underlying source for labels during calls to ToMapState(), this
-// implementation uses the identity allocator. This means that the locking
-// patterns from this code path will differ from the other policy calculation
-// cases!
-func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) labels.LabelArray {
-	ident := p.allocator.LookupIdentityByID(context.Background(), id)
-	return ident.LabelArray
-}
-
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
@@ -327,7 +304,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				direction = trafficdirection.Egress
 			}
 
-			keysFromFilter := l4.ToMapState(e, direction, &policyIdentitiesLabelLookup{e})
+			keysFromFilter := l4.ToMapState(e, direction)
 
 			for keyFromFilter, entry := range keysFromFilter {
 				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
