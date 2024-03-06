@@ -180,7 +180,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 
 		if ip != nil {
-			ip.Encrypted = (tn.Reason & monitor.TraceReasonEncryptMask) != 0
+			ip.Encrypted = tn.IsEncrypted()
 		}
 	}
 
@@ -402,19 +402,15 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 	}
 }
 
-func isReply(reason uint8) bool {
-	return reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
-}
-
 func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrapperspb.BoolValue {
 	switch {
-	case tn != nil && monitor.TraceReasonIsKnown(tn.Reason):
-		if monitor.TraceReasonIsEncap(tn.Reason) || monitor.TraceReasonIsDecap(tn.Reason) {
+	case tn != nil && tn.TraceReasonIsKnown():
+		if tn.TraceReasonIsEncap() || tn.TraceReasonIsDecap() {
 			return nil
 		}
 		// Reason was specified by the datapath, just reuse it.
 		return &wrapperspb.BoolValue{
-			Value: isReply(tn.Reason),
+			Value: tn.TraceReasonIsReply(),
 		}
 	case pvn != nil && pvn.Verdict >= 0:
 		// Forwarded PolicyVerdictEvents are emitted for the first packet of
@@ -473,11 +469,11 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 		// tracking result from the `Reason` field to invert the direction for
 		// reply packets. The datapath currently populates the `Reason` field
 		// with CT information for some observation points.
-		if monitor.TraceReasonIsKnown(tn.Reason) {
+		if tn.TraceReasonIsKnown() {
 			// true if the traffic source is the local endpoint, i.e. egress
 			isSourceEP := tn.Source == uint16(srcEP)
 			// true if the packet is a reply, i.e. reverse direction
-			isReply := tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
+			isReply := tn.TraceReasonIsReply()
 
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
