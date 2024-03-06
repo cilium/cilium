@@ -435,7 +435,6 @@ type L4Filter struct {
 	// RuleOrigin tracks which policy rules (identified by labels) are the origin for this L3/L4
 	// (i.e. selector and port) filter. This information is used when distilling a policy to an
 	// EndpointPolicy, to track which policy rules were involved for a specific verdict.
-	// Each LabelArrayList is in sorted order.
 	RuleOrigin map[CachedSelector]labels.LabelArrayList `json:"-"`
 
 	// This reference is circular, but it is cleaned up at Detach()
@@ -1019,7 +1018,7 @@ func addL4Filter(policyCtx PolicyContext,
 	// we know about. New CachedSelectors are added.
 	for cs, newLabels := range filterToMerge.RuleOrigin {
 		if existingLabels, ok := existingFilter.RuleOrigin[cs]; ok {
-			existingFilter.RuleOrigin[cs] = existingLabels.MergeSorted(newLabels)
+			existingFilter.RuleOrigin[cs] = existingLabels.Merge(newLabels...)
 		} else {
 			existingFilter.RuleOrigin[cs] = newLabels
 		}
@@ -1329,7 +1328,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		rulesBySelector := map[string][][]string{}
 		derivedFrom := labels.LabelArrayList{}
 		for sel, rules := range v.RuleOrigin {
-			derivedFrom.MergeSorted(rules)
+			derivedFrom.Merge(rules...)
 			rulesBySelector[sel.String()] = rules.GetModel()
 		}
 		ingress = append(ingress, &models.PolicyRule{
@@ -1343,7 +1342,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	for _, v := range l4.Egress.PortRules {
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
-			derivedFrom.MergeSorted(rules)
+			derivedFrom.Merge(rules...)
 		}
 		egress = append(egress, &models.PolicyRule{
 			Rule:             v.Marshal(),
