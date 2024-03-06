@@ -16,6 +16,7 @@ import (
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestExportPodCIDRReconciler(t *testing.T) {
@@ -79,6 +80,9 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 		},
 	}
 
+	// Dummy daemon config and logger
+	daemonConfig := &option.DaemonConfig{IPAM: "Kubernetes"}
+
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
 			// setup our test server, create a BgpServer, advertise the tt.advertised
@@ -100,7 +104,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
 			testSC.Config = oldc
-			reconciler := NewExportPodCIDRReconciler().Reconciler.(*ExportPodCIDRReconciler)
+			reconciler := NewExportPodCIDRReconciler(daemonConfig).Reconciler.(*ExportPodCIDRReconciler)
 			podCIDRAnnouncements := reconciler.getMetadata(testSC)
 			for _, cidr := range tt.advertised {
 				advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
@@ -119,7 +123,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
 
-			exportPodCIDRReconciler := NewExportPodCIDRReconciler().Reconciler
+			exportPodCIDRReconciler := NewExportPodCIDRReconciler(daemonConfig).Reconciler
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
