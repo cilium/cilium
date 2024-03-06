@@ -499,6 +499,7 @@ Makefile* @cilium/build
 /pkg/metrics @cilium/metrics
 /pkg/monitor @cilium/sig-datapath
 /pkg/monitor/api @cilium/api @cilium/sig-datapath
+/pkg/monitor/datapath_trace.go @cilium/sig-datapath @cilium/sig-hubble
 /pkg/monitor/format @cilium/cli @cilium/sig-datapath
 /pkg/monitor/payload @cilium/api @cilium/sig-datapath
 /pkg/mountinfo @cilium/sig-datapath
