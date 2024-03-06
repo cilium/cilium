@@ -69,6 +69,7 @@ type PolicyOwner interface {
 	LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16
 	HasBPFPolicyMap() bool
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
+	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 }
 

@@ -16,7 +16,7 @@ type EndpointInfoSource interface {
 	GetIPv6Address() string
 	HasSidecarProxy() bool
 	ConntrackNameLocked() string
-	GetNamedPort(ingress bool, name string, proto uint8) uint16
+	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and
