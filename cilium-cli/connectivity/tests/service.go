@@ -286,7 +286,8 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 	// With kube-proxy doing N/S LB it is not possible to see the original client
 	// IP, as iptables rules do the LB SNAT/DNAT before the packet hits any
 	// of Cilium's datapath BPF progs. So, skip the flow validation in that case.
-	_, validateFlows := t.Context().Feature(features.KPRNodePort)
+	status, ok := t.Context().Feature(features.KPRNodePort)
+	validateFlows := ok && status.Enabled
 
 	for _, svc := range t.Context().EchoServices() {
 		for _, node := range t.Context().Nodes() {
