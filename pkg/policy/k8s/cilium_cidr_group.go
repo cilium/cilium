@@ -9,7 +9,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -70,15 +69,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 
 		initialRecvTime := time.Now()
 
-		resourceKind := ipcacheTypes.ResourceKindCNP
-		if len(key.Namespace) == 0 {
-			resourceKind = ipcacheTypes.ResourceKindCCNP
-		}
-		resourceID := ipcacheTypes.NewResourceID(
-			resourceKind,
-			cnp.ObjectMeta.Namespace,
-			cnp.ObjectMeta.Name,
-		)
+		resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
 
 		errs = append(errs, p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID))
 	}
