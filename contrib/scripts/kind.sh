@@ -9,7 +9,7 @@ default_workers=1
 default_cluster_name=""
 default_image=""
 default_kubeproxy_mode="iptables"
-if [ "$(uname 2>/dev/null)" == "Linux" ] && [ $(sysctl -n net.ipv6.conf.all.disable_ipv6) == 1 ] ; then
+if [ "$(uname 2>/dev/null)" == "Linux" ] && [ "$(</proc/sys/net/ipv6/conf/all/disable_ipv6)" == 1 ] ; then
   default_ipfamily="ipv4"
 else
   default_ipfamily="dual"
