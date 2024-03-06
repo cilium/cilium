@@ -45,5 +45,4 @@ install_clang
 
 export PATH="/usr/local/clang/bin:$PATH"
 
-go install github.com/mattn/goveralls@a36c7ef8f23b2952fa6e39663f52107dfc8ad69d # v0.0.11
 go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
