@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -196,22 +197,24 @@ func (p *proxyPolicy) GetProtocol() uint8 {
 	return p.protocol
 }
 
-// GetLabelsLocked implements the policy.Identites interface{} method GetLabelsLocked, which allows
-// Endpoint.addNewRedirectsFromDesiredPolicy to call `UpdateRedirects` with a label cache. This
-// enables `UpdateRedirects` to call `toMapState` to look up CIDRs associated with identites to make
-// a final determination about whether they should even be inserted into an Endpoint's policy map.
+// policyIdentitiesLabelLookup is an implementation of the policy.Identities interface.
+type policyIdentitiesLabelLookup struct {
+	*Endpoint
+}
+
+// GetLabels implements the policy.Identites interface{} method GetLabels,
+// which allows Endpoint.addNewRedirectsFromDesiredPolicy to call `l4.ToMapState`
+// with a label cache. This enables `l4.ToMapstate` to look up CIDRs associated with
+// identites to make a final determination about whether they should even be inserted into
+// an Endpoint's policy map.
 //
-// Note that while other policy implementations use the SelectorCache as the underlying source for
-// labels during calls to ToMapState(), this implementation uses the identity allocator. This means
-// that the locking patterns from this code path will differ from the other policy calculation
+// Note that while other policy implementations use the SelectorCache as the
+// underlying source for labels during calls to ToMapState(), this
+// implementation uses the identity allocator. This means that the locking
+// patterns from this code path will differ from the other policy calculation
 // cases!
-//
-// This is needed due to the endpoint being locked when UpdateRedirects is called so that selector
-// cache can not be used for this function, as it will lock the endpoint via the ip cache.
-//
-// Called with the Endpoint locked.
-func (e *Endpoint) GetLabelsLocked(id identity.NumericIdentity) labels.LabelArray {
-	ident := e.allocator.LookupIdentityByID(context.Background(), id)
+func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) labels.LabelArray {
+	ident := p.allocator.LookupIdentityByID(context.Background(), id)
 	if ident != nil {
 		return ident.LabelArray
 	}
@@ -228,16 +231,31 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	}
 
 	var (
+		m            policy.L4PolicyMap
 		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
 		updatedStats []*models.ProxyStatistics
 	)
 
+	if ingress {
+		m = e.desiredPolicy.L4Policy.Ingress.PortRules
+	} else {
+		m = e.desiredPolicy.L4Policy.Egress.PortRules
+	}
+	mapState := e.desiredPolicy.PolicyMapState
+
 	adds := make(policy.Keys)
 	old := make(policy.MapState)
 
-	e.desiredPolicy.UpdateRedirects(ingress, e,
-		func(l4 *policy.L4Filter) (uint16, bool) {
+	for _, l4 := range m {
+		// Deny policies do not support redirects
+		if l4.IsRedirect() {
+
+			// Check if we are denying this specific L4 first regardless the L3
+			if mapState.DeniesL4(e, l4) {
+				continue
+			}
+
 			var redirectPort uint16
 			// Only create a redirect if the proxy is NOT running in a sidecar container
 			// or the parser is not HTTP. If running in a sidecar container and the parser
@@ -257,7 +275,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					// with different port values. The redirect will be created
 					// when the mapping is available or when the port name
 					// conflicts have been resolved in POD specs.
-					return 0, false
+					continue
 				}
 
 				var err error
@@ -271,7 +289,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					// Policy is regenerated when listeners are added or removed
 					// to fix this condition when the listener is available.
 					e.getLogger().WithField(logfields.Listener, l4.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
-					return 0, false
+					continue
 				}
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
@@ -301,10 +319,26 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 			if e.desiredPolicy == e.realizedPolicy {
 				// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
-				return 0, false
+				continue
 			}
-			return redirectPort, true
-		}, adds, old)
+
+			// Set the proxy port in the policy map.
+			var direction trafficdirection.TrafficDirection
+			if l4.Ingress {
+				direction = trafficdirection.Ingress
+			} else {
+				direction = trafficdirection.Egress
+			}
+
+			idLookup := &policyIdentitiesLabelLookup{e}
+			l4.ToMapState(e, direction, idLookup, e.desiredPolicy.PolicyMapState, func(keyFromFilter policy.Key, entry *policy.MapStateEntry) bool {
+				if entry.IsRedirectEntry() {
+					entry.ProxyPort = redirectPort
+				}
+				return true
+			}, adds, nil, old)
+		}
+	}
 
 	revertStack.Push(func() error {
 		// Restore the proxy stats.
