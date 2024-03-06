@@ -1035,25 +1035,23 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 		},
 	}
 	for _, tt := range tests {
-		changes := ChangeState{
-			Adds:    make(Keys),
-			Deletes: make(Keys),
-			Old:     make(MapState),
-		}
+		adds := make(Keys)
+		deletes := make(Keys)
+		old := make(MapState)
 		// copy the starging point
 		keys := make(MapState, len(tt.keys))
 		for k, v := range tt.keys {
 			keys[k] = v
 		}
-		keys.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, nil, denyRules, changes)
+		keys.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, denyRules, adds, deletes, old, nil)
 		keys.validatePortProto(c)
 		c.Assert(keys, checker.DeepEquals, tt.want, check.Commentf("%s: MapState mismatch", tt.name))
-		c.Assert(changes.Adds, checker.DeepEquals, tt.wantAdds, check.Commentf("%s: Adds mismatch", tt.name))
-		c.Assert(changes.Deletes, checker.DeepEquals, tt.wantDeletes, check.Commentf("%s: Deletes mismatch", tt.name))
-		c.Assert(changes.Old, checker.DeepEquals, tt.wantOldValues, check.Commentf("%s: OldValues mismatch", tt.name))
+		c.Assert(adds, checker.DeepEquals, tt.wantAdds, check.Commentf("%s: Adds mismatch", tt.name))
+		c.Assert(deletes, checker.DeepEquals, tt.wantDeletes, check.Commentf("%s: Deletes mismatch", tt.name))
+		c.Assert(old, checker.DeepEquals, tt.wantOldValues, check.Commentf("%s: OldValues mismatch", tt.name))
 
 		// Revert changes and check that we get the original mapstate
-		keys.RevertChanges(changes)
+		keys.RevertChanges(adds, old)
 		c.Assert(keys, checker.DeepEquals, tt.keys, check.Commentf("%s: Revert mismatch", tt.name))
 	}
 }
@@ -1849,11 +1847,9 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		for k, v := range tt.keys {
 			old.insertIfNotExists(k, v)
 		}
-		changes := ChangeState{
-			Adds: make(Keys),
-			Old:  make(MapState),
-		}
-		tt.keys.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, changes)
+		adds := make(Keys)
+		visOld := make(MapState)
+		tt.keys.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, adds, visOld)
 		tt.keys.validatePortProto(c)
 		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
 		// Find new and updated entries
@@ -1873,8 +1869,8 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 				wantAdds[k] = struct{}{}
 			}
 		}
-		c.Assert(changes.Adds, checker.DeepEquals, wantAdds, check.Commentf(tt.name))
-		c.Assert(changes.Old, checker.DeepEquals, wantOld, check.Commentf(tt.name))
+		c.Assert(adds, checker.DeepEquals, wantAdds, check.Commentf(tt.name))
+		c.Assert(visOld, checker.DeepEquals, wantOld, check.Commentf(tt.name))
 	}
 }
 
@@ -2213,17 +2209,17 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				policyMapState = MapState{}
 			}
 		}
-		changes := ChangeState{
-			Adds:    make(Keys),
-			Deletes: make(Keys),
-			Old:     make(MapState),
-		}
+		adds := make(Keys)
+		deletes := make(Keys)
+		visOld := make(MapState)
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, visOld)
 		}
-		c.Assert(changes.Adds, checker.DeepEquals, tt.visAdds, check.Commentf(tt.name+" (visAdds)"))
-		c.Assert(changes.Old, checker.DeepEquals, tt.visOld, check.Commentf(tt.name+" (visOld)"))
-
+		c.Assert(adds, checker.DeepEquals, tt.visAdds, check.Commentf(tt.name+" (visAdds)"))
+		c.Assert(visOld, checker.DeepEquals, tt.visOld, check.Commentf(tt.name+" (visOld)"))
+		for k := range visOld {
+			deletes[k] = struct{}{}
+		}
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
 			if x.ingress {
@@ -2237,24 +2233,19 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			}
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
-		changes = ChangeState{
-			Adds:    adds,
-			Deletes: deletes,
-			Old:     make(MapState),
-		}
-
+		adds, deletes = policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
+		visOld = make(MapState)
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, visOld)
 		}
-		for k := range changes.Old {
-			changes.Deletes[k] = struct{}{}
+		for k := range visOld {
+			deletes[k] = struct{}{}
 		}
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
-		c.Assert(changes.Adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
-		c.Assert(changes.Deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
+		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
+		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
 	}
 }
 
@@ -2364,8 +2355,8 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithSubnets(c *check.
 			expectedKeys[bKeyWithBProto] = bEntryCpy
 		}
 		outcomeKeys := MapState{}
-		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
-		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures, selectorCache)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures, selectorCache)
 		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf(tt.name))
 	}
@@ -2381,8 +2372,8 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithSubnets(c *check.
 		expectedKeys[aKey] = aEntry
 		expectedKeys[bKey] = bEntry
 		outcomeKeys := MapState{}
-		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
-		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures, selectorCache)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures, selectorCache)
 		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
 	}

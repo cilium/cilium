@@ -233,10 +233,8 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		updatedStats []*models.ProxyStatistics
 	)
 
-	changes := policy.ChangeState{
-		Adds: make(policy.Keys),
-		Old:  make(policy.MapState),
-	}
+	adds := make(policy.Keys)
+	old := make(policy.MapState)
 
 	e.desiredPolicy.UpdateRedirects(ingress, e,
 		func(l4 *policy.L4Filter) (uint16, bool) {
@@ -306,7 +304,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				return 0, false
 			}
 			return redirectPort, true
-		}, changes)
+		}, adds, old)
 
 	revertStack.Push(func() error {
 		// Restore the proxy stats.
@@ -316,7 +314,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		}
 		e.proxyStatisticsMutex.Unlock()
 
-		e.desiredPolicy.PolicyMapState.RevertChanges(changes)
+		e.desiredPolicy.PolicyMapState.RevertChanges(adds, old)
 		return nil
 	})
 
@@ -328,10 +326,8 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		visPolicy    policy.DirectionalVisibilityPolicy
 		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
-		changes      = policy.ChangeState{
-			Adds: make(policy.Keys),
-			Old:  make(policy.MapState),
-		}
+		adds         = make(policy.Keys)
+		oldValues    = make(policy.MapState)
 	)
 
 	if e.visibilityPolicy == nil || e.IsProxyDisabled() {
@@ -396,7 +392,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 		updatedStats = append(updatedStats, proxyStats)
 
-		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, oldValues)
 	}
 
 	revertStack.Push(func() error {
@@ -408,7 +404,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		e.proxyStatisticsMutex.Unlock()
 
 		// Restore the desired policy map state.
-		e.desiredPolicy.PolicyMapState.RevertChanges(changes)
+		e.desiredPolicy.PolicyMapState.RevertChanges(adds, oldValues)
 		return nil
 	})
 
@@ -1211,20 +1207,19 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
-	changes := policy.ChangeState{Adds: adds}
 
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
 		for _, visMeta := range e.visibilityPolicy.Ingress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
 			}
 		}
 		for _, visMeta := range e.visibilityPolicy.Egress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
 			}
 		}
 	}

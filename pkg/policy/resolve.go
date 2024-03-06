@@ -181,7 +181,7 @@ func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 				}
 			}
 			return true
-		}, ChangeState{})
+		}, nil, nil, nil)
 	}
 }
 
@@ -190,7 +190,7 @@ type getProxyPortFunc func(*L4Filter) (proxyPort uint16, ok bool)
 // UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
 // function to obtain a proxy port number to use. Changes to 'p.PolicyMapState' are collected in
 // 'adds' and 'updated' so that they can be reverted when needed.
-func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, getProxyPort getProxyPortFunc, changes ChangeState) {
+func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, getProxyPort getProxyPortFunc, adds Keys, updated MapState) {
 	l4policy := &p.L4Policy.Ingress
 	if ingress {
 		l4policy = &p.L4Policy.Egress
@@ -198,11 +198,11 @@ func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, ge
 
 	// Selectorcache needs to be locked for toMapState (GetLabels()) call
 	p.SelectorCache.mutex.RLock()
-	l4policy.updateRedirects(p, identities, getProxyPort, changes)
+	l4policy.updateRedirects(p, identities, getProxyPort, adds, updated)
 	p.SelectorCache.mutex.RUnlock()
 }
 
-func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities Identities, getProxyPort getProxyPortFunc, changes ChangeState) {
+func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities Identities, getProxyPort getProxyPortFunc, adds Keys, updated MapState) {
 	for _, l4 := range l4policy.PortRules {
 		if l4.IsRedirect() {
 			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
@@ -221,7 +221,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities 
 					entry.ProxyPort = redirectPort
 				}
 				return true
-			}, changes)
+			}, adds, nil, updated)
 		}
 	}
 }
