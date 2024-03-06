@@ -1763,7 +1763,7 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 	for _, tt := range tests {
 		old := make(MapState, len(tt.keys))
 		for k, v := range tt.keys {
-			old.insertIfNotExists(k, v)
+			old[k] = v
 		}
 		adds := make(Keys)
 		visOld := make(MapState)
