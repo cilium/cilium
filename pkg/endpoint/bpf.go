@@ -238,9 +238,9 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	)
 
 	if ingress {
-		m = e.desiredPolicy.L4Policy.Ingress.PortRules
+		m = e.desiredPolicy.L4Policy.Ingress
 	} else {
-		m = e.desiredPolicy.L4Policy.Egress.PortRules
+		m = e.desiredPolicy.L4Policy.Egress
 	}
 	mapState := e.desiredPolicy.PolicyMapState
 
