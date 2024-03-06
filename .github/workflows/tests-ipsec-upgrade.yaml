@@ -327,7 +327,7 @@ jobs:
 
           mkdir -p cilium-junits
 
-          CILIUM_CLI_MODE=helm ./cilium-cli install \
+          ./cilium-cli install \
             ${{ steps.cilium-stable-config.outputs.config }}
 
           ./cilium-cli status --wait
@@ -351,7 +351,7 @@ jobs:
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           operation-cmd: |
-            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+            ./cilium-cli upgrade \
               ${{ steps.cilium-newest-config.outputs.config }}
 
             ./cilium-cli status --wait
@@ -364,7 +364,7 @@ jobs:
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           operation-cmd: |
-            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+            ./cilium-cli upgrade \
               ${{ steps.cilium-stable-config.outputs.config }}
 
             ./cilium-cli status --wait

@@ -186,7 +186,7 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |

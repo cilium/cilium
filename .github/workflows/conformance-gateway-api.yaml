@@ -57,7 +57,6 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
-  CILIUM_CLI_MODE: helm
   kind_config: .github/kind-config.yaml
   gateway_api_version: v1.0.0
   timeout: 5m

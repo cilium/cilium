@@ -327,7 +327,6 @@ jobs:
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-          export CILIUM_CLI_MODE=helm
           ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s

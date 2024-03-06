@@ -37,7 +37,6 @@ env:
   test_name: node-throughput
   cluster_base_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
   GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
-  CILIUM_CLI_MODE: helm
 
 jobs:
   install-and-scaletest:
