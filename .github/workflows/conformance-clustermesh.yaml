@@ -56,7 +56,6 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
-  CILIUM_CLI_MODE: helm
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
   contextName1: kind-cluster1-${{ github.run_id }}

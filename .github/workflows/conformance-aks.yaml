@@ -56,7 +56,6 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
   cilium_cli_ci_version:
-  CILIUM_CLI_MODE: helm
 
 jobs:
   commit-status-start:

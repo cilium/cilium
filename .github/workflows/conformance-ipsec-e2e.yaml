@@ -223,7 +223,6 @@ jobs:
           kubectl create -n kube-system secret generic cilium-ipsec-keys \
             --from-literal=keys="3 ${key}"
 
-          export CILIUM_CLI_MODE=helm
           ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
