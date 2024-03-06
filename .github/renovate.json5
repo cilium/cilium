@@ -18,7 +18,6 @@
     "go.mod",
     "go.sum",
     "Makefile.defs",
-    ".travis.yml",
     "test/kubernetes-test.sh",
     "test/packet/scripts/install.sh",
     "install/kubernetes/cilium/templates/spire/**",
@@ -498,14 +497,6 @@
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
-      ]
-    },
-    {
-      "fileMatch": [
-        "^\\.travis\\.yml$"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go: \"(?<currentValue>.*)\""
       ]
     },
     {
