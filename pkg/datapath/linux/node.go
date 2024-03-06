@@ -690,7 +690,7 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 
 	nextHopIPv4, err := getNextHopIP(nextHopIPv4, link)
 	if err != nil {
-		scopedLog.WithError(err).Info("Unable to determine next hop address")
+		scopedLog.WithError(err).Debug("Unable to determine next hop address")
 		return
 	}
 	nextHopStr := nextHopIPv4.String()
@@ -761,7 +761,7 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 
 	nextHopIPv6, err := getNextHopIP(nextHopIPv6, link)
 	if err != nil {
-		scopedLog.WithError(err).Info("Unable to determine next hop address")
+		scopedLog.WithError(err).Debug("Unable to determine next hop address")
 		return
 	}
 	nextHopStr := nextHopIPv6.String()
