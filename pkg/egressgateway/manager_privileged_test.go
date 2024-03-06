@@ -5,6 +5,7 @@ package egressgateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 	"testing"
@@ -633,4 +634,111 @@ func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) err
 	}
 
 	return nil
+}
+
+type FakeEgressPolicyMap struct {
+	backingMap map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4
+}
+
+var _ egressmap.PolicyMap = (*FakeEgressPolicyMap)(nil)
+
+func (fm *FakeEgressPolicyMap) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*egressmap.EgressPolicyVal4, error) {
+	key := egressmap.NewEgressPolicyKey4(sourceIP, destCIDR)
+	if val, ok := fm.backingMap[key]; ok {
+		return &val, nil
+	}
+
+	return nil, errors.New("lookup: key not present in fake map")
+}
+
+func (fm *FakeEgressPolicyMap) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
+	key := egressmap.NewEgressPolicyKey4(sourceIP, destCIDR)
+	val := egressmap.NewEgressPolicyVal4(egressIP, gatewayIP)
+
+	fm.backingMap[key] = val
+	return nil
+}
+
+func (fm *FakeEgressPolicyMap) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
+	key := egressmap.NewEgressPolicyKey4(sourceIP, destCIDR)
+	delete(fm.backingMap, key)
+	return nil
+}
+
+func (fm *FakeEgressPolicyMap) IterateWithCallback(cb egressmap.EgressPolicyIterateCallback) error {
+	for k, v := range fm.backingMap {
+		cb(&k, &v)
+	}
+	return nil
+}
+
+func BenchmarkReconcileMap(b *testing.B) {
+	testutils.PrivilegedTest(b)
+	var (
+		policies  = make(fakeResource[*Policy])
+		nodes     = make(fakeResource[*cilium_api_v2.CiliumNode])
+		endpoints = make(fakeResource[*k8sTypes.CiliumEndpoint])
+	)
+
+	lc := hivetest.Lifecycle(b)
+	policyMap := FakeEgressPolicyMap{backingMap: make(map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4)}
+
+	manager, err := newEgressGatewayManager(Params{
+		Lifecycle:         lc,
+		Config:            Config{false, 1 * time.Millisecond},
+		DaemonConfig:      &option.DaemonConfig{},
+		IdentityAllocator: identityAllocator,
+		PolicyMap:         &policyMap,
+		Policies:          policies,
+		Nodes:             nodes,
+		Endpoints:         endpoints,
+	})
+	if err != nil {
+		b.Error(err)
+	}
+
+	createTestInterface(b, testInterface1, egressCIDR1)
+	reconciliationEventsCount := manager.reconciliationEventsCount.Load()
+
+	policies.sync(b)
+	nodes.sync(b)
+	endpoints.sync(b)
+	reconciliationEventsCount = waitForReconciliationRun(b, manager, reconciliationEventsCount)
+
+	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
+	nodes.process(b, resource.Event[*cilium_api_v2.CiliumNode]{
+		Kind:   resource.Upsert,
+		Object: node1.ToCiliumNode(),
+	})
+	reconciliationEventsCount = waitForReconciliationRun(b, manager, reconciliationEventsCount)
+
+	node2 := newCiliumNode(node2, node2IP, nodeGroup2Labels)
+	nodes.process(b, resource.Event[*cilium_api_v2.CiliumNode]{
+		Kind:   resource.Upsert,
+		Object: node2.ToCiliumNode(),
+	})
+	reconciliationEventsCount = waitForReconciliationRun(b, manager, reconciliationEventsCount)
+
+	policy1 := policyParams{
+		name:            "policy-1",
+		endpointLabels:  ep1Labels,
+		destinationCIDR: destCIDR,
+		nodeLabels:      nodeGroup1Labels,
+		iface:           testInterface1,
+	}
+
+	addPolicy(b, policies, &policy1)
+	reconciliationEventsCount = waitForReconciliationRun(b, manager, reconciliationEventsCount)
+
+	for i := 0; i < 256; i++ {
+		ep, _ := newEndpointAndIdentity(fmt.Sprintf("ep-%d", i), fmt.Sprintf("10.0.0.%d", i), ep1Labels)
+		addEndpoint(b, endpoints, &ep)
+		reconciliationEventsCount = waitForReconciliationRun(b, manager, reconciliationEventsCount)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < 200; i++ {
+		manager.addMissingEgressRules()
+		manager.removeUnusedEgressRules()
+	}
 }
