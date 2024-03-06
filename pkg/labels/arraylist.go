@@ -57,35 +57,36 @@ func (ls LabelArrayList) Sort() LabelArrayList {
 }
 
 // Merge incorporates new LabelArrays into an existing LabelArrayList, without
-// introducing duplicates, returning the result for convenience. Existing
+// introducing duplicates, returning the result for convenience. The LabelArrays
+// contained in either LabelArrayList must already be sorted. Existing
 // duplication in either list is not removed.
 func (lsp *LabelArrayList) Merge(include ...LabelArray) LabelArrayList {
 	lsp.Sort()
 	incl := LabelArrayList(include).Sort()
-	return lsp.MergeSorted(incl)
+	return lsp.mergeSorted(incl)
 }
 
-// MergeSorted incorporates new labels from 'include' to the receiver,
-// both of which must be already sorted.
-// LabelArrays are inserted from 'include' to the receiver as needed.
-func (lsp *LabelArrayList) MergeSorted(include LabelArrayList) LabelArrayList {
-	merged := *lsp
-	i := 0
-	for j := 0; i < len(include) && j < len(merged); j++ {
-		if include[i].Less(merged[j]) {
-			merged = append(merged[:j+1], merged[j:]...) // make space at merged[j]
-			merged[j] = include[i]
+func (lsp *LabelArrayList) mergeSorted(include LabelArrayList) LabelArrayList {
+	ls := *lsp
+	merged := make(LabelArrayList, 0, len(include)+len(ls))
+
+	var i, j int
+	for i < len(include) && j < len(ls) {
+		if ls[j].Less(include[i]) {
+			merged = append(merged, ls[j])
+			j++
+		} else if ls[j].Equals(include[i]) {
+			merged = append(merged, ls[j])
 			i++
-		} else if include[i].Equals(merged[j]) {
+			j++
+		} else {
+			merged = append(merged, include[i])
 			i++
 		}
 	}
 
-	// 'include' may have more entries after original labels have been exhausted
-	if i < len(include) {
-		merged = append(merged, include[i:]...)
-	}
-
+	merged = append(merged, ls[j:]...)
+	merged = append(merged, include[i:]...)
 	*lsp = merged
-	return *lsp
+	return merged
 }
