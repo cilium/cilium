@@ -20,6 +20,7 @@ import (
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // We use similar local listen ports as the tests in the pkg/bgpv1/test package.
@@ -227,7 +228,8 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		ServiceSelector: serviceSelector,
 	}
 
-	exportPodCIDRReconciler := NewExportPodCIDRReconciler().Reconciler
+	daemonConfig := &option.DaemonConfig{IPAM: "Kubernetes"}
+	exportPodCIDRReconciler := NewExportPodCIDRReconciler(daemonConfig).Reconciler
 	params := ReconcileParams{
 		CurrentServer: testSC,
 		DesiredConfig: newc,
