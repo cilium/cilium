@@ -2589,7 +2589,9 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
-		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired
+		c.EnableHighScaleIPcache || c.EnableL2Announcements ||
+		c.ForceDeviceRequired || c.EnableIPSec
+
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
@@ -4222,7 +4224,8 @@ func getDefaultMonitorQueueSize(numCPU int) int {
 // place.
 func MightAutoDetectDevices() bool {
 	devices := Config.GetDevices()
-	return ((Config.EnableHostFirewall || Config.EnableWireguard || Config.EnableHighScaleIPcache) && len(devices) == 0) ||
+	return ((Config.EnableHostFirewall || Config.EnableWireguard || Config.EnableHighScaleIPcache || Config.EnableIPSec) &&
+		len(devices) == 0) ||
 		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
 			(len(devices) == 0 || Config.DirectRoutingDevice == ""))
 }
