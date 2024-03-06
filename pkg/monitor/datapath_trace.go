@@ -109,7 +109,7 @@ func connState(reason uint8) string {
 }
 
 func TraceReasonIsKnown(reason uint8) bool {
-	switch reason {
+	switch reason & ^TraceReasonEncryptMask {
 	case TraceReasonUnknown:
 		return false
 	default:
@@ -118,7 +118,7 @@ func TraceReasonIsKnown(reason uint8) bool {
 }
 
 func TraceReasonIsEncap(reason uint8) bool {
-	switch reason {
+	switch reason & ^TraceReasonEncryptMask {
 	case TraceReasonSRv6Encap:
 		return true
 	default:
@@ -127,7 +127,7 @@ func TraceReasonIsEncap(reason uint8) bool {
 }
 
 func TraceReasonIsDecap(reason uint8) bool {
-	switch reason {
+	switch reason & ^TraceReasonEncryptMask {
 	case TraceReasonSRv6Decap:
 		return true
 	default:
