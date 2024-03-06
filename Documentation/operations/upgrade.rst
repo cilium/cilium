@@ -446,6 +446,7 @@ Changed Metrics
 * The ``cilium_cidrgroup_policies`` metric has been renamed to
   ``cilium_cidrgroups_referenced`` for better clarity.
 * The ``cilium_cidrgroup_translation_time_stats_seconds`` metric has been disabled by default.
+* The ``cilium_api_limiter_processed_requests_total`` has now label ``return_code`` to specify the http code of the request.
 
 .. _earlier_upgrade_notes:
 

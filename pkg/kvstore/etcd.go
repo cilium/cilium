@@ -730,7 +730,7 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 
 	_, err = e.client.Delete(ctx, path, client.WithPrefix())
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 
 	if err == nil {
 		e.leaseManager.ReleasePrefix(path)
@@ -796,7 +796,7 @@ reList:
 		}
 		kvs, revision, err := e.paginatedList(ctx, scopedLog, w.Prefix)
 		if err != nil {
-			lr.Error(err)
+			lr.Error(err, -1)
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
 			errLimiter.Wait(ctx)
 			continue
@@ -1099,7 +1099,7 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 	}
 
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 
@@ -1127,7 +1127,7 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 
 	getR, err := e.client.Get(ctx, key)
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 	lr.Done()
@@ -1159,7 +1159,7 @@ func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock 
 	}
 
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return "", nil, Hint(err)
 	}
 	lr.Done()
@@ -1187,7 +1187,7 @@ func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (k string, bv
 
 	getR, err := e.client.Get(ctx, prefix, client.WithPrefix(), client.WithLimit(1))
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return "", nil, Hint(err)
 	}
 	lr.Done()
@@ -1213,7 +1213,7 @@ func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err err
 
 	_, err = e.client.Put(ctx, key, string(value))
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	return Hint(err)
 }
 
@@ -1241,7 +1241,7 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 	}
 
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	return Hint(err)
 }
 
@@ -1260,7 +1260,7 @@ func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
 
 	_, err = e.client.Delete(ctx, key)
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 
 	if err == nil {
 		e.leaseManager.Release(key)
@@ -1310,7 +1310,7 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 	}
 
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	return Hint(err)
 }
 
@@ -1338,7 +1338,7 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	e.leaseManager.CancelIfExpired(err, leaseID)
 
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	return Hint(err)
 }
 
@@ -1356,7 +1356,7 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 	cnds := lock.Comparator().(client.Cmp)
 	txnresp, err := e.client.Txn(ctx).If(cnds).Then(client.OpGet(key)).Commit()
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 
 	// On error, attempt update blindly
@@ -1397,7 +1397,7 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 
 	getR, err := e.client.Get(ctx, key)
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
 	if err != nil || getR.Count == 0 {
@@ -1446,7 +1446,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(*req).Else(opGets...).Commit()
 	increaseMetric(key, metricSet, "CreateOnlyLocked", duration.EndError(err).Total(), err)
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return false, Hint(err)
 	}
@@ -1505,7 +1505,7 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
 
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return false, Hint(err)
 	}
@@ -1538,7 +1538,7 @@ func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, va
 
 	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return Hint(err)
 	}
@@ -1590,7 +1590,7 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 		err = ErrLockLeaseExpired
 	}
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 	lr.Done()
@@ -1623,7 +1623,7 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 
 	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 	lr.Done()
