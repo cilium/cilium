@@ -633,7 +633,17 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 // manager.
 func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
 	ep.SetDefaultConfiguration(true)
-	return mgr.expose(ep)
+	err := mgr.expose(ep)
+	if err != nil {
+		return err
+	}
+	mgr.mutex.RLock()
+	for s := range mgr.subscribers {
+		s.EndpointRestored(ep)
+	}
+	mgr.mutex.RUnlock()
+
+	return nil
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
