@@ -125,8 +125,8 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 		return nil, nil
 	}
 
-	// If desired policy is nil then no policy change is needed.
-	if e.desiredPolicy == nil {
+	// If desired L4Policy is nil then no policy change is needed.
+	if e.desiredPolicy == nil || e.desiredPolicy.L4Policy == nil {
 		return nil, nil
 	}
 
@@ -135,7 +135,7 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	}
 
 	// Publish the updated policy to L7 proxies.
-	return e.proxy.UpdateNetworkPolicy(e, e.visibilityPolicy, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
+	return e.proxy.UpdateNetworkPolicy(e, e.visibilityPolicy, e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field
