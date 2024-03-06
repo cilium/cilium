@@ -613,12 +613,13 @@ func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
 	c.Assert(affectedNames, HasLen, 0)
 }
 
-func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string][]string) {
-	c.Assert(zombies, HasLen, len(mappings), Commentf("Different number of zombies than expected: %+v", zombies))
+func assertZombiesContain(c *C, zombies []*DNSZombieMapping, expected map[string][]string) {
+	c.Helper()
+	c.Assert(zombies, HasLen, len(expected), Commentf("Different number of zombies than expected: %+v", zombies))
 
 	for _, zombie := range zombies {
-		names, exists := mappings[zombie.IP.String()]
-		c.Assert(exists, Equals, true, Commentf("Missing expected zombie"))
+		names, exists := expected[zombie.IP.String()]
+		c.Assert(exists, Equals, true, Commentf("Unexpected zombie %s in zombies", zombie.IP.String()))
 
 		sort.Strings(zombie.Names)
 		sort.Strings(names)
@@ -641,8 +642,10 @@ func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
 
 	// Mark 1.1.1.2 alive which should also keep 1.1.1.1 alive since they
 	// have the same name
+	now = now.Add(5 * time.Minute)
+	zombies.SetCTGCTime(now)
 	now = now.Add(time.Second)
-	zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.2"))
+	zombies.MarkAlive(now.Add(time.Second), netip.MustParseAddr("1.1.1.2"))
 	zombies.SetCTGCTime(now)
 
 	alive, dead := zombies.GC()
@@ -680,9 +683,20 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 		"2.2.2.2": {"somethingelse.com"},
 	})
 
+	// Even when not marking alive, running CT GC the first time is ignored;
+	// we must always complete 2 GC cycles before allowing a name to be dead
+	now = now.Add(5 * time.Minute)
+	zombies.SetCTGCTime(now)
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com", "anotherthing.com"},
+		"2.2.2.2": {"somethingelse.com"},
+	})
+
 	// Cause 1.1.1.1 to die by not marking it alive before the second GC
 	//zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
-	now = now.Add(time.Second)
+	now = now.Add(5 * time.Minute)
 	// Mark 2.2.2.2 alive with 1 second grace period
 	zombies.MarkAlive(now.Add(time.Second), netip.MustParseAddr("2.2.2.2"))
 	zombies.SetCTGCTime(now)
@@ -715,7 +729,10 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	})
 
 	// Cause all zombies but 2.2.2.2 to die
-	now = now.Add(time.Second)
+	now = now.Add(5 * time.Minute)
+	zombies.SetCTGCTime(now)
+	now = now.Add(5 * time.Minute)
+	zombies.MarkAlive(now.Add(time.Second), netip.MustParseAddr("2.2.2.2"))
 	zombies.SetCTGCTime(now)
 	alive, dead = zombies.GC()
 	c.Assert(alive, HasLen, 1)
@@ -727,7 +744,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	})
 
 	// Cause all zombies to die
-	now = now.Add(time.Second)
+	now = now.Add(2 * time.Second)
 	zombies.SetCTGCTime(now)
 	alive, dead = zombies.GC()
 	c.Assert(alive, HasLen, 0)
@@ -990,7 +1007,19 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 		"3.3.3.3": {"example.org"},
 	})
 
+	// Simulate an interleaved CTGC and DNS GC
+	// Ensure that two GC runs must progress before
+	// marking zombies dead.
 	now = now.Add(time.Second)
+	zombies.SetCTGCTime(now)
+	alive = zombies.DumpAlive(nil)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"example.com"},
+		"3.3.3.3": {"example.org"},
+	})
+
+	now = now.Add(5 * time.Minute) // Need to step the clock 5 minutes ahead here, to account for the grace period
 	zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
 	zombies.MarkAlive(now, netip.MustParseAddr("2.2.2.2"))
 	zombies.SetCTGCTime(now)
@@ -1130,10 +1159,10 @@ func validateZombieSort(t *testing.T, zombies []*DNSZombieMapping) {
 	logFailure := func(t *testing.T, zs []*DNSZombieMapping, prop string, i, j int) {
 		t.Helper()
 		t.Logf("order property fail %v: want zombie[i] < zombie[j]", prop)
-		t.Log("zombie[i]: ", zombies[i])
-		t.Log("zombie[j]: ", zombies[j])
+		t.Log("zombie[i]: ", zs[i])
+		t.Log("zombie[j]: ", zs[j])
 		t.Log("all mappings: ")
-		for i, z := range zombies {
+		for i, z := range zs {
 			t.Log(fmt.Sprintf("%2d", i), z)
 		}
 	}

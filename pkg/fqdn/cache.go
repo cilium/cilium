@@ -333,7 +333,17 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 		} {
 			for ip, entries := range m {
 				for _, entry := range entries {
-					zombies.Upsert(entry.ExpirationTime, ip, entry.Name)
+					// Set the expiration time to either the GC or the expiration time
+					// of the DNS lookup if it is in the future.
+					// This can be the case when entries are not expired, but they are
+					// over limit. We preserve this time so that, in the event that
+					// non-expired names are GC'd, they will be less preferentially reaped
+					// by zombies.
+					expireTime := now
+					if entry.ExpirationTime.After(expireTime) {
+						expireTime = entry.ExpirationTime
+					}
+					zombies.Upsert(expireTime, ip, entry.Name)
 				}
 			}
 		}
@@ -754,6 +764,10 @@ type DNSZombieMapping struct {
 	// When DNSZombieMappings.lastCTGCUpdate is earlier than DeletePendingAt a
 	// zombie is alive.
 	DeletePendingAt time.Time `json:"delete-pending-at,omitempty"`
+
+	// revisionAddedAt is the GCRevision at which this entry was added.
+	// garbage collection must run 2 times before the zombie is eligible for deletion
+	revisionAddedAt uint64 `json:"-"`
 }
 
 // DeepCopy returns a copy of zombie that does not share any internal pointers
@@ -776,7 +790,11 @@ type DNSZombieMappings struct {
 	lock.Mutex
 	deletes        map[netip.Addr]*DNSZombieMapping
 	lastCTGCUpdate time.Time
-	max            int // max allowed zombies
+	// ctGCRevision is a serial number tracking the number of conntrack
+	// garbage collection runs. It is used to ensure that entries
+	// are not reaped until CT GC has run at least twice.
+	ctGCRevision uint64
+	max          int // max allowed zombies
 
 	// perHostLimit is the number of maximum number of IP per host.
 	perHostLimit int
@@ -804,6 +822,7 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 			Names:           slices.Unique(qname),
 			IP:              addr,
 			DeletePendingAt: expiryTime,
+			revisionAddedAt: zombies.ctGCRevision,
 		}
 		zombies.deletes[addr] = zombie
 	} else {
@@ -817,12 +836,27 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 }
 
 // isConnectionAlive returns true if 'zombie' is considered alive.
-// Zombie is considered dead if both of these conditions apply:
+// Zombie is considered dead if all of these conditions apply:
 // 1. CT GC has run after the DNS Expiry time and grace period (lastCTGCUpdate > DeletePendingAt + GracePeriod), and
-// 2. The CG GC run did not mark the Zombie alive (lastCTGCUpdate > AliveAt)
+// 2. The CT GC run did not mark the Zombie alive (lastCTGCUpdate > AliveAt)
+// 3. CT GC has run at least 2 times since Zombie was entered
 // otherwise the Zombie is alive.
+//
+// We wait for 2 complete GC runs, because this entry may have been added in the middle of a GC run,
+// in which case it may not have been marked alive. We need to wait for GC to finish at least 2 times
+// before we can safely consider it dead.
 func (zombies *DNSZombieMappings) isConnectionAlive(zombie *DNSZombieMapping) bool {
-	return !(zombies.lastCTGCUpdate.After(zombie.DeletePendingAt) && zombies.lastCTGCUpdate.After(zombie.AliveAt))
+	if !zombies.lastCTGCUpdate.After(zombie.DeletePendingAt.Add(option.Config.ToFQDNsIdleConnectionGracePeriod)) {
+		return true
+	}
+	if !zombies.lastCTGCUpdate.After(zombie.AliveAt) {
+		return true
+	}
+	if zombies.ctGCRevision < (zombie.revisionAddedAt + 2) {
+		return true
+	}
+	return false
+
 }
 
 // getAliveNames returns all the names that are alive.
@@ -1027,6 +1061,7 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip netip.Addr) {
 func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart time.Time) {
 	zombies.Lock()
 	zombies.lastCTGCUpdate = ctGCStart
+	zombies.ctGCRevision++
 	zombies.Unlock()
 }
 
@@ -1179,9 +1214,10 @@ func (zombies *DNSZombieMappings) UnmarshalJSON(raw []byte) error {
 	}
 	zombies.deletes = aux.Deletes
 
-	// Reset the alive time to ensure no deletes happen until we run CT GC again
+	// Reset the alive time & conntrack revision to ensure no deletes happen until we run CT GC again
 	for _, zombie := range zombies.deletes {
 		zombie.AliveAt = time.Time{}
+		zombie.revisionAddedAt = zombies.ctGCRevision
 	}
 	return nil
 }
