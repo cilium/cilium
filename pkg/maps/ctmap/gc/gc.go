@@ -133,6 +133,8 @@ func (gc *GC) Enable() {
 						ep.MarkDNSCTEntry(dstIP, aliveTime)
 					}
 				}
+
+				success = false
 			)
 
 			gcInterval := gcStart.Sub(gcPrev)
@@ -149,19 +151,22 @@ func (gc *GC) Enable() {
 
 			if len(eps) > 0 || initialScan {
 				gc.logger.Info("Starting initial GC of connection tracking")
-				maxDeleteRatio = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				maxDeleteRatio, success = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				gc.runGC(e, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				_, epSuccess := gc.runGC(e, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				success = success && epSuccess
 			}
 
-			// Mark the CT GC as over in each EP DNSZombies instance
-			for _, e := range eps {
-				e.MarkCTGCTime(gcStart)
+			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
+			if success && ipv4 == gc.ipv4 && ipv6 == gc.ipv6 {
+				for _, e := range eps {
+					e.MarkCTGCTime(gcStart)
+				}
 			}
 
 			if initialScan {
@@ -220,8 +225,9 @@ func (gc *GC) Enable() {
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctmap.GCFilter) (maxDeleteRatio float64) {
+func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 	var maps []*ctmap.Map
+	success = true
 
 	if e == nil {
 		maps = ctmap.GlobalMaps(ipv4, ipv6)
@@ -237,6 +243,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 	for _, m := range maps {
 		path, err := ctmap.OpenCTMap(m)
 		if err != nil {
+			success = false
 			msg := "Skipping CT garbage collection"
 			scopedLog := gc.logger.WithError(err).WithField(logfields.Path, path)
 			if os.IsNotExist(err) {
@@ -251,7 +258,11 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 		}
 		defer m.Close()
 
-		deleted := ctmap.GC(m, filter)
+		deleted, err := ctmap.GC(m, filter)
+		if err != nil {
+			gc.logger.WithError(err).Error("failed to perform CT garbage collection")
+			success = false
+		}
 
 		if deleted > 0 {
 			ratio := float64(deleted) / float64(m.MaxEntries())
