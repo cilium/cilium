@@ -293,9 +293,6 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	c.Assert(selPolicy.L4Policy, NotNil)
-	c.Assert(selPolicy.L4Policy.redirectTypes, Equals, redirectTypeEnvoy)
-
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -655,9 +652,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 							cachedSelectorTest:  {ruleLabel},
 						},
 					},
-				},
-					features: authRules,
-				},
+				}},
 				Egress: newL4DirectionPolicy(),
 			},
 			IngressPolicyEnabled: true,
