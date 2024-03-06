@@ -142,6 +142,9 @@ const (
 	// EnableTracing enables tracing mode in the agent.
 	EnableTracing = "enable-tracing"
 
+	// EnableIPIPTermination is the name of the option to enable IPIP termination
+	EnableIPIPTermination = "enable-ipip-termination"
+
 	// Add unreachable routes on pod deletion
 	EnableUnreachableRoutes = "enable-unreachable-routes"
 
@@ -1733,6 +1736,7 @@ type DaemonConfig struct {
 	EnableSocketLBPeer            bool
 	EnablePolicy                  string
 	EnableTracing                 bool
+	EnableIPIPTermination         bool
 	EnableUnreachableRoutes       bool
 	EnvoyLog                      string
 	DisableEnvoyVersionCheck      bool
@@ -3033,6 +3037,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
 	c.EnableTracing = vp.GetBool(EnableTracing)
+	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
 	c.EnableUnreachableRoutes = vp.GetBool(EnableUnreachableRoutes)
 	c.EnableNodePort = vp.GetBool(EnableNodePort)
 	c.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)

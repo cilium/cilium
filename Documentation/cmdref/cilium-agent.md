@@ -119,6 +119,7 @@ cilium-agent [flags]
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
+      --enable-ipip-termination                                   Enable plain IPIP/IP6IP6 termination
       --enable-ipsec                                              Enable IPSec support
       --enable-ipsec-key-watcher                                  Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4                                               Enable IPv4 support (default true)
