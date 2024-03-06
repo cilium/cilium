@@ -234,19 +234,9 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
-func (keys MapState) AddDependent(owner Key, dependent Key, old MapState) {
+func (owner Key) AddDependent(keys MapState, key Key) {
 	if e, exists := keys[owner]; exists {
-		keys.addDependentOnEntry(owner, e, dependent, old)
-	}
-}
-
-// addDependentOnEntry adds 'dependent' to the set of dependent keys of 'e'.
-func (keys MapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Key, old MapState) {
-	if _, exists := e.dependents[dependent]; !exists {
-		if old != nil {
-			old[owner] = e
-		}
-		e.AddDependent(dependent)
+		e.AddDependent(key)
 		keys[owner] = e
 	}
 }
@@ -616,7 +606,8 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						// L3-only entries can be deleted incrementally so we need to track their
 						// effects on other entries so that those effects can be reverted when the
 						// identity is removed.
-						keys.addDependentOnEntry(k, v, denyKeyCpy, old)
+						v.AddDependent(denyKeyCpy)
+						keys[k] = v
 					}
 				} else if (k.Identity == newKey.Identity ||
 					entryIdentityIsSupersetOf(k, v, newKey, newEntry, identities)) &&
@@ -919,7 +910,13 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 			logfields.BPFMapValue: entry,
 		}, "AddVisibilityKeys: Changing L4-only ALLOW key for visibility redirect")
 
-		keys.addKeyWithChanges(key, entry, adds, nil, oldValues)
+		// keep the original value for reverting purposes
+		oldValues.insertIfNotExists(key, l4Only)
+
+		l4Only.ProxyPort = redirectPort
+		l4Only.DerivedFromRules.MergeSorted(visibilityDerivedFrom)
+		keys[key] = l4Only
+		adds[key] = struct{}{}
 	}
 	if haveAllowAllKey && !haveL4OnlyKey {
 		// 2. If allow-all policy exists, add L4-only visibility redirect key if the L4-only
@@ -929,7 +926,8 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 			logfields.BPFMapValue: entry,
 		}, "AddVisibilityKeys: Adding L4-only ALLOW key for visibilty redirect")
 		addL4OnlyKey = true
-		keys.addKeyWithChanges(key, entry, adds, nil, oldValues)
+		keys[key] = entry
+		adds[key] = struct{}{}
 	}
 	//
 	// Loop through all L3 keys in the traffic direction of the new key
@@ -946,13 +944,17 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 				// 3. Change all L3/L4 ALLOW keys on matching port that do not
 				//    already redirect to redirect.
 
+				// keep the original value for reverting purposes
+				oldValues.insertIfNotExists(k, v)
+
 				v.ProxyPort = redirectPort
-				v.DerivedFromRules = visibilityDerivedFrom
+				v.DerivedFromRules.MergeSorted(visibilityDerivedFrom)
 				e.PolicyDebug(logrus.Fields{
 					logfields.BPFMapKey:   k,
 					logfields.BPFMapValue: v,
 				}, "AddVisibilityKeys: Changing L3/L4 ALLOW key for visibility redirect")
-				keys.addKeyWithChanges(k, v, adds, nil, oldValues)
+				keys[k] = v
+				adds[k] = struct{}{}
 			}
 		} else if k.DestPort == 0 && k.Nexthdr == 0 {
 			//
@@ -974,10 +976,16 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibilty redirect")
-					keys.addKeyWithChanges(k2, v2, adds, nil, oldValues)
+					keys[k2] = v2
+					adds[k2] = struct{}{}
+
+					// keep the original value for reverting purposes
+					oldValues.insertIfNotExists(k, v)
 
 					// Mark the new entry as a dependent of 'v'
-					keys.addDependentOnEntry(k, v, k2, oldValues)
+					v.AddDependent(k2)
+					keys[k] = v
+					adds[k] = struct{}{} // dependent was added
 				}
 			} else if addL4OnlyKey && v.IsDeny {
 				// 5. If a new L4-only key was added: For each L3-only DENY
@@ -989,10 +997,16 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only DENY key to L3/L4 key to deny a port with visibility annotation")
-					keys.addKeyWithChanges(k2, v2, adds, nil, oldValues)
+					keys[k2] = v2
+					adds[k2] = struct{}{}
+
+					// keep the original value for reverting purposes
+					oldValues.insertIfNotExists(k, v)
 
 					// Mark the new entry as a dependent of 'v'
-					keys.addDependentOnEntry(k, v, k2, oldValues)
+					v.AddDependent(k2)
+					keys[k] = v
+					adds[k] = struct{}{} // dependent was added
 				}
 			}
 		}
