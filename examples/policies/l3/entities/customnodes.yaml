@@ -1,0 +1,12 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "to-prod-from-control-plane-nodes"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: prod
+  ingress:
+    - fromNodes:
+        - matchLabels:
+            node-role.kubernetes.io/control-plane: ""
