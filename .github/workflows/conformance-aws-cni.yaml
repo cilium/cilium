@@ -55,7 +55,6 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
-  CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.173.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes

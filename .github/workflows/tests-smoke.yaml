@@ -18,7 +18,6 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
-  CILIUM_CLI_MODE: helm
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
   TIMEOUT: 2m

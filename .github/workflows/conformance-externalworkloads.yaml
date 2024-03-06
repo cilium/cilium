@@ -57,7 +57,6 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-vm
   vmStartupScript: .github/gcp-vm-startup.sh
   cilium_cli_ci_version:
-  CILIUM_CLI_MODE: helm
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
 jobs:

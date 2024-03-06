@@ -16,7 +16,6 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
-  CILIUM_CLI_MODE: helm
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml

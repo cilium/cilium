@@ -363,7 +363,7 @@ jobs:
           cmd: |
             cd /host/
 
-            CILIUM_CLI_MODE=helm ./cilium-cli install \
+            ./cilium-cli install \
               ${{ steps.cilium-stable-config.outputs.config }}
 
             ./cilium-cli status --wait
@@ -390,7 +390,7 @@ jobs:
           cmd: |
             cd /host/
 
-            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+            ./cilium-cli upgrade \
               ${{ steps.cilium-newest-config.outputs.config }}
 
             ./cilium-cli status --wait
@@ -430,7 +430,7 @@ jobs:
           cmd: |
             cd /host/
 
-            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+            ./cilium-cli upgrade \
               ${{ steps.cilium-stable-config.outputs.config }}
 
             ./cilium-cli status --wait
