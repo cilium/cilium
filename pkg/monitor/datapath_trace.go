@@ -105,7 +105,7 @@ func connState(reason uint8) string {
 }
 
 func TraceReasonIsKnown(reason uint8) bool {
-	switch reason {
+	switch reason & ^TraceReasonEncryptMask {
 	case TraceReasonUnknown:
 		return false
 	default:
