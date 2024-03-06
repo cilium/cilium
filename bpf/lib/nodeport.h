@@ -690,7 +690,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	};
 	int ret, oif = 0, ohead = 0;
 	void *data, *data_end;
-	struct ipv6hdr *ip6;
+	volatile struct ipv6hdr *ip6;
 	union v6addr addr;
 	__s8 ext_err = 0;
 	__be16 port;
