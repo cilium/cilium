@@ -50,7 +50,29 @@ func (e *Endpoint) HasBPFPolicyMap() bool {
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 	if ingress {
 		// Ingress only needs the ports of the POD itself
-		return e.getNamedPortIngress(e.GetK8sPorts(), name, proto)
+		k8sPorts, err := e.GetK8sPorts()
+		if err != nil {
+			if e.logLimiter.Allow() {
+				e.getLogger().WithFields(logrus.Fields{
+					logfields.PortName:         name,
+					logfields.Protocol:         u8proto.U8proto(proto).String(),
+					logfields.TrafficDirection: "ingress",
+				}).WithError(err).Warning("Skipping named port")
+			}
+			return 0
+		}
+		return e.getNamedPortIngress(k8sPorts, name, proto)
+	}
+	// egress needs named ports of all the pods
+	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
+}
+
+// GetNamedPortLocked returns port for the given name. May return an invalid (0) port
+// Must be called with e.mutex held.
+func (e *Endpoint) GetNamedPortLocked(ingress bool, name string, proto uint8) uint16 {
+	if ingress {
+		// Ingress only needs the ports of the POD itself
+		return e.getNamedPortIngress(e.k8sPorts, name, proto)
 	}
 	// egress needs named ports of all the pods
 	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
@@ -819,12 +841,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
+				namedPorts := e.k8sPorts
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %w", endpointIP.String(), ID, err)
 				}
 				return nil
