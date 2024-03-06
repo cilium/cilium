@@ -132,17 +132,17 @@ Metrics
 
 All API calls subject to rate limiting will expose :ref:`metrics_api_rate_limiting`. Example::
 
-    cilium_api_limiter_adjustment_factor                  api_call="endpoint-create"                               0.695787
-    cilium_api_limiter_processed_requests_total           api_call="endpoint-create" outcome="success"             7.000000
-    cilium_api_limiter_processing_duration_seconds        api_call="endpoint-create" value="estimated"             2.000000
-    cilium_api_limiter_processing_duration_seconds        api_call="endpoint-create" value="mean"                  2.874443
-    cilium_api_limiter_rate_limit                         api_call="endpoint-create" value="burst"                 4.000000
-    cilium_api_limiter_rate_limit                         api_call="endpoint-create" value="limit"                 0.347894
-    cilium_api_limiter_requests_in_flight                 api_call="endpoint-create" value="in-flight"             0.000000
-    cilium_api_limiter_requests_in_flight                 api_call="endpoint-create" value="limit"                 0.000000
-    cilium_api_limiter_wait_duration_seconds              api_call="endpoint-create" value="max"                  15.000000
-    cilium_api_limiter_wait_duration_seconds              api_call="endpoint-create" value="mean"                  0.000000
-    cilium_api_limiter_wait_duration_seconds              api_call="endpoint-create" value="min"                   0.000000
+    cilium_api_limiter_adjustment_factor                  api_call="endpoint-create"                                                0.695787
+    cilium_api_limiter_processed_requests_total           api_call="endpoint-create" outcome="success" return_code="200"            7.000000
+    cilium_api_limiter_processing_duration_seconds        api_call="endpoint-create" value="estimated"                              2.000000
+    cilium_api_limiter_processing_duration_seconds        api_call="endpoint-create" value="mean"                                   2.874443
+    cilium_api_limiter_rate_limit                         api_call="endpoint-create" value="burst"                                  4.000000
+    cilium_api_limiter_rate_limit                         api_call="endpoint-create" value="limit"                                  0.347894
+    cilium_api_limiter_requests_in_flight                 api_call="endpoint-create" value="in-flight"                              0.000000
+    cilium_api_limiter_requests_in_flight                 api_call="endpoint-create" value="limit"                                  0.000000
+    cilium_api_limiter_wait_duration_seconds              api_call="endpoint-create" value="max"                                    15.000000
+    cilium_api_limiter_wait_duration_seconds              api_call="endpoint-create" value="mean"                                   0.000000
+    cilium_api_limiter_wait_duration_seconds              api_call="endpoint-create" value="min"                                    0.000000
 
 Understanding the log output
 ============================

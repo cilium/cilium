@@ -4,6 +4,8 @@
 package metrics
 
 import (
+	"strconv"
+
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/rate"
 )
@@ -31,5 +33,9 @@ func (a *apiRateLimitingMetrics) ProcessedRequest(name string, v rate.MetricsVal
 		v.Outcome = metrics.Error2Outcome(v.Error)
 	}
 
-	metrics.APILimiterProcessedRequests.WithLabelValues(name, v.Outcome).Inc()
+	if v.ReturnCode == -1 {
+		v.ReturnCode = metrics.LabelOutcome2Code(v.Outcome)
+	}
+
+	metrics.APILimiterProcessedRequests.WithLabelValues(name, v.Outcome, strconv.Itoa(v.ReturnCode)).Inc()
 }
