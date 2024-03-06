@@ -178,3 +178,15 @@ func reportCNPChangeMetrics(err error) {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	}
 }
+
+func resourceIDForCiliumNetworkPolicy(key resource.Key, cnp *types.SlimCNP) ipcacheTypes.ResourceID {
+	resourceKind := ipcacheTypes.ResourceKindCNP
+	if len(key.Namespace) == 0 {
+		resourceKind = ipcacheTypes.ResourceKindCCNP
+	}
+	return ipcacheTypes.NewResourceID(
+		resourceKind,
+		cnp.ObjectMeta.Namespace,
+		cnp.ObjectMeta.Name,
+	)
+}
