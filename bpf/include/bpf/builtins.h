@@ -275,7 +275,7 @@ __bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
 static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 					  __u64 len)
 {
-#if __clang_major__ >= 10
+#if __clang_major__ <= 10
 	__u64 r = 0;
 
 	if (!__builtin_constant_p(len))
