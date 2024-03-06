@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type ExportPodCIDRReconcilerOut struct {
@@ -26,7 +27,13 @@ type ExportPodCIDRReconciler struct{}
 // ExportPodCIDRReconcilerMetadata keeps a list of all advertised Paths
 type ExportPodCIDRReconcilerMetadata []*types.Path
 
-func NewExportPodCIDRReconciler() ExportPodCIDRReconcilerOut {
+func NewExportPodCIDRReconciler(dc *option.DaemonConfig) ExportPodCIDRReconcilerOut {
+	// Don't provide the reconciler if the IPAM mode is not supported
+	if !types.CanAdvertisePodCIDR(dc.IPAMMode()) {
+		log.Info("Unsupported IPAM mode, disabling PodCIDR advertisements. exportPodCIDR doesn't take effect.")
+		return ExportPodCIDRReconcilerOut{}
+	}
+
 	return ExportPodCIDRReconcilerOut{
 		Reconciler: &ExportPodCIDRReconciler{},
 	}
