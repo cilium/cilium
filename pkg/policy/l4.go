@@ -484,21 +484,17 @@ func (l4 *L4Filter) GetListener() string {
 // entry so that it may update it's value (e.g., the proxy port).
 type mapStateEntryCallback func(key Key, value *MapStateEntry) bool
 
-// toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
+// ToMapState converts a single filter into a MapState entries added to 'mapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny
-// and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to 'p.PolicyMapState'
+// and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to 'mapState'
 // using denyPreferredInsertWithChanges().
 // Keys of any added or deleted entries are added to 'adds' or 'deletes', respectively, if not nil.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, entryCb mapStateEntryCallback, adds, deletes Keys, old MapState) {
+func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection, identities Identities,
+	mapState MapState, entryCb mapStateEntryCallback, adds, deletes Keys, old MapState) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
-
-	direction := trafficdirection.Egress
-	if l4Filter.Ingress {
-		direction = trafficdirection.Ingress
-	}
 
 	logger := log
 	if option.Config.Debug {
@@ -512,7 +508,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, e
 
 	// resolve named port
 	if port == 0 && l4Filter.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4Filter.Ingress, l4Filter.PortName, proto)
+		port = policyOwner.GetNamedPort(l4Filter.Ingress, l4Filter.PortName, proto)
 		if port == 0 {
 			return // nothing to be done for undefined named port
 		}
@@ -553,7 +549,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, e
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
+				mapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
 
 				if port == 0 {
 					// Allow-all
@@ -583,7 +579,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, e
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
+				mapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
 			}
 		}
 	}
