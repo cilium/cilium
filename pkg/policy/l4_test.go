@@ -149,9 +149,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			c.Assert(hasAuth, Equals, DefaultAuthType)
-			c.Assert(authType, Equals, AuthTypeDisabled)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
@@ -159,9 +157,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			c.Assert(hasAuth, Equals, DefaultAuthType)
-			c.Assert(authType, Equals, AuthTypeDisabled)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}
@@ -192,9 +188,7 @@ func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			c.Assert(hasAuth, Equals, ExplicitAuthType)
-			c.Assert(authType, Equals, AuthTypeDisabled)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
@@ -202,9 +196,7 @@ func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			c.Assert(hasAuth, Equals, ExplicitAuthType)
-			c.Assert(authType, Equals, AuthTypeDisabled)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}
