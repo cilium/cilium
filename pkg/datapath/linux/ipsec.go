@@ -323,7 +323,16 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	var device string
 
 	if !option.Config.TunnelingEnabled() {
-		device = option.Config.EncryptInterface[0]
+		if len(option.Config.EncryptInterface) > 0 {
+			device = option.Config.EncryptInterface[0]
+		} else {
+			devices := option.Config.GetDevices()
+			if len(devices) == 0 {
+				log.Error("Not devices set for encryption")
+			} else {
+				device = devices[0]
+			}
+		}
 	} else {
 		device = n.datapathConfig.TunnelDevice
 	}

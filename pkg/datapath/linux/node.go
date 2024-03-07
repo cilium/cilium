@@ -935,6 +935,11 @@ func getDefaultEncryptionInterface() string {
 	iface := ""
 	if len(option.Config.EncryptInterface) > 0 {
 		iface = option.Config.EncryptInterface[0]
+	} else {
+		devices := option.Config.GetDevices()
+		if len(devices) > 0 {
+			iface = devices[0]
+		}
 	}
 	return iface
 }
