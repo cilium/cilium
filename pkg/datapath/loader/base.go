@@ -172,6 +172,8 @@ func cleanIngressQdisc() error {
 func (l *loader) reinitializeIPSec(ctx context.Context) error {
 	if !option.Config.EnableIPSec {
 		return nil
+	} else if !option.Config.EnableWireguard {
+		return nil
 	}
 
 	l.ipsecMu.Lock()
