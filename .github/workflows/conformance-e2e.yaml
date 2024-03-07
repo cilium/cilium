@@ -79,7 +79,7 @@ jobs:
 
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240221.111541'
+            kernel: 'rhel8-20240305.092417'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
@@ -87,13 +87,13 @@ jobs:
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240221.111541'
+            kernel: '5.4-20240305.092417'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
             host-fw: 'true'
 
-          - name: '3'
+          - name: '3'5.10-20240305.092417
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20240221.111541'
             kube-proxy: 'iptables'
@@ -101,7 +101,7 @@ jobs:
             tunnel: 'disabled'
             endpoint-routes: 'true'
 
-          - name: '4'
+          - name: '4'5.10-20240305.092417
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20240221.111541'
             kube-proxy: 'iptables'
@@ -115,7 +115,7 @@ jobs:
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240221.111541'
+            kernel: '6.1-20240305.092417'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -128,7 +128,7 @@ jobs:
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240221.111541'
+            kernel: '6.1-20240305.092417'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -160,7 +160,7 @@ jobs:
             tunnel: 'geneve'
             endpoint-routes: 'true'
 
-          - name: '9'
+          - name: '9'5.10-20240305.092417
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20240221.111541'
             kube-proxy: 'iptables'
@@ -176,7 +176,7 @@ jobs:
 
           - name: '10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240221.111541'
+            kernel: '6.1-20240305.092417'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -190,7 +190,7 @@ jobs:
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240221.111541'
+            kernel: '6.1-20240305.092417'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -218,7 +218,7 @@ jobs:
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240221.111541'
+            kernel: 'rhel8-20240305.092417'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
@@ -226,7 +226,7 @@ jobs:
 
           - name: '14'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240221.111541'
+            kernel: '5.4-20240305.092417'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
