@@ -14,6 +14,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -44,6 +45,17 @@ func newPolicyObj(conf policyConfig) v2alpha1.CiliumBGPPeeringPolicy {
 	}
 
 	if conf.virtualRouters != nil {
+		// Override ConnectRetryTimeSeconds to 1 for all neighbors
+		// unless it is specified explicitly. Otherwise, the default
+		// value of 120 seconds would timeout the tests when the
+		// initial connect fails.
+		for i, vrouter := range conf.virtualRouters {
+			for j, neigh := range vrouter.Neighbors {
+				if neigh.ConnectRetryTimeSeconds == nil {
+					conf.virtualRouters[i].Neighbors[j].ConnectRetryTimeSeconds = ptr.To[int32](1)
+				}
+			}
+		}
 		policyObj.Spec.VirtualRouters = conf.virtualRouters
 	}
 
