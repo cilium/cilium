@@ -509,6 +509,20 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
 		c.Errorf("unexected ipcache interaction %+v", event)
 	default:
 	}
@@ -520,6 +534,20 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
 	case <-time.After(5 * time.Second):
 		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
 	}
 
 	select {
@@ -596,82 +624,6 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)})
 	case <-time.After(5 * time.Second):
 		c.Errorf("timeout while waiting for ipcache delete for IP f00d::4")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-}
-
-func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
-	ipcacheMock := newIPcacheMock()
-	dp := newSignalNodeHandler()
-	mngr, err := New(&option.DaemonConfig{EnableRemoteNodeIdentity: true}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
-	c.Assert(err, check.IsNil)
-	mngr.Subscribe(dp)
-	defer mngr.Stop(context.TODO())
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
-		},
-	}
-	mngr.NodeUpdated(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
-	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
-	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
-	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-
-	mngr.NodeDeleted(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
-	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
-	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
-	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
 	}
 
 	select {
