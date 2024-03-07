@@ -17,6 +17,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var (
@@ -221,6 +222,9 @@ func registerMetrics() []prometheus.Collector {
 	collectors = append(collectors, CiliumEndpointSliceQueueDelay)
 
 	Registry.MustRegister(collectors...)
+	metrics.InitOperatorMetrics()
+	Registry.MustRegister(metrics.ErrorsWarnings)
+	metrics.FlushLoggingMetrics()
 
 	return collectors
 }
