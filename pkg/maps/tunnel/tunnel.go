@@ -33,6 +33,10 @@ var (
 
 // SetTunnelMap sets the tunnel map. Only used for testing.
 func SetTunnelMap(m *Map) {
+	if tunnelMap != nil {
+		tunnelMap.UnpinIfExists()
+	}
+
 	tunnelMap = m
 }
 
