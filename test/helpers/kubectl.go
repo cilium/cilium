@@ -194,6 +194,7 @@ var (
 	kindHelmOverrides = map[string]string{
 		// To mount the cgroupv2 sub-root
 		"nodeinit.enabled": "true",
+		"image.pullPolicy": "IfNotPresent",
 	}
 
 	// helmOverrides allows overriding of cilium-agent options for
