@@ -76,7 +76,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	// The health endpoint doesn't really exist in k8s and updates to it caused
 	// arbitrary errors. Disable the controller for these endpoints.
 	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
-		hr.Stopped("cilium health has no cep k8s sync")
+		hr.Stopped("Cilium health endpoint has no CEP object for k8s sync")
 		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
 		return
 	}
@@ -85,7 +85,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	// They should always be available if an endpoint belongs to a pod.
 	cepName := e.GetK8sCEPName()
 	if cepName == "" {
-		hr.Stopped("cilium health has no cep k8s sync")
+		hr.Stopped("Endpoint synchronizer stopped due to missing CEP metadata")
 		scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s cep name")
 		return
 	}
