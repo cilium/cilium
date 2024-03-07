@@ -91,3 +91,8 @@ func (gp *processor) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.Delete
 
 	delete(gp.endpointIPs, ep.ID)
 }
+
+// EndpointRestored implements endpointmanager.Subscriber.
+func (gp *processor) EndpointRestored(ep *endpoint.Endpoint) {
+	// No-op
+}

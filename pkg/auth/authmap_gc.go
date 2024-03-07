@@ -429,6 +429,11 @@ func (r *authMapGarbageCollector) EndpointDeleted(ep *endpoint.Endpoint, conf en
 	}
 }
 
+// EndpointRestored implements endpointmanager.Subscriber.
+func (r *authMapGarbageCollector) EndpointRestored(ep *endpoint.Endpoint) {
+	// No-op
+}
+
 func (r *authMapGarbageCollector) cleanupEndpoints(_ context.Context) error {
 	if r.ciliumIdentitiesDiscovered == nil || !r.ciliumIdentitiesSynced || !r.endpointsCacheSynced {
 		return nil
