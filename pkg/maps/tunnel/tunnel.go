@@ -42,7 +42,9 @@ func SetTunnelMap(m *Map) {
 
 func TunnelMap() *Map {
 	tunnelMapInit.Do(func() {
-		tunnelMap = NewTunnelMap(MapName)
+		if tunnelMap == nil {
+			tunnelMap = NewTunnelMap(MapName)
+		}
 	})
 	return tunnelMap
 }
