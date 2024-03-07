@@ -67,7 +67,7 @@ func TestL34Decode(t *testing.T) {
 		1, 0, 0, 0, // source labels
 		0, 0, 0, 0, // destination labels
 		0, 0, // destination ID
-		0x80,       // encrypt  bit
+		0x81,       // "established" trace reason with the encrypt bit set
 		0,          // flags
 		0, 0, 0, 0, // ifindex
 		246, 141, 178, 45, 33, 217, 246, 141, 178,
@@ -160,6 +160,7 @@ func TestL34Decode(t *testing.T) {
 
 	assert.Equal(t, []string{"host-192.168.60.11"}, f.GetSourceNames())
 	assert.Equal(t, "192.168.60.11", f.GetIP().GetSource())
+	assert.Equal(t, flowpb.TraceReason_ESTABLISHED, f.GetTraceReason())
 	assert.True(t, f.GetIP().GetEncrypted())
 	assert.Equal(t, uint32(6443), f.L4.GetTCP().GetSourcePort())
 	assert.Equal(t, "pod-192.168.60.11", f.GetSource().GetPodName())
@@ -510,6 +511,51 @@ func TestDecodeDropReason(t *testing.T) {
 
 	assert.Equal(t, uint32(reason), f.GetDropReason())
 	assert.Equal(t, flowpb.DropReason(reason), f.GetDropReasonDesc())
+}
+
+func TestDecodeTraceReason(t *testing.T) {
+	parser, err := New(log, nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	parseFlow := func(event interface{}, srcIPv4, dstIPv4 string) *flowpb.Flow {
+		data, err := testutils.CreateL3L4Payload(event,
+			&layers.Ethernet{
+				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+				DstMAC:       net.HardwareAddr{7, 8, 9, 0, 1, 2},
+				EthernetType: layers.EthernetTypeIPv4,
+			},
+			&layers.IPv4{SrcIP: net.ParseIP(srcIPv4), DstIP: net.ParseIP(dstIPv4)})
+		require.NoError(t, err)
+		f := &flowpb.Flow{}
+		err = parser.Decode(data, f)
+		require.NoError(t, err)
+		return f
+	}
+
+	// CT_NEW
+	tn := monitor.TraceNotifyV0{
+		Type: byte(monitorAPI.MessageTypeTrace),
+	}
+	f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
+	assert.Equal(t, flowpb.TraceReason_NEW, f.GetTraceReason())
+	assert.False(t, f.GetIP().GetEncrypted())
+
+	// CT_REPLY
+	tn = monitor.TraceNotifyV0{
+		Type:   byte(monitorAPI.MessageTypeTrace),
+		Reason: monitor.TraceReasonCtReply,
+	}
+	f = parseFlow(tn, "1.2.3.4", "5.6.7.8")
+	assert.Equal(t, flowpb.TraceReason_REPLY, f.GetTraceReason())
+	assert.False(t, f.GetIP().GetEncrypted())
+
+	// CT_REPLY encrypted
+	tn = monitor.TraceNotifyV0{
+		Type:   byte(monitorAPI.MessageTypeTrace),
+		Reason: monitor.TraceReasonCtReply | monitor.TraceReasonEncryptMask,
+	}
+	f = parseFlow(tn, "1.2.3.4", "5.6.7.8")
+	assert.Equal(t, flowpb.TraceReason_REPLY, f.GetTraceReason())
+	assert.True(t, f.GetIP().GetEncrypted())
 }
 
 func TestDecodeLocalIdentity(t *testing.T) {

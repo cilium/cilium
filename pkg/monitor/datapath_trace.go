@@ -162,7 +162,7 @@ var (
 	}
 )
 
-// Reasons for forwarding a packet.
+/* Reasons for forwarding a packet, keep in sync with api/v1/flow/flow.proto */
 const (
 	TraceReasonPolicy = iota
 	TraceReasonCtEstablished
@@ -177,6 +177,7 @@ const (
 	TraceReasonEncryptMask = uint8(0x80)
 )
 
+/* keep in sync with api/v1/flow/flow.proto */
 var traceReasons = map[uint8]string{
 	TraceReasonPolicy:         "new",
 	TraceReasonCtEstablished:  "established",

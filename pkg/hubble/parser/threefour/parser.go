@@ -217,6 +217,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Reply = decoded.GetIsReply().GetValue() // false if GetIsReply() is nil
 	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
+	decoded.TraceReason = decodeTraceReason(tn)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
@@ -429,6 +430,13 @@ func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
 		Type:    int32(eventType),
 		SubType: int32(eventSubType),
 	}
+}
+
+func decodeTraceReason(tn *monitor.TraceNotify) pb.TraceReason {
+	if tn != nil {
+		return pb.TraceReason(tn.TraceReason())
+	}
+	return pb.TraceReason_TRACE_REASON_UNKNOWN
 }
 
 func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) (

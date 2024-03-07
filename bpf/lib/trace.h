@@ -44,7 +44,7 @@ enum trace_point {
 	TRACE_TO_NETWORK,
 } __packed;
 
-/* Reasons for forwarding a packet. */
+/* Reasons for forwarding a packet, keep in sync with pkg/monitor/datapath_trace.go */
 enum trace_reason {
 	TRACE_REASON_POLICY = CT_NEW,
 	TRACE_REASON_CT_ESTABLISHED = CT_ESTABLISHED,

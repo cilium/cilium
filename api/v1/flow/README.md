@@ -54,6 +54,7 @@
     - [LostEventSource](#flow-LostEventSource)
     - [SocketTranslationPoint](#flow-SocketTranslationPoint)
     - [TraceObservationPoint](#flow-TraceObservationPoint)
+    - [TraceReason](#flow-TraceReason)
     - [TrafficDirection](#flow-TrafficDirection)
     - [Verdict](#flow-Verdict)
   
@@ -286,6 +287,7 @@ EventTypeFilter is a filter describing a particular event type.
 | traffic_direction | [TrafficDirection](#flow-TrafficDirection) |  | traffic_direction of the connection, e.g. ingress or egress |
 | policy_match_type | [uint32](#uint32) |  | policy_match_type is only applicable to the cilium event type PolicyVerdict https://github.com/cilium/cilium/blob/e831859b5cc336c6d964a6d35bbd34d1840e21b9/pkg/monitor/datapath_policy.go#L50 |
 | trace_observation_point | [TraceObservationPoint](#flow-TraceObservationPoint) |  | Only applicable to cilium trace notifications, blank for other types. |
+| trace_reason | [TraceReason](#flow-TraceReason) |  | Cilium datapath trace reason info. |
 | drop_reason_desc | [DropReason](#flow-DropReason) |  | only applicable to Verdict = DROPPED. |
 | is_reply | [google.protobuf.BoolValue](#google-protobuf-BoolValue) |  | is_reply indicates that this was a packet (L4) or message (L7) in the reply direction. May be absent (in which case it is unknown whether it is a reply or not). |
 | debug_capture_point | [DebugCapturePoint](#flow-DebugCapturePoint) |  | Only applicable to cilium debug capture events, blank for other types |
@@ -1112,6 +1114,25 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | FROM_OVERLAY | 9 | FROM_OVERLAY indicates network packets were received from the tunnel device. |
 | FROM_NETWORK | 10 | FROM_NETWORK indicates network packets were received from native devices. |
 | TO_NETWORK | 11 | TO_NETWORK indicates network packets are transmitted towards native devices. |
+
+
+
+<a name="flow-TraceReason"></a>
+
+### TraceReason
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| NEW | 0 |  |
+| ESTABLISHED | 1 |  |
+| REPLY | 2 |  |
+| RELATED | 3 |  |
+| REOPENED | 4 |  |
+| TRACE_REASON_UNKNOWN | 5 |  |
+| SRV6_ENCAP | 6 |  |
+| SRV6_DECAP | 7 |  |
+| ENCRYPT_OVERLAY | 8 |  |
 
 
 
