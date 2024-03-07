@@ -24,8 +24,11 @@ runs:
             # bpftrace v0.20.1 doesn't seem to play well with Linux 4.19
             # https://github.com/bpftrace/bpftrace/issues/3011
             # Let's buy us some time, and keep installing v0.19.1 for the moment.
-            echo 'deb http://deb.debian.org/debian trixie main' >> /etc/apt/sources.list
-            apt update && apt install -y bpftrace -t trixie
+
+            curl -L https://github.com/bpftrace/bpftrace/releases/download/v0.19.1/bpftrace -o bpftrace
+            install -m 755 bpftrace /usr/local/bin/bpftrace
+
+            # apt update && apt install -y bpftrace
           fi
 
     - name: Start bpftrace in background
