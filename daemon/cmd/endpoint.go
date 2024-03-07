@@ -807,6 +807,11 @@ func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
 	d.SendNotification(monitorAPI.EndpointCreateMessage(ep))
 }
 
+// EndpointRestored implements endpointmanager.Subscriber.
+func (d *Daemon) EndpointRestored(ep *endpoint.Endpoint) {
+	// No-op
+}
+
 func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
 

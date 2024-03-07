@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"sync"
 
@@ -627,7 +628,23 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 // manager.
 func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
 	ep.SetDefaultConfiguration()
-	return mgr.expose(ep)
+	err := mgr.expose(ep)
+	if err != nil {
+		return err
+	}
+	mgr.mutex.RLock()
+	// Unlock the mutex after reading the subscribers list to not block
+	// endpoint restore operation. This could potentially mean that
+	// subscribers are called even after they've unsubscribed. However,
+	// consumers unsubscribe during the tear down phase so the restore
+	// callbacks may likely not race with unsubscribe calls.
+	subscribers := maps.Clone(mgr.subscribers)
+	mgr.mutex.RUnlock()
+	for s := range subscribers {
+		s.EndpointRestored(ep)
+	}
+
+	return nil
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
