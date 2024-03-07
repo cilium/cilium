@@ -981,12 +981,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of services events labeled by action type",
 		}, []string{LabelAction}),
 
-		ErrorsWarnings: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_errors_warnings_total",
-			Namespace:  Namespace,
-			Name:       "errors_warnings_total",
-			Help:       "Number of total errors in cilium-agent instances",
-		}, []string{"level", "subsystem"}),
+		ErrorsWarnings: newErrorsWarningsMetric(),
 
 		ControllerRuns: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_controllers_runs_total",
@@ -1411,6 +1406,20 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APILimiterProcessedRequests = lm.APILimiterProcessedRequests
 
 	return lm
+}
+
+// InitOperatorMetrics is used to init legacy metrics necessary during operator init.
+func InitOperatorMetrics() {
+	ErrorsWarnings = newErrorsWarningsMetric()
+}
+
+func newErrorsWarningsMetric() metric.Vec[metric.Counter] {
+	return metric.NewCounterVec(metric.CounterOpts{
+		ConfigName: Namespace + "_errors_warnings_total",
+		Namespace:  Namespace,
+		Name:       "errors_warnings_total",
+		Help:       "Number of total errors in cilium-agent instances",
+	}, []string{"level", "subsystem"})
 }
 
 // GaugeWithThreshold is a prometheus gauge that registers itself with
