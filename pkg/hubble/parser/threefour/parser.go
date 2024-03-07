@@ -217,6 +217,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Reply = decoded.GetIsReply().GetValue() // false if GetIsReply() is nil
 	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
+	decoded.TraceReason = decodeTraceReason(tn)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
@@ -428,6 +429,29 @@ func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
 	return &pb.CiliumEventType{
 		Type:    int32(eventType),
 		SubType: int32(eventSubType),
+	}
+}
+
+func decodeTraceReason(tn *monitor.TraceNotify) pb.TraceReason {
+	if tn == nil {
+		return pb.TraceReason_TRACE_REASON_UNKNOWN
+	}
+	// The Hubble protobuf enum values aren't 1:1 mapped with Cilium's datapath
+	// because we want pb.TraceReason_TRACE_REASON_UNKNOWN = 0 while in
+	// datapath monitor.TraceReasonUnknown = 5. The mapping works as follow:
+	switch {
+	// monitor.TraceReasonUnknown is mapped to pb.TraceReason_TRACE_REASON_UNKNOWN
+	case tn.TraceReason() == monitor.TraceReasonUnknown:
+		return pb.TraceReason_TRACE_REASON_UNKNOWN
+	// values before monitor.TraceReasonUnknown are "offset by one", e.g.
+	// TraceReasonCtEstablished = 1 → TraceReason_ESTABLISHED = 2 to make room
+	// for the zero value.
+	case tn.TraceReason() < monitor.TraceReasonUnknown:
+		return pb.TraceReason(tn.TraceReason()) + 1
+	// all values greater than monitor.TraceReasonUnknown are mapped 1:1 with
+	// the datapath values.
+	default:
+		return pb.TraceReason(tn.TraceReason())
 	}
 }
 

@@ -67,7 +67,7 @@ func TestL34Decode(t *testing.T) {
 		1, 0, 0, 0, // source labels
 		0, 0, 0, 0, // destination labels
 		0, 0, // destination ID
-		0x80,       // encrypt  bit
+		0x81,       // "established" trace reason with the encrypt bit set
 		0,          // flags
 		0, 0, 0, 0, // ifindex
 		246, 141, 178, 45, 33, 217, 246, 141, 178,
@@ -160,6 +160,7 @@ func TestL34Decode(t *testing.T) {
 
 	assert.Equal(t, []string{"host-192.168.60.11"}, f.GetSourceNames())
 	assert.Equal(t, "192.168.60.11", f.GetIP().GetSource())
+	assert.Equal(t, flowpb.TraceReason_ESTABLISHED, f.GetTraceReason())
 	assert.True(t, f.GetIP().GetEncrypted())
 	assert.Equal(t, uint32(6443), f.L4.GetTCP().GetSourcePort())
 	assert.Equal(t, "pod-192.168.60.11", f.GetSource().GetPodName())
@@ -517,6 +518,98 @@ func TestDecodeDropReason(t *testing.T) {
 
 	assert.Equal(t, uint32(reason), f.GetDropReason())
 	assert.Equal(t, flowpb.DropReason(reason), f.GetDropReasonDesc())
+}
+
+func TestDecodeTraceReason(t *testing.T) {
+	parser, err := New(log, nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	parseFlow := func(event interface{}, srcIPv4, dstIPv4 string) *flowpb.Flow {
+		data, err := testutils.CreateL3L4Payload(event,
+			&layers.Ethernet{
+				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+				DstMAC:       net.HardwareAddr{7, 8, 9, 0, 1, 2},
+				EthernetType: layers.EthernetTypeIPv4,
+			},
+			&layers.IPv4{SrcIP: net.ParseIP(srcIPv4), DstIP: net.ParseIP(dstIPv4)})
+		require.NoError(t, err)
+		f := &flowpb.Flow{}
+		err = parser.Decode(data, f)
+		require.NoError(t, err)
+		return f
+	}
+
+	var tt = []struct {
+		name   string
+		reason uint8
+		want   flowpb.TraceReason
+	}{
+		{
+			name:   "unknown",
+			reason: monitor.TraceReasonUnknown,
+			want:   flowpb.TraceReason_TRACE_REASON_UNKNOWN,
+		},
+		{
+			name:   "new",
+			reason: monitor.TraceReasonPolicy,
+			want:   flowpb.TraceReason_NEW,
+		},
+		{
+			name:   "established",
+			reason: monitor.TraceReasonCtEstablished,
+			want:   flowpb.TraceReason_ESTABLISHED,
+		},
+		{
+			name:   "reply",
+			reason: monitor.TraceReasonCtReply,
+			want:   flowpb.TraceReason_REPLY,
+		},
+		{
+			name:   "related",
+			reason: monitor.TraceReasonCtRelated,
+			want:   flowpb.TraceReason_RELATED,
+		},
+		{
+			name:   "reopened",
+			reason: monitor.TraceReasonCtReopened,
+			want:   flowpb.TraceReason_REOPENED,
+		},
+		{
+			name:   "srv6-encap",
+			reason: monitor.TraceReasonSRv6Encap,
+			want:   flowpb.TraceReason_SRV6_ENCAP,
+		},
+		{
+			name:   "srv6-decap",
+			reason: monitor.TraceReasonSRv6Decap,
+			want:   flowpb.TraceReason_SRV6_DECAP,
+		},
+		{
+			name:   "encrypt-overlay",
+			reason: monitor.TraceReasonEncryptOverlay,
+			want:   flowpb.TraceReason_ENCRYPT_OVERLAY,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := monitor.TraceNotifyV0{
+				Type:   byte(monitorAPI.MessageTypeTrace),
+				Reason: tc.reason,
+			}
+			f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
+			assert.Equal(t, tc.want, f.GetTraceReason())
+			assert.False(t, f.GetIP().GetEncrypted())
+		})
+		t.Run(tc.name+" encrypted", func(t *testing.T) {
+			tn := monitor.TraceNotifyV0{
+				Type:   byte(monitorAPI.MessageTypeTrace),
+				Reason: tc.reason | monitor.TraceReasonEncryptMask,
+			}
+			f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
+			assert.Equal(t, tc.want, f.GetTraceReason())
+			assert.True(t, f.GetIP().GetEncrypted())
+		})
+	}
 }
 
 func TestDecodeLocalIdentity(t *testing.T) {
