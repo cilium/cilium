@@ -182,9 +182,11 @@ var (
 			Conditions: []slimcorev1.PodCondition{podReady},
 		},
 	}
-	pod1ID = k8s.ServiceID{
-		Name:      pod1.Name,
-		Namespace: pod1.Namespace,
+	pod1ID = podID{
+		ServiceID: k8s.ServiceID{
+			Name:      pod1.Name,
+			Namespace: pod1.Namespace,
+		},
 	}
 	pod2IP1    = slimcorev1.PodIP{IP: "5.6.7.9"}
 	pod2IP2    = slimcorev1.PodIP{IP: "5.6.7.10"}
@@ -222,9 +224,11 @@ var (
 			Conditions: []slimcorev1.PodCondition{podReady},
 		},
 	}
-	pod2ID = k8s.ServiceID{
-		Name:      pod2.Name,
-		Namespace: pod2.Namespace,
+	pod2ID = podID{
+		ServiceID: k8s.ServiceID{
+			Name:      pod2.Name,
+			Namespace: pod2.Namespace,
+		},
 	}
 )
 
@@ -547,9 +551,11 @@ func (m *ManagerSuite) TestManager_OnAddandUpdatePod(c *C) {
 	m.rpm.policyConfigs[configSvc.id] = &configSvc
 	pod := pod1.DeepCopy()
 	pod.Namespace = "ns2"
-	podID := k8s.ServiceID{
-		Name:      pod.Name,
-		Namespace: pod.Namespace,
+	podID := podID{
+		ServiceID: k8s.ServiceID{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+		},
 	}
 
 	m.rpm.OnAddPod(pod)

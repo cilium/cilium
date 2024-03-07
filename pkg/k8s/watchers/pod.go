@@ -539,14 +539,29 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		logfields.K8sUID:       pod.ObjectMeta.UID,
 		"podIP":                pod.Status.PodIP,
 		"podIPs":               pod.Status.PodIPs,
 		"hostIP":               pod.Status.HostIP,
 	})
 
+	// Due to the undefined ordering of pod events (add, delete, update) and
+	// CNI ADD/DELETE's, it's necessary to check whether this pod event is
+	// outdated. StatefulSets do not have a unique namespace/name, so therefore
+	// we rely on UIDs instead for the check.
+	//
+	// Ensure that any downstream subscriber disambiguates pods as
+	// namespace/name as an index is not sufficient.
+	//
+	// This specific scenario is to guard against a delayed delete event. See
+	// GH-30409.
+
 	if option.Config.EnableLocalRedirectPolicy {
 		k.redirectPolicyManager.OnDeletePod(pod)
 	}
+	// TODO: Does this really need to get fixed? Even if we triggered a pod
+	// deletion "erroneously" here, Hubble (likely?) recreates the metric based
+	// on new flows from the pod.
 	hubblemetrics.ProcessPodDeletion(pod)
 
 	k.cgroupManager.OnDeletePod(pod)

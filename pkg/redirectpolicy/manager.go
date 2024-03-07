@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -46,8 +47,12 @@ type svcCache interface {
 	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) net.IP
 }
 
-// podID is pod name and namespace
-type podID = k8s.ServiceID
+// podID is a unique identifier for pods.
+type podID = struct {
+	k8s.ServiceID
+
+	uid types.UID
+}
 
 // Manager manages configurations related to Local Redirect Policies
 // that enable redirecting traffic from the specified frontend to a set of node-local
@@ -250,9 +255,12 @@ func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
 	// events since they'll be handled in the OnUpdatePod callback.
 	// GH issue #13136
 	// TODO add unit test
-	id := k8s.ServiceID{
-		Name:      pod.GetName(),
-		Namespace: pod.GetNamespace(),
+	id := podID{
+		ServiceID: k8s.ServiceID{
+			Name:      pod.GetName(),
+			Namespace: pod.GetNamespace(),
+		},
+		uid: pod.GetUID(),
 	}
 	if _, ok := rpm.policyPods[id]; ok {
 		return
@@ -312,9 +320,12 @@ func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
 	if len(rpm.policyConfigs) == 0 {
 		return
 	}
-	id := k8s.ServiceID{
-		Name:      pod.GetName(),
-		Namespace: pod.GetNamespace(),
+	id := podID{
+		ServiceID: k8s.ServiceID{
+			Name:      pod.GetName(),
+			Namespace: pod.GetNamespace(),
+		},
+		uid: pod.GetUID(),
 	}
 
 	if policies, ok := rpm.policyPods[id]; ok {
@@ -330,7 +341,7 @@ func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
 // add/update events
 type podMetadata struct {
 	labels map[string]string
-	// id the pod's name and namespace
+	// id the pod's unique identifier
 	id podID
 	// ips are pod's unique IPs
 	ips []string
@@ -837,9 +848,12 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) (*podMe
 		ips:        podIPs,
 		labels:     pod.GetLabels(),
 		namedPorts: namedPorts,
-		id: k8s.ServiceID{
-			Name:      pod.GetName(),
-			Namespace: pod.GetNamespace(),
+		id: podID{
+			ServiceID: k8s.ServiceID{
+				Name:      pod.GetName(),
+				Namespace: pod.GetNamespace(),
+			},
+			uid: pod.GetUID(),
 		},
 	}, nil
 }
