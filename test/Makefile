@@ -52,7 +52,7 @@ k8s-test:
 # Match kind-image target in parent directory
 k8s-kind: export DOCKER_REGISTRY=localhost:5000
 k8s-kind:
-	@if [ -z $(FOCUS) ]; then \
+	@if [ -z "$(FOCUS)" ]; then \
 		>&2 echo "usage: FOCUS=K8sFoo make k8s-kind"; \
 		exit 1; \
 	fi
