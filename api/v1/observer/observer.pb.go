@@ -69,6 +69,21 @@ const TraceObservationPoint_TO_NETWORK = flow.TraceObservationPoint_TO_NETWORK
 var TraceObservationPoint_name = flow.TraceObservationPoint_name
 var TraceObservationPoint_value = flow.TraceObservationPoint_value
 
+type TraceReason = flow.TraceReason
+
+const TraceReason_TRACE_REASON_UNKNOWN = flow.TraceReason_TRACE_REASON_UNKNOWN
+const TraceReason_NEW = flow.TraceReason_NEW
+const TraceReason_ESTABLISHED = flow.TraceReason_ESTABLISHED
+const TraceReason_REPLY = flow.TraceReason_REPLY
+const TraceReason_RELATED = flow.TraceReason_RELATED
+const TraceReason_REOPENED = flow.TraceReason_REOPENED
+const TraceReason_SRV6_ENCAP = flow.TraceReason_SRV6_ENCAP
+const TraceReason_SRV6_DECAP = flow.TraceReason_SRV6_DECAP
+const TraceReason_ENCRYPT_OVERLAY = flow.TraceReason_ENCRYPT_OVERLAY
+
+var TraceReason_name = flow.TraceReason_name
+var TraceReason_value = flow.TraceReason_value
+
 type L7FlowType = flow.L7FlowType
 
 const L7FlowType_UNKNOWN_L7_TYPE = flow.L7FlowType_UNKNOWN_L7_TYPE
