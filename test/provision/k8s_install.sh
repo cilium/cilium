@@ -90,12 +90,13 @@ ff02::2 ip6-allrouters
 EOF
 
 cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
-deb http://apt.kubernetes.io/ kubernetes-xenial main
+deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /
 EOF
 
 sudo rm /var/lib/apt/lists/lock || true
-retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
-apt-key add apt-key.gpg
+retry_function "wget https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/Release.key"
+sudo mkdir -m 755 /etc/apt/keyrings
+sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg Release.key
 
 case $K8S_VERSION in
     "1.24" | "1.25" | "1.26")
@@ -425,7 +426,7 @@ case $K8S_VERSION in
     "1.18")
         # kubeadm 1.18 requires conntrack to be installed, we can remove this
         # once we have upgrade the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.18.20"
@@ -439,7 +440,7 @@ case $K8S_VERSION in
     "1.19")
         # kubeadm 1.19 requires conntrack to be installed, we can remove this
         # once we have upgrade the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.19.16"
@@ -453,7 +454,7 @@ case $K8S_VERSION in
     "1.20")
         # kubeadm 1.20 requires conntrack to be installed, we can remove this
         # once we have upgrade the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.20.15"
@@ -467,7 +468,7 @@ case $K8S_VERSION in
     "1.21")
         # kubeadm 1.21 requires conntrack to be installed, we can remove this
         # once we have upgrade the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.21.14"
@@ -481,7 +482,7 @@ case $K8S_VERSION in
     "1.22")
         # kubeadm 1.22 requires conntrack to be installed, we can remove this
         # once we have upgrade the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.22.17"
@@ -495,7 +496,7 @@ case $K8S_VERSION in
     "1.23")
         # kubeadm 1.23 requires conntrack to be installed, we can remove this
         # once we have upgraded the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.23.17"
@@ -509,7 +510,7 @@ case $K8S_VERSION in
     "1.24")
         # kubeadm 1.24 requires conntrack to be installed, we can remove this
         # once we have upgraded the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="1.1.1"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.24.17"
@@ -523,7 +524,7 @@ case $K8S_VERSION in
     "1.25")
         # kubeadm <= 1.24 requires conntrack to be installed, we can remove this
         # once we have upgraded the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         # We don't need to define dthe kubernetes CNI version once we have stable
         # releases.
         # KUBERNETES_CNI_VERSION="0.8.7"
@@ -539,7 +540,7 @@ case $K8S_VERSION in
     "1.26")
         # kubeadm >= 1.24 requires conntrack to be installed, we can remove this
         # once we have upgraded the VM image version.
-        sudo apt-get install -y conntrack
+        install_using_apt conntrack
         KUBERNETES_CNI_VERSION="1.1.1"
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.26.9"
