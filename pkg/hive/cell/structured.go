@@ -441,7 +441,7 @@ func (s *StatusNode) JSON() ([]byte, error) {
 }
 
 func (s *StatusNode) allOk() bool {
-	return s.LastLevel == StatusOK
+	return s.LastLevel != StatusDegraded
 }
 
 func (s *StatusNode) writeTo(w io.Writer, d int) {

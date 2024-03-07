@@ -1,0 +1,38 @@
+
+To set up from scratch:
+
+  $ make deploy
+  # creates kind cluster (if it doesn't exist)
+  # builds the images
+  # installs cilium
+
+  $ make apply
+  # creates grafana&prometheus
+
+To start too many nginx instances:
+
+  $ make run-nginx
+
+To stop the nginx instances:
+
+  $ make stop-nginx
+
+To open Grafana:
+
+  # (make sure to run "make apply" first)
+  $ make port-forward
+  # open http://localhost:3000 in the browser
+
+To inspect:
+
+  $ make tables
+  # dumps the relevant statedb tables
+
+  $ make health
+  # dumps the agent module healths
+
+To update the dashboard:
+
+  1. Download/copy-paste the dashboard JSON from Grafana (gear symbol on top -> JSON Model)
+  2. Copy the model over metrics.json
+  3. "make reapply"

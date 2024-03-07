@@ -16,12 +16,15 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -42,6 +45,8 @@ var (
 
 // LBBPFMap is an implementation of the LBMap interface.
 type LBBPFMap struct {
+	params params
+
 	// Buffer used to avoid excessive allocations to temporarily store backend
 	// IDs. Concurrent access is protected by the
 	// pkg/service.go:(Service).UpsertService() lock.
@@ -49,11 +54,25 @@ type LBBPFMap struct {
 	maglevTableSize        uint64
 }
 
-func New() *LBBPFMap {
+type params struct {
+	cell.In
+
+	DaemonConfig *option.DaemonConfig
+	Lifecycle    cell.Lifecycle
+	DB           *statedb.DB
+	Service4     Service4Table
+	Service6     Service6Table
+	Backend4     Backend4Table
+	Backend6     Backend6Table
+	RevNat4      RevNat4Table
+	RevNat6      RevNat6Table
+}
+
+func New(p params) *LBBPFMap {
 	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
 	maglevTableSize := option.Config.MaglevTableSize
 
-	m := &LBBPFMap{}
+	m := &LBBPFMap{params: p}
 
 	if maglev {
 		m.maglevBackendIDsBuffer = make([]loadbalancer.BackendID, maglevTableSize)
@@ -105,7 +124,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 			svcVal.SetBackendID(loadbalancer.BackendID(backendID))
 			svcVal.SetRevNat(int(p.ID))
 			svcKey.SetBackendSlot(slot)
-			if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
+			if err := lbmap.updateServiceEndpoint(svcKey, svcVal); err != nil {
 				if errors.Is(err, unix.E2BIG) {
 					return fmt.Errorf("Unable to update service entry %+v => %+v: "+
 						"Unable to update element for LB bpf map: "+
@@ -124,20 +143,20 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	zeroValue.SetRevNat(int(p.ID)) // TODO change to uint16
 	revNATKey := zeroValue.RevNatKey()
 	revNATValue := svcKey.RevNatValue()
-	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
+	if err := lbmap.updateRevNatLocked(revNATKey, revNATValue); err != nil {
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
+	if err := lbmap.updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
-		deleteRevNatLocked(revNATKey)
+		lbmap.deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
 
 	if backendsOk {
 		for i := slot; i <= p.PrevBackendsCount; i++ {
 			svcKey.SetBackendSlot(i)
-			if err := deleteServiceLocked(svcKey); err != nil {
+			if err := lbmap.deleteServiceLocked(svcKey); err != nil {
 				log.WithFields(logrus.Fields{
 					logfields.ServiceKey:  svcKey,
 					logfields.BackendSlot: svcKey.GetBackendSlot(),
@@ -194,7 +213,7 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 	return nil
 }
 
-func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev, ipv6 bool) error {
+func (lbmap *LBBPFMap) deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev, ipv6 bool) error {
 	var (
 		svcKey    ServiceKey
 		revNATKey RevNatKey
@@ -210,9 +229,11 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 
 	for slot := 0; slot <= backendCount; slot++ {
 		svcKey.SetBackendSlot(slot)
-		if err := svcKey.MapDelete(); err != nil {
-			return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
-		}
+		lbmap.deleteServiceLocked(svcKey)
+		/*
+			if err := svcKey.MapDelete(); err != nil {
+				return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
+			}*/
 	}
 
 	if useMaglev {
@@ -221,7 +242,7 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 		}
 	}
 
-	if err := deleteRevNatLocked(revNATKey); err != nil {
+	if err := lbmap.deleteRevNatLocked(revNATKey); err != nil {
 		return fmt.Errorf("Unable to delete revNAT entry %+v: %s", revNATKey, err)
 	}
 
@@ -229,17 +250,17 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 }
 
 // DeleteService removes given service from a BPF map.
-func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev bool,
+func (lbmap *LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev bool,
 	natPolicy loadbalancer.SVCNatPolicy) error {
 	if svc.ID == 0 {
 		return fmt.Errorf("Invalid svc ID 0")
 	}
-	if err := deleteServiceProto(svc, backendCount, useMaglev,
+	if err := lbmap.deleteServiceProto(svc, backendCount, useMaglev,
 		svc.IsIPv6() || natPolicy == loadbalancer.SVCNatPolicyNat46); err != nil {
 		return err
 	}
 	if natPolicy == loadbalancer.SVCNatPolicyNat46 {
-		if err := deleteServiceProto(svc, 0, false, false); err != nil {
+		if err := lbmap.deleteServiceProto(svc, 0, false, false); err != nil {
 			return err
 		}
 	}
@@ -248,7 +269,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 
 // AddBackend adds a backend into a BPF map. ipv6 indicates if the backend needs
 // to be added in the v4 or v6 backend map.
-func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
+func (lbmap *LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -257,7 +278,7 @@ func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
 	if backend, err = getBackend(b, ipv6); err != nil {
 		return err
 	}
-	if err := updateBackend(backend); err != nil {
+	if err := lbmap.updateBackend(backend); err != nil {
 		return fmt.Errorf("unable to add backend %+v: %s", backend, err)
 	}
 
@@ -267,7 +288,7 @@ func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
 // UpdateBackendWithState updates the state for the given backend.
 //
 // This function should only be called to update backend's state.
-func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.Backend) error {
+func (lbmap *LBBPFMap) UpdateBackendWithState(b *loadbalancer.Backend) error {
 	var (
 		backend Backend
 		err     error
@@ -276,14 +297,14 @@ func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.Backend) error {
 	if backend, err = getBackend(b, b.L3n4Addr.IsIPv6()); err != nil {
 		return err
 	}
-	if err := updateBackend(backend); err != nil {
+	if err := lbmap.updateBackend(backend); err != nil {
 		return fmt.Errorf("unable to update backend state %+v: %s", b, err)
 	}
 
 	return nil
 }
 
-func deleteBackendByIDFamily(id loadbalancer.BackendID, ipv6 bool) error {
+func (lbmap *LBBPFMap) deleteBackendByIDFamily(id loadbalancer.BackendID, ipv6 bool) error {
 	var key BackendKey
 
 	if ipv6 {
@@ -292,7 +313,7 @@ func deleteBackendByIDFamily(id loadbalancer.BackendID, ipv6 bool) error {
 		key = NewBackend4KeyV3(loadbalancer.BackendID(id))
 	}
 
-	if err := deleteBackendLocked(key); err != nil {
+	if err := lbmap.deleteBackendLocked(key); err != nil {
 		return fmt.Errorf("Unable to delete backend %d (%t): %s", id, ipv6, err)
 	}
 
@@ -300,7 +321,7 @@ func deleteBackendByIDFamily(id loadbalancer.BackendID, ipv6 bool) error {
 }
 
 // DeleteBackendByID removes a backend identified with the given ID from a BPF map.
-func (*LBBPFMap) DeleteBackendByID(id loadbalancer.BackendID) error {
+func (lbmap *LBBPFMap) DeleteBackendByID(id loadbalancer.BackendID) error {
 	if id == 0 {
 		return fmt.Errorf("Invalid backend ID 0")
 	}
@@ -308,10 +329,10 @@ func (*LBBPFMap) DeleteBackendByID(id loadbalancer.BackendID) error {
 	// The backend could be a backend for a NAT64 service, therefore
 	// attempt to remove from both backend maps.
 	if option.Config.EnableIPv6 {
-		deleteBackendByIDFamily(id, true)
+		lbmap.deleteBackendByIDFamily(id, true)
 	}
 	if option.Config.EnableIPv4 {
-		deleteBackendByIDFamily(id, false)
+		lbmap.deleteBackendByIDFamily(id, false)
 	}
 	return nil
 }
@@ -376,19 +397,55 @@ func (*LBBPFMap) DumpSourceRanges(ipv6 bool) (datapathTypes.SourceRangeSetByServ
 	return ret, nil
 }
 
-func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
+func (lbmap *LBBPFMap) updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
-	if err := key.Map().OpenOrCreate(); err != nil {
-		return err
+
+	var table statedb.RWTable[*RevNat]
+
+	if key.Map() == RevNat6Map { // Yikes
+		table = lbmap.params.RevNat6
+	} else {
+		table = lbmap.params.RevNat4
 	}
 
-	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
+	txn := lbmap.params.DB.WriteTxn(table)
+	_, _, err := table.Insert(txn, &RevNat{
+		K:      key.ToNetwork(),
+		V:      value.ToNetwork(),
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
+
+	return err
 }
 
-func deleteRevNatLocked(key RevNatKey) error {
-	return key.Map().Delete(key.ToNetwork())
+func (lbmap *LBBPFMap) deleteRevNatLocked(key RevNatKey) error {
+	if key.GetKey() == 0 {
+		return fmt.Errorf("invalid RevNat ID (0)")
+	}
+
+	key = key.ToNetwork()
+
+	var table statedb.RWTable[*RevNat]
+
+	if key.Map() == RevNat6Map { // Yikes
+		table = lbmap.params.RevNat6
+	} else {
+		table = lbmap.params.RevNat4
+	}
+
+	txn := lbmap.params.DB.WriteTxn(table)
+	defer txn.Abort()
+	old, _, found := table.First(txn, RevNatIndex.Query(key.GetKey()))
+	if found {
+		_, _, err := table.Insert(txn, old.WithStatus(reconciler.StatusPendingDelete()))
+		txn.Commit()
+		return err
+	} else {
+		return fmt.Errorf("RevNat entry %q not found", key)
+	}
 }
 
 func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CIDR,
@@ -564,7 +621,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
+func (lbmap *LBBPFMap) updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
 	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
@@ -594,11 +651,28 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revN
 		v.SetL7LBProxyPort(l7lbProxyPort)
 	}
 
-	return updateServiceEndpoint(fe, v)
+	return lbmap.updateServiceEndpoint(fe, v)
 }
 
-func deleteServiceLocked(key ServiceKey) error {
-	return key.Map().Delete(key.ToNetwork())
+func (lbmap *LBBPFMap) deleteServiceLocked(key ServiceKey) error {
+	var table statedb.RWTable[*Service]
+	if key.IsIPv6() {
+		table = lbmap.params.Service6
+	} else {
+		table = lbmap.params.Service4
+	}
+
+	txn := lbmap.params.DB.WriteTxn(table)
+	defer txn.Abort()
+	key = key.ToNetwork()
+	old, _, found := table.First(txn, ServiceIndex.Query(key.String()))
+	if found {
+		table.Insert(txn, old.WithStatus(reconciler.StatusPendingDelete()))
+		txn.Commit()
+	} else {
+		log.Warnf("No service found for %q", key.String())
+	}
+	return nil
 }
 
 func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
@@ -626,30 +700,68 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 	return lbBackend, nil
 }
 
-func updateBackend(backend Backend) error {
-	if err := backend.Map().OpenOrCreate(); err != nil {
-		return err
+func (lbmap *LBBPFMap) updateBackend(backend Backend) error {
+	key := backend.GetKey()
+	value := backend.GetValue()
+
+	var table statedb.RWTable[*BackendKV]
+
+	if backend.Map() == Backend6MapV3 { // Yikes
+		table = lbmap.params.Backend6
+	} else {
+		table = lbmap.params.Backend4
 	}
 
-	return backend.Map().Update(backend.GetKey(), backend.GetValue().ToNetwork())
-}
+	txn := lbmap.params.DB.WriteTxn(table)
+	_, _, err := table.Insert(txn, &BackendKV{
+		K:      key,
+		V:      value.ToNetwork(),
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
 
-func deleteBackendLocked(key BackendKey) error {
-	_, err := key.Map().SilentDelete(key)
 	return err
 }
 
-func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
+func (lbmap *LBBPFMap) deleteBackendLocked(key BackendKey) error {
+	var table statedb.RWTable[*BackendKV]
+
+	if key.Map() == Backend6MapV3 { // Yikes
+		table = lbmap.params.Backend6
+	} else {
+		table = lbmap.params.Backend4
+	}
+
+	txn := lbmap.params.DB.WriteTxn(table)
+	defer txn.Abort()
+	old, _, found := table.First(txn, BackendIndex.Query(key.GetID()))
+	if found {
+		_, _, err := table.Insert(txn, old.WithStatus(reconciler.StatusPendingDelete()))
+		txn.Commit()
+		return err
+	}
+	return nil
+}
+
+func (lbmap *LBBPFMap) updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	if key.GetBackendSlot() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
-	if err := key.Map().OpenOrCreate(); err != nil {
-		return err
+
+	var table statedb.RWTable[*Service]
+	if key.IsIPv6() {
+		table = lbmap.params.Service6
+	} else {
+		table = lbmap.params.Service4
 	}
 
-	if err := key.Map().Update(key.ToNetwork(), value.ToNetwork()); err != nil {
-		return err
-	}
+	txn := lbmap.params.DB.WriteTxn(table)
+	table.Insert(txn, &Service{
+		K:      key.ToNetwork(),
+		V:      value.ToNetwork(),
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
 
 	log.WithFields(logrus.Fields{
 		logfields.ServiceKey:   key,

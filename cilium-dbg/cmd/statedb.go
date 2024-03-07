@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
@@ -97,6 +98,15 @@ func init() {
 		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
 		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
 		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
+
+		// FIXME: The *Service type should move to datapath tables, or some other "table types only"
+		// package as otherwise we're importing a lot of junk.
+		statedbTableCommand[*lbmap.Service]("services4"),
+		statedbTableCommand[*lbmap.Service]("services6"),
+		statedbTableCommand[*lbmap.BackendKV]("backends4"),
+		statedbTableCommand[*lbmap.BackendKV]("backends6"),
+		statedbTableCommand[*lbmap.RevNat]("revnat4"),
+		statedbTableCommand[*lbmap.RevNat]("revnat6"),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

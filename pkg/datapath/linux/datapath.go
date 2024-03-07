@@ -6,7 +6,6 @@ package linux
 import (
 	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 )
 
@@ -41,6 +40,7 @@ type DatapathParams struct {
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
 	Loader         loader.Loader
+	LBMap          datapath.LBMap
 }
 
 // NewDatapath creates a new Linux datapath
@@ -52,7 +52,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		config:          cfg,
 		loader:          p.Loader,
 		wgAgent:         p.WGAgent,
-		lbmap:           lbmap.New(),
+		lbmap:           p.LBMap,
 		bwmgr:           p.BWManager,
 	}
 
