@@ -95,5 +95,9 @@ func registerMetricsManager(p params) {
 		Registry.MustRegister(metric.(prometheus.Collector))
 	}
 
+	metrics.InitOperatorMetrics()
+	Registry.MustRegister(metrics.ErrorsWarnings)
+	metrics.FlushLoggingMetrics()
+
 	p.Lifecycle.Append(mm)
 }
