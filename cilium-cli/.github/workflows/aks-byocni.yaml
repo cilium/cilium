@@ -61,7 +61,7 @@ jobs:
           kubectl version --client
 
       - name: Login to Azure
-        uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+        uses: azure/login@8c334a195cbb38e46038007b304988d888bf676a # v2.0.0
         with:
           client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
