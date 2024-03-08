@@ -67,3 +67,61 @@ all ongoing connections with the endpoints on the failed node, and connections
 forwarded to a different node than before, will be reset.
 
 .. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/switches-interface-resilient-hashing.html
+
+Peering Link Down
+-----------------
+
+If the peering link between the BGP peers goes down, usually, both the BGP
+session and datapath connectivity will be lost. However, there may be a period
+during which the datapath connectivity is lost while the BGP session remains up
+and routes are still being advertised. This can cause the BGP peer to send
+traffic over the failed link, resulting in dropped packets. The length of this
+period depends on which link is down and the BGP configuration.
+
+If the link directly connected to the Node goes down, the BGP session will
+likely be lost immediately because the Linux kernel detects the link failure
+and shuts down the TCP session right away. If a link not directly connected to
+the Node goes down, the BGP session will be lost after the hold timer expires,
+which is set to 90 seconds by default.
+
+Mitigation
+~~~~~~~~~~
+
+To make link detection failure fast, you can adjust ``holdTimeSeconds`` and
+``keepAliveTimeSeconds`` in the BGP configuration to the shorter value.
+However, the minimal possible values are ``holdTimeSeconds=3`` and
+``keepAliveTimeSeconds=1``. The general approach to make failure detection faster is to
+use BFD (Bidirectional Forwarding Detection), but currently, Cilium does not
+support it.
+
+Cilium Operator Down
+--------------------
+
+If the Cilium Operator goes down, PodCIDR allocation by IPAM, and LoadBalancer
+IP allocation by LB-IPAM are stopped. Therefore, the advertisement of new
+and withdrawal of old PodCIDR and Service VIP routes will be stopped as well.
+
+Mitigation
+~~~~~~~~~~
+
+There's no direct mitigation in terms of the BGP. However, running the Cilium
+Operator with a :ref:`high-availability setup <cilium_operator_internals>` will
+make the Cilium Operator more resilient to failures.
+
+Service Losing All Backends
+---------------------------
+
+If all service backends are gone due to an outage or a configuration mistake, BGP
+Control Plane behaves differently depending on the Service's
+``externalTrafficPolicy``. When the ``externalTrafficPolicy`` is set to
+``Cluster``, the Service's VIP remains advertised from all nodes selected by the
+CiliumBGPPeeringPolicy. When the ``externalTrafficPolicy`` is set to ``Local``,
+the advertisement stops entirely because the Service's VIP is only advertised
+from the node where the Service backends are running.
+
+Mitigation
+~~~~~~~~~~
+
+There's no direct mitigation in terms of the BGP. In general, you should
+prevent the Service backends from being all gone by Kubernetes features like
+PodDisruptionBudget.
