@@ -62,6 +62,7 @@
 #define bpf_htons(x)				\
 	(__builtin_constant_p(x) ?		\
 	 __bpf_constant_htons(x) : __bpf_htons(x))
+#define bpf_u8_to_be16(x) bpf_htons((__u16)x)
 #define bpf_ntohs(x)				\
 	(__builtin_constant_p(x) ?		\
 	 __bpf_constant_ntohs(x) : __bpf_ntohs(x))
