@@ -828,6 +828,203 @@ func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
 	}
 }
 
+// Test_LBEgressAdvertisementWithExternalIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
+func Test_LBEgressAdvertisementWithExternalIP(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	var steps = []struct {
+		description         string
+		srvName             string
+		externalIP          string
+		op                  string // add or update
+		expectedRouteEvents []routeEvent
+	}{
+		{
+			description: "advertise service IP",
+			srvName:     "service-a",
+			externalIP:  "10.100.1.1",
+			op:          "add",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "withdraw service IP",
+			srvName:     "service-a",
+			externalIP:  "",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: true,
+				},
+			},
+		},
+		{
+			description: "re-advertise service IP",
+			srvName:     "service-a",
+			externalIP:  "10.100.1.1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "update service IP",
+			srvName:     "service-a",
+			externalIP:  "10.200.1.1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: true,
+				},
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.200.1.1",
+					prefixLen:   32,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "advertise v6 service IP",
+			srvName:     "service-b",
+			externalIP:  "cccc::1",
+			op:          "add",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "withdraw v6 service IP",
+			srvName:     "service-b",
+			externalIP:  "",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: true,
+				},
+			},
+		},
+		{
+			description: "re-advertise v6 service IP",
+			srvName:     "service-b",
+			externalIP:  "cccc::1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "update v6 service IP",
+			srvName:     "service-b",
+			externalIP:  "dddd::1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: true,
+				},
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "dddd::1",
+					prefixLen:   128,
+					isWithdrawn: false,
+				},
+			},
+		},
+	}
+
+	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)
+	defer testDone()
+
+	// setup topology
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
+	require.NoError(t, err)
+	require.Len(t, gobgpPeers, 1)
+	defer cleanup()
+
+	// setup neighbor
+	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
+	require.NoError(t, err)
+
+	// wait for peering to come up
+	err = gobgpPeers[0].waitForSessionState(testCtx, []string{"ESTABLISHED"})
+	require.NoError(t, err)
+
+	// setup bgp policy with service selection
+	fixture.config.policy.Spec.VirtualRouters[0].ServiceSelector = &slim_metav1.LabelSelector{
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+			// always true match
+			{
+				Key:      "somekey",
+				Operator: "NotIn",
+				Values:   []string{"not-somekey"},
+			},
+		},
+	}
+	fixture.config.policy.Spec.VirtualRouters[0].ServiceAdvertisements = []v2alpha1.BGPServiceAddressType{
+		v2alpha1.BGPExternalIPAddr,
+	}
+	_, err = fixture.policyClient.Update(testCtx, &fixture.config.policy, meta_v1.UpdateOptions{})
+	require.NoError(t, err)
+
+	tracker := fixture.fakeClientSet.SlimFakeClientset.Tracker()
+
+	for _, step := range steps {
+		t.Run(step.description, func(t *testing.T) {
+			srvObj := newExternalIPServiceObj(externalIPsSrvConfig{
+				name:       step.srvName,
+				externalIP: step.externalIP,
+			})
+
+			if step.op == "add" {
+				err = tracker.Add(&srvObj)
+			} else {
+				err = tracker.Update(slim_metav1.Unversioned.WithResource("services"), &srvObj, "")
+			}
+			require.NoError(t, err, step.description)
+
+			// validate expected result
+			receivedEvents, err := gobgpPeers[0].getRouteEvents(testCtx, len(step.expectedRouteEvents))
+			require.NoError(t, err, step.description)
+
+			// match events in any order
+			require.ElementsMatch(t, step.expectedRouteEvents, receivedEvents, step.description)
+		})
+	}
+}
+
 // Test_AdvertisedPathAttributes validates optional path attributes in advertised paths.
 func Test_AdvertisedPathAttributes(t *testing.T) {
 	testutils.PrivilegedTest(t)

@@ -344,6 +344,17 @@ func (r *ServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualR
 				}
 				desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
 			}
+		case v2alpha1api.BGPExternalIPAddr:
+			for _, extIP := range svc.Spec.ExternalIPs {
+				if extIP == "" {
+					continue
+				}
+				addr, err := netip.ParseAddr(extIP)
+				if err != nil {
+					continue
+				}
+				desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
+			}
 		}
 	}
 
