@@ -1602,9 +1602,18 @@ localRedirectPolicy: false
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""
 
-# logOptions allows you to define logging options. eg:
-# logOptions:
-#   format: json
+# -- (string) Define logging options.
+# These options can also be set as json key value pairs, for example "level=warn,format=(text|json|json-ts),syslog.facility=local4,syslog.severity=info,syslog.tag=cilium"
+logOptions:
+  level: "info"
+  format: "text"
+  # -- specify syslog options to enable syslog logging
+  # syslog:
+    # facility: "kernel"
+    # -- "severity" mirrors logOptions.level by default
+    # severity: "info"
+    # address: ""
+    # tag: ""
 
 # -- Enables periodic logging of system load
 logSystemLoad: false

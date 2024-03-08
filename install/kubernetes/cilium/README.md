@@ -642,6 +642,7 @@ contributors across the globe, there is almost always someone available to help.
 | loadBalancer.l7.backend | string | `"disabled"` | Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing by way of service annotation. |
 | loadBalancer.l7.ports | list | `[]` | List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation. |
 | localRedirectPolicy | bool | `false` | Enable Local Redirect Policy. |
+| logOptions | string | `{"format":"text","level":"info"}` | Define logging options. These options can also be set as json key value pairs, for example "level=warn,format=(text|json|json-ts),syslog.facility=local4,syslog.severity=info,syslog.tag=cilium" |
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |
 | monitor | object | `{"enabled":false}` | cilium-monitor sidecar. |

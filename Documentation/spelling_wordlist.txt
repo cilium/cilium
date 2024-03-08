@@ -473,6 +473,7 @@ loadinfo
 localhost
 lockless
 logfile
+loglevel
 lookups
 loopback
 lrp
@@ -487,6 +488,7 @@ mainboard
 makefile
 mana
 masq
+matchExpressions
 matchLabels
 matchPattern
 maxUnavailable
@@ -684,6 +686,7 @@ syscall
 sysctl
 sysctls
 sysdump
+syslog
 systemd
 systemtap
 targetPort
@@ -782,4 +785,3 @@ xt
 xwing
 yaml
 zsh
-matchExpressions

@@ -2368,6 +2368,10 @@
      - Enable Local Redirect Policy.
      - bool
      - ``false``
+   * - :spelling:ignore:`logOptions`
+     - Define logging options. These options can also be set as json key value pairs, for example "level=warn,format=(text
+     - string
+     - ``{"format":"text","level":"info"}``
    * - :spelling:ignore:`logSystemLoad`
      - Enables periodic logging of system load
      - bool
