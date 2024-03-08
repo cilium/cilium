@@ -52,13 +52,10 @@ type BGPParams struct {
 	Config       Config
 
 	// resource tracking
-	LegacyBGPResource          resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy]
 	ClusterConfigResource      resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
 	NodeConfigOverrideResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride]
 	NodeConfigResource         resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
 	NodeResource               resource.Resource[*cilium_api_v2.CiliumNode]
-	AdvertisementResource      resource.Resource[*cilium_api_v2alpha1.CiliumBGPAdvertisement]
-	PeerConfigResource         resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
 }
 
 type BGPResourceManager struct {
@@ -79,19 +76,8 @@ type BGPResourceManager struct {
 	ciliumNodeStore         resource.Store[*cilium_api_v2.CiliumNode]
 	nodeConfigClient        cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
 
-	// For legacy BGP Peering Policy
-	peeringPolicy      resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy]
-	advert             resource.Resource[*cilium_api_v2alpha1.CiliumBGPAdvertisement]
-	peerConfig         resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
-	peeringPolicyStore resource.Store[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy]
-	advertStore        resource.Store[*cilium_api_v2alpha1.CiliumBGPAdvertisement]
-	peerConfigStore    resource.Store[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
-	advertClient       cilium_client_v2alpha1.CiliumBGPAdvertisementInterface
-	peerConfigClient   cilium_client_v2alpha1.CiliumBGPPeerConfigInterface
-
 	// internal state
 	reconcileCh      chan struct{}
-	bgpPolicySyncCh  chan struct{}
 	bgpClusterSyncCh chan struct{}
 }
 
@@ -110,20 +96,14 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 		scope:     p.Scope,
 
 		reconcileCh:        make(chan struct{}, 1),
-		bgpPolicySyncCh:    make(chan struct{}, 1),
 		bgpClusterSyncCh:   make(chan struct{}, 1),
 		clusterConfig:      p.ClusterConfigResource,
 		nodeConfigOverride: p.NodeConfigOverrideResource,
 		nodeConfig:         p.NodeConfigResource,
 		ciliumNode:         p.NodeResource,
-		peeringPolicy:      p.LegacyBGPResource,
-		advert:             p.AdvertisementResource,
-		peerConfig:         p.PeerConfigResource,
 	}
 
 	b.nodeConfigClient = b.clientset.CiliumV2alpha1().CiliumBGPNodeConfigs()
-	b.peerConfigClient = b.clientset.CiliumV2alpha1().CiliumBGPPeerConfigs()
-	b.advertClient = b.clientset.CiliumV2alpha1().CiliumBGPAdvertisements()
 
 	// initialize jobs and register them with lifecycle
 	jobs := b.initializeJobs()
@@ -150,22 +130,6 @@ func (b *BGPResourceManager) initializeJobs() job.Group {
 			b.logger.Info("BGPv2 control plane operator started")
 
 			return b.Run(ctx)
-		}),
-
-		// Tracking jobs to do
-		job.OneShot("bgpv2-operator-peering-policy-tracker", func(ctx context.Context, health cell.HealthReporter) error {
-			for e := range b.peeringPolicy.Events(ctx) {
-				if e.Kind == resource.Sync {
-					select {
-					case b.bgpPolicySyncCh <- struct{}{}:
-					default:
-					}
-				}
-
-				b.triggerReconcile()
-				e.Done(nil)
-			}
-			return nil
 		}),
 
 		job.OneShot("bgpv2-operator-cluster-config-tracker", func(ctx context.Context, health cell.HealthReporter) error {
@@ -228,22 +192,7 @@ func (b *BGPResourceManager) initializeStores(ctx context.Context) (err error) {
 		return
 	}
 
-	b.advertStore, err = b.advert.Store(ctx)
-	if err != nil {
-		return
-	}
-
-	b.peerConfigStore, err = b.peerConfig.Store(ctx)
-	if err != nil {
-		return
-	}
-
 	b.ciliumNodeStore, err = b.ciliumNode.Store(ctx)
-	if err != nil {
-		return
-	}
-
-	b.peeringPolicyStore, err = b.peeringPolicy.Store(ctx)
 	if err != nil {
 		return
 	}
@@ -262,9 +211,8 @@ func (b *BGPResourceManager) triggerReconcile() {
 
 // Run starts the BGPResourceManager operator.
 func (b *BGPResourceManager) Run(ctx context.Context) (err error) {
-	// make sure both policy and cluster config are synced before starting the reconciliation
+	// make sure cluster config is synced before starting the reconciliation
 	<-b.bgpClusterSyncCh
-	<-b.bgpPolicySyncCh
 
 	// trigger reconciliation for first time.
 	b.triggerReconcile()
@@ -310,55 +258,19 @@ func (b *BGPResourceManager) reconcileWithRetry(ctx context.Context) error {
 
 // reconcile is called when any interesting resource change event is triggered.
 func (b *BGPResourceManager) reconcile(ctx context.Context) error {
-	var err error
-	ppEnabled, ccEnabled := len(b.peeringPolicyStore.List()) > 0, len(b.clusterConfigStore.List()) > 0
-
-	switch {
-	case ppEnabled && ccEnabled:
-		// If both legacy CiliumBGPPeeringPolicy and new CiliumBGPClusterConfig is enabled,
-		// we only reconcile new CiliumBGPClusterConfig.
-		// This is done for migration from legacy to new BGP resources.
-		err = b.reconcileBGPClusterConfigs(ctx)
-	case ppEnabled:
-		err = b.reconcileBGPPeeringPolicies(ctx)
-	case ccEnabled:
-		err = b.reconcileBGPClusterConfigs(ctx)
+	err := b.reconcileBGPClusterConfigs(ctx)
+	if err != nil {
+		return err
 	}
 
-	// clean up any orphan objects
-	dErr := b.deleteOrphanObjects(ctx)
-	if dErr != nil {
-		err = errors.Join(err, dErr)
+	// We need to clean up any objects created by the operator on behalf of the BGP Cluster config. If the BGP Cluster
+	// config is no longer present.
+	err = b.deleteOrphanBGPNC(ctx)
+	if err != nil {
+		return err
 	}
 
-	return err
-}
-
-// deleteOrphanObjects deletes stale BGP object.
-//
-// If BGP objects were created by operator on behalf of CiliumBGPPeeringPolicy or CiliumBGPClusterConfig,
-// then owner field is set explicitly.
-// If the owner is deleted, then we need to clean up objects which were created by the operator on behalf of the owner.
-func (b *BGPResourceManager) deleteOrphanObjects(ctx context.Context) error {
-	var err error
-
-	// cleanup orphan CiliumBGPNodeConfig objects
-	dErr := b.deleteOrphanBGPNC(ctx)
-	if dErr != nil {
-		err = errors.Join(err, dErr)
-	}
-
-	dErr = b.deleteOrphanBGPA(ctx)
-	if dErr != nil {
-		err = errors.Join(err, dErr)
-	}
-
-	dErr = b.deleteOrphanBGPPC(ctx)
-	if dErr != nil {
-		err = errors.Join(err, dErr)
-	}
-
-	return err
+	return nil
 }
 
 // deleteOrphanBGPNC deletes orphan CiliumBGPNodeConfig objects. If owner is not of kind BGP peering policy or BGP cluster config,
@@ -371,9 +283,6 @@ func (b *BGPResourceManager) deleteOrphanBGPNC(ctx context.Context) error {
 
 		kind, name := getOwnerKindAndName(nc)
 		switch kind {
-		case cilium_api_v2alpha1.BGPPKindDefinition:
-			_, ownerExists, err = b.peeringPolicyStore.GetByKey(resource.Key{Name: name})
-
 		case cilium_api_v2alpha1.BGPCCKindDefinition:
 			_, ownerExists, err = b.clusterConfigStore.GetByKey(resource.Key{Name: name})
 		}
@@ -399,80 +308,6 @@ func (b *BGPResourceManager) deleteOrphanBGPNC(ctx context.Context) error {
 					"parent policy": name,
 					"parent kind":   kind,
 				}).Info("Deleting BGP node config object, parent policy not found")
-			}
-		}
-	}
-	return allErr
-}
-
-// deleteOrphanBGPA deletes orphan CiliumBGPAdvertisement objects. If owner is of kind BGP peering policy, but policy is not found,
-// we delete the CiliumBGPAdvertisement object.
-func (b *BGPResourceManager) deleteOrphanBGPA(ctx context.Context) error {
-	var allErr error
-	for _, advert := range b.advertStore.List() {
-		kind, name := getOwnerKindAndName(advert)
-
-		if kind != cilium_api_v2alpha1.BGPPKindDefinition {
-			// skip advertisements which are not created by CiliumBGPPeeringPolicy
-			continue
-		}
-
-		_, ownerExists, err := b.peeringPolicyStore.GetByKey(resource.Key{Name: name})
-		if err != nil {
-			allErr = errors.Join(allErr, err)
-			continue
-		}
-
-		if !ownerExists {
-			dErr := b.advertClient.Delete(ctx, advert.GetName(), meta_v1.DeleteOptions{})
-			if dErr != nil && k8s_errors.IsNotFound(dErr) {
-				// object is already removed from API server.
-				continue
-			} else if dErr != nil {
-				allErr = errors.Join(allErr, dErr)
-			} else {
-				b.logger.WithFields(logrus.Fields{
-					"advertisement": advert.GetName(),
-					"parent policy": name,
-					"parent kind":   kind,
-				}).Info("Deleting BGP advertisement object, parent policy not found")
-			}
-		}
-	}
-	return allErr
-}
-
-// deleteOrphanBGPPC deletes orphan CiliumBGPPeerConfig objects. If owner is of kind BGP peering policy, but policy is not found,
-// we delete the CiliumBGPPeerConfig object.
-func (b *BGPResourceManager) deleteOrphanBGPPC(ctx context.Context) error {
-	var allErr error
-	for _, pc := range b.peerConfigStore.List() {
-		kind, name := getOwnerKindAndName(pc)
-
-		if kind != cilium_api_v2alpha1.BGPPKindDefinition {
-			// skip peer configs which are not created by CiliumBGPPeeringPolicy
-			continue
-		}
-
-		_, ownerExists, err := b.peeringPolicyStore.GetByKey(resource.Key{Name: name})
-		if err != nil {
-			allErr = errors.Join(allErr, err)
-			continue
-		}
-
-		if !ownerExists {
-			dErr := b.peerConfigClient.Delete(ctx, pc.GetName(), meta_v1.DeleteOptions{})
-			if dErr != nil && k8s_errors.IsNotFound(dErr) {
-				// object is already removed from API server.
-				continue
-			} else if dErr != nil {
-				allErr = errors.Join(allErr, dErr)
-			} else {
-				b.logger.WithFields(logrus.Fields{
-					"peer config":   pc.GetName(),
-					"parent policy": name,
-					"parent kind":   kind,
-				}).Info("Deleting BGP peer config object, parent policy not found")
 			}
 		}
 	}
