@@ -34,7 +34,7 @@ const (
 // Note list of supported service addresses is not exhaustive and can be extended in the future.
 // Consumer of this API should be able to handle unknown values.
 //
-// +kubebuilder:validation:Enum=LoadBalancerIP;ClusterIP
+// +kubebuilder:validation:Enum=LoadBalancerIP;ClusterIP;ExternalIP
 type BGPServiceAddressType string
 
 const (
@@ -54,7 +54,7 @@ const (
 	// BGPExternalIPAddr when configured, Cilium will advertise external IP prefix of a service to BGP peers.
 	// External IP for a service is defined here
 	// https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
-	// BGPExternalIPAddr BGPServiceAddressType = "ExternalIP"
+	BGPExternalIPAddr BGPServiceAddressType = "ExternalIP"
 )
 
 // +genclient

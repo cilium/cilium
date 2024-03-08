@@ -114,6 +114,31 @@ func newClusterIPServiceObj(conf clusterIPSrvConfig) slim_core_v1.Service {
 	return srvObj
 }
 
+// externalIPsSrvConfig contains ExternalIPs service configuration data
+type externalIPsSrvConfig struct {
+	name       string
+	externalIP string
+}
+
+// newExternalIPServiceObj creates slim_core_v1.Service object based on externalIPsSrvConfig
+func newExternalIPServiceObj(conf externalIPsSrvConfig) slim_core_v1.Service {
+	srvObj := slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name: conf.name,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type:        slim_core_v1.ServiceTypeClusterIP,
+			ExternalIPs: []string{conf.externalIP},
+		},
+	}
+
+	srvObj.Status = slim_core_v1.ServiceStatus{
+		LoadBalancer: slim_core_v1.LoadBalancerStatus{},
+	}
+
+	return srvObj
+}
+
 // lbSrvConfig contains lb service configuration data
 type lbPoolConfig struct {
 	name   string

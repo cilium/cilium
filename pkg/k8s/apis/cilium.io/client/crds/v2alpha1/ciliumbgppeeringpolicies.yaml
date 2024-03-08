@@ -519,6 +519,7 @@ spec:
                         enum:
                         - LoadBalancerIP
                         - ClusterIP
+                        - ExternalIP
                         type: string
                       type: array
                     serviceSelector:
