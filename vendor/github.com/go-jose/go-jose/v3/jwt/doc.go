@@ -15,8 +15,6 @@
  */
 
 /*
-
 Package jwt provides an implementation of the JSON Web Token standard.
-
 */
 package jwt
