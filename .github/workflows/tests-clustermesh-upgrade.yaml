@@ -422,6 +422,53 @@ jobs:
           --include-conn-disrupt-test --conn-disrupt-test-setup \
           --conn-disrupt-dispatch-interval 0ms
 
+    - name: Restart clustermesh-apiserver and ensure client can connect to new Service
+      run: |
+        echo "Restarting clustermesh-apiserver deployments"
+        kubectl --context ${{ env.contextName1 }} -n kube-system rollout restart deployment clustermesh-apiserver
+        kubectl --context ${{ env.contextName2 }} -n kube-system rollout restart deployment clustermesh-apiserver
+        kubectl --context ${{ env.contextName1 }} -n kube-system rollout status deployment clustermesh-apiserver
+        kubectl --context ${{ env.contextName2 }} -n kube-system rollout status deployment clustermesh-apiserver
+
+        cat << EOF > echo-failover.yaml
+        apiVersion: v1
+        kind: Service
+        metadata:
+          annotations:
+            service.cilium.io/global: "true"
+          labels:
+            kind: echo
+            context: failover
+          name: echo-other-node-failover
+          namespace: cilium-test
+        spec:
+          ipFamilies:
+          - IPv4
+          - IPv6
+          ipFamilyPolicy: PreferDualStack
+          ports:
+          - name: http
+            port: 8080
+            protocol: TCP
+            targetPort: 8080
+          selector:
+            name: echo-other-node
+          sessionAffinity: None
+          type: ClusterIP
+        EOF
+
+        echo "Deploying a global Service to test failover"
+        kubectl --context ${{ env.contextName1 }} apply -f echo-failover.yaml
+        kubectl --context ${{ env.contextName2 }} apply -f echo-failover.yaml
+
+        echo "Testing client connection to global Service"
+        kubectl --context ${{ env.contextName1 }} -n cilium-test exec deploy/client -i -- -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail echo-other-node
+
+        # Clean up the service so that it can be re-deployed in subsequent steps
+        kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
+        kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
+
+    # assert cilium_clustermesh_remote_cluster_failures is incremented
 
     - name: Upgrade Cilium in cluster1 and enable kvstoremesh
       env:
@@ -473,6 +520,26 @@ jobs:
           --include-conn-disrupt-test --conn-disrupt-test-setup \
           --conn-disrupt-dispatch-interval 0ms
 
+    - name: Restart clustermesh-apiserver and ensure client can connect to new Service
+      run: |
+        echo "Restarting clustermesh-apiserver deployments"
+        kubectl --context ${{ env.contextName1 }} -n kube-system rollout restart deployment clustermesh-apiserver
+        kubectl --context ${{ env.contextName2 }} -n kube-system rollout restart deployment clustermesh-apiserver
+        kubectl --context ${{ env.contextName1 }} -n kube-system rollout status deployment clustermesh-apiserver
+        kubectl --context ${{ env.contextName2 }} -n kube-system rollout status deployment clustermesh-apiserver
+
+        echo "Deploying a global Service to test failover"
+        kubectl --context ${{ env.contextName1 }} apply -f echo-failover.yaml
+        kubectl --context ${{ env.contextName2 }} apply -f echo-failover.yaml
+
+        echo "Testing client connection to global Service"
+        kubectl --context ${{ env.contextName1 }} -n cilium-test exec deploy/client -i -- -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail echo-other-node
+
+        # Clean up the service so that it can be re-deployed in subsequent steps
+        kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
+        kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
+
+    # assert cilium_clustermesh_remote_cluster_failures is incremented
 
     # Perform an additional "stress" test, scaling the clustermesh-apiservers in both clusters
     # to zero replicas, and restarting all agents. Existing connections should not be disrupted.
