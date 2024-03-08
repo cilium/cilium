@@ -57,13 +57,13 @@ various features (e.g. clustermesh, Hubble).
 
 After successfully installing the Cilium CLI, you can verify the installation by checking the version of the Cilium CLI by running the following command:
 
-.. code-block:: bash
+.. code-block:: shell-session
 
-   cilium version --client
+   $ cilium version --client
 
 You should see output similar to the following:
 
-.. code-block:: none
+.. code-block:: shell-session
 
    cilium-cli:  compiled with go1.22.0 on linux/amd64
    cilium image (default): v1.15.1
