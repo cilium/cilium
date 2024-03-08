@@ -69,13 +69,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 # endif
 
 # if defined(ENABLE_ICMP_RULE)
-			/* Convert from unsigned char to unsigned short
-			 * considering byte order(little-endian).
-			 * In the little-endian case, for example, 2byte data "AB"
-			 * convert to "BA".
-			 * Therefore, the "icmp_type" should be shifted not just casting.
-			 */
-			key.dport = (__u16)(icmphdr.type << 8);
+			key.dport = bpf_u8_to_be16(icmphdr.type);
 # endif
 		}
 		break;
@@ -87,13 +81,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 			if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
 				return DROP_INVALID;
 
-			/* Convert from unsigned char to unsigned short
-			 * considering byte order(little-endian).
-			 * In the little-endian case, for example, 2byte data "AB"
-			 * convert to "BA".
-			 * Therefore, the "icmp_type" should be shifted not just casting.
-			 */
-			key.dport = (__u16)(icmp_type << 8);
+			key.dport = bpf_u8_to_be16(icmp_type);
 		}
 # endif
 		break;
