@@ -213,6 +213,7 @@ spec:
                             enum:
                             - LoadBalancerIP
                             - ClusterIP
+                            - ExternalIP
                             type: string
                           minItems: 1
                           type: array
