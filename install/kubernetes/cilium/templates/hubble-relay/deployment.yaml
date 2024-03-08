@@ -32,7 +32,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- if and .Values.hubble.relay.prometheus.enabled (not .Values.hubble.relay.prometheus.serviceMonitor.enabled) }}
-        prometheus.io/port: { { .Values.hubble.relay.prometheus.port | quote } }
+        prometheus.io/port: {{ .Values.hubble.relay.prometheus.port | quote }}
         prometheus.io/scrape: "true"
         {{- end }}
       labels:
