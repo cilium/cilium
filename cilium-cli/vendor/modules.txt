@@ -491,7 +491,7 @@ github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
 # github.com/cilium/workerpool v1.2.0
 ## explicit; go 1.15
 github.com/cilium/workerpool
-# github.com/cloudflare/cfssl v1.6.4
+# github.com/cloudflare/cfssl v1.6.5
 ## explicit; go 1.18
 github.com/cloudflare/cfssl/api
 github.com/cloudflare/cfssl/api/client
@@ -640,7 +640,7 @@ github.com/go-openapi/analysis/internal/flatten/operations
 github.com/go-openapi/analysis/internal/flatten/replace
 github.com/go-openapi/analysis/internal/flatten/schutils
 github.com/go-openapi/analysis/internal/flatten/sortref
-# github.com/go-openapi/errors v0.21.0
+# github.com/go-openapi/errors v0.21.1
 ## explicit; go 1.19
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.20.2
@@ -667,7 +667,7 @@ github.com/go-openapi/runtime/yamlpc
 # github.com/go-openapi/spec v0.20.14
 ## explicit; go 1.19
 github.com/go-openapi/spec
-# github.com/go-openapi/strfmt v0.22.1
+# github.com/go-openapi/strfmt v0.22.2
 ## explicit; go 1.19
 github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.22.9
@@ -707,8 +707,8 @@ github.com/golang/protobuf/ptypes/wrappers
 # github.com/google/btree v1.1.2
 ## explicit; go 1.18
 github.com/google/btree
-# github.com/google/certificate-transparency-go v1.1.4
-## explicit; go 1.17
+# github.com/google/certificate-transparency-go v1.1.7
+## explicit; go 1.20
 github.com/google/certificate-transparency-go
 github.com/google/certificate-transparency-go/asn1
 github.com/google/certificate-transparency-go/client
@@ -935,6 +935,9 @@ github.com/opentracing/opentracing-go/log
 # github.com/osrg/gobgp/v3 v3.23.0
 ## explicit; go 1.20
 github.com/osrg/gobgp/v3/pkg/packet/bgp
+# github.com/pelletier/go-toml v1.9.5
+## explicit; go 1.12
+github.com/pelletier/go-toml
 # github.com/pelletier/go-toml/v2 v2.1.0
 ## explicit; go 1.16
 github.com/pelletier/go-toml/v2
@@ -976,8 +979,8 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/rivo/uniseg v0.2.0
-## explicit; go 1.12
+# github.com/rivo/uniseg v0.4.4
+## explicit; go 1.18
 github.com/rivo/uniseg
 # github.com/rogpeppe/go-internal v1.11.0
 ## explicit; go 1.19
@@ -1051,8 +1054,8 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.4
 ## explicit; go 1.17
 github.com/vishvananda/netns
-# github.com/weppos/publicsuffix-go v0.15.1-0.20210511084619-b1f36a2d6c0b
-## explicit; go 1.11
+# github.com/weppos/publicsuffix-go v0.30.0
+## explicit; go 1.16
 github.com/weppos/publicsuffix-go/publicsuffix
 # github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb
 ## explicit
@@ -1066,17 +1069,20 @@ github.com/xeipuuv/gojsonschema
 # github.com/xlab/treeprint v1.2.0
 ## explicit; go 1.13
 github.com/xlab/treeprint
-# github.com/zmap/zcrypto v0.0.0-20210511125630-18f1e0152cfc
+# github.com/zmap/zcrypto v0.0.0-20230310154051-c8b263fd8300
 ## explicit; go 1.16
+github.com/zmap/zcrypto/cryptobyte
+github.com/zmap/zcrypto/cryptobyte/asn1
 github.com/zmap/zcrypto/dsa
+github.com/zmap/zcrypto/encoding/asn1
 github.com/zmap/zcrypto/internal/randutil
 github.com/zmap/zcrypto/json
 github.com/zmap/zcrypto/util
 github.com/zmap/zcrypto/x509
 github.com/zmap/zcrypto/x509/ct
 github.com/zmap/zcrypto/x509/pkix
-# github.com/zmap/zlint/v3 v3.1.0
-## explicit; go 1.15
+# github.com/zmap/zlint/v3 v3.5.0
+## explicit; go 1.18
 github.com/zmap/zlint/v3
 github.com/zmap/zlint/v3/lint
 github.com/zmap/zlint/v3/lints/apple
@@ -1274,7 +1280,7 @@ google.golang.org/genproto/googleapis/api/expr/v1alpha1
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20240221002015-b0ce06bbee7c
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.62.0
+# google.golang.org/grpc v1.62.1
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes
