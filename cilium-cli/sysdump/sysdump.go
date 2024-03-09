@@ -4,6 +4,9 @@
 package sysdump
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -18,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/workerpool"
-	"github.com/mholt/archiver/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
@@ -1593,7 +1595,7 @@ func (c *Collector) Run() error {
 	// Create the zip file in the current directory.
 	c.log("🗳 Compiling sysdump")
 	f := c.replaceTimestamp(c.Options.OutputFileName) + ".zip"
-	if err := archiver.Archive([]string{c.sysdumpDir}, f); err != nil {
+	if err := zipDirectory(c.sysdumpDir, f); err != nil {
 		return fmt.Errorf("failed to create zip file: %w", err)
 	}
 	c.log("✅ The sysdump has been saved to %s", f)
@@ -1947,13 +1949,7 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 			if err != nil {
 				return fmt.Errorf("failed to collect 'tetragon-bugtool' output for %q: %w", p.Name, err)
 			}
-			// Untar the resulting file.
-			t := archiver.TarGz{
-				Tar: &archiver.Tar{
-					StripComponents: 1,
-				},
-			}
-			if err := t.Unarchive(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
+			if err := untar(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
 				c.logWarn("Failed to unarchive 'tetragon-bugtool' output for %q: %v", p.Name, err)
 				return nil
 			}
@@ -1972,6 +1968,117 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 		}
 	}
 	return nil
+}
+
+// removeTopDirectory removes the top directory from a relative file path
+// (e.g. "a/b/c" => "b/c"). Don't pass an absolute path. It doesn't do what
+// you think it does.
+func removeTopDirectory(path string) (string, error) {
+	index := strings.IndexByte(path, filepath.Separator)
+	if index < 0 {
+		return "", fmt.Errorf("invalid path %q", path)
+	}
+	return path[index+1:], nil
+}
+
+func untar(src string, dst string) error {
+	reader, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	gz, err := gzip.NewReader(reader)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		// Cilium and Tetragon bugtool tar files don't contain headers for
+		// directories, so create a directory for each file instead.
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		name, err := removeTopDirectory(header.Name)
+		if err != nil {
+			return nil
+		}
+		filename := filepath.Join(dst, name)
+		directory := filepath.Dir(filename)
+		if err := os.MkdirAll(directory, 0755); err != nil {
+			return err
+		}
+		f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+		if err != nil {
+			return err
+		}
+		if err = copyN(f, tr, 1024); err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+	}
+}
+
+// copyN copies from src to dst n bytes at a time to avoid this lint error:
+// G110: Potential DoS vulnerability via decompression bomb (gosec)
+func copyN(dst io.Writer, src io.Reader, n int64) error {
+	for {
+		_, err := io.CopyN(dst, src, n)
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return err
+		}
+	}
+}
+
+func zipDirectory(src string, dst string) error {
+	f, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	writer := zip.NewWriter(f)
+	defer writer.Close()
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		header, err := zip.FileInfoHeader(fi)
+		if err != nil {
+			return err
+		}
+		header.Name, err = filepath.Rel(filepath.Dir(src), path)
+		if err != nil {
+			return err
+		}
+		header.Method = zip.Deflate
+		dstFile, err := writer.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		srcFile, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer srcFile.Close()
+		_, err = io.Copy(dstFile, srcFile)
+		return err
+	})
 }
 
 func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
@@ -2024,12 +2131,7 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
 			// Untar the resulting file.
-			t := archiver.TarGz{
-				Tar: &archiver.Tar{
-					StripComponents: 1,
-				},
-			}
-			if err := t.Unarchive(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
+			if err := untar(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
 				c.logWarn("Failed to unarchive 'cilium-bugtool' output for %q: %v", p.Name, err)
 				return nil
 			}
