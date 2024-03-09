@@ -6,5 +6,13 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker": {}
   },
+  "mounts": [
+    // To enable kernel modules for devcontainer
+    "source=/lib/modules,target=/lib/modules,type=bind,readonly",
+    "source=/usr/lib/modules,target=/usr/lib/modules,type=bind,readonly"
+  ],
+  "runArgs": [
+    "--sysctl", "net.ipv6.conf.all.disable_ipv6=0"
+  ],
   "postCreateCommand": "git config --global --add safe.directory /go/src/github.com/cilium/cilium"
 }
