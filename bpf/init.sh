@@ -31,6 +31,7 @@ FILTER_PRIO=${24}
 DEFAULT_RTPROTO=${25}
 LOCAL_RULE_PRIO=${26}
 IPSEC_ENCRYPTION=${27}
+CILIUM_ENVOY_CONFIG=${28}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -110,7 +111,7 @@ function setup_proxy_rules()
         from_egress_rulespec="fwmark 0xB00/0xF00 pref 10 lookup $PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
 	use_from_ingress_proxy_rules=0
 
-	if [ "$IPSEC_ENCRYPTION" = "true" ] && [ "$MODE" != "tunnel" ]; then
+	if [[ ("$IPSEC_ENCRYPTION" = "true" || "$CILIUM_ENVOY_CONFIG" = "true") ]] && [ "$MODE" != "tunnel" ]; then
 		use_from_ingress_proxy_rules=1
 	fi
 

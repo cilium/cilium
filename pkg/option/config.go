@@ -2489,6 +2489,7 @@ var (
 		EnableVTEP:             defaults.EnableVTEP,
 		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
+		EnableEnvoyConfig:      defaults.EnableEnvoyConfig,
 	}
 )
 

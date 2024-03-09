@@ -64,6 +64,7 @@ const (
 	initDefaultRTProto
 	initLocalRulePriority
 	initIPsecEncryption
+	initCiliumEnvoyConfig
 	initArgMax
 )
 
@@ -454,6 +455,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initIPsecEncryption] = "true"
 	} else {
 		args[initIPsecEncryption] = "false"
+	}
+
+	if option.Config.EnableEnvoyConfig {
+		args[initCiliumEnvoyConfig] = "true"
+	} else {
+		args[initCiliumEnvoyConfig] = "false"
 	}
 
 	// "Legacy" datapath inizialization with the init.sh script
