@@ -412,7 +412,7 @@ func (p *Proxy) ReinstallRoutingRules() error {
 			return err
 		}
 
-		if !option.Config.EnableIPSec || option.Config.TunnelingEnabled() {
+		if !option.Config.EnableIPSec {
 			if err := removeFromProxyRoutesIPv4(); err != nil {
 				return err
 			}
@@ -435,7 +435,7 @@ func (p *Proxy) ReinstallRoutingRules() error {
 			return err
 		}
 
-		if !option.Config.EnableIPSec || option.Config.TunnelingEnabled() {
+		if !option.Config.EnableIPSec {
 			if err := removeFromProxyRoutesIPv6(); err != nil {
 				return err
 			}
