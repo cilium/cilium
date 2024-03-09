@@ -411,12 +411,12 @@ func (p *Proxy) ReinstallRoutingRules() error {
 		if err := removeFromEgressProxyRoutesIPv4(); err != nil {
 			return err
 		}
-		if !option.Config.EnableIPSec || option.Config.TunnelingEnabled() {
-			if err := removeFromIngressProxyRoutesIPv4(); err != nil {
+		if !option.Config.EnableIPSec || (option.Config.EnableIPSec && !option.Config.TunnelingEnabled()) {
+			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice); err != nil {
 				return err
 			}
 		} else {
-			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice); err != nil {
+			if err := removeFromIngressProxyRoutesIPv4(); err != nil {
 				return err
 			}
 		}
@@ -437,16 +437,16 @@ func (p *Proxy) ReinstallRoutingRules() error {
 		if err := removeFromEgressProxyRoutesIPv6(); err != nil {
 			return err
 		}
-		if !option.Config.EnableIPSec || option.Config.TunnelingEnabled() {
-			if err := removeFromIngressProxyRoutesIPv6(); err != nil {
-				return err
-			}
-		} else {
+		if !option.Config.EnableIPSec || (option.Config.EnableIPSec && !option.Config.TunnelingEnabled()) {
 			ipv6, err := getCiliumNetIPv6()
 			if err != nil {
 				return err
 			}
 			if err := installFromProxyRoutesIPv6(ipv6, defaults.HostDevice); err != nil {
+				return err
+			}
+		} else {
+			if err := removeFromIngressProxyRoutesIPv6(); err != nil {
 				return err
 			}
 		}
