@@ -18,6 +18,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -280,12 +281,13 @@ type IptablesManager struct {
 	haveSocketMatch      bool
 	haveBPFSocketAssign  bool
 	ipEarlyDemuxDisabled bool
-	CNIChainingMode      string
+	cniConfigManager     cni.CNIConfigManager
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules
 // availability.
-func (m *IptablesManager) Init() {
+func (m *IptablesManager) Init(cniConfigManager cni.CNIConfigManager) {
+	m.cniConfigManager = cniConfigManager
 	modulesManager := &modules.ModulesManager{}
 	haveIp6tables := true
 	if err := modulesManager.Init(); err != nil {
@@ -1065,7 +1067,7 @@ func (m *IptablesManager) getDeliveryInterface(ifName string) string {
 	switch {
 	case option.Config.EnableEndpointRoutes:
 		// aws-cni creates container interfaces with names like eni621c0fc8425.
-		if m.CNIChainingMode == "aws-cni" {
+		if m.cniConfigManager.GetChainingMode() == "aws-cni" {
 			return "eni+"
 		}
 		return "lxc+"

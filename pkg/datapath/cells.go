@@ -7,6 +7,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
 	"github.com/cilium/cilium/pkg/datapath/garp"
@@ -115,7 +116,7 @@ func newDatapath(params datapathParams) types.Datapath {
 				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
 			}
 
-			iptablesManager.Init()
+			iptablesManager.Init(params.CniConfigManager)
 			return nil
 		}})
 
@@ -142,4 +143,6 @@ type datapathParams struct {
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 
 	NodeMap nodemap.Map
+
+	CniConfigManager cni.CNIConfigManager
 }
