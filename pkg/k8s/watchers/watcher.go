@@ -25,7 +25,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -48,7 +47,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
@@ -126,8 +124,6 @@ type nodeDiscoverManager interface {
 
 type policyManager interface {
 	TriggerPolicyUpdates(force bool, reason string)
-	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
 }
 
 type policyRepository interface {
@@ -164,9 +160,6 @@ type cgroupManager interface {
 }
 
 type ipcacheManager interface {
-	AllocateCIDRs(prefixes []netip.Prefix, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
-	ReleaseCIDRIdentitiesByCIDR(prefixes []netip.Prefix)
-
 	// GH-21142: Re-evaluate the need for these APIs
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (namedPortsChanged bool, err error)
 	LookupByIP(IP string) (ipcache.Identity, bool)
