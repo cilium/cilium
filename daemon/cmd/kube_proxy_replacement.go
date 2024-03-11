@@ -42,37 +42,12 @@ import (
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
 func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.Config) error {
-	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
 		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict ||
-		option.Config.KubeProxyReplacement == option.KubeProxyReplacementPartial ||
-		option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Warnf("Deprecated value for --%s: %s (use either \"true\", or \"false\")", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
-	}
-
-	// This will be removed in v1.15
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Infof("Auto-disabling %q, %q, %q, %q features and falling back to %q",
-			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableSocketLB, option.EnableHostPort,
-			option.EnableHostLegacyRouting)
-
-		disableNodePort()
-		option.Config.EnableSocketLB = false
-		option.Config.EnableSocketLBTracing = false
-
-		return nil
-	}
-
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict ||
-		option.Config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
-
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
 		log.Infof("Auto-enabling %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableSocketLB, option.EnableHostPort,
@@ -85,7 +60,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		option.Config.EnableSessionAffinity = true
 	}
 
-	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled &&
+	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse &&
 		option.Config.EnableEnvoyConfig && !option.Config.EnableIPSec &&
 		!option.Config.EnableNodePort {
 		// CiliumEnvoyConfig L7 LB only works with bpf node port enabled
@@ -425,8 +400,8 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl) error {
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
-		// KPR=strict is needed or we might rely on netfilter.
-		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict && option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
+		// KPR=true is needed or we might rely on netfilter.
+		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
 			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
