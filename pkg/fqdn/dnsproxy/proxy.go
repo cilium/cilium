@@ -955,7 +955,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	case "udp":
 	case "tcp":
 	default:
-		allowed = false
 		rejectResponse(fmt.Errorf("unsupported protocol %s", protocol), "Cannot parse DNS proxy client network to select forward client", true)
 		return
 	}
@@ -1006,7 +1005,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	stat.UpstreamTime.End(err == nil)
 	if err != nil {
-		allowed = false
 		stat.Err = err
 		if stat.IsTimeout() {
 			scopedLog.WithError(err).Warn("Timeout waiting for response to forwarded proxied DNS lookup")
