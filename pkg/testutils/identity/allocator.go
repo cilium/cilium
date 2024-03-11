@@ -133,16 +133,6 @@ func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity
 	return true, nil
 }
 
-// ReleaseSlice wraps Release for slices.
-func (f *MockIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
-	for _, id := range identities {
-		if _, err := f.Release(ctx, id, false); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (f *MockIdentityAllocator) WithholdLocalIdentities(nids []identity.NumericIdentity) {
 	for _, nid := range nids {
 		f.withheldIdentities[nid] = struct{}{}
