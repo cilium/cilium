@@ -261,7 +261,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	stat.ProcessingTime.Start()
 
 	endMetric := func() {
-		stat.DataplaneTime.End(true)
 		stat.ProcessingTime.End(true)
 		stat.TotalTime.End(true)
 		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
@@ -440,7 +439,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		case <-updateCtx.Done():
 			log.Error("Timed out waiting for datapath updates of FQDN IP information; returning response")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
+			stat.DataplaneTime.End(false)
 		case <-updateComplete:
+			stat.DataplaneTime.End(true)
 		}
 
 		log.WithFields(logrus.Fields{
@@ -448,11 +449,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			logfields.EndpointID: ep.GetID(),
 			"qname":              qname,
 		}).Debug("Waited for endpoints to regenerate due to a DNS response")
-
-		endMetric()
 	}
-
-	stat.ProcessingTime.End(true)
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.
@@ -472,6 +469,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}),
 	)
 	record.Log()
+	endMetric()
 
 	return nil
 }
