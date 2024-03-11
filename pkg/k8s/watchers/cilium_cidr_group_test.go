@@ -41,7 +41,7 @@ func TestHasCIDRGroupRef(t *testing.T) {
 			expected:  false,
 		},
 		{
-			name: "nil Ingress and IngressDeny",
+			name: "nil Ingress and Egress",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -81,6 +81,33 @@ func TestHasCIDRGroupRef(t *testing.T) {
 						{
 							Ingress:     []api.IngressRule{},
 							IngressDeny: []api.IngressDenyRule{},
+						},
+					},
+				},
+			},
+			cidrGroup: "cidr-group-1",
+			expected:  false,
+		},
+		{
+			name: "nil ToCidrSet rule",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Egress:     []api.EgressRule{},
+						EgressDeny: []api.EgressDenyRule{},
+					},
+					Specs: api.Rules{
+						{
+							Egress:     []api.EgressRule{},
+							EgressDeny: []api.EgressDenyRule{},
 						},
 					},
 				},
@@ -203,6 +230,51 @@ func TestHasCIDRGroupRef(t *testing.T) {
 			expected:  true,
 		},
 		{
+			name: "CIDRGroupRef in Egress Spec",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			cidrGroup: "cidr-group-1",
+			expected:  true,
+		},
+		{
 			name: "CIDRGroupRef in IngressDeny Spec",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
@@ -233,6 +305,51 @@ func TestHasCIDRGroupRef(t *testing.T) {
 								{
 									IngressCommonRule: api.IngressCommonRule{
 										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			cidrGroup: "cidr-group-1",
+			expected:  true,
+		},
+		{
+			name: "CIDRGroupRef in EgressDeny Spec",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						EgressDeny: []api.EgressDenyRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						{
+							EgressDeny: []api.EgressDenyRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
 											{
 												CIDRGroupRef: "cidr-group-2",
 											},
@@ -599,7 +716,7 @@ func TestCIDRGroupRefsGet(t *testing.T) {
 			expected: []string{"cidr-group-1"},
 		},
 		{
-			name: "nil Ingress and IngressDeny",
+			name: "nil Ingress and Egress",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -645,6 +762,32 @@ func TestCIDRGroupRefsGet(t *testing.T) {
 			expected: nil,
 		},
 		{
+			name: "nil Egress and EgressDeny ToCidrSet rule",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Egress:     []api.EgressRule{},
+						EgressDeny: []api.EgressDenyRule{},
+					},
+					Specs: api.Rules{
+						{
+							Egress:     []api.EgressRule{},
+							EgressDeny: []api.EgressDenyRule{},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
 			name: "single FromCidrSet rule",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
@@ -673,7 +816,29 @@ func TestCIDRGroupRefsGet(t *testing.T) {
 								IngressCommonRule: api.IngressCommonRule{
 									FromCIDRSet: api.CIDRRuleSlice{
 										{
+											CIDRGroupRef: "cidr-group-2",
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
 											CIDRGroupRef: "cidr-group-3",
+										},
+									},
+								},
+							},
+						},
+						EgressDeny: []api.EgressDenyRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-4",
 										},
 									},
 								},
@@ -687,7 +852,7 @@ func TestCIDRGroupRefsGet(t *testing.T) {
 									IngressCommonRule: api.IngressCommonRule{
 										FromCIDRSet: api.CIDRRuleSlice{
 											{
-												CIDRGroupRef: "cidr-group-2",
+												CIDRGroupRef: "cidr-group-5",
 											},
 										},
 									},
@@ -700,7 +865,33 @@ func TestCIDRGroupRefsGet(t *testing.T) {
 									IngressCommonRule: api.IngressCommonRule{
 										FromCIDRSet: api.CIDRRuleSlice{
 											{
-												CIDRGroupRef: "cidr-group-4",
+												CIDRGroupRef: "cidr-group-6",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-7",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							EgressDeny: []api.EgressDenyRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-8",
 											},
 										},
 									},
@@ -710,7 +901,16 @@ func TestCIDRGroupRefsGet(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"cidr-group-1", "cidr-group-2", "cidr-group-3", "cidr-group-4"},
+			expected: []string{
+				"cidr-group-1",
+				"cidr-group-2",
+				"cidr-group-3",
+				"cidr-group-4",
+				"cidr-group-5",
+				"cidr-group-6",
+				"cidr-group-7",
+				"cidr-group-8",
+			},
 		},
 		{
 			name: "single FromCidrSet rule with only CIDR",
@@ -984,7 +1184,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 			},
 		},
 		{
-			name: "nil Ingress and IngressDeny",
+			name: "nil Ingress and Egress",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -1110,6 +1310,54 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 						{
 							Ingress:     []api.IngressRule{},
 							IngressDeny: []api.IngressDenyRule{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "nil Egress and EgressDeny ToCidrSet rule",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Egress:     []api.EgressRule{},
+						EgressDeny: []api.EgressDenyRule{},
+					},
+					Specs: api.Rules{
+						{
+							Egress:     []api.EgressRule{},
+							EgressDeny: []api.EgressDenyRule{},
+						},
+					},
+				},
+			},
+			cidrsSets: map[string][]api.CIDR{},
+			expected: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Egress:     []api.EgressRule{},
+						EgressDeny: []api.EgressDenyRule{},
+					},
+					Specs: api.Rules{
+						{
+							Egress:     []api.EgressRule{},
+							EgressDeny: []api.EgressDenyRule{},
 						},
 					},
 				},
@@ -1399,6 +1647,117 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								{
 									IngressCommonRule: api.IngressCommonRule{
 										FromCIDRSet: nil,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "with EgressDeny ToCidrSet rules",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						EgressDeny: []api.EgressDenyRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						{
+							EgressDeny: []api.EgressDenyRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-2",
+											},
+										},
+									},
+								},
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-3",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			cidrsSets: map[string][]api.CIDR{
+				"cidr-group-1": {"1.1.1.1/32", "2.2.2.2/32"},
+				"cidr-group-2": {"3.3.3.3/32", "4.4.4.4/32", "5.5.5.5/32"},
+				"cidr-group-3": {},
+			},
+			expected: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						EgressDeny: []api.EgressDenyRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr: "1.1.1.1/32",
+										},
+										{
+											Cidr: "2.2.2.2/32",
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						{
+							EgressDeny: []api.EgressDenyRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr: "3.3.3.3/32",
+											},
+											{
+												Cidr: "4.4.4.4/32",
+											},
+											{
+												Cidr: "5.5.5.5/32",
+											},
+										},
+									},
+								},
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: nil,
 									},
 								},
 							},

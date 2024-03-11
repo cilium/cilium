@@ -168,6 +168,13 @@ func specHasCIDRGroupRef(spec *api.Rule, cidrGroup string) bool {
 			}
 		}
 	}
+	for _, egress := range spec.EgressDeny {
+		for _, rule := range egress.ToCIDRSet {
+			if string(rule.CIDRGroupRef) == cidrGroup {
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -201,6 +208,13 @@ func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
 			}
 		}
 		for _, egress := range spec.Egress {
+			for _, rule := range egress.ToCIDRSet {
+				if len(rule.Cidr) == 0 {
+					cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
+				}
+			}
+		}
+		for _, egress := range spec.EgressDeny {
 			for _, rule := range egress.ToCIDRSet {
 				if len(rule.Cidr) == 0 {
 					cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
@@ -258,6 +272,9 @@ func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 	}
 	for i := range spec.Egress {
 		spec.Egress[i].ToCIDRSet = translateCIDRRuleSlice(spec.Egress[i].ToCIDRSet, cidrsSets)
+	}
+	for i := range spec.EgressDeny {
+		spec.EgressDeny[i].ToCIDRSet = translateCIDRRuleSlice(spec.EgressDeny[i].ToCIDRSet, cidrsSets)
 	}
 }
 
