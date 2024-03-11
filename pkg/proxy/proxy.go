@@ -564,8 +564,8 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		return 0, err, nil, nil
 	}
 
-	redir := newRedirect(localEndpoint, ppName, pp, l4.GetPort())
-	redir.updateRules(l4)
+	redir := newRedirect(localEndpoint, ppName, pp, l4.GetPort(), l4.GetProtocol())
+	_ = redir.updateRules(l4) // revertFunc not used because revert will remove whole redirect
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
