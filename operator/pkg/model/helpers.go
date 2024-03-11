@@ -4,6 +4,8 @@
 package model
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -88,4 +90,39 @@ func hostnameMatchesWildcardHostname(hostname, wildcardHostname string) bool {
 
 func AddressOf[T any](v T) *T {
 	return &v
+}
+
+// Shorten shortens the string to 63 characters.
+// this is the implicit required for all the resource naming in k8s.
+func Shorten(s string) string {
+	if len(s) > 63 {
+		return s[:52] + "-" + encodeHash(hash(s))
+	}
+	return s
+}
+
+// encodeHash encodes the first 10 characters of the hex string.
+// https://github.com/kubernetes/kubernetes/blob/f0dcf0614036d8c3cd1c9f3b3cf8df4bb1d8e44e/staging/src/k8s.io/kubectl/pkg/util/hash/hash.go#L105
+func encodeHash(hex string) string {
+	enc := []rune(hex[:10])
+	for i := range enc {
+		switch enc[i] {
+		case '0':
+			enc[i] = 'g'
+		case '1':
+			enc[i] = 'h'
+		case '3':
+			enc[i] = 'k'
+		case 'a':
+			enc[i] = 'm'
+		case 'e':
+			enc[i] = 't'
+		}
+	}
+	return string(enc)
+}
+
+// hash hashes `data` with sha256 and returns the hex string
+func hash(data string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(data)))
 }

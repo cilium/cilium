@@ -309,7 +309,7 @@ func isAttachable(_ context.Context, gw *gatewayv1.Gateway, route metav1.Object,
 func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
 	svcList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, svcList, client.MatchingLabels{
-		owningGatewayLabel: gw.GetName(),
+		owningGatewayLabel: model.Shorten(gw.GetName()),
 	}, client.InNamespace(gw.GetNamespace())); err != nil {
 		return err
 	}
