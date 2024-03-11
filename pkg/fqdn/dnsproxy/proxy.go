@@ -522,29 +522,11 @@ type LookupIPsBySecIDFunc func(nid identity.NumericIdentity) []string
 // See DNSProxy.LookupEndpointIDByIP for usage.
 type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error
 
-// ErrFailedAcquireSemaphore is an an error representing the DNS proxy's
-// failure to acquire the semaphore. This is error is treated like a timeout.
-type ErrFailedAcquireSemaphore struct {
-	parallel int
-}
-
-func (e ErrFailedAcquireSemaphore) Timeout() bool { return true }
-
-// Temporary is deprecated. Return false.
-func (e ErrFailedAcquireSemaphore) Temporary() bool { return false }
-
-func (e ErrFailedAcquireSemaphore) Error() string {
-	return fmt.Sprintf(
-		"failed to acquire DNS proxy semaphore, %d parallel requests already in-flight",
-		e.parallel,
-	)
-}
-
 // ErrTimedOutAcquireSemaphore is an an error representing the DNS proxy timing
 // out when acquiring the semaphore. It is treated the same as
 // ErrTimedOutAcquireSemaphore.
 type ErrTimedOutAcquireSemaphore struct {
-	ErrFailedAcquireSemaphore
+	parallel int
 
 	gracePeriod time.Duration
 }
@@ -556,6 +538,11 @@ func (e ErrTimedOutAcquireSemaphore) Error() string {
 		e.parallel,
 	)
 }
+
+func (e ErrTimedOutAcquireSemaphore) Timeout() bool { return true }
+
+// Temporary is deprecated. Return false.
+func (e ErrTimedOutAcquireSemaphore) Temporary() bool { return false }
 
 // ErrDNSRequestNoEndpoint represents an error when the local daemon cannot
 // find the corresponding endpoint that triggered a DNS request processed by
@@ -1036,7 +1023,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		allowed = false
 		stat.Err = err
 		if stat.IsTimeout() {
-			// I don't get it, why we are not sending refused here???
 			scopedLog.WithError(err).Warn("Timeout waiting for response to forwarded proxied DNS lookup")
 			p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, allowed, &stat)
 			return
@@ -1099,8 +1085,9 @@ func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
 		// No grace time configured. Failing to acquire semaphore means
 		// immediately give up.
 		if !p.ConcurrencyLimit.TryAcquire(1) {
-			return ErrFailedAcquireSemaphore{
-				parallel: option.Config.DNSProxyConcurrencyLimit,
+			return ErrTimedOutAcquireSemaphore{
+				parallel:    option.Config.DNSProxyConcurrencyLimit,
+				gracePeriod: p.ConcurrencyGracePeriod,
 			}
 		}
 	} else if err := p.ConcurrencyLimit.Acquire(ctx, 1); err != nil && errors.Is(err, context.DeadlineExceeded) {
@@ -1108,9 +1095,7 @@ func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
 		// net.Error interface deeming it a timeout error which will be
 		// treated the same as context.DeadlineExceeded.
 		return ErrTimedOutAcquireSemaphore{
-			ErrFailedAcquireSemaphore: ErrFailedAcquireSemaphore{
-				parallel: option.Config.DNSProxyConcurrencyLimit,
-			},
+			parallel:    option.Config.DNSProxyConcurrencyLimit,
 			gracePeriod: p.ConcurrencyGracePeriod,
 		}
 	}

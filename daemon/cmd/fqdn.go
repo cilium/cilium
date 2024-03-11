@@ -263,7 +263,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	endMetric := func() {
 		stat.ProcessingTime.End(true)
 		stat.TotalTime.End(true)
-		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+		if errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
 			metrics.FQDNSemaphoreRejectedTotal.Inc()
 		}
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
