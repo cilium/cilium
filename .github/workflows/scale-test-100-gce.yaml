@@ -3,6 +3,9 @@ name: 100 Nodes Scale Test
 on:
   schedule:
     - cron: '39 0 * * 1-5'
+  push:
+    branches:
+      - testing_envoy_default
 
 permissions:
   # To be able to access the repository with actions/checkout
