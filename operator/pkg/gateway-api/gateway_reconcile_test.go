@@ -50,6 +50,15 @@ var gwFixture = []client.Object{
 			},
 		},
 	},
+	&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cilium-gateway-test-long-long-long-long-long-long-lo-8tfth549c6",
+			Namespace: "long-name-test",
+			Annotations: map[string]string{
+				"pre-existing-annotation": "true",
+			},
+		},
+	},
 
 	// Service in another namespace
 	&corev1.Service{
@@ -180,7 +189,28 @@ var gwFixture = []client.Object{
 			},
 		},
 	},
-
+	// Valid gateway
+	&gatewayv1.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Gateway",
+			APIVersion: gatewayv1.GroupName,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
+			Namespace: "long-name-test",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Hostname: model.AddressOf[gatewayv1.Hostname]("*.cilium.io"),
+					Protocol: "HTTP",
+				},
+			},
+		},
+	},
 	// gateway with non-existent gateway class
 	&gatewayv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
@@ -337,6 +367,79 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		require.Len(t, gw.Status.Addresses, 1)
 		require.Equal(t, "IPAddress", string(*gw.Status.Addresses[0].Type))
 		require.Equal(t, "10.10.10.10", gw.Status.Addresses[0].Value)
+
+		require.Len(t, gw.Status.Listeners, 1)
+		require.Equal(t, "http", string(gw.Status.Listeners[0].Name))
+		require.Len(t, gw.Status.Listeners[0].Conditions, 3)
+		require.Equal(t, "Programmed", gw.Status.Listeners[0].Conditions[0].Type)
+		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[0].Status))
+		require.Equal(t, "Programmed", gw.Status.Listeners[0].Conditions[0].Reason)
+		require.Equal(t, "Listener Programmed", gw.Status.Listeners[0].Conditions[0].Message)
+		require.Equal(t, "Accepted", gw.Status.Listeners[0].Conditions[1].Type)
+		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[1].Status))
+		require.Equal(t, "ResolvedRefs", gw.Status.Listeners[0].Conditions[2].Type)
+		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[2].Status))
+	})
+
+	t.Run("valid http gateway - long name", func(t *testing.T) {
+		key := client.ObjectKey{
+			Namespace: "long-name-test",
+			Name:      "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+
+		// First reconcile should wait for LB status before writing addresses into Ingress status
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		gw := &gatewayv1.Gateway{}
+		err = c.Get(context.Background(), key, gw)
+		require.NoError(t, err)
+		require.Empty(t, gw.Status.Addresses)
+
+		// Simulate LB service update
+		lb := &corev1.Service{}
+		err = c.Get(context.Background(), client.ObjectKey{Namespace: "long-name-test", Name: "cilium-gateway-test-long-long-long-long-long-long-lo-8tfth549c6"}, lb)
+		require.NoError(t, err)
+		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
+		require.Equal(t, "test-long-long-long-long-long-long-long-long-long-lo-4bftbgh5ht", lb.Labels["io.cilium.gateway/owning-gateway"])
+		require.Equal(t, "true", lb.Annotations["pre-existing-annotation"])
+
+		// Update LB status
+		lb.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
+			{
+				IP: "10.10.10.20",
+				Ports: []corev1.PortStatus{
+					{
+						Port:     80,
+						Protocol: "TCP",
+					},
+				},
+			},
+		}
+		err = c.Status().Update(context.Background(), lb)
+		require.NoError(t, err)
+
+		// Perform second reconciliation
+		result, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		// Check that the gateway status has been updated
+		err = c.Get(context.Background(), key, gw)
+		require.NoError(t, err)
+
+		require.Len(t, gw.Status.Conditions, 2)
+		require.Equal(t, "Accepted", gw.Status.Conditions[0].Type)
+		require.Equal(t, "True", string(gw.Status.Conditions[0].Status))
+		require.Equal(t, "Gateway successfully scheduled", gw.Status.Conditions[0].Message)
+		require.Equal(t, "Programmed", gw.Status.Conditions[1].Type)
+		require.Equal(t, "True", string(gw.Status.Conditions[1].Status))
+		require.Equal(t, "Gateway successfully reconciled", gw.Status.Conditions[1].Message)
+
+		require.Len(t, gw.Status.Addresses, 1)
+		require.Equal(t, "IPAddress", string(*gw.Status.Addresses[0].Type))
+		require.Equal(t, "10.10.10.20", gw.Status.Addresses[0].Value)
 
 		require.Len(t, gw.Status.Listeners, 1)
 		require.Equal(t, "http", string(gw.Status.Listeners[0].Name))

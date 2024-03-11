@@ -4,7 +4,6 @@
 package gateway_api
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -105,9 +104,9 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        shorten(ciliumGatewayPrefix + resource.Name),
+			Name:        model.Shorten(ciliumGatewayPrefix + resource.Name),
 			Namespace:   resource.Namespace,
-			Labels:      mergeMap(map[string]string{owningGatewayLabel: resource.Name}, labels),
+			Labels:      mergeMap(map[string]string{owningGatewayLabel: model.Shorten(resource.Name)}, labels),
 			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -129,9 +128,9 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shorten(ciliumGatewayPrefix + resource.Name),
+			Name:      model.Shorten(ciliumGatewayPrefix + resource.Name),
 			Namespace: resource.Namespace,
-			Labels:    map[string]string{owningGatewayLabel: resource.Name},
+			Labels:    map[string]string{owningGatewayLabel: model.Shorten(resource.Name)},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: gatewayv1beta1.GroupVersion.String(),
@@ -152,41 +151,6 @@ func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 			},
 		},
 	}
-}
-
-// shorten shortens the string to 63 characters.
-// this is the implicit required for all the resource naming in k8s.
-func shorten(s string) string {
-	if len(s) > 63 {
-		return s[:52] + "-" + encodeHash(hash(s))
-	}
-	return s
-}
-
-// encodeHash encodes the first 10 characters of the hex string.
-// https://github.com/kubernetes/kubernetes/blob/f0dcf0614036d8c3cd1c9f3b3cf8df4bb1d8e44e/staging/src/k8s.io/kubectl/pkg/util/hash/hash.go#L105
-func encodeHash(hex string) string {
-	enc := []rune(hex[:10])
-	for i := range enc {
-		switch enc[i] {
-		case '0':
-			enc[i] = 'g'
-		case '1':
-			enc[i] = 'h'
-		case '3':
-			enc[i] = 'k'
-		case 'a':
-			enc[i] = 'm'
-		case 'e':
-			enc[i] = 't'
-		}
-	}
-	return string(enc)
-}
-
-// hash hashes `data` with sha256 and returns the hex string
-func hash(data string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(data)))
 }
 
 func mergeMap(left, right map[string]string) map[string]string {
