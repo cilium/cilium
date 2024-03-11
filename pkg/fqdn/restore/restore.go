@@ -9,6 +9,7 @@
 package restore
 
 import (
+	"fmt"
 	"sort"
 )
 
@@ -58,6 +59,12 @@ func (pp PortProto) ToV1() PortProto {
 	return pp & 0x0000_ffff
 }
 
+// String returns the decimal representation
+// of PortProtocol in string form.
+func (pp PortProto) String() string {
+	return fmt.Sprintf("%d", pp)
+}
+
 // DNSRules contains IP-based DNS rules for a set of port-protocols (e.g., UDP/53)
 type DNSRules map[PortProto]IPRules
 
@@ -94,10 +101,10 @@ func (r IPRules) Sort() IPRules {
 // Sort is only used for testing
 // Sorts in place, but returns DNSRules for convenience
 func (r DNSRules) Sort() DNSRules {
-	for port, ipRules := range r {
+	for pp, ipRules := range r {
 		if len(ipRules) > 0 {
 			ipRules = ipRules.Sort()
-			r[port] = ipRules
+			r[pp] = ipRules
 		}
 	}
 	return r
