@@ -1015,7 +1015,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
-	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
+	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
+	}
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
 	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, response, protocol, allowed, &stat)

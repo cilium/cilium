@@ -237,6 +237,101 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 	return e, nil
 }
 
+func (d *Daemon) handleNotifyDNSMetrics(stat *dnsproxy.ProxyRequestContext, allowed bool, datapathTimeout bool) {
+	if datapathTimeout {
+		metrics.ProxyDatapathUpdateTimeout.Inc()
+	}
+	metricError := metricErrorAllow
+	switch {
+	case stat.IsTimeout():
+		metricError = metricErrorTimeout
+	case stat.Err != nil:
+		metricError = metricErrorProxy
+	case !allowed:
+		metricError = metricErrorDenied
+	}
+
+	stat.ProcessingTime.End(true)
+	stat.TotalTime.End(true)
+	if errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+		metrics.FQDNSemaphoreRejectedTotal.Inc()
+	}
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
+		stat.TotalTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
+		stat.UpstreamTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
+		stat.ProcessingTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
+		stat.SemaphoreAcquireTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
+		stat.PolicyGenerationTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
+		stat.PolicyCheckTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
+		stat.DataplaneTime.Total().Seconds())
+}
+
+func (d *Daemon) handleDNSFlow(stat *dnsproxy.ProxyRequestContext, allowed, response bool, ep *endpoint.Endpoint, protocol, epIPPort, serverAddr string, serverID identity.NumericIdentity, dnsRecord *accesslog.LogRecordDNS) {
+	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
+	var verdict accesslog.FlowVerdict
+	var reason string
+	switch {
+	case stat.IsTimeout():
+		return
+	case stat.Err != nil:
+		verdict = accesslog.VerdictError
+		reason = "Error: " + stat.Err.Error()
+	case allowed:
+		verdict = accesslog.VerdictForwarded
+		reason = "Allowed by policy"
+	case !allowed:
+		verdict = accesslog.VerdictDenied
+		reason = "Denied by policy"
+	}
+
+	// We determine the direction based on the DNS packet. The observation
+	// point is always Egress, however.
+	var flowType accesslog.FlowType
+	var addrInfo logger.AddressingInfo
+	if response {
+		flowType = accesslog.TypeResponse
+		addrInfo.DstIPPort = epIPPort
+		addrInfo.DstIdentity = ep.GetIdentity()
+		addrInfo.SrcIPPort = serverAddr
+		addrInfo.SrcIdentity = serverID
+	} else {
+		flowType = accesslog.TypeRequest
+		addrInfo.SrcIPPort = epIPPort
+		addrInfo.SrcIdentity = ep.GetIdentity()
+		addrInfo.DstIPPort = serverAddr
+		addrInfo.DstIdentity = serverID
+	}
+
+	// Ensure that there are no early returns from this function before the
+	// code below, otherwise the log record will not be made.
+	record := logger.NewLogRecord(flowType, false,
+		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
+		logger.LogTags.Verdict(verdict, reason),
+		logger.LogTags.Addressing(addrInfo),
+		logger.LogTags.DNS(dnsRecord),
+	)
+	record.Log()
+
+	var serverPort uint16
+	_, serverPortStr, err := net.SplitHostPort(serverAddr)
+	if err != nil {
+		log.WithError(err).Error("cannot extract destination IP from DNS request")
+	} else {
+		if serverPortUint64, err := strconv.ParseUint(serverPortStr, 10, 16); err != nil {
+			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
+		} else {
+			serverPort = uint16(serverPortUint64)
+		}
+	}
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverPort, proxy.DefaultDNSProxy.GetBindPort(), false, !response, verdict)
+}
+
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
 // result in rule generation.
@@ -254,50 +349,12 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
 func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
-	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
-	var verdict accesslog.FlowVerdict
-	var reason string
-	metricError := metricErrorAllow
 	stat.ProcessingTime.Start()
+	datapathTimeout := false
 
-	endMetric := func() {
-		stat.ProcessingTime.End(true)
-		stat.TotalTime.End(true)
-		if errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-			metrics.FQDNSemaphoreRejectedTotal.Inc()
-		}
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
-			stat.TotalTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
-			stat.UpstreamTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
-			stat.ProcessingTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
-			stat.SemaphoreAcquireTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
-			stat.PolicyGenerationTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
-			stat.PolicyCheckTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
-			stat.DataplaneTime.Total().Seconds())
-	}
-
-	switch {
-	case stat.IsTimeout():
-		metricError = metricErrorTimeout
-		endMetric()
+	if stat.IsTimeout() {
+		d.handleNotifyDNSMetrics(stat, allowed, datapathTimeout)
 		return nil
-	case stat.Err != nil:
-		metricError = metricErrorProxy
-		verdict = accesslog.VerdictError
-		reason = "Error: " + stat.Err.Error()
-	case allowed:
-		verdict = accesslog.VerdictForwarded
-		reason = "Allowed by policy"
-	case !allowed:
-		metricError = metricErrorDenied
-		verdict = accesslog.VerdictDenied
-		reason = "Denied by policy"
 	}
 
 	if ep == nil {
@@ -306,26 +363,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		endMetric()
+		d.handleNotifyDNSMetrics(stat, allowed, datapathTimeout)
 		return dnsproxy.ErrDNSRequestNoEndpoint{}
-	}
-
-	// We determine the direction based on the DNS packet. The observation
-	// point is always Egress, however.
-	var flowType accesslog.FlowType
-	var addrInfo logger.AddressingInfo
-	if msg.Response {
-		flowType = accesslog.TypeResponse
-		addrInfo.DstIPPort = epIPPort
-		addrInfo.DstIdentity = ep.GetIdentity()
-		addrInfo.SrcIPPort = serverAddr
-		addrInfo.SrcIdentity = serverID
-	} else {
-		flowType = accesslog.TypeRequest
-		addrInfo.SrcIPPort = epIPPort
-		addrInfo.SrcIdentity = ep.GetIdentity()
-		addrInfo.DstIPPort = serverAddr
-		addrInfo.DstIdentity = serverID
 	}
 
 	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
@@ -333,19 +372,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// This error is ok because all these values are used for reporting, or filling in the cache.
 		log.WithError(err).Error("cannot extract DNS message details")
 	}
-
-	var serverPort uint16
-	_, serverPortStr, err := net.SplitHostPort(serverAddr)
-	if err != nil {
-		log.WithError(err).Error("cannot extract destination IP from DNS request")
-	} else {
-		if serverPortUint64, err := strconv.ParseUint(serverPortStr, 10, 16); err != nil {
-			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
-		} else {
-			serverPort = uint16(serverPortUint64)
-		}
-	}
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverPort, proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
@@ -438,7 +464,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		select {
 		case <-updateCtx.Done():
 			log.Error("Timed out waiting for datapath updates of FQDN IP information; returning response")
-			metrics.ProxyDatapathUpdateTimeout.Inc()
+			datapathTimeout = true
 			stat.DataplaneTime.End(false)
 		case <-updateComplete:
 			stat.DataplaneTime.End(true)
@@ -451,25 +477,18 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}).Debug("Waited for endpoints to regenerate due to a DNS response")
 	}
 
-	// Ensure that there are no early returns from this function before the
-	// code below, otherwise the log record will not be made.
-	record := logger.NewLogRecord(flowType, false,
-		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
-		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(addrInfo),
-		logger.LogTags.DNS(&accesslog.LogRecordDNS{
-			Query:             qname,
-			IPs:               responseIPs,
-			TTL:               TTL,
-			CNAMEs:            CNAMEs,
-			ObservationSource: stat.DataSource,
-			RCode:             rcode,
-			QTypes:            qTypes,
-			AnswerTypes:       recordTypes,
-		}),
-	)
-	record.Log()
-	endMetric()
+	dnsLog := &accesslog.LogRecordDNS{
+		Query:             qname,
+		IPs:               responseIPs,
+		TTL:               TTL,
+		CNAMEs:            CNAMEs,
+		ObservationSource: stat.DataSource,
+		RCode:             rcode,
+		QTypes:            qTypes,
+		AnswerTypes:       recordTypes,
+	}
+	d.handleDNSFlow(stat, allowed, msg.Response, ep, epIPPort, protocol, serverAddr, serverID, dnsLog)
+	d.handleNotifyDNSMetrics(stat, allowed, datapathTimeout)
 
 	return nil
 }
