@@ -91,7 +91,7 @@ func Enable(sysctl sysctl.Sysctl) (err error) {
 	})
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
-		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %v\n", err, ve); err != nil {
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
 			return fmt.Errorf("writing verifier log to stderr: %w", err)
 		}
 	}
