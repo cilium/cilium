@@ -875,26 +875,14 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.DNSRequestID: requestID,
 	})
 
-	if p.ConcurrencyLimit != nil {
-		// TODO: Consider plumbing the daemon context here.
-		ctx, cancel := context.WithTimeout(context.TODO(), p.ConcurrencyGracePeriod)
-		defer cancel()
-
-		stat.SemaphoreAcquireTime.Start()
-		// Enforce the concurrency limit by attempting to acquire the
-		// semaphore.
-		if err := p.enforceConcurrencyLimit(ctx); err != nil {
-			stat.SemaphoreAcquireTime.End(false)
-			if p.logLimiter.Allow() {
-				scopedLog.WithError(err).Error("Dropping DNS request due to too many DNS requests already in-flight")
-			}
-			stat.Err = err
-			p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
-			p.sendRefused(scopedLog, w, request)
-			return
-		}
-		stat.SemaphoreAcquireTime.End(true)
-		defer p.ConcurrencyLimit.Release(1)
+	release, err := p.handleConcurrencyLimit(scopedLog, &stat)
+	if err != nil {
+		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
+	if release != nil {
+		defer release()
 	}
 	stat.ProcessingTime.Start()
 
@@ -1072,6 +1060,31 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.usedServers[targetServerIP.String()] = struct{}{}
 		p.Unlock()
 	}
+}
+
+func (p *DNSProxy) handleConcurrencyLimit(scopedLog *logrus.Entry, stat *ProxyRequestContext) (release func(), err error) {
+	if p.ConcurrencyLimit != nil {
+		// TODO: Consider plumbing the daemon context here.
+		ctx, cancel := context.WithTimeout(context.TODO(), p.ConcurrencyGracePeriod)
+		defer cancel()
+
+		stat.SemaphoreAcquireTime.Start()
+		// Enforce the concurrency limit by attempting to acquire the
+		// semaphore.
+		if err := p.enforceConcurrencyLimit(ctx); err != nil {
+			stat.SemaphoreAcquireTime.End(false)
+			if p.logLimiter.Allow() {
+				scopedLog.WithError(err).Error("Dropping DNS request due to too many DNS requests already in-flight")
+			}
+			stat.Err = err
+			return nil, err
+		}
+		stat.SemaphoreAcquireTime.End(true)
+		return func() {
+			p.ConcurrencyLimit.Release(1)
+		}, nil
+	}
+	return nil, nil
 }
 
 func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
