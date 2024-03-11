@@ -327,14 +327,14 @@ func TestInjectExisting(t *testing.T) {
 	defer cancel()
 
 	// mimic fqdn policy:
-	// - identitiesForFQDNSelectorIPs calls AllocateCIDRs()
-	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
-	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
+	// - NameManager.updateDNSIPs calls UpsertPrefixes() when then inserts them
+	//   via TriggerLabelInjection.
+	fqdnResourceID := types.NewResourceID(types.ResourceKindDaemon, "", "fqdn-name-manager")
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
-	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
+	IPIdentityCache.metadata.upsertLocked(prefix, source.Generated, fqdnResourceID)
+	remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
 	assert.NoError(t, err)
-
-	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, nil)
+	assert.Len(t, remaining, 0)
 
 	// sanity check: ensure the cidr is correctly in the ipcache
 	wantID := identity.IdentityScopeLocal
@@ -348,12 +348,11 @@ func TestInjectExisting(t *testing.T) {
 		types.ResourceKindEndpoint, "default", "kubernetes")
 	IPIdentityCache.metadata.upsertLocked(prefix, source.KubeAPIServer, resource, labels.LabelKubeAPIServer)
 
-	// Now, emulate a ToServices policy, which calls AllocateCIDRs
-	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, nil)
-	assert.NoError(t, err)
+	// Now, emulate a ToServices policy, which calls UpsertPrefixes
+	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(prefix))
 
 	// Now, the second half of UpsertLabels -- identity injection
-	remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
+	remaining, err = IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 
@@ -366,141 +365,6 @@ func TestInjectExisting(t *testing.T) {
 	selectorID := PolicyHandler.identities[id.ID]
 	assert.NotNil(t, selectorID)
 	assert.True(t, selectorID.Contains(labels.LabelKubeAPIServer.LabelArray()))
-}
-
-// TestInjectWithLegacyAPIOverlap tests that a previously allocated identity
-// will continue to be used in the ipcache even if other users of newer APIs
-// also use the API, and that reference counting is properly balanced for this
-// pattern. This is a common occurrence on startup - and this tests ensures we
-// don't regress the known issue in GH-24502
-//
-// This differs from TestInjectExisting() by reusing the same identity, and by
-// not associating any new labels with the prefix.
-func TestInjectWithLegacyAPIOverlap(t *testing.T) {
-	cancel := setupTest(t)
-	defer cancel()
-
-	// mimic fqdn policy:
-	// - identitiesForFQDNSelectorIPs calls AllocateCIDRs()
-	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
-	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
-	prefix := netip.MustParsePrefix("172.19.0.5/32")
-	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
-	assert.NoError(t, err)
-	identityReferences := 1
-
-	wantID := newlyAllocatedIdentities[prefix].ID
-
-	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, nil)
-
-	// sanity check: ensure the cidr is correctly in the ipcache
-	id, ok := IPIdentityCache.LookupByIP(prefix.String())
-	assert.True(t, ok)
-	assert.Equal(t, wantID, id.ID)
-
-	// Simulate the first half of UpsertLabels -- insert the labels only in to the metadata cache
-	// This is to "force" a race condition
-	resource := types.NewResourceID(
-		types.ResourceKindCNP, "default", "policy")
-	labels := labels.GetCIDRLabels(prefix)
-	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
-
-	// Now, emulate a ToServices policy, which calls AllocateCIDRs
-	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, nil)
-	assert.NoError(t, err)
-	identityReferences++
-
-	// Now, trigger label injection
-	// This will allocate a new ID for the same /32 since the labels have changed
-	// It should only allocate once, even if we run it multiple times.
-	identityReferences++
-	for i := 0; i < 2; i++ {
-		IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
-		remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
-		assert.NoError(t, err)
-		assert.Len(t, remaining, 0)
-	}
-
-	// Ensure the source is now correctly understood in the ipcache
-	id, ok = IPIdentityCache.LookupByIP(prefix.String())
-	assert.True(t, ok)
-	assert.Equal(t, source.CustomResource, id.Source)
-
-	// Release the identity references via the legacy API. As long as the
-	// external subsystems are balancing their references against the
-	// identities, then the remainder of the test will assert that the
-	// ipcache internals will properly reference-count the identities
-	// for users of the newer APIs where ipcache itself is responsible for
-	// reference counting.
-	for i := identityReferences; i > 1; i-- {
-		IPIdentityCache.releaseCIDRIdentities(context.Background(), []netip.Prefix{prefix})
-		identityReferences--
-	}
-
-	// sanity check: ensure the cidr is correctly in the ipcache
-	id, ok = IPIdentityCache.LookupByIP(prefix.String())
-	assert.True(t, ok)
-	assert.Equal(t, wantID, id.ID)
-
-	// Check that the corresponding identity in the identity allocator
-	// is still allocated, which implies that it's reference counted
-	// correctly compared to the identityReferences variable in this test.
-	realID := IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
-	assert.True(t, realID != nil)
-	assert.Equal(t, id.ID.Uint32(), uint32(realID.ID))
-
-	// Remove the identity allocation via newer APIs
-	IPIdentityCache.metadata.remove(prefix, resource, labels)
-	remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
-	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
-	identityReferences--
-	assert.Equal(t, identityReferences, 0)
-
-	// Assert that ipcache has released its final reference to the identity
-	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
-	assert.True(t, realID == nil)
-}
-
-// This test ensures that the ipcache does the right thing when legacy and new
-// APIs are interleaved, with the legacy call happening *second*, temporally.
-func TestInjectLegacySecond(t *testing.T) {
-	cancel := setupTest(t)
-	defer cancel()
-
-	prefix := netip.MustParsePrefix("172.19.0.5/32")
-	resource := types.NewResourceID(
-		types.ResourceKindCNP, "default", "policy")
-	labels := labels.GetCIDRLabels(prefix)
-
-	IPIdentityCache.metadata.upsertLocked(prefix, source.Generated, resource, labels)
-	remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
-	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
-
-	id, ok := IPIdentityCache.LookupByIP(prefix.String())
-	assert.True(t, ok)
-	wantID := id.ID
-
-	// Allocate via old APIs
-	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
-	currentlyAllocatedIdentities, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
-	assert.NoError(t, err)
-	assert.Len(t, newlyAllocatedIdentities, 0)
-	assert.Len(t, currentlyAllocatedIdentities, 1)
-	assert.Equal(t, wantID, currentlyAllocatedIdentities[0].ID)
-	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, currentlyAllocatedIdentities)
-
-	// Remove via new APIs
-	IPIdentityCache.metadata.remove(prefix, resource, labels)
-	remaining, err = IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
-	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
-
-	// Ensure the ipcache still has the correct ID
-	id, ok = IPIdentityCache.LookupByIP(prefix.String())
-	assert.True(t, ok)
-	assert.Equal(t, wantID, id.ID)
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
@@ -557,11 +421,22 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	)
 	assert.NotNil(t, id)
 	assert.Equal(t, 1, id.ReferenceCount)
-	// Simulate adding CIDR policy.
-	ids, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{netip.MustParsePrefix("1.1.1.1/32")}, nil)
+
+	// Simulate adding CIDR policy by simulating UpsertPrefixes
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(worldPrefix))
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.Nil(t, err)
-	assert.Len(t, ids, 1)
-	assert.Equal(t, 2, id.ReferenceCount)
+	assert.Zero(t, remaining)
+	assert.Contains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.IDNameKubeAPIServer)
+	nid, exists := IPIdentityCache.LookupByPrefix(worldPrefix.String())
+	assert.True(t, exists)
+	id = IPIdentityCache.IdentityAllocator.LookupIdentityByID(
+		context.TODO(),
+		nid.ID,
+	)
+	assert.Equal(t, 1, id.ReferenceCount) // InjectLabels calls allocate and release on ID
+
+	// Remove kube-apiserver label
 	IPIdentityCache.RemoveLabelsExcluded(
 		labels.LabelKubeAPIServer, map[netip.Prefix]struct{}{},
 		"kube-uid")
@@ -569,7 +444,27 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.NotContains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.IDNameKubeAPIServer)
+	nid, exists = IPIdentityCache.LookupByPrefix(worldPrefix.String())
+	assert.True(t, exists)
+	id = IPIdentityCache.IdentityAllocator.LookupIdentityByID(
+		context.TODO(),
+		nid.ID,
+	)
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
+
+	// Simulate removing CIDR policy.
+	IPIdentityCache.RemoveLabels(worldPrefix, labels.Labels{}, "policy-uid")
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Empty(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels())
+	nid, exists = IPIdentityCache.LookupByPrefix(worldPrefix.String())
+	assert.False(t, exists)
+	id = IPIdentityCache.IdentityAllocator.LookupIdentityByID(
+		context.TODO(),
+		id.ID, // check old ID is deallocated
+	)
+	assert.Nil(t, id)
 }
 
 func TestOverrideIdentity(t *testing.T) {
