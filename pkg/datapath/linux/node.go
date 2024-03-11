@@ -926,40 +926,6 @@ func (n *linuxNodeHandler) DeleteMiscNeighbor(oldNode *nodeTypes.Node) {
 	n.deleteNeighbor(oldNode)
 }
 
-// getDefaultEncryptionInterface() is needed to find the interface used when
-// populating neighbor table and doing arpRequest. For most configurations
-// there is only a single interface so choosing [0] works by choosing the only
-// interface. However EKS, uses multiple interfaces, but fortunately for us
-// in EKS any interface would work so pick the [0] index here as well.
-func getDefaultEncryptionInterface() string {
-	iface := ""
-	if len(option.Config.EncryptInterface) > 0 {
-		iface = option.Config.EncryptInterface[0]
-	}
-	return iface
-}
-
-func getLinkLocalIP(family int) (net.IP, error) {
-	iface := getDefaultEncryptionInterface()
-	link, err := netlink.LinkByName(iface)
-	if err != nil {
-		return nil, err
-	}
-	addr, err := netlink.AddrList(link, family)
-	if err != nil {
-		return nil, err
-	}
-	return addr[0].IPNet.IP, nil
-}
-
-func getV4LinkLocalIP() (net.IP, error) {
-	return getLinkLocalIP(netlink.FAMILY_V4)
-}
-
-func getV6LinkLocalIP() (net.IP, error) {
-	return getLinkLocalIP(netlink.FAMILY_V6)
-}
-
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAddition bool) error {
 	var (
