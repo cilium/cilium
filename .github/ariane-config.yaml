@@ -110,7 +110,7 @@ workflows:
   tests-clustermesh-upgrade.yaml:
     paths-ignore-regex: (test|Documentation)/
   tests-datapath-verifier.yaml:
-    paths-regex: (bpf|test/verifier|vendor)/
+    paths-regex: (bpf|test/verifier|vendor|images)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/
   tests-e2e-upgrade.yaml:

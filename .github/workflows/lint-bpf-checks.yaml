@@ -41,6 +41,7 @@ jobs:
           filters: |
             bpf-tree:
               - 'bpf/**'
+              - 'images/**'
             coccinelle:
               - 'contrib/coccinelle/**'
             bpf-tests-runner:
