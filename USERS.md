@@ -39,8 +39,8 @@ Requirements to be listed
  * You must represent the user listed. Do *NOT* add entries on behalf of
    other users.
  * There is no minimum deployment size but we request to list permanent
-   deployments only, i.e., no demo or trial deployments. Commercial or
-   production use is not required. A well-done home lab setup can be equally
+   production deployments only, i.e., no demo or trial deployments. Commercial
+   use is not required. A well-done home lab setup can be equally
    interesting as a large-scale commercial deployment.
 
 Users (Alphabetically)
