@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	"github.com/cilium/cilium/pkg/proxy/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -196,6 +197,10 @@ func (p *fakeProxyPolicy) GetIngress() bool {
 
 func (p *fakeProxyPolicy) GetPort() uint16 {
 	return uint16(80)
+}
+
+func (p *fakeProxyPolicy) GetProtocol() uint8 {
+	return uint8(u8proto.UDP)
 }
 
 func (p *fakeProxyPolicy) GetListener() string {

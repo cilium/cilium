@@ -176,18 +176,24 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 // instead of returning a 0 port number.
 type proxyPolicy struct {
 	*policy.L4Filter
-	port uint16
+	port     uint16
+	protocol uint8
 }
 
 // newProxyPolicy returns a new instance of proxyPolicy by value
-func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, port uint16) proxyPolicy {
-	return proxyPolicy{L4Filter: l4, port: port}
+func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, port uint16, proto uint8) proxyPolicy {
+	return proxyPolicy{L4Filter: l4, port: port, protocol: proto}
 }
 
 // GetPort returns the destination port number on which the proxy policy applies
 // This version properly returns the port resolved from a named port, if any.
 func (p *proxyPolicy) GetPort() uint16 {
 	return p.port
+}
+
+// GetProtocol returns the destination protocol number on which the proxy policy applies
+func (p *proxyPolicy) GetProtocol() uint8 {
+	return p.protocol
 }
 
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
@@ -223,7 +229,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 				// proxyID() returns also the destination port for the policy,
 				// which may be resolved from a named port
-				proxyID, dstPort := e.proxyID(l4)
+				proxyID, dstPort, dstProto := e.proxyID(l4)
 				if proxyID == "" {
 					// Skip redirects for which a proxyID cannot be created.
 					// This may happen due to the named port mapping not
@@ -234,7 +240,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					return 0, false
 				}
 
-				pp := e.newProxyPolicy(l4, dstPort)
+				pp := e.newProxyPolicy(l4, dstPort, dstProto)
 				var err error
 				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
 				if err != nil {
