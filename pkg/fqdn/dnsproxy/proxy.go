@@ -165,11 +165,11 @@ type regexCacheEntry struct {
 // have the same set of rules, or the same rule applies to multiple endpoints.
 type regexCache map[string]*regexCacheEntry
 
-// perEPAllow maps EndpointIDs to ports + selectors + rules
-type perEPAllow map[uint64]portToSelectorAllow
+// perEPAllow maps EndpointIDs to protocols + ports + selectors + rules
+type perEPAllow map[uint64]portProtoToSelectorAllow
 
-// portToSelectorAllow maps protocol-port numbers to selectors + rules
-type portToSelectorAllow map[restore.PortProto]CachedSelectorREEntry
+// portProtoToSelectorAllow maps protocol-port numbers to selectors + rules
+type portProtoToSelectorAllow map[restore.PortProto]CachedSelectorREEntry
 
 // CachedSelectorREEntry maps port numbers to selectors to rules, mirroring
 // policy.L7DataMap but the DNS rules are compiled into a regex
@@ -200,8 +200,8 @@ func asIPRule(r *regexp.Regexp, IPs map[string]struct{}) restore.IPRule {
 
 // CheckRestored checks endpointID, destPort, destIP, and name against the restored rules,
 // and only returns true if a restored rule matches.
-func (p *DNSProxy) checkRestored(endpointID uint64, destPort restore.PortProto, destIP string, name string) bool {
-	ipRules, exists := p.restored[endpointID][destPort]
+func (p *DNSProxy) checkRestored(endpointID uint64, destPortProto restore.PortProto, destIP string, name string) bool {
+	ipRules, exists := p.restored[endpointID][destPortProto]
 	if !exists {
 		return false
 	}
@@ -243,15 +243,15 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 		cs policy.CachedSelector
 	}
 
-	portToSelRegex := make(map[restore.PortProto][]selRegex)
-	for port, entries := range p.allowed[uint64(endpointID)] {
+	portProtoToSelRegex := make(map[restore.PortProto][]selRegex)
+	for pp, entries := range p.allowed[uint64(endpointID)] {
 		nidRules := make([]selRegex, 0, len(entries))
 		// Copy the entries to avoid racy map accesses after we release the lock. We don't need
 		// constant time access, hence a preallocated slice instead of another map.
 		for cs, regex := range entries {
 			nidRules = append(nidRules, selRegex{cs: cs, re: regex})
 		}
-		portToSelRegex[port] = nidRules
+		portProtoToSelRegex[pp] = nidRules
 	}
 
 	// We've read what we need from the proxy. The following IPCache lookups _must_ occur outside of
@@ -259,7 +259,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	p.RUnlock()
 
 	restored := make(restore.DNSRules)
-	for port, selRegexes := range portToSelRegex {
+	for pp, selRegexes := range portProtoToSelRegex {
 		var ipRules restore.IPRules
 		for _, selRegex := range selRegexes {
 			if selRegex.cs.IsWildcard() {
@@ -283,7 +283,8 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 					if count > p.maxIPsPerRestoredDNSRule {
 						log.WithFields(logrus.Fields{
 							logfields.EndpointID:            endpointID,
-							logfields.Port:                  port.Port(),
+							logfields.Port:                  pp.Port(),
+							logfields.Protocol:              pp.Protocol(),
 							logfields.EndpointLabelSelector: selRegex.cs,
 							logfields.Limit:                 p.maxIPsPerRestoredDNSRule,
 							logfields.Count:                 len(nidIPs),
@@ -296,7 +297,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 			}
 			ipRules = append(ipRules, asIPRule(selRegex.re, ips))
 		}
-		restored[port] = ipRules
+		restored[pp] = ipRules
 	}
 
 	return restored, nil
@@ -316,7 +317,7 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 		p.restoredEPs[ep.IPv6] = ep
 	}
 	restoredRules := make(map[restore.PortProto][]restoredIPRule, len(ep.DNSRules))
-	for port, dnsRule := range ep.DNSRules {
+	for pp, dnsRule := range ep.DNSRules {
 		ipRules := make([]restoredIPRule, 0, len(dnsRule))
 		for _, ipRule := range dnsRule {
 			if ipRule.Re.Pattern == nil {
@@ -336,7 +337,7 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 			}
 			ipRules = append(ipRules, rule)
 		}
-		restoredRules[port] = ipRules
+		restoredRules[pp] = ipRules
 	}
 	p.restored[uint64(ep.ID)] = restoredRules
 
@@ -421,25 +422,26 @@ func (c regexCache) releaseRegex(regex *regexp.Regexp) {
 
 // removeAndReleasePortRulesForID removes the old port rules for the given destPort on the given endpointID. It also
 // releases the regexes so that unused regex can be freed from memory.
-func (allow perEPAllow) removeAndReleasePortRulesForID(cache regexCache, endpointID uint64, destPort restore.PortProto) {
-	epPorts, hasEpPorts := allow[endpointID]
-	if !hasEpPorts {
+
+func (allow perEPAllow) removeAndReleasePortRulesForID(cache regexCache, endpointID uint64, destPortProto restore.PortProto) {
+	epPortProtos, hasEpPortProtos := allow[endpointID]
+	if !hasEpPortProtos {
 		return
 	}
-	for _, m := range epPorts[destPort] {
+	for _, m := range epPortProtos[destPortProto] {
 		cache.releaseRegex(m)
 	}
-	delete(epPorts, destPort)
-	if len(epPorts) == 0 {
+	delete(epPortProtos, destPortProto)
+	if len(epPortProtos) == 0 {
 		delete(allow, endpointID)
 	}
 }
 
 // setPortRulesForID sets the matching rules for endpointID and destPort for
 // later lookups. It converts newRules into a compiled regex
-func (allow perEPAllow) setPortRulesForID(cache regexCache, endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) error {
+func (allow perEPAllow) setPortRulesForID(cache regexCache, endpointID uint64, destPortProto restore.PortProto, newRules policy.L7DataMap) error {
 	if len(newRules) == 0 {
-		allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
+		allow.removeAndReleasePortRulesForID(cache, endpointID, destPortProto)
 		return nil
 	}
 	cse := make(CachedSelectorREEntry, len(newRules))
@@ -463,22 +465,22 @@ func (allow perEPAllow) setPortRulesForID(cache regexCache, endpointID uint64, d
 		}
 		return err
 	}
-	allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
-	epPorts, exist := allow[endpointID]
+	allow.removeAndReleasePortRulesForID(cache, endpointID, destPortProto)
+	epPortProtos, exist := allow[endpointID]
 	if !exist {
-		epPorts = make(portToSelectorAllow)
-		allow[endpointID] = epPorts
+		epPortProtos = make(portProtoToSelectorAllow)
+		allow[endpointID] = epPortProtos
 	}
-	epPorts[destPort] = cse
+	epPortProtos[destPortProto] = cse
 	return nil
 }
 
 // setPortRulesForIDFromUnifiedFormat sets the matching rules for endpointID and destPort for
 // later lookups. It does not guarantee it will reuse all the provided regexes, since it will reuse
 // already existing regexes with the same pattern in case they are already in use.
-func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, endpointID uint64, destPort restore.PortProto, newRules CachedSelectorREEntry) error {
+func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, endpointID uint64, destPortProto restore.PortProto, newRules CachedSelectorREEntry) error {
 	if len(newRules) == 0 {
-		allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
+		allow.removeAndReleasePortRulesForID(cache, endpointID, destPortProto)
 		return nil
 	}
 	cse := make(CachedSelectorREEntry, len(newRules))
@@ -488,21 +490,21 @@ func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, end
 		cse[selector] = cache.lookupOrInsertRegex(providedRegex)
 	}
 
-	allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
-	epPorts, exist := allow[endpointID]
+	allow.removeAndReleasePortRulesForID(cache, endpointID, destPortProto)
+	epPortProtos, exist := allow[endpointID]
 	if !exist {
-		epPorts = make(portToSelectorAllow)
-		allow[endpointID] = epPorts
+		epPortProtos = make(portProtoToSelectorAllow)
+		allow[endpointID] = epPortProtos
 	}
-	epPorts[destPort] = cse
+	epPortProtos[destPortProto] = cse
 	return nil
 }
 
 // getPortRulesForID returns a precompiled regex representing DNS rules for the
 // passed-in endpointID and destPort with setPortRulesForID
-func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPort restore.PortProto) (rules CachedSelectorREEntry, exists bool) {
-	rules, exists = allow[endpointID][destPort]
-	return rules, exists
+func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPortProto restore.PortProto) (rules CachedSelectorREEntry, exists bool) {
+	rules, exists = allow[endpointID][destPortProto]
+	return
 }
 
 // LookupEndpointIDByIPFunc wraps logic to lookup an endpoint with any backend.
@@ -718,11 +720,11 @@ func (p *DNSProxy) LookupEndpointByIP(ip netip.Addr) (endpoint *endpoint.Endpoin
 
 // UpdateAllowed sets newRules for endpointID and destPort. It compiles the DNS
 // rules into regexes that are then used in CheckAllowed.
-func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) error {
+func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPortProto restore.PortProto, newRules policy.L7DataMap) error {
 	p.Lock()
 	defer p.Unlock()
 
-	err := p.allowed.setPortRulesForID(p.cache, endpointID, destPort, newRules)
+	err := p.allowed.setPortRulesForID(p.cache, endpointID, destPortProto, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
 		p.removeRestoredRulesLocked(endpointID)
@@ -731,11 +733,11 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort restore.PortProto, 
 }
 
 // UpdateAllowedFromSelectorRegexes sets newRules for endpointID and destPort.
-func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPort restore.PortProto, newRules CachedSelectorREEntry) error {
+func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPortProto restore.PortProto, newRules CachedSelectorREEntry) error {
 	p.Lock()
 	defer p.Unlock()
 
-	err := p.allowed.setPortRulesForIDFromUnifiedFormat(p.cache, endpointID, destPort, newRules)
+	err := p.allowed.setPortRulesForIDFromUnifiedFormat(p.cache, endpointID, destPortProto, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
 		p.removeRestoredRulesLocked(endpointID)
@@ -743,17 +745,17 @@ func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPort 
 	return err
 }
 
-// CheckAllowed checks endpointID, destPort, destID, destIP, and name against the rules
+// CheckAllowed checks endpointID, destPortProto, destID, destIP, and name against the rules
 // added to the proxy or restored during restart, and only returns true if this all match
 // something that was added (via UpdateAllowed or RestoreRules) previously.
-func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort restore.PortProto, destID identity.NumericIdentity, destIP net.IP, name string) (allowed bool, err error) {
+func (p *DNSProxy) CheckAllowed(endpointID uint64, destPortProto restore.PortProto, destID identity.NumericIdentity, destIP net.IP, name string) (allowed bool, err error) {
 	name = strings.ToLower(dns.Fqdn(name))
 	p.RLock()
 	defer p.RUnlock()
 
-	epAllow, exists := p.allowed.getPortRulesForID(endpointID, destPort)
+	epAllow, exists := p.allowed.getPortRulesForID(endpointID, destPortProto)
 	if !exists {
-		return p.checkRestored(endpointID, destPort, destIP.String(), name), nil
+		return p.checkRestored(endpointID, destPortProto, destIP.String(), name), nil
 	}
 
 	for selector, regex := range epAllow {
@@ -925,7 +927,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.Identity:   ep.GetIdentity(),
 	})
 
-	targetServerIP, targetServerPort, targetServerAddrStr, err := p.lookupTargetDNSServer(w)
+	targetServerIP, targetServerPortProto, targetServerAddrStr, err := p.lookupTargetDNSServer(w)
 	if err != nil {
 		log.WithError(err).Error("cannot extract destination IP:port from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract destination IP:port from DNS request: %w", err)
@@ -951,7 +953,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	stat.PolicyCheckTime.Start()
-	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPort, targetServerID, targetServerIP, qname)
+	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPortProto, targetServerID, targetServerIP, qname)
 	stat.PolicyCheckTime.End(err == nil)
 	switch {
 	case err != nil:
