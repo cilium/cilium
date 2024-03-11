@@ -127,7 +127,8 @@ func getBackendServiceName(namespace string, services []corev1.Service, serviceI
 		return "", fmt.Errorf("Unsupported backend kind %s", *backendObjectReference.Kind)
 	}
 
-	if !serviceExists(svcName, namespace, services) {
+	svc := getServiceSpec(svcName, namespace, services)
+	if svc == nil {
 		return "", fmt.Errorf("Service %s/%s does not exist", svcName, namespace)
 	}
 	return svcName, nil
@@ -179,8 +180,9 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 					// must have port for Service reference
 					continue
 				}
-				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-					bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+				svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services)
+				if svc != nil {
+					bes = append(bes, backendToModelBackend(*svc, be.BackendRef, r.Namespace))
 					for _, f := range be.Filters {
 						switch f.Type {
 						case gatewayv1.HTTPRouteFilterRequestHeaderModifier:
@@ -238,7 +240,10 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 				case gatewayv1.HTTPRouteFilterURLRewrite:
 					rewriteFilter = toHTTPRewriteFilter(f.URLRewrite)
 				case gatewayv1.HTTPRouteFilterRequestMirror:
-					requestMirrors = append(requestMirrors, toHTTPRequestMirror(f.RequestMirror, r.Namespace))
+					svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, r.Namespace), services)
+					if svc != nil {
+						requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, r.Namespace))
+					}
 				}
 			}
 
@@ -344,8 +349,9 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPC
 					// must have port for Service reference
 					continue
 				}
-				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-					bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+				svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services)
+				if svc != nil {
+					bes = append(bes, backendToModelBackend(*svc, be.BackendRef, r.Namespace))
 				}
 			}
 
@@ -375,7 +381,10 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPC
 						HeadersToRemove: f.ResponseHeaderModifier.Remove,
 					}
 				case gatewayv1alpha2.GRPCRouteFilterRequestMirror:
-					requestMirrors = append(requestMirrors, toHTTPRequestMirror(f.RequestMirror, r.Namespace))
+					svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, r.Namespace), services)
+					if svc != nil {
+						requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, r.Namespace))
+					}
 				}
 			}
 
@@ -450,8 +459,9 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRo
 						Namespace: be.Namespace,
 					}
 				}
-				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-					bes = append(bes, backendToModelBackend(be, r.Namespace))
+				svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services)
+				if svc != nil {
+					bes = append(bes, backendToModelBackend(*svc, be, r.Namespace))
 				}
 			}
 
@@ -528,9 +538,9 @@ func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURL
 	}
 }
 
-func toHTTPRequestMirror(mirror *gatewayv1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
+func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
 	return &model.HTTPRequestMirror{
-		Backend: model.AddressOf(backendRefToModelBackend(mirror.BackendRef, ns)),
+		Backend: model.AddressOf(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
 	}
 }
 
@@ -541,13 +551,13 @@ func toHostname(hostname *gatewayv1.Hostname) string {
 	return allHosts
 }
 
-func serviceExists(svcName, svcNamespace string, services []corev1.Service) bool {
+func getServiceSpec(svcName, svcNamespace string, services []corev1.Service) *corev1.Service {
 	for _, svc := range services {
 		if svc.GetName() == svcName && svc.GetNamespace() == svcNamespace {
-			return true
+			return &svc
 		}
 	}
-	return false
+	return nil
 }
 
 func getServiceImport(svcName, svcNamespace string, serviceImports []mcsapiv1alpha1.ServiceImport) *mcsapiv1alpha1.ServiceImport {
@@ -559,27 +569,42 @@ func getServiceImport(svcName, svcNamespace string, serviceImports []mcsapiv1alp
 	return nil
 }
 
-func backendToModelBackend(be gatewayv1.BackendRef, defaultNamespace string) model.Backend {
-	res := backendRefToModelBackend(be.BackendObjectReference, defaultNamespace)
+func backendToModelBackend(svc corev1.Service, be gatewayv1.BackendRef, defaultNamespace string) model.Backend {
+	res := backendRefToModelBackend(svc, be.BackendObjectReference, defaultNamespace)
 	res.Weight = be.Weight
 	return res
 }
 
-func backendRefToModelBackend(be gatewayv1.BackendObjectReference, defaultNamespace string) model.Backend {
+func backendRefToModelBackend(svc corev1.Service, be gatewayv1.BackendObjectReference, defaultNamespace string) model.Backend {
 	ns := helpers.NamespaceDerefOr(be.Namespace, defaultNamespace)
 	var port *model.BackendPort
+	var appProtocol *string
 
 	if be.Port != nil {
+		backendPort := uint32(*be.Port)
+		appProtocol = backendRefToAppProtocol(svc, int32(*be.Port))
+
 		port = &model.BackendPort{
-			Port: uint32(*be.Port),
+			Port: backendPort,
 		}
 	}
 
 	return model.Backend{
-		Name:      string(be.Name),
-		Namespace: ns,
-		Port:      port,
+		Name:        string(be.Name),
+		Namespace:   ns,
+		Port:        port,
+		AppProtocol: appProtocol,
 	}
+}
+
+func backendRefToAppProtocol(svc corev1.Service, backendPort int32) *string {
+	for _, portSpec := range svc.Spec.Ports {
+		if backendPort == portSpec.Port {
+			return portSpec.AppProtocol
+		}
+	}
+
+	return nil
 }
 
 func toPathMatch(match gatewayv1.HTTPRouteMatch) model.StringMatch {
