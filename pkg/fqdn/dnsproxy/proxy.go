@@ -874,10 +874,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.IPAddr:       epIPPort,
 		logfields.DNSRequestID: requestID,
 	})
+	targetServerID := identity.NumericIdentity(0)
+	targetServerAddrStr := ""
 
 	release, err := p.handleConcurrencyLimit(scopedLog, &stat)
 	if err != nil {
-		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
+		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, targetServerID, targetServerAddrStr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -893,7 +895,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("cannot extract endpoint IP from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint IP from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
+		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, targetServerID, targetServerAddrStr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -903,7 +905,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
+		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, targetServerID, targetServerAddrStr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -918,14 +920,14 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		log.WithError(err).Error("cannot extract destination IP:port from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract destination IP:port from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, 0, targetServerAddrStr, request, protocol, false, &stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
 
 	// Ignore invalid IP - getter will handle invalid value.
 	targetServerAddr, _ := ippkg.AddrFromIP(targetServerIP)
-	targetServerID := identity.GetWorldIdentityFromIP(targetServerAddr)
+	targetServerID = identity.GetWorldIdentityFromIP(targetServerAddr)
 	if serverSecID, exists := p.LookupSecIDByIP(targetServerAddr); !exists {
 		scopedLog.WithField("server", targetServerAddrStr).Debug("cannot find server ip in ipcache, defaulting to WORLD")
 	} else {
