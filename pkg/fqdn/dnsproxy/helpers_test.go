@@ -13,10 +13,17 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/u8proto"
+)
+
+const (
+	udpProto = uint8(u8proto.UDP)
+	tcpProto = uint8(u8proto.TCP)
 )
 
 type DNSProxyHelperTestSuite struct{}
@@ -34,6 +41,8 @@ func (s *DNSProxyHelperTestSuite) TestSetPortRulesForID(c *C) {
 	epID := uint64(1)
 	pea := perEPAllow{}
 	cache := make(regexCache)
+	udpProtoPort8053 := restore.MakeV2PortProto(8053, udpProto)
+
 	rules[new(MockCachedSelector)] = &policy.PerSelectorPolicy{
 		L7Rules: api.L7Rules{
 			DNS: []api.PortRuleDNS{
@@ -42,7 +51,8 @@ func (s *DNSProxyHelperTestSuite) TestSetPortRulesForID(c *C) {
 			},
 		},
 	}
-	err := pea.setPortRulesForID(cache, epID, 8053, rules)
+
+	err := pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 1)
 
@@ -56,16 +66,17 @@ func (s *DNSProxyHelperTestSuite) TestSetPortRulesForID(c *C) {
 			},
 		},
 	}
-	err = pea.setPortRulesForID(cache, epID, 8053, rules)
+
+	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 2)
 
 	delete(rules, selector2)
-	err = pea.setPortRulesForID(cache, epID, 8053, rules)
+	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 1)
 
-	err = pea.setPortRulesForID(cache, epID, 8053, nil)
+	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, nil)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 0)
 
@@ -79,7 +90,7 @@ func (s *DNSProxyHelperTestSuite) TestSetPortRulesForID(c *C) {
 			},
 		},
 	}
-	err = pea.setPortRulesForID(cache, epID, 8053, rules)
+	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
 
 	c.Assert(err, NotNil)
 	c.Assert(len(cache), Equals, 0)
@@ -91,34 +102,35 @@ func (s *DNSProxyHelperTestSuite) TestSetPortRulesForIDFromUnifiedFormat(c *C) {
 	epID := uint64(1)
 	pea := perEPAllow{}
 	cache := make(regexCache)
+	udpProtoPort8053 := restore.MakeV2PortProto(8053, udpProto)
 	rules[new(MockCachedSelector)] = regexp.MustCompile("^.*[.]cilium[.]io$")
 	rules[new(MockCachedSelector)] = regexp.MustCompile("^.*[.]cilium[.]io$")
 
-	err := pea.setPortRulesForIDFromUnifiedFormat(cache, epID, 8053, rules)
+	err := pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 1)
 
 	selector2 := new(MockCachedSelector)
 	rules[selector2] = regexp.MustCompile("^sub[.]cilium[.]io")
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, 8053, rules)
+	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 2)
 
 	delete(rules, selector2)
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, 8053, rules)
+	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 1)
 
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, 8053, nil)
+	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 0)
 
 	delete(rules, selector2)
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, 8053, rules)
+	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 1)
 
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, 8053, nil)
+	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
 	c.Assert(err, Equals, nil)
 	c.Assert(len(cache), Equals, 0)
 }
