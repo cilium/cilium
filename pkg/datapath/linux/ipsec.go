@@ -27,7 +27,10 @@ import (
 // there is only a single interface so choosing [0] works by choosing the only
 // interface. However EKS, uses multiple interfaces, but fortunately for us
 // in EKS any interface would work so pick the [0] index here as well.
-func getDefaultEncryptionInterface() string {
+func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
+	if option.Config.TunnelingEnabled() {
+		return n.datapathConfig.TunnelDevice
+	}
 	iface := ""
 	if len(option.Config.EncryptInterface) > 0 {
 		iface = option.Config.EncryptInterface[0]
@@ -35,8 +38,8 @@ func getDefaultEncryptionInterface() string {
 	return iface
 }
 
-func getLinkLocalIP(family int) (net.IP, error) {
-	iface := getDefaultEncryptionInterface()
+func (n *linuxNodeHandler) getLinkLocalIP(family int) (net.IP, error) {
+	iface := n.getDefaultEncryptionInterface()
 	link, err := netlink.LinkByName(iface)
 	if err != nil {
 		return nil, err
@@ -48,12 +51,12 @@ func getLinkLocalIP(family int) (net.IP, error) {
 	return addr[0].IPNet.IP, nil
 }
 
-func getV4LinkLocalIP() (net.IP, error) {
-	return getLinkLocalIP(netlink.FAMILY_V4)
+func (n *linuxNodeHandler) getV4LinkLocalIP() (net.IP, error) {
+	return n.getLinkLocalIP(netlink.FAMILY_V4)
 }
 
-func getV6LinkLocalIP() (net.IP, error) {
-	return getLinkLocalIP(netlink.FAMILY_V6)
+func (n *linuxNodeHandler) getV6LinkLocalIP() (net.IP, error) {
+	return n.getLinkLocalIP(netlink.FAMILY_V6)
 }
 
 func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8, nodeID uint16) error {
@@ -192,7 +195,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 		localIP := localCiliumInternalIP
 
 		if n.subnetEncryption() {
-			localNodeInternalIP, err := getV4LinkLocalIP()
+			localNodeInternalIP, err := n.getV4LinkLocalIP()
 			if err != nil {
 				log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
 				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link: %w", err))
@@ -304,7 +307,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 		localIP := localCiliumInternalIP
 
 		if n.subnetEncryption() {
-			localNodeInternalIP, err := getV6LinkLocalIP()
+			localNodeInternalIP, err := n.getV6LinkLocalIP()
 			if err != nil {
 				log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
 				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
@@ -406,13 +409,7 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 }
 
 func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
-	var device string
-
-	if !option.Config.TunnelingEnabled() {
-		device = option.Config.EncryptInterface[0]
-	} else {
-		device = n.datapathConfig.TunnelDevice
-	}
+	device := n.getDefaultEncryptionInterface()
 	return route.Route{
 		Nexthop: nil,
 		Device:  device,
