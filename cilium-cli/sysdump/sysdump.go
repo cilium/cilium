@@ -112,6 +112,8 @@ type Options struct {
 	CNIConfigMapName string
 	// The labels used to target Tetragon pods.
 	TetragonLabelSelector string
+	// The labels used to target Tetragon oeprator pods.
+	TetragonOperatorLabelSelector string
 	// The namespace Namespace is running in.
 	TetragonNamespace string
 	// Retry limit for copying files from pods
@@ -1286,6 +1288,42 @@ func (c *Collector) Run() error {
 	tetragonTasks := []Task{
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting logs from Tetragon pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.TetragonNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.TetragonLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get Tetragon pods: %w", err)
+				}
+
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Tetragon pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from Tetragon operator pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.TetragonNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.TetragonOperatorLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get Tetragon operator pods: %w", err)
+				}
+
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Tetragon operator pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting bugtool output from Tetragon pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
@@ -1299,6 +1337,25 @@ func (c *Collector) Run() error {
 					DefaultTetragonAgentContainerName, DefaultTetragonBugtoolPrefix,
 					DefaultTetragonCLICommand); err != nil {
 					return fmt.Errorf("failed to collect 'tetragon-bugtool': %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Tetragon configmap",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				cmName := DefaultTetragonConfigMapName
+				v, err := c.Client.GetConfigMap(ctx, c.Options.TetragonNamespace, cmName, metav1.GetOptions{})
+				if err != nil && errors.IsNotFound(err) {
+					c.logDebug("CNI configmap %s not found: %w", cmName, err)
+					return nil
+				}
+				if err != nil {
+					return fmt.Errorf("failed to collect the Tetragon configmap: %w", err)
+				}
+				if err := c.WriteYAML("tetragon-configmap-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to write the Tetragon configmap: %w", err)
 				}
 				return nil
 			},
@@ -2632,6 +2689,9 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 	cmd.Flags().StringVar(&options.TetragonLabelSelector,
 		optionPrefix+"tetragon-label-selector", DefaultTetragonLabelSelector,
 		"The labels used to target Tetragon pods")
+	cmd.Flags().StringVar(&options.TetragonOperatorLabelSelector,
+		optionPrefix+"tetragon-operator-label-selector", DefaultTetragonOperatorLabelSelector,
+		"The labels used to target Tetragon operator pods")
 	cmd.Flags().IntVar(&options.CopyRetryLimit,
 		optionPrefix+"copy-retry-limit", DefaultCopyRetryLimit,
 		"Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection.")
