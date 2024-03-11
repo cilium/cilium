@@ -939,20 +939,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	stat.PolicyCheckTime.Start()
 	allowed = p.CheckAllowed(uint64(ep.ID), targetServerPort, targetServerID, targetServerIP, qname)
-	stat.PolicyCheckTime.End(err == nil)
+	stat.PolicyCheckTime.End(true)
 	if !allowed {
 		scopedLog.Debug("Rejecting DNS query from endpoint due to policy")
-		// Seems like this is incorrect as we are passing error from sendRefused???
-
-		// Send refused msg before calling NotifyOnDNSMsg() because we know
-		// that this DNS request is rejected anyway. NotifyOnDNSMsg depends on
-		// stat.Err field to be set in order to propagate the correct
-		// information for metrics.
-		stat.Err = p.sendRefused(scopedLog, w, request)
-		stat.ProcessingTime.End(true)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, allowed, &stat)
+		rejectResponse(nil, "", false)
 		return
-
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
