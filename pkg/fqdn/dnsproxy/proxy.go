@@ -576,7 +576,6 @@ type ProxyRequestContext struct {
 	PolicyCheckTime      spanstat.SpanStat
 	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
-	Success              bool
 	Err                  error
 	DataSource           accesslog.DNSDataSource
 }
@@ -1047,7 +1046,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
-	stat.Success = true
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
 	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, response, protocol, allowed, &stat)
