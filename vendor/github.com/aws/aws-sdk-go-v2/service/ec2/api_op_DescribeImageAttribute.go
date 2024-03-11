@@ -12,7 +12,9 @@ import (
 )
 
 // Describes the specified attribute of the specified AMI. You can specify only
-// one attribute at a time.
+// one attribute at a time. The order of the elements in the response, including
+// those within nested structures, might vary. Applications should not assume the
+// elements appear in a particular order.
 func (c *Client) DescribeImageAttribute(ctx context.Context, params *DescribeImageAttributeInput, optFns ...func(*Options)) (*DescribeImageAttributeOutput, error) {
 	if params == nil {
 		params = &DescribeImageAttributeInput{}

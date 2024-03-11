@@ -50114,6 +50114,13 @@ func awsEc2query_serializeOpDocumentCopyImageInput(v *CopyImageInput, value quer
 		objectKey.String(*v.SourceRegion)
 	}
 
+	if v.TagSpecifications != nil {
+		objectKey := object.FlatKey("TagSpecification")
+		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -66394,6 +66401,13 @@ func awsEc2query_serializeOpDocumentRegisterImageInput(v *RegisterImageInput, va
 	if v.SriovNetSupport != nil {
 		objectKey := object.Key("SriovNetSupport")
 		objectKey.String(*v.SriovNetSupport)
+	}
+
+	if v.TagSpecifications != nil {
+		objectKey := object.FlatKey("TagSpecification")
+		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if len(v.TpmSupport) > 0 {
