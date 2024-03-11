@@ -18,78 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-// AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
-// allocation fails, all allocations are rolled back and the error is returned.
-// When an identity is freshly allocated for a CIDR, it is added to the
-// ipcache if 'newlyAllocatedIdentities' is 'nil', otherwise the newly allocated
-// identities are placed in 'newlyAllocatedIdentities' and it is the caller's
-// responsibility to upsert them into ipcache by calling upsertGeneratedIdentities().
-//
-// Upon success, the caller must also arrange for the resulting identities to
-// be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
-//
-// Deprecated: Prefer UpsertLabels() instead.
-func (ipc *IPCache) AllocateCIDRs(
-	prefixes []netip.Prefix, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity,
-) ([]*identity.Identity, error) {
-	// maintain list of used identities to undo on error
-	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
-
-	// Maintain list of newly allocated identities to update ipcache,
-	// but upsert them to ipcache only if no map was given by the caller.
-	upsert := false
-	if newlyAllocatedIdentities == nil {
-		upsert = true
-		newlyAllocatedIdentities = map[netip.Prefix]*identity.Identity{}
-	}
-
-	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
-	defer cancel()
-
-	ipc.metadata.RLock()
-	ipc.Lock()
-	allocatedIdentities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
-	for _, prefix := range prefixes {
-		info := ipc.metadata.getLocked(prefix)
-
-		oldNID := info.RequestedIdentity().ID()
-		id, isNew, err := ipc.resolveIdentity(allocateCtx, prefix, info, oldNID)
-		if err != nil {
-			ipc.IdentityAllocator.ReleaseSlice(context.Background(), usedIdentities)
-			ipc.Unlock()
-			ipc.metadata.RUnlock()
-			return nil, err
-		}
-
-		usedIdentities = append(usedIdentities, id)
-		allocatedIdentities[prefix] = id
-		if isNew {
-			newlyAllocatedIdentities[prefix] = id
-		}
-	}
-	ipc.Unlock()
-	ipc.metadata.RUnlock()
-
-	// Insert any newly allocated identities in to the policy engine
-	addedIdentities := make(map[identity.NumericIdentity]labels.LabelArray, len(newlyAllocatedIdentities))
-	for _, id := range newlyAllocatedIdentities {
-		addedIdentities[id.ID] = id.LabelArray
-	}
-	ipc.UpdatePolicyMaps(context.TODO(), addedIdentities, nil)
-
-	// Only upsert into ipcache if identity wasn't allocated
-	// before and the caller does not care doing this
-	if upsert {
-		ipc.upsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
-	}
-
-	identities := make([]*identity.Identity, 0, len(allocatedIdentities))
-	for _, id := range allocatedIdentities {
-		identities = append(identities, id)
-	}
-	return identities, nil
-}
-
 func cidrLabelToPrefix(id *identity.Identity) (prefix netip.Prefix, ok bool) {
 	var err error
 
@@ -225,12 +153,4 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.
 	}
 	// Remove any deleted identities from the policy engine.
 	ipc.UpdatePolicyMaps(ctx, nil, deletedIDs)
-}
-
-// ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs.
-// When the last use of the identity is released, the ipcache entry is deleted.
-//
-// Deprecated: Prefer RemoveLabels() or RemoveIdentity() instead.
-func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []netip.Prefix) {
-	ipc.deferredPrefixRelease.enqueue(prefixes, "cidr-prefix-release")
 }
