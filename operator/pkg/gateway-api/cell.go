@@ -98,7 +98,9 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	if params.GatewayApiConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue && !params.GatewayApiConfig.EnableNodePort {
+	if params.GatewayApiConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+		params.GatewayApiConfig.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
+		!params.GatewayApiConfig.EnableNodePort {
 		params.Logger.Warn("Gateway API support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}
