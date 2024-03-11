@@ -732,24 +732,24 @@ func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPort 
 // CheckAllowed checks endpointID, destPort, destID, destIP, and name against the rules
 // added to the proxy or restored during restart, and only returns true if this all match
 // something that was added (via UpdateAllowed or RestoreRules) previously.
-func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID identity.NumericIdentity, destIP net.IP, name string) (allowed bool, err error) {
+func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID identity.NumericIdentity, destIP net.IP, name string) (allowed bool) {
 	name = strings.ToLower(dns.Fqdn(name))
 	p.RLock()
 	defer p.RUnlock()
 
 	epAllow, exists := p.allowed.getPortRulesForID(endpointID, destPort)
 	if !exists {
-		return p.checkRestored(endpointID, destPort, destIP.String(), name), nil
+		return p.checkRestored(endpointID, destPort, destIP.String(), name)
 	}
 
 	for selector, regex := range epAllow {
 		// The port was matched in getPortRulesForID, above.
 		if regex != nil && selector.Selects(destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
-			return true, nil
+			return true
 		}
 	}
 
-	return false, nil
+	return false
 }
 
 // setSoMarks sets the socket options needed for a transparent proxy to integrate it's upstream
@@ -938,13 +938,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	stat.PolicyCheckTime.Start()
-	allowed, err = p.CheckAllowed(uint64(ep.ID), targetServerPort, targetServerID, targetServerIP, qname)
+	allowed = p.CheckAllowed(uint64(ep.ID), targetServerPort, targetServerID, targetServerIP, qname)
 	stat.PolicyCheckTime.End(err == nil)
-	if err != nil {
-		allowed = false
-		rejectResponse(err, "Rejecting DNS query from endpoint due to error", true)
-		return
-	}
 	if !allowed {
 		scopedLog.Debug("Rejecting DNS query from endpoint due to policy")
 		// Seems like this is incorrect as we are passing error from sendRefused???

@@ -282,8 +282,7 @@ func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
 	// Reject a query from not endpoint 1
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID2, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID2, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 }
 
@@ -301,8 +300,7 @@ func (s *DNSProxyTestSuite) TestAcceptFromMatchingEndpoint(c *C) {
 	// accept a query that matches from endpoint1
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
 
@@ -320,8 +318,7 @@ func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
 	// accept a query that matches from endpoint1
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
 
@@ -339,8 +336,7 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	// reject a query for a non-regex where a . is different (i.e. ensure simple FQDNs treat . as .)
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 }
 
@@ -357,8 +353,7 @@ func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(c *C) *dns.M
 
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 
 	request := new(dns.Msg)
@@ -404,8 +399,7 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	request := new(dns.Msg)
@@ -433,8 +427,7 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	request := new(dns.Msg)
@@ -462,9 +455,7 @@ func (s *DNSProxyTestSuite) TestCheckNoRules(c *C) {
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Error when inserting rules"))
 
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
-
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	l7map = policy.L7DataMap{
@@ -477,8 +468,7 @@ func (s *DNSProxyTestSuite) TestCheckNoRules(c *C) {
 	err = s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Error when inserting rules"))
 
-	allowed, err = s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
 
@@ -498,22 +488,19 @@ func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
 	err = s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Delete once, it should reject
 	err = s.proxy.UpdateAllowed(epID1, dstPort, nil)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err = s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Delete once, it should reject and not crash
 	err = s.proxy.UpdateAllowed(epID1, dstPort, nil)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err = s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 }
 
@@ -611,63 +598,51 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 
 	// Test cases
 	// Case 1 | EPID1 | DstID1 |   53 | www.ubuntu.com | Allowed
-	allowed, err := s.proxy.CheckAllowed(epID1, 53, dstID1, nil, "www.ubuntu.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed := s.proxy.CheckAllowed(epID1, 53, dstID1, nil, "www.ubuntu.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 2 | EPID1 | DstID1 |   54 | cilium.io      | Rejected | Port 54 only allows example.com
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, nil, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, dstID1, nil, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 3 | EPID1 | DstID2 |   53 | cilium.io      | Allowed
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, nil, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID2, nil, "cilium.io")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 4 | EPID1 | DstID2 |   53 | aws.amazon.com | Rejected | Only cilium.io is allowed with DstID2
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, nil, "aws.amazon.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID2, nil, "aws.amazon.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 5 | EPID1 | DstID1 |   54 | example.com    | Allowed
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, nil, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, dstID1, nil, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 6 | EPID2 | DstID1 |   53 | cilium.io      | Rejected | EPID2 is not allowed as a source by any policy
-	allowed, err = s.proxy.CheckAllowed(epID2, 53, dstID1, nil, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID2, 53, dstID1, nil, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 7 | EPID3 | DstID1 |   53 | example.com    | Allowed
-	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, nil, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID3, 53, dstID1, nil, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 8 | EPID3 | DstID1 |   53 | aws.amazon.com | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
-	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, nil, "aws.amazon.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID3, 53, dstID1, nil, "aws.amazon.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 8 | EPID3 | DstID1 |   54 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
-	allowed, err = s.proxy.CheckAllowed(epID3, 54, dstID1, nil, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID3, 54, dstID1, nil, "example.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 9 | EPID3 | DstID2 |   53 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
-	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID2, nil, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID3, 53, dstID2, nil, "example.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 10 | EPID3 | DstID3 |   53 | example.com    | Allowed due to wildcard match pattern
-	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID3, nil, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID3, 53, dstID3, nil, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 11 | EPID3 | DstID4 |   53 | example.com    | Allowed due to a nil rule
-	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID4, nil, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID3, 53, dstID4, nil, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Get rules for restoration
@@ -739,28 +714,23 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 
 	// Before restore: all rules removed above, everything is dropped
 	// Case 1 | EPID1 | DstID1 |   53 | www.ubuntu.com | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID1, dstIP1, "www.ubuntu.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID1, dstIP1, "www.ubuntu.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 2 | EPID1 | DstID1 |   54 | cilium.io      | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 3 | EPID1 | DstID2 |   53 | cilium.io      | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2a, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2a, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 4 | EPID1 | DstID2 |   53 | aws.amazon.com | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2b, "aws.amazon.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2b, "aws.amazon.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 5 | EPID1 | DstID1 |   54 | example.com    | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "example.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Restore rules
@@ -773,40 +743,33 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	// Same tests with 2 (WORLD) dstID to make sure it is not used, but with correct destination IP
 
 	// Case 1 | EPID1 | dstIP1 |   53 | www.ubuntu.com | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIP1, "www.ubuntu.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIP1, "www.ubuntu.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 2 | EPID1 | dstIP1 |   54 | cilium.io      | Rejected due to restored rules | Port 54 only allows example.com
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 3 | EPID1 | dstIP2a |   53 | cilium.io      | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2a, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2a, "cilium.io")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 4 | EPID1 | dstIP2b |   53 | aws.amazon.com | Rejected due to restored rules | Only cilium.io is allowed with DstID2
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2b, "aws.amazon.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2b, "aws.amazon.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 5 | EPID1 | dstIP1 |   54 | example.com    | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// make sure random IP is not allowed
 	// Case 5 | EPID1 | random IP |   53 | example.com    | Rejected due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIPrandom, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIPrandom, "example.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// make sure random destination IP is allowed in a wildcard selector
 	// Case 5 | EPID1 | random IP |   54 | example.com    | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIPrandom, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, 2, dstIPrandom, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Restore rules for epID3
@@ -856,33 +819,27 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 
 	// Before restore after marshal: previous restored rules are removed, everything is dropped
 	// Case 1 | EPID1 | DstID1 |   53 | www.ubuntu.com | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID1, dstIP1, "www.ubuntu.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID1, dstIP1, "www.ubuntu.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 2 | EPID1 | DstID1 |   54 | cilium.io      | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 3 | EPID1 | DstID2 |   53 | cilium.io      | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2a, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2a, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 4 | EPID1 | DstID2 |   53 | aws.amazon.com | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2b, "aws.amazon.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, dstID2, dstIP2b, "aws.amazon.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 5 | EPID1 | DstID1 |   54 | example.com    | Rejected | No rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, dstID1, dstIP1, "example.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 5 | EPID1 | random IP |   54 | example.com    | Rejected
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIPrandom, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, 2, dstIPrandom, "example.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Restore Unmarshaled rules
@@ -906,40 +863,33 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	// After restoration of JSON marshaled/unmarshaled rules
 
 	// Case 1 | EPID1 | dstIP1 |   53 | www.ubuntu.com | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIP1, "www.ubuntu.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIP1, "www.ubuntu.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 2 | EPID1 | dstIP1 |   54 | cilium.io      | Rejected due to restored rules | Port 54 only allows example.com
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "cilium.io")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 3 | EPID1 | dstIP2a |   53 | cilium.io      | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2a, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2a, "cilium.io")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Case 4 | EPID1 | dstIP2b |   53 | aws.amazon.com | Rejected due to restored rules | Only cilium.io is allowed with DstID2
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2b, "aws.amazon.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIP2b, "aws.amazon.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Case 5 | EPID1 | dstIP1 |   54 | example.com    | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, 2, dstIP1, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// make sure random IP is not allowed
 	// Case 5 | EPID1 | random IP |   53 | example.com    | Rejected due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 53, 2, dstIPrandom, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 53, 2, dstIPrandom, "example.com")
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// make sure random IP is allowed on a wildcard
 	// Case 5 | EPID1 | random IP |   54 | example.com    | Allowed due to restored rules
-	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIPrandom, "example.com")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	allowed = s.proxy.CheckAllowed(epID1, 54, 2, dstIPrandom, "example.com")
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	s.proxy.RemoveRestoredRules(uint16(epID1))
@@ -967,8 +917,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
 	for _, query := range queries {
-		allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
-		c.Assert(err, Equals, nil, Commentf("Error when checking allowed query: %q", query))
+		allowed := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
 		c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed for query: %q", query))
 	}
 
