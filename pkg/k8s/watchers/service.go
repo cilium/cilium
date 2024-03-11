@@ -6,6 +6,7 @@ package watchers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync/atomic"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -27,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/safetime"
@@ -47,6 +50,7 @@ type k8sServiceWatcherParams struct {
 	ServiceManager    service.ServiceManager
 	LRPManager        *redirectpolicy.Manager
 	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
+	LocalNodeStore    *node.LocalNodeStore
 }
 
 func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
@@ -59,6 +63,7 @@ func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 		svcManager:            params.ServiceManager,
 		redirectPolicyManager: params.LRPManager,
 		bgpSpeakerManager:     params.MetalLBBgpSpeaker,
+		localNodeStore:        params.LocalNodeStore,
 		stop:                  make(chan struct{}),
 	}
 }
@@ -78,6 +83,7 @@ type K8sServiceWatcher struct {
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
+	localNodeStore        *node.LocalNodeStore
 
 	stop chan struct{}
 }
@@ -352,7 +358,12 @@ func genCartesianProduct(
 }
 
 // datapathSVCs returns all services that should be set in the datapath.
-func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalancer.SVC) {
+func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) ([]loadbalancer.SVC, error) {
+	svcs := []loadbalancer.SVC{}
+
+	if nodeMatches, err := k.checkServiceNodeExposure(svc); err != nil || !nodeMatches {
+		return svcs, err
+	}
 	uniqPorts := svc.UniquePorts()
 
 	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{}
@@ -409,7 +420,25 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		svcs[i].Annotations = svc.Annotations
 	}
 
-	return svcs
+	return svcs, nil
+}
+
+// checkServiceNodeExposure returns true if the service should be installed onto the
+// local node, and false if the node should ignore and not install the service.
+func (k *K8sServiceWatcher) checkServiceNodeExposure(svc *k8s.Service) (bool, error) {
+	if serviceLabelValue, serviceLabelExists := svc.Labels[annotation.ServiceNodeExposure]; serviceLabelExists {
+		ln, err := k.localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
+		if !nodeLabelExists || nodeLabelValue != serviceLabelValue {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // hashSVCMap returns a mapping of all frontend's hash to the its corresponded
@@ -432,15 +461,21 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		logfields.K8sSvcName:   svcID.Name,
 		logfields.K8sNamespace: svcID.Namespace,
 	})
-
-	svcs := datapathSVCs(svc, endpoints)
+	svcs, err := k.datapathSVCs(svc, endpoints)
+	if err != nil {
+		scopedLog.WithError(err).Error("Error while evaluating datapath services")
+		return
+	}
 	svcMap := hashSVCMap(svcs)
 
 	if oldSvc != nil {
 		// If we have oldService then we need to detect which frontends
 		// are no longer in the updated service and delete them in the datapath.
-
-		oldSVCs := datapathSVCs(oldSvc, endpoints)
+		oldSVCs, err := k.datapathSVCs(oldSvc, endpoints)
+		if err != nil {
+			scopedLog.WithError(err).Error("Error while evaluating datapath services for old service")
+			return
+		}
 		oldSVCMap := hashSVCMap(oldSVCs)
 
 		for svcHash, oldSvc := range oldSVCMap {
