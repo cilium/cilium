@@ -491,9 +491,6 @@ github.com/cilium/proxy/pkg/policy/api/kafka
 ## explicit; go 1.21.0
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
-github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned
-github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned/scheme
-github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned/typed/cilium.io/v1alpha1
 # github.com/cilium/workerpool v1.2.0
 ## explicit; go 1.15
 github.com/cilium/workerpool
