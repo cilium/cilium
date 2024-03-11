@@ -746,6 +746,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestNodeChurnXFRMLeaks(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer removeDevice(externalNodeDevice)
 	option.Config.EncryptInterface = []string{externalNodeDevice}
+	option.Config.RoutingMode = option.RoutingModeNative
 
 	// Cover the XFRM configuration for subnet encryption: IPAM modes AKS and EKS.
 	_, ipv4PodSubnets, err := net.ParseCIDR("4.4.0.0/16")
