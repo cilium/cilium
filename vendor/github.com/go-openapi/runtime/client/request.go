@@ -36,7 +36,7 @@ import (
 )
 
 // NewRequest creates a new swagger http client request
-func newRequest(method, pathPattern string, writer runtime.ClientRequestWriter) (*request, error) {
+func newRequest(method, pathPattern string, writer runtime.ClientRequestWriter) *request {
 	return &request{
 		pathPattern: pathPattern,
 		method:      method,
@@ -45,7 +45,7 @@ func newRequest(method, pathPattern string, writer runtime.ClientRequestWriter) 
 		query:       make(url.Values),
 		timeout:     DefaultTimeout,
 		getBody:     getRequestBuffer,
-	}, nil
+	}
 }
 
 // Request represents a swagger client request.

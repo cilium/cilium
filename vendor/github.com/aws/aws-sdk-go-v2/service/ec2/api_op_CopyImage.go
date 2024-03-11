@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
@@ -117,6 +118,16 @@ type CopyImageInput struct {
 	// eventually fails. The specified KMS key must exist in the destination Region.
 	// Amazon EBS does not support asymmetric KMS keys.
 	KmsKeyId *string
+
+	// The tags to apply to the new AMI and new snapshots. You can tag the AMI, the
+	// snapshots, or both.
+	//   - To tag the new AMI, the value for ResourceType must be image .
+	//   - To tag the new snapshots, the value for ResourceType must be snapshot . The
+	//   same tag is applied to all the new snapshots.
+	// If you specify other values for ResourceType , the request fails. To tag an AMI
+	// or snapshot after it has been created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html)
+	// .
+	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde
 }

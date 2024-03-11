@@ -11,9 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Registers an AMI. When you're creating an AMI, this is the final step you must
-// complete before you can launch an instance from the AMI. For more information
-// about creating AMIs, see Create your own AMI (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami.html)
+// Registers an AMI. When you're creating an instance-store backed AMI,
+// registering the AMI is the final step in the creation process. For more
+// information about creating AMIs, see Create your own AMI (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami.html)
 // in the Amazon Elastic Compute Cloud User Guide. For Amazon EBS-backed instances,
 // CreateImage creates and registers the AMI in a single request, so you don't
 // have to register the AMI yourself. We recommend that you always use CreateImage
@@ -149,6 +149,12 @@ type RegisterImageInput struct {
 	// supported only for HVM AMIs. Specifying this option with a PV AMI can make
 	// instances launched from the AMI unreachable.
 	SriovNetSupport *string
+
+	// The tags to apply to the AMI. To tag the AMI, the value for ResourceType must
+	// be image . If you specify another value for ResourceType , the request fails. To
+	// tag an AMI after it has been registered, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html)
+	// .
+	TagSpecifications []types.TagSpecification
 
 	// Set to v2.0 to enable Trusted Platform Module (TPM) support. For more
 	// information, see NitroTPM (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nitrotpm.html)

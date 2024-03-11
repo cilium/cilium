@@ -33,7 +33,7 @@ func (c *Client) BundleInstance(ctx context.Context, params *BundleInstanceInput
 // Contains the parameters for BundleInstance.
 type BundleInstanceInput struct {
 
-	// The ID of the instance to bundle. Type: String Default: None Required: Yes
+	// The ID of the instance to bundle. Default: None
 	//
 	// This member is required.
 	InstanceId *string

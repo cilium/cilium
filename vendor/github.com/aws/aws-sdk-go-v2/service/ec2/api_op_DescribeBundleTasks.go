@@ -19,7 +19,9 @@ import (
 // bundle tasks are listed for only a limited time. If your bundle task is no
 // longer in the list, you can still register an AMI from it. Just use
 // RegisterImage with the Amazon S3 bucket name and image manifest name you
-// provided to the bundle task.
+// provided to the bundle task. The order of the elements in the response,
+// including those within nested structures, might vary. Applications should not
+// assume the elements appear in a particular order.
 func (c *Client) DescribeBundleTasks(ctx context.Context, params *DescribeBundleTasksInput, optFns ...func(*Options)) (*DescribeBundleTasksOutput, error) {
 	if params == nil {
 		params = &DescribeBundleTasksInput{}

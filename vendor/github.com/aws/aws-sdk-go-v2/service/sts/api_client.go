@@ -643,7 +643,7 @@ func (c presignConverter) convertToPresignMiddleware(stack *middleware.Stack, op
 	if err != nil {
 		return err
 	}
-	err = presignedurlcust.AddAsIsPresigingMiddleware(stack)
+	err = presignedurlcust.AddAsIsPresigningMiddleware(stack)
 	if err != nil {
 		return err
 	}
