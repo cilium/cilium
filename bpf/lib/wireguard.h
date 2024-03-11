@@ -14,16 +14,19 @@
 #include "overloadable.h"
 #include "identity.h"
 
+#include "lib/proxy.h"
+
 static __always_inline int
 wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 {
-	struct remote_endpoint_info *dst;
+	struct remote_endpoint_info *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data, *data_end;
 	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
 	bool from_tunnel __maybe_unused = false;
+	__u32 magic __maybe_unused = 0;
 
 	if (!validate_ethertype(ctx, &proto))
 		return DROP_UNSUPPORTED_L2;
@@ -113,6 +116,23 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		goto encrypt;
 #endif /* TUNNEL_MODE */
 
+#ifndef ENABLE_NODE_ENCRYPTION
+	/* A pkt coming from L7 proxy (i.e., Envoy or the DNS proxy on behalf of
+	 * a client pod) has src IP addr of a host, but not of the client pod
+	 * (if
+	 * --dnsproxy-enable-transparent-mode=false). Such a pkt must be
+	 *  encrypted.
+	 */
+	magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
+		goto maybe_encrypt;
+#if defined(TUNNEL_MODE)
+	/* In tunneling mode the mark might have been reset. Check TC index instead.
+	 */
+	if (tc_index_from_ingress_proxy(ctx) || tc_index_from_egress_proxy(ctx))
+		goto maybe_encrypt;
+#endif /* TUNNEL_MODE */
+
 	/* Unless node encryption is enabled, we don't want to encrypt
 	 * traffic from the hostns (an exception - L7 proxy traffic).
 	 *
@@ -120,24 +140,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 * This means that the packet won't be encrypted. This is fine,
 	 * as with --encrypt-node=false we encrypt only pod-to-pod packets.
 	 */
-#ifndef ENABLE_NODE_ENCRYPTION
-# ifdef TUNNEL_MODE
 	if (!src || src->sec_identity == HOST_ID)
-# else
-	/* In the native routing mode, a pkt coming from L7 proxy (i.e., Envoy
-	 * on behalf of a client pod) has src IP addr of a host, but not of the
-	 * client pod. Such a pkt must be encrypted. Unfortunately, there is no
-	 * straightforward way to differentiate between L7 proxy and host netns
-	 * traffic. Nevertheless, a host netns pkt should have the
-	 * MARK_MAGIC_HOST set.
-	 *
-	 * The check bellow assumes that any non-host netns pkt with the HOST_ID
-	 * is L7 proxy traffic, which might need to be encrypted (depending on
-	 * the dst check far bellow).
-	 */
-	if (!src || (src->sec_identity == HOST_ID &&
-		     ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)))
-# endif /* TUNNEL_MODE */
 		goto out;
 #endif /* !ENABLE_NODE_ENCRYPTION */
 
@@ -156,6 +159,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	if (identity_is_remote_node(src->sec_identity))
 		goto out;
 
+maybe_encrypt: __maybe_unused
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.
 	 */
