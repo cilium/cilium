@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	tetragonv1alpha1 "github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -196,15 +195,6 @@ func TestKVStoreTask(t *testing.T) {
 	data, err := io.ReadAll(fd)
 	assert.NoError(err)
 	assert.Equal([]byte("{}"), data)
-}
-
-func TestListTetragonTracingPolicies(t *testing.T) {
-	assert := assert.New(t)
-	client := &fakeClient{}
-
-	tracingPolicies, err := client.ListTetragonTracingPolicies(context.Background(), metav1.ListOptions{})
-	assert.NoError(err)
-	assert.GreaterOrEqual(len(tracingPolicies.Items), 0)
 }
 
 func TestListCiliumEndpointSlices(t *testing.T) {
@@ -496,33 +486,6 @@ func (c *fakeClient) ListIngressClasses(_ context.Context, _ metav1.ListOptions)
 	panic("implement me")
 }
 
-func (c *fakeClient) ListTetragonTracingPolicies(_ context.Context, _ metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error) {
-	tetragonTracingPolicy := tetragonv1alpha1.TracingPolicyList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "List",
-			APIVersion: "v1",
-		},
-		ListMeta: metav1.ListMeta{},
-		Items: []tetragonv1alpha1.TracingPolicy{{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "TracingPolicy",
-				APIVersion: "v1alpha",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "testPolicy1",
-			},
-			Spec: tetragonv1alpha1.TracingPolicySpec{
-				KProbes:     []tetragonv1alpha1.KProbeSpec{},
-				Tracepoints: []tetragonv1alpha1.TracepointSpec{},
-				Loader:      true,
-			},
-		},
-		},
-	}
-
-	return &tetragonTracingPolicy, nil
-}
-
 func (c *fakeClient) CreateEphemeralContainer(_ context.Context, _ *corev1.Pod, _ *corev1.EphemeralContainer) (*corev1.Pod, error) {
 	panic("implement me")
 }
@@ -540,21 +503,4 @@ func (c *fakeClient) GetNamespace(_ context.Context, ns string, _ metav1.GetOpti
 			Code: http.StatusNotFound,
 		},
 	}
-}
-
-func (c *fakeClient) ListTetragonTracingPoliciesNamespaced(_ context.Context, _ string, _ metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyNamespacedList, error) {
-	ret := tetragonv1alpha1.TracingPolicyNamespacedList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "List",
-			APIVersion: "v1",
-		},
-		ListMeta: metav1.ListMeta{},
-		Items:    []tetragonv1alpha1.TracingPolicyNamespaced{},
-	}
-
-	return &ret, nil
-}
-
-func (c *fakeClient) ListTetragonPodInfo(_ context.Context, _ string, _ metav1.ListOptions) (*tetragonv1alpha1.PodInfoList, error) {
-	panic("implement me")
 }
