@@ -114,25 +114,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			},
 		},
 
-		// KPR disabled: all options disabled except host legacy routing.
-		{
-			"kpr-disabled",
-			func(cfg *kprConfig) {
-				cfg.kubeProxyReplacement = option.KubeProxyReplacementDisabled
-			},
-			kprConfig{
-				enableSocketLB:          false,
-				enableNodePort:          false,
-				enableHostPort:          false,
-				enableExternalIPs:       false,
-				enableSessionAffinity:   false,
-				enableIPSec:             false,
-				enableHostLegacyRouting: true,
-				enableSocketLBTracing:   false,
-				expectedErrorRegex:      "",
-			},
-		},
-
 		// KPR true: all options enabled, host routing disabled.
 		{
 			"kpr-true",
@@ -215,6 +196,26 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableSocketLBTracing:      true,
 			},
 		},
+
+		// KPR false: all options disabled exception socket LB tracing
+		{
+			"kpr-disabled",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementFalse
+			},
+			kprConfig{
+				enableSocketLB:          false,
+				enableNodePort:          false,
+				enableHostPort:          false,
+				enableExternalIPs:       false,
+				enableSessionAffinity:   false,
+				enableIPSec:             false,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+				expectedErrorRegex:      "",
+			},
+		},
+
 		// KPR false + no conntrack ipt rules: error, needs KPR
 		{
 			"kpr-false+no-conntrack-ipt-rules",

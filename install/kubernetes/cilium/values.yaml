@@ -1763,7 +1763,7 @@ readinessProbe:
   # -- interval between checks of the readiness probe
   periodSeconds: 30
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
-# Valid options are "true", "false", "disabled" (deprecated), "partial" (deprecated), "strict" (deprecated).
+# Valid options are "true" or "false".
 # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
 #kubeProxyReplacement: "false"
 

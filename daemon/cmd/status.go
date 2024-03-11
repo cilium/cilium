@@ -231,12 +231,6 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeTrue
 	case option.KubeProxyReplacementFalse:
 		mode = models.KubeProxyReplacementModeFalse
-	case option.KubeProxyReplacementStrict:
-		mode = models.KubeProxyReplacementModeStrict
-	case option.KubeProxyReplacementPartial:
-		mode = models.KubeProxyReplacementModePartial
-	case option.KubeProxyReplacementDisabled:
-		mode = models.KubeProxyReplacementModeDisabled
 	}
 
 	devices, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
