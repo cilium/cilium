@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/test"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	. "gopkg.in/check.v1"
 )
@@ -190,6 +191,10 @@ func (p *fakeProxyPolicy) GetIngress() bool {
 
 func (p *fakeProxyPolicy) GetPort() uint16 {
 	return uint16(80)
+}
+
+func (p *fakeProxyPolicy) GetProtocol() uint8 {
+	return uint8(u8proto.UDP)
 }
 
 func (p *fakeProxyPolicy) GetListener() string {
