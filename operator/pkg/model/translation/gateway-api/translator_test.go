@@ -4,6 +4,7 @@
 package gateway_api
 
 import (
+	"fmt"
 	"testing"
 
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
@@ -12,6 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -445,6 +449,69 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 			assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
 
 			require.NotNil(t, ep)
+		})
+	}
+}
+
+func Test_getService(t *testing.T) {
+	type args struct {
+		resource    *model.FullyQualifiedResource
+		allPorts    []uint32
+		labels      map[string]string
+		annotations map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *corev1.Service
+	}{
+		{
+			name: "long name - more than 64 characters",
+			args: args{
+				resource: &model.FullyQualifiedResource{
+					Name:      "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
+					Namespace: "default",
+					Version:   "v1",
+					Kind:      "Gateway",
+					UID:       "57889650-380b-4c05-9a2e-3baee7fd5271",
+				},
+				allPorts: []uint32{80},
+			},
+			want: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cilium-gateway-test-long-long-long-long-long-long-lo-8tfth549c6",
+					Namespace: "default",
+					Labels: map[string]string{
+						owningGatewayLabel: "test-long-long-long-long-long-long-long-long-long-lo-4bftbgh5ht",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
+							UID:        types.UID("57889650-380b-4c05-9a2e-3baee7fd5271"),
+							Controller: model.AddressOf(true),
+						},
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:     fmt.Sprintf("port-%d", 80),
+							Port:     80,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+					Type: corev1.ServiceTypeLoadBalancer,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			assert.Equalf(t, tt.want, got, "getService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			assert.Equal(t, true, len(got.Name) <= 63, "Service name is too long")
 		})
 	}
 }
