@@ -97,9 +97,6 @@ type IdentityAllocator interface {
 	// specified identity.
 	Release(context.Context, *identity.Identity, bool) (released bool, err error)
 
-	// ReleaseSlice is the slice variant of Release().
-	ReleaseSlice(context.Context, []*identity.Identity) error
-
 	// LookupIdentityByID returns the identity that corresponds to the given
 	// labels.
 	LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity
@@ -455,27 +452,6 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// remote nodes, so we can't rely on the locally computed
 	// "lastUse".
 	return m.IdentityAllocator.Release(ctx, &key.GlobalIdentity{LabelArray: id.LabelArray})
-}
-
-// ReleaseSlice attempts to release a set of identities. It is a helper
-// function that may be useful for cleaning up multiple identities in paths
-// where several identities may be allocated and another error means that they
-// should all be released.
-func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
-	var err error
-	for _, id := range identities {
-		if id == nil {
-			continue
-		}
-		_, err2 := m.Release(ctx, id, false)
-		if err2 != nil {
-			log.WithError(err2).WithFields(logrus.Fields{
-				logfields.Identity: id,
-			}).Error("Failed to release identity")
-			err = err2
-		}
-	}
-	return err
 }
 
 // WatchRemoteIdentities returns a RemoteCache instance which can be later
