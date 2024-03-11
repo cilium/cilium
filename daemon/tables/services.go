@@ -4,62 +4,36 @@ import (
 	"errors"
 	"time"
 
-	iradix "github.com/hashicorp/go-immutable-radix/v2"
-
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/container"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
-type ServiceProperty = any
-
 type ServiceParams struct {
-	loadbalancer.L3n4Addr
-
-	Labels labels.Labels
-	Source source.Source
-
-	Type loadbalancer.SVCType
+	L3n4Addr loadbalancer.L3n4Addr
+	Type     loadbalancer.SVCType
+	Labels   labels.Labels
+	Source   source.Source
 
 	NatPolicy                loadbalancer.SVCNatPolicy
 	ExtPolicy, IntPolicy     loadbalancer.SVCTrafficPolicy
-	LoadBalancerSourceRanges []*cidr.CIDR
+	LoadBalancerSourceRanges container.ImmSet[*cidr.CIDR]
 	LoopbackHostPort         bool
 
 	SessionAffinity *ServiceSessionAffinity
 	HealthCheck     *ServiceHealthCheck
-
-	Properties *iradix.Tree[ServiceProperty]
-}
-
-func (sp *ServiceParams) SetProperty(name string, value any) *ServiceParams {
-	sp2 := *sp
-	sp2.Properties, _, _ = sp2.Properties.Insert([]byte(name), value)
-	return &sp2
-}
-
-func (sp *ServiceParams) UnsetProperty(name string) *ServiceParams {
-	sp2 := *sp
-	sp2.Properties, _, _ = sp2.Properties.Delete([]byte(name))
-	return &sp2
-}
-
-func (sp *ServiceParams) GetProperty(name string) (ServiceProperty, bool) {
-	return sp.Properties.Get([]byte(name))
 }
 
 type Service struct {
-	ID   loadbalancer.ID
 	Name loadbalancer.ServiceName
 
-	// Params contains the service details. This can be nil if the service is partial
-	// (e.g. backends or redirects have been set before service details).
-	Params *ServiceParams
+	ServiceParams
 
 	// BackendRevision is the backends table revision of the latest updated backend
 	// that references this service. In other words, this field is updated every time
@@ -72,7 +46,13 @@ type Service struct {
 	// and allows efficient query for the backends?
 	BackendRevision statedb.Revision
 
-	L7Redirect    *ServiceL7Redirect
+	L7Redirect *ServiceL7Redirect
+
+	// LocalRedirect when not nil will force use of local pod backends.
+	// When the LocalRedirect is removed the original service is restored.
+	// TODO: The controller that manages these will need to constantly watch services
+	// in order to set this when a service is added or removed. Same for L7. Is there
+	// any downside to these being updated asynchronously/with a delay?
 	LocalRedirect *ServiceLocalRedirect
 
 	// BPFStatus is the reconciliation status of the BPF maps for this service.
@@ -101,6 +81,8 @@ type ServiceL7Redirect struct {
 }
 
 type ServiceLocalRedirect struct {
+	// TODO how to avoid the direct references to the backends here?
+	Backends []loadbalancer.L3n4Addr
 }
 
 type ServiceSessionAffinity struct {
@@ -112,38 +94,31 @@ type ServiceHealthCheck struct {
 }
 
 var (
+	ServiceL3n4AddrIndex = statedb.Index[*Service, loadbalancer.L3n4Addr]{
+		Name: "addr",
+		FromObject: func(obj *Service) index.KeySet {
+			return index.NewKeySet(l3n4AddrKey(obj.L3n4Addr))
+		},
+		FromKey: l3n4AddrKey,
+		Unique:  true,
+	}
+
 	ServiceNameIndex = statedb.Index[*Service, loadbalancer.ServiceName]{
 		Name: "name",
 		FromObject: func(obj *Service) index.KeySet {
 			return index.NewKeySet(index.Stringer(obj.Name))
 		},
 		FromKey: index.Stringer[loadbalancer.ServiceName],
-		Unique:  true,
+		Unique:  false,
 	}
 
 	ServiceSourceIndex = statedb.Index[*Service, source.Source]{
 		Name: "source",
 		FromObject: func(obj *Service) index.KeySet {
-			if obj.Params == nil {
-				return index.NewKeySet()
-			}
-			return index.NewKeySet(index.Stringer(obj.Params.Source))
+			return index.NewKeySet(index.Stringer(obj.Source))
 		},
 		FromKey: index.Stringer[source.Source],
 		Unique:  false,
-	}
-
-	ServiceAddrIndex = statedb.Index[*Service, loadbalancer.L3n4Addr]{
-		Name: "source",
-		FromObject: func(obj *Service) index.KeySet {
-			if obj.Params == nil {
-				// Don't index partial services that may not yet have an address.
-				return index.NewKeySet()
-			}
-			return index.NewKeySet(l3n4AddrKey(obj.Params.L3n4Addr))
-		},
-		FromKey: l3n4AddrKey,
-		Unique:  false, // TODO should be unique?
 	}
 )
 
@@ -154,9 +129,9 @@ const (
 func NewServicesTable(db *statedb.DB) (statedb.RWTable[*Service], error) {
 	tbl, err := statedb.NewTable(
 		ServicesTableName,
+		ServiceL3n4AddrIndex,
 		ServiceNameIndex,
 		ServiceSourceIndex,
-		ServiceAddrIndex,
 	)
 	if err != nil {
 		return nil, err
@@ -164,17 +139,24 @@ func NewServicesTable(db *statedb.DB) (statedb.RWTable[*Service], error) {
 	return tbl, db.RegisterTable(tbl)
 }
 
-// TODOs:
-// - Should we segregate backends by state at this level or when reconciling the service?
-// - Where should the Service's BPF ID be assigned? Seems very much like a low-level concern.
-//   Though for debugging it would be great to be part of the struct. The ID can only be
-//   released when it's deleted from BPF side, so it might be that this should be managed by
-//   the reconciler. Do we need write access to the object in the reconciler operation to be
-//   able to fill this in? E.g. Update() would allocate the ID and fill it in. Delete would
-//   release it. Benefit of this would be that we can "overflow" the table and on deletion
-//   IDs would become available and Update of a "overflowed" object would be able to acquire
-//   the ID.
-//
+var ServicesCell = cell.Module(
+	"services",
+	"Services",
+
+	cell.ProvidePrivate(
+		NewServicesTable,
+		NewBackendsTable,
+
+		serviceReconcilerConfig,
+	),
+
+	cell.Provide(NewServices),
+	cell.Invoke(reconciler.Register[*Service]),
+)
+
+func NewServices(db *statedb.DB, svcs statedb.RWTable[*Service], bes statedb.RWTable[*Backend]) (*Services, error) {
+	return &Services{db, svcs, bes}, nil
+}
 
 // Services provides safe access to manipulating the services table in a semantics-preserving
 // way.
@@ -182,9 +164,6 @@ type Services struct {
 	db   *statedb.DB
 	svcs statedb.RWTable[*Service]
 	bes  statedb.RWTable[*Backend]
-
-	idAlloc        *service.IDAllocator
-	backendIDAlloc *service.IDAllocator
 }
 
 type ServiceWriteTxn struct {
@@ -192,7 +171,8 @@ type ServiceWriteTxn struct {
 }
 
 var (
-	ErrServiceSourceMismatch = errors.New("Service exists from different source")
+	ErrServiceSourceMismatch = errors.New("service exists from different source")
+	ErrServiceConflict       = errors.New("conflict with a service with same address, but different name")
 )
 
 // WriteTxn returns a write transaction against services & backends and other additional
@@ -207,48 +187,26 @@ func (s *Services) WriteTxn(extraTables ...statedb.TableMeta) ServiceWriteTxn {
 func (s *Services) UpsertService(txn ServiceWriteTxn, name loadbalancer.ServiceName, params ServiceParams) error {
 	var svc Service
 
-	old, _, found := s.svcs.First(txn, ServiceNameIndex.Query(name))
+	existing, _, found := s.svcs.First(txn, ServiceL3n4AddrIndex.Query(params.L3n4Addr))
 	if found {
+		// Do not allow services with same address but different names to override each other.
+		if !existing.Name.Equal(name) {
+			return ErrServiceConflict
+		}
+
 		// Do not allow overriding a service that has been created from
 		// another source. If the service is 'Unspec'
-		if old.Params != nil && old.Params.Source != params.Source {
+		if existing.Source != params.Source {
 			return ErrServiceSourceMismatch
 		}
-		svc = *old
-	}
-	if svc.ID == 0 {
-		id, err := s.idAlloc.AcquireID(params.L3n4Addr)
-		if err != nil {
-			return err
-		}
-		svc.ID = id.ID
 
+		// Merge the existing fields.
+		svc = *existing
 	}
-	svc.Params = &params
+	svc.Name = name
+	svc.ServiceParams = params
 	svc.BPFStatus = reconciler.StatusPending()
 	_, _, err := s.svcs.Insert(txn, &svc)
-	return err
-}
-
-// ModifyService modifies an existing service with a modify function. The service struct passed to the function
-// can be modified, but any fields that are by pointer must be cloned before modification!
-// TODO: Is this method useful?
-func (s *Services) ModifyService(txn ServiceWriteTxn, name loadbalancer.ServiceName, modify func(*ServiceParams) error) error {
-	svc, _, found := s.svcs.First(txn, ServiceNameIndex.Query(name))
-	if !found {
-		return statedb.ErrObjectNotFound
-	}
-	var params ServiceParams
-	if svc.Params != nil {
-		params = *svc.Params
-	}
-	if err := modify(&params); err != nil {
-		return err
-	}
-	svc = svc.Clone()
-	svc.Params = &params
-	svc.BPFStatus = reconciler.StatusPending()
-	_, _, err := s.svcs.Insert(txn, svc)
 	return err
 }
 
@@ -257,29 +215,27 @@ func (s *Services) DeleteService(txn ServiceWriteTxn, name loadbalancer.ServiceN
 	if !found {
 		return statedb.ErrObjectNotFound
 	}
+	if svc.Source != source {
+		return ErrServiceSourceMismatch
+	}
+
 	return s.deleteService(txn, svc)
 }
 
 func (s *Services) deleteService(txn ServiceWriteTxn, svc *Service) error {
 	// Release references to the backends
-	// TODO: Who reconciles the deletion of the backends? If a service is being
-	// deleted, do we care if the backends are deleted before the service from the BPF map?
-	// This way we could have both a service reconciler and a backend reconciler and we can
-	// have the service reconciler also do backend updates to make sure they're done before
-	// the service. The reconcilers would co-operate to avoid unnecessary backend updates
-	// (compare-and-swap of backend revision).
 	iter, _ := s.bes.Get(txn, BackendServiceIndex.Query(svc.Name))
 	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
-		be = be.removeRef(svc.Name)
-		if _, _, err := s.bes.Insert(txn, be); err != nil {
-			return err
+		be, orphan := be.removeRef(svc.Name)
+		if orphan {
+			if _, _, err := s.bes.Delete(txn, be); err != nil {
+				return err
+			}
+		} else {
+			if _, _, err := s.bes.Insert(txn, be); err != nil {
+				return err
+			}
 		}
-	}
-
-	svc = svc.Clone()
-	if svc.ID != 0 {
-		s.idAlloc.ReleaseID(svc.ID)
-		svc.ID = 0
 	}
 
 	svc.BPFStatus = reconciler.StatusPendingDelete()
@@ -298,24 +254,29 @@ func (s *Services) DeleteServices(txn ServiceWriteTxn, source source.Source) err
 }
 
 func (s *Services) UpsertBackends(txn ServiceWriteTxn, name loadbalancer.ServiceName, bes ...BackendParams) error {
-	var svc Service
+	// TODO: Do we want the ability to do a "sub-transaction" that can be aborted? Here we may do partial
+	// updates and return an error and are assuming the caller will abort the transaction, but not sure if
+	// that's a safe design.
 
-	old, _, found := s.svcs.First(txn, ServiceNameIndex.Query(name))
-	if found {
-		svc = *old
-	} else {
-		svc.Name = name
-	}
-	if err := s.updateBackends(txn, &svc, bes); err != nil {
+	if err := s.updateBackends(txn, name, bes); err != nil {
 		return err
 	}
-	_, _, err := s.svcs.Insert(txn, &svc)
-	return err
+
+	iter, _ := s.svcs.Get(txn, ServiceNameIndex.Query(name))
+	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
+		svc = svc.Clone()
+		svc.BPFStatus = reconciler.StatusPending()
+		svc.BackendRevision = s.bes.Revision(txn)
+		if _, _, err := s.svcs.Insert(txn, svc); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (s *Services) updateBackends(txn ServiceWriteTxn, svc *Service, bes []BackendParams) error {
+func (s *Services) updateBackends(txn ServiceWriteTxn, name loadbalancer.ServiceName, bes []BackendParams) error {
 	existing := make(map[loadbalancer.L3n4Addr]*Backend)
-	iter, _ := s.bes.Get(txn, BackendServiceIndex.Query(svc.Name))
+	iter, _ := s.bes.Get(txn, BackendServiceIndex.Query(name))
 	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
 		existing[be.L3n4Addr] = be
 	}
@@ -326,82 +287,92 @@ func (s *Services) updateBackends(txn ServiceWriteTxn, svc *Service, bes []Backe
 		if old, ok := existing[bep.L3n4Addr]; ok {
 			if old.Source != be.Source {
 				// FIXME likely want to be able to have many sources for
-				// a backend.
+				// a backend?
 				return ErrServiceSourceMismatch
 			}
 			be = *old
 			// FIXME how to merge the other fields?
 		} else {
-			id, err := s.backendIDAlloc.AcquireID(be.L3n4Addr)
-			if err != nil {
-				return err
-			}
-			be.ID = loadbalancer.BackendID(id.ID)
+			be.ReferencedBy = container.NewImmSetFunc(
+				loadbalancer.ServiceName.Compare,
+			)
 		}
 		be.BackendParams = bep
-		be.ReferencedBy = be.ReferencedBy.Insert(svc.Name)
+		be.ReferencedBy = be.ReferencedBy.Insert(name)
 
 		if _, _, err := s.bes.Insert(txn, &be); err != nil {
 			return err
 		}
 	}
-
-	svc.BPFStatus = reconciler.StatusPending()
-	svc.BackendRevision = s.bes.Revision(txn)
 	return nil
 }
 
 func (s *Services) DeleteBackend(txn ServiceWriteTxn, name loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) error {
-	svc, _, ok := s.svcs.First(txn, ServiceNameIndex.Query(name))
-	if !ok {
-		return statedb.ErrObjectNotFound
-	}
-
 	be, _, ok := s.bes.First(txn, BackendAddrIndex.Query(addr))
 	if !ok {
+		log.Infof("Delete: not found")
 		return statedb.ErrObjectNotFound
 	}
-	_, _, err := s.bes.Insert(txn, be.removeRef(name))
-	if err != nil {
+	be, orphan := be.removeRef(name)
+	if orphan {
+		log.Infof("Delete: Deleted backend %#v", be)
+		if _, _, err := s.bes.Delete(txn, be); err != nil {
+			return err
+		}
+	} else {
+		log.Infof("Delete: updated backend %#v", be)
+		if _, _, err := s.bes.Insert(txn, be); err != nil {
+			return err
+		}
+	}
+
+	// Bump the backend revision for each of the referenced services to force
+	// reconciliation.
+	revision := s.bes.Revision(txn)
+	iter, _ := s.svcs.Get(txn, ServiceNameIndex.Query(name))
+	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
+		svc = svc.Clone()
+		svc.BackendRevision = revision
+		svc.BPFStatus = reconciler.StatusPending()
+		if _, _, err := s.svcs.Insert(txn, svc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// TODO: This is not a great API as now the one managing the L7 redirects will need to observe services and call
+// this as needed. Another alternative is to have a bit more state here to allow setting the L7 redirect on
+// service insert. On the other hand making *Services stateful complicates things. This design also allows for
+// greater flexibility in selecting to which services the redirect applies to (LocalRedirect needs this).
+func (s *Services) SetL7Redirect(txn ServiceWriteTxn, name loadbalancer.ServiceName, addr loadbalancer.L3n4Addr, l7 *ServiceL7Redirect) error {
+	svc, _, ok := s.svcs.First(txn, ServiceL3n4AddrIndex.Query(addr))
+	if !ok {
 		return statedb.ErrObjectNotFound
+	}
+	if !svc.Name.Equal(name) {
+		return ErrServiceConflict
 	}
 
 	svc = svc.Clone()
-	svc.BackendRevision = s.bes.Revision(txn)
 	svc.BPFStatus = reconciler.StatusPending()
-	_, _, err = s.svcs.Insert(txn, svc)
+	svc.L7Redirect = l7
+	_, _, err := s.svcs.Insert(txn, svc)
 	return err
 }
 
-func (s *Services) DeleteBackends(txn ServiceWriteTxn, name loadbalancer.ServiceName, source source.Source) error {
-	panic("TBD")
-}
-
-func (s *Services) UpsertL7Redirect(txn ServiceWriteTxn, name loadbalancer.ServiceName, l7 ServiceL7Redirect) error {
-	var svc Service
-
-	if old, _, ok := s.svcs.First(txn, ServiceNameIndex.Query(name)); ok {
-		svc = *old
-	} else {
-		svc.Name = name
+func (s *Services) SetLocalRedirect(txn ServiceWriteTxn, name loadbalancer.ServiceName, addr loadbalancer.L3n4Addr, lr *ServiceLocalRedirect) error {
+	svc, _, ok := s.svcs.First(txn, ServiceL3n4AddrIndex.Query(addr))
+	if !ok {
+		return statedb.ErrObjectNotFound
 	}
-	svc.L7Redirect = &l7
-	svc.BPFStatus = reconciler.StatusPending()
-
-	_, _, err := s.svcs.Insert(txn, &svc)
-	return err
-}
-
-func (s *Services) DeleteL7Redirect(txn ServiceWriteTxn, name loadbalancer.ServiceName) error {
-	var svc Service
-
-	if old, _, ok := s.svcs.First(txn, ServiceNameIndex.Query(name)); ok {
-		svc = *old
-	} else {
-		svc.Name = name
+	if !svc.Name.Equal(name) {
+		return ErrServiceConflict
 	}
-	svc.L7Redirect = nil
+
+	svc = svc.Clone()
 	svc.BPFStatus = reconciler.StatusPending()
-	_, _, err := s.svcs.Insert(txn, &svc)
+	svc.LocalRedirect = lr
+	_, _, err := s.svcs.Insert(txn, svc)
 	return err
 }

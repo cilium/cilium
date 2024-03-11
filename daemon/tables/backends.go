@@ -8,7 +8,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 type BackendParams struct {
@@ -25,19 +24,13 @@ type BackendParams struct {
 type Backend struct {
 	BackendParams
 
-	ID           loadbalancer.BackendID
 	ReferencedBy container.ImmSet[loadbalancer.ServiceName]
-	BPFStatus    reconciler.Status
 }
 
-func (be *Backend) removeRef(name loadbalancer.ServiceName) *Backend {
+func (be *Backend) removeRef(name loadbalancer.ServiceName) (*Backend, bool) {
 	beCopy := *be
 	beCopy.ReferencedBy = beCopy.ReferencedBy.Delete(name)
-	if beCopy.ReferencedBy.Len() == 0 {
-		beCopy.BPFStatus = reconciler.StatusPendingDelete()
-	}
-
-	return &beCopy
+	return &beCopy, beCopy.ReferencedBy.Len() == 0
 }
 
 const (
@@ -74,3 +67,15 @@ var (
 		Unique:  false,
 	}
 )
+
+func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
+	tbl, err := statedb.NewTable(
+		BackendsTableName,
+		BackendAddrIndex,
+		BackendServiceIndex,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tbl, db.RegisterTable(tbl)
+}

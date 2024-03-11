@@ -59,6 +59,22 @@ func (alloc *IDAllocator) ReleaseID(id loadbalancer.ID) {
 	alloc.deleteLocalID(uint32(id))
 }
 
+func (alloc *IDAllocator) GetID(addr loadbalancer.L3n4Addr) (id uint32, ok bool) {
+	alloc.RLock()
+	defer alloc.RUnlock()
+	id, ok = alloc.entities[addr.StringID()]
+	return
+}
+
+func (alloc *IDAllocator) ReleaseAddr(addr loadbalancer.L3n4Addr) {
+	alloc.Lock()
+	defer alloc.Unlock()
+	if id, ok := alloc.entities[addr.StringID()]; ok {
+		delete(alloc.entitiesID, id)
+		delete(alloc.entities, addr.StringID())
+	}
+}
+
 func (alloc *IDAllocator) addID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
 	svcID := newID(svc, id)
 	alloc.entitiesID[id] = svcID

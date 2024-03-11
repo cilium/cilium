@@ -351,6 +351,30 @@ func (n ServiceName) String() string {
 	return n.Namespace + "/" + n.Name
 }
 
+func (n ServiceName) Equal(other ServiceName) bool {
+	return n.Namespace == other.Namespace && n.Name == other.Namespace && n.Cluster == other.Cluster
+}
+
+func (n ServiceName) Compare(other ServiceName) int {
+	switch {
+	case n.Namespace < other.Namespace:
+		return -1
+	case n.Namespace > other.Namespace:
+		return 1
+	case n.Name < other.Name:
+		return -1
+	case n.Name > other.Name:
+		return 1
+	case n.Cluster < other.Cluster:
+		return -1
+	case n.Cluster > other.Cluster:
+		return 1
+	default:
+		return 0
+	}
+
+}
+
 // BackendID is the backend's ID.
 type BackendID uint32
 
