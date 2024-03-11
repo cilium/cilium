@@ -2281,6 +2281,9 @@
     },
     "gatewayAPI": {
       "properties": {
+        "enableAppProtocol": {
+          "type": "boolean"
+        },
         "enableProxyProtocol": {
           "type": "boolean"
         },

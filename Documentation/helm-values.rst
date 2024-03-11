@@ -1448,6 +1448,10 @@
      - Additional agent volumes.
      - list
      - ``[]``
+   * - :spelling:ignore:`gatewayAPI.enableAppProtocol`
+     - Enable Backend Protocol selection support (GEP-1911) for Gateway API via appProtocol.
+     - bool
+     - ``false``
    * - :spelling:ignore:`gatewayAPI.enableProxyProtocol`
      - Enable proxy protocol for all GatewayAPI listeners. Note that *only* Proxy protocol traffic will be accepted once this is enabled.
      - bool
