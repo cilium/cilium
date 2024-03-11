@@ -117,6 +117,11 @@ const (
 	ServiceAffinity      = ServicePrefix + "/affinity"
 	ServiceAffinityAlias = Prefix + "/service-affinity"
 
+	// ServiceNodeExposure is the label name used to mark a service to only a
+	// subset of the nodes which match the same value. For all other nodes, this
+	// service is ignored and not installed into their datapath.
+	ServiceNodeExposure = ServicePrefix + "/node"
+
 	// ProxyVisibility / ProxyVisibilityAlias is the annotation name used to
 	// indicate whether proxy visibility should be enabled for a given pod (i.e.,
 	// all traffic for the pod is redirected to the proxy for the given port /
