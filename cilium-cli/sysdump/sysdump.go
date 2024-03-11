@@ -281,6 +281,18 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	return &c, nil
 }
 
+func (c *Collector) GatherResourceUnstructured(ctx context.Context, r schema.GroupVersionResource, fname string) error {
+	n := corev1.NamespaceAll
+	v, err := c.Client.ListUnstructured(ctx, r, &n, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to collect %s (%s): %w", r.Resource, r.Version, err)
+	}
+	if err := c.WriteYAML(fname, v); err != nil {
+		return fmt.Errorf("failed to write %s YAML: %w", r.Resource, err)
+	}
+	return nil
+}
+
 // setupLogging sets up sysdump collector loggging.
 func (c *Collector) setupLogging(w io.Writer) error {
 	var err error
@@ -1365,37 +1377,47 @@ func (c *Collector) Run() error {
 			Description:     "Collecting Tetragon PodInfo custom resources",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				pi, err := c.Client.ListTetragonPodInfo(ctx, corev1.NamespaceAll, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Tetragon PodInfo: %w", err)
-				}
-				if err := c.WriteYAML(DefaultTetragonPodInfo, pi); err != nil {
-					return fmt.Errorf("failed to collect Tetragon PodInfo: %w", err)
-				}
-				return nil
+				return c.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cilium.io",
+						Resource: "podinfo",
+						Version:  "v1alpha1",
+					},
+					DefaultTetragonPodInfo,
+				)
 			},
 		},
 		{
-			CreatesSubtasks: true,
+			CreatesSubtasks: false,
 			Description:     "Collecting Tetragon tracing policies",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListTetragonTracingPolicies(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
-				}
-				if err := c.WriteYAML(DefaultTetragonTracingPolicy, v); err != nil {
-					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
-				}
-
-				vn, err := c.Client.ListTetragonTracingPoliciesNamespaced(ctx, corev1.NamespaceAll, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Tetragon namespaced tracing policies: %w", err)
-				}
-				if err := c.WriteYAML(DefaultTetragonTracingPolicyNamespaced, vn); err != nil {
-					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
-				}
-				return nil
+				return c.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cilium.io",
+						Resource: "tracingpolicies",
+						Version:  "v1alpha1",
+					},
+					DefaultTetragonTracingPolicy,
+				)
+			},
+		},
+		{
+			CreatesSubtasks: false,
+			Description:     "Collecting Tetragon namespaced tracing policies",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				return c.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cilium.io",
+						Resource: "tracingpoliciesnamespaced",
+						Version:  "v1alpha1",
+					},
+					DefaultTetragonTracingPolicyNamespaced,
+				)
 			},
 		},
 	}
