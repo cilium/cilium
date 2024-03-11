@@ -36,6 +36,7 @@ var Cell = cell.Module(
 	cell.Config(gatewayApiConfig{
 		EnableGatewayAPISecretsSync:   true,
 		EnableGatewayAPIProxyProtocol: false,
+		EnableGatewayAPIAppProtocol:   false,
 		GatewayAPISecretsNamespace:    "cilium-secrets",
 		GatewayAPIXffNumTrustedHops:   0,
 
@@ -61,6 +62,7 @@ type gatewayApiConfig struct {
 
 	EnableGatewayAPISecretsSync   bool
 	EnableGatewayAPIProxyProtocol bool
+	EnableGatewayAPIAppProtocol   bool
 	GatewayAPISecretsNamespace    string
 	GatewayAPIXffNumTrustedHops   uint32
 
@@ -74,6 +76,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
+	flags.Bool("enable-gateway-api-app-protocol", r.EnableGatewayAPIAppProtocol, "Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol")
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
@@ -121,6 +124,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	cecTranslator := translation.NewCECTranslator(
 		params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
+		params.GatewayApiConfig.EnableGatewayAPIAppProtocol,
 		true, // hostNameSuffixMatch
 		params.OperatorConfig.ProxyIdleTimeoutSeconds,
 		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,

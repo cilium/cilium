@@ -23,6 +23,10 @@ import (
 const (
 	secureHost   = "secure"
 	insecureHost = "insecure"
+
+	AppProtocolH2C = "kubernetes.io/h2c"
+	AppProtocolWS  = "kubernetes.io/ws"
+	AppProtocolWSS = "kubernetes.io/wss"
 )
 
 var _ CECTranslator = (*cecTranslator)(nil)
@@ -36,6 +40,7 @@ var _ CECTranslator = (*cecTranslator)(nil)
 type cecTranslator struct {
 	secretsNamespace string
 	useProxyProtocol bool
+	useAppProtocol   bool
 
 	hostNetworkEnabled           bool
 	hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
@@ -54,13 +59,14 @@ type cecTranslator struct {
 }
 
 // NewCECTranslator returns a new translator
-func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
+func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
 	hostNetworkEnabled bool, hostNetworkNodeLabelSelector *slim_metav1.LabelSelector, ipv4Enabled bool, ipv6Enabled bool,
 	xffNumTrustedHops uint32,
 ) CECTranslator {
 	return &cecTranslator{
 		secretsNamespace:             secretsNamespace,
 		useProxyProtocol:             useProxyProtocol,
+		useAppProtocol:               useAppProtocol,
 		hostNameSuffixMatch:          hostNameSuffixMatch,
 		idleTimeoutSeconds:           idleTimeoutSeconds,
 		xffNumTrustedHops:            xffNumTrustedHops,
@@ -318,6 +324,16 @@ func (i *cecTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 
 				if isGRPCService(m, ns, name, port) {
 					mutators = append(mutators, WithProtocol(HTTPVersion2))
+				} else if i.useAppProtocol {
+					appProtocol := getAppProtocol(m, ns, name, port)
+
+					switch appProtocol {
+					case AppProtocolH2C:
+						mutators = append(mutators, WithProtocol(HTTPVersion2))
+					default:
+						// When --use-app-protocol is used, envoy will set upstream protocol to HTTP/1.1
+						mutators = append(mutators, WithProtocol(HTTPVersion1))
+					}
 				}
 				envoyClusters[clusterName], _ = NewHTTPCluster(clusterName, clusterServiceName, mutators...)
 			}
@@ -359,6 +375,22 @@ func isGRPCService(m *model.Model, ns string, name string, port string) bool {
 		}
 	}
 	return res
+}
+
+func getAppProtocol(m *model.Model, ns string, name string, port string) string {
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, be := range r.Backends {
+				if be.Name == name && be.Namespace == ns && be.Port != nil && be.Port.GetPort() == port {
+					if be.AppProtocol != nil {
+						return *be.AppProtocol
+					}
+				}
+			}
+		}
+	}
+
+	return ""
 }
 
 // getNamespaceNamePortsMap returns a map of namespace -> name -> ports.
