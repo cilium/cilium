@@ -106,6 +106,7 @@ func registerReconciler(params ingressParams) error {
 	cecTranslator := translation.NewCECTranslator(
 		params.IngressConfig.IngressSecretsNamespace,
 		params.IngressConfig.EnableIngressProxyProtocol,
+		false,
 		false, // hostNameSuffixMatch
 		params.OperatorConfig.ProxyIdleTimeoutSeconds,
 		params.IngressConfig.IngressHostnetworkEnabled,
