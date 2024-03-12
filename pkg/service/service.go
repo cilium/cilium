@@ -501,6 +501,7 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 					v1BackendVal.Port,
 					v1BackendVal.Proto,
 					lb.GetBackendStateFromFlags(v1BackendVal.Flags),
+					0,
 				)
 				if err != nil {
 					log.WithError(err).WithField(logfields.BPFMapName, v3Map.Name()).Debug("Error creating map value")
@@ -515,6 +516,7 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 					v1BackendVal.Port,
 					v1BackendVal.Proto,
 					lb.GetBackendStateFromFlags(v1BackendVal.Flags),
+					0,
 				)
 				if err != nil {
 					log.WithError(err).WithField(logfields.BPFMapName, v3Map.Name()).Debug("Error creating map value")

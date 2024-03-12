@@ -548,7 +548,8 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
 		state := loadbalancer.GetBackendStateFromFlags(backendVal.GetFlags())
-		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, addrCluster, port, state)
+		zone := backendVal.GetZone()
+		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, addrCluster, port, zone, state)
 		lbBackends = append(lbBackends, lbBackend)
 	}
 
@@ -613,10 +614,10 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 
 	if ipv6 {
 		lbBackend, err = NewBackend6V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
-			backend.State)
+			backend.State, backend.ZoneID)
 	} else {
 		lbBackend, err = NewBackend4V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
-			backend.State)
+			backend.State, backend.ZoneID)
 	}
 	if err != nil {
 		return lbBackend, fmt.Errorf("unable to create lbBackend (%d, %s, %d, %t): %w",
