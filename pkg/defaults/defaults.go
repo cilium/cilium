@@ -311,9 +311,6 @@ const (
 	// a kvstore path for too long.
 	KVStoreStaleLockTimeout = 30 * time.Second
 
-	// IPAllocationTimeout is the timeout when allocating CIDRs
-	IPAllocationTimeout = 2 * time.Minute
-
 	// PolicyQueueSize is the default queue size for policy-related events.
 	PolicyQueueSize = 100
 

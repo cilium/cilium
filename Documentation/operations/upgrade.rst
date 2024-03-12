@@ -317,6 +317,9 @@ Removed Options
 * The unused flag ``sidecar-istio-proxy-image`` has been removed.
 * The flag ``endpoint-status`` has been removed.
   More information can be found in the following Helm upgrade notes.
+* The ``ip-allocation-timeout`` flag (which provided a time limit on blocking
+  CIDR identity allocations) has been removed. CIDR identity allocation
+  now always happens asynchronously, therefore making this timeout obsolete.
 
 Helm Options
 ~~~~~~~~~~~~
