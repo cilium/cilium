@@ -116,13 +116,13 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 					}
 				}
 				if !v4Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name, string(endpoint.UID))
 					if portsChanged {
 						namedPortsChanged = true
 					}
 				}
 				if !v6Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name, string(endpoint.UID))
 					if portsChanged {
 						namedPortsChanged = true
 					}
@@ -170,6 +170,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace:  endpoint.Namespace,
 		PodName:    endpoint.Name,
+		UID:        string(endpoint.UID),
 		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
 	}
 	for _, port := range endpoint.NamedPorts {
@@ -209,14 +210,14 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 		namedPortsChanged := false
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name, string(endpoint.UID))
 				if portsChanged {
 					namedPortsChanged = true
 				}
 			}
 
 			if pair.IPV6 != "" {
-				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name, string(endpoint.UID))
 				if portsChanged {
 					namedPortsChanged = true
 				}

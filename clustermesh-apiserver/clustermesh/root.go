@@ -277,6 +277,11 @@ func (es *endpointSynchronizer) upsert(ctx context.Context, key resource.Key, ob
 					entry.Key = uint8(endpoint.Encryption.Key)
 				}
 
+				if len(endpoint.OwnerReferences) > 0 {
+					// Assume the first ownerRef is the pod.
+					entry.K8sUID = string(endpoint.OwnerReferences[0].UID)
+				}
+
 				scopedLog.Info("Upserting endpoint in etcd")
 				if err := es.store.UpsertKey(ctx, &entry); err != nil {
 					// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.

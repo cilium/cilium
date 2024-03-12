@@ -837,12 +837,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
+				k8sUID := e.K8sUID
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, k8sUID, e.GetK8sPorts()); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", endpointIP.String(), ID, err)
 				}
 				return nil

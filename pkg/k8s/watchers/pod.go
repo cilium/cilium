@@ -814,6 +814,8 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		return nil
 	}
 
+	// TODO: Pull this into a separate hostPortManager which holds a map of pod
+	// UID to service
 	for _, dpSvc := range svcs {
 		svc, _ := k.svcManager.GetDeepCopyServiceByFrontend(dpSvc.Frontend.L3n4Addr)
 		// Check whether the service being deleted is in fact "owned" by the pod being deleted.
@@ -905,6 +907,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
 		PodName:   newPod.Name,
+		UID:       string(newPod.UID),
 	}
 
 	// Store Named ports, if any.
@@ -1002,7 +1005,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 			continue
 		}
 
-		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
+		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name, string(pod.UID))
 	}
 
 	if len(errs) != 0 {
