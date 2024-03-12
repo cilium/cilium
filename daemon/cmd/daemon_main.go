@@ -6,10 +6,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -162,6 +164,25 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 			return "", fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>,<max_size>,<ttl>" got %q`, val)
 		}
 		return "", nil
+	})
+
+	option.Config.FixedZoneMappingValidator = option.Validator(func(val string) (string, error) {
+		vals := strings.Split(val, "=")
+		if len(vals) != 2 {
+			return "", fmt.Errorf(`invalid fixed zone: expecting "<zone-name>=<numeric-id>" got %q`, val)
+		}
+		lblStr := vals[0]
+		if len(lblStr) == 0 {
+			return "", fmt.Errorf(`invalid label: %q`, lblStr)
+		}
+		ni, err := strconv.Atoi(vals[1])
+		if err != nil {
+			return "", fmt.Errorf(`invalid numeric ID %q: %w`, vals[1], err)
+		}
+		if min, max := 1, math.MaxUint8; ni < min || ni >= max {
+			return "", fmt.Errorf(`invalid numeric ID %q: valid numeric ID is between %d and %d`, vals[1], min, max)
+		}
+		return val, nil
 	})
 
 	// Env bindings

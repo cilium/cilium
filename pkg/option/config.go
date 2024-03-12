@@ -158,6 +158,11 @@ const (
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"
 
+	// FixedZoneMapping is the key-value for the fixed zone mapping which
+	// is used to map zone value (string) from EndpointSlice to ID (uint8)
+	// in lb{4,6}_backend in BPF map.
+	FixedZoneMapping = "fixed-zone-mapping"
+
 	// IPv4Range is the per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16
 	IPv4Range = "ipv4-range"
 
@@ -1654,6 +1659,9 @@ type DaemonConfig struct {
 	EnableUnreachableRoutes       bool
 	FixedIdentityMapping          map[string]string
 	FixedIdentityMappingValidator func(val string) (string, error) `json:"-"`
+	FixedZoneMapping              map[string]uint8
+	ReverseFixedZoneMapping       map[uint8]string
+	FixedZoneMappingValidator     func(val string) (string, error) `json:"-"`
 	IPv4Range                     string
 	IPv6Range                     string
 	IPv4ServiceRange              string
@@ -3280,6 +3288,27 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.FixedIdentityMapping = m
 	}
 
+	if m := command.GetStringMapString(vp, FixedZoneMapping); err != nil {
+		log.Fatalf("unable to parse %s: %s", FixedZoneMapping, err)
+	} else if len(m) != 0 {
+		forward := make(map[string]uint8, len(m))
+		reverse := make(map[uint8]string, len(m))
+		for k, v := range m {
+			bigN, _ := strconv.Atoi(v)
+			n := uint8(bigN)
+			if oldKey, ok := reverse[n]; ok && oldKey != k {
+				log.Fatalf("duplicate numeric ID entry for %s: %q and %q map to the same value %d", FixedZoneMapping, oldKey, k, n)
+			}
+			if oldN, ok := forward[k]; ok && oldN != n {
+				log.Fatalf("duplicate zone name entry for %s: %d and %d map to different values %s", FixedZoneMapping, oldN, n, k)
+			}
+			forward[k] = n
+			reverse[n] = k
+		}
+		c.FixedZoneMapping = forward
+		c.ReverseFixedZoneMapping = reverse
+	}
+
 	c.ConntrackGCInterval = vp.GetDuration(ConntrackGCInterval)
 	c.ConntrackGCMaxInterval = vp.GetDuration(ConntrackGCMaxInterval)
 
@@ -4209,4 +4238,12 @@ func (d *DaemonConfig) EnforceLXCFibLookup() bool {
 	// since v1.14.0-snapshot.2. We will remove this hack later, once we
 	// have auto-device detection on by default.
 	return d.EnableEndpointRoutes
+}
+
+func (d *DaemonConfig) GetZone(id uint8) string {
+	return d.ReverseFixedZoneMapping[id]
+}
+
+func (d *DaemonConfig) GetZoneID(zone string) uint8 {
+	return d.FixedZoneMapping[zone]
 }

@@ -415,6 +415,7 @@ func (b *Backend4Value) GetIPCluster() cmtypes.AddrCluster {
 }
 func (b *Backend4Value) GetPort() uint16 { return b.Port }
 func (b *Backend4Value) GetFlags() uint8 { return b.Flags }
+func (b *Backend4Value) GetZone() uint8  { return 0 }
 
 func (v *Backend4Value) ToNetwork() BackendValue {
 	n := *v
@@ -439,7 +440,7 @@ type Backend4ValueV3 struct {
 	Pad       uint8           `align:"pad"`
 }
 
-func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4ValueV3, error) {
+func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState, zone uint8) (*Backend4ValueV3, error) {
 	addr := addrCluster.Addr()
 	if !addr.Is4() {
 		return nil, fmt.Errorf("Not an IPv4 address")
@@ -457,6 +458,7 @@ func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8pr
 		Proto:     proto,
 		Flags:     flags,
 		ClusterID: uint16(clusterID),
+		Zone:      zone,
 	}
 
 	ip4Array := addr.As4()
@@ -467,6 +469,9 @@ func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8pr
 
 func (v *Backend4ValueV3) String() string {
 	vHost := v.ToHost().(*Backend4ValueV3)
+	if v.Zone != 0 {
+		return fmt.Sprintf("%s://%s[%s]", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)).String(), option.Config.GetZone(v.Zone))
+	}
 	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)).String())
 }
 
@@ -478,6 +483,7 @@ func (b *Backend4ValueV3) GetIPCluster() cmtypes.AddrCluster {
 }
 func (b *Backend4ValueV3) GetPort() uint16 { return b.Port }
 func (b *Backend4ValueV3) GetFlags() uint8 { return b.Flags }
+func (b *Backend4ValueV3) GetZone() uint8  { return b.Zone }
 
 func (v *Backend4ValueV3) ToNetwork() BackendValue {
 	n := *v
@@ -498,8 +504,8 @@ type Backend4V3 struct {
 }
 
 func NewBackend4V3(id loadbalancer.BackendID, addrCluster cmtypes.AddrCluster, port uint16,
-	proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4V3, error) {
-	val, err := NewBackend4ValueV3(addrCluster, port, proto, state)
+	proto u8proto.U8proto, state loadbalancer.BackendState, zone uint8) (*Backend4V3, error) {
+	val, err := NewBackend4ValueV3(addrCluster, port, proto, state, zone)
 	if err != nil {
 		return nil, err
 	}

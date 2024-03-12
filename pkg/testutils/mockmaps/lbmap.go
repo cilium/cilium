@@ -128,7 +128,7 @@ func (m *LBMockMap) AddBackend(b *lb.Backend, ipv6 bool) error {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	be := lb.NewBackendWithState(id, b.Protocol, b.AddrCluster, port, b.State)
+	be := lb.NewBackendWithState(id, b.Protocol, b.AddrCluster, port, b.ZoneID, b.State)
 	m.BackendByID[id] = be
 
 	return nil
