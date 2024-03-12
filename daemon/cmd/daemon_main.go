@@ -365,9 +365,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	option.BindEnv(vp, option.EnableWellKnownIdentities)
 
-	flags.String(option.EnvoyLog, "", "Path to a separate Envoy log file, if any")
-	option.BindEnv(vp, option.EnvoyLog)
-
 	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPSec support")
 	option.BindEnv(vp, option.EnableIPSecName)
 
@@ -412,51 +409,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EncryptionStrictModeAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
 	option.BindEnv(vp, option.EncryptionStrictModeAllowRemoteNodeIdentities)
-
-	flags.Bool(option.HTTPNormalizePath, true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
-	option.BindEnv(vp, option.HTTPNormalizePath)
-
-	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
-	flags.MarkHidden(option.HTTP403Message)
-	option.BindEnv(vp, option.HTTP403Message)
-
-	flags.Uint(option.HTTPRequestTimeout, 60*60, "Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited")
-	option.BindEnv(vp, option.HTTPRequestTimeout)
-
-	flags.Uint(option.HTTPIdleTimeout, 0, "Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
-	option.BindEnv(vp, option.HTTPIdleTimeout)
-
-	flags.Uint(option.HTTPMaxGRPCTimeout, 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
-	option.BindEnv(vp, option.HTTPMaxGRPCTimeout)
-
-	flags.Uint(option.HTTPRetryCount, 3, "Number of retries performed after a forwarded request attempt fails")
-	option.BindEnv(vp, option.HTTPRetryCount)
-
-	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
-	option.BindEnv(vp, option.HTTPRetryTimeout)
-
-	flags.Uint(option.ProxyConnectTimeout, 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
-	option.BindEnv(vp, option.ProxyConnectTimeout)
-
-	flags.Uint(option.ProxyGID, 1337, "Group ID for proxy control plane sockets.")
-	option.BindEnv(vp, option.ProxyGID)
-
-	flags.Int(option.ProxyPrometheusPort, 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
-	option.BindEnv(vp, option.ProxyPrometheusPort)
-
-	flags.Int(option.ProxyMaxRequestsPerConnection, 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
-	option.BindEnv(vp, option.ProxyMaxRequestsPerConnection)
-
-	flags.Int64(option.ProxyMaxConnectionDuration, 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
-	option.BindEnv(vp, option.ProxyMaxConnectionDuration)
-
-	flags.Int64(option.ProxyIdleTimeout, 60, "Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s")
-	option.BindEnv(vp, option.ProxyIdleTimeout)
-
-	flags.Bool(option.DisableEnvoyVersionCheck, false, "Do not perform Envoy binary version check on startup")
-	flags.MarkHidden(option.DisableEnvoyVersionCheck)
-	// Disable version check if Envoy build is disabled
-	option.BindEnvWithLegacyEnvFallback(vp, option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
 
 	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns")
