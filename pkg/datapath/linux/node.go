@@ -1231,13 +1231,6 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 				return err
 			}
 			n.enableNeighDiscovery = len(ifaceNames) != 0 // No need to arping for L2-less devices
-		case n.nodeConfig.EnableIPSec && !option.Config.TunnelingEnabled() &&
-			len(option.Config.EncryptInterface) != 0:
-			// When FIB lookup is not supported we need to pick an
-			// interface so pick first interface in the list. On
-			// kernels with FIB lookup helpers we do a lookup from
-			// the datapath side and ignore this value.
-			ifaceNames = append(ifaceNames, option.Config.EncryptInterface[0])
 		}
 
 		if n.enableNeighDiscovery {
