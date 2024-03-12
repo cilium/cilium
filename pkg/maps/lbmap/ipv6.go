@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -311,6 +312,7 @@ func (b *Backend6Value) GetIPCluster() cmtypes.AddrCluster {
 }
 func (b *Backend6Value) GetPort() uint16 { return b.Port }
 func (b *Backend6Value) GetFlags() uint8 { return b.Flags }
+func (b *Backend6Value) GetZone() uint8  { return 0 }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v
@@ -335,7 +337,7 @@ type Backend6ValueV3 struct {
 	Pad       uint8           `align:"pad"`
 }
 
-func NewBackend6ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend6ValueV3, error) {
+func NewBackend6ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState, zone uint8) (*Backend6ValueV3, error) {
 	addr := addrCluster.Addr()
 
 	// It is possible to have IPv4 backend in IPv6. We have NAT46/64.
@@ -353,6 +355,7 @@ func NewBackend6ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8pr
 		Port:  port,
 		Proto: proto,
 		Flags: flags,
+		Zone:  zone,
 	}
 
 	ipv6Array := addr.As16()
@@ -363,6 +366,9 @@ func NewBackend6ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8pr
 
 func (v *Backend6ValueV3) String() string {
 	vHost := v.ToHost().(*Backend6ValueV3)
+	if v.Zone != 0 {
+		return fmt.Sprintf("%s://%s[%s]", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)), option.Config.GetZone(v.Zone))
+	}
 	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)))
 }
 
@@ -374,6 +380,7 @@ func (b *Backend6ValueV3) GetIPCluster() cmtypes.AddrCluster {
 }
 func (b *Backend6ValueV3) GetPort() uint16 { return b.Port }
 func (b *Backend6ValueV3) GetFlags() uint8 { return b.Flags }
+func (b *Backend6ValueV3) GetZone() uint8  { return b.Zone }
 
 func (v *Backend6ValueV3) ToNetwork() BackendValue {
 	n := *v
@@ -394,8 +401,8 @@ type Backend6V3 struct {
 }
 
 func NewBackend6V3(id loadbalancer.BackendID, addrCluster cmtypes.AddrCluster, port uint16,
-	proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend6V3, error) {
-	val, err := NewBackend6ValueV3(addrCluster, port, proto, state)
+	proto u8proto.U8proto, state loadbalancer.BackendState, zone uint8) (*Backend6V3, error) {
+	val, err := NewBackend6ValueV3(addrCluster, port, proto, state, zone)
 	if err != nil {
 		return nil, err
 	}
