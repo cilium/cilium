@@ -35,16 +35,18 @@ func serviceReconcilerConfig(bes statedb.RWTable[*Backend]) reconciler.Config[*S
 type backendsState struct {
 	allocator *service.IDAllocator
 
-	revisions  map[loadbalancer.L3n4Addr]statedb.Revision
-	references map[loadbalancer.ServiceName]sets.Set[loadbalancer.L3n4Addr]
+	revisions map[loadbalancer.L3n4Addr]statedb.Revision
+
+	// references maps service frontend to the associated backends
+	references map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]
 	refCounts  map[loadbalancer.L3n4Addr]int
 }
 
-func (s *backendsState) updateReferences(name loadbalancer.ServiceName, backends sets.Set[loadbalancer.L3n4Addr]) (orphans []loadbalancer.L3n4Addr) {
+func (s *backendsState) updateReferences(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) (orphans []loadbalancer.L3n4Addr) {
 	// TODO this needs to be idempotent since this operation may be retried arbitrarily many times
 
 	newRefs := backends.Clone()
-	if oldRefs, ok := s.references[name]; ok {
+	if oldRefs, ok := s.references[frontend]; ok {
 		for addr := range oldRefs {
 			if newRefs.Has(addr) {
 				newRefs.Delete(addr)
@@ -53,8 +55,10 @@ func (s *backendsState) updateReferences(name loadbalancer.ServiceName, backends
 
 			count := s.refCounts[addr] - 1
 			if count <= 0 {
+				log.Infof("Backend %s is now an orphan", addr.StringWithProtocol())
 				orphans = append(orphans, addr)
 			} else {
+				log.Infof("Backend %s ref count now %d", addr.StringWithProtocol(), count)
 				s.refCounts[addr] = count
 			}
 		}
@@ -63,9 +67,9 @@ func (s *backendsState) updateReferences(name loadbalancer.ServiceName, backends
 		s.refCounts[addr] = s.refCounts[addr] + 1
 	}
 	if len(backends) == 0 {
-		delete(s.references, name)
+		delete(s.references, frontend)
 	} else {
-		s.references[name] = backends
+		s.references[frontend] = backends
 	}
 	return orphans
 }
@@ -116,7 +120,7 @@ func newServiceOps(bes statedb.Table[*Backend]) *serviceOps {
 		backendsState: &backendsState{
 			allocator:  service.NewIDAllocator(service.FirstFreeBackendID, service.MaxSetOfBackendID),
 			revisions:  map[loadbalancer.L3n4Addr]uint64{},
-			references: map[loadbalancer.ServiceName]sets.Set[loadbalancer.L3n4Addr]{},
+			references: map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
 			refCounts:  map[loadbalancer.L3n4Addr]int{},
 		},
 		backends:    bes,
@@ -196,7 +200,7 @@ func (ops *serviceOps) Update(ctx context.Context, txn statedb.ReadTxn, svc *Ser
 	for _, be := range orderedBackends {
 		backendAddrs.Insert(be.L3n4Addr)
 	}
-	for _, orphan := range ops.backendsState.updateReferences(svc.Name, backendAddrs) {
+	for _, orphan := range ops.backendsState.updateReferences(svc.L3n4Addr, backendAddrs) {
 		id, ok := ops.backendsState.getID(orphan)
 		if !ok {
 			// FIXME unreachable?
