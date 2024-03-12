@@ -878,14 +878,16 @@ func (t *Test) EgressGatewayNode() string {
 }
 
 func (t *Test) collectSysdump() {
-	collector, err := sysdump.NewCollector(t.ctx.K8sClient(), t.ctx.params.SysdumpOptions, time.Now(), t.ctx.version)
-	if err != nil {
-		t.Failf("Failed to create sysdump collector: %v", err)
-		return
-	}
+	for _, client := range t.ctx.Clients() {
+		collector, err := sysdump.NewCollector(client, t.ctx.params.SysdumpOptions, time.Now(), t.ctx.version)
+		if err != nil {
+			t.Failf("Failed to create sysdump collector: %v", err)
+			return
+		}
 
-	if err = collector.Run(); err != nil {
-		t.Failf("Failed to collect sysdump: %v", err)
+		if err = collector.Run(); err != nil {
+			t.Failf("Failed to collect sysdump: %v", err)
+		}
 	}
 }
 
