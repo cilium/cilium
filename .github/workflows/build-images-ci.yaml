@@ -177,7 +177,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:733e1a1ee0fdf2b8ec6c4cc9a2d973e348d45672@sha256:7e64b1287e842105f8ebefd0f9032d677685bd1b849fe148d8261a854b059e15
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:b7339598cf24df5586ec9fe04a37667013682161@sha256:a750bd1374496c5321691916c775f6a99f01a5159c86df323ae723dabf240723
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -311,7 +311,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:733e1a1ee0fdf2b8ec6c4cc9a2d973e348d45672@sha256:7e64b1287e842105f8ebefd0f9032d677685bd1b849fe148d8261a854b059e15
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:b7339598cf24df5586ec9fe04a37667013682161@sha256:a750bd1374496c5321691916c775f6a99f01a5159c86df323ae723dabf240723
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
