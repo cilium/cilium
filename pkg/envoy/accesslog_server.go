@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/time"
@@ -28,13 +27,15 @@ import (
 
 type AccessLogServer struct {
 	socketPath         string
+	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
 	stopCh             chan struct{}
 }
 
-func newAccessLogServer(envoySocketDir string, localEndpointStore *LocalEndpointStore) *AccessLogServer {
+func newAccessLogServer(envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore) *AccessLogServer {
 	return &AccessLogServer{
 		socketPath:         getAccessLogSocketPath(envoySocketDir),
+		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
 	}
 }
@@ -98,7 +99,7 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 		return nil, fmt.Errorf("failed to change mode of access log listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(s.socketPath, -1, option.Config.ProxyGID); err != nil {
+	if err = os.Chown(s.socketPath, -1, int(s.proxyGID)); err != nil {
 		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s, sidecar proxies may not work", s.socketPath)
 	}
 	return accessLogListener, nil

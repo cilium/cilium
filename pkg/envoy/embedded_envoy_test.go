@@ -12,14 +12,11 @@ import (
 
 	. "github.com/cilium/checkmate"
 
-	"github.com/spf13/viper"
-
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -42,9 +39,6 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
-	option.Config.Populate(viper.GetViper())
-	option.Config.ProxyConnectTimeout = 1
-	c.Assert(option.Config.ProxyConnectTimeout, Not(Equals), 0)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -64,7 +58,12 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
+	xdsServer, err := newXDSServer(testipcache.NewMockIPCache(), localEndpointStore,
+		xdsServerConfig{
+			envoySocketDir:    testRunDir,
+			proxyGID:          1337,
+			httpNormalizePath: true,
+		})
 	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
 
@@ -72,14 +71,19 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	c.Assert(err, IsNil)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(testRunDir, localEndpointStore)
+	accessLogServer := newAccessLogServer(testRunDir, 1337, localEndpointStore)
 	c.Assert(accessLogServer, NotNil)
 	err = accessLogServer.start()
 	c.Assert(err, IsNil)
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy, err := startEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 0)
+	envoyProxy, err := startEmbeddedEnvoy(embeddedEnvoyConfig{
+		runDir:         testRunDir,
+		logPath:        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:         0,
+		connectTimeout: 1,
+	})
 	c.Assert(envoyProxy, NotNil)
 	c.Assert(err, IsNil)
 	log.Debug("started Envoy")
@@ -157,21 +161,30 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
+	xdsServer, err := newXDSServer(testipcache.NewMockIPCache(), localEndpointStore,
+		xdsServerConfig{
+			envoySocketDir:    testRunDir,
+			proxyGID:          1337,
+			httpNormalizePath: true,
+		})
 	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
 	err = xdsServer.start()
 	c.Assert(err, IsNil)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(testRunDir, localEndpointStore)
+	accessLogServer := newAccessLogServer(testRunDir, 1337, localEndpointStore)
 	c.Assert(accessLogServer, NotNil)
 	err = accessLogServer.start()
 	c.Assert(err, IsNil)
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy, err := startEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 42)
+	envoyProxy, err := startEmbeddedEnvoy(embeddedEnvoyConfig{
+		runDir:  testRunDir,
+		logPath: filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:  42,
+	})
 	c.Assert(envoyProxy, NotNil)
 	c.Assert(err, IsNil)
 	log.Debug("started Envoy")
