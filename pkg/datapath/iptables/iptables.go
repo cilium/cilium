@@ -1150,7 +1150,7 @@ func (m *Manager) installForwardChainRulesIpX(prog iptablesInterface, ifName, lo
 	return nil
 }
 
-func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDeliveryInterface,
+func (m *Manager) installMasqueradeRules(prog iptablesInterface, localDeliveryInterface,
 	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
 	if m.sharedCfg.NodeIpsetNeeded {
 		progArgs := []string{
@@ -1542,7 +1542,7 @@ func (m *Manager) installRules(ifName string) error {
 		}
 
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled {
-			if err := m.installMasqueradeRules(ip4tables, ifName, localDeliveryInterface,
+			if err := m.installMasqueradeRules(ip4tables, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
 				node.GetIPv4AllocRange().String(),
 				node.GetHostMasqueradeIPv4().String(),
@@ -1558,7 +1558,7 @@ func (m *Manager) installRules(ifName string) error {
 		}
 
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled {
-			if err := m.installMasqueradeRules(ip6tables, ifName, localDeliveryInterface,
+			if err := m.installMasqueradeRules(ip6tables, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
 				node.GetIPv6AllocRange().String(),
 				node.GetHostMasqueradeIPv6().String(),
