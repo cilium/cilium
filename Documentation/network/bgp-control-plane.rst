@@ -10,8 +10,8 @@ Cilium BGP Control Plane
 ========================
 
 BGP Control Plane provides a way for Cilium to advertise routes to connected routers by using the
-`Border Gateway Protocol`_ (BGP). BGP Control Plane makes Pod networks and/or Services of type
-``LoadBalancer`` reachable from outside the cluster for environments that support BGP. Because BGP
+`Border Gateway Protocol`_ (BGP). BGP Control Plane makes Pod networks and/or Services reachable
+from outside the cluster for environments that support BGP. Because BGP
 Control Plane does not program the :ref:`datapath <ebpf_datapath>`, do not use it to establish
 reachability within the cluster.
 
@@ -293,25 +293,125 @@ effect.
 Advertising Service Virtual IPs
 -------------------------------
 
-Type Load Balancer Services
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In Kubernetes, a Service has multiple virtual IP addresses,
+such as ``.spec.clusterIP``, ``.spec.clusterIPs``, ``.status.loadBalancer.ingress[*].ip``
+and ``.spec.externalIPs``.
+The BGP control plane can advertise the virtual IP address of the Service to BGP peers.
+This allows users to directly access the Service from outside the cluster.
 
-BGP Control Plane can advertise the ingress IPs
-(``status.loadBalancer.ingress[*].ip``) of a Service of type ``LoadBalancer``
-to the BGP peers. This allows the BGP peers to reach the Service directly from
-outside the cluster. When your upstream router supports Equal Cost Multi Path
-(ECMP), you can use this feature to load balance traffic to the Service across
-multiple nodes by advertising the same ingress IPs from multiple nodes.
+To advertise the virtual IPs, specify the ``virtualRouters[*].serviceSelector`` field
+and the ``virtualRouters[*].serviceAdvertisements`` field. The ``.serviceAdvertisements``
+defaults to the ``LoadBalancerIP`` service. You can also specify the ``.serviceAdvertisements``
+field to advertise specific service types, with options such as ``LoadBalancerIP``,
+``ClusterIP`` and ``ExternalIP``.
+
+The ``.serviceSelector`` field is a label selector that selects Services matching
+the specified ``.matchLabels`` or ``.matchExpressions``.
+
+
+When your upstream router supports Equal Cost Multi Path(ECMP), you can use
+this feature to load balance traffic to the Service across multiple nodes by
+advertising the same ingress IPs from multiple nodes.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       serviceSelector: # <-- select Services to advertise
+         matchLabels:
+           app: foo
+       serviceAdvertisements: # <-- specify the service types to advertise
+       - LoadBalancerIP # <-- default
+       - ClusterIP      # <-- options
+       - ExternalIP     # <-- options
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+
+Advertising ExternalIP Services
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you wish to use this together with ``kubeProxyReplacement`` feature  (see :ref:`kubeproxy-free` docs),
+please make sure the ExternalIP support is enabled.
+
+If you only wish to advertise the ``.spec.externalIPs`` of Service,
+you can specify the ``virtualRouters[*].serviceAdvertisements`` field as ``ExternalIP``.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       serviceSelector: # <-- select Services to advertise
+         matchLabels:
+           app: foo
+       serviceAdvertisements: # <-- specify the service types to advertise
+       - ExternalIP
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+
+Advertising ClusterIP Services
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you wish to use this together with ``kubeProxyReplacement`` feature  (see :ref:`kubeproxy-free` docs),
+specific BPF parameters need to be enabled.
+See :ref:`External Access To ClusterIP Services <external_access_to_clusterip_services>` section for how to enable it.
+
+If you only wish to advertise the ``.spec.clusterIP`` and ``.spec.clusterIPs`` of Service,
+you can specify the ``virtualRouters[*].serviceAdvertisements`` field as ``ClusterIP``.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       serviceSelector: # <-- select Services to advertise
+         matchLabels:
+           app: foo
+       serviceAdvertisements: # <-- specify the service types to advertise
+       - ClusterIP
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+Additionally, when the ``.spec.clusterIP`` or ``.spec.clusterIPs`` of the Service contains ``None``,
+this IP address will be ignored and will not be advertised.
+
+
+
+Advertising Load Balancer Services
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You must first allocate ingress IPs to advertise them. By default, Kubernetes
 doesn't provide a way to assign ingress IPs to a Service. The cluster
 administrator is responsible for preparing a controller that assigns ingress
 IPs. Cilium supports assigning ingress IPs with the :ref:`Load Balancer IPAM
 <lb_ipam>` feature.
-
-To advertise the ingress IPs, specify the ``virtualRouters[*].serviceSelector`` field.
-The ``.serviceSelector`` field is a label selector that selects Services matching
-the specified ``.matchLabels`` or ``.matchExpressions``.
 
 .. code-block:: yaml
 
