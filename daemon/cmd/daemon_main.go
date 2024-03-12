@@ -1354,6 +1354,7 @@ func initEnv(vp *viper.Viper) {
 	if option.Config.EnableIPSec &&
 		!option.Config.TunnelingEnabled() &&
 		len(option.Config.EncryptInterface) == 0 &&
+		len(option.Config.GetDevices()) == 0 &&
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
