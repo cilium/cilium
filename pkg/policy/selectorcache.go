@@ -397,15 +397,16 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 	currentIPs := sc.localIdentityNotifier.RegisterForIPUpdatesLocked(source.selector)
 	source.setSelectorIPs(currentIPs)
 
-	return sc.addSelector(user, key, source)
+	return sc.addSelector(user, lbls, key, source)
 }
 
-func (sc *SelectorCache) addSelector(user CachedSelectionUser, key string, source selectorSource) (CachedSelector, bool) {
+func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.LabelArray, key string, source selectorSource) (CachedSelector, bool) {
 	idSel := &identitySelector{
 		key:              key,
 		users:            make(map[CachedSelectionUser]struct{}),
 		cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		source:           source,
+		metadataLbls:     lbls,
 	}
 	sc.selectors[key] = idSel
 
@@ -467,7 +468,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, lbls labe
 		source.namespaces = namespaces
 	}
 
-	return sc.addSelector(user, key, source)
+	return sc.addSelector(user, lbls, key, source)
 }
 
 // lock must be held
