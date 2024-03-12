@@ -20,7 +20,7 @@ description of your use case by opening a pull request to this file and adding
 a section describing your usage of Cilium. If you are open to others contacting
 you about your use of Cilium on Slack, add your Slack nickname as well.
 
-    N: Name of user (company or individual)
+    N: Name of user (company)
     D: Description
     U: Usage of features
     L: Link with further information (optional)
