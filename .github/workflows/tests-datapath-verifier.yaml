@@ -52,7 +52,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.22.0
+  go-version: 1.22.1
 
 jobs:
   commit-status-start:
