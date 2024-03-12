@@ -295,6 +295,7 @@ cilium-agent [flags]
       --monitor-aggregation-interval duration                     Monitor report interval when monitor aggregation is enabled (default 5s)
       --monitor-queue-size int                                    Size of the event queue when reading monitor events
       --mtu int                                                   Overwrite auto-detected MTU of underlying network
+      --multicast-enabled                                         Enables multicast in Cilium
       --node-encryption-opt-out-labels string                     Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
       --node-labels strings                                       List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)
       --node-port-bind-protection                                 Reject application bind(2) requests to service ports in the NodePort range (default true)
