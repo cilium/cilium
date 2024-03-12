@@ -32,6 +32,7 @@ Direct access to local BPF maps
 * [cilium-dbg bpf ipmasq](cilium-dbg_bpf_ipmasq.md)	 - ip-masq-agent CIDRs
 * [cilium-dbg bpf lb](cilium-dbg_bpf_lb.md)	 - Load-balancing configuration
 * [cilium-dbg bpf metrics](cilium-dbg_bpf_metrics.md)	 - BPF datapath traffic metrics
+* [cilium-dbg bpf multicast](cilium-dbg_bpf_multicast.md)	 - Manage multicast BPF programs
 * [cilium-dbg bpf nat](cilium-dbg_bpf_nat.md)	 - NAT mapping tables
 * [cilium-dbg bpf nodeid](cilium-dbg_bpf_nodeid.md)	 - Manage the node IDs
 * [cilium-dbg bpf policy](cilium-dbg_bpf_policy.md)	 - Manage policy related BPF maps

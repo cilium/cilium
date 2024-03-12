@@ -137,6 +137,7 @@ Yunsong
 Zannoni
 Zhou
 aarch
+addr
 alibabacloud
 allocatable
 allocateLoadBalancerNodePorts
@@ -509,6 +510,7 @@ mountPath
 mov
 mtk
 mul
+multicast
 multicore
 multihoming
 musl
