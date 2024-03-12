@@ -2,13 +2,16 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/daemon/tables"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/labels"
@@ -28,6 +31,8 @@ var Hive = hive.New(
 
 	tables.ServicesCell,
 	tables.K8sReflectorCell,
+
+	cell.Invoke(httpServer),
 
 	/*
 		cell.Invoke(func(s *tables.Services) {
@@ -131,4 +136,36 @@ func demo(s *tables.Services) {
 		panic(err)
 	}
 	txn.Commit()
+}
+
+func httpServer(
+	lc cell.Lifecycle,
+	log logrus.FieldLogger,
+	db *statedb.DB) {
+
+	mux := http.NewServeMux()
+
+	// For dumping the database:
+	// curl -s http://localhost:8080/statedb | jq .
+	mux.HandleFunc("/statedb", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		db.ReadTxn().WriteJSON(w)
+	})
+
+	server := http.Server{
+		Addr:    "127.0.0.1:8080",
+		Handler: mux,
+	}
+
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			log.Infof("Serving API at %s", server.Addr)
+			go server.ListenAndServe()
+			return nil
+		},
+		OnStop: func(ctx cell.HookContext) error {
+			return server.Shutdown(ctx)
+		},
+	})
 }
