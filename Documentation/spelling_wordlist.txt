@@ -34,6 +34,7 @@ Dinan
 Dockerfile
 Dockerfiles
 Donenfeld
+ECMP
 ENI
 Efx
 Engleder
@@ -487,6 +488,7 @@ mainboard
 makefile
 mana
 masq
+matchExpressions
 matchLabels
 matchPattern
 maxUnavailable
@@ -782,4 +784,3 @@ xt
 xwing
 yaml
 zsh
-matchExpressions
