@@ -59,8 +59,7 @@
     "main",
     "v1.15",
     "v1.14",
-    "v1.13",
-    "v1.12"
+    "v1.13"
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -139,8 +138,7 @@
         "main",
         "v1.15",
         "v1.14",
-        "v1.13",
-        "v1.12"
+        "v1.13"
       ]
     },
     {
@@ -155,8 +153,7 @@
       matchBaseBranches: [
         "v1.15",
         "v1.14",
-        "v1.13",
-        "v1.12"
+        "v1.13"
       ]
     },
     {
@@ -232,15 +229,6 @@
     },
     {
       "matchPackageNames": [
-        "docker.io/library/ubuntu"
-      ],
-      "allowedVersions": "20.04",
-      "matchBaseBranches": [
-        "v1.12"
-      ],
-    },
-    {
-      "matchPackageNames": [
         "docker.io/library/golang",
         "go"
       ],
@@ -257,8 +245,7 @@
       "allowedVersions": "<1.22",
       "matchBaseBranches": [
         "v1.14",
-        "v1.13",
-        "v1.12"
+        "v1.13"
       ]
     },
     {
@@ -286,15 +273,6 @@
       "allowedVersions": "<3.18",
       "matchBaseBranches": [
         "v1.13"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "docker.io/library/alpine"
-      ],
-      "allowedVersions": "<3.17",
-      "matchBaseBranches": [
-        "v1.12"
       ]
     },
     {
@@ -339,8 +317,7 @@
         "minor"
       ],
       "matchBaseBranches": [
-        "v1.13",
-        "v1.12",
+        "v1.13"
       ]
     },
     {
@@ -375,8 +352,7 @@
       "matchBaseBranches": [
         "v1.15",
         "v1.14",
-        "v1.13",
-        "v1.12"
+        "v1.13"
       ]
     },
     {
@@ -398,8 +374,7 @@
       "matchBaseBranches": [
         "v1.15",
         "v1.14",
-        "v1.13",
-        "v1.12",
+        "v1.13"
       ],
     },
     {
