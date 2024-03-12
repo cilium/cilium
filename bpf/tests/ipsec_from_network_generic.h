@@ -104,14 +104,17 @@ SETUP("tc", "ipv4_not_decrypted_ipsec_from_network")
 int ipv4_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
 	struct node_key node_ip = {};
-	__u32 node_id = NODE_ID;
+	struct node_value node_value = {
+		.id = NODE_ID,
+		.spi = 0,
+	};
 
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
 	node_ip.family = ENDPOINT_KEY_IPV4;
 	node_ip.ip4 = v4_pod_one;
-	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+	map_update_elem(&NODE_MAP_V2, &node_ip, &node_value, BPF_ANY);
 
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
@@ -234,14 +237,17 @@ int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 		__u32 _;
 		struct node_key k;
 	} node_ip __align_stack_8 = {};
-	__u32 node_id = NODE_ID;
+	struct node_value node_value = {
+		.id = NODE_ID,
+		.spi = 0
+	};
 
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
 	node_ip.k.family = ENDPOINT_KEY_IPV6;
 	memcpy((__u8 *)&node_ip.k.ip6, (__u8 *)v6_pod_one, 16);
-	map_update_elem(&NODE_MAP, &node_ip.k, &node_id, BPF_ANY);
+	map_update_elem(&NODE_MAP_V2, &node_ip.k, &node_value, BPF_ANY);
 
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;

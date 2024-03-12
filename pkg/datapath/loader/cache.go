@@ -41,6 +41,7 @@ var ignoredELFPrefixes = []string{
 	"cilium_metrics",                  // Global
 	"cilium_nodeport_neigh",           // All nodeport neigh maps
 	"cilium_node_map",                 // Global
+	"cilium_node_map_v2",              // Global
 	"cilium_policy",                   // All policy maps
 	"cilium_proxy",                    // Global
 	"cilium_runtime_config",           // Global
