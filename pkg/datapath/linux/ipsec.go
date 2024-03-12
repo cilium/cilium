@@ -31,11 +31,14 @@ func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
 	if option.Config.TunnelingEnabled() {
 		return n.datapathConfig.TunnelDevice
 	}
-	iface := ""
-	if len(option.Config.EncryptInterface) > 0 {
-		iface = option.Config.EncryptInterface[0]
+	devices := option.Config.GetDevices()
+	if len(devices) > 0 {
+		return devices[0]
 	}
-	return iface
+	if len(option.Config.EncryptInterface) > 0 {
+		return option.Config.EncryptInterface[0]
+	}
+	return ""
 }
 
 func (n *linuxNodeHandler) getLinkLocalIP(family int) (net.IP, error) {
