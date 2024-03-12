@@ -530,9 +530,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
 	option.BindEnv(vp, option.KVstoreConnectivityTimeout)
 
-	flags.Duration(option.IPAllocationTimeout, defaults.IPAllocationTimeout, "Time after which an incomplete CIDR allocation is considered failed")
-	option.BindEnv(vp, option.IPAllocationTimeout)
-
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(vp, option.KVStoreOpt)
