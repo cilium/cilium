@@ -210,7 +210,7 @@ func (s *Services) UpsertService(txn ServiceWriteTxn, name loadbalancer.ServiceN
 	return err
 }
 
-func (s *Services) DeleteService(txn ServiceWriteTxn, name loadbalancer.ServiceName, source source.Source) error {
+func (s *Services) DeleteServicesByName(txn ServiceWriteTxn, name loadbalancer.ServiceName, source source.Source) error {
 	svc, _, found := s.svcs.First(txn, ServiceNameIndex.Query(name))
 	if !found {
 		return statedb.ErrObjectNotFound
@@ -243,7 +243,7 @@ func (s *Services) deleteService(txn ServiceWriteTxn, svc *Service) error {
 	return err
 }
 
-func (s *Services) DeleteServices(txn ServiceWriteTxn, source source.Source) error {
+func (s *Services) DeleteServicesBySource(txn ServiceWriteTxn, source source.Source) error {
 	iter, _ := s.svcs.Get(txn, ServiceSourceIndex.Query(source))
 	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
 		if err := s.deleteService(txn, svc); err != nil {
@@ -304,6 +304,11 @@ func (s *Services) updateBackends(txn ServiceWriteTxn, name loadbalancer.Service
 			return err
 		}
 	}
+	return nil
+}
+
+func (s *Services) DeleteBackendsBySource(txn ServiceWriteTxn, source source.Source) error {
+	log.Errorf("TODO implement DeleteBackendsBySource")
 	return nil
 }
 

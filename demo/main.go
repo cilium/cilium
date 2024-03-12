@@ -1,13 +1,16 @@
 package main
 
 import (
+	"log"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/daemon/tables"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
@@ -19,18 +22,38 @@ var svcs *tables.Services
 
 var Hive = hive.New(
 	job.Cell,
+	client.Cell,
 	statedb.Cell,
 	reconciler.Cell,
 
 	tables.ServicesCell,
+	tables.K8sReflectorCell,
 
-	cell.Invoke(func(s *tables.Services) {
-		go demo(s)
-	}),
+	/*
+		cell.Invoke(func(s *tables.Services) {
+			go demo(s)
+		}),*/
 )
 
+var cmd = &cobra.Command{
+	Use: "example",
+	Run: func(_ *cobra.Command, args []string) {
+		if err := Hive.Run(); err != nil {
+			log.Fatal(err)
+		}
+	},
+}
+
 func main() {
-	Hive.Run()
+	// Register all configuration flags in the hive to the command
+	Hive.RegisterFlags(cmd.Flags())
+
+	// Add the "hive" sub-command for inspecting the hive
+	cmd.AddCommand(Hive.Command())
+
+	// And finally execute the command to parse the command-line flags and
+	// run the hive
+	cmd.Execute()
 }
 
 func demo(s *tables.Services) {

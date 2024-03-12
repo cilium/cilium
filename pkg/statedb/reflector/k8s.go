@@ -140,14 +140,14 @@ func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter)
 	// This reduces the number of write transactions required and thus the number of times
 	// readers get woken up, which results in much better overall throughput.
 	src := stream.Buffer(
-		k8sEventObservable(s.ListerWatcher),
+		K8sEventObservable(s.ListerWatcher),
 		bufferSize,
 		waitTime,
 
 		// Buffer the events into a map, coalescing them by key.
-		func(buf *buffer, ev cacheStoreEvent) *buffer {
+		func(buf *buffer, ev CacheStoreEvent) *buffer {
 			switch {
-			case ev.Type == cacheStoreReplace:
+			case ev.Type == CacheStoreReplace:
 				return &buffer{
 					replaceItems: ev.Obj.([]any),
 					entries:      make(map[string]entry, bufferSize), // Forget prior entries
@@ -160,7 +160,7 @@ func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter)
 			}
 
 			var entry entry
-			entry.deleted = ev.Type == cacheStoreDelete
+			entry.deleted = ev.Type == CacheStoreDelete
 
 			var key string
 			if d, ok := ev.Obj.(cache.DeletedFinalStateUnknown); ok {
@@ -233,17 +233,17 @@ func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter)
 	return <-errs
 }
 
-// k8sEventObservable turns a ListerWatcher into an observable using the client-go's Reflector.
-func k8sEventObservable(lw cache.ListerWatcher) stream.Observable[cacheStoreEvent] {
-	return stream.FuncObservable[cacheStoreEvent](
-		func(ctx context.Context, next func(cacheStoreEvent), complete func(err error)) {
+// K8sEventObservable turns a ListerWatcher into an observable using the client-go's Reflector.
+func K8sEventObservable(lw cache.ListerWatcher) stream.Observable[CacheStoreEvent] {
+	return stream.FuncObservable[CacheStoreEvent](
+		func(ctx context.Context, next func(CacheStoreEvent), complete func(err error)) {
 			store := &cacheStoreListener{
 				onAdd: func(obj any) {
-					next(cacheStoreEvent{cacheStoreAdd, obj})
+					next(CacheStoreEvent{CacheStoreAdd, obj})
 				},
-				onUpdate:  func(obj any) { next(cacheStoreEvent{cacheStoreUpdate, obj}) },
-				onDelete:  func(obj any) { next(cacheStoreEvent{cacheStoreDelete, obj}) },
-				onReplace: func(objs []any) { next(cacheStoreEvent{cacheStoreReplace, objs}) },
+				onUpdate:  func(obj any) { next(CacheStoreEvent{CacheStoreUpdate, obj}) },
+				onDelete:  func(obj any) { next(CacheStoreEvent{CacheStoreDelete, obj}) },
+				onReplace: func(objs []any) { next(CacheStoreEvent{CacheStoreReplace, objs}) },
 			}
 			reflector := cache.NewReflector(lw, nil, store, 0)
 			go func() {
@@ -254,13 +254,13 @@ func k8sEventObservable(lw cache.ListerWatcher) stream.Observable[cacheStoreEven
 }
 
 const (
-	cacheStoreAdd = iota
-	cacheStoreUpdate
-	cacheStoreDelete
-	cacheStoreReplace
+	CacheStoreAdd = iota
+	CacheStoreUpdate
+	CacheStoreDelete
+	CacheStoreReplace
 )
 
-type cacheStoreEvent struct {
+type CacheStoreEvent struct {
 	Type int
 	Obj  any
 }
