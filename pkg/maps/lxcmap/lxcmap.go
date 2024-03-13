@@ -95,13 +95,10 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 
 	info := &EndpointInfo{
 		IfIndex: uint32(e.GetIfIndex()),
-		// Store security identity in network byte order so it can be
-		// written into the packet without an additional byte order
-		// conversion.
 		LxcID:   uint16(e.GetID()),
 		MAC:     mac,
 		NodeMAC: nodeMAC,
-		SecID:   e.GetIdentity().Uint32(),
+		SecID:   e.GetIdentity().Uint32(), // Host byte-order
 	}
 
 	return info, nil
