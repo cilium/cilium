@@ -7,6 +7,7 @@ import (
 	"net"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 )
 
 // CacheModification represents the type of operation performed upon IPCache.
@@ -31,5 +32,5 @@ type IPIdentityMappingListener interface {
 	// k8sMeta contains the Kubernetes pod namespace and name behind the IP
 	// and may be nil.
 	OnIPIdentityCacheChange(modType CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
-		oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata)
+		oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *ipcachetypes.K8sMetadata)
 }

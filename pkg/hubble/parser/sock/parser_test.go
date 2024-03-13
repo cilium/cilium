@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -132,20 +133,20 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 	ipGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcachetypes.K8sMetadata {
 			switch ip.String() {
 			case xwingIPv4, xwingIPv6:
-				return &ipcache.K8sMetadata{
+				return &ipcachetypes.K8sMetadata{
 					PodName:   xwingPodName,
 					Namespace: xwingPodNamespace,
 				}
 			case deathstarIPv4, deathstarIPv6:
-				return &ipcache.K8sMetadata{
+				return &ipcachetypes.K8sMetadata{
 					PodName:   deathstarPodName,
 					Namespace: deathstarPodNamespace,
 				}
 			case deathstarAltIPv4, deathstarAltIPv6:
-				return &ipcache.K8sMetadata{
+				return &ipcachetypes.K8sMetadata{
 					PodName:   deathstarAltPodName,
 					Namespace: deathstarAltPodNamespace,
 				}

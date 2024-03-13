@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // PolicyHandler is responsible for handling identity updates into the core
@@ -106,4 +107,33 @@ func (id RequestedIdentity) IsValid() bool {
 
 func (id RequestedIdentity) ID() identity.NumericIdentity {
 	return identity.NumericIdentity(id)
+}
+
+// K8sMetadata contains Kubernetes pod information of the IP
+type K8sMetadata struct {
+	// Namespace is the Kubernetes namespace of the pod behind the IP
+	Namespace string
+	// PodName is the Kubernetes pod name behind the IP
+	PodName string
+	// NamedPorts is the set of named ports for the pod
+	NamedPorts types.NamedPortMap
+}
+
+// Equal returns true if two K8sMetadata pointers contain the same data or are
+// both nil.
+func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
+	if m == o {
+		return true
+	} else if m == nil || o == nil {
+		return false
+	}
+	if len(m.NamedPorts) != len(o.NamedPorts) {
+		return false
+	}
+	for k, v := range m.NamedPorts {
+		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
+			return false
+		}
+	}
+	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }

@@ -68,16 +68,6 @@ type IPKeyPair struct {
 	Key uint8
 }
 
-// K8sMetadata contains Kubernetes pod information of the IP
-type K8sMetadata struct {
-	// Namespace is the Kubernetes namespace of the pod behind the IP
-	Namespace string
-	// PodName is the Kubernetes pod name behind the IP
-	PodName string
-	// NamedPorts is the set of named ports for the pod
-	NamedPorts types.NamedPortMap
-}
-
 // Configuration is init-time configuration for the IPCache.
 type Configuration struct {
 	context.Context
@@ -97,7 +87,7 @@ type IPCache struct {
 	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
 	ipToHostIPCache   map[string]IPKeyPair
-	ipToK8sMetadata   map[string]K8sMetadata
+	ipToK8sMetadata   map[string]ipcacheTypes.K8sMetadata
 
 	listeners []IPIdentityMappingListener
 
@@ -141,7 +131,7 @@ func NewIPCache(c *Configuration) *IPCache {
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		ipToHostIPCache:   map[string]IPKeyPair{},
-		ipToK8sMetadata:   map[string]K8sMetadata{},
+		ipToK8sMetadata:   map[string]ipcacheTypes.K8sMetadata{},
 		controllers:       controller.NewManager(),
 		namedPorts:        types.NewNamedPortMultiMap(),
 		metadata:          newMetadata(),
@@ -225,7 +215,7 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 
 // GetK8sMetadata returns Kubernetes metadata for the given IP address.
 // The returned pointer should *never* be modified.
-func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *K8sMetadata {
+func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *ipcacheTypes.K8sMetadata {
 	if !ip.IsValid() {
 		return nil
 	}
@@ -235,7 +225,7 @@ func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *K8sMetadata {
 }
 
 // getK8sMetadata returns Kubernetes metadata for the given IP address.
-func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
+func (ipc *IPCache) getK8sMetadata(ip string) *ipcacheTypes.K8sMetadata {
 	if k8sMeta, ok := ipc.ipToK8sMetadata[ip]; ok {
 		return &k8sMeta
 	}
@@ -257,7 +247,7 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 // function, ensure that the corresponding delete occurs via Delete().
 //
 // Deprecated: Prefer UpsertLabels() instead.
-func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
+func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcacheTypes.K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 	return ipc.upsertLocked(ip, hostIP, hostKey, k8sMeta, newIdentity, false /* !force */)
@@ -282,7 +272,7 @@ func (ipc *IPCache) upsertLocked(
 	ip string,
 	hostIP net.IP,
 	hostKey uint8,
-	k8sMeta *K8sMetadata,
+	k8sMeta *ipcacheTypes.K8sMetadata,
 	newIdentity Identity,
 	force bool,
 ) (namedPortsChanged bool, err error) {
@@ -889,23 +879,4 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 		}
 	}
 	return cidrs
-}
-
-// Equal returns true if two K8sMetadata pointers contain the same data or are
-// both nil.
-func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
-	if m == o {
-		return true
-	} else if m == nil || o == nil {
-		return false
-	}
-	if len(m.NamedPorts) != len(o.NamedPorts) {
-		return false
-	}
-	for k, v := range m.NamedPorts {
-		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
-			return false
-		}
-	}
-	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }

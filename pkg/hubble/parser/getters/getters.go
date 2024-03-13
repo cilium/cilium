@@ -10,6 +10,7 @@ import (
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
@@ -40,7 +41,7 @@ type IdentityGetter interface {
 // IPGetter fetches per-IP metadata
 type IPGetter interface {
 	// GetK8sMetadata returns Kubernetes metadata for the given IP address.
-	GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata
+	GetK8sMetadata(ip netip.Addr) *ipcachetypes.K8sMetadata
 	// LookupSecIDByIP returns the corresponding security identity that
 	// the specified IP maps to as well as if the corresponding entry exists.
 	LookupSecIDByIP(ip netip.Addr) (ipcache.Identity, bool)

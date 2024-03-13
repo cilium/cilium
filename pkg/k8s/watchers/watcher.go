@@ -125,7 +125,7 @@ type cgroupManager interface {
 
 type ipcacheManager interface {
 	// GH-21142: Re-evaluate the need for these APIs
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (namedPortsChanged bool, err error)
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcacheTypes.K8sMetadata, newIdentity ipcache.Identity) (namedPortsChanged bool, err error)
 	LookupByIP(IP string) (ipcache.Identity, bool)
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
 

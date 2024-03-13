@@ -16,6 +16,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -172,7 +173,7 @@ type IPIdentityWatcher struct {
 }
 
 type IPCacher interface {
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (bool, error)
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcachetypes.K8sMetadata, newIdentity Identity) (bool, error)
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
 }
 
@@ -299,9 +300,9 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 
 	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed upsertion event")
 
-	var k8sMeta *K8sMetadata
+	var k8sMeta *ipcachetypes.K8sMetadata
 	if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || len(ipIDPair.NamedPorts) > 0 {
-		k8sMeta = &K8sMetadata{
+		k8sMeta = &ipcachetypes.K8sMetadata{
 			Namespace:  ipIDPair.K8sNamespace,
 			PodName:    ipIDPair.K8sPodName,
 			NamedPorts: make(types.NamedPortMap, len(ipIDPair.NamedPorts)),
