@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium-cli/connectivity"
@@ -14,6 +15,9 @@ import (
 type Hooks interface {
 	ConnectivityTestHooks
 	sysdump.Hooks
+	// InitializeCommand gets called with the root command before returning it
+	// from cli.NewCiliumCommand.
+	InitializeCommand(rootCmd *cobra.Command)
 }
 
 // ConnectivityTestHooks to extend cilium-cli with additional connectivity tests and related flags.
