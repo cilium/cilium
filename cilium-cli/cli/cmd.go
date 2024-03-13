@@ -97,6 +97,7 @@ cilium connectivity test`,
 	cmd.SetOut(os.Stdout)
 	cmd.SetErr(os.Stderr)
 
+	hooks.InitializeCommand(cmd)
 	return cmd
 }
 
@@ -114,3 +115,4 @@ func (*NopHooks) AddConnectivityTestFlags(*pflag.FlagSet)                       
 func (*NopHooks) AddConnectivityTests(*check.ConnectivityTest) error              { return nil }
 func (*NopHooks) DetectFeatures(context.Context, *check.ConnectivityTest) error   { return nil }
 func (*NopHooks) SetupAndValidate(context.Context, *check.ConnectivityTest) error { return nil }
+func (*NopHooks) InitializeCommand(*cobra.Command)                                {}
