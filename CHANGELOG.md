@@ -1,5 +1,92 @@
 # Changelog
 
+## v1.15.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add default divisor for GOMEMLIMIT to satisfy Argo CD diff (Backport PR #30997, Upstream PR #30635, @jdmcmahan)
+* Fixes a bug where ToFQDN IPs may be garbage collected too early, disrupting existing connections. (Backport PR #31318, Upstream PR #31205, @squeed)
+* Gateway API BackendRef filters support (Backport PR #30997, Upstream PR #30090, @chaunceyjiang)
+
+**Bugfixes:**
+* Cilium allows selecting 'lo' as a device again. (Backport PR #31206, Upstream PR #31200, @bimmlerd)
+* endpoint: fix inability to create endpoint with labels in a single API call (Backport PR #30997, Upstream PR #30170, @oblazek)
+* Fix bug in the VTEP feature which caused all traffic from the VTEP to be dropped with "Incorrect VNI from VTEP" (Backport PR #31154, Upstream PR #31039, @joestringer)
+* Fix bug prevented endpoints from sending or receiving network traffic due to the 'reserved:init' label persisting after initialization. (Backport PR #31047, Upstream PR #30909, @aanm)
+* Fix GC interval calculation by taking into account the actual time passed between GC runs. (Backport PR #31154, Upstream PR #28657, @gentoo-root)
+* Fix host firewall policy enforcement for pod to node traffic when tunneling is enabled and KPR is disabled (Backport PR #30997, Upstream PR #30818, @giorio94)
+* Fix the referenced interface in iptables rules (`eni+` instead of `lxc+`) when `--enable-endpoint-routes=true` and `--cni-chaining-mode="aws-cni"` (Backport PR #31154, Upstream PR #30766, @pippolo84)
+* Fixes an IPv6 issue that cilium doesn't respond to Neighbor Solicitation targeting the pods on same node. (Backport PR #31155, Upstream PR #30837, @jschwinger233)
+* Fixes proxy issues by opting out from SNAT for L7 + Tunnel. (Backport PR #31158, Upstream PR #29594, @jschwinger233)
+* Fixes proxy issues in egress direction (Backport PR #31158, Upstream PR #30095, @jschwinger233)
+* Fixes some valid GC entries being removed at agent restart (Backport PR #30863, Upstream PR #29696, @rsafonseca)
+* gateway-api: Correct the null check for GRPRRoute Match (Backport PR #31154, Upstream PR #31052, @sayboras)
+* helm: Probe Envoy DaemonSet localhost IP directly (Backport PR #30997, Upstream PR #30970, @iandrewt)
+* hubble: fix parsing of invalid HTTP URLs (Backport PR #31154, Upstream PR #31100, @kaworu)
+* srv6: Fix packet drop with GSO type mismatch (Backport PR #30799, Upstream PR #30732, @YutaroHayakawa)
+* statedb: Fix race between Observable and DB stopping (Backport PR #30863, Upstream PR #30816, @joamaki)
+* xds: Avoid xds timeout due to agent restart in envoy DS mode (Backport PR #31154, Upstream PR #31061, @sayboras)
+
+**CI Changes:**
+* ci/ipsec: Fix downgrade version retrieval (Backport PR #31047, Upstream PR #30742, @qmonnet)
+* ci: Enhance test execution security by restricting permissions to the 'organization-members' team (Backport PR #30863, Upstream PR #30790, @brlbil)
+* CI: Update tested K8S versions across all cloud providers (Backport PR #30863, Upstream PR #30795, @brlbil)
+* Fix datapath mode in Network Performance CI test (Backport PR #30863, Upstream PR #30756, @marseel)
+* Prevent E2E tests from failing on a known-ok warning log of temporary CRD failure (Backport PR #31154, Upstream PR #30778, @learnitall)
+
+**Misc Changes:**
+* bgpv1: Remove disruptive error handling from BGPRouterManager (#30735, @YutaroHayakawa)
+* bgpv1: Remove or downgrade noisy logs (Backport PR #30997, Upstream PR #30868, @YutaroHayakawa)
+* bitlpm: Factor out common code (Backport PR #31154, Upstream PR #31026, @jrajahalme)
+* bpf: host: optimize from-host's ICMPv6 path (Backport PR #31155, Upstream PR #31127, @julianwiedmann)
+* bpf: host: skip from-proxy handling in from-netdev (Backport PR #31158, Upstream PR #29962, @julianwiedmann)
+* bugtool: Capture memory fragmentation info from /proc (Backport PR #31154, Upstream PR #30966, @pchaigno)
+* Bump google.golang.org/protobuf (v1.15) (#31319, @ferozsalam)
+* Change ariane config CODEOWNERS (Backport PR #30863, Upstream PR #30803, @brlbil)
+* chore(deps): update actions/download-artifact action to v4.1.3 (v1.15) (#30986, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (#30951, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (#31113, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (#31290, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (patch) (#30780, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (patch) (#31133, @renovate[bot])
+* chore(deps): update all github action dependencies to v4 (v1.15) (major) (#30781, @renovate[bot])
+* chore(deps): update all kind-images main (v1.15) (#30851, @renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (#30949, @renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (#31287, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.23 (v1.15) (#30860, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.0 (v1.15) (#31172, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.7 docker digest to 549dd88 (v1.15) (#30855, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to f9d633f (v1.15) (#30738, @renovate[bot])
+* chore(deps): update go to v1.21.7 (v1.15) (patch) (#30672, @renovate[bot])
+* chore(deps): update go to v1.21.8 (v1.15) (#31183, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.2 (v1.15) (#31338, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (#30652, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (#31134, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (#31288, @renovate[bot])
+* chore(deps): update stable lvh-images to v6.6-20240221.111541 (v1.15) (#30977, @renovate[bot])
+* CODEOWNERS: Ensure gha review for actions (#31139, @joestringer)
+* container/bitlpm: Add Lookup Boolean Return Value (Backport PR #31154, Upstream PR #31037, @nathanjsweet)
+* docs: Fix 'kubectl exec' invocations (quotes, double dash separator) in example script kafka-sw-gen-traffic.sh (Backport PR #31154, Upstream PR #30462, @saintdle)
+* docs: kpr: DSR-Geneve with native-routing requires tunnelProtocol (Backport PR #30997, Upstream PR #30854, @julianwiedmann)
+* docs: update note on WireGuard with tunnel routing (Backport PR #31154, Upstream PR #31083, @julianwiedmann)
+* images: bump cni plugins to v1.4.1 (#31348, @aanm)
+* lbipam: copy slice before modification in (*LBIPAM).handlePoolModified (Backport PR #30997, Upstream PR #30859, @tklauser)
+* loader: also populate NATIVE_DEV_IFINDEX for cilium_overlay (Backport PR #31154, Upstream PR #31025, @julianwiedmann)
+* pkg: Add Bitwise LPM Trie Library (Backport PR #30863, Upstream PR #29717, @nathanjsweet)
+* slices: don't modify input slices in test (Backport PR #30997, Upstream PR #30677, @tklauser)
+* v1.15: Remove cilium/build from codeowners (#31210, @joestringer)
+
+**Other Changes:**
+* [v1.15] envoy: Bump golang version to 1.21.8 (#31221, @sayboras)
+* bgpv1: Disable PodCIDR Reconciler for unsupported IPAM modes (#31354, @YutaroHayakawa)
+* cli: Replace --cluster-name with --helm-set cluster.name (#31176, @michi-covalent)
+* install: Update image digests for v1.15.1 (#30777, @michi-covalent)
+* Upgrade GoBGP to v3.23.0 (#30792, @YutaroHayakawa)
+* v1.15 envoy: Avoid duplicated upstream callback (#30942, @sayboras)
+* v1.15: WG L7 (#31266, @brb)
+
 ## v1.15.1
 
 Summary of Changes
