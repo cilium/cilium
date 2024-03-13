@@ -1,5 +1,83 @@
 # Changelog
 
+## v1.14.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Enhance trace events from the outbound SNAT path, to report the pre-SNAT IP address and the interface index of the egress interface. (Backport PR #30835, Upstream PR #28723, @julianwiedmann)
+* Fixes a bug where ToFQDN IPs may be garbage collected too early, disrupting existing connections. (Backport PR #31337, Upstream PR #31205, @squeed)
+
+**Bugfixes:**
+* endpoint: fix inability to create endpoint with labels in a single API call (Backport PR #31000, Upstream PR #30170, @oblazek)
+* Fix bug prevented endpoints from sending or receiving network traffic due to the 'reserved:init' label persisting after initialization. (Backport PR #31048, Upstream PR #30909, @aanm)
+* Fixes an IPv6 issue that cilium doesn't respond to Neighbor Solicitation targeting the pods on same node. (Backport PR #31186, Upstream PR #30837, @jschwinger233)
+* Fixes an L7 proxy issue by re-introducing 2005 route table. (Backport PR #31160, Upstream PR #29530, @jschwinger233)
+* Fixes proxy issues by opting out from SNAT for L7 + Tunnel. (Backport PR #31160, Upstream PR #29594, @jschwinger233)
+* Fixes proxy issues in egress direction (Backport PR #31160, Upstream PR #30095, @jschwinger233)
+* helm: Probe Envoy DaemonSet localhost IP directly (Backport PR #31000, Upstream PR #30970, @iandrewt)
+* Policy revert used in rare error cases has been corrected. (Backport PR #30882, Upstream PR #29162, @jrajahalme)
+* srv6: Fix packet drop with GSO type mismatch (Backport PR #30800, Upstream PR #30732, @YutaroHayakawa)
+* xds: Avoid xds timeout due to agent restart in envoy DS mode (Backport PR #31156, Upstream PR #31061, @sayboras)
+
+**CI Changes:**
+* Align again conformance clustermesh matrix entries with main as the interoperability issue has been fixed (#30912, @giorio94)
+* ci-e2e: restore 6.1 kernels (#30862, @lmb)
+* ci/ipsec: Fix downgrade version retrieval (Backport PR #31048, Upstream PR #30742, @qmonnet)
+* ci: Enhance test execution security by restricting permissions to the 'organization-members' team (Backport PR #30864, Upstream PR #30790, @brlbil)
+* CI: Update tested K8S versions across all cloud providers (Backport PR #30864, Upstream PR #30795, @brlbil)
+* Fix datapath mode in Network Performance CI test (Backport PR #30864, Upstream PR #30756, @marseel)
+* workflows: Clean IPsec test output (Backport PR #30800, Upstream PR #30759, @pchaigno)
+
+**Misc Changes:**
+* bgpv1: Remove disruptive error handling from BGPRouterManager (#30765, @YutaroHayakawa)
+* bgpv1: Remove or downgrade noisy logs (Backport PR #31000, Upstream PR #30868, @YutaroHayakawa)
+* bitlpm: Factor out common code (Backport PR #31156, Upstream PR #31026, @jrajahalme)
+* bpf: host: optimize from-host's ICMPv6 path (Backport PR #31186, Upstream PR #31127, @julianwiedmann)
+* bpf: host: skip from-proxy handling in from-netdev (Backport PR #31160, Upstream PR #29962, @julianwiedmann)
+* bpf: l3: restore MARK_MAGIC_PROXY_INGRESS for from-proxy traffic (Backport PR #31160, Upstream PR #29721, @julianwiedmann)
+* bpf: minor ICMPv6 improvements (Backport PR #31186, Upstream PR #26563, @julianwiedmann)
+* bugtool: Capture memory fragmentation info from /proc (Backport PR #31156, Upstream PR #30966, @pchaigno)
+* Bump google.golang.org/protobuf (v1.14) (#31314, @ferozsalam)
+* chore(deps): update actions/download-artifact action to v4.1.3 (v1.14) (#30989, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (#30954, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (#31114, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (#31294, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (patch) (#31136, @renovate[bot])
+* chore(deps): update all github action dependencies to v4 (v1.14) (major) (#30782, @renovate[bot])
+* chore(deps): update all-dependencies (v1.14) (#30952, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.23 (v1.14) (#30861, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.0 (v1.14) (#31173, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 77906da (v1.14) (#31291, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to e9569c2 (v1.14) (#30739, @renovate[bot])
+* chore(deps): update go to v1.21.7 (v1.14) (#30953, @renovate[bot])
+* chore(deps): update go to v1.21.8 (v1.14) (#31184, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.2 (v1.14) (#31339, @renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to v6.6-20240221.111541 (v1.14) (#30979, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (#30653, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (#31137, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (#31293, @renovate[bot])
+* container/bitlpm: Add Lookup Boolean Return Value (Backport PR #31156, Upstream PR #31037, @nathanjsweet)
+* docs: Document XfrmInStateInvalid errors (Backport PR #30800, Upstream PR #30151, @pchaigno)
+* docs: Fix 'kubectl exec' invocations (quotes, double dash separator) in example script kafka-sw-gen-traffic.sh (Backport PR #31156, Upstream PR #30462, @saintdle)
+* identity/cache: only call SortedList for release (Backport PR #30864, Upstream PR #27796, @bimmlerd)
+* images: bump cni plugins to v1.4.1 (#31349, @aanm)
+* lbipam: copy slice before modification in (*LBIPAM).handlePoolModified (Backport PR #31000, Upstream PR #30859, @tklauser)
+* loader: also populate NATIVE_DEV_IFINDEX for cilium_overlay (Backport PR #31156, Upstream PR #31025, @julianwiedmann)
+* pkg: Add Bitwise LPM Trie Library (Backport PR #30864, Upstream PR #29717, @nathanjsweet)
+* pkg: proxy: only install from-proxy rules/routes for native routing (Backport PR #31160, Upstream PR #29761, @julianwiedmann)
+* slices: don't modify input slices in test (Backport PR #31000, Upstream PR #30677, @tklauser)
+
+**Other Changes:**
+* [v1.14] bpf: nodeport: add missing ifindex in NAT trace event (#31022, @julianwiedmann)
+* [v1.14] envoy: Bump golang version to 1.21.8 (#31222, @sayboras)
+* [v1.14] iptables: Read CNI chaining mode from CNI config manager (#31265, @pippolo84)
+* cli: Replace --cluster-name with --helm-set cluster.name (#31177, @michi-covalent)
+* install: Update image digests for v1.14.7 (#30752, @michi-covalent)
+* Upgrade GoBGP to v3.23.0 and backport #28293 (#30793, @YutaroHayakawa)
+* v1.14: WG L7 (#31267, @brb)
+
 ## v1.14.7
 
 Summary of Changes
