@@ -10,7 +10,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "NodeMap")
 
 // Cell provides the nodemap.Map which contains information about node IDs and their IP addresses.
 var Cell = cell.Module(
