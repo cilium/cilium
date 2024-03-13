@@ -1349,6 +1349,7 @@ var requestRedirectHTTPListeners = []model.HTTPListener{
 				},
 				RequestRedirect: &model.HTTPRequestRedirectFilter{
 					Hostname: model.AddressOf("example.com"),
+					Port:     model.AddressOf(int32(80)),
 				},
 			},
 			{
@@ -1359,6 +1360,7 @@ var requestRedirectHTTPListeners = []model.HTTPListener{
 				},
 				RequestRedirect: &model.HTTPRequestRedirectFilter{
 					StatusCode: model.AddressOf(301),
+					Port:       model.AddressOf(int32(80)),
 				},
 			},
 			{
@@ -1375,6 +1377,7 @@ var requestRedirectHTTPListeners = []model.HTTPListener{
 				RequestRedirect: &model.HTTPRequestRedirectFilter{
 					Hostname:   model.AddressOf("example.com"),
 					StatusCode: model.AddressOf(301),
+					Port:       model.AddressOf(int32(80)),
 				},
 			},
 		},
