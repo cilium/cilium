@@ -371,7 +371,7 @@ bool lb6_svc_is_l7loadbalancer(const struct lb6_service *svc __maybe_unused)
 }
 
 static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
-					       __be16 port, int l4_off,
+					       __be16 old_port, __be16 port, int l4_off,
 					       struct csum_offset *csum_off)
 {
 	switch (nexthdr) {
@@ -381,12 +381,7 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
 		if (port) {
-			__be16 old_port;
 			int ret;
-
-			/* Port offsets for UDP and TCP are the same */
-			if (l4_load_port(ctx, l4_off + TCP_SPORT_OFF, &old_port) < 0)
-				return DROP_INVALID;
 
 			if (port != old_port) {
 #ifdef ENABLE_SCTP
@@ -455,7 +450,8 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
 	if (nat->port) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
+		ret = reverse_map_l4_port(ctx, tuple->nexthdr, tuple->dport,
+					  nat->port, l4_off, &csum_off);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1089,7 +1085,10 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
 		if (nat->port) {
-			ret = reverse_map_l4_port(ctx, tuple->nexthdr,
+			/* We expect to only handle replies. Thus the extracted CT tuple
+			 * will have the packet's source port in .dport.
+			 */
+			ret = reverse_map_l4_port(ctx, tuple->nexthdr, tuple->dport,
 						  nat->port, l4_off, &csum_off);
 			if (IS_ERR(ret))
 				return ret;
