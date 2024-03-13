@@ -2281,9 +2281,6 @@ type DaemonConfig struct {
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
 
-	// EnvoySecretNamespaces for TLS secrets. Used by CiliumEnvoyConfig via SDS.
-	EnvoySecretNamespaces []string
-
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
 	BPFMapEventBuffers          map[string]string
