@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.13.13
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fixes an L7 proxy issue by re-introducing 2005 route table. (Backport PR #31161, Upstream PR #29530, @jschwinger233)
+* Fixes proxy issues by opting out from SNAT for L7 + Tunnel. (Backport PR #31161, Upstream PR #29594, @jschwinger233)
+* Fixes proxy issues in egress direction (Backport PR #31161, Upstream PR #30095, @jschwinger233)
+
+**CI Changes:**
+* ci/ipsec: Fix downgrade version retrieval (Backport PR #31049, Upstream PR #30742, @qmonnet)
+* ci: Enhance test execution security by restricting permissions to the 'organization-members' team (Backport PR #30865, Upstream PR #30790, @brlbil)
+* CI: Update tested K8S versions across all cloud providers (Backport PR #30865, Upstream PR #30795, @brlbil)
+* Fix datapath mode in Network Performance CI test (Backport PR #30865, Upstream PR #30756, @marseel)
+* k8s_install.sh: specify the CNI version (Backport PR #31246, Upstream PR #31182, @aanm)
+* workflows: Clean IPsec test output (Backport PR #30801, Upstream PR #30759, @pchaigno)
+
+**Misc Changes:**
+* bpf: host: skip from-proxy handling in from-netdev (Backport PR #31161, Upstream PR #29962, @julianwiedmann)
+* bpf: l3: restore MARK_MAGIC_PROXY_INGRESS for from-proxy traffic (Backport PR #31161, Upstream PR #29721, @julianwiedmann)
+* bugtool: Capture memory fragmentation info from /proc (Backport PR #31157, Upstream PR #30966, @pchaigno)
+* Bump google.golang.org/protobuf (v1.13) (#31312, @ferozsalam)
+* Change ariane config CODEOWNERS (Backport PR #30865, Upstream PR #30803, @brlbil)
+* chore(deps): update all github action dependencies (v1.13) (#30957, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (#31115, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (#31298, @renovate[bot])
+* chore(deps): update all github action dependencies to v4 (v1.13) (major) (#30783, @renovate[bot])
+* chore(deps): update all-dependencies (v1.13) (#30955, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 77906da (v1.13) (#31295, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to e9569c2 (v1.13) (#30737, @renovate[bot])
+* chore(deps): update go to v1.21.7 (v1.13) (#30956, @renovate[bot])
+* chore(deps): update go to v1.21.8 (v1.13) (#31185, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.2 (v1.13) (#31340, @renovate[bot])
+* chore(deps): update kindest/node docker tag to v1.27.11 (v1.13) (#31141, @renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to v6.6-20240221.111541 (v1.13) (#30982, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.13) (patch) (#30812, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.13) (patch) (#31142, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.13) (patch) (#31296, @renovate[bot])
+* docs: Document XfrmInStateInvalid errors (Backport PR #30801, Upstream PR #30151, @pchaigno)
+* docs: Fix 'kubectl exec' invocations (quotes, double dash separator) in example script kafka-sw-gen-traffic.sh (Backport PR #31157, Upstream PR #30462, @saintdle)
+* images: bump cni plugins to v1.4.1 (#31350, @aanm)
+* pkg: proxy: only install from-proxy rules/routes for native routing (Backport PR #31161, Upstream PR #29761, @julianwiedmann)
+
+**Other Changes:**
+* [v1.13] envoy: Bump golang version to 1.21.8 (#31223, @sayboras)
+* install: Update image digests for v1.13.12 (#30753, @michi-covalent)
+
 ## v1.13.12
 
 Summary of Changes
