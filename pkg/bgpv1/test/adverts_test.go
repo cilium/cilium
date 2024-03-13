@@ -189,6 +189,7 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 	// is dependency on previous test step.
 	var steps = []struct {
 		name         string
+		ipPoolOp     string // "add" / "update" / "delete"
 		ipPools      []ipam_types.IPAMPoolAllocation
 		poolLabels   map[string]string
 		nodePools    []ipam_types.IPAMPoolAllocation
@@ -196,7 +197,8 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 		expected     []routeEvent
 	}{
 		{
-			name: "nil pool labels",
+			name:     "nil pool labels",
+			ipPoolOp: "add",
 			ipPools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
@@ -207,7 +209,7 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 			nodePools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
-					CIDRs: []ipam_types.IPAMPodCIDR{"10.1.1.0/24", "10.1.2.0/24"},
+					CIDRs: []ipam_types.IPAMPodCIDR{"10.1.1.0/24"},
 				},
 			},
 			poolSelector: &slim_metav1.LabelSelector{
@@ -216,7 +218,8 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 			expected: []routeEvent{},
 		},
 		{
-			name: "nil node pools",
+			name:     "nil node pools",
+			ipPoolOp: "update",
 			ipPools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
@@ -231,18 +234,19 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 			expected: []routeEvent{},
 		},
 		{
-			name: "matching ipv4 pool",
+			name:     "advertise matching ipv4 pool",
+			ipPoolOp: "update",
 			ipPools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
-					CIDRs: []ipam_types.IPAMPodCIDR{"11.1.0.0/16"},
+					CIDRs: []ipam_types.IPAMPodCIDR{"10.1.0.0/16"},
 				},
 			},
 			poolLabels: map[string]string{"label": "matched"},
 			nodePools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
-					CIDRs: []ipam_types.IPAMPodCIDR{"11.1.1.0/24"},
+					CIDRs: []ipam_types.IPAMPodCIDR{"10.1.1.0/24"},
 				},
 			},
 			poolSelector: &slim_metav1.LabelSelector{
@@ -251,14 +255,37 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 			expected: []routeEvent{
 				{
 					sourceASN:   ciliumASN,
-					prefix:      "11.1.1.0",
+					prefix:      "10.1.1.0",
 					prefixLen:   24,
 					isWithdrawn: false,
 				},
 			},
 		},
 		{
-			name: "update matching ipv4 pool",
+			name:     "withdraw existing ipv4 pool",
+			ipPoolOp: "delete",
+			ipPools: []ipam_types.IPAMPoolAllocation{
+				{
+					Pool: "pool1",
+				},
+			},
+			poolLabels: map[string]string{"label": "matched"},
+			nodePools:  nil,
+			poolSelector: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{"label": "matched"},
+			},
+			expected: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.1.1.0",
+					prefixLen:   24,
+					isWithdrawn: true,
+				},
+			},
+		},
+		{
+			name:     "advertise new ipv4 pool",
+			ipPoolOp: "add",
 			ipPools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
@@ -278,12 +305,6 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 			expected: []routeEvent{
 				{
 					sourceASN:   ciliumASN,
-					prefix:      "11.1.1.0",
-					prefixLen:   24,
-					isWithdrawn: true,
-				},
-				{
-					sourceASN:   ciliumASN,
 					prefix:      "11.2.1.0",
 					prefixLen:   24,
 					isWithdrawn: false,
@@ -291,7 +312,30 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 			},
 		},
 		{
-			name: "matching ipv6 pool",
+			name:     "withdraw new ipv4 pool",
+			ipPoolOp: "delete",
+			ipPools: []ipam_types.IPAMPoolAllocation{
+				{
+					Pool: "pool1",
+				},
+			},
+			poolLabels: map[string]string{"label": "matched"},
+			nodePools:  nil,
+			poolSelector: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{"label": "matched"},
+			},
+			expected: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "11.2.1.0",
+					prefixLen:   24,
+					isWithdrawn: true,
+				},
+			},
+		},
+		{
+			name:     "advertise matching ipv6 pool",
+			ipPoolOp: "add",
 			ipPools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
@@ -315,16 +359,33 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 					prefixLen:   96,
 					isWithdrawn: false,
 				},
+			},
+		},
+		{
+			name:     "withdraw existing ipv6 pool",
+			ipPoolOp: "delete",
+			ipPools: []ipam_types.IPAMPoolAllocation{
+				{
+					Pool: "pool1",
+				},
+			},
+			poolLabels: map[string]string{"label": "matched"},
+			nodePools:  nil,
+			poolSelector: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{"label": "matched"},
+			},
+			expected: []routeEvent{
 				{
 					sourceASN:   ciliumASN,
-					prefix:      "11.2.1.0",
-					prefixLen:   24,
+					prefix:      "2001:0:0:1234:5678::",
+					prefixLen:   96,
 					isWithdrawn: true,
 				},
 			},
 		},
 		{
-			name: "update matching ipv6 pool",
+			name:     "advertise new ipv6 pool",
+			ipPoolOp: "add",
 			ipPools: []ipam_types.IPAMPoolAllocation{
 				{
 					Pool:  "pool1",
@@ -342,12 +403,6 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 				MatchLabels: map[string]string{"label": "matched"},
 			},
 			expected: []routeEvent{
-				{
-					sourceASN:   ciliumASN,
-					prefix:      "2001:0:0:1234:5678::",
-					prefixLen:   96,
-					isWithdrawn: true,
-				},
 				{
 					sourceASN:   ciliumASN,
 					prefix:      "2002:0:0:1234:5678::",
@@ -379,7 +434,7 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 
 	tracker := fixture.fakeClientSet.CiliumFakeClientset.Tracker()
 
-	for i, step := range steps {
+	for _, step := range steps {
 		t.Run(step.name, func(t *testing.T) {
 			// Setup pod ip pool objects with test case pool cidrs.
 			var poolObjs []*v2alpha1.CiliumPodIPPool
@@ -394,17 +449,18 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 				poolObjs = append(poolObjs, poolObj)
 			}
 
-			// Add or update the pod ip pool object in the object tracker.
-			if i == 0 {
-				for _, obj := range poolObjs {
+			// Add / update / delete the pod ip pool object in the object tracker.
+			for _, obj := range poolObjs {
+				switch step.ipPoolOp {
+				case "add":
 					err = tracker.Add(obj)
-				}
-			} else {
-				for _, obj := range poolObjs {
+				case "update":
 					err = tracker.Update(v2alpha1.SchemeGroupVersion.WithResource("ciliumpodippools"), obj, "")
+				case "delete":
+					err = tracker.Delete(v2alpha1.SchemeGroupVersion.WithResource("ciliumpodippools"), "", obj.Name)
 				}
+				require.NoError(t, err)
 			}
-			require.NoError(t, err)
 
 			// get the local CiliumNode
 			obj, err := tracker.Get(v2.SchemeGroupVersion.WithResource("ciliumnodes"), "", baseNode.name)
