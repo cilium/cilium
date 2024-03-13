@@ -9,7 +9,7 @@ import (
 
 const (
 	// renovate: datasource=github-releases depName=cilium/cilium
-	Version = "v1.15.1"
+	Version = "v1.15.2"
 
 	CiliumPodSelector = "app.kubernetes.io/part-of=cilium"
 
