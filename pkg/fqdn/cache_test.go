@@ -15,6 +15,7 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -104,7 +105,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 	nameMatch, err := regexp.Compile("^notatest.com$")
 	c.Assert(err, IsNil)
 	namesAffected := cache.ForceExpire(now, nameMatch)
-	c.Assert(len(namesAffected), Equals, 0, Commentf("Incorrect count of names removed %v", namesAffected))
+	c.Assert(namesAffected.Len(), Equals, 0, Commentf("Incorrect count of names removed %v", namesAffected))
 	for _, name := range []string{"test1.com", "test2.com", "test3.com"} {
 		ips := cache.lookupByTime(now, name)
 		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
@@ -120,8 +121,8 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 	nameMatch, err = regexp.Compile("^test1.com$")
 	c.Assert(err, IsNil)
 	namesAffected = cache.ForceExpire(now, nameMatch)
-	c.Assert(len(namesAffected), Equals, 1, Commentf("Incorrect count of names removed %v", namesAffected))
-	c.Assert(namesAffected[0], Equals, "test1.com", Commentf("Incorrect affected name returned on forced expire: %s", namesAffected))
+	c.Assert(namesAffected.Len(), Equals, 1, Commentf("Incorrect count of names removed %v", namesAffected))
+	c.Assert(namesAffected.Has("test1.com"), Equals, true, Commentf("Incorrect affected name returned on forced expire: %s", namesAffected))
 	ips := cache.lookupByTime(now, "test1.com")
 	c.Assert(len(ips), Equals, 0, Commentf("IPs returned (%v) for deleted name 'test1.com'", ips))
 	c.Assert(cache.forward, Not(checker.HasKey), "test1.com", Commentf("Expired name 'test1.com' not deleted from forward"))
@@ -139,10 +140,9 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 
 	// Delete the whole cache. This should leave no data.
 	namesAffected = cache.ForceExpire(now, nil)
-	sort.Strings(namesAffected) // simplify the checks below
-	c.Assert(len(namesAffected), Equals, 2, Commentf("Incorrect count of names removed %v", namesAffected))
-	for i, name := range []string{"test2.com", "test3.com"} {
-		c.Assert(namesAffected[i], Equals, name, Commentf("Incorrect affected name returned on forced expire"))
+	c.Assert(namesAffected.Len(), Equals, 2, Commentf("Incorrect count of names removed %v", namesAffected))
+	for _, name := range []string{"test2.com", "test3.com"} {
+		c.Assert(namesAffected.Has(name), Equals, true, Commentf("Incorrect affected name returned on forced expire"))
 	}
 	for name := range names {
 		ips = cache.lookupByTime(now, name)
@@ -166,13 +166,8 @@ func (ds *DNSCacheTestSuite) Test_forceExpiredByNames(c *C) {
 	}
 
 	c.Assert(cache.forward, HasLen, 3)
-	result := cache.forceExpireByNames(time.Now(), names)
-	c.Assert(result, checker.DeepEquals, names)
-	c.Assert(result, HasLen, 2)
+	cache.forceExpireByNames(time.Now(), names)
 	c.Assert(cache.forward["test3.com"], Not(IsNil))
-
-	invalidName := cache.forceExpireByNames(now, []string{"invalid.name"})
-	c.Assert(invalidName, HasLen, 0)
 }
 
 func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
@@ -562,7 +557,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
 		cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	c.Assert(affectedNames, checker.DeepEquals, []string{"test.com"})
+	c.Assert(affectedNames, checker.DeepEquals, sets.New[string]("test.com"))
 
 	c.Assert(cache.Lookup("test.com"), HasLen, limit)
 	c.Assert(cache.LookupIP(netip.MustParseAddr("1.1.1.1")), checker.DeepEquals, []string{"foo.bar"})
@@ -597,7 +592,7 @@ func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
 	c.Assert(cache.overLimit, HasLen, 1)
 
 	result, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
-	c.Assert(result, checker.DeepEquals, []string{"test.com"})
+	c.Assert(result, checker.DeepEquals, sets.New[string]("test.com"))
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
 	affectedNames, _ := cache.cleanupOverLimitEntries()
@@ -956,7 +951,7 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	// Cascade expirations from cache to zombies. The 3.3.3.3 lookup has not expired
 	now = now.Add(4 * time.Second)
 	expired := cache.GC(now, zombies)
-	c.Assert(expired, HasLen, 1) // test.com
+	c.Assert(expired.Len(), Equals, 1) // test.com
 	// Not all IPs expired (3.3.3.3 still alive) so we expect test.com to be
 	// present in the cache.
 	c.Assert(cache.forward, checker.HasKey, "test.com")
@@ -974,7 +969,7 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	// but the older zombies are still alive.
 	now = now.Add(4 * time.Second)
 	expired = cache.GC(now, zombies)
-	c.Assert(expired, HasLen, 1) // test.com
+	c.Assert(expired.Len(), Equals, 1) // test.com
 	// Now all IPs expired so we expect test.com to be removed from the cache.
 	c.Assert(cache.forward, Not(checker.HasKey), "test.com")
 	c.Assert(cache.forward, HasLen, 0)
@@ -1106,8 +1101,8 @@ func (ds *DNSCacheTestSuite) TestOverlimitPreferNewerEntries(c *C) {
 
 	affected := cache.GC(time.Now(), zombies)
 
-	c.Assert(affected, HasLen, 1)
-	c.Assert(affected[0], Equals, name)
+	c.Assert(affected.Len(), Equals, 1)
+	c.Assert(affected.Has(name), Equals, true)
 
 	// No entries have expired, but no more than toFQDNsMaxIPsPerHost can be
 	// kept in the cache.
