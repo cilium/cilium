@@ -19,12 +19,6 @@ get_identity(struct xdp_md *ctx __maybe_unused)
 }
 
 static __always_inline __maybe_unused void
-set_encrypt_dip(struct xdp_md *ctx __maybe_unused,
-		__be32 ip_endpoint __maybe_unused)
-{
-}
-
-static __always_inline __maybe_unused void
 set_identity_mark(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused,
 		  __u32 magic __maybe_unused)
 {
