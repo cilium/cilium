@@ -8,12 +8,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium-cli/api"
 )
 
 const usage = "override usage"
 
 type testHooks struct {
-	NopHooks
+	api.NopHooks
 }
 
 func (th *testHooks) InitializeCommand(rootCmd *cobra.Command) {
