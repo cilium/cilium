@@ -350,6 +350,11 @@ jobs:
                   - 8.8.8.8
           "
 
+          kubectl --context ${{ env.contextName1 }} -n kube-system get configmap coredns -o yaml | \
+            sed '/loadbalance/a \        log' | kubectl --context ${{ env.contextName1 }} replace -f -
+          kubectl --context ${{ env.contextName2 }} -n kube-system get configmap coredns -o yaml | \
+            sed '/loadbalance/a \        log' | kubectl --context ${{ env.contextName2 }} replace -f -
+
           kubectl --context ${{ env.contextName1 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
           kubectl --context ${{ env.contextName2 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
@@ -491,6 +496,9 @@ jobs:
           kubectl config use-context ${{ env.contextName2 }}
           kubectl get pods --all-namespaces -o wide
           cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
+
+          kubectl --context ${{ env.contextName1 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps
 
           if [ "${{ matrix.mode }}" == "external" ]; then
             for i in {1..2}; do
