@@ -9,12 +9,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium-cli/api"
-	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/sysdump"
 )
 
 var (
@@ -26,11 +23,11 @@ var (
 
 // NewDefaultCiliumCommand returns a new "cilium" cli cobra command without any additional hooks.
 func NewDefaultCiliumCommand() *cobra.Command {
-	return NewCiliumCommand(&NopHooks{})
+	return NewCiliumCommand(&api.NopHooks{})
 }
 
 // NewCiliumCommand returns a new "cilium" cli cobra command registering all the additional input hooks.
-func NewCiliumCommand(hooks Hooks) *cobra.Command {
+func NewCiliumCommand(hooks api.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// return early for commands that don't require the kubernetes client
@@ -104,19 +101,3 @@ cilium connectivity test`,
 	hooks.InitializeCommand(cmd)
 	return cmd
 }
-
-type (
-	SysdumpHooks = sysdump.Hooks
-)
-
-type NopHooks struct{}
-
-var _ Hooks = &NopHooks{}
-
-func (*NopHooks) AddSysdumpFlags(*pflag.FlagSet)                                  {}
-func (*NopHooks) AddSysdumpTasks(*sysdump.Collector) error                        { return nil }
-func (*NopHooks) AddConnectivityTestFlags(*pflag.FlagSet)                         {}
-func (*NopHooks) AddConnectivityTests(*check.ConnectivityTest) error              { return nil }
-func (*NopHooks) DetectFeatures(context.Context, *check.ConnectivityTest) error   { return nil }
-func (*NopHooks) SetupAndValidate(context.Context, *check.ConnectivityTest) error { return nil }
-func (*NopHooks) InitializeCommand(*cobra.Command)                                {}
