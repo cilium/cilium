@@ -234,7 +234,7 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 						HeadersToRemove: f.ResponseHeaderModifier.Remove,
 					}
 				case gatewayv1.HTTPRouteFilterRequestRedirect:
-					requestRedirectFilter = toHTTPRequestRedirectFilter(f.RequestRedirect)
+					requestRedirectFilter = toHTTPRequestRedirectFilter(listener, f.RequestRedirect)
 				case gatewayv1.HTTPRouteFilterURLRewrite:
 					rewriteFilter = toHTTPRewriteFilter(f.URLRewrite)
 				case gatewayv1.HTTPRouteFilterRequestMirror:
@@ -465,7 +465,7 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRo
 	return tlsRoutes
 }
 
-func toHTTPRequestRedirectFilter(redirect *gatewayv1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {
+func toHTTPRequestRedirectFilter(listener gatewayv1beta1.Listener, redirect *gatewayv1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {
 	if redirect == nil {
 		return nil
 	}
@@ -480,11 +480,22 @@ func toHTTPRequestRedirectFilter(redirect *gatewayv1.HTTPRequestRedirectFilter) 
 			pathModifier.Prefix = *redirect.Path.ReplacePrefixMatch
 		}
 	}
+	var redirectPort *int32
+	if redirect.Port == nil {
+		if redirect.Scheme == nil {
+			// If redirect scheme is empty, the redirect port MUST be the Gateway
+			// Listener port.
+			// Refer to: https://github.com/kubernetes-sigs/gateway-api/blob/35fe25d1384a41c9b89dd5af7ae3214c431f008c/apis/v1/httproute_types.go#L1040-L1041
+			redirectPort = model.AddressOf(int32(listener.Port))
+		}
+	} else {
+		redirectPort = (*int32)(redirect.Port)
+	}
 	return &model.HTTPRequestRedirectFilter{
 		Scheme:     redirect.Scheme,
 		Hostname:   (*string)(redirect.Hostname),
 		Path:       pathModifier,
-		Port:       (*int32)(redirect.Port),
+		Port:       redirectPort,
 		StatusCode: redirect.StatusCode,
 	}
 }
