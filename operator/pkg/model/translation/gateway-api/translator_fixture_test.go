@@ -17,6 +17,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	http_connection_manager_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
@@ -54,6 +55,47 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 			FilterChainMatch: &envoy_config_listener.FilterChainMatch{TransportProtocol: "raw_buffer"},
 			Filters: []*envoy_config_listener.Filter{
 				toListenerFilter("listener-insecure"),
+			},
+		},
+	},
+	ListenerFilters: []*envoy_config_listener.ListenerFilter{
+		{
+			Name: "envoy.filters.listener.tls_inspector",
+			ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+			},
+		},
+	},
+	SocketOptions: toSocketOptions(),
+})
+
+var httpSecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
+	Name: "listener",
+	FilterChains: []*envoy_config_listener.FilterChain{
+		{
+			FilterChainMatch: &envoy_config_listener.FilterChainMatch{TransportProtocol: "raw_buffer"},
+			Filters: []*envoy_config_listener.Filter{
+				toListenerFilter("listener-insecure"),
+			},
+		},
+		{
+			FilterChainMatch: &envoy_config_listener.FilterChainMatch{TransportProtocol: "tls", ServerNames: []string{"example.com"}},
+			Filters: []*envoy_config_listener.Filter{
+				toListenerFilter("listener-secure"),
+			},
+			TransportSocket: &envoy_config_core_v3.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
+						CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+							TlsCertificateSdsSecretConfigs: []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+								{
+									Name: "cilium-secrets/gateway-conformance-infra-tls-secure",
+								},
+							},
+						},
+					}),
+				},
 			},
 		},
 	},
@@ -4022,6 +4064,200 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										Redirect: &envoy_config_route_v3.RedirectAction{
 											HostRedirect: "example.com",
 											PortRedirect: 80,
+										},
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+		},
+	},
+}
+
+// requestRedirectWithMultiHTTPListeners is the internal representation of the Conformance/HTTPRouteRequestRedirect
+var requestRedirectWithMultiHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "example.com",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/request-redirect"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/"},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Hostname:   model.AddressOf("example.com"),
+					Path:       &model.StringMatch{Prefix: "/request-redirect"},
+					StatusCode: model.AddressOf(302),
+					Port:       model.AddressOf(int32(80)),
+				},
+			},
+		},
+	},
+	{
+		Name: "https",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     443,
+		Hostname: "example.com",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/request-redirect"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/"},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Hostname:   model.AddressOf("example.com"),
+					Path:       &model.StringMatch{Prefix: "/request-redirect"},
+					StatusCode: model.AddressOf(302),
+					Port:       model.AddressOf(int32(443)),
+				},
+			},
+		},
+		TLS: []model.TLSSecret{
+			{
+				Name:      "tls-secure",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+	},
+}
+var requestRedirectWithMultiHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		Labels: map[string]string{
+			"cilium.io/use-original-source-address": "false",
+		},
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpSecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "example.com",
+							Domains: []string{"example.com", "example.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/request-redirect",
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Redirect{
+										Redirect: &envoy_config_route_v3.RedirectAction{
+											PortRedirect:         80,
+											HostRedirect:         "example.com",
+											ResponseCode:         envoy_config_route_v3.RedirectAction_FOUND,
+											PathRewriteSpecifier: &envoy_config_route_v3.RedirectAction_PrefixRewrite{PrefixRewrite: "/request-redirect"},
+										},
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-secure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "example.com",
+							Domains: []string{"example.com", "example.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/request-redirect",
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Redirect{
+										Redirect: &envoy_config_route_v3.RedirectAction{
+											PortRedirect:         443,
+											HostRedirect:         "example.com",
+											ResponseCode:         envoy_config_route_v3.RedirectAction_FOUND,
+											PathRewriteSpecifier: &envoy_config_route_v3.RedirectAction_PrefixRewrite{PrefixRewrite: "/request-redirect"},
 										},
 									},
 								},
