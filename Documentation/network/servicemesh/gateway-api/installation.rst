@@ -1,9 +1,10 @@
 Prerequisites
 #############
 
-* Cilium must be configured with ``kubeProxyReplacement=true``.
-  Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
-  for more details.
+* Cilium must be configured with NodePort enabled, using
+  ``nodePort.enabled=true`` or by enabling the kube-proxy replacement with
+  ``kubeProxyReplacement=true``. For more information, see :ref:`kube-proxy
+  replacement <kubeproxy-free>`.
 * Cilium must be configured with the L7 proxy enabled using the ``--enable-l7-proxy`` flag (enabled by default).
 * The below CRDs from Gateway API v1.0.0 ``must`` be pre-installed.
   Please refer to this `docs <https://gateway-api.sigs.k8s.io/guides/?h=crds#getting-started-with-gateway-api>`_
