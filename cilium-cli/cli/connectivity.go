@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium-cli/api"
 	"github.com/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
@@ -25,7 +26,7 @@ import (
 
 var errInternal = errors.New("encountered internal error, exiting")
 
-func newCmdConnectivity(hooks Hooks) *cobra.Command {
+func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connectivity",
 		Short: "Connectivity troubleshooting",
@@ -49,7 +50,7 @@ var params = check.Parameters{
 
 var tests []string
 
-func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
+func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		params.CiliumNamespace = namespace
 
@@ -115,7 +116,7 @@ func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
+func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Validate connectivity in cluster",
@@ -202,7 +203,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	return cmd
 }
 
-func newCmdConnectivityPerf(hooks Hooks) *cobra.Command {
+func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "perf",
 		Short: "Test network performance",

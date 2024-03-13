@@ -6,7 +6,13 @@ package api
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium-cli/connectivity"
+	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/sysdump"
 )
 
 // key is a context.Context value key type. It's unexported to avoid key collisions.
@@ -44,3 +50,31 @@ func GetK8sClientContextValue(ctx context.Context) (*k8s.Client, bool) {
 	client, ok := ctx.Value(k8sClientKey).(*k8s.Client)
 	return client, ok
 }
+
+// Hooks to extend the default cilium-cli command with additional functionality.
+type Hooks interface {
+	ConnectivityTestHooks
+	sysdump.Hooks
+	// InitializeCommand gets called with the root command before returning it
+	// from cli.NewCiliumCommand.
+	InitializeCommand(rootCmd *cobra.Command)
+}
+
+// ConnectivityTestHooks to extend cilium-cli with additional connectivity tests and related flags.
+type ConnectivityTestHooks interface {
+	connectivity.Hooks
+	// AddConnectivityTestFlags is an hook to register additional connectivity test flags.
+	AddConnectivityTestFlags(flags *pflag.FlagSet)
+}
+
+type NopHooks struct{}
+
+var _ Hooks = &NopHooks{}
+
+func (*NopHooks) AddSysdumpFlags(*pflag.FlagSet)                                  {}
+func (*NopHooks) AddSysdumpTasks(*sysdump.Collector) error                        { return nil }
+func (*NopHooks) AddConnectivityTestFlags(*pflag.FlagSet)                         {}
+func (*NopHooks) AddConnectivityTests(*check.ConnectivityTest) error              { return nil }
+func (*NopHooks) DetectFeatures(context.Context, *check.ConnectivityTest) error   { return nil }
+func (*NopHooks) SetupAndValidate(context.Context, *check.ConnectivityTest) error { return nil }
+func (*NopHooks) InitializeCommand(*cobra.Command)                                {}
