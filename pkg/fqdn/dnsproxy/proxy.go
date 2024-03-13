@@ -202,8 +202,12 @@ func asIPRule(r *regexp.Regexp, IPs map[string]struct{}) restore.IPRule {
 // and only returns true if a restored rule matches.
 func (p *DNSProxy) checkRestored(endpointID uint64, destPortProto restore.PortProto, destIP string, name string) bool {
 	ipRules, exists := p.restored[endpointID][destPortProto]
-	if !exists {
-		return false
+	if !exists && destPortProto.IsPortV2() {
+		// Check if there is a Version 1 restore.
+		ipRules, exists = p.restored[endpointID][destPortProto.ToV1()]
+		if !exists {
+			return false
+		}
 	}
 
 	for i := range ipRules {
