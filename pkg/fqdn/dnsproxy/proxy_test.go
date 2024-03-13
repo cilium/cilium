@@ -174,7 +174,7 @@ var (
 	dstID2  = identity.NumericIdentity(2002)
 	dstID3  = identity.NumericIdentity(3003)
 	dstID4  = identity.NumericIdentity(4004)
-	dstPort = uint16(53) // Set below when we setup the server!
+	dstPort = restore.PortProto(53) // Set below when we setup the server!
 )
 
 func (s *DNSProxyTestSuite) SetUpTest(c *C) {
@@ -243,10 +243,10 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	c.Assert(s.dnsServer.Listener, Not(IsNil), Commentf("DNS server missing a Listener"))
 	DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
 	c.Assert(DNSServerListenerAddr, Not(IsNil), Commentf("DNS server missing a Listener address"))
-	s.proxy.lookupTargetDNSServer = func(w dns.ResponseWriter) (serverIP net.IP, serverPort uint16, addrStr string, err error) {
-		return DNSServerListenerAddr.IP, uint16(DNSServerListenerAddr.Port), DNSServerListenerAddr.String(), nil
+	s.proxy.lookupTargetDNSServer = func(w dns.ResponseWriter) (serverIP net.IP, serverPort restore.PortProto, addrStr string, err error) {
+		return DNSServerListenerAddr.IP, restore.PortProto(DNSServerListenerAddr.Port), DNSServerListenerAddr.String(), nil
 	}
-	dstPort = uint16(DNSServerListenerAddr.Port)
+	dstPort = restore.PortProto(DNSServerListenerAddr.Port)
 }
 
 func (s *DNSProxyTestSuite) TearDownTest(c *C) {
