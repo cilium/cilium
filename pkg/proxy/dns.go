@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -32,7 +33,7 @@ type dnsRedirect struct {
 type proxyRuleUpdater interface {
 	// UpdateAllowed updates the rules in the DNS proxy with newRules for the
 	// endpointID and destPort.
-	UpdateAllowed(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error
+	UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) error
 }
 
 // setRules replaces old l7 rules of a redirect with new ones.
@@ -42,7 +43,7 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 		"newRules":           newRules,
 		logfields.EndpointID: dr.redirect.endpointID,
 	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
-	if err := dr.proxyRuleUpdater.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, newRules); err != nil {
+	if err := dr.proxyRuleUpdater.UpdateAllowed(dr.redirect.endpointID, restore.PortProto(dr.redirect.dstPort), newRules); err != nil {
 		return err
 	}
 	dr.currentRules = copyRules(dr.redirect.rules)
@@ -65,7 +66,7 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc,
 // Close the redirect.
 func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	return func() {
-		dr.proxyRuleUpdater.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, nil)
+		dr.proxyRuleUpdater.UpdateAllowed(dr.redirect.endpointID, restore.PortProto(dr.redirect.dstPort), nil)
 		dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(nil)
 		dr.currentRules = nil
 	}, nil
