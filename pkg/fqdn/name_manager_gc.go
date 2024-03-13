@@ -73,7 +73,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 			}
 		}
 		affectedNames := ep.DNSHistory.GC(GCStart, ep.DNSZombies)
-		namesToClean.Insert(affectedNames...)
+		namesToClean = namesToClean.Union(affectedNames)
 
 		alive, dead := ep.DNSZombies.GC()
 		if metrics.FQDNAliveZombieConnections.IsEnabled() {
@@ -108,7 +108,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		}
 	}
 
-	if len(namesToClean) == 0 {
+	if namesToClean.Len() == 0 {
 		return nil
 	}
 
@@ -169,15 +169,14 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 	}
 
 	maybeStaleIPs := n.cache.GetIPs()
-	namesToRegen := sets.Set[string]{}
 
 	// Clear any to-delete entries globally
 	// Clear any to-delete entries in each endpoint, then update globally to
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
-	namesToRegen.Insert(n.cache.ForceExpire(expireLookupsBefore, nameMatcher)...)
+	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
 	for _, ep := range n.config.GetEndpointsDNSInfo() {
-		namesToRegen.Insert(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
+		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
 		n.cache.UpdateFromCache(ep.DNSHistory, nil)
 
 		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
