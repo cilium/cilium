@@ -46,6 +46,10 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 		nodeID = uint16(n.nodeIDs.AllocateID())
 		if nodeID == uint16(idpool.NoID) {
 			log.WithField(logfields.NodeName, node.Name).Error("No more IDs available for nodes")
+			// If we failed to allocate nodeID, don't map any IP to 0 nodeID.
+			// This causes later errors like "Found a foreign IP address with the ID of the current node"
+			// so we make early return here.
+			return nodeID
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.NodeID:   nodeID,
@@ -212,10 +216,14 @@ func (n *linuxNodeHandler) DumpNodeIDs() []*models.NodeID {
 func (n *linuxNodeHandler) RestoreNodeIDs() {
 	// Retrieve node IDs from the BPF map to be able to restore them.
 	nodeIDs := make(map[string]uint16)
+	incorrectNodeIDs := make(map[string]struct{})
 	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
 		address := key.IP.String()
 		if key.Family == bpf.EndpointKeyIPv4 {
 			address = net.IP(key.IP[:net.IPv4len]).String()
+		}
+		if val.NodeID == 0 {
+			incorrectNodeIDs[address] = struct{}{}
 		}
 		nodeIDs[address] = val.NodeID
 	}
@@ -225,6 +233,16 @@ func (n *linuxNodeHandler) RestoreNodeIDs() {
 	}
 
 	n.registerNodeIDAllocations(nodeIDs)
+	if len(incorrectNodeIDs) > 0 {
+		log.Warnf("Removing %d incorrect node IP to node ID mappings from the BPF map", len(incorrectNodeIDs))
+	}
+	for ip := range incorrectNodeIDs {
+		if err := n.unmapNodeID(ip); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.IPAddr: ip,
+			}).Warn("Failed to remove a incorrect node IP to node ID mapping")
+		}
+	}
 	log.Infof("Restored %d node IDs from the BPF map", len(nodeIDs))
 }
 
