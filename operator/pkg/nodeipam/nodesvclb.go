@@ -46,18 +46,18 @@ func newNodeSvcLBReconciler(mgr ctrl.Manager, logger logrus.FieldLogger) *nodeSv
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *nodeSvcLBReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	filter := func(obj client.Object) bool {
+	filterSvc := func(obj client.Object) bool {
 		svc, ok := obj.(*corev1.Service)
 		return ok && r.isServiceSupported(svc)
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to Services supported by the controller
-		For(&corev1.Service{}, builder.WithPredicates(predicate.NewPredicateFuncs(filter))).
+		For(&corev1.Service{}, builder.WithPredicates(predicate.NewPredicateFuncs(filterSvc))).
 		// Watch for changes to EndpointSlices
 		Watches(&discoveryv1.EndpointSlice{}, r.enqueueRequestForEndpointSlice()).
 		// Watch for changes to Nodes
-		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.enqueueAll())).
+		Watches(&corev1.Node{}, r.enqueueRequestForNode()).
 		Complete(r)
 }
 
@@ -85,21 +85,29 @@ func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHand
 	})
 }
 
-// enqueueAll enqueue every services of supported type
-func (r *nodeSvcLBReconciler) enqueueAll() handler.MapFunc {
-	return func(ctx context.Context, o client.Object) []reconcile.Request {
+// enqueueRequestForNode enqueues all Nodes that are candidates to be included
+// by nodeipam (see shouldIncludeNode)
+func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.Logger.WithFields(logrus.Fields{
 			logfields.Controller: "node-service-lb",
 			logfields.Resource:   client.ObjectKeyFromObject(o),
 		})
-		svcList := &corev1.ServiceList{}
 
+		node, ok := o.(*corev1.Node)
+		if !ok {
+			return []ctrl.Request{}
+		}
+		if !shouldIncludeNode(node) {
+			return []ctrl.Request{}
+		}
+
+		svcList := &corev1.ServiceList{}
 		if err := r.Client.List(ctx, svcList, &client.ListOptions{}); err != nil {
 			scopedLog.WithError(err).Error("Failed to get Services")
 			return []reconcile.Request{}
 		}
-
-		requests := make([]reconcile.Request, 0, len(svcList.Items))
+		requests := []reconcile.Request{}
 		for _, item := range svcList.Items {
 			if !r.isServiceSupported(&item) {
 				continue
@@ -112,7 +120,7 @@ func (r *nodeSvcLBReconciler) enqueueAll() handler.MapFunc {
 			scopedLog.WithField("service", svc).Info("Enqueued Service")
 		}
 		return requests
-	}
+	})
 }
 
 func (r *nodeSvcLBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -131,11 +139,6 @@ func (r *nodeSvcLBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return controllerruntime.Fail(err)
 	}
 
-	// Ignore deleted Service, this can happen when foregroundDeletion is enabled
-	if svc.GetDeletionTimestamp() != nil {
-		return controllerruntime.Success()
-	}
-
 	if !r.isServiceSupported(&svc) {
 		return controllerruntime.Success()
 	}
@@ -149,18 +152,25 @@ func (r *nodeSvcLBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // isServiceSupported returns true if the service is supported by the controller
-func (r nodeSvcLBReconciler) isServiceSupported(service *corev1.Service) bool {
-	if !service.DeletionTimestamp.IsZero() {
+func (r nodeSvcLBReconciler) isServiceSupported(svc *corev1.Service) bool {
+	if !svc.DeletionTimestamp.IsZero() {
 		return false
 	}
-	if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
 		return false
 	}
-	return service.Spec.LoadBalancerClass != nil && *service.Spec.LoadBalancerClass == nodeSvcLBClass
+	return svc.Spec.LoadBalancerClass != nil &&
+		*svc.Spec.LoadBalancerClass == nodeSvcLBClass
 }
 
-// getRelevantNodes get all the nodes in the matching EndpointSlices for a specified service
-func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
+// getEndpointSliceNodes returns the set of node names if eTP=Local. If eTP=Cluster
+// the set returned will be nil.
+func (r *nodeSvcLBReconciler) getEndpointSliceNodeNames(ctx context.Context, svc *corev1.Service) (sets.Set[string], error) {
+	// If eTP=Cluster we don't filter nodes on EndpointSlice
+	if svc.Spec.ExternalTrafficPolicy != corev1.ServiceExternalTrafficPolicyLocal {
+		return nil, nil
+	}
+
 	selectedNodes := sets.Set[string]{}
 	serviceReq, _ := labels.NewRequirement(discoveryv1.LabelServiceName, selection.Equals, []string{svc.Name})
 
@@ -185,20 +195,32 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 		}
 	}
 
+	return selectedNodes, nil
+}
+
+// getRelevantNodes gets all the nodes candidates for seletion by nodeipam
+func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
+	endpointSliceNames, err := r.getEndpointSliceNodeNames(ctx, svc)
+	if err != nil {
+		return []corev1.Node{}, err
+	}
 	var nodes corev1.NodeList
 	if err := r.List(ctx, &nodes); err != nil {
 		return []corev1.Node{}, err
 	}
 
-	relevantsNodes := []corev1.Node{}
+	relevantNodes := []corev1.Node{}
 	for _, node := range nodes.Items {
-		if !selectedNodes.Has(node.Name) {
+		if !shouldIncludeNode(&node) {
+			continue
+		}
+		if endpointSliceNames != nil && !endpointSliceNames.Has(node.Name) {
 			continue
 		}
 
-		relevantsNodes = append(relevantsNodes, node)
+		relevantNodes = append(relevantNodes, node)
 	}
-	return relevantsNodes, nil
+	return relevantNodes, nil
 }
 
 // getNodeLoadBalancerIngresses get all the load balancer ingresses with the specified nodes
