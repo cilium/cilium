@@ -57,7 +57,7 @@ func NewNodeObserver(manager NodeManager) *NodeObserver {
 }
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
-	if n, ok := k.(*nodeTypes.Node); ok {
+	if n, ok := k.(*nodeTypes.Node); ok && !n.IsLocal() {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = source.KVStore
 		o.manager.NodeUpdated(*nodeCopy)
@@ -65,7 +65,7 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 }
 
 func (o *NodeObserver) OnDelete(k store.NamedKey) {
-	if n, ok := k.(*nodeTypes.Node); ok {
+	if n, ok := k.(*nodeTypes.Node); ok && !n.IsLocal() {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = source.KVStore
 		o.manager.NodeDeleted(*nodeCopy)
