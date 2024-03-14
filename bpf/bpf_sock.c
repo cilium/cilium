@@ -659,13 +659,13 @@ struct {
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
 } LB6_REVERSE_NAT_SK_MAP __section_maps_btf;
 
-//struct {
-//        __uint(type, BPF_MAP_TYPE_LRU_HASH);
-//        __type(key, struct skip_lb6_key);
-//        __type(value, __u8);
-//        __uint(pinning, LIBBPF_PIN_BY_NAME);
-//        __uint(max_entries, CILIUM_LB4_SKIP_MAP_MAX_ENTRIES);
-//} LB6_SKIP_MAP __section_maps_btf;
+struct {
+        __uint(type, BPF_MAP_TYPE_HASH);
+        __type(key, struct skip_lb6_key);
+        __type(value, __u8);
+        __uint(pinning, LIBBPF_PIN_BY_NAME);
+        __uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+} LB6_SKIP_MAP __section_maps_btf;
 
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
@@ -690,6 +690,35 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 				      &val, 0);
 	return ret;
 }
+
+static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
+                                               union v6addr *addr);
+
+#ifdef ENABLE_LOCAL_REDIRECT_POLICY
+static __always_inline bool
+sock6_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
+                    const union v6addr address __maybe_unused, __be16 port __maybe_unused)
+{
+#ifdef HAVE_NETNS_COOKIE
+	__net_cookie cookie = get_netns_cookie(ctx);
+	struct skip_lb6_key key;
+	__u8 *val = NULL;
+
+	memset(&key, 0, sizeof(key));
+	key.netns_cookie = cookie;
+	ctx_get_v6_address(ctx, &key.address);
+	key.port = port;
+	printk("bpf_sock-trace-v6: netns %llu\n", key.netns_cookie);
+	val = map_lookup_elem(&LB6_SKIP_MAP, &key);
+	if (val) {
+		return true;
+	}
+	return false;
+#else
+	return false;
+#endif
+}
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 #endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
@@ -862,29 +891,6 @@ sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 	return 0;
 }
 
-//static __always_inline bool
-//sock6_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
-//                    const union v6addr address __maybe_unused, __be16 port __maybe_unused)
-//{
-//#ifdef HAVE_NETNS_COOKIE
-//	__net_cookie cookie = get_netns_cookie(ctx);
-//    struct skip_lb6_key key;
-//    __u8 *val = NULL;
-//
-//    memset(&key, 0, sizeof(key));
-//    key.netns_cookie = cookie;
-//	ctx_get_v6_address(ctx, &key.address);
-//    key.port = port;
-//    val = map_lookup_elem(&LB6_SKIP_MAP, &key);
-//    if (val) {
-//            return true;
-//    }
-//    return false;
-//#else
-//	return false;
-//#endif
-//}
-
 static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 {
 	struct lb6_service *svc;
@@ -1047,9 +1053,11 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
-	//	if (lb6_svc_is_localredirect(svc) &&
-	//        sock6_skip_xlate_from_ctx_to_svc(ctx_full, orig_key.address, orig_key.dport))
-	//		return -ENXIO;
+#ifdef ENABLE_LOCAL_REDIRECT_POLICY
+    if (lb6_svc_is_localredirect(svc) &&
+        sock6_skip_xlate_from_ctx_to_svc(ctx, orig_key.address, orig_key.dport))
+        return -ENXIO;
+#endif
 
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */

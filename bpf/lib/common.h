@@ -1245,12 +1245,12 @@ struct skip_lb4_key {
         __u16 pad;
 };
 
-//struct skip_lb6_key {
-//        __u64 netns_cookie;     /* Source pod netns cookie */
-//        union v6addr address;   /* Destination service virtual IPv6 address */
-//        __u16 port;             /* Destination service virtual layer4 port */
-//        __u16 pad;
-//};
+struct skip_lb6_key {
+        __u64 netns_cookie;     /* Source pod netns cookie */
+        union v6addr address;   /* Destination service virtual IPv6 address */
+        __u16 port;             /* Destination service virtual layer4 port */
+        __u16 pad;
+};
 
 /* Older kernels don't support the larger tunnel key structure and we don't
  * need it since we only want to retrieve the tunnel ID anyway.
