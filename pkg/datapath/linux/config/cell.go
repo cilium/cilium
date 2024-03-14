@@ -17,7 +17,7 @@ type WriterParams struct {
 	cell.In
 
 	Log                logrus.FieldLogger
-	NodeMap            nodemap.Map
+	NodeMap            nodemap.MapV2
 	NodeAddressing     datapath.NodeAddressing
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`

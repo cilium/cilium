@@ -16,7 +16,7 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "NodeMap")
 
-// Cell provides the nodemap.Map which contains information about node IDs and their IP addresses.
+// Cell provides the nodemap.MapV2 which contains information about node IDs, SPIs, and their IP addresses.
 var Cell = cell.Module(
 	"node-map",
 	"eBPF map which contains information about node IDs and their IP addresses",
@@ -38,12 +38,12 @@ var defaultConfig = Config{
 	NodeMapMax: DefaultMaxEntries,
 }
 
-func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[Map], error) {
+func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[MapV2], error) {
 	if conf.NodeMapMax < DefaultMaxEntries {
-		return bpf.MapOut[Map]{}, fmt.Errorf("creating node map: bpf-node-map-max cannot be less than %d (%d)",
+		return bpf.MapOut[MapV2]{}, fmt.Errorf("creating node map: bpf-node-map-max cannot be less than %d (%d)",
 			DefaultMaxEntries, conf.NodeMapMax)
 	}
-	nodeMap := newMap(MapName, conf)
+	nodeMap := newMapV2(MapNameV2, MapName, conf)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
@@ -54,5 +54,5 @@ func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[Map], error) 
 		},
 	})
 
-	return bpf.NewMapOut(Map(nodeMap)), nil
+	return bpf.NewMapOut(MapV2(nodeMap)), nil
 }
