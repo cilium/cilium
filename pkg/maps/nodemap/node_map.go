@@ -141,11 +141,3 @@ func (m *nodeMap) init() error {
 
 	return nil
 }
-
-func (m *nodeMap) close() error {
-	if err := m.bpfMap.Close(); err != nil {
-		return fmt.Errorf("failed to close bpf map: %w", err)
-	}
-
-	return nil
-}
