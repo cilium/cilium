@@ -475,7 +475,13 @@ bpf:
   # @schema
   # type: [null, integer]
   # @schema
+  # @default -- `16384`
+  # -- (int) Configures the maximum number of entries for the node table.
+  nodeMapMax: ~
   # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
+  # @schema
+  # type: [null, integer]
+  # @schema
   policyMapMax: 16384
   # @schema
   # type: [null, number]
