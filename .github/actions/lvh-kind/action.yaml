@@ -28,6 +28,7 @@ runs:
         mem: 12G
         install-dependencies: 'true'
         port-forward: '6443:6443'
+        ssh-startup-wait-retries: 600
         cmd: |
           git config --global --add safe.directory /host
 
