@@ -229,13 +229,23 @@ func GetClusterIPByFamily(ipFamily slim_corev1.IPFamily, service *slim_corev1.Se
 	return ""
 }
 
-// SanitizePodLabels makes sure that no important pod labels were overridden manually
-func SanitizePodLabels(labels map[string]string, namespace *slim_corev1.Namespace, serviceAccount, clusterName string) map[string]string {
-	sanitizedLabels := make(map[string]string)
-
+// filterPodLabels returns a copy of the given labels map, without the labels owned by Cilium.
+func filterPodLabels(labels map[string]string) map[string]string {
+	res := map[string]string{}
 	for k, v := range labels {
-		sanitizedLabels[k] = v
+		if strings.HasPrefix(k, k8sconst.LabelPrefix) {
+			continue
+		}
+		res[k] = v
 	}
+	return res
+}
+
+// SanitizePodLabels makes sure that no important pod labels were overridden manually on k8s pod
+// object creation.
+func SanitizePodLabels(podLabels map[string]string, namespace *slim_corev1.Namespace, serviceAccount, clusterName string) map[string]string {
+	sanitizedLabels := filterPodLabels(podLabels)
+
 	// Sanitize namespace labels
 	for k, v := range namespace.GetLabels() {
 		sanitizedLabels[joinPath(k8sconst.PodNamespaceMetaLabels, k)] = v
