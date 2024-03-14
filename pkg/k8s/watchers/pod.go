@@ -401,7 +401,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	for _, podEP := range podEPs {
 		if labelsChanged {
-			err := updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
+			err := podEP.UpdateLabelsFrom(oldPodLabels, newPodLabels, labels.LabelSourceK8s)
 			if err != nil {
 				return err
 			}
@@ -518,10 +518,6 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 				return nil
 			},
 		})
-}
-
-func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {
-	return ep.UpdateLabelsFrom(oldLbls, newLbls, labels.LabelSourceK8s)
 }
 
 func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
