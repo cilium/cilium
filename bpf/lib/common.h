@@ -496,6 +496,21 @@ struct vtep_value {
 	__u32 tunnel_endpoint;
 };
 
+struct node_key {
+	__u16 pad1;
+	__u8 pad2;
+	__u8 family;
+	union {
+		struct {
+			__u32 ip4;
+			__u32 pad4;
+			__u32 pad5;
+			__u32 pad6;
+		};
+		union v6addr ip6;
+	};
+};
+
 enum {
 	POLICY_INGRESS = 1,
 	POLICY_EGRESS = 2,
