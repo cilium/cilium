@@ -344,8 +344,12 @@
      - Configure the maximum number of entries for the neighbor table.
      - int
      - ``524288``
+   * - :spelling:ignore:`bpf.nodeMapMax`
+     - Configures the maximum number of entries for the node table.
+     - int
+     - ``nil``
    * - :spelling:ignore:`bpf.policyMapMax`
-     - Configure the maximum number of entries in endpoint policy map (per endpoint).
+     - Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema
      - int
      - ``16384``
    * - :spelling:ignore:`bpf.preallocateMaps`

@@ -366,6 +366,11 @@ data:
   enable-host-legacy-routing: "true"
 {{- end }}
 
+{{- if .Values.bpf.nodeMapMax }}
+  # node-map-max specifies the maximum number of entries for the node map.
+  bpf-node-map-max: {{ .Values.bpf.nodeMapMax | quote }}
+{{- end }}
+
 {{- if .Values.bpf.authMapMax }}
   # bpf-auth-map-max specifies the maximum number of entries in the auth map
   bpf-auth-map-max: {{ .Values.bpf.authMapMax | quote }}
