@@ -1,6 +1,6 @@
 module github.com/cilium/cilium-cli
 
-go 1.22.1
+go 1.22.0
 
 // Replace directives from github.com/cilium/cilium. Keep in sync when updating Cilium!
 replace (
