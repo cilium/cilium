@@ -246,9 +246,9 @@ func SanitizePodLabels(podLabels map[string]string, namespace nameLabelsGetter, 
 	return sanitizedLabels
 }
 
-// StripPodSpecialLabels strips labels that are not supposed to be coming from a k8s pod object
+// StripPodSpecialLabels strips labels that are not supposed to be coming from a k8s pod object update.
 func StripPodSpecialLabels(labels map[string]string) map[string]string {
-	sanitizedLabels := make(map[string]string)
+	sanitizedLabels := filterPodLabels(labels)
 	forbiddenKeys := map[string]struct{}{
 		k8sconst.PodNamespaceMetaLabels:    {},
 		k8sconst.PolicyLabelServiceAccount: {},
