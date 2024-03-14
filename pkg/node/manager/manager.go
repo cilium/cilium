@@ -449,7 +449,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			Source: n.Source,
 		})
 		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.upsertIntoIDMD(prefix, remoteHostIdentity, resource)
+		m.upsertIntoIDMD(prefix, remoteHostIdentity, resource, n.Source)
 
 		// Upsert() will return true if the ipcache entry is owned by
 		// the source of the node update that triggered this node
@@ -587,11 +587,11 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
 // (IDMD) map. The given node identity determines which labels are associated
 // with the CIDR.
-func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, rid ipcacheTypes.ResourceID) {
+func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, rid ipcacheTypes.ResourceID, src source.Source) {
 	if id == identity.ReservedIdentityHost {
-		m.ipcache.UpsertLabels(prefix, labels.LabelHost, source.Local, rid)
+		m.ipcache.UpsertLabels(prefix, labels.LabelHost, src, rid)
 	} else {
-		m.ipcache.UpsertLabels(prefix, labels.LabelRemoteNode, source.CustomResource, rid)
+		m.ipcache.UpsertLabels(prefix, labels.LabelRemoteNode, src, rid)
 	}
 }
 
