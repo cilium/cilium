@@ -589,6 +589,12 @@
             "integer"
           ]
         },
+        "nodeMapMax": {
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
         "policyMapMax": {
           "type": [
             "null",
