@@ -85,6 +85,6 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	c.Assert(h.String(), Not(Equals), dummyHash)
 }
 
-var provideNodemap = cell.Provide(func() nodemap.Map {
-	return fake.NewFakeNodeMap()
+var provideNodemap = cell.Provide(func() nodemap.MapV2 {
+	return fake.NewFakeNodeMapV2()
 })

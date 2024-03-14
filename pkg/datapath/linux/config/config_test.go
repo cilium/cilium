@@ -373,7 +373,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap: fake.NewFakeNodeMap(),
+		NodeMap: fake.NewFakeNodeMapV2(),
 	})
 	require.NoError(t, err)
 
@@ -394,7 +394,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		BandwidthManager: &fakeTypes.BandwidthManager{},
 		Sysctl:           sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap:          fake.NewFakeNodeMap(),
+		NodeMap:          fake.NewFakeNodeMapV2(),
 	})
 	require.NoError(t, err)
 
@@ -411,7 +411,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		BandwidthManager: &fakeTypes.BandwidthManager{},
 		Sysctl:           sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap:          fake.NewFakeNodeMap(),
+		NodeMap:          fake.NewFakeNodeMapV2(),
 	})
 	require.NoError(t, err)
 
@@ -432,7 +432,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefineFns: nil,
 		BandwidthManager:   &fakeTypes.BandwidthManager{},
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap:            fake.NewFakeNodeMap(),
+		NodeMap:            fake.NewFakeNodeMapV2(),
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -443,13 +443,13 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefineFns: nil,
 		BandwidthManager:   &fakeTypes.BandwidthManager{},
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap:            fake.NewFakeNodeMap(),
+		NodeMap:            fake.NewFakeNodeMapV2(),
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
 	require.Contains(t, buffer.String(), "define A 1\n")
 }
 
-var provideNodemap = cell.Provide(func() nodemap.Map {
-	return fake.NewFakeNodeMap()
+var provideNodemap = cell.Provide(func() nodemap.MapV2 {
+	return fake.NewFakeNodeMapV2()
 })
