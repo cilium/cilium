@@ -81,6 +81,25 @@
       ],
     },
     {
+      // Avoid updating patch releases of golang in go.mod
+      "enabled": "false",
+      "matchFiles": [
+        "go.mod",
+      ],
+      "matchDepNames": [
+        "go"
+      ],
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      matchBaseBranches: [
+        "main",
+      ]
+    },
+    {
       "enabled": false,
       "matchPackageNames": [
         // All of these packages are maintained on a Cilium fork. Thus, we don't
@@ -191,6 +210,14 @@
         "\/\/ renovate: datasource=(?<datasource>.*?)\\s+.+Image = \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
         "\/\/ renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+Version = \"(?<currentValue>.*)\""
       ]
-    }
+    },
+    {
+      "fileMatch": [
+        "^go\\.mod$"
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go (?<currentValue>.*)"
+      ]
+    },
   ]
 }
