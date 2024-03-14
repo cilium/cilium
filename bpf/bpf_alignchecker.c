@@ -89,3 +89,4 @@ add_type(struct auth_info);
 add_type(struct encrypt_config);
 add_type(struct world_cidrs_key4);
 add_type(struct mcast_subscriber_v4);
+add_type(struct node_key);
