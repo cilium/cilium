@@ -413,7 +413,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 			}
 
 			// Synchronize Pod labels with CiliumEndpoint labels if there is a change.
-			updateCiliumEndpointLabels(k.clientset, podEP, newPodLabels)
+			updateCiliumEndpointLabels(k.clientset, podEP, newK8sPod.Labels)
 		}
 
 		if annotationsChanged {
