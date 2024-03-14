@@ -314,6 +314,10 @@ To disable the encryption, regenerate the YAML with the option
 Limitations
 ===========
 
+    * For clusters running in native routing mode, IPsec encryption is not applied to
+      connections which are selected by an L7 Egress Network Policy or a DNS Policy.
+      For more information see `GHSA-j89h-qrvr-xc36
+      <https://github.com/cilium/cilium/security/advisories/GHSA-j89h-qrvr-xc36>`__.
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
