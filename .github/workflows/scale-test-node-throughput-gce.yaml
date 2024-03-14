@@ -184,6 +184,7 @@ jobs:
           mkdir ./report
           echo POD_STARTUP_LATENCY_THRESHOLD: 60s >> ./testoverrides.yaml
           echo POD_COUNT: 98 >> ./testoverrides.yaml
+
           go run ./cmd/clusterloader.go \
             -v=4 \
             --testconfig=./testing/node-throughput/config.yaml \
