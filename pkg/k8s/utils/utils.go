@@ -211,13 +211,23 @@ type nameLabelsGetter interface {
 	GetLabels() map[string]string
 }
 
-// SanitizePodLabels makes sure that no important pod labels were overridden manually
-func SanitizePodLabels(podLabels map[string]string, namespace nameLabelsGetter, serviceAccount, clusterName string) map[string]string {
-	sanitizedLabels := make(map[string]string)
-
-	for k, v := range podLabels {
-		sanitizedLabels[k] = v
+// filterPodLabels returns a copy of the given labels map, without the labels owned by Cilium.
+func filterPodLabels(labels map[string]string) map[string]string {
+	res := map[string]string{}
+	for k, v := range labels {
+		if strings.HasPrefix(k, k8sconst.LabelPrefix) {
+			continue
+		}
+		res[k] = v
 	}
+	return res
+}
+
+// SanitizePodLabels makes sure that no important pod labels were overridden manually on k8s pod
+// object creation.
+func SanitizePodLabels(podLabels map[string]string, namespace nameLabelsGetter, serviceAccount, clusterName string) map[string]string {
+	sanitizedLabels := filterPodLabels(podLabels)
+
 	// Sanitize namespace labels
 	for k, v := range namespace.GetLabels() {
 		sanitizedLabels[joinPath(k8sconst.PodNamespaceMetaLabels, k)] = v
