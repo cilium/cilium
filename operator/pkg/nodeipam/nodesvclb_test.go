@@ -6,6 +6,7 @@ package nodeipam
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +44,61 @@ var (
 				},
 			},
 		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-3",
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000::3"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.3"},
+				},
+			},
+		},
+
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "node-4-excluded",
+				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				Finalizers:        []string{"myfinalizer"},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000:4"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.4"},
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-5-excluded",
+				Labels: map[string]string{
+					corev1.LabelNodeExcludeBalancers: "",
+				},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000:5"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.5"},
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-6-excluded",
+			},
+			Spec: corev1.NodeSpec{
+				Taints: []corev1.Taint{
+					{Key: toBeDeletedTaint},
+				},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000:6"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.6"},
+				},
+			},
+		},
 
 		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
@@ -61,9 +117,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -84,9 +141,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -106,9 +164,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -129,9 +188,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -153,9 +213,23 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
+			},
+		},
+
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "etp-cluster",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyCluster,
 			},
 		},
 
@@ -201,8 +275,9 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 			Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: []corev1.LoadBalancerIngress{{IP: "100.100.100.100"}},
@@ -297,5 +372,27 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
 		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "2001:0000::1")
 		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.2")
+	})
+
+	//
+	t.Run("external traffic policy cluster", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "etp-cluster",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		svc := &corev1.Service{}
+		err = c.Get(context.Background(), key, svc)
+
+		require.NoError(t, err)
+		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
+		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
+		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
 	})
 }
