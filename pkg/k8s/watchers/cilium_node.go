@@ -126,7 +126,7 @@ func (k *K8sWatcher) onCiliumNodeInsert(ciliumNode *cilium_v2.CiliumNode) bool {
 		return false
 	}
 	n := types.ParseCiliumNode(ciliumNode)
-	k.nodeDiscoverManager.NodeUpdated(n)
+	k.nodeManager.NodeUpdated(n)
 	return true
 }
 
@@ -145,7 +145,7 @@ func (k *K8sWatcher) onCiliumNodeDelete(ciliumNode *cilium_v2.CiliumNode) {
 		return
 	}
 	n := types.ParseCiliumNode(ciliumNode)
-	k.nodeDiscoverManager.NodeDeleted(n)
+	k.nodeManager.NodeDeleted(n)
 }
 
 // GetCiliumNode returns the CiliumNode "nodeName" from the local Resource[T] store. If the

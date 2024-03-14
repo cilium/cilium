@@ -493,7 +493,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		d.endpointManager,
-		d.nodeDiscovery,
+		params.NodeManager,
 		&d,
 		d.policy,
 		d.svc,
