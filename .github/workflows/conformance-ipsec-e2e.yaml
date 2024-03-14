@@ -121,6 +121,31 @@ jobs:
             key-one: 'cbc(aes)'
             key-two: 'gcm(aes)'
 
+          - name: '5'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.4-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            devices: 'eth0'
+            key-one: 'cbc(aes)'
+            key-two: 'cbc(aes)'
+
+          - name: '6'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.10-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+            devices: 'eth0'
+            key-one: 'gcm(aes)'
+            key-two: 'gcm(aes)'
+
     timeout-minutes: 75
     steps:
       - name: Checkout context ref (trusted)
