@@ -130,7 +130,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	err := proxyWaitGroup.Context().Err()
 	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
+		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
 	}
 
 	start := time.Now()
