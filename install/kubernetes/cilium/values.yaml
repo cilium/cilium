@@ -468,7 +468,17 @@ bpf:
   # @default -- `524288`
   neighMax: ~
 
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # @default -- `16384`
+  # -- (int) Configures the maximum number of entries for the node table.
+  nodeMapMax: ~
+
   # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
+  # @schema
+  # type: [null, integer]
+  # @schema
   policyMapMax: 16384
 
   # -- (float64) Configure auto-sizing for all BPF maps based on available memory.
