@@ -132,6 +132,9 @@ func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
 func (a addressFamily) getNodeAddresses(txn statedb.ReadTxn, flag getFlags) (addrs []net.IP) {
 	nodeAddrs, _ := a.nodeAddresses.All(txn)
 	for addr, _, ok := nodeAddrs.Next(); ok; addr, _, ok = nodeAddrs.Next() {
+		if addr.DeviceName == WildcardDeviceName {
+			continue
+		}
 		if flag&nodePort != 0 && !addr.NodePort {
 			continue
 		}

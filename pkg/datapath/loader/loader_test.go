@@ -6,6 +6,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,19 +14,19 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
-	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -139,7 +140,7 @@ func (s *LoaderTestSuite) testCompileAndLoad(c *C, ep *testutils.TestEndpoint) {
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(c)
 	err := l.compileAndLoad(ctx, ep, getDirs(c), stats)
 	c.Assert(err, IsNil)
 }
@@ -207,7 +208,7 @@ func (s *LoaderTestSuite) testCompileFailure(c *C, ep *testutils.TestEndpoint) {
 		}
 	}()
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(c)
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &metrics.SpanStat{}
@@ -227,6 +228,60 @@ func (s *LoaderTestSuite) TestCompileFailureDefaultEndpoint(c *C) {
 // TestCompileFailureDefaultEndpoint, but for the host endpoint.
 func (s *LoaderTestSuite) TestCompileFailureHostEndpoint(c *C) {
 	s.testCompileFailure(c, &hostEp)
+}
+
+func (s *LoaderTestSuite) TestBPFMasqAddrs(c *C) {
+	old4 := option.Config.EnableIPv4Masquerade
+	option.Config.EnableIPv4Masquerade = true
+	old6 := option.Config.EnableIPv4Masquerade
+	option.Config.EnableIPv6Masquerade = true
+	c.Cleanup(func() {
+		option.Config.EnableIPv4Masquerade = old4
+		option.Config.EnableIPv6Masquerade = old6
+	})
+
+	l := NewLoaderForTest(c)
+	nodeAddrs := l.nodeAddrs.(statedb.RWTable[tables.NodeAddress])
+	db := l.db
+
+	masq4, masq6 := l.bpfMasqAddrs("test")
+	c.Assert(masq4.IsValid(), Equals, false)
+	c.Assert(masq6.IsValid(), Equals, false)
+
+	txn := db.WriteTxn(nodeAddrs)
+	nodeAddrs.Insert(txn, tables.NodeAddress{
+		Addr:       netip.MustParseAddr("1.0.0.1"),
+		NodePort:   true,
+		Primary:    true,
+		DeviceName: "test",
+	})
+	nodeAddrs.Insert(txn, tables.NodeAddress{
+		Addr:       netip.MustParseAddr("1000::1"),
+		NodePort:   true,
+		Primary:    true,
+		DeviceName: "test",
+	})
+	nodeAddrs.Insert(txn, tables.NodeAddress{
+		Addr:       netip.MustParseAddr("2.0.0.2"),
+		NodePort:   false,
+		Primary:    true,
+		DeviceName: tables.WildcardDeviceName,
+	})
+	nodeAddrs.Insert(txn, tables.NodeAddress{
+		Addr:       netip.MustParseAddr("2000::2"),
+		NodePort:   false,
+		Primary:    true,
+		DeviceName: tables.WildcardDeviceName,
+	})
+	txn.Commit()
+
+	masq4, masq6 = l.bpfMasqAddrs("test")
+	c.Assert(masq4.String(), Equals, "1.0.0.1")
+	c.Assert(masq6.String(), Equals, "1000::1")
+
+	masq4, masq6 = l.bpfMasqAddrs("unknown")
+	c.Assert(masq4.String(), Equals, "2.0.0.2")
+	c.Assert(masq6.String(), Equals, "2000::2")
 }
 
 // BenchmarkCompileOnly benchmarks the just the entire compilation process.
@@ -251,7 +306,7 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(b)
 	dirInfo := getDirs(b)
 
 	b.ResetTimer()
@@ -329,7 +384,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	}
 	defer os.RemoveAll(epDir)
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(b)
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
 	if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)

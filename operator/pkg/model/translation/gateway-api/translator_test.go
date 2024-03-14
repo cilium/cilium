@@ -213,6 +213,15 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: mirrorHTTPListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/HTTPRouteRequestRedirectWithMultiHTTPListeners",
+			args: args{
+				m: &model.Model{
+					HTTP: requestRedirectWithMultiHTTPListeners,
+				},
+			},
+			want: requestRedirectWithMultiHTTPListenersCiliumEnvoyConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

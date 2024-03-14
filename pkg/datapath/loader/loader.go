@@ -7,12 +7,16 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"path"
 	"strings"
 	"sync"
+	"testing"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -22,16 +26,18 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -66,6 +72,8 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type loader struct {
+	cfg Config
+
 	once sync.Once
 
 	// templateCache is the cache of pre-compiled datapaths.
@@ -76,14 +84,42 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl sysctl.Sysctl
+	sysctl    sysctl.Sysctl
+	db        *statedb.DB
+	nodeAddrs statedb.Table[tables.NodeAddress]
 }
 
-func newLoader(sysctl sysctl.Sysctl) *loader {
+type Params struct {
+	cell.In
+
+	Config    Config
+	DB        *statedb.DB
+	NodeAddrs statedb.Table[tables.NodeAddress]
+	Sysctl    sysctl.Sysctl
+}
+
+// newLoader returns a new loader.
+func newLoader(p Params) *loader {
 	return &loader{
+		cfg:               p.Config,
+		db:                p.DB,
+		nodeAddrs:         p.NodeAddrs,
+		sysctl:            p.Sysctl,
 		hostDpInitialized: make(chan struct{}),
-		sysctl:            sysctl,
 	}
+}
+
+func NewLoaderForTest(tb testing.TB) *loader {
+	nodeAddrs, err := tables.NewNodeAddressTable()
+	require.NoError(tb, err, "NewNodeAddressTable")
+	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs}, statedb.NewMetrics())
+	require.NoError(tb, err, "NewDB")
+	return newLoader(Params{
+		Config:    DefaultConfig,
+		DB:        db,
+		NodeAddrs: nodeAddrs,
+		Sysctl:    sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+	})
 }
 
 // Init initializes the datapath cache with base program hashes derived from
@@ -140,15 +176,56 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 	return nullStrings
 }
 
+func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
+	if l.cfg.DeriveMasqIPAddrFromDevice != "" {
+		ifName = l.cfg.DeriveMasqIPAddrFromDevice
+	}
+
+	find := func(iter statedb.Iterator[tables.NodeAddress]) bool {
+		for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+			if !addr.Primary {
+				continue
+			}
+			if addr.Addr.Is4() && !masq4.IsValid() {
+				masq4 = addr.Addr
+			} else if addr.Addr.Is6() && !masq6.IsValid() {
+				masq6 = addr.Addr
+			}
+			done := (!option.Config.EnableIPv4Masquerade || masq4.IsValid()) &&
+				(!option.Config.EnableIPv6Masquerade || masq6.IsValid())
+			if done {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Try to find suitable masquerade address first from the given interface.
+	txn := l.db.ReadTxn()
+	iter, _ := l.nodeAddrs.Get(
+		txn,
+		tables.NodeAddressDeviceNameIndex.Query(ifName),
+	)
+	if !find(iter) {
+		// No suitable masquerade addresses were found for this device. Try the fallback
+		// addresses.
+		iter, _ = l.nodeAddrs.Get(
+			txn,
+			tables.NodeAddressDeviceNameIndex.Query(tables.WildcardDeviceName),
+		)
+		find(iter)
+	}
+
+	return
+}
+
 // Since we attach the host endpoint datapath to two different interfaces, we
 // need two different NODE_MAC values. patchHostNetdevDatapath creates a new
 // object file for the native device, from the object file for the host device
 // (cilium_host).
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
-func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
-	bpfMasqIPv4Addrs, bpfMasqIPv6Addrs map[string]net.IP) error {
-
+func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string) error {
 	hostObj, err := elf.Open(objPath)
 	if err != nil {
 		return err
@@ -184,15 +261,16 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 	if option.Config.EnableNodePort {
 		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 	}
-	if option.Config.EnableBPFMasquerade {
-		if option.Config.EnableIPv4Masquerade && bpfMasqIPv4Addrs != nil {
-			ipv4 := bpfMasqIPv4Addrs[ifName]
-			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4))
+	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
+		ipv4, ipv6 := l.bpfMasqAddrs(ifName)
+
+		if option.Config.EnableIPv4Masquerade && ipv4.IsValid() {
+			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4.AsSlice()))
 		}
-		if option.Config.EnableIPv6Masquerade && bpfMasqIPv6Addrs != nil {
-			ipv6 := bpfMasqIPv6Addrs[ifName]
-			opts["IPV6_MASQUERADE_1"] = sliceToBe64(ipv6[0:8])
-			opts["IPV6_MASQUERADE_2"] = sliceToBe64(ipv6[8:16])
+		if option.Config.EnableIPv6Masquerade && ipv6.IsValid() {
+			ipv6Bytes := ipv6.AsSlice()
+			opts["IPV6_MASQUERADE_1"] = sliceToBe64(ipv6Bytes[0:8])
+			opts["IPV6_MASQUERADE_2"] = sliceToBe64(ipv6Bytes[8:16])
 		}
 	}
 
@@ -334,7 +412,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 
 	secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-	if err := l.patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
+	if err := l.patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice); err != nil {
 		return err
 	}
 
@@ -363,8 +441,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		}
 
 		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := l.patchHostNetdevDatapath(ep, objPath, netdevObjPath, device,
-			node.GetMasqIPv4AddrsWithDevices(), node.GetMasqIPv6AddrsWithDevices()); err != nil {
+		if err := l.patchHostNetdevDatapath(ep, objPath, netdevObjPath, device); err != nil {
 			return err
 		}
 

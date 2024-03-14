@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -61,7 +59,9 @@ func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 		err = attachXDPProgram(veth1, prog, symbolFromHostNetdevXDP, veth1LinkPath, link.XDPDriverMode)
 		require.NoError(t, err)
 
-		newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")).maybeUnloadObsoleteXDPPrograms([]string{"veth0"}, option.XDPModeLinkDriver, basePath)
+		NewLoaderForTest(t).maybeUnloadObsoleteXDPPrograms(
+			[]string{"veth0"}, option.XDPModeLinkDriver, basePath,
+		)
 
 		require.Eventually(t, func() bool {
 			v1, err := h.LinkByName("veth1")
@@ -187,7 +187,7 @@ func TestAttachXDPWithExistingLink(t *testing.T) {
 		require.NoError(t, err)
 
 		// Detach the program.
-		err = newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")).DetachXDP(veth, basePath, "test")
+		err = NewLoaderForTest(t).DetachXDP(veth, basePath, "test")
 		require.NoError(t, err)
 
 		err = netlink.LinkDel(veth)
@@ -217,7 +217,7 @@ func TestDetachXDPWithPreviousAttach(t *testing.T) {
 		err = netlink.LinkSetXdpFdWithFlags(veth, prog.FD(), int(link.XDPGenericMode))
 		require.NoError(t, err)
 
-		err = newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")).DetachXDP(veth, basePath, "test")
+		err = NewLoaderForTest(t).DetachXDP(veth, basePath, "test")
 		require.NoError(t, err)
 
 		err = netlink.LinkDel(veth)

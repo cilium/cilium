@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -111,12 +110,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	}
 
 	d.params.Config.SetDevices(devices)
-
-	if d.params.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
-		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
-			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
-		}
-	}
 
 	daemon, err := d.params.Daemon.Await(ctx)
 	if err != nil {
