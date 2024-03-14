@@ -407,6 +407,12 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		if labelsChanged {
 			err := podEP.UpdateLabelsFrom(oldPodLabels, newPodLabels, labels.LabelSourceK8s)
 			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:   newK8sPod.ObjectMeta.Name,
+					logfields.K8sNamespace: newK8sPod.ObjectMeta.Namespace,
+					logfields.EndpointID:   podEP.GetID(),
+					logfields.Labels:       newPodLabels,
+				}).WithError(err).Warning("Unable to update endpoint labels on pod update")
 				return err
 			}
 
