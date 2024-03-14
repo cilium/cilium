@@ -746,7 +746,10 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 	};
 	struct lb_affinity_val *val;
 
-	ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
+	if (netns_cookie)
+		key.client_id.client_cookie = id->client_cookie;
+	else
+		ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
 	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
 	if (val != NULL) {
@@ -795,7 +798,10 @@ __lb6_update_affinity(const struct lb6_service *svc, bool netns_cookie,
 		.last_used	= now,
 	};
 
-	ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
+	if (netns_cookie)
+		key.client_id.client_cookie = id->client_cookie;
+	else
+		ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
 	map_update_elem(&LB6_AFFINITY_MAP, &key, &val, 0);
 }
