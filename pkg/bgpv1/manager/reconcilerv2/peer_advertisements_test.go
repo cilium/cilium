@@ -163,6 +163,28 @@ var (
 		},
 	}
 
+	// red peer config - v4
+	redPeerConfigV4 = &v2alpha1.CiliumBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "peer-config-red-v4",
+		},
+		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp",
+						},
+					},
+				},
+			},
+		},
+	}
+
 	// blue peer config
 	bluePeerConfig = &v2alpha1.CiliumBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{

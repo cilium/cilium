@@ -141,28 +141,6 @@ var (
 	}()
 )
 
-func FakeSecretStore(secrets map[string][]byte) store.BGPCPResourceStore[*slim_corev1.Secret] {
-	store := store.NewMockBGPCPResourceStore[*slim_corev1.Secret]()
-	for k, v := range secrets {
-		store.Upsert(&slim_corev1.Secret{
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Namespace: "bgp-secrets",
-				Name:      k,
-			},
-			Data: map[string]slim_corev1.Bytes{"password": slim_corev1.Bytes(v)},
-		})
-	}
-	return store
-}
-
-func FakePeerConfigStore(objects []*v2alpha1.CiliumBGPPeerConfig) store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig] {
-	store := store.NewMockBGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]()
-	for _, obj := range objects {
-		store.Upsert(obj)
-	}
-	return store
-}
-
 // TestNeighborReconciler confirms the `neighborReconciler` function configures
 // the desired BGP neighbors given a CiliumBGPVirtualRouter configuration.
 func TestNeighborReconciler(t *testing.T) {
@@ -297,7 +275,7 @@ func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v2alpha1.CiliumBGP
 		objects = append(objects, obj)
 		nodeConfig.Peers = append(nodeConfig.Peers, *p.Peer)
 	}
-	peerConfigStore := FakePeerConfigStore(objects)
+	peerConfigStore := store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](objects)
 
 	// setup secret store
 	secrets := make(map[string][]byte)
@@ -306,7 +284,17 @@ func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v2alpha1.CiliumBGP
 			secrets[*p.Config.AuthSecretRef] = []byte(p.Password)
 		}
 	}
-	secretStore := FakeSecretStore(secrets)
+	var secretObjs []*slim_corev1.Secret
+	for _, s := range secrets {
+		secretObjs = append(secretObjs, &slim_corev1.Secret{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Namespace: "bgp-secrets",
+				Name:      "a-secret",
+			},
+			Data: map[string]slim_corev1.Bytes{"password": slim_corev1.Bytes(s)},
+		})
+	}
+	secretStore := store.InitMockStore[*slim_corev1.Secret](secretObjs)
 
 	return NeighborReconcilerIn{
 		Logger:       logrus.WithField("unit_test", "neighbors"),
