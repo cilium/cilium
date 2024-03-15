@@ -26,6 +26,8 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
+	nodemapFake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -100,6 +102,7 @@ func writeConfig(c *C, header string, write writeFn) {
 		var writer datapath.ConfigWriter
 		c.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
+			provideNodemap,
 			cell.Provide(
 				fake.NewNodeAddressing,
 				func() bandwidth.Manager { return &fake.BandwidthManager{} },
@@ -366,7 +369,9 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
-		}})
+		},
+		NodeMap: nodemapFake.NewFakeNodeMap(),
+	})
 	require.NoError(t, err)
 
 	buffer.Reset()
@@ -385,6 +390,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 		},
 		BandwidthManager: &fake.BandwidthManager{},
+		NodeMap:          nodemapFake.NewFakeNodeMap(),
 	})
 	require.NoError(t, err)
 
@@ -400,6 +406,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 		},
 		BandwidthManager: &fake.BandwidthManager{},
+		NodeMap:          nodemapFake.NewFakeNodeMap(),
 	})
 	require.NoError(t, err)
 
@@ -419,6 +426,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
 		BandwidthManager:   &fake.BandwidthManager{},
+		NodeMap:            nodemapFake.NewFakeNodeMap(),
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -428,8 +436,13 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
 		BandwidthManager:   &fake.BandwidthManager{},
+		NodeMap:            nodemapFake.NewFakeNodeMap(),
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
 	require.Contains(t, buffer.String(), "define A 1\n")
 }
+
+var provideNodemap = cell.Provide(func() nodemap.Map {
+	return nodemapFake.NewFakeNodeMap()
+})
