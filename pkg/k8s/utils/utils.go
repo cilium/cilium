@@ -248,23 +248,15 @@ func SanitizePodLabels(podLabels map[string]string, namespace nameLabelsGetter, 
 
 // StripPodSpecialLabels strips labels that are not supposed to be coming from a k8s pod object update.
 func StripPodSpecialLabels(labels map[string]string) map[string]string {
-	sanitizedLabels := filterPodLabels(labels)
-	forbiddenKeys := map[string]struct{}{
-		k8sconst.PodNamespaceMetaLabels:    {},
-		k8sconst.PolicyLabelServiceAccount: {},
-		k8sconst.PolicyLabelCluster:        {},
-		k8sconst.PodNamespaceLabel:         {},
-	}
-	for k, v := range labels {
+	sanitizedLabels := make(map[string]string)
+	for k, v := range filterPodLabels(labels) {
 		// If the key contains the prefix for namespace labels then we will
 		// ignore it.
 		if strings.HasPrefix(k, k8sconst.PodNamespaceMetaLabels) {
 			continue
 		}
-		// If the key belongs to any of the forbiddenKeys then we will ignore
-		// it.
-		_, ok := forbiddenKeys[k]
-		if ok {
+		// Also ignore it if the key is a kubernetes namespace label.
+		if k == k8sconst.PodNamespaceLabel {
 			continue
 		}
 		sanitizedLabels[k] = v
