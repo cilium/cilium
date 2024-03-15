@@ -215,8 +215,8 @@ type params struct {
 
 func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
-		if daemonCfg.DatapathMode != datapathOption.DatapathModeVeth {
-			return errors.New("BIG TCP is supported only in veth datapath mode")
+		if daemonCfg.DatapathMode == datapathOption.DatapathModeLBOnly {
+			return errors.New("BIG TCP is supported only in veth & netkit datapath mode")
 		}
 		if daemonCfg.TunnelingEnabled() {
 			return errors.New("BIG TCP is not supported in tunneling mode")
