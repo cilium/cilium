@@ -119,7 +119,7 @@ func hasFunctionReferences(insns asm.Instructions) bool {
 //
 // Passing a nil target will relocate against the running kernel. insns are
 // modified in place.
-func applyRelocations(insns asm.Instructions, target *btf.Spec, bo binary.ByteOrder, b *btf.Builder) error {
+func applyRelocations(insns asm.Instructions, targets []*btf.Spec, kmodName string, bo binary.ByteOrder, b *btf.Builder) error {
 	var relos []*btf.CORERelocation
 	var reloInsns []*asm.Instruction
 	iter := insns.Iterate()
@@ -138,7 +138,23 @@ func applyRelocations(insns asm.Instructions, target *btf.Spec, bo binary.ByteOr
 		bo = internal.NativeEndian
 	}
 
-	fixups, err := btf.CORERelocate(relos, target, bo, b.Add)
+	if len(targets) == 0 {
+		kernelTarget, err := btf.LoadKernelSpec()
+		if err != nil {
+			return fmt.Errorf("load kernel spec: %w", err)
+		}
+		targets = append(targets, kernelTarget)
+
+		if kmodName != "" {
+			kmodTarget, err := btf.LoadKernelModuleSpec(kmodName)
+			if err != nil {
+				return fmt.Errorf("load kernel module spec: %w", err)
+			}
+			targets = append(targets, kmodTarget)
+		}
+	}
+
+	fixups, err := btf.CORERelocate(relos, targets, bo, b.Add)
 	if err != nil {
 		return err
 	}

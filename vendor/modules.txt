@@ -203,7 +203,7 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.13.2
+# github.com/cilium/ebpf v0.13.2 => github.com/cilium/ebpf v0.13.3-0.20240314165416-06282fb6ba65
 ## explicit; go 1.21.0
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -211,6 +211,7 @@ github.com/cilium/ebpf/btf
 github.com/cilium/ebpf/features
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/epoll
+github.com/cilium/ebpf/internal/kallsyms
 github.com/cilium/ebpf/internal/kconfig
 github.com/cilium/ebpf/internal/sys
 github.com/cilium/ebpf/internal/sysenc
@@ -2162,3 +2163,4 @@ sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.8.0-2
+# github.com/cilium/ebpf => github.com/cilium/ebpf v0.13.3-0.20240314165416-06282fb6ba65

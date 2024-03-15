@@ -740,6 +740,25 @@ func LinkCreateNetfilter(attr *LinkCreateNetfilterAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
+type LinkCreateNetkitAttr struct {
+	ProgFd           uint32
+	TargetIfindex    uint32
+	AttachType       AttachType
+	Flags            uint32
+	RelativeFdOrId   uint32
+	_                [4]byte
+	ExpectedRevision uint64
+	_                [32]byte
+}
+
+func LinkCreateNetkit(attr *LinkCreateNetkitAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
 type LinkCreatePerfEventAttr struct {
 	ProgFd     uint32
 	TargetFd   uint32
@@ -1226,6 +1245,11 @@ type NetfilterLinkInfo struct {
 	Hooknum  uint32
 	Priority int32
 	Flags    uint32
+}
+
+type NetkitLinkInfo struct {
+	Ifindex    uint32
+	AttachType AttachType
 }
 
 type RawTracepointLinkInfo struct {
