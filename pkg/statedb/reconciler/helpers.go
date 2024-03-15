@@ -20,7 +20,7 @@ const (
 	// maxJoinedErrors limits the number of errors to join and return from
 	// failed reconciliation. This avoids constructing a massive error for
 	// health status when many operations fail at once.
-	maxJoinedErrors = 10
+	maxJoinedErrors = 1
 )
 
 func omittedError(n int) error {

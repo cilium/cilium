@@ -121,6 +121,13 @@ func (ops *mapOps[KV]) Prune(ctx context.Context, txn statedb.ReadTxn, iter stat
 	return errors.Join(errs...)
 }
 
+func wrapError(err error) error {
+	if errors.Is(err, unix.E2BIG) {
+		return errors.New("map is full")
+	}
+	return err
+}
+
 // Update implements reconciler.Operations.
 func (ops *mapOps[KV]) Update(ctx context.Context, txn statedb.ReadTxn, entry KV, changed *bool) error {
 	if changed != nil {
@@ -136,11 +143,11 @@ func (ops *mapOps[KV]) Update(ctx context.Context, txn statedb.ReadTxn, entry KV
 			*changed = !ops.equalValue(value, entry)
 		}
 		if *changed {
-			return ops.m.Put(entry.Key(), entry.Value())
+			return wrapError(ops.m.Put(entry.Key(), entry.Value()))
 		}
 		return nil
 	} else {
-		return ops.m.Put(entry.Key(), entry.Value())
+		return wrapError(ops.m.Put(entry.Key(), entry.Value()))
 	}
 }
 

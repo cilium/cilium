@@ -187,9 +187,30 @@ func (s Status) String() string {
 		deleteText = " (delete)"
 	}
 	if s.Kind == StatusKindError {
-		return fmt.Sprintf("Error%s: %s (%s ago)", deleteText, s.Error, time.Now().Sub(s.UpdatedAt))
+		return fmt.Sprintf("Error%s: %s (%s ago)", deleteText, s.Error, prettySince(s.UpdatedAt))
 	}
-	return fmt.Sprintf("%s%s (%s ago)", s.Kind, deleteText, time.Now().Sub(s.UpdatedAt))
+	return fmt.Sprintf("%s%s (%s ago)", s.Kind, deleteText, prettySince(s.UpdatedAt))
+}
+
+func prettySince(t time.Time) string {
+	ago := float64(time.Now().Sub(t)) / float64(time.Millisecond)
+	// millis
+	if ago < 1000.0 {
+		return fmt.Sprintf("%.1fms", ago)
+	}
+	// secs
+	ago /= 1000.0
+	if ago < 60.0 {
+		return fmt.Sprintf("%.1fs", ago)
+	}
+	// mins
+	ago /= 60.0
+	if ago < 60.0 {
+		return fmt.Sprintf("%.1fm", ago)
+	}
+	// hours
+	ago /= 60.0
+	return fmt.Sprintf("%.1fh", ago)
 }
 
 // StatusPending constructs the status for marking the object as
