@@ -875,29 +875,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-
-			ingressServiceName := fmt.Sprintf("cilium-ingress-%s", IngressServiceName)
-			ct.ingressService[ingressServiceName] = Service{
-				Service: &corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: ingressServiceName,
-					},
-					Spec: corev1.ServiceSpec{
-						Ports: []corev1.ServicePort{
-							{
-								Name:     "http",
-								Protocol: corev1.ProtocolTCP,
-								Port:     80,
-							},
-							{
-								Name:     "https",
-								Protocol: corev1.ProtocolTCP,
-								Port:     443,
-							},
-						},
-					},
-				},
-			}
 		}
 	}
 	return nil
