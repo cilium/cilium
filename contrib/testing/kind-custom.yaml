@@ -8,3 +8,5 @@ operator:
 
 bpf:
   lbMapMax: 50
+
+serviceNoBackendResponse: 'drop'
