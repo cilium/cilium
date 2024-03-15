@@ -277,7 +277,17 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
 		}
-
+		if err = netlink.LinkSetNsFd(epLink, int(ns.FD())); err != nil {
+			return nil, fmt.Errorf("failed to move device %q to health namespace: %w", epIfaceName, err)
+		}
+	case datapathOption.DatapathModeNetkit:
+		_, epLink, err := connector.SetupNetkitWithNames(healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
+			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
+			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
+			info, sysctl)
+		if err != nil {
+			return nil, fmt.Errorf("Error while creating netkit: %s", err)
+		}
 		if err = netlink.LinkSetNsFd(epLink, int(ns.FD())); err != nil {
 			return nil, fmt.Errorf("failed to move device %q to health namespace: %w", epIfaceName, err)
 		}
