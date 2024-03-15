@@ -66,6 +66,7 @@ import (
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
 	log                logrus.FieldLogger
+	nodeMap            nodemap.Map
 	nodeAddressing     datapath.NodeAddressing
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
@@ -80,6 +81,7 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		}
 	}
 	return &HeaderfileWriter{
+		nodeMap:            p.NodeMap,
 		nodeAddressing:     p.NodeAddressing,
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
@@ -185,7 +187,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	cDefinesMap["NODE_MAP"] = nodemap.MapName
-	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", nodemap.MaxEntries)
+	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", h.nodeMap.Size())
 	cDefinesMap["SRV6_VRF_MAP4"] = srv6map.VRFMapName4
 	cDefinesMap["SRV6_VRF_MAP6"] = srv6map.VRFMapName6
 	cDefinesMap["SRV6_POLICY_MAP4"] = srv6map.PolicyMapName4
