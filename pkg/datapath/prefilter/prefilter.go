@@ -111,7 +111,7 @@ func (p *PreFilter) Insert(revision int64, cidrs []net.IPNet) error {
 		}
 		err := p.maps[which].InsertCIDR(cidr)
 		if err != nil {
-			ret = fmt.Errorf("Error inserting CIDR string %s: %s", cidr.String(), err)
+			ret = fmt.Errorf("Error inserting CIDR string %s: %w", cidr.String(), err)
 			break
 		} else {
 			undoQueue = append(undoQueue, cidr)
@@ -155,7 +155,7 @@ func (p *PreFilter) Delete(revision int64, cidrs []net.IPNet) error {
 		which := p.selectMap(ones, bits)
 		err := p.maps[which].DeleteCIDR(cidr)
 		if err != nil {
-			ret = fmt.Errorf("Error deleting CIDR string %s: %s", cidr.String(), err)
+			ret = fmt.Errorf("Error deleting CIDR string %s: %w", cidr.String(), err)
 			break
 		} else {
 			undoQueue = append(undoQueue, cidr)

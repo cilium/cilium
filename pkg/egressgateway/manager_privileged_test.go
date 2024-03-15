@@ -617,7 +617,7 @@ func tryAssertIPRoutes(egressIP net.IPNet, ifaceIndex int) error {
 	}, netlink.RT_FILTER_OIF|netlink.RT_FILTER_DST|netlink.RT_FILTER_SCOPE|netlink.RT_FILTER_TABLE)
 
 	if err != nil || route == nil {
-		return fmt.Errorf("Cannot find nexthop route to the VPC subnet: %s", err)
+		return fmt.Errorf("Cannot find nexthop route to the VPC subnet: %w", err)
 	}
 
 	route, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
@@ -626,7 +626,7 @@ func tryAssertIPRoutes(egressIP net.IPNet, ifaceIndex int) error {
 	}, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_GW)
 
 	if err != nil || route == nil {
-		return fmt.Errorf("Cannot find default route to the VPC: %s", err)
+		return fmt.Errorf("Cannot find default route to the VPC: %w", err)
 	}
 
 	return nil

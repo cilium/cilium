@@ -80,26 +80,26 @@ func dumpIPsecStatus() (models.EncryptionStatus, error) {
 	}
 	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("cannot get xfrm state: %s", err)
+		return models.EncryptionStatus{}, fmt.Errorf("cannot get xfrm state: %w", err)
 	}
 	keys, err := ipsec.CountUniqueIPsecKeys(xfrmStates)
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error counting IPsec keys: %s\n", err)
+		return models.EncryptionStatus{}, fmt.Errorf("error counting IPsec keys: %w", err)
 	}
 	status.Ipsec.KeysInUse = int64(keys)
 	decryptInts, err := getDecryptionInterfaces()
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec decryption interfaces: %s\n", err)
+		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec decryption interfaces: %w", err)
 	}
 	status.Ipsec.DecryptInterfaces = decryptInts
 	seqNum, err := maxSequenceNumber()
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec max sequence number: %s\n", err)
+		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec max sequence number: %w", err)
 	}
 	status.Ipsec.MaxSeqNumber = seqNum
 	errCount, errMap, err := getXfrmStats("")
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error getting xfrm stats: %s\n", err)
+		return models.EncryptionStatus{}, fmt.Errorf("error getting xfrm stats: %w", err)
 	}
 	status.Ipsec.ErrorCount = errCount
 	status.Ipsec.XfrmErrors = errMap
@@ -129,11 +129,11 @@ func getXfrmStats(mountPoint string) (int64, map[string]int64, error) {
 		fs, err = procfs.NewFS(mountPoint)
 	}
 	if err != nil {
-		return 0, nil, fmt.Errorf("cannot get a new proc FS: %s", err)
+		return 0, nil, fmt.Errorf("cannot get a new proc FS: %w", err)
 	}
 	stats, err := fs.NewXfrmStat()
 	if err != nil {
-		return 0, nil, fmt.Errorf("failed to read xfrm statistics: %s", err)
+		return 0, nil, fmt.Errorf("failed to read xfrm statistics: %w", err)
 	}
 	v := reflect.ValueOf(stats)
 	countErrors := int64(0)
@@ -159,7 +159,7 @@ func extractMaxSequenceNumber(ipOutput string) (int64, error) {
 		if matched != nil {
 			oseq, err := strconv.ParseInt(line[matched[2]:matched[3]], 16, 64)
 			if err != nil {
-				return 0, fmt.Errorf("failed to parse sequence number '%s': %s",
+				return 0, fmt.Errorf("failed to parse sequence number '%s': %w",
 					line[matched[2]:matched[3]], err)
 			}
 			if oseq > maxSeqNum {
@@ -173,7 +173,7 @@ func extractMaxSequenceNumber(ipOutput string) (int64, error) {
 func maxSequenceNumber() (string, error) {
 	out, err := exec.Command("ip", "xfrm", "state", "list", "reqid", ciliumReqId).Output()
 	if err != nil {
-		return "", fmt.Errorf("cannot get xfrm states: %s", err)
+		return "", fmt.Errorf("cannot get xfrm states: %w", err)
 	}
 	maxSeqNum, err := extractMaxSequenceNumber(string(out))
 	if err != nil {
@@ -206,13 +206,13 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 func getDecryptionInterfaces() ([]string, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list interfaces: %s", err)
+		return nil, fmt.Errorf("failed to list interfaces: %w", err)
 	}
 	decryptionIfaces := []string{}
 	for _, link := range links {
 		itIs, err := isDecryptionInterface(link)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list BPF programs for %s: %s", link.Attrs().Name, err)
+			return nil, fmt.Errorf("failed to list BPF programs for %s: %w", link.Attrs().Name, err)
 		}
 		if itIs {
 			decryptionIfaces = append(decryptionIfaces, link.Attrs().Name)

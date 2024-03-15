@@ -274,7 +274,7 @@ func (g *goBGP) waitForSessionState(ctx context.Context, expectedStates []string
 				}
 			}
 		case <-ctx.Done():
-			return fmt.Errorf("did not receive expected peering state %q, %v", expectedStates, ctx.Err())
+			return fmt.Errorf("did not receive expected peering state %q, %w", expectedStates, ctx.Err())
 		}
 	}
 }
@@ -289,7 +289,7 @@ func (g *goBGP) getRouteEvents(ctx context.Context, numExpectedEvents int) ([]ro
 			log.Infof("GoBGP test instance: Route Event: %v", r)
 			receivedEvents = append(receivedEvents, r)
 		case <-ctx.Done():
-			return receivedEvents, fmt.Errorf("time elapsed waiting for all route events - received %d, expected %d : %v",
+			return receivedEvents, fmt.Errorf("time elapsed waiting for all route events - received %d, expected %d : %w",
 				len(receivedEvents), numExpectedEvents, ctx.Err())
 		}
 	}

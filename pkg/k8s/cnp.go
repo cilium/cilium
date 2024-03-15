@@ -127,7 +127,7 @@ retryLoop:
 		case <-ctx.Done():
 			// The owning controller wants us to stop, no error is
 			// returned. This is graceful
-			err = fmt.Errorf("status update cancelled via context: %s", ctx.Err())
+			err = fmt.Errorf("status update cancelled via context: %w", ctx.Err())
 			break retryLoop
 		default:
 		}

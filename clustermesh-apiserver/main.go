@@ -164,7 +164,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 func readMockFile(ctx context.Context, path string, backend kvstore.BackendOperations) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("unable to open file %s: %s", path, err)
+		return fmt.Errorf("unable to open file %s: %w", path, err)
 	}
 	defer f.Close()
 

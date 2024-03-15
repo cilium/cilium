@@ -223,7 +223,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 
 	keysToRemove := map[string]ipcacheMap.Key{}
 	if err := l.bpfMap.DumpWithCallback(l.updateStaleEntriesFunction(keysToRemove)); err != nil {
-		return nil, fmt.Errorf("error dumping ipcache BPF map: %s", err)
+		return nil, fmt.Errorf("error dumping ipcache BPF map: %w", err)
 	}
 
 	// Remove all keys which are not in in-memory cache from BPF map
@@ -232,7 +232,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 			Debug("deleting from ipcache BPF map")
 		if err := l.bpfMap.Delete(&k); err != nil {
-			return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
+			return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %w", k, err)
 		}
 	}
 	return nil, nil

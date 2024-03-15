@@ -24,19 +24,19 @@ var (
 func buildServer(path string) (*net.UnixListener, error) {
 	addr, err := net.ResolveUnixAddr("unix", path)
 	if err != nil {
-		return nil, fmt.Errorf("cannot resolve unix address %s: %s", path, err)
+		return nil, fmt.Errorf("cannot resolve unix address %s: %w", path, err)
 	}
 	os.Remove(path)
 	server, err := net.ListenUnix("unix", addr)
 	if err != nil {
-		return nil, fmt.Errorf("cannot listen on unix socket %s: %s", path, err)
+		return nil, fmt.Errorf("cannot listen on unix socket %s: %w", path, err)
 	}
 
 	if os.Getuid() == 0 {
 		err := api.SetDefaultPermissions(path)
 		if err != nil {
 			server.Close()
-			return nil, fmt.Errorf("cannot set default permissions on socket %s: %s", path, err)
+			return nil, fmt.Errorf("cannot set default permissions on socket %s: %w", path, err)
 		}
 	}
 

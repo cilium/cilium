@@ -125,13 +125,13 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	revNATKey := zeroValue.RevNatKey()
 	revNATValue := svcKey.RevNatValue()
 	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
-		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
+		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 
 	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
-		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
+		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
 	}
 
 	if backendsOk {
@@ -211,18 +211,18 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 	for slot := 0; slot <= backendCount; slot++ {
 		svcKey.SetBackendSlot(slot)
 		if err := svcKey.MapDelete(); err != nil {
-			return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
+			return fmt.Errorf("Unable to delete service entry %+v: %w", svcKey, err)
 		}
 	}
 
 	if useMaglev {
 		if err := deleteMaglevTable(ipv6, uint16(svc.ID)); err != nil {
-			return fmt.Errorf("Unable to delete maglev lookup table %d: %s", svc.ID, err)
+			return fmt.Errorf("Unable to delete maglev lookup table %d: %w", svc.ID, err)
 		}
 	}
 
 	if err := deleteRevNatLocked(revNATKey); err != nil {
-		return fmt.Errorf("Unable to delete revNAT entry %+v: %s", revNATKey, err)
+		return fmt.Errorf("Unable to delete revNAT entry %+v: %w", revNATKey, err)
 	}
 
 	return nil
@@ -258,7 +258,7 @@ func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
 		return err
 	}
 	if err := updateBackend(backend); err != nil {
-		return fmt.Errorf("unable to add backend %+v: %s", backend, err)
+		return fmt.Errorf("unable to add backend %+v: %w", backend, err)
 	}
 
 	return nil
@@ -277,7 +277,7 @@ func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.Backend) error {
 		return err
 	}
 	if err := updateBackend(backend); err != nil {
-		return fmt.Errorf("unable to update backend state %+v: %s", b, err)
+		return fmt.Errorf("unable to update backend state %+v: %w", b, err)
 	}
 
 	return nil
@@ -293,7 +293,7 @@ func deleteBackendByIDFamily(id loadbalancer.BackendID, ipv6 bool) error {
 	}
 
 	if err := deleteBackendLocked(key); err != nil {
-		return fmt.Errorf("Unable to delete backend %d (%t): %s", id, ipv6, err)
+		return fmt.Errorf("Unable to delete backend %d (%t): %w", id, ipv6, err)
 	}
 
 	return nil
@@ -531,14 +531,14 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	if option.Config.EnableIPv4 {
 		err := Backend4MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to dump lb4 backends map: %s", err)
+			return nil, fmt.Errorf("Unable to dump lb4 backends map: %w", err)
 		}
 	}
 
 	if option.Config.EnableIPv6 {
 		err := Backend6MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to dump lb6 backends map: %s", err)
+			return nil, fmt.Errorf("Unable to dump lb6 backends map: %w", err)
 		}
 	}
 
@@ -619,7 +619,7 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 			backend.State)
 	}
 	if err != nil {
-		return lbBackend, fmt.Errorf("unable to create lbBackend (%d, %s, %d, %t): %s",
+		return lbBackend, fmt.Errorf("unable to create lbBackend (%d, %s, %d, %t): %w",
 			backend.ID, backend.AddrCluster.String(), backend.Port, ipv6, err)
 	}
 

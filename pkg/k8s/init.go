@@ -73,7 +73,7 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter k8sGetter, nodeName
 				return nil, nil
 			}
 
-			return nil, fmt.Errorf("unable to retrieve CiliumNode: %s", err)
+			return nil, fmt.Errorf("unable to retrieve CiliumNode: %w", err)
 		}
 
 		no := nodeTypes.ParseCiliumNode(ciliumNode)
@@ -88,7 +88,7 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter k8sGetter, nodeName
 				return nil, nil
 			}
 
-			return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
+			return nil, fmt.Errorf("unable to retrieve k8s node information: %w", err)
 
 		}
 

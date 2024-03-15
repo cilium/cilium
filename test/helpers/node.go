@@ -5,6 +5,7 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -216,8 +217,8 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 		// command failed. If the default value (0) indicates that command
 		// works but it was not executed at all.
 		res.exitcode = 1
-		exiterr, isExitError := err.(*ssh.ExitError)
-		if isExitError {
+		exiterr := &ssh.ExitError{}
+		if errors.As(err, &exiterr) {
 			// Set res's exitcode if the error is an ExitError
 			res.exitcode = exiterr.Waitmsg.ExitStatus()
 		} else {
@@ -292,8 +293,8 @@ func (s *SSHMeta) ExecInBackground(ctx context.Context, cmd string, options ...E
 		start := time.Now()
 		err := s.sshClient.RunCommandInBackground(ctx, command)
 		if err != nil {
-			exiterr, isExitError := err.(*ssh.ExitError)
-			if isExitError {
+			exiterr := &ssh.ExitError{}
+			if errors.As(err, &exiterr) {
 				res.exitcode = exiterr.Waitmsg.ExitStatus()
 				// Set success as true if SIGINT signal was sent to command
 				if res.exitcode == 130 {

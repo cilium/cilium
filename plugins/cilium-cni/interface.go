@@ -31,7 +31,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 	for _, cidrString := range ipam.Cidrs {
 		_, cidr, err := net.ParseCIDR(cidrString)
 		if err != nil {
-			return fmt.Errorf("invalid CIDR '%s': %s", cidrString, err)
+			return fmt.Errorf("invalid CIDR '%s': %w", cidrString, err)
 		}
 		allCIDRs = append(allCIDRs, cidr)
 	}
@@ -53,7 +53,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		masq,
 	)
 	if err != nil {
-		return fmt.Errorf("unable to parse routing info: %v", err)
+		return fmt.Errorf("unable to parse routing info: %w", err)
 	}
 
 	if err := routingInfo.Configure(
@@ -62,7 +62,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		conf.EgressMultiHomeIPRuleCompat,
 		false,
 	); err != nil {
-		return fmt.Errorf("unable to install ip rules and routes: %s", err)
+		return fmt.Errorf("unable to install ip rules and routes: %w", err)
 	}
 
 	return nil
