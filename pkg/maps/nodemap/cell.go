@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "NodeMap")
@@ -47,7 +48,12 @@ func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[MapV2], error
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
-			return nodeMap.init()
+			if err := nodeMap.init(); err != nil {
+				return err
+			}
+
+			// do v1 to v2 map migration if necessary
+			return nodeMap.migrateV1(MapName, encrypt.MapName)
 		},
 		OnStop: func(context cell.HookContext) error {
 			return nodeMap.close()

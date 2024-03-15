@@ -55,16 +55,21 @@ var (
 	encryptMap *bpf.Map
 )
 
-// MapCreate will create an encrypt map
+// NewMap will construct a bpf.Map that is not open or created yet.
+func NewMap(MapName string) *bpf.Map {
+	return bpf.NewMap(MapName,
+		ebpf.Array,
+		&EncryptKey{},
+		&EncryptValue{},
+		MaxEntries,
+		0,
+	)
+}
+
+// MapCreate will create an encrypt map that is ready for use.
 func MapCreate() error {
 	once.Do(func() {
-		encryptMap = bpf.NewMap(MapName,
-			ebpf.Array,
-			&EncryptKey{},
-			&EncryptValue{},
-			MaxEntries,
-			0,
-		).WithCache().
+		encryptMap = NewMap(MapName).WithCache().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))
 	})
 
@@ -78,4 +83,16 @@ func MapUpdateContext(ctxID uint32, keyID uint8) error {
 		encryptKeyID: keyID,
 	}
 	return encryptMap.Update(k, v)
+}
+
+// MapUpdateContextWithMap updates the encrypt state with ctxID to use the new keyID
+// with the map as its argument.
+//
+// This is primarily used in tests.
+func MapUpdateContextWithMap(m *bpf.Map, ctxID uint32, keyID uint8) error {
+	k := newEncryptKey(ctxID)
+	v := &EncryptValue{
+		encryptKeyID: keyID,
+	}
+	return m.Update(k, v)
 }
