@@ -208,7 +208,7 @@ func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb
 	} else {
 		p, err := strconv.ParseUint(pInfo.Port, 0, 16)
 		if err != nil {
-			return pInt, pName, protocol, fmt.Errorf("unable to parse port: %v", err)
+			return pInt, pName, protocol, fmt.Errorf("unable to parse port: %w", err)
 		}
 		if p == 0 {
 			return pInt, pName, protocol, fmt.Errorf("port cannot be 0")

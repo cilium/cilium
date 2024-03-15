@@ -120,7 +120,7 @@ func initializeFlags() {
 		}
 		ni, err := identity.ParseNumericIdentity(vals[0])
 		if err != nil {
-			return "", fmt.Errorf(`invalid numeric identity %q: %s`, val, err)
+			return "", fmt.Errorf(`invalid numeric identity %q: %w`, val, err)
 		}
 		if !identity.IsUserReservedIdentity(ni) {
 			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,

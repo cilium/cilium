@@ -96,7 +96,7 @@ func filterByHTTPPaths(pathRegexpStrs []string) (FilterFunc, error) {
 	for _, pathRegexpStr := range pathRegexpStrs {
 		pathRegexp, err := regexp.Compile(pathRegexpStr)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %v", pathRegexpStr, err)
+			return nil, fmt.Errorf("%s: %w", pathRegexpStr, err)
 		}
 		pathRegexps = append(pathRegexps, pathRegexp)
 	}
@@ -139,7 +139,7 @@ func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 
 		hsf, err := filterByHTTPStatusCode(ff.GetHttpStatusCode())
 		if err != nil {
-			return nil, fmt.Errorf("invalid http status code filter: %v", err)
+			return nil, fmt.Errorf("invalid http status code filter: %w", err)
 		}
 		fs = append(fs, hsf)
 	}
@@ -152,7 +152,7 @@ func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 
 		methodf, err := filterByHTTPMethods(ff.GetHttpMethod())
 		if err != nil {
-			return nil, fmt.Errorf("invalid http method filter: %v", err)
+			return nil, fmt.Errorf("invalid http method filter: %w", err)
 		}
 		fs = append(fs, methodf)
 	}
@@ -165,7 +165,7 @@ func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 
 		pathf, err := filterByHTTPPaths(ff.GetHttpPath())
 		if err != nil {
-			return nil, fmt.Errorf("invalid http path filter: %v", err)
+			return nil, fmt.Errorf("invalid http path filter: %w", err)
 		}
 		fs = append(fs, pathf)
 	}

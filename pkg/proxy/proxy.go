@@ -530,7 +530,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			implUpdateRevertFunc, err = redir.implementation.UpdateRules(wg)
 			if err != nil {
 				redir.mutex.Unlock()
-				err = fmt.Errorf("unable to update existing redirect: %s", err)
+				err = fmt.Errorf("unable to update existing redirect: %w", err)
 				return 0, err, nil, nil
 			}
 			revertStack.Push(implUpdateRevertFunc)
@@ -551,7 +551,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		redir.mutex.Unlock()
 
 		if err != nil {
-			err = fmt.Errorf("unable to remove old redirect: %s", err)
+			err = fmt.Errorf("unable to remove old redirect: %w", err)
 			return 0, err, nil, nil
 		}
 

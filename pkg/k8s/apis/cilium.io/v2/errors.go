@@ -3,6 +3,8 @@
 
 package v2
 
+import "errors"
+
 var (
 	// ErrEmptyCNP is an error representing a CNP that is empty, which means it is
 	// missing both a `spec` and `specs` (both are nil).
@@ -39,6 +41,6 @@ func (e ErrParse) Error() string {
 
 // Is returns true if the given error is the type of 'ErrParse'.
 func (_ ErrParse) Is(e error) bool {
-	_, ok := e.(ErrParse)
-	return ok
+	var errParse ErrParse
+	return errors.As(e, &errParse)
 }

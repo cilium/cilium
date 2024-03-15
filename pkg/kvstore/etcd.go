@@ -263,12 +263,10 @@ func init() {
 
 // Hint tries to improve the error message displayed to te user.
 func Hint(err error) error {
-	switch err {
-	case context.DeadlineExceeded:
+	if errors.Is(err, context.DeadlineExceeded) {
 		return fmt.Errorf("etcd client timeout exceeded")
-	default:
-		return err
 	}
+	return err
 }
 
 type etcdClient struct {
@@ -572,7 +570,7 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 	)
 	if err != nil {
 		e.UnlockIgnoreTime()
-		return fmt.Errorf("unable to renew etcd session: %s", err)
+		return fmt.Errorf("unable to renew etcd session: %w", err)
 	}
 	sessionSuccess <- true
 	log.Infof("Got new lease ID %x and the session TTL is %s", newSession.Lease(), option.Config.KVstoreLeaseTTL)
@@ -634,7 +632,7 @@ func (e *etcdClient) renewLockSession(ctx context.Context) error {
 	)
 	if err != nil {
 		e.UnlockIgnoreTime()
-		return fmt.Errorf("unable to renew etcd lock session: %s", err)
+		return fmt.Errorf("unable to renew etcd lock session: %w", err)
 	}
 	sessionSuccess <- true
 	log.Infof("Got new lock lease ID %x", newSession.Lease())
@@ -761,7 +759,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		ec.getLogger().Info("Initial etcd session established")
 
 		if err := ec.checkMinVersion(ctx); err != nil {
-			handleSessionError(fmt.Errorf("unable to validate etcd version: %s", err))
+			handleSessionError(fmt.Errorf("unable to validate etcd version: %w", err))
 		}
 	}()
 
@@ -838,7 +836,7 @@ func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, time
 	}
 	v, err := versioncheck.Version(sr.Version)
 	if err != nil {
-		return semver.Version{}, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
+		return semver.Version{}, fmt.Errorf("error parsing server version %q: %w", sr.Version, Hint(err))
 	}
 	return v, nil
 }
@@ -1184,7 +1182,7 @@ func (e *etcdClient) statusChecker() {
 
 		switch {
 		case consecutiveQuorumErrors > option.Config.KVstoreMaxConsecutiveQuorumErrors:
-			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %s",
+			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %w",
 				consecutiveQuorumErrors, quorumError)
 			e.latestStatusSnapshot = e.latestErrorStatus.Error()
 		case len(endpoints) > 0 && ok == 0:

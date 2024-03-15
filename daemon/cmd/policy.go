@@ -226,7 +226,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 	polAddEvent := eventqueue.NewEvent(p)
 	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
 	if err != nil {
-		return 0, fmt.Errorf("enqueue of PolicyAddEvent failed: %s", err)
+		return 0, fmt.Errorf("enqueue of PolicyAddEvent failed: %w", err)
 	}
 
 	res, ok := <-resChan
@@ -273,7 +273,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		logger.Debug("CIDR policy has changed; recompiling base programs")
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			_ = d.prefixLengths.Delete(prefixes)
-			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
+			err2 := fmt.Errorf("Unable to recompile base programs: %w", err)
 			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to recompile base programs due to prefix length count change")
 			resChan <- &PolicyAddResult{
@@ -539,7 +539,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 	policyDeleteEvent := eventqueue.NewEvent(p)
 	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
 	if err != nil {
-		return 0, fmt.Errorf("enqueue of PolicyDeleteEvent failed: %s", err)
+		return 0, fmt.Errorf("enqueue of PolicyDeleteEvent failed: %w", err)
 	}
 
 	res, ok := <-resChan

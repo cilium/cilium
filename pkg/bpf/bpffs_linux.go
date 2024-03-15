@@ -121,10 +121,10 @@ func mountFS(printWarning bool) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(mapRoot, 0755); err != nil {
-				return fmt.Errorf("unable to create bpf mount directory: %s", err)
+				return fmt.Errorf("unable to create bpf mount directory: %w", err)
 			}
 		} else {
-			return fmt.Errorf("failed to stat the mount path %s: %s", mapRoot, err)
+			return fmt.Errorf("failed to stat the mount path %s: %w", mapRoot, err)
 
 		}
 	} else if !mapRootStat.IsDir() {
@@ -132,7 +132,7 @@ func mountFS(printWarning bool) error {
 	}
 
 	if err := unix.Mount(mapRoot, mapRoot, "bpf", 0, ""); err != nil {
-		return fmt.Errorf("failed to mount %s: %s", mapRoot, err)
+		return fmt.Errorf("failed to mount %s: %w", mapRoot, err)
 	}
 	return nil
 }

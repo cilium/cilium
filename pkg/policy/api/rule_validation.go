@@ -424,7 +424,7 @@ func (pp *PortProtocol) sanitize() (isZero bool, err error) {
 	} else {
 		p, err := strconv.ParseUint(pp.Port, 0, 16)
 		if err != nil {
-			return isZero, fmt.Errorf("Unable to parse port: %s", err)
+			return isZero, fmt.Errorf("Unable to parse port: %w", err)
 		}
 		isZero = p == 0
 	}
@@ -467,7 +467,7 @@ func (c CIDR) sanitize() (prefixLength int, err error) {
 		// Try to parse as a fully masked IP or an IP subnetwork
 		ip := net.ParseIP(strCIDR)
 		if ip == nil {
-			return 0, fmt.Errorf("Unable to parse CIDR: %s", err)
+			return 0, fmt.Errorf("Unable to parse CIDR: %w", err)
 		}
 	}
 
@@ -483,7 +483,7 @@ func (c *CIDRRule) sanitize() (prefixLength int, err error) {
 	// the logic in api.CIDR.Sanitize().
 	_, cidrNet, err := net.ParseCIDR(string(c.Cidr))
 	if err != nil {
-		return 0, fmt.Errorf("Unable to parse CIDRRule %q: %s", c.Cidr, err)
+		return 0, fmt.Errorf("Unable to parse CIDRRule %q: %w", c.Cidr, err)
 	}
 
 	var bits int

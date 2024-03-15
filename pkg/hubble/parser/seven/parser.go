@@ -54,12 +54,12 @@ func New(
 
 	timestampCache, err := lru.New(args.CacheSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize cache: %v", err)
+		return nil, fmt.Errorf("failed to initialize cache: %w", err)
 	}
 
 	traceIDCache, err := lru.New(args.CacheSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize cache: %v", err)
+		return nil, fmt.Errorf("failed to initialize cache: %w", err)
 	}
 
 	return &Parser{

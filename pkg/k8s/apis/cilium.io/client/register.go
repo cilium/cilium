@@ -626,7 +626,7 @@ func (p defaultPoll) Poll(
 // RegisterCRDs registers all CRDs with the K8s apiserver.
 func RegisterCRDs(clientset client.Clientset) error {
 	if err := CreateCustomResourceDefinitions(clientset); err != nil {
-		return fmt.Errorf("Unable to create custom resource definition: %s", err)
+		return fmt.Errorf("Unable to create custom resource definition: %w", err)
 	}
 
 	return nil

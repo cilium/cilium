@@ -118,7 +118,7 @@ func clearCiliumVeths() error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("unable to retrieve host network interfaces: %s", err)
+		return fmt.Errorf("unable to retrieve host network interfaces: %w", err)
 	}
 
 	for _, v := range leftVeths {
@@ -259,7 +259,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		if isHost {
 			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
 			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+				return fmt.Errorf("Unable to add host entry to endpoint map: %w", err)
 			}
 			if added {
 				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")

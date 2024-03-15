@@ -212,7 +212,7 @@ func toSystemd(cgroupName []string) (string, error) {
 
 	result, err := expandSlice(strings.Join(newparts, "-") + systemdSuffix)
 	if err != nil {
-		return "", fmt.Errorf("error converting cgroup name [%v] to systemd format: %v", cgroupName, err)
+		return "", fmt.Errorf("error converting cgroup name [%v] to systemd format: %w", cgroupName, err)
 	}
 	return result, nil
 }

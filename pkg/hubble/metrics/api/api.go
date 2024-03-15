@@ -96,7 +96,7 @@ func NewHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in []Nam
 		}
 
 		if err := item.Handler.Init(registry, item.Options); err != nil {
-			return nil, fmt.Errorf("unable to initialize metric '%s': %s", item.Name, err)
+			return nil, fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
 		}
 
 		log.WithFields(logrus.Fields{"name": item.Name, "status": item.Handler.Status()}).Info("Configured metrics plugin")

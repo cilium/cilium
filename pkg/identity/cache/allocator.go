@@ -330,7 +330,7 @@ func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Co
 	select {
 	case <-m.globalIdentityAllocatorInitialized:
 	case <-ctx.Done():
-		return fmt.Errorf("initial global identity sync was cancelled: %s", ctx.Err())
+		return fmt.Errorf("initial global identity sync was cancelled: %w", ctx.Err())
 	}
 
 	return m.IdentityAllocator.WaitForInitialSync(ctx)
@@ -502,12 +502,12 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, back
 
 	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(m.identitiesPath, m.owner.GetNodeSuffix(), GlobalIdentity{}, backend)
 	if err != nil {
-		return nil, fmt.Errorf("error setting up remote allocator backend: %s", err)
+		return nil, fmt.Errorf("error setting up remote allocator backend: %w", err)
 	}
 
 	remoteAlloc, err := allocator.NewAllocator(GlobalIdentity{}, remoteAllocatorBackend, allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC())
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize remote Identity Allocator: %s", err)
+		return nil, fmt.Errorf("unable to initialize remote Identity Allocator: %w", err)
 	}
 
 	return m.IdentityAllocator.WatchRemoteKVStore(remoteName, remoteAlloc), nil

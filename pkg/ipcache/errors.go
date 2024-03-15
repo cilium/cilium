@@ -4,6 +4,7 @@
 package ipcache
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/source"
@@ -29,8 +30,8 @@ func (e ErrOverwrite) Error() string {
 }
 
 func (e *ErrOverwrite) Is(target error) bool {
-	t, ok := target.(*ErrOverwrite)
-	if !ok {
+	t := &ErrOverwrite{}
+	if !errors.As(target, &t) {
 		return false
 	}
 	return (e.ExistingSrc == t.ExistingSrc || t.ExistingSrc == "") &&
@@ -54,8 +55,8 @@ func (e ErrInvalidIP) Error() string {
 }
 
 func (e *ErrInvalidIP) Is(target error) bool {
-	t, ok := target.(*ErrInvalidIP)
-	if !ok {
+	t := &ErrInvalidIP{}
+	if !errors.As(target, &t) {
 		return false
 	}
 	return e.ip == t.ip

@@ -141,17 +141,17 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1a
 
 	if len(rd.register) > 0 {
 		if err := m.register(ctx, rd); err != nil {
-			return fmt.Errorf("encountered error adding new BGP Servers: %v", err)
+			return fmt.Errorf("encountered error adding new BGP Servers: %w", err)
 		}
 	}
 	if len(rd.withdraw) > 0 {
 		if err := m.withdraw(ctx, rd); err != nil {
-			return fmt.Errorf("encountered error removing existing BGP Servers: %v", err)
+			return fmt.Errorf("encountered error removing existing BGP Servers: %w", err)
 		}
 	}
 	if len(rd.reconcile) > 0 {
 		if err := m.reconcile(ctx, rd); err != nil {
-			return fmt.Errorf("encountered error reconciling existing BGP Servers: %v", err)
+			return fmt.Errorf("encountered error reconciling existing BGP Servers: %w", err)
 		}
 	}
 	return nil

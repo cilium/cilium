@@ -20,17 +20,17 @@ func mountCgroup() error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(cgroupRoot, 0755); err != nil {
-				return fmt.Errorf("Unable to create cgroup mount directory: %s", err)
+				return fmt.Errorf("Unable to create cgroup mount directory: %w", err)
 			}
 		} else {
-			return fmt.Errorf("Failed to stat the mount path %s: %s", cgroupRoot, err)
+			return fmt.Errorf("Failed to stat the mount path %s: %w", cgroupRoot, err)
 		}
 	} else if !cgroupRootStat.IsDir() {
 		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
 	}
 
 	if err := unix.Mount("none", cgroupRoot, "cgroup2", 0, ""); err != nil {
-		return fmt.Errorf("failed to mount %s: %s", cgroupRoot, err)
+		return fmt.Errorf("failed to mount %s: %w", cgroupRoot, err)
 	}
 
 	return nil

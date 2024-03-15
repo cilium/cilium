@@ -16,7 +16,7 @@ import (
 func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool) (bpf.MapKey, bool, error) {
 	ip, port, err := net.SplitHostPort(srcAddr)
 	if err != nil {
-		return nil, false, fmt.Errorf("invalid source address '%s': %s", srcAddr, err)
+		return nil, false, fmt.Errorf("invalid source address '%s': %w", srcAddr, err)
 	}
 
 	sIP := net.ParseIP(ip)
@@ -26,12 +26,12 @@ func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8prot
 
 	sport, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		return nil, false, fmt.Errorf("unable to parse port string: %s", err)
+		return nil, false, fmt.Errorf("unable to parse port string: %w", err)
 	}
 
 	dstIp, dstPort, err := net.SplitHostPort(dstAddr)
 	if err != nil {
-		return nil, false, fmt.Errorf("invalid destination address '%s': %s", dstAddr, err)
+		return nil, false, fmt.Errorf("invalid destination address '%s': %w", dstAddr, err)
 	}
 
 	dIP := net.ParseIP(dstIp)
@@ -41,7 +41,7 @@ func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8prot
 
 	dport, err := strconv.ParseUint(dstPort, 10, 16)
 	if err != nil {
-		return nil, false, fmt.Errorf("unable to parse port string: %s", err)
+		return nil, false, fmt.Errorf("unable to parse port string: %w", err)
 	}
 
 	if sIP.To4() != nil {
@@ -144,7 +144,7 @@ func getOrOpenMap(epname string, ipv4 bool, proto u8proto.U8proto) (*bpf.Map, er
 		// Open the map and leave it open
 		m, err = bpf.OpenMap(mapname)
 		if err != nil {
-			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
+			return nil, fmt.Errorf("Can not open CT map %s: %w", mapname, err)
 		}
 		isGlobal := epname == "global"
 		if isGlobal {

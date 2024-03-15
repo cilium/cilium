@@ -151,7 +151,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	// corrupted header files on the filesystem.
 	f, err := renameio.TempFile(prefix, headerPath)
 	if err != nil {
-		return fmt.Errorf("failed to open temporary file: %s", err)
+		return fmt.Errorf("failed to open temporary file: %w", err)
 	}
 	defer f.Cleanup()
 
@@ -481,14 +481,14 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
 		err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
 		if err != nil {
-			return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %s", dirLogStr, err), nil, nil
+			return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %w", dirLogStr, err), nil, nil
 		}
 		finalizeList.Append(ff)
 		revertStack.Push(rf)
 
 		err, ff, rf = e.addVisibilityRedirects(ingress, desiredRedirects, proxyWaitGroup)
 		if err != nil {
-			return desiredRedirects, fmt.Errorf("unable to allocate %s visibility redirects: %s", dirLogStr, err), nil, nil
+			return desiredRedirects, fmt.Errorf("unable to allocate %s visibility redirects: %w", dirLogStr, err), nil, nil
 		}
 		finalizeList.Append(ff)
 		revertStack.Push(rf)
@@ -637,7 +637,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyWaitForAck.End(err == nil)
 		if err != nil {
-			return 0, false, fmt.Errorf("Error while updating network policy: %s", err)
+			return 0, false, fmt.Errorf("Error while updating network policy: %w", err)
 		}
 
 		return e.nextPolicyRevision, false, nil
@@ -665,7 +665,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 			e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr))
 		}
 		if err != nil {
-			return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
+			return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %w", err)
 		}
 	}
 
@@ -682,7 +682,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
+		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %w", err)
 	}
 
 	stats.waitingForLock.Start()
@@ -708,7 +708,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	err = e.syncPolicyMap()
 	stats.mapSync.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %w", err)
 	}
 
 	stateDirComplete = headerfileChanged && compilationExecuted
@@ -839,7 +839,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		}
 
 		if err = e.writeHeaderfile(nextDir); err != nil {
-			return false, fmt.Errorf("Unable to write header file: %s", err)
+			return false, fmt.Errorf("Unable to write header file: %w", err)
 		}
 
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
@@ -939,7 +939,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		err = e.syncPolicyMap()
 		stats.mapSync.End(err == nil)
 		if err != nil {
-			return false, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+			return false, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %w", err)
 		}
 
 		// At this point, traffic is no longer redirected to the proxy for
@@ -975,7 +975,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	}
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapathRewrite {
 		if err := e.writeHeaderfile(nextDir); err != nil {
-			return false, fmt.Errorf("unable to write header file: %s", err)
+			return false, fmt.Errorf("unable to write header file: %w", err)
 		}
 	}
 
@@ -1040,7 +1040,7 @@ func (e *Endpoint) deleteMaps() []error {
 	}
 	for name, path := range maps {
 		if err := os.RemoveAll(path); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove %s map file %s: %s", name, path, err))
+			errors = append(errors, fmt.Errorf("unable to remove %s map file %s: %w", name, path, err))
 		}
 	}
 
@@ -1052,20 +1052,20 @@ func (e *Endpoint) deleteMaps() []error {
 				err = os.RemoveAll(ctPath)
 			}
 			if err != nil {
-				errors = append(errors, fmt.Errorf("unable to remove CT map %s: %s", ctPath, err))
+				errors = append(errors, fmt.Errorf("unable to remove CT map %s: %w", ctPath, err))
 			}
 		}
 	}
 
 	// Remove handle_policy() tail call entry for EP
 	if err := policymap.RemoveGlobalMapping(uint32(e.ID), option.Config.EnableEnvoyConfig); err != nil {
-		errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %s", err))
+		errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %w", err))
 	}
 
 	// Remove rate-limit from bandwidth manager map.
 	if e.bps != 0 && option.Config.EnableBandwidthManager {
 		if err := bwmap.Delete(e.ID); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remote endpoint from bandwidth manager map: %s", err))
+			errors = append(errors, fmt.Errorf("unable to remote endpoint from bandwidth manager map: %w", err))
 		}
 	}
 
@@ -1466,7 +1466,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 		e.policyMap, _, err = policymap.OpenOrCreate(e.policyMapPath())
 		if err != nil {
-			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
+			return fmt.Errorf("unable to open PolicyMap for endpoint: %w", err)
 		}
 
 		// Try to dump again, fail if error occurs.
@@ -1597,7 +1597,8 @@ func CheckHealth(ep *Endpoint) error {
 		return nil
 	}
 	_, err := netlink.LinkByName(iface)
-	if _, ok := err.(netlink.LinkNotFoundError); ok {
+	var linkNotFoundError netlink.LinkNotFoundError
+	if errors.As(err, &linkNotFoundError) {
 		return fmt.Errorf("Endpoint is invalid: %w", err)
 	}
 	if err != nil {

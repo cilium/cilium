@@ -238,7 +238,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 		family := ipam.DeriveFamily(family.PrimaryExternal())
 		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router")
 		if err != nil {
-			err = fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
+			err = fmt.Errorf("Unable to allocate router IP for family %s: %w", family, err)
 			return
 		}
 		routerIP = result.IP
@@ -284,7 +284,7 @@ func (d *Daemon) allocateHealthIPs() error {
 		if option.Config.EnableIPv4 {
 			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health")
 			if err != nil {
-				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
+				return fmt.Errorf("unable to allocate health IPs: %w, see https://cilium.link/ipam-range-full", err)
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
@@ -316,7 +316,7 @@ func (d *Daemon) allocateHealthIPs() error {
 					d.ipam.ReleaseIP(healthIPv4)
 					node.SetEndpointHealthIPv4(nil)
 				}
-				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
+				return fmt.Errorf("unable to allocate health IPs: %w, see https://cilium.link/ipam-range-full", err)
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
@@ -357,7 +357,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			if result == nil {
 				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress")
 				if err != nil {
-					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+					return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
 				}
 			}
 
@@ -415,7 +415,7 @@ func (d *Daemon) allocateIngressIPs() error {
 						d.ipam.ReleaseIP(ingressIPv4)
 						node.SetIngressIPv4(nil)
 					}
-					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+					return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
 				}
 			}
 

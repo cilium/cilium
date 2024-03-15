@@ -95,7 +95,7 @@ func convertToV1Beta1CRD(crd *apiextensionsv1.CustomResourceDefinition) (*apiext
 		internalCRD,
 		nil,
 	); err != nil {
-		return nil, fmt.Errorf("unable to convert v1 CRD to internal representation: %v", err)
+		return nil, fmt.Errorf("unable to convert v1 CRD to internal representation: %w", err)
 	}
 
 	if err := apiextensionsv1beta1.Convert_apiextensions_CustomResourceDefinition_To_v1beta1_CustomResourceDefinition(
@@ -103,7 +103,7 @@ func convertToV1Beta1CRD(crd *apiextensionsv1.CustomResourceDefinition) (*apiext
 		v1beta1CRD,
 		nil,
 	); err != nil {
-		return nil, fmt.Errorf("unable to convert internally represented CRD to v1beta1: %v", err)
+		return nil, fmt.Errorf("unable to convert internally represented CRD to v1beta1: %w", err)
 	}
 
 	return v1beta1CRD, nil

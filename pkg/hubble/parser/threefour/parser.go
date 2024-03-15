@@ -109,13 +109,13 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		packetOffset = monitor.DropNotifyLen
 		dn = &monitor.DropNotify{}
 		if err := binary.Read(bytes.NewReader(data), byteorder.Native, dn); err != nil {
-			return fmt.Errorf("failed to parse drop: %v", err)
+			return fmt.Errorf("failed to parse drop: %w", err)
 		}
 		eventSubType = dn.SubType
 	case monitorAPI.MessageTypeTrace:
 		tn = &monitor.TraceNotify{}
 		if err := monitor.DecodeTraceNotify(data, tn); err != nil {
-			return fmt.Errorf("failed to parse trace: %v", err)
+			return fmt.Errorf("failed to parse trace: %w", err)
 		}
 		eventSubType = tn.ObsPoint
 
@@ -131,7 +131,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	case monitorAPI.MessageTypePolicyVerdict:
 		pvn = &monitor.PolicyVerdictNotify{}
 		if err := binary.Read(bytes.NewReader(data), byteorder.Native, pvn); err != nil {
-			return fmt.Errorf("failed to parse policy verdict: %v", err)
+			return fmt.Errorf("failed to parse policy verdict: %w", err)
 		}
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen

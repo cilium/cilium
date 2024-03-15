@@ -95,12 +95,12 @@ func writeSysctl(name string, value string) error {
 	}
 	f, err := os.OpenFile(path, os.O_RDWR, 0644)
 	if err != nil {
-		return fmt.Errorf("could not open the sysctl file %s: %s",
+		return fmt.Errorf("could not open the sysctl file %s: %w",
 			path, err)
 	}
 	defer f.Close()
 	if _, err := io.WriteString(f, value); err != nil {
-		return fmt.Errorf("could not write to the systctl file %s: %s",
+		return fmt.Errorf("could not write to the systctl file %s: %w",
 			path, err)
 	}
 	return nil
@@ -134,7 +134,7 @@ func Read(name string) (string, error) {
 	}
 	val, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("Failed to read %s: %s", path, err)
+		return "", fmt.Errorf("Failed to read %s: %w", path, err)
 	}
 
 	return strings.TrimRight(string(val), "\n"), nil
@@ -164,7 +164,7 @@ func ApplySettings(sysSettings []Setting) error {
 		}).Info("Setting sysctl")
 		if err := Write(s.Name, s.Val); err != nil {
 			if !s.IgnoreErr || errors.Is(err, ErrInvalidSysctlParameter("")) {
-				return fmt.Errorf("Failed to sysctl -w %s=%s: %s", s.Name, s.Val, err)
+				return fmt.Errorf("Failed to sysctl -w %s=%s: %w", s.Name, s.Val, err)
 			}
 
 			warn := "Failed to sysctl -w"

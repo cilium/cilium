@@ -80,7 +80,7 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 
 	f, err := os.Create(headerPath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+		return fmt.Errorf("failed to open file %s for writing: %w", headerPath, err)
 
 	}
 	defer f.Close()
@@ -98,7 +98,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 
 	f, err := os.Create(headerPath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+		return fmt.Errorf("failed to open file %s for writing: %w", headerPath, err)
 	}
 	defer f.Close()
 
