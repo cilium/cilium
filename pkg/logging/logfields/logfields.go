@@ -757,4 +757,13 @@ const (
 
 	// EtcdQPSLimit is the QPS limit for an etcd client.
 	EtcdQPSLimit = "etcdQPSLimit"
+
+	// CRD represents a CRD.
+	CRD = "crd"
+
+	// Version is the version of an object.
+	Version = "version"
+
+	// ExpectedVersion is the expected version of an object.
+	ExpectedVersion = "expectedVersion"
 )

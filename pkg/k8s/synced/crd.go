@@ -9,6 +9,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/blang/semver/v4"
+	"github.com/sirupsen/logrus"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -18,12 +20,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -31,6 +35,8 @@ import (
 const (
 	k8sAPIGroupCRD = "CustomResourceDefinition"
 )
+
+var expectedCRDSchemaVersion = semver.MustParse(k8sconst.CustomResourceDefinitionSchemaVersion)
 
 func CRDResourceName(crd string) string {
 	return "crd:" + crd
@@ -126,6 +132,7 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { crds.add(obj) },
+			UpdateFunc: func(_, obj interface{}) { crds.add(obj) },
 			DeleteFunc: func(obj interface{}) { crds.remove(obj) },
 		},
 		nil,
@@ -206,9 +213,27 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 
 func (s *crdState) add(obj interface{}) {
 	if pom := k8s.CastInformerEvent[slim_metav1.PartialObjectMetadata](obj); pom != nil {
-		s.Lock()
-		s.m[CRDResourceName(pom.GetName())] = true
-		s.Unlock()
+		vsnstr := pom.GetLabels()[k8sconst.CustomResourceDefinitionSchemaVersionKey]
+		vsn, err := semver.ParseTolerant(vsnstr)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.CRD:     pom.GetName(),
+				logfields.Version: vsnstr,
+			}).Warning("Failed to parse CRD version")
+			return
+		}
+
+		if vsn.GE(expectedCRDSchemaVersion) {
+			s.Lock()
+			s.m[CRDResourceName(pom.GetName())] = true
+			s.Unlock()
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.CRD:             pom.GetName(),
+				logfields.Version:         vsnstr,
+				logfields.ExpectedVersion: expectedCRDSchemaVersion.String(),
+			}).Info("Found CRD doesn't match the expected version")
+		}
 	}
 }
 
