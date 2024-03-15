@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -1088,10 +1089,12 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 
 	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(hostEndpointID))
 
-	if e.RequireARPPassthrough() {
-		fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
-	} else {
-		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
+	if option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
+		if e.RequireARPPassthrough() {
+			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
+		} else {
+			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
+		}
 	}
 
 	if e.ConntrackLocalLocked() {

@@ -227,8 +227,10 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	}
 
 	mac := ep.GetNodeMAC()
-	result["NODE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
-	result["NODE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
+	if len(mac) != 0 {
+		result["NODE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
+		result["NODE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
+	}
 
 	if ep.IsHost() {
 		if option.Config.EnableNodePort {
