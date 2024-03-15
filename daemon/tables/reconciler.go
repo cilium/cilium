@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
@@ -22,10 +23,10 @@ func serviceReconcilerConfig(bes statedb.RWTable[*Backend]) reconciler.Config[*S
 		FullReconcilationInterval: time.Minute,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   time.Minute,
-		IncrementalRoundSize:      1000,
+		IncrementalRoundSize:      500,
 		GetObjectStatus:           (*Service).GetBPFStatus,
 		WithObjectStatus:          (*Service).WithBPFStatus,
-		RateLimiter:               nil,
+		RateLimiter:               rate.NewLimiter(10*time.Millisecond, 20),
 		Operations:                ops,
 		BatchOperations:           nil,
 	}
@@ -55,10 +56,10 @@ func (s *backendsState) updateReferences(frontend loadbalancer.L3n4Addr, backend
 
 			count := s.refCounts[addr] - 1
 			if count <= 0 {
-				log.Infof("Backend %s is now an orphan", addr.StringWithProtocol())
+				//log.Infof("Backend %s is now an orphan", addr.StringWithProtocol())
 				orphans = append(orphans, addr)
 			} else {
-				log.Infof("Backend %s ref count now %d", addr.StringWithProtocol(), count)
+				//log.Infof("Backend %s ref count now %d", addr.StringWithProtocol(), count)
 				s.refCounts[addr] = count
 			}
 		}
@@ -277,30 +278,25 @@ var _ reconciler.Operations[*Service] = &serviceOps{}
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "services")
 
 func mockDeleteBackend(id loadbalancer.BackendID) error {
-	time.Sleep(20 * time.Microsecond)
 	log.Infof("mockDeleteBackend %v", id)
 	return nil
 }
 func mockUpdateBackend(id loadbalancer.BackendID, be *Backend) error {
-	time.Sleep(20 * time.Microsecond)
 	log.Infof("mockUpdateBackend %v: %s", id, be.L3n4Addr.StringWithProtocol())
 	return nil
 }
 
 func mockUpdateService(id loadbalancer.ID, svc *Service, slot int, backendID loadbalancer.BackendID) error {
-	time.Sleep(20 * time.Microsecond)
 	log.Infof("mockUpdateService %s (%s): %d => %d", svc.Name, svc.Type, slot, backendID)
 	return nil
 }
 
 func mockCleanupSlots(id loadbalancer.ID, svc *Service, old, new int) error {
-	time.Sleep(20 * time.Microsecond)
 	log.Infof("mockCleanupSlots %s: %d -> %d", svc.Name, old, new)
 	return nil
 }
 
 func mockUpdateRevNat(addr loadbalancer.L3n4AddrID) error {
-	time.Sleep(20 * time.Microsecond)
 	log.Infof("mockUpdateRevNat %d -> %s:%d", addr.ID, addr.AddrCluster.Addr(), addr.Port)
 	return nil
 }

@@ -38,13 +38,11 @@ const (
 )
 
 func l3n4AddrKey(addr loadbalancer.L3n4Addr) index.Key {
-	// <clusterID> <IP addr> <port> <protocol> <scope>
 	return slices.Concat(
-		index.Uint32(addr.AddrCluster.ClusterID()),
 		index.NetIPAddr(addr.AddrCluster.Addr()),
 		index.Uint16(addr.Port),
 		index.String(addr.Protocol),
-		[]byte{addr.Scope},
+		index.Uint32(addr.AddrCluster.ClusterID()),
 	)
 }
 

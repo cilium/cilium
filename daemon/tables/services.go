@@ -112,14 +112,7 @@ var (
 		Unique:  false,
 	}
 
-	ServiceSourceIndex = statedb.Index[*Service, source.Source]{
-		Name: "source",
-		FromObject: func(obj *Service) index.KeySet {
-			return index.NewKeySet(index.Stringer(obj.Source))
-		},
-		FromKey: index.Stringer[source.Source],
-		Unique:  false,
-	}
+	ServiceStatusIndex = reconciler.NewStatusIndex[*Service]((*Service).GetBPFStatus)
 )
 
 const (
@@ -131,7 +124,7 @@ func NewServicesTable(db *statedb.DB) (statedb.RWTable[*Service], error) {
 		ServicesTableName,
 		ServiceL3n4AddrIndex,
 		ServiceNameIndex,
-		ServiceSourceIndex,
+		ServiceStatusIndex,
 	)
 	if err != nil {
 		return nil, err
@@ -149,8 +142,11 @@ var ServicesCell = cell.Module(
 
 		serviceReconcilerConfig,
 	),
-
-	cell.Provide(NewServices),
+	cell.Provide(
+		NewServices,
+		statedb.RWTable[*Service].ToTable,
+		statedb.RWTable[*Backend].ToTable,
+	),
 	cell.Invoke(reconciler.Register[*Service]),
 )
 
@@ -244,12 +240,12 @@ func (s *Services) deleteService(txn ServiceWriteTxn, svc *Service) error {
 }
 
 func (s *Services) DeleteServicesBySource(txn ServiceWriteTxn, source source.Source) error {
-	iter, _ := s.svcs.Get(txn, ServiceSourceIndex.Query(source))
+	/*iter, _ := s.svcs.Get(txn, ServiceSourceIndex.Query(source))
 	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
 		if err := s.deleteService(txn, svc); err != nil {
 			return err
 		}
-	}
+	}*/
 	return nil
 }
 
@@ -274,17 +270,20 @@ func (s *Services) UpsertBackends(txn ServiceWriteTxn, name loadbalancer.Service
 	return nil
 }
 
-func (s *Services) updateBackends(txn ServiceWriteTxn, name loadbalancer.ServiceName, bes []BackendParams) error {
-	existing := make(map[loadbalancer.L3n4Addr]*Backend)
-	iter, _ := s.bes.Get(txn, BackendServiceIndex.Query(name))
-	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
-		existing[be.L3n4Addr] = be
-	}
+type serviceNameSet = container.ImmSet[loadbalancer.ServiceName]
 
+func newServiceNameSet(names ...loadbalancer.ServiceName) container.ImmSet[loadbalancer.ServiceName] {
+	return container.NewImmSetFunc(
+		loadbalancer.ServiceName.Compare,
+		names...,
+	)
+}
+
+func (s *Services) updateBackends(txn ServiceWriteTxn, name loadbalancer.ServiceName, bes []BackendParams) error {
 	for _, bep := range bes {
 		var be Backend
 
-		if old, ok := existing[bep.L3n4Addr]; ok {
+		if old, _, ok := s.bes.First(txn, BackendAddrIndex.Query(bep.L3n4Addr)); ok {
 			if old.Source != be.Source {
 				// FIXME likely want to be able to have many sources for
 				// a backend?
@@ -292,13 +291,11 @@ func (s *Services) updateBackends(txn ServiceWriteTxn, name loadbalancer.Service
 			}
 			be = *old
 			// FIXME how to merge the other fields?
+			be.ReferencedBy = be.ReferencedBy.Insert(name)
 		} else {
-			be.ReferencedBy = container.NewImmSetFunc(
-				loadbalancer.ServiceName.Compare,
-			)
+			be.ReferencedBy = newServiceNameSet(name)
 		}
 		be.BackendParams = bep
-		be.ReferencedBy = be.ReferencedBy.Insert(name)
 
 		if _, _, err := s.bes.Insert(txn, &be); err != nil {
 			return err
@@ -315,17 +312,14 @@ func (s *Services) DeleteBackendsBySource(txn ServiceWriteTxn, source source.Sou
 func (s *Services) DeleteBackend(txn ServiceWriteTxn, name loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) error {
 	be, _, ok := s.bes.First(txn, BackendAddrIndex.Query(addr))
 	if !ok {
-		log.Infof("Delete: not found")
 		return statedb.ErrObjectNotFound
 	}
 	be, orphan := be.removeRef(name)
 	if orphan {
-		log.Infof("Delete: Deleted backend %#v", be)
 		if _, _, err := s.bes.Delete(txn, be); err != nil {
 			return err
 		}
 	} else {
-		log.Infof("Delete: updated backend %#v", be)
 		if _, _, err := s.bes.Insert(txn, be); err != nil {
 			return err
 		}
