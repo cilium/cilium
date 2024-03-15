@@ -36,7 +36,7 @@ func (launcher *Launcher) Run() error {
 	stdout, _ := cmd.StdoutPipe()
 	if err := cmd.Start(); err != nil {
 		log.WithError(err).WithField("cmd", cmdStr).Error("cmd.Start()")
-		return fmt.Errorf("unable to launch process %s: %s", cmdStr, err)
+		return fmt.Errorf("unable to launch process %s: %w", cmdStr, err)
 	}
 
 	launcher.setProcess(cmd.Process)

@@ -148,12 +148,12 @@ func testEndpoint(t *testing.T, port int, path string, statusCode int) error {
 		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create http request: %s", err)
+		return fmt.Errorf("failed to create http request: %w", err)
 	}
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("http request for %s failed: %s", path, err)
+		return fmt.Errorf("http request for %s failed: %w", path, err)
 	}
 	defer res.Body.Close()
 

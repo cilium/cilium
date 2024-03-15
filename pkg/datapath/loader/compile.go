@@ -202,13 +202,13 @@ func progLDFlags(prog *progInfo, dir *directoryInfo) []string {
 func prepareCmdPipes(cmd *exec.Cmd) (io.ReadCloser, io.ReadCloser, error) {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to get stdout pipe: %s", err)
+		return nil, nil, fmt.Errorf("Failed to get stdout pipe: %w", err)
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		stdout.Close()
-		return nil, nil, fmt.Errorf("Failed to get stderr pipe: %s", err)
+		return nil, nil, fmt.Errorf("Failed to get stderr pipe: %w", err)
 	}
 
 	return stdout, stderr, nil
@@ -240,7 +240,7 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, com
 	linkCmd := exec.CommandContext(ctx, linker, linkArgs...)
 	linkCmd.Stdin = compilerStdout
 	if err := compileCmd.Start(); err != nil {
-		return fmt.Errorf("Failed to start command %s: %s", compileCmd.Args, err)
+		return fmt.Errorf("Failed to start command %s: %w", compileCmd.Args, err)
 	}
 
 	var compileOut []byte

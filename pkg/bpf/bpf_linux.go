@@ -161,7 +161,7 @@ func GetMtime() (uint64, error) {
 
 	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
 	if err != nil {
-		return 0, fmt.Errorf("Unable get time: %s", err)
+		return 0, fmt.Errorf("Unable get time: %w", err)
 	}
 
 	return uint64(unix.TimespecToNsec(ts)), nil

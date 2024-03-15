@@ -62,7 +62,7 @@ func haveManagedNeighbors() (outer error) {
 			// The current goroutine is locked to an OS thread and we've failed
 			// to undo state modifications to the thread. Returning without unlocking
 			// the goroutine will make sure the underlying OS thread dies.
-			outer = fmt.Errorf("error setting thread back to its original netns: %w (original error: %s)", nerr, outer)
+			outer = fmt.Errorf("error setting thread back to its original netns: %w (original error: %w)", nerr, outer)
 			return
 		}
 		// only now that we have successfully changed the thread back to its

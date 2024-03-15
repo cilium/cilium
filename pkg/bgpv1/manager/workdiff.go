@@ -51,10 +51,10 @@ func newReconcileDiff(state *agent.ControlPlaneState) *reconcileDiff {
 // withdraw, or reconcile in the reconcileDiff's respective fields.
 func (wd *reconcileDiff) diff(m LocalASNMap, policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
 	if err := wd.registerOrReconcileDiff(m, policy); err != nil {
-		return fmt.Errorf("encountered error creating reoncile diff: %v", err)
+		return fmt.Errorf("encountered error creating reoncile diff: %w", err)
 	}
 	if err := wd.withdrawDiff(m, policy); err != nil {
-		return fmt.Errorf("encountered error creating reconcile diff: %v", err)
+		return fmt.Errorf("encountered error creating reconcile diff: %w", err)
 	}
 	return nil
 }

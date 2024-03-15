@@ -87,7 +87,7 @@ func setBaselineSysctls() error {
 	for name, value := range baseIntSettings {
 		currentValue, err := sysctl.ReadInt(name)
 		if err != nil {
-			return fmt.Errorf("read sysctl %s failed: %s", name, err)
+			return fmt.Errorf("read sysctl %s failed: %w", name, err)
 		}
 
 		scopedLog := log.WithFields(logrus.Fields{
@@ -103,7 +103,7 @@ func setBaselineSysctls() error {
 
 		scopedLog.Info("Setting sysctl to baseline for BPF bandwidth manager")
 		if err := sysctl.WriteInt(name, value); err != nil {
-			return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
+			return fmt.Errorf("set sysctl %s=%d failed: %w", name, value, err)
 		}
 	}
 
@@ -125,7 +125,7 @@ func setBaselineSysctls() error {
 		}).Info("Setting sysctl to baseline for BPF bandwidth manager")
 
 		if err := sysctl.Write(name, value); err != nil {
-			return fmt.Errorf("set sysctl %s=%s failed: %s", name, value, err)
+			return fmt.Errorf("set sysctl %s=%s failed: %w", name, value, err)
 		}
 	}
 
@@ -144,7 +144,7 @@ func setBaselineSysctls() error {
 			}).Info("Setting sysctl to baseline for BPF bandwidth manager")
 
 			if err := sysctl.WriteInt(name, value); err != nil {
-				return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
+				return fmt.Errorf("set sysctl %s=%d failed: %w", name, value, err)
 			}
 		}
 	}

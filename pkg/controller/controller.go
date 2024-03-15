@@ -212,8 +212,8 @@ func (c *controller) runController(params ControllerParams) {
 				err = NewExitReason("controller context canceled")
 			}
 
-			switch err := err.(type) {
-			case ExitReason:
+			var exitReason ExitReason
+			if errors.As(err, &exitReason) {
 				// This is actually not an error case, but it causes an exit
 				c.recordSuccess()
 				c.lastError = err // This will be shown in the controller status
@@ -224,7 +224,7 @@ func (c *controller) runController(params ControllerParams) {
 				c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
 				interval = time.Duration(math.MaxInt64)
 
-			default:
+			} else {
 				c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
 					WithError(err).Debug("Controller run failed")
 				c.recordError(err)

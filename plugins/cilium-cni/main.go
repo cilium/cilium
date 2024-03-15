@@ -230,7 +230,7 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, i
 
 		if err := netlink.RouteAdd(rt); err != nil {
 			if !os.IsExist(err) {
-				return fmt.Errorf("failed to add route '%s via %v dev %v': %v",
+				return fmt.Errorf("failed to add route '%s via %v dev %v': %w",
 					r.Prefix.String(), r.Nexthop, ifName, err)
 			}
 		}
@@ -242,22 +242,22 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, i
 func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (string, error) {
 	l, err := netlink.LinkByName(ifName)
 	if err != nil {
-		return "", fmt.Errorf("failed to lookup %q: %v", ifName, err)
+		return "", fmt.Errorf("failed to lookup %q: %w", ifName, err)
 	}
 
 	if err := netlink.LinkSetUp(l); err != nil {
-		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
+		return "", fmt.Errorf("failed to set %q UP: %w", ifName, err)
 	}
 
 	if ipv4IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP4, state.IP4routes, l, ifName); err != nil {
-			return "", fmt.Errorf("error configuring IPv4: %s", err.Error())
+			return "", fmt.Errorf("error configuring IPv4: %w", err)
 		}
 	}
 
 	if ipv6IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
-			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
+			return "", fmt.Errorf("error configuring IPv6: %w", err)
 		}
 	}
 
@@ -364,7 +364,7 @@ func setupLogging(n *types.NetConf) error {
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %w", args.StdinData, err)
 	}
 
 	if err = setupLogging(n); err != nil {
@@ -389,13 +389,13 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	cniArgs := types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
-		return fmt.Errorf("unable to extract CNI arguments: %s", err)
+		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
 	logger.Debugf("CNI Args: %#v", cniArgs)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
-		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
+		return fmt.Errorf("unable to connect to Cilium daemon: %w", client.Hint(err))
 	}
 
 	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
@@ -432,12 +432,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	netNs, err := ns.GetNS(args.Netns)
 	if err != nil {
-		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
+		return fmt.Errorf("failed to open netns %q: %w", args.Netns, err)
 	}
 	defer netNs.Close()
 
 	if err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName); err != nil {
-		return fmt.Errorf("failed removing interface %q from namespace %q: %s",
+		return fmt.Errorf("failed removing interface %q from namespace %q: %w",
 			args.IfName, args.Netns, err)
 	}
 
@@ -466,7 +466,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
-		return fmt.Errorf("IP allocation addressing in insufficient: %s", err)
+		return fmt.Errorf("IP allocation addressing in insufficient: %w", err)
 	}
 
 	ep := &models.EndpointChangeRequest{
@@ -497,7 +497,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			int(conf.GROMaxSize), int(conf.GSOMaxSize),
 			int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
 		if err != nil {
-			return fmt.Errorf("unable to set up veth on host side: %s", err)
+			return fmt.Errorf("unable to set up veth on host side: %w", err)
 		}
 		defer func() {
 			if err != nil {
@@ -513,12 +513,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		})
 
 		if err = netlink.LinkSetNsFd(peer, int(netNs.Fd())); err != nil {
-			return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
+			return fmt.Errorf("unable to move veth pair '%v' to netns: %w", peer, err)
 		}
 
 		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
-			return fmt.Errorf("unable to set up veth on container side: %s", err)
+			return fmt.Errorf("unable to set up veth on container side: %w", err)
 		}
 	}
 
@@ -541,7 +541,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
 		if err != nil {
-			return fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV6, err)
+			return fmt.Errorf("unable to prepare IP addressing for '%s': %w", ep.Addressing.IPV6, err)
 		}
 		// set the addresses interface index to that of the container-side veth
 		ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
@@ -556,7 +556,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))
 		if err != nil {
-			return fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV4, err)
+			return fmt.Errorf("unable to prepare IP addressing for '%s': %w", ep.Addressing.IPV4, err)
 		}
 		// set the addresses interface index to that of the container-side veth
 		ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
@@ -568,7 +568,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 		if err != nil {
-			return fmt.Errorf("unable to setup interface datapath: %s", err)
+			return fmt.Errorf("unable to setup interface datapath: %w", err)
 		}
 	}
 
@@ -582,7 +582,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
 	}); err != nil {
-		return fmt.Errorf("unable to configure interfaces in container namespace: %s", err)
+		return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
 	}
 
 	res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
@@ -596,7 +596,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err = c.EndpointCreate(ep); err != nil {
 		logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		return fmt.Errorf("unable to create endpoint: %s", err)
+		return fmt.Errorf("unable to create endpoint: %w", err)
 	}
 
 	logger.WithFields(logrus.Fields{
@@ -614,7 +614,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	// are guaranteed to be recoverable.
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %w", args.StdinData, err)
 	}
 
 	if err := setupLogging(n); err != nil {
@@ -636,7 +636,7 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	cniArgs := types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
-		return fmt.Errorf("unable to extract CNI arguments: %s", err)
+		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
 	logger.Debugf("CNI Args: %#v", cniArgs)
 

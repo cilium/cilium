@@ -293,7 +293,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		var aux string
 
 		if err := json.Unmarshal(data, &aux); err != nil {
-			return fmt.Errorf("decode of Label as string failed: %+v", err)
+			return fmt.Errorf("decode of Label as string failed: %w", err)
 		}
 
 		if aux == "" {

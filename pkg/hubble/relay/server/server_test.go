@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -278,7 +279,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 
 	for {
 		flow, err := c.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(b, err)

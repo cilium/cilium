@@ -173,11 +173,11 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 			m := make(map[string]interface{})
 			nested := bytes.NewBufferString(unquoted[nestedStart:nestedEnd])
 			if err := json.NewDecoder(nested).Decode(&m); err != nil {
-				return bytes.Buffer{}, fmt.Errorf("Failed to decode nested JSON: %s (\n%s\n)", err.Error(), unquoted[nestedStart:nestedEnd])
+				return bytes.Buffer{}, fmt.Errorf("Failed to decode nested JSON: %w (\n%s\n)", err, unquoted[nestedStart:nestedEnd])
 			}
 			decodedBytes, err := json.MarshalIndent(m, indent, "  ")
 			if err != nil {
-				return bytes.Buffer{}, fmt.Errorf("Cannot marshal nested JSON: %s", err.Error())
+				return bytes.Buffer{}, fmt.Errorf("Cannot marshal nested JSON: %w", err)
 			}
 			decoded = string(decodedBytes)
 		}
@@ -274,7 +274,7 @@ func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs,
 	trafficDirection := args[1]
 	parsedTd, err := parseTrafficString(trafficDirection)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to convert %s to a valid traffic direction: %s", args[1], err)
+		return nil, fmt.Errorf("Failed to convert %s to a valid traffic direction: %w", args[1], err)
 	}
 
 	mapName, err := endpointToPolicyMapPath(args[0])
@@ -293,7 +293,7 @@ func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs,
 	if len(args) > 3 {
 		pp, err := parseL4PortsSlice([]string{args[3]})
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse L4: %s", err)
+			return nil, fmt.Errorf("Failed to parse L4: %w", err)
 		}
 		port = pp[0].Port
 		if port != 0 {
@@ -467,7 +467,7 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 		if !iana.IsSvcName(portStr) {
 			portUint64, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
-				return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
+				return nil, fmt.Errorf("invalid port %q: %w", portStr, err)
 			}
 			port = uint16(portUint64)
 			portStr = ""

@@ -85,12 +85,12 @@ func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
 func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 	mac, err := e.LXCMac().Uint64()
 	if err != nil {
-		return nil, fmt.Errorf("invalid LXC MAC: %v", err)
+		return nil, fmt.Errorf("invalid LXC MAC: %w", err)
 	}
 
 	nodeMAC, err := e.GetNodeMAC().Uint64()
 	if err != nil {
-		return nil, fmt.Errorf("invalid node MAC: %v", err)
+		return nil, fmt.Errorf("invalid node MAC: %w", err)
 	}
 
 	info := &EndpointInfo{
@@ -213,7 +213,7 @@ func DeleteElement(f EndpointFrontend) []error {
 	var errors []error
 	for _, k := range GetBPFKeys(f) {
 		if err := LXCMap().Delete(k); err != nil {
-			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %s", k, bpf.MapPath(MapName), err))
+			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %w", k, bpf.MapPath(MapName), err))
 		}
 	}
 
@@ -232,7 +232,7 @@ func DumpToMap() (map[string]EndpointInfo, error) {
 	}
 
 	if err := LXCMap().DumpWithCallback(callback); err != nil {
-		return nil, fmt.Errorf("unable to read BPF endpoint list: %s", err)
+		return nil, fmt.Errorf("unable to read BPF endpoint list: %w", err)
 	}
 
 	return m, nil

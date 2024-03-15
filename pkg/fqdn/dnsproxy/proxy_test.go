@@ -1159,6 +1159,7 @@ func (s *DNSProxyTestSuite) TestProxyRequestContext_IsTimeout(c *C) {
 
 	// Assert that failing to wrap the error properly (by using '%w') causes
 	// IsTimeout() to return the wrong value.
+	//nolint:errorlint
 	p.Err = fmt.Errorf("sample err: %s", context.DeadlineExceeded)
 	c.Assert(p.IsTimeout(), Equals, false)
 

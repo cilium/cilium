@@ -29,14 +29,14 @@ type GenericVethChainer struct{}
 func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginContext, cli *client.Client) (res *cniTypesVer.Result, err error) {
 	err = cniVersion.ParsePrevResult(&pluginCtx.NetConf.NetConf)
 	if err != nil {
-		err = fmt.Errorf("unable to understand network config: %s", err)
+		err = fmt.Errorf("unable to understand network config: %w", err)
 		return
 	}
 
 	var prevRes *cniTypesVer.Result
 	prevRes, err = cniTypesVer.NewResultFromResult(pluginCtx.NetConf.PrevResult)
 	if err != nil {
-		err = fmt.Errorf("unable to get previous network result: %s", err)
+		err = fmt.Errorf("unable to get previous network result: %w", err)
 		return
 	}
 
@@ -56,7 +56,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 
 	netNs, err = ns.GetNS(pluginCtx.Args.Netns)
 	if err != nil {
-		err = fmt.Errorf("failed to open netns %q: %s", pluginCtx.Args.Netns, err)
+		err = fmt.Errorf("failed to open netns %q: %w", pluginCtx.Args.Netns, err)
 		return
 	}
 	defer netNs.Close()
@@ -83,7 +83,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 
 			peerIndex, err = netlink.VethPeerIndex(veth)
 			if err != nil {
-				return fmt.Errorf("unable to retrieve index of veth peer %s: %s", vethHostName, err)
+				return fmt.Errorf("unable to retrieve index of veth peer %s: %w", vethHostName, err)
 			}
 
 			addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
@@ -112,7 +112,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 
 	peer, err = netlink.LinkByIndex(peerIndex)
 	if err != nil {
-		err = fmt.Errorf("unable to lookup link %d: %s", peerIndex, err)
+		err = fmt.Errorf("unable to lookup link %d: %w", peerIndex, err)
 		return
 	}
 
@@ -173,7 +173,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	if err != nil {
 		pluginCtx.Logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		err = fmt.Errorf("unable to create endpoint: %s", err)
+		err = fmt.Errorf("unable to create endpoint: %w", err)
 		return
 	}
 

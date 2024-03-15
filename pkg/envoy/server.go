@@ -1599,7 +1599,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for Endpoint %d: %s", ep.GetID(), err), nil
+		return fmt.Errorf("error validating generated NetworkPolicy for Endpoint %d: %w", ep.GetID(), err), nil
 	}
 
 	nodeIDs := getNodeIDs(ep, policy)

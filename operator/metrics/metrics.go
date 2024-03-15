@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -65,13 +66,11 @@ func Register() {
 	go func() {
 		go func() {
 			err := srv.ListenAndServe()
-			switch err {
-			case http.ErrServerClosed:
+			if errors.Is(err, http.ErrServerClosed) {
 				log.Info("Metrics server shutdown successfully")
 				return
-			default:
-				log.WithError(err).Fatal("Metrics server ListenAndServe failed")
 			}
+			log.WithError(err).Fatal("Metrics server ListenAndServe failed")
 		}()
 
 		<-shutdownCh
