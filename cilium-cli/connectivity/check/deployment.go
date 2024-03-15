@@ -366,7 +366,7 @@ func newIngress() *networkingv1.Ingress {
 									}(),
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: echoSameNodeDeploymentName,
+											Name: echoOtherNodeDeploymentName,
 											Port: networkingv1.ServiceBackendPort{
 												Number: 8080,
 											},
