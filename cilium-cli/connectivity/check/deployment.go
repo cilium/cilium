@@ -64,8 +64,6 @@ const (
 	KindTestConnDisrupt                 = "test-conn-disrupt"
 
 	EchoServerHostPort = 4000
-
-	IngressServiceName = "ingress-service"
 )
 
 type deploymentParameters struct {
@@ -339,10 +337,10 @@ func newLocalReadinessProbe(port int, path string) *corev1.Probe {
 	}
 }
 
-func newIngress() *networkingv1.Ingress {
+func newIngress(name, backend string) *networkingv1.Ingress {
 	return &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: IngressServiceName,
+			Name: name,
 			Annotations: map[string]string{
 				"ingress.cilium.io/loadbalancer-mode": "dedicated",
 				"ingress.cilium.io/service-type":      "NodePort",
@@ -365,7 +363,7 @@ func newIngress() *networkingv1.Ingress {
 									}(),
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: echoOtherNodeDeploymentName,
+											Name: backend,
 											Port: networkingv1.ServiceBackendPort{
 												Number: 8080,
 											},
@@ -379,6 +377,14 @@ func newIngress() *networkingv1.Ingress {
 			},
 		},
 	}
+}
+
+func (ct *ConnectivityTest) ingresses() map[string]string {
+	ingresses := map[string]string{"same-node": echoSameNodeDeploymentName}
+	if !ct.Params().SingleNode || ct.Params().MultiCluster != "" {
+		ingresses["other-node"] = echoOtherNodeDeploymentName
+	}
+	return ingresses
 }
 
 // deploy ensures the test Namespace, Services and Deployments are running on the cluster.
@@ -908,12 +914,14 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	// Create one Ingress service for echo deployment
 	if ct.Features[features.IngressController].Enabled {
-		_, err = ct.clients.src.GetIngress(ctx, ct.params.TestNamespace, IngressServiceName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying Ingress resource...", ct.clients.src.ClusterName())
-			_, err = ct.clients.src.CreateIngress(ctx, ct.params.TestNamespace, newIngress(), metav1.CreateOptions{})
+		for name, backend := range ct.ingresses() {
+			_, err = ct.clients.src.GetIngress(ctx, ct.params.TestNamespace, name, metav1.GetOptions{})
 			if err != nil {
-				return err
+				ct.Logf("✨ [%s] Deploying Ingress resource...", ct.clients.src.ClusterName())
+				_, err = ct.clients.src.CreateIngress(ctx, ct.params.TestNamespace, newIngress(name, backend), metav1.CreateOptions{})
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -1313,13 +1321,15 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	if ct.Features[features.IngressController].Enabled {
-		svcName := fmt.Sprintf("cilium-ingress-%s", IngressServiceName)
-		svc, err := WaitForServiceRetrieval(ctx, ct, ct.client, ct.params.TestNamespace, svcName)
-		if err != nil {
-			return err
-		}
+		for name := range ct.ingresses() {
+			svcName := fmt.Sprintf("cilium-ingress-%s", name)
+			svc, err := WaitForServiceRetrieval(ctx, ct, ct.client, ct.params.TestNamespace, svcName)
+			if err != nil {
+				return err
+			}
 
-		ct.ingressService[svcName] = svc
+			ct.ingressService[svcName] = svc
+		}
 	}
 
 	if ct.params.MultiCluster == "" {
