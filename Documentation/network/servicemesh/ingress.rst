@@ -139,6 +139,8 @@ are supported.
 
 By default, annotations with values beginning with:
 
+* ``lbipam.cilium.io``
+* ``nodeipam.cilium.io``
 * ``service.beta.kubernetes.io``
 * ``service.kubernetes.io``
 * ``cloud.google.com``
