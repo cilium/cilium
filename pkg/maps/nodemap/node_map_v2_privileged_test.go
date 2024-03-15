@@ -7,10 +7,11 @@ import (
 	"net"
 
 	. "github.com/cilium/checkmate"
-
+	ciliumebpf "github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -87,4 +88,72 @@ func (k *NodeMapV2TestSuite) TestNodeMap(c *C) {
 
 	err = nodeMap.v1Map.IterateWithCallback(toMapV1)
 	c.Assert(err, IsNil)
+}
+
+func (k *NodeMapV2TestSuite) TestNodeMapMigration(c *C) {
+	name1 := "test_cilium_node_map"
+	name2 := "test_cilium_node_map_v2"
+	emName := "test_cilium_encrypt_state"
+
+	IP1 := net.ParseIP("10.1.0.0")
+	IP2 := net.ParseIP("10.1.0.1")
+
+	var ID1 uint16 = 10
+	var ID2 uint16 = 20
+
+	nodeMapV1 := newMap(name1, Config{
+		NodeMapMax: 1024,
+	})
+	err := nodeMapV1.init()
+	c.Assert(err, IsNil)
+
+	nodeMapV2 := newMapV2(name2, name1, Config{
+		NodeMapMax: 1024,
+	})
+	err = nodeMapV2.init()
+	c.Assert(err, IsNil)
+	defer nodeMapV2.bpfMap.Unpin()
+
+	encryptMap := encrypt.NewMap(emName)
+	err = encryptMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+
+	encrypt.MapUpdateContextWithMap(encryptMap, 0, 3)
+
+	err = nodeMapV1.Update(IP1, ID1)
+	c.Assert(err, IsNil)
+	err = nodeMapV1.Update(IP2, ID2)
+	c.Assert(err, IsNil)
+
+	// done with nodeMapV2 so we can close the FD.
+	nodeMapV2.close()
+
+	// do migration
+	err = nodeMapV2.migrateV1(name1, emName)
+	c.Assert(err, IsNil)
+
+	// confirm we see the correct migrated values
+	parse := func(k *NodeKey, v *NodeValueV2) {
+		// family must be IPv4
+		if k.Family != bpf.EndpointKeyIPv4 {
+			c.Fatalf("want: %v, got: %v", bpf.EndpointKeyIPv4, k.Family)
+		}
+		ipv4 := net.IP(k.IP[:4])
+
+		// IP must equal one of our two test IPs
+		if !ipv4.Equal(IP1) && !ipv4.Equal(IP2) {
+			c.Fatalf("migrated NodeValue2 did not match any IP under test: %v", ipv4)
+		}
+
+		// SPI must equal 3
+		if v.SPI != 3 {
+			c.Fatalf("wanted: 3, got: %v", v.SPI)
+		}
+	}
+	MapV2(nodeMapV2).IterateWithCallback(parse)
+
+	// confirm that the map is not removed, we need it around to mirror writes
+	m, err := ciliumebpf.LoadPinnedMap(bpf.MapPath(name1), nil)
+	c.Assert(err, IsNil)
+	c.Assert(m, NotNil)
 }
