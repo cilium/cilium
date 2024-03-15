@@ -65,6 +65,7 @@ jobs:
 
           # Setup Cilium install options
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --set pprof.enabled=true \
             --wait=false"
 
           CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_base_name }}"
