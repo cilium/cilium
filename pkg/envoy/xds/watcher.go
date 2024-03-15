@@ -5,6 +5,7 @@ package xds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -156,10 +157,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 
 	err := ctx.Err()
 	if err != nil {
-		switch err {
-		case context.Canceled:
+		if errors.Is(err, context.Canceled) {
 			watchLog.Debug("context canceled, terminating resource watch")
-		default:
+		} else {
 			watchLog.WithError(err).Error("context error, terminating resource watch")
 		}
 	}

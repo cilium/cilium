@@ -1584,7 +1584,7 @@ func (m *Manager) installRules(ifName string) error {
 
 	if m.sharedCfg.EnableIPSec {
 		if err := m.addCiliumNoTrackXfrmRules(); err != nil {
-			return fmt.Errorf("cannot install xfrm rules: %s", err)
+			return fmt.Errorf("cannot install xfrm rules: %w", err)
 		}
 	}
 

@@ -269,7 +269,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		family := ipam.DeriveFamily(family.PrimaryExternal())
 		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault())
 		if err != nil {
-			return nil, fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
+			return nil, fmt.Errorf("Unable to allocate router IP for family %s: %w", family, err)
 		}
 	}
 
@@ -328,7 +328,7 @@ func (d *Daemon) allocateHealthIPs() error {
 		if healthIPv4 == nil {
 			result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault())
 			if err != nil {
-				return fmt.Errorf("unable to allocate health IPv4: %s, see https://cilium.link/ipam-range-full", err)
+				return fmt.Errorf("unable to allocate health IPv4: %w, see https://cilium.link/ipam-range-full", err)
 			}
 			node.SetEndpointHealthIPv4(result.IP)
 		}
@@ -372,7 +372,7 @@ func (d *Daemon) allocateHealthIPs() error {
 					d.ipam.ReleaseIP(healthIPv4, ipam.PoolDefault())
 					node.SetEndpointHealthIPv4(nil)
 				}
-				return fmt.Errorf("unable to allocate health IPv6: %s, see https://cilium.link/ipam-range-full", err)
+				return fmt.Errorf("unable to allocate health IPv6: %w, see https://cilium.link/ipam-range-full", err)
 			}
 			node.SetEndpointHealthIPv6(result.IP)
 		}
@@ -404,7 +404,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			if result == nil {
 				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress", ipam.PoolDefault())
 				if err != nil {
-					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+					return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
 				}
 			}
 
@@ -462,7 +462,7 @@ func (d *Daemon) allocateIngressIPs() error {
 						d.ipam.ReleaseIP(ingressIPv4, ipam.PoolDefault())
 						node.SetIngressIPv4(nil)
 					}
-					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+					return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
 				}
 			}
 

@@ -37,6 +37,6 @@ func (e ErrInvalidType) Error() string {
 
 // IsErrInvalidType returns true if the given error is type of ErrInvalidType
 func IsErrInvalidType(err error) bool {
-	_, ok := err.(ErrInvalidType)
-	return ok
+	var errInvalidType ErrInvalidType
+	return errors.As(err, &errInvalidType)
 }

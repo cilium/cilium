@@ -237,7 +237,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := listener.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("failed to validate Listener (%s): %s", err, listener.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate Listener (%w): %s", err, listener.String())
 				}
 			}
 			resources.Listeners = append(resources.Listeners, listener)
@@ -266,7 +266,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := route.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("failed to validate RouteConfiguration (%s): %s", err, route.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate RouteConfiguration (%w): %s", err, route.String())
 				}
 			}
 			resources.Routes = append(resources.Routes, route)
@@ -309,7 +309,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := cluster.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("failed to validate Cluster %q (%s): %s", cluster.Name, err, cluster.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate Cluster %q (%w): %s", cluster.Name, err, cluster.String())
 				}
 			}
 			resources.Clusters = append(resources.Clusters, cluster)
@@ -336,7 +336,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := endpoints.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("failed to validate ClusterLoadAssignment for cluster %q (%s): %s", endpoints.ClusterName, err, endpoints.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate ClusterLoadAssignment for cluster %q (%w): %s", endpoints.ClusterName, err, endpoints.String())
 				}
 			}
 			resources.Endpoints = append(resources.Endpoints, endpoints)
@@ -363,7 +363,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := secret.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("failed to validate Secret for cluster %q (%s)", secret.Name, err)
+					return envoy.Resources{}, fmt.Errorf("failed to validate Secret for cluster %q: %w", secret.Name, err)
 				}
 			}
 			resources.Secrets = append(resources.Secrets, secret)
@@ -386,7 +386,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				listenerName := listener.Name
 				port, err := r.portAllocator.AllocateProxyPort(listenerName, false, true)
 				if err != nil || port == 0 {
-					return envoy.Resources{}, fmt.Errorf("listener port allocation for %q failed: %s", listenerName, err)
+					return envoy.Resources{}, fmt.Errorf("listener port allocation for %q failed: %w", listenerName, err)
 				}
 				if resources.PortAllocationCallbacks == nil {
 					resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
@@ -419,7 +419,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 		if validate {
 			if err := listener.Validate(); err != nil {
-				return envoy.Resources{}, fmt.Errorf("failed to validate Listener %q (%s): %s", listener.Name, err, listener.String())
+				return envoy.Resources{}, fmt.Errorf("failed to validate Listener %q (%w): %s", listener.Name, err, listener.String())
 			}
 		}
 	}

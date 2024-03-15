@@ -171,7 +171,8 @@ func InitEtcdLocal() (returnErr error) {
 		log.Info("Waiting for etcd process to exit")
 		err = etcdCmd.Wait()
 		if err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
+			exitError := &exec.ExitError{}
+			if errors.As(err, &exitError) {
 				if exitError.ExitCode() == -1 {
 					// We SIGTERMed the etcd process, so a nonzero exit code is expected.
 					// Check the context as a last sanity check

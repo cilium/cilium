@@ -517,7 +517,7 @@ func (res *CmdRes) WaitUntilMatchFilterLineTimeout(filter, expected string, time
 	err = RepeatUntilTrue(body, &TimeoutConfig{Timeout: timeout})
 	if err != nil {
 		return fmt.Errorf(
-			"Expected string %q is not in the filter output of %q: %s",
+			"Expected string %q is not in the filter output of %q: %w",
 			expected, filter, err)
 	}
 

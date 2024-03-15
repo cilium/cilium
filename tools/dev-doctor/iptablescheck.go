@@ -40,8 +40,11 @@ func (c *iptablesRuleCheck) Run() (checkResult, string) {
 		}
 	}
 	err = cmd.Run()
-	if _, ok := err.(*exec.ExitError); err != nil && !ok {
-		return checkFailed, err.Error()
+	if err != nil {
+		exitError := &exec.ExitError{}
+		if !errors.As(err, &exitError) {
+			return checkFailed, err.Error()
+		}
 	}
 	if cmd.ProcessState.ExitCode() != 0 {
 		return checkError, fmt.Sprintf("rule %s not found", strings.Join(c.rule, " "))

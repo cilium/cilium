@@ -233,7 +233,7 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 	msgs, err := unix.ParseSocketControlMessage(oob)
 	if err != nil {
-		return nil, fmt.Errorf("parsing socket control message: %s", err)
+		return nil, fmt.Errorf("parsing socket control message: %w", err)
 	}
 
 	for _, msg := range msgs {
@@ -246,7 +246,7 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 			}
 			// Port is in big-endian byte order
 			if err = binary.Read(bytes.NewReader(msg.Data), binary.BigEndian, pp); err != nil {
-				return nil, fmt.Errorf("reading original destination address: %s", err)
+				return nil, fmt.Errorf("reading original destination address: %w", err)
 			}
 			laddr := &net.UDPAddr{
 				IP:   net.IPv4(pp.Addr[0], pp.Addr[1], pp.Addr[2], pp.Addr[3]),
@@ -265,7 +265,7 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 			scopeId := *(*uint32)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Scope_id)]))
 			// Rest of the data is big-endian (port)
 			if err = binary.Read(bytes.NewReader(msg.Data), binary.BigEndian, pp); err != nil {
-				return nil, fmt.Errorf("reading original destination address: %s", err)
+				return nil, fmt.Errorf("reading original destination address: %w", err)
 			}
 			laddr := &net.UDPAddr{
 				IP:   net.IP(pp.Addr[:]),

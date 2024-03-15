@@ -38,7 +38,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		err := helpers.WithTimeout(func() bool {
 			addrs, err2 := net.LookupHost(worldTarget)
 			if err2 != nil {
-				lookupErr = fmt.Errorf("error looking up target domain: %s", err2)
+				lookupErr = fmt.Errorf("error looking up target domain: %w", err2)
 				return false
 			}
 			worldTargetIP = addrs[0]
@@ -50,7 +50,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		err = helpers.WithTimeout(func() bool {
 			addrs, err2 := net.LookupHost(worldInvalidTarget)
 			if err2 != nil {
-				lookupErr = fmt.Errorf("error looking up target domain: %s", err2)
+				lookupErr = fmt.Errorf("error looking up target domain: %w", err2)
 				return false
 			}
 			worldInvalidTargetIP = addrs[0]

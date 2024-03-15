@@ -697,7 +697,7 @@ func TestRingFunctionalitySerialized(t *testing.T) {
 	}
 
 	_, err := r.read(lastWrite)
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Errorf("Should not be able to read position %x, got %v", lastWrite, err)
 	}
 	lastWrite--

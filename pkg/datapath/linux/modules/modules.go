@@ -39,7 +39,7 @@ func (m *Manager) FindOrLoadModules(expectedNames ...string) error {
 		if _, err := exec.WithTimeout(
 			defaults.ExecTimeout, moduleLoader(), unloadedModule).CombinedOutput(
 			nil, false); err != nil {
-			return fmt.Errorf("could not load module %s: %s",
+			return fmt.Errorf("could not load module %s: %w",
 				unloadedModule, err)
 		}
 	}

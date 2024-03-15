@@ -196,7 +196,7 @@ func endpointSlicesFallbackDiscovery(client kubernetes.Interface) error {
 
 	// Unknown error, we can't derive whether to enable or disable
 	// EndpointSlices and need to error out.
-	return fmt.Errorf("unable to validate EndpointSlices support: %s", err)
+	return fmt.Errorf("unable to validate EndpointSlices support: %w", err)
 }
 
 func leasesFallbackDiscovery(client kubernetes.Interface, apiDiscoveryEnabled bool) error {
@@ -229,7 +229,7 @@ func leasesFallbackDiscovery(client kubernetes.Interface, apiDiscoveryEnabled bo
 
 	// Unknown error, we can't derive whether to enable or disable
 	// LeasesResourceLock and need to error out
-	return fmt.Errorf("unable to validate LeasesResourceLock support: %s", err)
+	return fmt.Errorf("unable to validate LeasesResourceLock support: %w", err)
 }
 
 func updateK8sServerVersion(client kubernetes.Interface) error {
@@ -258,7 +258,7 @@ func updateK8sServerVersion(client kubernetes.Interface) error {
 		}
 	}
 
-	return fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
+	return fmt.Errorf("cannot parse k8s server version from %+v: %w", sv, err)
 }
 
 // Update retrieves the version of the Kubernetes apiserver and derives the

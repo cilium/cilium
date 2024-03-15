@@ -128,7 +128,7 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint) (bool, error) {
 	id := ep.GetID16()
 	securityIdentity, err := ep.GetSecurityIdentity()
 	if err != nil {
-		return false, fmt.Errorf("cannot update caches in rules for endpoint %d because it is being deleted: %s", id, err)
+		return false, fmt.Errorf("cannot update caches in rules for endpoint %d because it is being deleted: %w", id, err)
 	}
 
 	if securityIdentity == nil {

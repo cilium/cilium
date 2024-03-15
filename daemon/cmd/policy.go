@@ -234,7 +234,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 	polAddEvent := eventqueue.NewEvent(p)
 	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
 	if err != nil {
-		return 0, fmt.Errorf("enqueue of PolicyAddEvent failed: %s", err)
+		return 0, fmt.Errorf("enqueue of PolicyAddEvent failed: %w", err)
 	}
 
 	res, ok := <-resChan
@@ -506,7 +506,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	policyDeleteEvent := eventqueue.NewEvent(p)
 	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
 	if err != nil {
-		return 0, fmt.Errorf("enqueue of PolicyDeleteEvent failed: %s", err)
+		return 0, fmt.Errorf("enqueue of PolicyDeleteEvent failed: %w", err)
 	}
 
 	res, ok := <-resChan

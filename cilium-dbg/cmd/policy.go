@@ -6,6 +6,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -73,9 +74,9 @@ func getContext(content []byte, offset int64) (int, string, int) {
 }
 
 func handleUnmarshalError(f string, content []byte, err error) error {
-	switch e := err.(type) {
-	case *json.SyntaxError:
-		line, ctx, off := getContext(content, e.Offset)
+	syntaxError := &json.SyntaxError{}
+	if errors.As(err, &syntaxError) {
+		line, ctx, off := getContext(content, syntaxError.Offset)
 
 		if off <= 1 {
 			return fmt.Errorf("malformed policy, not JSON?")
@@ -92,13 +93,14 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 
 		return fmt.Errorf("%s:%d: syntax error at offset %d:\n%s\n%s^",
 			path.Base(f), line, off, ctx, pre)
-	case *json.UnmarshalTypeError:
-		line, ctx, off := getContext(content, e.Offset)
-		return fmt.Errorf("%s:%d: unable to assign value '%s' to type '%v':\n%s\n%*c",
-			path.Base(f), line, e.Value, e.Type, ctx, off, '^')
-	default:
-		return fmt.Errorf("%s: unknown error:%s", path.Base(f), err)
 	}
+	unmarshalTypeError := &json.UnmarshalTypeError{}
+	if errors.As(err, &unmarshalTypeError) {
+		line, ctx, off := getContext(content, unmarshalTypeError.Offset)
+		return fmt.Errorf("%s:%d: unable to assign value '%s' to type '%v':\n%s\n%*c",
+			path.Base(f), line, unmarshalTypeError.Value, unmarshalTypeError.Type, ctx, off, '^')
+	}
+	return fmt.Errorf("%s: unknown error: %w", path.Base(f), err)
 }
 
 func ignoredFile(name string) bool {
