@@ -17,6 +17,7 @@ import (
 	check "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/checker"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -926,8 +927,8 @@ func (m *mockUpdater) UpdateIdentities(_, _ cache.IdentityCache, _ *sync.WaitGro
 
 type mockTriggerer struct{}
 
-func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
-	return wg
+func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) channels.DoneChan {
+	return channels.ClosedDoneChan
 }
 
 func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
