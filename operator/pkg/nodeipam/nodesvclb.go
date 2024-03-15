@@ -25,10 +25,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var nodeSvcLBClass = "io.cilium/node"
+var (
+	nodeSvcLBClass                 = annotation.Prefix + "/node"
+	nodeSvcLBMatchLabelsAnnotation = annotation.Prefix + ".nodeipam" + "/match-node-labels"
+)
 
 type nodeSvcLBReconciler struct {
 	client.Client
@@ -200,13 +204,30 @@ func (r *nodeSvcLBReconciler) getEndpointSliceNodeNames(ctx context.Context, svc
 
 // getRelevantNodes gets all the nodes candidates for seletion by nodeipam
 func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
+	scopedLog := r.Logger.WithFields(logrus.Fields{
+		logfields.Controller: "node-service-lb",
+		logfields.Resource:   client.ObjectKeyFromObject(svc),
+	})
+
 	endpointSliceNames, err := r.getEndpointSliceNodeNames(ctx, svc)
 	if err != nil {
 		return []corev1.Node{}, err
 	}
+	nodeListOptions := &client.ListOptions{}
+	if val, ok := svc.Annotations[nodeSvcLBMatchLabelsAnnotation]; ok {
+		parsedLabels, err := labels.Parse(val)
+		if err != nil {
+			return []corev1.Node{}, err
+		}
+		nodeListOptions.LabelSelector = parsedLabels
+	}
+
 	var nodes corev1.NodeList
-	if err := r.List(ctx, &nodes); err != nil {
+	if err := r.List(ctx, &nodes, nodeListOptions); err != nil {
 		return []corev1.Node{}, err
+	}
+	if len(nodes.Items) == 0 {
+		scopedLog.WithFields(logrus.Fields{logfields.Labels: nodeListOptions.LabelSelector}).Warning("No Nodes found with configured label selector")
 	}
 
 	relevantNodes := []corev1.Node{}

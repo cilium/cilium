@@ -39,6 +39,11 @@ all the Pods selected by the Service (via their EndpointSlices) as candidates.
     If they don't, check if the matching EndpointSlices look correct and/or
     try setting ``.spec.externalTrafficPolicy`` to ``Cluster``.
 
+To restrict the Nodes that should listen for incoming traffic, add annotation
+``io.cilium.nodeipam/match-node-labels`` to the Service. The value of the
+annotation is a
+`Label Selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`__.
+
 Enable and use Node IPAM
 ------------------------
 
