@@ -580,6 +580,39 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("unable to set up veth on container side: %w", err)
 			}
+		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
+			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
+			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
+			netkit, peer, tmpIfName, err := connector.SetupNetkit(cniID, int(conf.DeviceMTU),
+				int(conf.GROMaxSize), int(conf.GSOMaxSize),
+				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
+			if err != nil {
+				return fmt.Errorf("unable to set up netkit on host side: %w", err)
+			}
+			defer func() {
+				if err != nil {
+					if err2 := netlink.LinkDel(netkit); err2 != nil {
+						logger.WithError(err2).WithField(logfields.Netkit, netkit.Name).Warn("failed to clean up and delete netkit")
+					}
+				}
+			}()
+
+			iface := &cniTypesV1.Interface{
+				Name: netkit.Attrs().Name,
+			}
+			if l2Mode {
+				iface.Mac = netkit.Attrs().HardwareAddr.String()
+			}
+			res.Interfaces = append(res.Interfaces, iface)
+
+			if err := netlink.LinkSetNsFd(peer, ns.FD()); err != nil {
+				return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", peer, args.Netns, err)
+			}
+
+			err = connector.SetupNetkitRemoteNs(ns, tmpIfName, epConf.IfName())
+			if err != nil {
+				return fmt.Errorf("unable to set up netkit on container side: %w", err)
+			}
 		}
 
 		var (
@@ -595,7 +628,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV6, err)
 			}
-			// set the addresses interface index to that of the container-side veth
+			// set the addresses interface index to that of the container-side interface
 			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
 			res.IPs = append(res.IPs, ipConfig)
 			res.Routes = append(res.Routes, routes...)
@@ -610,7 +643,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV4, err)
 			}
-			// set the addresses interface index to that of the container-side veth
+			// set the addresses interface index to that of the container-side interface
 			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
 			res.IPs = append(res.IPs, ipConfig)
 			res.Routes = append(res.Routes, routes...)
@@ -666,12 +699,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
 			// Set the MAC address on the interface in the container namespace
-			err = ns.Do(func() error {
-				return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
-			})
-
-			if err != nil {
-				return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
+			if conf.DatapathMode != datapathOption.DatapathModeNetkit {
+				err = ns.Do(func() error {
+					return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
+				})
+				if err != nil {
+					return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
+				}
 			}
 			macAddrStr = newEp.Status.Networking.Mac
 		}
