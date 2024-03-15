@@ -4,6 +4,8 @@
 package nodemap
 
 import (
+	"github.com/spf13/pflag"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -14,10 +16,24 @@ var Cell = cell.Module(
 	"eBPF map which contains information about node IDs and their IP addresses",
 
 	cell.Provide(newNodeMap),
+	cell.Config(defaultConfig),
 )
 
-func newNodeMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
-	nodeMap := newMap(MapName)
+type Config struct {
+	NodeMapMax uint32 `mapstructure:"bpf-node-map-max"`
+}
+
+func (c Config) Flags(fs *pflag.FlagSet) {
+	fs.Uint32("bpf-node-map-max", defaultConfig.NodeMapMax,
+		"Sets size of node bpf map which will be the max number of unique Node IPs in the cluster")
+}
+
+var defaultConfig = Config{
+	NodeMapMax: DefaultMaxEntries,
+}
+
+func newNodeMap(lifecycle cell.Lifecycle, conf Config) bpf.MapOut[Map] {
+	nodeMap := newMap(MapName, conf)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {

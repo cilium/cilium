@@ -33,7 +33,7 @@ func (k *NodeMapTestSuite) SetUpSuite(c *C) {
 }
 
 func (k *NodeMapTestSuite) TestNodeMap(c *C) {
-	nodeMap := newMap("test_cilium_node_map")
+	nodeMap := newMap("test_cilium_node_map", defaultConfig)
 	err := nodeMap.init()
 	c.Assert(err, IsNil)
 	defer nodeMap.bpfMap.Unpin()

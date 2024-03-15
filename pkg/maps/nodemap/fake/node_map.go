@@ -27,6 +27,10 @@ func (f fakeNodeMap) Update(ip net.IP, nodeID uint16) error {
 	return nil
 }
 
+func (f fakeNodeMap) Size() uint32 {
+	return nodemap.DefaultMaxEntries
+}
+
 func (f fakeNodeMap) Delete(ip net.IP) error {
 	delete(f.ids, ip.String())
 	return nil
