@@ -19,6 +19,7 @@ import (
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -175,6 +176,11 @@ type IPIdentityWatcher struct {
 type IPCacher interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcachetypes.K8sMetadata, newIdentity Identity) (bool, error)
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
+
+	UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcachetypes.ResourceID, aux ...IPMetadata)
+	RemoveMetadata(prefix netip.Prefix, resource ipcachetypes.ResourceID, aux ...IPMetadata)
+	OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcachetypes.ResourceID)
+	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcachetypes.ResourceID)
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher for the given cluster.
@@ -340,10 +346,29 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 	// and the endpoint-runIPIdentitySync where it bounded to a
 	// lease and a controller which is stopped/removed when the
 	// endpoint is gone.
+	//
+	// TODO: Convert to async. We'll need to pass cluster-aware metadata along
+	// with this IP.
 	iw.ipcache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
 		ID:     peerIdentity,
 		Source: iw.source,
 	})
+	// iw.ipcache.OverrideIdentity(
+	// 	prefix,
+	// 	lbls,
+	// 	source.KVStore,
+	// 	rid,
+	// )
+	// iw.ipcache.UpsertMetadata(
+	// 	prefix,
+	// 	source.KVStore,
+	// 	rid,
+	// 	// Metadata:
+	// 	ipcachetypes.TunnelPeer{Addr: ipIDPair.HostIP},
+	// 	ipcachetypes.EncryptKey(ipIDPair.Key),
+	// 	ipcachetypes.RequestedIdentity(peerIdentity),
+	// 	ipcachetypes.K8sMetadata(*k8sMeta),
+	// )
 }
 
 // OnDelete is triggered when a new deletion event is observed, and
@@ -375,6 +400,26 @@ func (iw *IPIdentityWatcher) OnDelete(k storepkg.NamedKey) {
 	// local cache, it is safe to remove
 	// from the datapath ipcache.
 	iw.ipcache.Delete(ip, iw.source)
+	// TODO:
+	//
+	// iw.ipcache.RemoveIdentityOverride(
+	// 	prefix,
+	// 	lbls,
+	// 	rid,
+	// )
+	// iw.ipcache.RemoveMetadata(
+	// 	prefix,
+	// 	rid,
+	// 	// Metadata:
+	// 	ipcachetypes.TunnelPeer{Addr: ipIDPair.HostIP},
+	// 	ipcachetypes.EncryptKey(ipIDPair.Key),
+	// 	ipcachetypes.RequestedIdentity(ipIDPair.ID),
+	// 	ipcachetypes.K8sMetadata(types.K8sMetadata{
+	// 		Namespace:  ipIDPair.K8sNamespace,
+	// 		PodName:    ipIDPair.K8sPodName,
+	// 		NamedPorts: ipIDPair.NamedPorts,
+	// 	}),
+	// )
 }
 
 func (iw *IPIdentityWatcher) onSync(context.Context) {

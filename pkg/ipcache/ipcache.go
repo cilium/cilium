@@ -349,6 +349,11 @@ func (ipc *IPCache) upsertLocked(
 	// Endpoint IP identities take precedence over CIDR identities, so if the
 	// IP is a full CIDR prefix and there's an existing equivalent endpoint IP,
 	// don't notify the listeners.
+	//
+	// TODO: Rework this logic to leverage the cluster-aware metadata from
+	// ipc.metadata. Likely, the metadata will need to be passed to this
+	// function given that the metadata mutex must be taken before the ipcache
+	// mutex, which the latter is already taken at this point in the code.
 	if cidrCluster, err = cmtypes.ParsePrefixCluster(ip); err == nil {
 		if cidrCluster.IsSingleIP() {
 			if _, endpointIPFound := ipc.ipToIdentityCache[cidrCluster.AddrCluster().String()]; endpointIPFound {
