@@ -766,4 +766,6 @@ const (
 
 	// Entries specifies the number of KVStore entries
 	Entries = "entries"
+	// Action is the summarized action from a reconciliation.
+	Action = "action"
 )

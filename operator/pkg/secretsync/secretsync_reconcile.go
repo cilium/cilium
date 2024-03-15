@@ -28,21 +28,26 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		logfields.Controller: "secret-syncer",
 		logfields.Resource:   req.NamespacedName,
 	})
-	scopedLog.Info("Syncing secrets")
+	scopedLog.Info("Reconciling secret")
 
 	original := &corev1.Secret{}
 	if err := r.client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
 			scopedLog.WithError(err).Debug("Unable to get Secret - either deleted or not yet available")
 
+			synced := false
 			// Check whether synced secret needs to be deleted from the registered secret namespaces.
 			for _, ns := range r.secretNamespaces {
 				// Check if there's an existing synced secret for the deleted Secret
-				if err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns); err != nil {
+				deleted, err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns)
+				if err != nil {
 					return controllerruntime.Fail(err)
 				}
+
+				synced = synced || deleted
 			}
 
+			scopedLog.WithField(logfields.Action, action(synced)).Info("Successfully reconciled Secret")
 			return controllerruntime.Success()
 		}
 
@@ -54,14 +59,17 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		cleanupNamespaces[ns] = struct{}{}
 	}
 
+	synced := false
 	for _, reg := range r.registrations {
 		if reg.RefObjectCheckFunc(ctx, r.client, r.logger, original) || reg.IsDefaultSecret(original) {
 			desiredSync := desiredSyncSecret(reg.SecretsNamespace, original)
 
+			scopedLog.WithField("secretNamespace", reg.SecretsNamespace).Debug("Syncing secret")
 			if err := r.ensureSyncedSecret(ctx, desiredSync); err != nil {
 				return controllerruntime.Fail(err)
 			}
 
+			synced = true
 			delete(cleanupNamespaces, reg.SecretsNamespace)
 		}
 	}
@@ -70,26 +78,39 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	// where the secret is no longer referenced by any registration.
 	for ns := range cleanupNamespaces {
 		// Check if there's an existing synced secret that should be deleted
-		if err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns); err != nil {
+		deleted, err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns)
+		if err != nil {
 			return controllerruntime.Fail(err)
 		}
+		synced = synced || deleted
 	}
 
-	scopedLog.Info("Successfully synced secrets")
+	scopedLog.WithField(logfields.Action, action(synced)).Info("Successfully reconciled Secret")
 	return controllerruntime.Success()
 }
 
-func (r *secretSyncer) cleanupSyncedSecret(ctx context.Context, req reconcile.Request, scopedLog *logrus.Entry, ns string) error {
+func action(synced bool) string {
+	action := "ignored"
+	if synced {
+		action = "synced"
+	}
+
+	return action
+}
+
+func (r *secretSyncer) cleanupSyncedSecret(ctx context.Context, req reconcile.Request, scopedLog *logrus.Entry, ns string) (bool, error) {
 	syncSecret := &corev1.Secret{}
 	if err := r.client.Get(ctx, types.NamespacedName{Namespace: ns, Name: req.Namespace + "-" + req.Name}, syncSecret); err == nil {
 		// Try to delete existing synced secret
-		scopedLog.Debug("Delete synced secret")
+		scopedLog.WithField("secretNamespace", ns).Debug("Delete synced secret")
 		if err := r.client.Delete(ctx, syncSecret); err != nil {
-			return err
+			return true, err
 		}
+
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 func desiredSyncSecret(secretsNamespace string, original *corev1.Secret) *corev1.Secret {
