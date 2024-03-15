@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -112,7 +113,7 @@ type endpointManager interface {
 	GetHostEndpoint() *endpoint.Endpoint
 	GetEndpointsByPodName(string) []*endpoint.Endpoint
 	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
-	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
+	UpdatePolicyMaps(context.Context, *sync.WaitGroup) channels.DoneChan
 }
 
 type nodeDiscoverManager interface {

@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/google/renameio/v2"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -52,6 +54,8 @@ var (
 	handleNoHostInterfaceOnce sync.Once
 
 	syncPolicymapControllerGroup = controller.NewGroup("sync-policymap")
+
+	incrementalSyncPolicymapControllerGroup = controller.NewGroup("incremental-sync-policymap")
 )
 
 // policyMapPath returns the path to the policy map of endpoint.
@@ -1125,10 +1129,16 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 		err = e.policyMap.AllowKey(policymapKey, entry.AuthType.Uint8(), entry.ProxyPort)
 	}
 	if err != nil {
-		e.getLogger().WithError(err).WithFields(logrus.Fields{
-			logfields.BPFMapKey: policymapKey,
-			logfields.Port:      entry.ProxyPort,
-		}).Error("Failed to add PolicyMap key")
+		if e.logLimiter.Allow() {
+			// Rate-limiting logging of the error as errors may
+			// occur at very high rates when the policy map is
+			// full. Since these operations are retried indefinitely
+			// we don't need to worry about this going unnoticed.
+			e.getLogger().WithError(err).WithFields(logrus.Fields{
+				logfields.BPFMapKey: policymapKey,
+				logfields.Port:      entry.ProxyPort,
+			}).Error("Failed to add PolicyMap key")
+		}
 		return false
 	}
 
@@ -1146,25 +1156,75 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 
 // ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
 // that have accumulated for the PolicyMap via various outside events (e.g.,
-// identities added / deleted).
-// 'proxyWaitGroup' may not be nil.
-func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) error {
-	if err := e.lockAlive(); err != nil {
-		return err
+// identities added / deleted) by triggering the incremental-policy-map controller.
+// Returns a channel that is closed when the changes are applied. The channel
+// is closed even if errors occurred. The controller will retry the changes.
+func (e *Endpoint) ApplyPolicyMapChanges() channels.DoneChan {
+	return e.updateIncrementalPolicyMapController()
+}
+
+// updateIncrementalPolicyMapController creates or triggers a controller to reconcile
+// pending policy map changes.
+func (e *Endpoint) updateIncrementalPolicyMapController() channels.DoneChan {
+	ch := make(chan struct{})
+
+	// Skip the controller if the endpoint has no policy map or is
+	// being disconnected.
+	if e.isProperty(PropertySkipBPFPolicy) || e.IsDisconnecting() {
+		return channels.ClosedDoneChan
 	}
-	defer e.unlock()
 
-	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
+	e.controllers.UpdateController(
+		"incremental-sync-policymap-"+strconv.Itoa(int(e.ID)),
+		controller.ControllerParams{
+			Group:          incrementalSyncPolicymapControllerGroup,
+			HealthReporter: e.GetReporter("incremental-sync-policymap"),
+			DoFunc: func(ctx context.Context) error {
+				defer close(ch)
 
-	err := e.applyPolicyMapChanges()
-	if err != nil {
-		return err
-	}
+				e.unconditionalLock()
+				defer e.unlock()
+				if e.IsDisconnecting() {
+					return controller.NewExitReason("Endpoint disappeared")
+				}
 
-	// Ignoring the revertFunc; keep all successful changes even if some fail.
-	err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+				if err := e.applyPolicyMapChanges(); err != nil {
+					e.getLogger().WithError(err).Warn("failed to apply policy map changes")
+					return err
+				}
 
-	return err
+				// Apply policy changes to L7 proxy
+				wg := completion.NewWaitGroup(ctx)
+
+				// Ignoring the revertFunc; keep all successful changes even if some fail.
+				if err, _ := e.updateNetworkPolicy(wg); err != nil {
+					e.getLogger().WithError(err).Warn("failed to publish policy changes to L7 proxy")
+					return err
+				}
+
+				if err := wg.Context().Err(); err != nil {
+					e.getLogger().WithError(err).Info("context cancelled before waiting for proxy updates")
+					return nil
+				}
+
+				e.getLogger().Debug("Waiting for proxy updates to complete...")
+				start := time.Now()
+				if err := wg.Wait(); err != nil {
+					e.getLogger().WithError(err).Info("context cancelled ehile waiting for proxy updates")
+					return nil
+				}
+				e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
+
+				return nil
+			},
+			RunInterval:            0,
+			MaxRetryInterval:       time.Minute,
+			ErrorRetryBaseDuration: 100 * time.Millisecond,
+			Context:                e.aliveCtx,
+		},
+	)
+
+	return ch
 }
 
 // applyPolicyMapChanges applies any incremental policy map changes
