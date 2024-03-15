@@ -500,7 +500,7 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 
 	if ep.RequireEndpointRoute() {
 		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
-			logfields.Veth: device,
+			logfields.Interface: device,
 		})
 		if ip := ep.IPv4Address(); ip.IsValid() {
 			if err := upsertEndpointRoute(ep, *iputil.AddrToIPNet(ip)); err != nil {
