@@ -45,13 +45,12 @@ const (
 	ciliumHealth = "cilium-health"
 	binaryName   = "cilium-health-responder"
 
-	// vethName is the host-side veth link device name for cilium-health EP
-	// (veth mode only).
-	vethName = "lxc_health"
+	// healthName is the host-side virtual device name for cilium-health EP
+	healthName = "lxc_health"
 
-	// legacyVethName is the host-side cilium-health EP device name used in
+	// legacyHealthName is the host-side cilium-health EP device name used in
 	// older Cilium versions. Used for removal only.
-	legacyVethName = "cilium_health"
+	legacyHealthName = "cilium_health"
 
 	// epIfaceName is the endpoint-side link device name for cilium-health.
 	epIfaceName = "cilium"
@@ -190,13 +189,14 @@ func CleanupEndpoint() {
 	// Explicit removal is performed to ensure that everything referencing the network namespace
 	// the endpoint process is executed under is disposed, so that the network namespace itself is properly disposed.
 	switch option.Config.DatapathMode {
-	case datapathOption.DatapathModeVeth:
-		for _, iface := range []string{legacyVethName, vethName} {
-			scopedLog := log.WithField(logfields.Veth, iface)
+	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit:
+		for _, iface := range []string{legacyHealthName, healthName} {
+			scopedLog := log.WithField(logfields.Interface, iface)
 			if link, err := netlink.LinkByName(iface); err == nil {
 				err = netlink.LinkDel(link)
 				if err != nil {
-					scopedLog.WithError(err).Info("Couldn't delete cilium-health veth device")
+					scopedLog.WithError(err).Infof("Couldn't delete cilium-health %s device",
+						option.Config.DatapathMode)
 				}
 			} else {
 				scopedLog.WithError(err).Debug("Didn't find existing device")
@@ -270,7 +270,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(),
+		_, epLink, err := connector.SetupVethWithNames(healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
 			info, sysctl)
