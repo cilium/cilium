@@ -57,6 +57,15 @@ env:
   kubectl_version: v1.30.0
 
 jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-latest
