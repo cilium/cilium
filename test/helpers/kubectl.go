@@ -402,7 +402,7 @@ func (kub *Kubectl) DaemonSetIsReady(namespace, daemonset string) (int, error) {
 	d := &appsv1.DaemonSet{}
 	err := res.Unmarshal(d)
 	if err != nil {
-		return 0, fmt.Errorf("unable to unmarshal DaemonSet %s: %s", fullName, err)
+		return 0, fmt.Errorf("unable to unmarshal DaemonSet %s: %w", fullName, err)
 	}
 
 	if d.Status.DesiredNumberScheduled == 0 {
@@ -463,7 +463,7 @@ func (kub *Kubectl) DeleteResourcesInAnyNamespace(resource string, names []strin
 
 	var allNames []string
 	if err := res.Unmarshal(&allNames); err != nil {
-		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", res.OutputPrettyPrint(), err)
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %w", res.OutputPrettyPrint(), err)
 	}
 
 	namesMap := map[string]struct{}{}
@@ -567,7 +567,7 @@ func (kub *Kubectl) DeleteAllNamespacesExcept(except []string) error {
 
 	var namespaceList []string
 	if err := res.Unmarshal(&namespaceList); err != nil {
-		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", namespaceList, err)
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %w", namespaceList, err)
 	}
 
 	exceptMap := map[string]struct{}{}
@@ -637,7 +637,7 @@ func (kub *Kubectl) labelNodes() error {
 
 	var nodesList []string
 	if err := res.Unmarshal(&nodesList); err != nil {
-		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", nodesList, err)
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %w", nodesList, err)
 	}
 
 	index := 1
@@ -682,7 +682,7 @@ func (kub *Kubectl) GetCiliumEndpoint(namespace string, pod string) (*cnpv2.Endp
 	var data *cnpv2.EndpointStatus
 	err := res.Unmarshal(&data)
 	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal CiliumEndpoint %s: %s", fullName, err)
+		return nil, fmt.Errorf("unable to unmarshal CiliumEndpoint %s: %w", fullName, err)
 	}
 
 	if data == nil {
@@ -704,7 +704,7 @@ func (kub *Kubectl) GetCiliumHostEndpointID(ciliumPod string) (int64, error) {
 
 	hostEpID, err := strconv.ParseInt(strings.TrimSpace(res.Stdout()), 10, 64)
 	if err != nil || hostEpID == 0 {
-		return 0, fmt.Errorf("incorrect host endpoint ID %s: %s",
+		return 0, fmt.Errorf("incorrect host endpoint ID %s: %w",
 			strings.TrimSpace(res.Stdout()), err)
 	}
 	return hostEpID, nil
@@ -1084,7 +1084,7 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 
 	if err != nil {
 		return nil, fmt.Errorf(
-			"could not find pods in namespace '%v' with label '%v': %s", namespace, label, err)
+			"could not find pods in namespace '%v' with label '%v': %w", namespace, label, err)
 	}
 
 	out := strings.Trim(stdout.String(), "\n")
@@ -1179,14 +1179,14 @@ func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error
 		ipAddr)
 	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), label, cmd)
 	if err != nil {
-		return "", fmt.Errorf("Failed to retrieve iface by IP addr: %s", err)
+		return "", fmt.Errorf("Failed to retrieve iface by IP addr: %w", err)
 	}
 	iface = strings.Trim(iface, "\n")
 	if iface == "" {
 		// In case of error, we want a copy of the ip a output in the logs.
 		ipa, err := kub.ExecInHostNetNSByLabel(context.TODO(), label, "ip -j a s")
 		if err != nil {
-			return "", fmt.Errorf("Failed to retrieve ip a output: %s", err)
+			return "", fmt.Errorf("Failed to retrieve ip a output: %w", err)
 		}
 		return "", fmt.Errorf("Failed to retrieve iface by IP addr from: %s", ipa)
 	}
@@ -1729,7 +1729,7 @@ func (kub *Kubectl) PodsHaveCiliumIdentity(namespace, podSelector string) error 
 	podList := &v1.PodList{}
 	err := res.Unmarshal(podList)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal pods for selector %s: %s", podSelector, err)
+		return fmt.Errorf("unable to unmarshal pods for selector %s: %w", podSelector, err)
 	}
 
 	for _, pod := range podList.Items {
@@ -1768,7 +1768,7 @@ func (kub *Kubectl) DeploymentIsReady(namespace, deployment string) (int, error)
 	d := &appsv1.Deployment{}
 	err := res.Unmarshal(d)
 	if err != nil {
-		return 0, fmt.Errorf("unable to unmarshal deployment %s: %s", fullName, err)
+		return 0, fmt.Errorf("unable to unmarshal deployment %s: %w", fullName, err)
 	}
 
 	if d.Status.Replicas == 0 {
@@ -1800,7 +1800,7 @@ func (kub *Kubectl) GetService(namespace, service string) (*v1.Service, error) {
 	var serviceObj v1.Service
 	err := res.Unmarshal(&serviceObj)
 	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal service %s: %s", fullName, err)
+		return nil, fmt.Errorf("unable to unmarshal service %s: %w", fullName, err)
 	}
 
 	return &serviceObj, nil
@@ -1884,7 +1884,7 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 	var realizedServices []models.ServiceSpec
 	err := res.Unmarshal(&realizedServices)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal service spec '%s': %s", res.OutputPrettyPrint(), err)
+		return fmt.Errorf("unable to unmarshal service spec '%s': %w", res.OutputPrettyPrint(), err)
 	}
 
 	cmd = "cilium bpf lb list -o json"
@@ -1895,7 +1895,7 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 
 	lbMap, err := parseLBList(res)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal cilium bpf lb list output: %s", err)
+		return fmt.Errorf("unable to unmarshal cilium bpf lb list output: %w", err)
 	}
 
 	for _, port := range serviceObj.Spec.Ports {
@@ -1980,7 +1980,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 	var endpointsObj v1.Endpoints
 	err = res.Unmarshal(&endpointsObj)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal endpoints %s: %s", fullName, err)
+		return fmt.Errorf("unable to unmarshal endpoints %s: %w", fullName, err)
 	}
 
 	ciliumPods, err := kub.GetCiliumPods()
@@ -2376,7 +2376,7 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 		"Pods are still not deleted after a timeout",
 		&TimeoutConfig{Timeout: timeout})
 	if err != nil {
-		return fmt.Errorf("%s: %w", err, innerErr)
+		return fmt.Errorf("%w: %w", err, innerErr)
 	}
 	return nil
 }
@@ -2510,7 +2510,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		if DoesNotRunOnGKE() {
 			nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 			if err != nil {
-				return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
+				return fmt.Errorf("Cannot retrieve Node IP for k8s1: %w", err)
 			}
 			opts["k8sServiceHost"] = nodeIP
 			opts["k8sServicePort"] = "6443"
@@ -2667,7 +2667,7 @@ func (kub *Kubectl) GetDefaultIface(ipv6 bool) (string, error) {
 	cmd := fmt.Sprintf(`ip %s -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2 | head -n1`, family)
 	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), K8s1, cmd)
 	if err != nil {
-		return "", fmt.Errorf("Failed to retrieve default iface: %s", err)
+		return "", fmt.Errorf("Failed to retrieve default iface: %w", err)
 	}
 
 	return strings.Trim(iface, "\n"), nil
@@ -3066,7 +3066,7 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 func (kub *Kubectl) LoadedPolicyInFirstAgent() (string, error) {
 	pods, err := kub.GetCiliumPods()
 	if err != nil {
-		return "", fmt.Errorf("cannot retrieve cilium pods: %s", err)
+		return "", fmt.Errorf("cannot retrieve cilium pods: %w", err)
 	}
 	for _, pod := range pods {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
@@ -3119,7 +3119,7 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 
 	revision, err := res.Filter("{.revision}")
 	if err != nil {
-		return -1, fmt.Errorf("unable to find revision from json output %q: %s", res.CombineOutput(), err)
+		return -1, fmt.Errorf("unable to find revision from json output %q: %w", res.CombineOutput(), err)
 	}
 
 	revi, err := strconv.Atoi(strings.Trim(revision.String(), "\n"))
@@ -3138,7 +3138,7 @@ func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
 	pods, err := kub.GetCiliumPods()
 	if err != nil {
 		kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
-		return nil, fmt.Errorf("Cannot get cilium pods: %s", err)
+		return nil, fmt.Errorf("Cannot get cilium pods: %w", err)
 	}
 
 	revisions := make(map[string]int)
@@ -3146,7 +3146,7 @@ func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
 		revision, err := kub.CiliumPolicyRevision(pod)
 		if err != nil {
 			kub.Logger().WithError(err).Error("cannot retrieve cilium pod policy revision")
-			return nil, fmt.Errorf("Cannot retrieve %q's policy revision: %s", pod, err)
+			return nil, fmt.Errorf("Cannot retrieve %q's policy revision: %w", pod, err)
 		}
 		revisions[pod] = revision
 	}
@@ -3581,7 +3581,7 @@ func (kub *Kubectl) ExecInHostNetNSByLabel(ctx context.Context, label, cmd strin
 
 	res := kub.ExecInHostNetNS(ctx, nodeName, cmd)
 	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, res.GetErr(""))
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %w", cmd, nodeName, res.GetErr(""))
 	}
 
 	return res.Stdout(), nil
@@ -3723,7 +3723,7 @@ func (kub *Kubectl) GetNodeInfo(label string) (nodeName, nodeIP string) {
 func (kub *Kubectl) GetCiliumPodOnNode(label string) (string, error) {
 	node, err := kub.GetNodeNameByLabel(label)
 	if err != nil {
-		return "", fmt.Errorf("Unable to get nodes with label '%s': %s", label, err)
+		return "", fmt.Errorf("Unable to get nodes with label '%s': %w", label, err)
 	}
 
 	return kub.getCiliumPodOnNodeByName(node)
@@ -3739,28 +3739,28 @@ func (kub *Kubectl) validateCilium() error {
 
 	g.Go(func() error {
 		if err := kub.ciliumStatusPreFlightCheck(); err != nil {
-			return fmt.Errorf("status is unhealthy: %s", err)
+			return fmt.Errorf("status is unhealthy: %w", err)
 		}
 		return nil
 	})
 
 	g.Go(func() error {
 		if err := kub.ciliumControllersPreFlightCheck(); err != nil {
-			return fmt.Errorf("controllers are failing: %s", err)
+			return fmt.Errorf("controllers are failing: %w", err)
 		}
 		return nil
 	})
 
 	g.Go(func() error {
 		if err := kub.ciliumHealthPreFlightCheck(); err != nil {
-			return fmt.Errorf("connectivity health is failing: %s", err)
+			return fmt.Errorf("connectivity health is failing: %w", err)
 		}
 		return nil
 	})
 
 	g.Go(func() error {
 		if err := kub.ciliumHostEndpointRegenerated(); err != nil {
-			return fmt.Errorf("host EP is not ready: %s", err)
+			return fmt.Errorf("host EP is not ready: %w", err)
 		}
 		return nil
 	})
@@ -3768,15 +3768,15 @@ func (kub *Kubectl) validateCilium() error {
 	g.Go(func() error {
 		err := kub.fillServiceCache()
 		if err != nil {
-			return fmt.Errorf("unable to fill service cache: %s", err)
+			return fmt.Errorf("unable to fill service cache: %w", err)
 		}
 		err = kub.ciliumServicePreFlightCheck()
 		if err != nil {
-			return fmt.Errorf("cilium services are not set up correctly: %s", err)
+			return fmt.Errorf("cilium services are not set up correctly: %w", err)
 		}
 		err = kub.servicePreFlightCheck("kubernetes", "default")
 		if err != nil {
-			return fmt.Errorf("kubernetes service is not ready: %s", err)
+			return fmt.Errorf("kubernetes service is not ready: %w", err)
 		}
 		return nil
 	})
@@ -3811,7 +3811,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 
 	}
 	if err := RepeatUntilTrue(body, &TimeoutConfig{Timeout: HelperTimeout}); err != nil {
-		return fmt.Errorf("Cilium validation failed: %s: Last polled error: %s", err, lastError)
+		return fmt.Errorf("Cilium validation failed: %w: Last polled error: %s", err, lastError)
 	}
 	return nil
 }
@@ -3820,7 +3820,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium status preflight check")
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
-		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
+		return fmt.Errorf("cannot retrieve cilium pods: %w", err)
 	}
 	reNoQuorum := regexp.MustCompile(`^.*KVStore:.*has-quorum=false.*$`)
 	for _, pod := range ciliumPods {
@@ -3841,7 +3841,7 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
-		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
+		return fmt.Errorf("cannot retrieve cilium pods: %w", err)
 	}
 	for _, pod := range ciliumPods {
 		status := kub.CiliumExecContext(context.TODO(), pod, fmt.Sprintf(
@@ -3878,7 +3878,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
-		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
+		return fmt.Errorf("cannot retrieve cilium pods: %w", err)
 	}
 	for _, pod := range ciliumPods {
 		status := kub.CiliumExecContext(context.TODO(), pod, "cilium-health status -o json --probe")
@@ -3891,7 +3891,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 		// By Checking that the node list is the same
 		nodes, err := status.Filter(nodesFilter)
 		if err != nil {
-			return fmt.Errorf("Cannot unmarshal health status: %s", err)
+			return fmt.Errorf("Cannot unmarshal health status: %w", err)
 		}
 
 		nodeCount := strings.Split(nodes.String(), " ")
@@ -3905,7 +3905,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 			kvExpr := fmt.Sprintf(`{range .nodes[*]}{.name}{"%s="}{%s}{"\n"}{end}`, statusPath, statusPath)
 			healthStatus, err := status.Filter(kvExpr)
 			if err != nil {
-				return fmt.Errorf("Cannot unmarshal health status: %s", err)
+				return fmt.Errorf("Cannot unmarshal health status: %w", err)
 			}
 
 			for path, status := range healthStatus.KVOutput() {
@@ -3924,7 +3924,7 @@ func (kub *Kubectl) ciliumHostEndpointRegenerated() error {
 	ginkgoext.By("Checking whether host EP regenerated")
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
-		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
+		return fmt.Errorf("cannot retrieve cilium pods: %w", err)
 	}
 	for _, pod := range ciliumPods {
 		state, err := kub.GetCiliumHostEndpointState(pod)
@@ -3969,7 +3969,7 @@ func (kub *Kubectl) fillServiceCache() error {
 	err = svcRes.Unmarshal(&cache.services)
 
 	if err != nil {
-		return fmt.Errorf("Unable to unmarshal K8s services: %s", err.Error())
+		return fmt.Errorf("Unable to unmarshal K8s services: %w", err)
 	}
 
 	epRes := kub.GetFromAllNS("endpoints")
@@ -3979,12 +3979,12 @@ func (kub *Kubectl) fillServiceCache() error {
 	}
 	err = epRes.Unmarshal(&cache.endpoints)
 	if err != nil {
-		return fmt.Errorf("Unable to unmarshal K8s endpoints: %s", err.Error())
+		return fmt.Errorf("Unable to unmarshal K8s endpoints: %w", err)
 	}
 
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
-		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
+		return fmt.Errorf("cannot retrieve cilium pods: %w", err)
 	}
 	ciliumSvcCmd := "cilium service list -o json"
 	ciliumBpfLbCmd := "cilium bpf lb list -o json"
@@ -4002,7 +4002,7 @@ func (kub *Kubectl) fillServiceCache() error {
 
 		err = ciliumServicesRes.Unmarshal(&podCache.services)
 		if err != nil {
-			return fmt.Errorf("Unable to unmarshal Cilium services: %s", err.Error())
+			return fmt.Errorf("Unable to unmarshal Cilium services: %w", err)
 		}
 
 		ciliumLbRes := kub.CiliumExecContext(context.TODO(), pod, ciliumBpfLbCmd)
@@ -4014,7 +4014,7 @@ func (kub *Kubectl) fillServiceCache() error {
 
 		lbMap, err := parseLBList(ciliumLbRes)
 		if err != nil {
-			return fmt.Errorf("Unable to unmarshal Cilium bpf lb list: %s", err.Error())
+			return fmt.Errorf("Unable to unmarshal Cilium bpf lb list: %w", err)
 		}
 
 		podCache.loadBalancers = lbMap
@@ -4062,7 +4062,7 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 
 	err := WithTimeout(body, "DNS not ready within timeout", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
-		return fmt.Errorf("kube-dns service not ready: %s", dnsErr)
+		return fmt.Errorf("kube-dns service not ready: %w", dnsErr)
 	}
 	return nil
 }

@@ -126,7 +126,7 @@ func createCEPandVerifyCESCreated(fakeClient k8sClient.FakeClientset, ciliumEndp
 	if err := testutils.WaitUntil(func() bool {
 		return len(cepStore.List()) > 0
 	}, time.Second); err != nil {
-		return false, fmt.Errorf("failed to get CEP: %s", err)
+		return false, fmt.Errorf("failed to get CEP: %w", err)
 	}
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 	err := testutils.WaitUntil(func() bool {

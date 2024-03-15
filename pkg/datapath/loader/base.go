@@ -53,7 +53,7 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 
 	f, err := os.Create(headerPath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+		return fmt.Errorf("failed to open file %s for writing: %w", headerPath, err)
 
 	}
 	defer f.Close()
@@ -85,7 +85,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 
 	f, err := os.Create(headerPath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+		return fmt.Errorf("failed to open file %s for writing: %w", headerPath, err)
 	}
 	defer f.Close()
 
@@ -147,11 +147,11 @@ func cleanIngressQdisc() error {
 	for _, iface := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
-			return fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
+			return fmt.Errorf("failed to retrieve link %s by name: %w", iface, err)
 		}
 		qdiscs, err := netlink.QdiscList(link)
 		if err != nil {
-			return fmt.Errorf("failed to retrieve qdisc list of link %s: %q", iface, err)
+			return fmt.Errorf("failed to retrieve qdisc list of link %s: %w", iface, err)
 		}
 		for _, q := range qdiscs {
 			if q.Type() != "ingress" {
@@ -159,7 +159,7 @@ func cleanIngressQdisc() error {
 			}
 			err = netlink.QdiscDel(q)
 			if err != nil {
-				return fmt.Errorf("failed to delete ingress qdisc of link %s: %q", iface, err)
+				return fmt.Errorf("failed to delete ingress qdisc of link %s: %w", iface, err)
 			} else {
 				log.WithField(logfields.Device, iface).Info("Removed prior present ingress qdisc from device so that Cilium's datapath can be loaded")
 			}

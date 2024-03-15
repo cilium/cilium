@@ -77,7 +77,7 @@ func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter)
 	if ff.GetSourceLabel() != nil {
 		slf, err := FilterByLabelSelectors(ff.GetSourceLabel(), sourceLabels)
 		if err != nil {
-			return nil, fmt.Errorf("invalid source label filter: %v", err)
+			return nil, fmt.Errorf("invalid source label filter: %w", err)
 		}
 		fs = append(fs, slf)
 	}
@@ -85,7 +85,7 @@ func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter)
 	if ff.GetDestinationLabel() != nil {
 		dlf, err := FilterByLabelSelectors(ff.GetDestinationLabel(), destinationLabels)
 		if err != nil {
-			return nil, fmt.Errorf("invalid destination label filter: %v", err)
+			return nil, fmt.Errorf("invalid destination label filter: %w", err)
 		}
 		fs = append(fs, dlf)
 	}

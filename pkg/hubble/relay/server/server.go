@@ -64,7 +64,7 @@ func New(options ...Option) (*Server, error) {
 	options = append(options, DefaultOptions...)
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %v", err)
+			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
 	if opts.clientTLSConfig == nil && !opts.insecureClient {
@@ -126,7 +126,7 @@ func New(options ...Option) (*Server, error) {
 	observerOptions := copyObserverOptionsWithLogger(opts.log, opts.observerOptions)
 	observerSrv, err := observer.NewServer(pm, observerOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create observer server: %v", err)
+		return nil, fmt.Errorf("failed to create observer server: %w", err)
 	}
 	healthSrv := newHealthServer(pm, defaults.HealthCheckInterval)
 
@@ -179,7 +179,7 @@ func (s *Server) Serve() error {
 		s.healthServer.start()
 		socket, err := net.Listen("tcp", s.opts.listenAddress)
 		if err != nil {
-			return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
+			return fmt.Errorf("failed to listen on tcp socket %s: %w", s.opts.listenAddress, err)
 		}
 		return s.server.Serve(socket)
 	})
@@ -188,7 +188,7 @@ func (s *Server) Serve() error {
 		s.opts.log.WithField("addr", s.opts.healthListenAddress).Info("Starting gRPC health server...")
 		socket, err := net.Listen("tcp", s.opts.healthListenAddress)
 		if err != nil {
-			return fmt.Errorf("failed to listen on %s: %v", s.opts.healthListenAddress, err)
+			return fmt.Errorf("failed to listen on %s: %w", s.opts.healthListenAddress, err)
 		}
 		return s.grpcHealthServer.Serve(socket)
 	})

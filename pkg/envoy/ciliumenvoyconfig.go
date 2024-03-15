@@ -301,7 +301,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			if validate {
 				if err := listener.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate Listener (%s): %s", err, listener.String())
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Listener (%w): %s", err, listener.String())
 				}
 			}
 			resources.Listeners = append(resources.Listeners, listener)
@@ -330,7 +330,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			if validate {
 				if err := route.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate RouteConfiguration (%s): %s", err, route.String())
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate RouteConfiguration (%w): %s", err, route.String())
 				}
 			}
 			resources.Routes = append(resources.Routes, route)
@@ -373,7 +373,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			if validate {
 				if err := cluster.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate Cluster %q (%s): %s", cluster.Name, err, cluster.String())
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Cluster %q (%w): %s", cluster.Name, err, cluster.String())
 				}
 			}
 			resources.Clusters = append(resources.Clusters, cluster)
@@ -400,7 +400,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			if validate {
 				if err := endpoints.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate ClusterLoadAssignment for cluster %q (%s): %s", endpoints.ClusterName, err, endpoints.String())
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate ClusterLoadAssignment for cluster %q (%w): %s", endpoints.ClusterName, err, endpoints.String())
 				}
 			}
 			resources.Endpoints = append(resources.Endpoints, endpoints)
@@ -427,7 +427,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			if validate {
 				if err := secret.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s)", secret.Name, err)
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%w)", secret.Name, err)
 				}
 			}
 			resources.Secrets = append(resources.Secrets, secret)
@@ -448,7 +448,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 		if listener.GetAddress() == nil && !isInternalListener {
 			port, err := portAllocator.AllocateProxyPort(listener.Name, false, true)
 			if err != nil || port == 0 {
-				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)
+				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %w", listener.Name, err)
 			}
 			listener.Address, listener.AdditionalAddresses = getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 			if resources.portAllocations == nil {
@@ -458,7 +458,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 		}
 		if validate {
 			if err := listener.Validate(); err != nil {
-				return Resources{}, fmt.Errorf("ParseResources: Could not validate Listener %q (%s): %s", listener.Name, err, listener.String())
+				return Resources{}, fmt.Errorf("ParseResources: Could not validate Listener %q (%w): %s", listener.Name, err, listener.String())
 			}
 		}
 	}

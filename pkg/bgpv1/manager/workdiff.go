@@ -50,10 +50,10 @@ func newReconcileDiff(ciliumNode *v2api.CiliumNode) *reconcileDiff {
 // withdraw, or reconcile in the reconcileDiff's respective fields.
 func (wd *reconcileDiff) diff(m LocalASNMap, policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
 	if err := wd.registerOrReconcileDiff(m, policy); err != nil {
-		return fmt.Errorf("encountered error creating register or reconcile diff: %v", err)
+		return fmt.Errorf("encountered error creating register or reconcile diff: %w", err)
 	}
 	if err := wd.withdrawDiff(m); err != nil {
-		return fmt.Errorf("encountered error creating withdraw diff: %v", err)
+		return fmt.Errorf("encountered error creating withdraw diff: %w", err)
 	}
 	return nil
 }

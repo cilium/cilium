@@ -97,7 +97,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 					)
 					if launchErr != nil {
 						if err != nil {
-							return fmt.Errorf("failed to restart endpoint (check failed: %q): %s", err, launchErr)
+							return fmt.Errorf("failed to restart endpoint (check failed: %w): %w", err, launchErr)
 						}
 						return launchErr
 					}

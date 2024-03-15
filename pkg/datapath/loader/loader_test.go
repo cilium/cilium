@@ -111,12 +111,12 @@ func prepareEnv(ep *testutils.TestEndpoint) (func() error, error) {
 	}
 	if err := netlink.LinkAdd(&link); err != nil {
 		if !os.IsExist(err) {
-			return nil, fmt.Errorf("Failed to add link: %s", err)
+			return nil, fmt.Errorf("Failed to add link: %w", err)
 		}
 	}
 	cleanupFn := func() error {
 		if err := netlink.LinkDel(&link); err != nil {
-			return fmt.Errorf("Failed to delete link: %s", err)
+			return fmt.Errorf("Failed to delete link: %w", err)
 		}
 		return nil
 	}

@@ -617,7 +617,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		if err = c.EndpointCreate(ep); err != nil {
 			logger.WithError(err).WithFields(logrus.Fields{
 				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-			return fmt.Errorf("unable to create endpoint: %s", err)
+			return fmt.Errorf("unable to create endpoint: %w", err)
 		}
 
 		logger.WithFields(logrus.Fields{

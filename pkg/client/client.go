@@ -75,7 +75,7 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 	for {
 		select {
 		case <-timeoutAfter:
-			return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %s", timeout.Seconds(), err)
+			return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %w", timeout.Seconds(), err)
 		default:
 		}
 
@@ -88,7 +88,7 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 		for {
 			select {
 			case <-timeoutAfter:
-				return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %s", timeout.Seconds(), err)
+				return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %w", timeout.Seconds(), err)
 			default:
 			}
 			// This is an API call that we do to the cilium-agent to check

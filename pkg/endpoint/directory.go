@@ -132,7 +132,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 		}
 
 		if err := os.Rename(origDir, backupDir); err != nil {
-			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
+			return fmt.Errorf("unable to rename current endpoint directory: %w", err)
 		}
 
 		// Regarldess of whether the atomic replace succeeds or not,
@@ -150,7 +150,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 				return err2
 			}
 
-			return fmt.Errorf("restored original endpoint directory, atomic directory move failed: %s", err)
+			return fmt.Errorf("restored original endpoint directory, atomic directory move failed: %w", err)
 		}
 
 		// If the compilation was skipped then we need to copy the old
@@ -176,7 +176,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 		}
 
 		if err := os.Rename(tmpDir, origDir); err != nil {
-			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
+			return fmt.Errorf("atomic endpoint directory move failed: %w", err)
 		}
 	}
 
