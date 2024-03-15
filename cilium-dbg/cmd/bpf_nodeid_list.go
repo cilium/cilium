@@ -26,6 +26,7 @@ const (
 type nodeID struct {
 	ID      uint16
 	Address string
+	SPI     uint8
 }
 
 var bpfNodeIDListCmd = &cobra.Command{
@@ -35,19 +36,20 @@ var bpfNodeIDListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf nodeid list")
 
-		bpfNodeIDList := []nodeID{}
-		parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
+		bpfNodeValueList := []nodeID{}
+		parse := func(key *nodemap.NodeKey, val *nodemap.NodeValueV2) {
 			address := key.IP.String()
 			if key.Family == bpf.EndpointKeyIPv4 {
 				address = net.IP(key.IP[:net.IPv4len]).String()
 			}
-			bpfNodeIDList = append(bpfNodeIDList, nodeID{
+			bpfNodeValueList = append(bpfNodeValueList, nodeID{
 				ID:      val.NodeID,
 				Address: address,
+				SPI:     val.SPI,
 			})
 		}
 
-		nodeMap, err := nodemap.LoadNodeMap()
+		nodeMap, err := nodemap.LoadNodeMapV2()
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find node bpf map")
@@ -62,26 +64,26 @@ var bpfNodeIDListCmd = &cobra.Command{
 		}
 
 		if command.OutputOption() {
-			if err := command.PrintOutput(bpfNodeIDList); err != nil {
+			if err := command.PrintOutput(bpfNodeValueList); err != nil {
 				Fatalf("error getting output of map in JSON: %s\n", err)
 			}
 			return
 		}
 
-		if len(bpfNodeIDList) == 0 {
+		if len(bpfNodeValueList) == 0 {
 			fmt.Fprintf(os.Stderr, "No entries found.\n")
 		} else {
-			printNodeIDList(bpfNodeIDList)
+			printNodeIDList(bpfNodeValueList)
 		}
 	},
 }
 
-func printNodeIDList(nodeIDList []nodeID) {
+func printNodeIDList(nodeValueList []nodeID) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
-	fmt.Fprintln(w, "NODE ID\tIP ADDRESSES")
-	for _, nodeID := range nodeIDList {
-		fmt.Fprintf(w, "0x%x\t%s\n", nodeID.ID, nodeID.Address)
+	fmt.Fprintln(w, "NODE ID\tIP ADDRESSES\tSPI")
+	for _, nodeValue := range nodeValueList {
+		fmt.Fprintf(w, "0x%x\t%s\t%d\n", nodeValue.ID, nodeValue.Address, nodeValue.SPI)
 	}
 
 	w.Flush()
