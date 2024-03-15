@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	MapName    = "cilium_node_map"
-	MaxEntries = 16384
+	MapName           = "cilium_node_map"
+	DefaultMaxEntries = 16384
 )
 
 // Map provides access to the eBPF map node.
@@ -33,20 +33,25 @@ type Map interface {
 	// IterateWithCallback iterates through all the keys/values of a node map,
 	// passing each key/value pair to the cb callback.
 	IterateWithCallback(cb NodeIterateCallback) error
+
+	// Size returns what how many entries the node map is configured to hold.
+	Size() uint32
 }
 
 type nodeMap struct {
+	conf   Config
 	bpfMap *ebpf.Map
 }
 
-func newMap(mapName string) *nodeMap {
+func newMap(mapName string, conf Config) *nodeMap {
 	return &nodeMap{
+		conf: conf,
 		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
 			Name:       mapName,
 			Type:       ebpf.Hash,
 			KeySize:    uint32(unsafe.Sizeof(NodeKey{})),
 			ValueSize:  uint32(unsafe.Sizeof(NodeValue{})),
-			MaxEntries: uint32(MaxEntries),
+			MaxEntries: conf.NodeMapMax,
 			Flags:      unix.BPF_F_NO_PREALLOC,
 			Pinning:    ebpf.PinByName,
 		}),
@@ -91,6 +96,10 @@ func (m *nodeMap) Update(ip net.IP, nodeID uint16) error {
 	key := newNodeKey(ip)
 	val := NodeValue{NodeID: nodeID}
 	return m.bpfMap.Update(key, val, 0)
+}
+
+func (m *nodeMap) Size() uint32 {
+	return m.conf.NodeMapMax
 }
 
 func (m *nodeMap) Delete(ip net.IP) error {
