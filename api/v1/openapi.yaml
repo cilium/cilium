@@ -2821,6 +2821,7 @@ definitions:
     type: string
     enum:
       - veth
+      - netkit
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
