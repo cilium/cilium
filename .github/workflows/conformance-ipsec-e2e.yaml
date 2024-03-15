@@ -75,6 +75,52 @@ jobs:
         include:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
 
+          - name: '17'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '4.19-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            key-one: 'gcm(aes)'
+            key-two: 'cbc(aes)'
+
+          - name: '18'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '4.19-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            key-one: 'cbc(aes)'
+            key-two: 'cbc(aes)'
+
+          - name: '19'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '4.19-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+            key-one: 'gcm(aes)'
+            key-two: 'gcm(aes)'
+
+          - name: '20'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '4.19-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'geneve'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+            key-one: 'cbc(aes)'
+            key-two: 'gcm(aes)'
+
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'rhel8-20240305.092417'
