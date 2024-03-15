@@ -1272,16 +1272,13 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	if ct.Features[features.IngressController].Enabled {
-		ingressServices, err := ct.clients.src.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "cilium.io/ingress=true"})
+		svcName := fmt.Sprintf("cilium-ingress-%s", IngressServiceName)
+		svc, err := WaitForServiceRetrieval(ctx, ct, ct.client, ct.params.TestNamespace, svcName)
 		if err != nil {
-			return fmt.Errorf("unable to list ingress services: %w", err)
+			return err
 		}
 
-		for _, ingressService := range ingressServices.Items {
-			ct.ingressService[ingressService.Name] = Service{
-				Service: ingressService.DeepCopy(),
-			}
-		}
+		ct.ingressService[svcName] = svc
 	}
 
 	if ct.params.MultiCluster == "" {
