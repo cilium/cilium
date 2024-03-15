@@ -83,12 +83,12 @@ func setupDummyDevice(name string, ips ...string) error {
 		},
 	}
 	if err := netlink.LinkAdd(dummy); err != nil {
-		return fmt.Errorf("netlink.LinkAdd failed: %v", err)
+		return fmt.Errorf("netlink.LinkAdd failed: %w", err)
 	}
 
 	if err := netlink.LinkSetUp(dummy); err != nil {
 		removeDevice(name)
-		return fmt.Errorf("netlink.LinkSetUp failed: %v", err)
+		return fmt.Errorf("netlink.LinkSetUp failed: %w", err)
 	}
 
 	for _, ipStr := range ips {

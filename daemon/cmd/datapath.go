@@ -74,7 +74,7 @@ func clearCiliumVeths() error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("unable to retrieve host network interfaces: %s", err)
+		return fmt.Errorf("unable to retrieve host network interfaces: %w", err)
 	}
 
 	for _, v := range leftVeths {

@@ -180,7 +180,7 @@ func (s *syncHostIPs) sync(addrs statedb.Iterator[tables.NodeAddress]) error {
 		if isHost {
 			added, err := lxcmap.SyncHostEntry(ipIDLblsPair.IP)
 			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+				return fmt.Errorf("Unable to add host entry to endpoint map: %w", err)
 			}
 			if added {
 				log.WithField(logfields.IPAddr, ipIDLblsPair.IP).Debugf("Added local ip to endpoint map")

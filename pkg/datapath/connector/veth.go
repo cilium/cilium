@@ -60,11 +60,11 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 	// the addrs.
 	epHostMAC, err := mac.GenerateRandMAC()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
+		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
 	}
 	epLXCMAC, err := mac.GenerateRandMAC()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
+		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
 	}
 
 	veth := &netlink.Veth{
@@ -78,7 +78,7 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 	}
 
 	if err := netlink.LinkAdd(veth); err != nil {
-		return nil, nil, fmt.Errorf("unable to create veth pair: %s", err)
+		return nil, nil, fmt.Errorf("unable to create veth pair: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -100,24 +100,24 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 
 	peer, err := netlink.LinkByName(peerIfName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %s", err)
+		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %w", err)
 	}
 
 	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
-		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", peerIfName, err)
+		return nil, nil, fmt.Errorf("unable to set MTU to %q: %w", peerIfName, err)
 	}
 
 	hostVeth, err := netlink.LinkByName(lxcIfName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to lookup veth just created: %s", err)
+		return nil, nil, fmt.Errorf("unable to lookup veth just created: %w", err)
 	}
 
 	if err = netlink.LinkSetMTU(hostVeth, mtu); err != nil {
-		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
+		return nil, nil, fmt.Errorf("unable to set MTU to %q: %w", lxcIfName, err)
 	}
 
 	if err = netlink.LinkSetUp(veth); err != nil {
-		return nil, nil, fmt.Errorf("unable to bring up veth pair: %s", err)
+		return nil, nil, fmt.Errorf("unable to bring up veth pair: %w", err)
 	}
 
 	if groIPv6MaxSize > 0 {

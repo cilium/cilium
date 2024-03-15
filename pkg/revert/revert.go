@@ -31,7 +31,7 @@ func (s *RevertStack) Push(revertFunc RevertFunc) {
 func (s *RevertStack) Revert() error {
 	for i := len(s.revertFuncs) - 1; i >= 0; i-- {
 		if err := s.revertFuncs[i](); err != nil {
-			return fmt.Errorf("failed to execute revert function; skipping %d revert functions: %s", i, err)
+			return fmt.Errorf("failed to execute revert function; skipping %d revert functions: %w", i, err)
 		}
 	}
 	return nil

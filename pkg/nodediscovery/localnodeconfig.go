@@ -19,7 +19,7 @@ func NewLocalNodeConfig(mtu mtu.MTU, config *option.DaemonConfig) (datapath.Loca
 	if config.IPv4ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv4ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv4 service prefix %q: %v", config.IPv4ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
@@ -28,7 +28,7 @@ func NewLocalNodeConfig(mtu mtu.MTU, config *option.DaemonConfig) (datapath.Loca
 	if config.IPv6ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv6ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv6 service prefix %q: %v", config.IPv6ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)

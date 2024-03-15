@@ -45,7 +45,7 @@ func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
 	}
 
 	if err := newNodeSvcLBReconciler(params.CtrlRuntimeManager, params.Logger).SetupWithManager(params.CtrlRuntimeManager); err != nil {
-		return fmt.Errorf("Failed to register NodeSvcLBReconciler: %s", err)
+		return fmt.Errorf("Failed to register NodeSvcLBReconciler: %w", err)
 	}
 
 	return nil

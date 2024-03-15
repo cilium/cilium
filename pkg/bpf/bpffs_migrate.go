@@ -90,7 +90,7 @@ func RepinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("map not found at path %s: %v", name, err)
+		return fmt.Errorf("map not found at path %s: %w", name, err)
 	}
 	defer pinned.Close()
 
@@ -148,7 +148,7 @@ func FinalizeMap(bpffsPath, name string, revert bool) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to open pinned map at path %s: %v", name, err)
+		return fmt.Errorf("unable to open pinned map at path %s: %w", name, err)
 	}
 
 	// Pending Map was found on bpffs and needs to be reverted.

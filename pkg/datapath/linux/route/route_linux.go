@@ -89,7 +89,7 @@ func ipFamily(ip net.IP) int {
 func Lookup(route Route) (*Route, error) {
 	link, err := netlink.LinkByName(route.Device)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find interface '%s' of route: %s", route.Device, err)
+		return nil, fmt.Errorf("unable to find interface '%s' of route: %w", route.Device, err)
 	}
 
 	routeSpec := route.getNetlinkRoute()
@@ -194,7 +194,7 @@ func createNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) *n
 // incorrect, it will be replaced with the proper L2 route.
 func replaceNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) (bool, error) {
 	if err := netlink.RouteReplace(createNexthopRoute(route, link, routerNet)); err != nil {
-		return false, fmt.Errorf("unable to add L2 nexthop route: %s", err)
+		return false, fmt.Errorf("unable to add L2 nexthop route: %w", err)
 	}
 
 	return true, nil
@@ -203,7 +203,7 @@ func replaceNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) (
 // deleteNexthopRoute deletes
 func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) error {
 	if err := netlink.RouteDel(createNexthopRoute(route, link, routerNet)); err != nil {
-		return fmt.Errorf("unable to delete L2 nexthop route: %s", err)
+		return fmt.Errorf("unable to delete L2 nexthop route: %w", err)
 	}
 
 	return nil
@@ -291,7 +291,7 @@ func Upsert(route Route) error {
 func Delete(route Route) error {
 	link, err := netlink.LinkByName(route.Device)
 	if err != nil {
-		return fmt.Errorf("unable to lookup interface %s: %s", route.Device, err)
+		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
 	}
 
 	// Deletion of routes with Nexthop or Local set fails for IPv6.
@@ -502,7 +502,7 @@ func DeleteRule(family int, spec Rule) error {
 func lookupDefaultRoute(family int) (netlink.Route, error) {
 	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
 	if err != nil {
-		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %s", err)
+		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %w", err)
 	}
 
 	sort.Slice(routes, func(i, j int) bool {
@@ -525,14 +525,14 @@ func DeleteRouteTable(table, family int) error {
 
 	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
 	if err != nil {
-		return fmt.Errorf("Unable to list table %d routes: %s", table, err)
+		return fmt.Errorf("Unable to list table %d routes: %w", table, err)
 	}
 
 	routeErr = nil
 	for _, route := range routes {
 		err := netlink.RouteDel(&route)
 		if err != nil {
-			routeErr = fmt.Errorf("%w: Failed to delete route: %s", routeErr, err)
+			routeErr = fmt.Errorf("%w: Failed to delete route: %w", routeErr, err)
 		}
 	}
 	return routeErr

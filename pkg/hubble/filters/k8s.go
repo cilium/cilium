@@ -96,7 +96,7 @@ func (s *ServiceFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter
 	if ff.GetSourceService() != nil {
 		ssf, err := filterByNamespacedName(ff.GetSourceService(), sourceService)
 		if err != nil {
-			return nil, fmt.Errorf("invalid source service filter: %v", err)
+			return nil, fmt.Errorf("invalid source service filter: %w", err)
 		}
 		fs = append(fs, ssf)
 	}
@@ -104,7 +104,7 @@ func (s *ServiceFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter
 	if ff.GetDestinationService() != nil {
 		dsf, err := filterByNamespacedName(ff.GetDestinationService(), destinationService)
 		if err != nil {
-			return nil, fmt.Errorf("invalid destination service filter: %v", err)
+			return nil, fmt.Errorf("invalid destination service filter: %w", err)
 		}
 		fs = append(fs, dsf)
 	}

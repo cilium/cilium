@@ -918,7 +918,7 @@ func (s *APILimiterSet) Wait(ctx context.Context, name string) (LimitedRequest, 
 func parsePositiveInt(value string) (int, error) {
 	switch i64, err := strconv.ParseInt(value, 10, 64); {
 	case err != nil:
-		return 0, fmt.Errorf("unable to parse positive integer %q: %v", value, err)
+		return 0, fmt.Errorf("unable to parse positive integer %q: %w", value, err)
 	case i64 < 0:
 		return 0, fmt.Errorf("unable to parse positive integer %q: negative value", value)
 	case i64 > math.MaxInt:
