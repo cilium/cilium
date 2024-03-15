@@ -3397,6 +3397,9 @@
               },
               {
                 "type": "string"
+              },
+              {
+                "type": "string"
               }
             ]
           },
