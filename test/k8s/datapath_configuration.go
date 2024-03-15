@@ -1152,7 +1152,7 @@ func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount in
 	By("Looking for TCP notifications using the ephemeral port %q", portBytes)
 	port, err := strconv.Atoi(string(portBytes))
 	if err != nil {
-		return fmt.Errorf("ephemeral port %q could not be converted to integer: %s",
+		return fmt.Errorf("ephemeral port %q could not be converted to integer: %w",
 			string(portBytes), err)
 	}
 

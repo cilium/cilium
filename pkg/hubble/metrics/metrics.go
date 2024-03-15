@@ -129,7 +129,7 @@ func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.S
 func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) error {
 	errChan, err := initMetrics(metricsServer, api.ParseMetricList(m), grpcMetrics, enableOpenMetrics)
 	if err != nil {
-		return fmt.Errorf("unable to setup metrics: %v", err)
+		return fmt.Errorf("unable to setup metrics: %w", err)
 	}
 	go func() {
 		err := <-errChan

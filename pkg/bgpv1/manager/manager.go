@@ -168,17 +168,17 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 
 	if len(rd.register) > 0 {
 		if err := m.register(ctx, rd); err != nil {
-			return fmt.Errorf("encountered error adding new BGP Servers: %v", err)
+			return fmt.Errorf("encountered error adding new BGP Servers: %w", err)
 		}
 	}
 	if len(rd.withdraw) > 0 {
 		if err := m.withdraw(ctx, rd); err != nil {
-			return fmt.Errorf("encountered error removing existing BGP Servers: %v", err)
+			return fmt.Errorf("encountered error removing existing BGP Servers: %w", err)
 		}
 	}
 	if len(rd.reconcile) > 0 {
 		if err := m.reconcile(ctx, rd); err != nil {
-			return fmt.Errorf("encountered error reconciling existing BGP Servers: %v", err)
+			return fmt.Errorf("encountered error reconciling existing BGP Servers: %w", err)
 		}
 	}
 	return nil
@@ -226,7 +226,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 
 	annoMap, err := agent.NewAnnotationMap(ciliumNode.Annotations)
 	if err != nil {
-		return fmt.Errorf("unable to parse local node's annotations: %v", err)
+		return fmt.Errorf("unable to parse local node's annotations: %w", err)
 	}
 
 	// resolve local port from kubernetes annotations

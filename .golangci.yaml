@@ -103,6 +103,7 @@ issues:
 linters:
   disable-all: true
   enable:
+    - errorlint
     - goerr113
     - gofmt
     - goimports

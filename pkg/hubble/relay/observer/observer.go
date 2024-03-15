@@ -5,6 +5,7 @@ package observer
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/sirupsen/logrus"
@@ -45,19 +46,19 @@ func retrieveFlowsFromPeer(
 	}
 	for {
 		flow, err := c.Recv()
-		switch err {
-		case io.EOF, context.Canceled:
-			return nil
-		case nil:
-			select {
-			case flows <- flow:
-			case <-ctx.Done():
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 				return nil
 			}
-		default:
-			if status.Code(err) != codes.Canceled {
-				return err
+			if status.Code(err) == codes.Canceled {
+				return nil
 			}
+			return err
+		}
+
+		select {
+		case flows <- flow:
+		case <-ctx.Done():
 			return nil
 		}
 	}

@@ -129,7 +129,7 @@ func ParseCiliumID(id string) (int64, error) {
 	}
 	n, err := strconv.ParseInt(id, 0, 64)
 	if err != nil || n < 0 {
-		return 0, fmt.Errorf("invalid numeric cilium id: %s", err)
+		return 0, fmt.Errorf("invalid numeric cilium id: %w", err)
 	}
 	if n > MaxEndpointID {
 		return 0, fmt.Errorf("endpoint id too large: %d", n)

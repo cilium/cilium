@@ -278,16 +278,16 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), info)
 		if err != nil {
-			return nil, fmt.Errorf("Error while creating veth: %s", err)
+			return nil, fmt.Errorf("Error while creating veth: %w", err)
 		}
 
 		if err = netlink.LinkSetNsFd(epLink, int(netNS.Fd())); err != nil {
-			return nil, fmt.Errorf("failed to move device %q to health namespace: %s", epIfaceName, err)
+			return nil, fmt.Errorf("failed to move device %q to health namespace: %w", epIfaceName, err)
 		}
 	}
 
 	if err = configureHealthInterface(netNS, epIfaceName, ip4Address, ip6Address); err != nil {
-		return nil, fmt.Errorf("failed configure health interface %q: %s", epIfaceName, err)
+		return nil, fmt.Errorf("failed configure health interface %q: %w", epIfaceName, err)
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
@@ -303,7 +303,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	// Create the endpoint
 	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, proxy, allocator, info)
 	if err != nil {
-		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
+		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
 
 	// Wait until the cilium-health endpoint is running before setting up routes
@@ -313,7 +313,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			log.WithField("pidfile", pidfile).Debug("cilium-health agent running")
 			break
 		} else if time.Now().After(deadline) {
-			return nil, fmt.Errorf("Endpoint failed to run: %s", err)
+			return nil, fmt.Errorf("Endpoint failed to run: %w", err)
 		} else {
 			time.Sleep(1 * time.Second)
 		}
@@ -321,7 +321,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	// Set up the endpoint routes.
 	if err = configureHealthRouting(info.ContainerName, epIfaceName, node.GetNodeAddressing(), mtuConfig); err != nil {
-		return nil, fmt.Errorf("Error while configuring routes: %s", err)
+		return nil, fmt.Errorf("Error while configuring routes: %w", err)
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
@@ -333,12 +333,12 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			false,
 		); err != nil {
 
-			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %s", err)
+			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %w", err)
 		}
 	}
 
 	if err := epMgr.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
-		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
+		return nil, fmt.Errorf("Error while adding endpoint: %w", err)
 	}
 
 	// Give the endpoint a security identity

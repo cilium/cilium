@@ -176,7 +176,7 @@ func (r *FileReloader) ReloadCA() (*x509.CertPool, error) {
 func (r *FileReloader) readKeypair() (*tls.Certificate, error) {
 	keypair, err := tls.LoadX509KeyPair(r.certFile, r.privkeyFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load keypair: %s", err)
+		return nil, fmt.Errorf("failed to load keypair: %w", err)
 	}
 	return &keypair, nil
 }
@@ -187,7 +187,7 @@ func (r *FileReloader) readCertificateAuthority() (*x509.CertPool, error) {
 	for _, path := range r.caFiles {
 		pem, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load cert %q: %s", path, err)
+			return nil, fmt.Errorf("failed to load cert %q: %w", path, err)
 		}
 		if ok := caCertPool.AppendCertsFromPEM(pem); !ok {
 			return nil, fmt.Errorf("failed to load cert %q: must be PEM encoded", path)

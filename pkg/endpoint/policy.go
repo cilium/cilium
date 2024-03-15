@@ -448,13 +448,13 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	// over to make sure we can start the build from scratch
 	if err := e.removeDirectory(tmpDir); err != nil && !os.IsNotExist(err) {
 		stats.prepareBuild.End(false)
-		return fmt.Errorf("unable to remove old temporary directory: %s", err)
+		return fmt.Errorf("unable to remove old temporary directory: %w", err)
 	}
 
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
 		stats.prepareBuild.End(false)
-		return fmt.Errorf("Failed to create endpoint directory: %s", err)
+		return fmt.Errorf("Failed to create endpoint directory: %w", err)
 	}
 
 	stats.prepareBuild.End(true)
@@ -537,7 +537,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// results.
 	err = e.synchronizeDirectories(origDir, stateDirComplete)
 	if err != nil {
-		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
+		return fmt.Errorf("error synchronizing endpoint BPF program directories: %w", err)
 	}
 
 	// Start periodic background full reconciliation of the policy map.
@@ -849,14 +849,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				e.runlock()
 
 				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
-					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", endpointIP.String(), ID, err)
+					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %w", endpointIP.String(), ID, err)
 				}
 				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
 				ip := endpointIP.String()
 				if err := ipcache.DeleteIPFromKVStore(ctx, ip); err != nil {
-					return fmt.Errorf("unable to delete endpoint IP '%s' from ipcache: %s", ip, err)
+					return fmt.Errorf("unable to delete endpoint IP '%s' from ipcache: %w", ip, err)
 				}
 				return nil
 			},

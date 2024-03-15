@@ -406,7 +406,7 @@ func unmountCgroup() error {
 
 	log.Info("Trying to unmount ", cgroupRoot)
 	if err := unix.Unmount(cgroupRoot, unix.MNT_FORCE); err != nil {
-		return fmt.Errorf("Failed to unmount %s: %s", cgroupRoot, err)
+		return fmt.Errorf("Failed to unmount %s: %w", cgroupRoot, err)
 	}
 	return nil
 }
