@@ -138,7 +138,7 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 		for {
 			req, err := stream.Recv()
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					streamLog.Debug("xDS stream closed")
 				} else if strings.HasPrefix(err.Error(), grpcCanceled) {
 					streamLog.WithError(err).Debug("xDS stream canceled")

@@ -197,7 +197,7 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGett
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize resync trigger: %s", err)
+		return nil, fmt.Errorf("unable to initialize resync trigger: %w", err)
 	}
 
 	mngr.resyncTrigger = resyncTrigger

@@ -211,7 +211,7 @@ func getSecIDFromK8s(podName string) (string, error) {
 			K8sKubeConfigPath: resp.Status.K8sConfiguration,
 		})
 	if err != nil {
-		return "", fmt.Errorf("unable to construct client: %s", err)
+		return "", fmt.Errorf("unable to construct client: %w", err)
 	}
 
 	ep, err := clientset.CiliumV2().CiliumEndpoints(namespace).Get(context.TODO(), pod, meta_v1.GetOptions{})
@@ -255,7 +255,7 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 		if !iana.IsSvcName(portStr) {
 			portUint64, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
-				return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
+				return nil, fmt.Errorf("invalid port %q: %w", portStr, err)
 			}
 			port = uint16(portUint64)
 			portStr = ""

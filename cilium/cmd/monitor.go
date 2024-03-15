@@ -257,7 +257,7 @@ func runMonitor(args []string) {
 		case err == nil:
 		// no-op
 
-		case err == io.EOF, errors.Is(err, io.ErrUnexpectedEOF):
+		case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
 			log.WithError(err).Warn("connection closed")
 			continue
 

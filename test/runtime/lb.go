@@ -151,11 +151,11 @@ var _ = Describe("RuntimeDatapathLB", func() {
 		getBackendState := func(test backendCheckTest) (bool, error) {
 			ip, port, err := net.SplitHostPort(test.frontend)
 			if err != nil {
-				return false, fmt.Errorf("invalid frontend %s : %s", test.frontend, err)
+				return false, fmt.Errorf("invalid frontend %s : %w", test.frontend, err)
 			}
 			portInt, err := strconv.ParseUint(port, 10, 16)
 			if err != nil {
-				return false, fmt.Errorf("invalid frontend port %s: %s", test.frontend, err)
+				return false, fmt.Errorf("invalid frontend port %s: %w", test.frontend, err)
 			}
 			jq := "jq -r '[ .[].status.realized | select(.\"frontend-address\".ip==\"" + ip + "\") | . ]'"
 			cmd := "service list -o json | " + jq

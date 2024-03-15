@@ -5,6 +5,7 @@ package clusterpool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 
@@ -36,8 +37,8 @@ func (e ErrCIDRColision) Error() string {
 }
 
 func (e *ErrCIDRColision) Is(target error) bool {
-	t, ok := target.(*ErrCIDRColision)
-	if !ok {
+	t := &ErrCIDRColision{}
+	if !errors.As(target, &t) {
 		return false
 	}
 	return t.cidr == e.cidr

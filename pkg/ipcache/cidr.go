@@ -182,7 +182,7 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[netip
 func (ipc *IPCache) allocate(ctx context.Context, prefix netip.Prefix, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, oldNID)
 	if err != nil {
-		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
+		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %w", prefix, err)
 	}
 
 	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) {

@@ -214,7 +214,7 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 
 	w, err := createConfigDirectoryWatcher(c.ConfigDirectory, cm)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create config directory watcher: %s", err)
+		return nil, fmt.Errorf("unable to create config directory watcher: %w", err)
 	}
 
 	cm.configWatcher = w

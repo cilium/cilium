@@ -24,7 +24,7 @@ type PoolAllocator struct {
 func NewPoolAllocator(poolID types.PoolID, allocationCIDR *cidr.CIDR) (*PoolAllocator, error) {
 	allocator, err := ipallocator.NewCIDRRange(allocationCIDR.IPNet)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create IP allocator: %s", err)
+		return nil, fmt.Errorf("unable to create IP allocator: %w", err)
 	}
 
 	return &PoolAllocator{PoolID: poolID, allocator: allocator, AllocationCIDR: allocationCIDR}, nil

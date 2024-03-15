@@ -6,6 +6,7 @@ package linux
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -200,7 +201,7 @@ func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.R
 
 	routes, err = netlink.RouteGet(nodeIP)
 	if err != nil {
-		err = fmt.Errorf("unable to lookup route for node %s: %s", nodeIP, err)
+		err = fmt.Errorf("unable to lookup route for node %s: %w", nodeIP, err)
 		return
 	}
 
@@ -234,7 +235,7 @@ func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.R
 
 		routes, err = netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
 		if err != nil {
-			err = fmt.Errorf("unable to find local route for destination %s: %s", nodeIP, err)
+			err = fmt.Errorf("unable to find local route for destination %s: %w", nodeIP, err)
 			return
 		}
 
@@ -1374,7 +1375,8 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 		if err != nil {
 			// If the link is not found we don't need to keep retrying cleaning
 			// up the neihbor entries so we can keep successClean=true
-			if _, ok := err.(netlink.LinkNotFoundError); !ok {
+			var linkNotFoundError netlink.LinkNotFoundError
+			if !errors.As(err, &linkNotFoundError) {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.Device: linkName,
 				}).Error("Unable to remove PERM neighbor entries of network device")

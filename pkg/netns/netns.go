@@ -4,6 +4,7 @@
 package netns
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -39,7 +40,8 @@ func RemoveIfFromNetNSIfExists(netNS ns.NetNS, ifName string) error {
 func RemoveIfFromNetNSWithNameIfBothExist(netNSName, ifName string) error {
 	netNS, err := ns.GetNS(netNSPath(netNSName))
 	if err != nil {
-		if _, ok := err.(ns.NSPathNotExistErr); ok {
+		nsPathNotExistErr := ns.NSPathNotExistErr{}
+		if errors.As(err, &nsPathNotExistErr) {
 			return nil
 		}
 		return err
@@ -70,17 +72,17 @@ func ReplaceNetNSWithName(netNSName string) (ns.NetNS, error) {
 
 	if err := ns.IsNSorErr(path); err == nil {
 		if err := exec.Command("ip", "netns", "del", netNSName).Run(); err != nil {
-			return nil, fmt.Errorf("Unable to delete named netns %s: %s", netNSName, err)
+			return nil, fmt.Errorf("Unable to delete named netns %s: %w", netNSName, err)
 		}
 	}
 
 	if err := exec.Command("ip", "netns", "add", netNSName).Run(); err != nil {
-		return nil, fmt.Errorf("Unable to create named netns %s: %s", netNSName, err)
+		return nil, fmt.Errorf("Unable to create named netns %s: %w", netNSName, err)
 	}
 
 	ns, err := ns.GetNS(path)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open netns %s: %s", path, err)
+		return nil, fmt.Errorf("Unable to open netns %s: %w", path, err)
 	}
 
 	return ns, nil
@@ -91,7 +93,7 @@ func ReplaceNetNSWithName(netNSName string) (ns.NetNS, error) {
 // FIXME: replace "ip-netns" invocations with native Go code
 func RemoveNetNSWithName(netNSName string) error {
 	if out, err := exec.Command("ip", "netns", "del", netNSName).CombinedOutput(); err != nil {
-		return fmt.Errorf("Unable to delete named netns %s: %s %s", netNSName, out, err)
+		return fmt.Errorf("Unable to delete named netns %s: %s %w", netNSName, out, err)
 	}
 
 	return nil

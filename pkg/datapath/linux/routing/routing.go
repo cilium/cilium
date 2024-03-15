@@ -50,7 +50,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 
 	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
 	if err != nil {
-		return fmt.Errorf("unable to find ifindex for interface MAC: %s", err)
+		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
 
 	ipWithMask := net.IPNet{
@@ -69,7 +69,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 			To:       &ipWithMask,
 			Table:    route.MainTable,
 		}); err != nil {
-			return fmt.Errorf("unable to install ip rule: %s", err)
+			return fmt.Errorf("unable to install ip rule: %w", err)
 		}
 	}
 
@@ -93,7 +93,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 				To:       &cidr,
 				Table:    tableID,
 			}); err != nil {
-				return fmt.Errorf("unable to install ip rule: %s", err)
+				return fmt.Errorf("unable to install ip rule: %w", err)
 			}
 		}
 	} else {
@@ -103,7 +103,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 			From:     &ipWithMask,
 			Table:    tableID,
 		}); err != nil {
-			return fmt.Errorf("unable to install ip rule: %s", err)
+			return fmt.Errorf("unable to install ip rule: %w", err)
 		}
 	}
 
@@ -117,7 +117,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		Scope:     netlink.SCOPE_LINK,
 		Table:     tableID,
 	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %s", err)
+		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
 	}
 
 	// Default route to the VPC or subnet gateway
@@ -126,7 +126,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		Table: tableID,
 		Gw:    info.IPv4Gateway,
 	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %s", err)
+		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
 	}
 
 	return nil
@@ -173,7 +173,7 @@ func Delete(ip netip.Addr, compat bool) error {
 		Table:    route.MainTable,
 	}
 	if err := deleteRule(ingress); err != nil {
-		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %v", ipWithMask.String(), err)
+		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %w", ipWithMask.String(), err)
 	}
 
 	scopedLog.WithField("rule", ingress).Debug("Deleted ingress rule")

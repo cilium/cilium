@@ -1493,7 +1493,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 
 	if option.Config.EnableIPSec {
 		if err := m.addCiliumNoTrackXfrmRules(); err != nil {
-			return fmt.Errorf("cannot install xfrm rules: %s", err)
+			return fmt.Errorf("cannot install xfrm rules: %w", err)
 		}
 	}
 

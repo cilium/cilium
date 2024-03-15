@@ -226,12 +226,12 @@ func shuffleMaps(realized, backup, pending string) error {
 	pendingPath := bpf.MapPath(pending)
 
 	if err := os.Rename(realizedPath, backupPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("Unable to back up existing ipcache: %s", err)
+		return fmt.Errorf("Unable to back up existing ipcache: %w", err)
 	}
 
 	if err := os.Rename(pendingPath, realizedPath); err != nil {
 		handleMapShuffleFailure(backup, realized)
-		return fmt.Errorf("Unable to shift ipcache into new location: %s", err)
+		return fmt.Errorf("Unable to shift ipcache into new location: %w", err)
 	}
 
 	return nil
@@ -264,7 +264,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 
 		keysToRemove := map[string]*ipcacheMap.Key{}
 		if err := l.bpfMap.DumpWithCallback(l.updateStaleEntriesFunction(keysToRemove)); err != nil {
-			return nil, fmt.Errorf("error dumping ipcache BPF map: %s", err)
+			return nil, fmt.Errorf("error dumping ipcache BPF map: %w", err)
 		}
 
 		// Remove all keys which are not in in-memory cache from BPF map
@@ -273,7 +273,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 			log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 				Debug("deleting from ipcache BPF map")
 			if err := l.bpfMap.DeleteWithOverwrite(k); err != nil {
-				return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
+				return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %w", k, err)
 			}
 		}
 	} else {
@@ -287,7 +287,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		pendingMap := ipcacheMap.NewMap(pendingMapName)
 		if _, err := pendingMap.OpenOrCreate(); err != nil {
 			l.ipcache.RUnlock()
-			return nil, fmt.Errorf("Unable to create %s map: %s", pendingMapName, err)
+			return nil, fmt.Errorf("Unable to create %s map: %w", pendingMapName, err)
 		}
 		pendingListener := newListener(pendingMap, l.datapath, nil, l.ipcache)
 		l.ipcache.DumpToListenerLocked(pendingListener)

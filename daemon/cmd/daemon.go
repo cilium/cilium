@@ -416,7 +416,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(Vp); err != nil {
-		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
+		return nil, nil, fmt.Errorf("invalid daemon configuration: %w", err)
 	}
 
 	// Validate configuration options that depend on other cells.
@@ -497,7 +497,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	authKeySize, encryptKeyID, err := setupIPSec()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
+		return nil, nil, fmt.Errorf("unable to setup encryption: %w", err)
 	}
 
 	var mtuConfig mtu.Configuration
@@ -1433,7 +1433,7 @@ func (d *Daemon) Close() {
 func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
 	if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-		return nil, fmt.Errorf("unable to recompile base programs from %s: %s", reason, err)
+		return nil, fmt.Errorf("unable to recompile base programs from %s: %w", reason, err)
 	}
 
 	regenRequest := &regeneration.ExternalRegenerationMetadata{

@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -191,7 +192,8 @@ func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]network.Interface
 		c.metricsAPI.ObserveAPICall("Interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete", deriveStatus(err2), sinceStart.Seconds())
 		if err2 != nil {
 			// For scale set created by AKS node group (otherwise it will return an empty list) without any instances API will return not found. Then it can be skipped.
-			if v, ok := err2.(autorest.DetailedError); ok && v.StatusCode == http.StatusNotFound {
+			var v autorest.DetailedError
+			if errors.As(err2, &v) && v.StatusCode == http.StatusNotFound {
 				continue
 			}
 			return nil, err2
@@ -385,7 +387,7 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Get")
 	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceViewTypesInstanceView)
 	if err != nil {
-		return fmt.Errorf("failed to get VM %s from VMSS %s: %s", instanceID, vmssName, err)
+		return fmt.Errorf("failed to get VM %s from VMSS %s: %w", instanceID, vmssName, err)
 	}
 
 	// Search for the existing network interface configuration
@@ -440,11 +442,11 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Update")
 	future, err := c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
 	if err != nil {
-		return fmt.Errorf("unable to update virtualmachinescaleset: %s", err)
+		return fmt.Errorf("unable to update virtualmachinescaleset: %w", err)
 	}
 
 	if err := future.WaitForCompletionRef(ctx, c.vmss.Client); err != nil {
-		return fmt.Errorf("error while waiting for virtualmachinescalesets.Update() to complete: %s", err)
+		return fmt.Errorf("error while waiting for virtualmachinescalesets.Update() to complete: %w", err)
 	}
 
 	return nil
@@ -455,7 +457,7 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 	c.limiter.Limit(ctx, "Interfaces.Get")
 	iface, err := c.interfaces.Get(ctx, c.resourceGroup, interfaceName, "")
 	if err != nil {
-		return fmt.Errorf("failed to get standalone instance's interface %s: %s", interfaceName, err)
+		return fmt.Errorf("failed to get standalone instance's interface %s: %w", interfaceName, err)
 	}
 
 	// All IPConfigurations on the NIC should reference the same set of Application Security Groups (ASGs).
@@ -486,11 +488,11 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 	c.limiter.Limit(ctx, "Interfaces.CreateOrUpdate")
 	future, err := c.interfaces.CreateOrUpdate(ctx, c.resourceGroup, interfaceName, iface)
 	if err != nil {
-		return fmt.Errorf("unable to update interface %s: %s", interfaceName, err)
+		return fmt.Errorf("unable to update interface %s: %w", interfaceName, err)
 	}
 
 	if err := future.WaitForCompletionRef(ctx, c.interfaces.Client); err != nil {
-		return fmt.Errorf("error while waiting for interface.CreateOrUpdate() to complete for %s: %s", interfaceName, err)
+		return fmt.Errorf("error while waiting for interface.CreateOrUpdate() to complete for %s: %w", interfaceName, err)
 	}
 
 	return nil

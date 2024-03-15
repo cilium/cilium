@@ -111,7 +111,7 @@ func (c *TimeoutConfig) Validate() error {
 func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	err := RepeatUntilTrue(body, config)
 	if err != nil {
-		return fmt.Errorf("%s: %s", msg, err)
+		return fmt.Errorf("%s: %w", msg, err)
 	}
 
 	return nil

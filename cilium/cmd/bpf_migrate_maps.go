@@ -61,22 +61,22 @@ original locations. If the return code is 0, the :pending maps will be unpinned.
 			if start != "" {
 				spec, err := bpf.LoadCollectionSpec(start)
 				if err != nil {
-					return fmt.Errorf("loading eBPF ELF %q: %v", start, err)
+					return fmt.Errorf("loading eBPF ELF %q: %w", start, err)
 				}
 
 				if err := bpf.StartBPFFSMigration(bpffsPath, spec); err != nil {
-					return fmt.Errorf("error starting map migration for %q: %v", start, err)
+					return fmt.Errorf("error starting map migration for %q: %w", start, err)
 				}
 			}
 
 			if end != "" {
 				spec, err := bpf.LoadCollectionSpec(end)
 				if err != nil {
-					return fmt.Errorf("loading eBPF ELF %q: %v", end, err)
+					return fmt.Errorf("loading eBPF ELF %q: %w", end, err)
 				}
 
 				if err := bpf.FinalizeBPFFSMigration(bpffsPath, spec, rc != 0); err != nil {
-					return fmt.Errorf("error finalizing map migration for %q: %v", end, err)
+					return fmt.Errorf("error finalizing map migration for %q: %w", end, err)
 				}
 			}
 
