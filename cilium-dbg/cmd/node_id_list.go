@@ -49,7 +49,7 @@ func printNodeIDs(nodeIDs []*models.NodeID) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "NODE ID\tIP ADDRESSES\n")
+	fmt.Fprintf(w, "NODE ID\tIP ADDRESSES\tSPI\n")
 	for _, nodeID := range nodeIDs {
 		printNodeID(w, nodeID)
 	}
