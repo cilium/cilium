@@ -532,7 +532,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 		DNSZombies: fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 	}
 	if err := json.Unmarshal(raw, restoredEp); err != nil {
-		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
+		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %w", err)
 	}
 
 	ep.fromSerializedEndpoint(restoredEp)

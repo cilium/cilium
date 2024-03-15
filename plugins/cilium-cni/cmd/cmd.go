@@ -624,7 +624,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		if newEp, err = c.EndpointCreate(ep); err != nil {
 			logger.WithError(err).WithFields(logrus.Fields{
 				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-			return fmt.Errorf("unable to create endpoint: %s", err)
+			return fmt.Errorf("unable to create endpoint: %w", err)
 		}
 		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
 			// Set the MAC address on the interface in the container namespace

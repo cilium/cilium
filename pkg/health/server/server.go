@@ -91,7 +91,7 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	clusterNodesParam.SetClientID(&cID)
 	resp, err := s.Daemon.GetClusterNodes(clusterNodesParam)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get nodes' cluster: %s", err)
+		return nil, nil, fmt.Errorf("unable to get nodes' cluster: %w", err)
 	}
 	log.Debug("Got cilium /cluster/nodes")
 
@@ -125,7 +125,7 @@ func (s *Server) getAllNodes() (nodeMap, error) {
 
 	resp, err := s.Daemon.GetClusterNodes(nil)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get nodes' cluster: %s", err)
+		return nil, fmt.Errorf("unable to get nodes' cluster: %w", err)
 	}
 	log.Debug("Got cilium /cluster/nodes")
 

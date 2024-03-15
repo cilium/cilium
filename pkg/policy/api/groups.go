@@ -57,7 +57,7 @@ func (group *Groups) GetCidrSet(ctx context.Context) ([]CIDRRule, error) {
 		awsAddrs, err := callback(ctx, group)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"Cannot retrieve data from %s provider: %s",
+				"Cannot retrieve data from %s provider: %w",
 				AWSProvider, err)
 		}
 		addrs = append(addrs, awsAddrs...)

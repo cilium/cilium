@@ -146,7 +146,7 @@ func (d *DynamicExporter) applyRemovedConfig(name string) {
 		return
 	}
 	if err := m.exporter.Stop(); err != nil {
-		d.logger.Errorf("failed to stop exporter: %v", err)
+		d.logger.Errorf("failed to stop exporter: %w", err)
 	}
 	delete(d.managedExporters, name)
 }

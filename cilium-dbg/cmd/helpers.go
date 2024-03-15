@@ -274,7 +274,7 @@ func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs,
 	trafficDirection := args[1]
 	parsedTd, err := parseTrafficString(trafficDirection)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to convert %s to a valid traffic direction: %s", args[1], err)
+		return nil, fmt.Errorf("Failed to convert %s to a valid traffic direction: %w", args[1], err)
 	}
 
 	mapName, err := endpointToPolicyMapPath(args[0])
@@ -293,7 +293,7 @@ func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs,
 	if len(args) > 3 {
 		pp, err := parseL4PortsSlice([]string{args[3]})
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse L4: %s", err)
+			return nil, fmt.Errorf("Failed to parse L4: %w", err)
 		}
 		port = pp[0].Port
 		if port != 0 {
@@ -467,7 +467,7 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 		if !iana.IsSvcName(portStr) {
 			portUint64, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
-				return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
+				return nil, fmt.Errorf("invalid port %q: %w", portStr, err)
 			}
 			port = uint16(portUint64)
 			portStr = ""

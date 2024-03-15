@@ -67,7 +67,7 @@ func DefaultPrefixLengthCounter() *PrefixLengthCounter {
 		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
 	}
 	if _, err := counter.Add(defaultPrefixes); err != nil {
-		panic(fmt.Errorf("Failed to create default prefix lengths: %s", err))
+		panic(fmt.Errorf("Failed to create default prefix lengths: %w", err))
 	}
 
 	return counter

@@ -269,7 +269,7 @@ func parseMulticastGroupSubscriberArgs(args []string) (groupAddr, subscriberAddr
 
 	subscriberAddr, err = netip.ParseAddr(args[1])
 	if err != nil {
-		return netip.Addr{}, netip.Addr{}, fmt.Errorf("invalid subscriber address: %s", err)
+		return netip.Addr{}, netip.Addr{}, fmt.Errorf("invalid subscriber address: %w", err)
 	}
 
 	return groupAddr, subscriberAddr, nil

@@ -196,7 +196,7 @@ func detachAll(attach ebpf.AttachType, cgroupRoot string) error {
 	// We know the cgroup root exists, so EINVAL will likely mean querying
 	// the given attach type is not supported.
 	if errors.Is(err, unix.EINVAL) {
-		err = fmt.Errorf("%s: %w", err, link.ErrNotSupported)
+		err = fmt.Errorf("%w: %w", err, link.ErrNotSupported)
 	}
 	if err != nil {
 		return fmt.Errorf("query cgroup %s for type %s: %w", cgroupRoot, attach, err)

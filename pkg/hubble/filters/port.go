@@ -45,7 +45,7 @@ func filterByPort(portStrs []string, getPort func(*v1.Event) (port uint16, ok bo
 	for _, p := range portStrs {
 		port, err := strconv.ParseUint(p, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("invalid port %q: %s", p, err)
+			return nil, fmt.Errorf("invalid port %q: %w", p, err)
 		}
 		ports = append(ports, uint16(port))
 	}
@@ -72,7 +72,7 @@ func (p *PortFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 	if ff.GetSourcePort() != nil {
 		spf, err := filterByPort(ff.GetSourcePort(), sourcePort)
 		if err != nil {
-			return nil, fmt.Errorf("invalid source port filter: %v", err)
+			return nil, fmt.Errorf("invalid source port filter: %w", err)
 		}
 		fs = append(fs, spf)
 	}
@@ -80,7 +80,7 @@ func (p *PortFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 	if ff.GetDestinationPort() != nil {
 		dpf, err := filterByPort(ff.GetDestinationPort(), destinationPort)
 		if err != nil {
-			return nil, fmt.Errorf("invalid destination port filter: %v", err)
+			return nil, fmt.Errorf("invalid destination port filter: %w", err)
 		}
 		fs = append(fs, dpf)
 	}
