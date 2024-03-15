@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"golang.org/x/exp/slices"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
@@ -130,6 +131,29 @@ func WaitForCoreDNS(ctx context.Context, log Logger, client Pod) error {
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to succeed (last error: %w)",
 				target, client.Name(), err)
+		}
+	}
+}
+
+// Service waits until the specified service is created and can be retrieved.
+func WaitForServiceRetrieval(ctx context.Context, log Logger, client *k8s.Client, namespace string, name string) (Service, error) {
+	log.Logf("⌛ [%s] Retrieving service %s/%s ...", client.ClusterName(), namespace, name)
+
+	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
+	defer cancel()
+	for {
+		svc, err := client.GetService(ctx, namespace, name, metav1.GetOptions{})
+		if err == nil {
+			return Service{Service: svc.DeepCopy()}, nil
+		}
+
+		log.Debugf("[%s] Failed to retrieve Service %s/%s: %s", client.ClusterName(), namespace, name, err)
+
+		select {
+		case <-time.After(PollInterval):
+		case <-ctx.Done():
+			return Service{}, fmt.Errorf("timeout reached waiting for service %s/%s to be retrieved (last error: %w)",
+				namespace, name, err)
 		}
 	}
 }
