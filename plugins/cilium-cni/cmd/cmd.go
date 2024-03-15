@@ -656,12 +656,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
 			// Set the MAC address on the interface in the container namespace
-			err = ns.Do(func() error {
-				return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
-			})
-
-			if err != nil {
-				return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
+			if conf.DatapathMode != datapathOption.DatapathModeNetkit {
+				err = ns.Do(func() error {
+					return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
+				})
+				if err != nil {
+					return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
+				}
 			}
 			macAddrStr = newEp.Status.Networking.Mac
 		}
