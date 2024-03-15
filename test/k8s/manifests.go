@@ -28,10 +28,4 @@ var (
 	IPSecSecret = helpers.Manifest{
 		Filename: "ipsec_secret.yaml",
 	}
-
-	StatelessEtcd = helpers.Manifest{
-		Filename:      "etcd-deployment.yaml",
-		NumPods:       1,
-		LabelSelector: "name=stateless-etcd",
-	}
 )

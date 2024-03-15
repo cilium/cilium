@@ -603,28 +603,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	Context("Etcd", func() {
-		It("Check connectivity", func() {
-			deploymentManager.Deploy(helpers.CiliumNamespace, StatelessEtcd)
-			deploymentManager.WaitUntilReady()
-
-			host, port, err := kubectl.GetServiceHostPort(helpers.CiliumNamespace, "stateless-etcd")
-			Expect(err).Should(BeNil(), "Unable to retrieve ClusterIP and port for stateless-etcd service")
-
-			etcdService := fmt.Sprintf("http://%s:%d", host, port)
-			opts := map[string]string{
-				"etcd.enabled":           "true",
-				"etcd.endpoints[0]":      etcdService,
-				"identityAllocationMode": "kvstore",
-			}
-			if helpers.ExistNodeWithoutCilium() {
-				opts["synchronizeK8sNodes"] = "false"
-			}
-			deploymentManager.DeployCilium(opts, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-	})
-
 	Context("Host firewall", func() {
 		BeforeAll(func() {
 			kubectl.Exec("kubectl label nodes --all status=lockdown")

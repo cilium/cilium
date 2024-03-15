@@ -102,7 +102,6 @@ include:
 
   ###
   # K8sDatapathConfig Encapsulation Check iptables masquerading with random-fully
-  # K8sDatapathConfig Etcd Check connectivity
   # K8sDatapathConfig MonitorAggregation Checks that monitor aggregation flags send notifications
   # K8sDatapathConfig MonitorAggregation Checks that monitor aggregation restricts notifications
   - focus: "f08-datapath-misc-1"
