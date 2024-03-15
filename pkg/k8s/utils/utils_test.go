@@ -401,6 +401,54 @@ func TestSanitizePodLabels(t *testing.T) {
 	}
 }
 
+func TestStripPodLabels(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   map[string]string
+	}{
+		{
+			name: "no stripped labels",
+			labels: map[string]string{
+				"app": "foo",
+			},
+			want: map[string]string{
+				"app": "foo",
+			},
+		},
+		{
+			name: "Cilium owned label",
+			labels: map[string]string{
+				"app":                            "foo",
+				"io.cilium.k8s.policy.namespace": "kube-system",
+				"io.cilium.k8s.something":        "cilium internal",
+				"io.cilium.k8s.namespace.labels.foo.bar/baz": "foobar",
+			},
+			want: map[string]string{
+				"app": "foo",
+			},
+		},
+		{
+			name: "K8s namespace label",
+			labels: map[string]string{
+				"app":                         "foo",
+				"io.kubernetes.pod.namespace": "default",
+			},
+			want: map[string]string{
+				"app": "foo",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := StripPodSpecialLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("StripPodSpecialLabels() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_filterPodLabels(t *testing.T) {
 	expectedLabels := map[string]string{
 		"app":                         "test",
