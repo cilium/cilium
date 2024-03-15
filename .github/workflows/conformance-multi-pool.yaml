@@ -26,6 +26,15 @@ env:
   timeout: 5m
 
 jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
   multi-pool-ipam-conformance-test:
     name: Install and Connectivity Test
     runs-on: ubuntu-latest
