@@ -64,9 +64,7 @@ const (
 
 	EchoServerHostPort = 4000
 
-	IngressServiceName         = "ingress-service"
-	ingressServiceInsecurePort = "31000"
-	ingressServiceSecurePort   = "31001"
+	IngressServiceName = "ingress-service"
 )
 
 type deploymentParameters struct {
@@ -343,10 +341,8 @@ func newIngress() *networkingv1.Ingress {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: IngressServiceName,
 			Annotations: map[string]string{
-				"ingress.cilium.io/loadbalancer-mode":  "dedicated",
-				"ingress.cilium.io/service-type":       "NodePort",
-				"ingress.cilium.io/insecure-node-port": ingressServiceInsecurePort,
-				"ingress.cilium.io/secure-node-port":   ingressServiceSecurePort,
+				"ingress.cilium.io/loadbalancer-mode": "dedicated",
+				"ingress.cilium.io/service-type":      "NodePort",
 			},
 		},
 		Spec: networkingv1.IngressSpec{
