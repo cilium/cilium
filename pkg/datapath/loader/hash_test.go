@@ -15,6 +15,8 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
+	nodemapFake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -31,6 +33,7 @@ var (
 func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	var cfg datapath.ConfigWriter
 	hv := hive.New(
+		provideNodemap,
 		cell.Provide(
 			fake.NewNodeAddressing,
 			func() bandwidth.Manager { return &fake.BandwidthManager{} },
@@ -79,3 +82,7 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	c.Assert(h.String(), Not(Equals), baseHash)
 	c.Assert(h.String(), Not(Equals), dummyHash)
 }
+
+var provideNodemap = cell.Provide(func() nodemap.Map {
+	return nodemapFake.NewFakeNodeMap()
+})
