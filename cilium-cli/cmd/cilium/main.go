@@ -11,7 +11,7 @@ import (
 	gops "github.com/google/gops/agent"
 
 	"github.com/cilium/cilium-cli/cli"
-	_ "github.com/cilium/cilium-cli/internal/logging" // necessary to disable unwanted cfssl log messages
+	_ "github.com/cilium/cilium-cli/logging" // necessary to disable unwanted cfssl log messages
 )
 
 func main() {
