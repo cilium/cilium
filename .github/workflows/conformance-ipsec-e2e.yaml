@@ -268,7 +268,7 @@ jobs:
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/ipsec-key-rotate
         with:
-          key-type: ${{ matrix.key-two }}
+          key-algo: ${{ matrix.key-two }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
