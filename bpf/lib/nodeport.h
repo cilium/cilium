@@ -1277,7 +1277,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	struct ipv6_ct_tuple tuple = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
-	struct ct_state ct_state_new = {};
+	struct ct_state ct_state_svc = {};
 	bool backend_local;
 	__u32 monitor = 0;
 
@@ -1318,7 +1318,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		}
 #endif
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
-				&key, &tuple, svc, &ct_state_new,
+				&key, &tuple, svc, &ct_state_svc,
 				skip_l3_xlate, ext_err);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
@@ -1388,7 +1388,7 @@ skip_service_lookup:
 		__ipv6_ct_tuple_reverse(&tuple);
 
 		/* only match CT entries that belong to the same service: */
-		ct_state.rev_nat_index = ct_state_new.rev_nat_index;
+		ct_state.rev_nat_index = ct_state_svc.rev_nat_index;
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
@@ -2780,7 +2780,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	bool is_svc_proto = true;
 	struct lb4_service *svc;
 	struct lb4_key key = {};
-	struct ct_state ct_state_new = {};
+	struct ct_state ct_state_svc = {};
 	__u32 cluster_id = 0;
 	__u32 monitor = 0;
 	int ret, l4_off;
@@ -2832,7 +2832,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 				return NAT_46X64_RECIRC;
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, is_fragment, l3_off, l4_off,
-					&key, &tuple, svc, &ct_state_new,
+					&key, &tuple, svc, &ct_state_svc,
 					has_l4_header, skip_l3_xlate, &cluster_id,
 					ext_err);
 #ifdef SERVICE_NO_BACKEND_RESPONSE
@@ -2947,7 +2947,7 @@ skip_service_lookup:
 		__ipv4_ct_tuple_reverse(&tuple);
 
 		/* only match CT entries that belong to the same service: */
-		ct_state.rev_nat_index = ct_state_new.rev_nat_index;
+		ct_state.rev_nat_index = ct_state_svc.rev_nat_index;
 
 		/* Cache is_fragment in advance, lb4_local may invalidate ip4. */
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, is_fragment,
