@@ -675,7 +675,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	int ret, oif = 0, ohead = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	union v6addr addr;
+	union v6addr addr __align_stack_8 = {};
 	__s8 ext_err = 0;
 	__be16 port;
 
@@ -684,10 +684,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	addr.p1 = ctx_load_meta(ctx, CB_ADDR_V6_1);
-	addr.p2 = ctx_load_meta(ctx, CB_ADDR_V6_2);
-	addr.p3 = ctx_load_meta(ctx, CB_ADDR_V6_3);
-	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
+	ctx_load_meta_ipv6(ctx, &addr, CB_ADDR_V6_1);
 
 	port = (__be16)ctx_load_meta(ctx, CB_PORT);
 
@@ -1370,16 +1367,10 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
-		ctx_store_meta(ctx, CB_ADDR_V6_1, tuple->daddr.p1);
-		ctx_store_meta(ctx, CB_ADDR_V6_2, tuple->daddr.p2);
-		ctx_store_meta(ctx, CB_ADDR_V6_3, tuple->daddr.p3);
-		ctx_store_meta(ctx, CB_ADDR_V6_4, tuple->daddr.p4);
+		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &tuple->daddr);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key->dport);
-		ctx_store_meta(ctx, CB_ADDR_V6_1, key->address.p1);
-		ctx_store_meta(ctx, CB_ADDR_V6_2, key->address.p2);
-		ctx_store_meta(ctx, CB_ADDR_V6_3, key->address.p3);
-		ctx_store_meta(ctx, CB_ADDR_V6_4, key->address.p4);
+		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &key->address);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR, ext_err);
 	} else {
