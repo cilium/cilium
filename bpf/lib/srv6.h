@@ -348,21 +348,15 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 }
 
 static __always_inline void
-srv6_load_meta_sid(struct __ctx_buff *ctx, struct in6_addr *sid)
+srv6_load_meta_sid(struct __ctx_buff *ctx, const struct in6_addr *sid)
 {
-	sid->s6_addr32[0] = ctx_load_meta(ctx, CB_SRV6_SID_1);
-	sid->s6_addr32[1] = ctx_load_meta(ctx, CB_SRV6_SID_2);
-	sid->s6_addr32[2] = ctx_load_meta(ctx, CB_SRV6_SID_3);
-	sid->s6_addr32[3] = ctx_load_meta(ctx, CB_SRV6_SID_4);
+	ctx_load_meta_ipv6(ctx, (union v6addr *)sid, CB_SRV6_SID_1);
 }
 
 static __always_inline void
 srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
 {
-	ctx_store_meta(ctx, CB_SRV6_SID_1, sid->p1);
-	ctx_store_meta(ctx, CB_SRV6_SID_2, sid->p2);
-	ctx_store_meta(ctx, CB_SRV6_SID_3, sid->p3);
-	ctx_store_meta(ctx, CB_SRV6_SID_4, sid->p4);
+	ctx_store_meta_ipv6(ctx, CB_SRV6_SID_1, sid);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_ENCAP)
