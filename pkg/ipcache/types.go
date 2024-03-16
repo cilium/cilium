@@ -288,7 +288,7 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 		}
 
 		if info.tunnelPeer.IsValid() {
-			if tunnelPeer.IsValid() {
+			if tunnelPeer.IsValid() && info.tunnelPeer != tunnelPeer {
 				if option.Config.TunnelingEnabled() {
 					scopedLog.WithFields(logrus.Fields{
 						logfields.TunnelPeer:            tunnelPeer.String(),
@@ -305,7 +305,7 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 		}
 
 		if info.encryptKey.IsValid() {
-			if encryptKey.IsValid() {
+			if encryptKey.IsValid() && info.encryptKey != encryptKey {
 				scopedLog.WithFields(logrus.Fields{
 					logfields.Key:                 encryptKey.String(),
 					logfields.Resource:            encryptKeyResourceID,
@@ -320,7 +320,7 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 		}
 
 		if info.requestedIdentity.IsValid() {
-			if requestedID.IsValid() {
+			if requestedID.IsValid() && info.requestedIdentity != requestedID {
 				scopedLog.WithFields(logrus.Fields{
 					logfields.Identity:            requestedID,
 					logfields.Resource:            requestedIDResourceID,
