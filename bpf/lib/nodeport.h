@@ -1395,16 +1395,14 @@ skip_service_lookup:
 				      &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
-			ct_state_new.src_sec_id = WORLD_IPV6_ID;
-			ct_state_new.node_port = 1;
+			ct_state.src_sec_id = WORLD_IPV6_ID;
+			ct_state.node_port = 1;
 #ifndef HAVE_FIB_IFINDEX
-			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
+			ct_state.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
-			ct_state_new.proxy_redirect = false;
-			ct_state_new.from_l7lb = false;
 
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, ext_err);
+					 CT_EGRESS, &ct_state, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
@@ -2957,16 +2955,14 @@ skip_service_lookup:
 				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
-			ct_state_new.src_sec_id = src_sec_identity;
-			ct_state_new.node_port = 1;
+			ct_state.src_sec_id = src_sec_identity;
+			ct_state.node_port = 1;
 #ifndef HAVE_FIB_IFINDEX
-			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
+			ct_state.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
-			ct_state_new.proxy_redirect = false;
-			ct_state_new.from_l7lb = false;
 
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, ext_err);
+					 CT_EGRESS, &ct_state, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
