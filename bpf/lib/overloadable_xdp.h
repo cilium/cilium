@@ -11,6 +11,30 @@ bpf_clear_meta(struct xdp_md *ctx __maybe_unused)
 {
 }
 
+static __always_inline __maybe_unused void
+ctx_store_meta_ipv6(struct xdp_md *ctx __maybe_unused, const __u64 off,
+		    const union v6addr *addr)
+{
+	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+
+	if (always_succeeds(data_meta))
+		memcpy(&data_meta[off], addr, sizeof(*addr));
+
+	build_bug_on((off + 4) * sizeof(__u32) > META_PIVOT);
+}
+
+static __always_inline __maybe_unused void
+ctx_load_meta_ipv6(const struct xdp_md *ctx __maybe_unused,
+		   union v6addr *addr, const __u64 off)
+{
+	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+
+	if (always_succeeds(data_meta))
+		memcpy(addr, &data_meta[off], sizeof(*addr));
+
+	build_bug_on((off + 4) * sizeof(__u32) > META_PIVOT);
+}
+
 static __always_inline __maybe_unused int
 get_identity(struct xdp_md *ctx __maybe_unused)
 {
