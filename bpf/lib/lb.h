@@ -535,8 +535,16 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
 	ret = ipv6_hdrlen_offset(ctx, &tuple->nexthdr, l3_off);
-	if (ret < 0)
+	if (ret < 0) {
+		/* Make sure *l4_off is always initialized on return, because
+		 * Clang can spill it from a register to the stack even in error
+		 * flows where this value is no longer used, and this pattern is
+		 * rejected by the verifier.
+		 * Use a prominent value (-1) to highlight any potential misuse.
+		 */
+		*l4_off = -1;
 		return ret;
+	}
 
 	*l4_off = l3_off + ret;
 
