@@ -146,8 +146,7 @@ jobs:
             --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
             --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
             --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }} \
-            --helm-set=l2announcements.enabled=true \
-            --helm-set=devices='{eth0}'"
+            --helm-set=l2announcements.enabled=true"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
