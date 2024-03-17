@@ -162,6 +162,12 @@ commands:
 Key Rotation
 ============
 
+.. attention::
+
+   Key rotations should not be performed during upgrades and downgrades. That
+   is, all nodes in the cluster (or clustermesh) should be on the same Cilium
+   version before rotating keys.
+
 To replace cilium-ipsec-keys secret with a new key:
 
 .. code-block:: shell-session
