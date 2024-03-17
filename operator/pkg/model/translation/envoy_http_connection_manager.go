@@ -4,7 +4,9 @@
 package translation
 
 import (
+	accessLogv3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	accessLoggersFilev3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/file/v3"
 	grpcStatsv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcWebv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_web/v3"
 	httpRouterv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
@@ -19,6 +21,43 @@ import (
 )
 
 type HttpConnectionManagerMutator func(*httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager
+
+// WithAccessLog returns a mutation function that sets the access log path for the connection manager.
+func WithAccessLog(path string, format string) HttpConnectionManagerMutator {
+	return func(hcm *httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager {
+		if len(path) == 0 {
+			return hcm
+		}
+
+		var logFormat *accessLoggersFilev3.FileAccessLog_LogFormat
+		if len(format) > 0 {
+			logFormat = &accessLoggersFilev3.FileAccessLog_LogFormat{
+				LogFormat: &envoy_config_core.SubstitutionFormatString{
+					Format: &envoy_config_core.SubstitutionFormatString_TextFormatSource{
+						TextFormatSource: &envoy_config_core.DataSource{
+							Specifier: &envoy_config_core.DataSource_InlineString{
+								InlineString: format,
+							},
+						},
+					},
+					OmitEmptyValues: true,
+				},
+			}
+		}
+		hcm.AccessLog = []*accessLogv3.AccessLog{
+			{
+				Name: "envoy.access_loggers.file",
+				ConfigType: &accessLogv3.AccessLog_TypedConfig{
+					TypedConfig: toAny(&accessLoggersFilev3.FileAccessLog{
+						Path:            path,
+						AccessLogFormat: logFormat,
+					}),
+				},
+			},
+		}
+		return hcm
+	}
+}
 
 // NewHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
 // Mutation functions can be passed to modify the filter based on the caller's needs.

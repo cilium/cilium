@@ -1632,6 +1632,23 @@
     },
     "envoy": {
       "properties": {
+        "accessLog": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "format": {
+              "type": "string"
+            },
+            "path": {
+              "type": "null"
+            },
+            "pattern": {
+              "type": "null"
+            }
+          },
+          "type": "object"
+        },
         "affinity": {
           "properties": {
             "nodeAffinity": {

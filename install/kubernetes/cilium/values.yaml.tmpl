@@ -2020,6 +2020,18 @@ envoy:
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"
     # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
+  accessLog:
+    # -- Enable Envoy Access Logging.
+    # ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/access_log
+    enabled: true
+    # -- Access log format
+    # Applicable values: text, json
+    format: text
+    # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
+    path: ~
+    # -- Format string pattern for Envoy access logs.
+    # ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage
+    pattern: ~
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
