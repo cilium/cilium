@@ -10,8 +10,7 @@
 External Lock-down Policy
 *************************
 
-The previous example doesn't include any network policy, so all the external traffic is allowed by default.
-Let's apply network policy to lock down the external traffic.
+By default, all the external traffic is allowed. Let's apply a `CiliumNetworkPolicy` to lock down external traffic.
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/policy/external-lockdown.yaml
 
@@ -19,8 +18,7 @@ Let's apply network policy to lock down the external traffic.
 
     $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/servicemesh/policy/external-lockdown.yaml
 
-With this policy applied, any request originating from outside the cluster will be rejected with a 403  Forbidden
-status code:
+With this policy applied, any request originating from outside the cluster will be rejected with a ``403 Forbidden``
 
 .. code-block:: shell-session
 
@@ -47,7 +45,7 @@ status code:
     Feb 29 13:00:29.389: 172.18.0.1:53866 (ingress) -> kube-system/cilium-ingress:80 (world) http-request DROPPED (HTTP/1.1 GET http://172.18.255.194/details/1)
     Feb 29 13:00:29.389: 172.18.0.1:53866 (ingress) <- kube-system/cilium-ingress:80 (world) http-response FORWARDED (HTTP/1.1 403 0ms (GET http://172.18.255.194/details/1))
 
-Let's check if the in-cluster traffic to Ingress endpoint is still allowed:
+Let's check if in-cluster traffic to the Ingress endpoint is still allowed:
 
 .. parsed-literal::
 

@@ -105,3 +105,4 @@ apply network policy for Ingress traffic.
    :glob:
 
    external-ingress-policy
+   default-deny-ingress-policy
