@@ -6,6 +6,7 @@ package bgpv1
 import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
+	"github.com/cilium/cilium/pkg/bgpv1/metrics"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -39,6 +40,13 @@ var Cell = cell.Module(
 	),
 	// Provides the reconcilers used by the route manager to update the config
 	manager.ConfigReconcilers,
+
+	cell.Invoke(
+		// Invoke bgp controller to trigger the constructor.
+		func(*agent.Controller) {},
+		// Register the metrics collector
+		metrics.RegisterCollector,
+	),
 )
 
 func newBGPPeeringPolicyResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {
