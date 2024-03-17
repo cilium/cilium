@@ -30,6 +30,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	clientset_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -183,6 +184,7 @@ func newFixture(conf fixtureConfig) *fixture {
 			f.bgp = bgp
 		}),
 
+		metrics.Cell,
 		job.Cell,
 		bgpv1.Cell,
 	}
