@@ -257,6 +257,7 @@ Sample dynamic flow logs configs:
   hubble:
     export:
       dynamic:
+        enabled: true
         config:
           enabled: true
           content:
