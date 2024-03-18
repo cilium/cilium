@@ -1586,7 +1586,7 @@ out:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx)) {
+	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
