@@ -270,7 +270,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
 			option.Config.EnableIPv4Masquerade)
 		if err != nil {
-			err = fmt.Errorf("failed to create router info %w", err)
+			err = fmt.Errorf("failed to create router info: %w", err)
 			return
 		}
 		if err = routingInfo.Configure(
@@ -279,7 +279,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 			option.Config.EgressMultiHomeIPRuleCompat,
 			true,
 		); err != nil {
-			return nil, fmt.Errorf("failed to configure router IP rules and routes %w", err)
+			return nil, fmt.Errorf("failed to configure router IP rules and routes: %w", err)
 		}
 
 		node.SetRouterInfo(routingInfo)

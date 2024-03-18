@@ -433,7 +433,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		return 0,
 			unableToGetSecurityGroups,
-			fmt.Errorf("%s %w", errUnableToGetSecurityGroups, err)
+			fmt.Errorf("%s: %w", errUnableToGetSecurityGroups, err)
 	}
 
 	desc := "Cilium-CNI (" + n.node.InstanceID() + ")"
@@ -464,7 +464,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 			eniID, eni, err = n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false)
 		}
 		if err != nil {
-			return 0, unableToCreateENI, fmt.Errorf("%s %w", errUnableToCreateENI, err)
+			return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 		}
 	}
 

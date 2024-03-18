@@ -548,7 +548,7 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *Server
 	for svcKey := range sc.ServiceAnnouncements {
 		_, found, err := r.diffStore.GetByKey(svcKey)
 		if err != nil {
-			return fmt.Errorf("diffStore.GetByKey(); %w", err)
+			return fmt.Errorf("diffStore.GetByKey(): %w", err)
 		}
 		// if the service no longer exists, withdraw all associated routes
 		if !found {
@@ -565,7 +565,7 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *Server
 		svcKey := iter.Key()
 		svc, found, err := r.diffStore.GetByKey(iter.Key())
 		if err != nil {
-			return fmt.Errorf("diffStore.GetByKey(); %w", err)
+			return fmt.Errorf("diffStore.GetByKey(): %w", err)
 		}
 		if !found {
 			// edgecase: If the service was removed between the call to IterKeys() and GetByKey()

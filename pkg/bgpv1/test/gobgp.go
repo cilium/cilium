@@ -274,7 +274,7 @@ func (g *goBGP) waitForSessionState(ctx context.Context, expectedStates []string
 				}
 			}
 		case <-ctx.Done():
-			return fmt.Errorf("did not receive expected peering state %q, %w", expectedStates, ctx.Err())
+			return fmt.Errorf("did not receive expected peering state %q: %w", expectedStates, ctx.Err())
 		}
 	}
 }
