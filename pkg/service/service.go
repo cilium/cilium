@@ -1057,7 +1057,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 			logfields.BackendPreferred: b.Preferred,
 		}).Info("Persisting updated backend state for backend")
 		if err := s.lbmap.UpdateBackendWithState(b); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to update backend %+v %w", b, err))
+			errs = errors.Join(errs, fmt.Errorf("failed to update backend %+v: %w", b, err))
 		}
 	}
 
@@ -1919,7 +1919,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 				b.State = backends[i].State
 				// Update the persisted backend state in BPF maps.
 				if err := s.lbmap.UpdateBackendWithState(backends[i]); err != nil {
-					return nil, nil, nil, fmt.Errorf("failed to update backend %+v %w",
+					return nil, nil, nil, fmt.Errorf("failed to update backend %+v: %w",
 						backends[i], err)
 				}
 			case backends[i].Weight != b.Weight:
