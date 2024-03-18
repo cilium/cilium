@@ -1671,7 +1671,6 @@ type DaemonConfig struct {
 	PreAllocateMaps         bool
 	IPv6NodeAddr            string
 	IPv4NodeAddr            string
-	SidecarIstioProxyImage  string
 	SocketPath              string
 	TracePayloadlen         int
 	Version                 string

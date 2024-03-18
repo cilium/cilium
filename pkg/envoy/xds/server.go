@@ -192,7 +192,8 @@ type perTypeStreamState struct {
 
 // processRequestStream processes the requests in an xDS stream from a channel.
 func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Entry, stream Stream,
-	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL string) error {
+	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL string,
+) error {
 	// The request state for every type URL.
 	typeStates := make([]perTypeStreamState, len(s.watchers))
 	defer func() {
@@ -276,7 +277,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				id := req.GetNode().GetId()
 				streamLog = streamLog.WithField(logfields.XDSClientNode, id)
 				var err error
-				nodeIP, err = IstioNodeToIP(id)
+				nodeIP, err = EnvoyNodeIdToIP(id)
 				if err != nil {
 					streamLog.WithError(err).Error("invalid Node in xDS request")
 					return ErrInvalidNodeFormat

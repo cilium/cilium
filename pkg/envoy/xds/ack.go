@@ -25,9 +25,7 @@ func (pe *ProxyError) Error() string {
 	return pe.Err.Error() + ": " + pe.Detail
 }
 
-var (
-	ErrNackReceived = errors.New("NACK received")
-)
+var ErrNackReceived = errors.New("NACK received")
 
 // ResourceVersionAckObserver defines the HandleResourceVersionAck method
 // which is called whenever a node acknowledges having applied a version of
@@ -102,8 +100,8 @@ type AckingResourceMutatorWrapper struct {
 	version uint64
 
 	// ackedVersions is the last version acked by a node for this cache.
-	// The key is the IPv4 address in string format for an Istio sidecar,
-	// or "127.0.0.1" for the host proxy.
+	// The key is the IPv4 address of the Envoy instance in string format.
+	// e.g. "127.0.0.1" for the host proxy.
 	ackedVersions map[string]uint64
 
 	// pendingCompletions is the list of updates that are pending completion.
