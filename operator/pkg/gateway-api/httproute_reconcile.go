@@ -139,7 +139,7 @@ func (r *httpRouteReconciler) updateStatus(ctx context.Context, original *gatewa
 
 func (r *httpRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) (ctrl.Result, error) {
 	if err := r.updateStatus(ctx, original, modified); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to update HTTPRoute status while handling the reconcile error %w: %w", reconcileErr, err))
+		return controllerruntime.Fail(fmt.Errorf("failed to update HTTPRoute status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}
 
 	return controllerruntime.Fail(reconcileErr)

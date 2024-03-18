@@ -138,7 +138,7 @@ func (r *grpcRouteReconciler) updateStatus(ctx context.Context, original *gatewa
 
 func (r *grpcRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1alpha2.GRPCRoute, modified *gatewayv1alpha2.GRPCRoute) (ctrl.Result, error) {
 	if err := r.updateStatus(ctx, original, modified); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to update GRPCRoute status while handling the reconcile error %w: %w", reconcileErr, err))
+		return controllerruntime.Fail(fmt.Errorf("failed to update GRPCRoute status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}
 
 	return controllerruntime.Fail(reconcileErr)
