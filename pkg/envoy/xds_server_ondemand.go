@@ -18,6 +18,7 @@ type onDemandXdsStarter struct {
 
 	runDir                   string
 	envoyLogPath             string
+	envoyBaseID              uint64
 	metricsListenerPort      int
 	adminListenerPort        int
 	connectTimeout           int64
@@ -62,7 +63,7 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoy(wg *completion.WaitGroup) error 
 		_, startErr = startEmbeddedEnvoy(embeddedEnvoyConfig{
 			runDir:                   o.runDir,
 			logPath:                  o.envoyLogPath,
-			baseID:                   0,
+			baseID:                   o.envoyBaseID,
 			connectTimeout:           o.connectTimeout,
 			maxRequestsPerConnection: o.maxRequestsPerConnection,
 			maxConnectionDuration:    o.maxConnectionDuration,
