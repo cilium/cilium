@@ -898,8 +898,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 
 		state->backend_id = backend_id;
-		state->proxy_redirect = false;
-		state->from_l7lb = false;
 
 		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
@@ -1539,8 +1537,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 
 		state->backend_id = backend_id;
-		state->proxy_redirect = false;
-		state->from_l7lb = false;
 
 		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
