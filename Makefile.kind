@@ -313,7 +313,7 @@ kind-egressgw-install-cilium: kind-ready ## Install a local Cilium version into 
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-egressgw-values.yaml \
-		--nodes-without-cilium=kind-worker3 \
+		--nodes-without-cilium \
 		--version= \
 		>/dev/null 2>&1 &
 
