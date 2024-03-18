@@ -335,18 +335,12 @@ jobs:
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
 
     steps:
-      - name: Install eksctl CLI
-        run: |
-          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
-          rm eksctl_$(uname -s)_amd64.tar.gz
-
-      - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
-          aws-region: ${{ matrix.region }}
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
 
-      - name: Clean up EKS
+      - name: Call clean up EKS workflow
         run: |
-          eksctl delete cluster --name ${{ env.clusterName }} --region ${{ matrix.region }}
+          gh workflow run eks-cleanup.yaml -f region=${{ matrix.region }} -f cluster-name=${{ env.clusterName }}
