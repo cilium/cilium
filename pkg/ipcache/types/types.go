@@ -71,6 +71,16 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	return ResourceID(str.String())
 }
 
+// IdentityOverride can be used to override the identity of a given prefix.
+// Must be provided together with a set of labels. Any other labels associated
+// with this prefix are ignored while an override is present.
+// This type implements ipcache.IPMetadata
+type OverrideIdentity bool
+
+func (o OverrideIdentity) IsValid() bool {
+	return o != false
+}
+
 // TunnelPeer is the IP address of the host associated with this prefix. This is
 // typically used to establish a tunnel, e.g. in tunnel mode or for encryption.
 // This type implements ipcache.IPMetadata

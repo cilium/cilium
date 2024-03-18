@@ -593,11 +593,11 @@ func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource
 // with users of other APIs such as UpsertLabels(), UpsertMetadata() and other
 // variations on inserting metadata into the IPCache.
 func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
-	ipc.UpsertMetadata(prefix, src, resource, overrideIdentity(true), identityLabels)
+	ipc.UpsertMetadata(prefix, src, resource, ipcacheTypes.OverrideIdentity(true), identityLabels)
 }
 
 func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
-	ipc.RemoveMetadata(cidr, resource, overrideIdentity(true), identityLabels)
+	ipc.RemoveMetadata(cidr, resource, ipcacheTypes.OverrideIdentity(true), identityLabels)
 }
 
 // WaitForRevision will block until the desired revision has been reached (or passed).

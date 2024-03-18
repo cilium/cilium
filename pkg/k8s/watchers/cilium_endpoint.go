@@ -193,17 +193,13 @@ func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 		if pair.IPV4 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV4)
 			prefix := ip.IPToNetPrefix(net.ParseIP(pair.IPV4))
-			k.ipcache.OverrideIdentity(
-				prefix,
-				epLabels,
-				source.CustomResource,
-				rid,
-			)
 			k.ipcache.UpsertMetadata(
 				prefix,
 				source.CustomResource,
 				rid,
 				// Metadata:
+				epLabels,
+				ipcachetypes.OverrideIdentity(true),
 				ipcachetypes.TunnelPeer{Addr: nodeIP},
 				ipcachetypes.EncryptKey(encryptionKey),
 				ipcachetypes.RequestedIdentity(id),
@@ -214,17 +210,13 @@ func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 		if pair.IPV6 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV6)
 			prefix := ip.IPToNetPrefix(net.ParseIP(pair.IPV6))
-			k.ipcache.OverrideIdentity(
-				prefix,
-				epLabels,
-				source.CustomResource,
-				rid,
-			)
 			k.ipcache.UpsertMetadata(
 				prefix,
 				source.CustomResource,
 				rid,
 				// Metadata:
+				epLabels,
+				ipcachetypes.OverrideIdentity(true),
 				ipcachetypes.TunnelPeer{Addr: nodeIP},
 				ipcachetypes.EncryptKey(encryptionKey),
 				ipcachetypes.RequestedIdentity(id),
@@ -281,15 +273,12 @@ func (k *K8sWatcher) removeEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 		}
 		if !v4Added {
 			prefix := ip.IPToNetPrefix(net.ParseIP(oldPair.IPV4))
-			k.ipcache.RemoveIdentityOverride(
-				prefix,
-				epLabels,
-				rid,
-			)
 			k.ipcache.RemoveMetadata(
 				prefix,
 				rid,
 				// Metadata:
+				epLabels,
+				ipcachetypes.OverrideIdentity(true),
 				ipcachetypes.TunnelPeer{Addr: nodeIP},
 				ipcachetypes.EncryptKey(encryptionKey),
 				ipcachetypes.RequestedIdentity(id),
@@ -298,15 +287,12 @@ func (k *K8sWatcher) removeEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 		}
 		if !v6Added {
 			prefix := ip.IPToNetPrefix(net.ParseIP(oldPair.IPV6))
-			k.ipcache.RemoveIdentityOverride(
-				prefix,
-				epLabels,
-				rid,
-			)
 			k.ipcache.RemoveMetadata(
 				prefix,
 				rid,
 				// Metadata:
+				epLabels,
+				ipcachetypes.OverrideIdentity(true),
 				ipcachetypes.TunnelPeer{Addr: nodeIP},
 				ipcachetypes.EncryptKey(encryptionKey),
 				ipcachetypes.RequestedIdentity(id),

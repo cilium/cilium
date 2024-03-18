@@ -28,12 +28,6 @@ import (
 // means it needs to be deep-copied via (*resourceInfo).DeepCopy().
 type prefixInfo map[ipcachetypes.ResourceID]*resourceInfo
 
-// IdentityOverride can be used to override the identity of a given prefix.
-// Must be provided together with a set of labels. Any other labels associated
-// with this prefix are ignored while an override is present.
-// This type implements ipcache.IPMetadata
-type overrideIdentity bool
-
 // resourceInfo is all of the information that has been collected from a given
 // resource (types.ResourceID) about this IP. Each field must have a 'zero'
 // value that indicates that it should be ignored for purposes of merging
@@ -41,7 +35,7 @@ type overrideIdentity bool
 type resourceInfo struct {
 	labels           labels.Labels
 	source           source.Source
-	identityOverride overrideIdentity
+	identityOverride ipcachetypes.OverrideIdentity
 
 	tunnelPeer        ipcachetypes.TunnelPeer
 	encryptKey        ipcachetypes.EncryptKey
@@ -73,7 +67,7 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) {
 	switch info := info.(type) {
 	case labels.Labels:
 		m.labels = labels.NewFrom(info)
-	case overrideIdentity:
+	case ipcachetypes.OverrideIdentity:
 		m.identityOverride = info
 	case ipcachetypes.TunnelPeer:
 		m.tunnelPeer = info
@@ -95,7 +89,7 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 	switch info.(type) {
 	case labels.Labels:
 		m.labels = nil
-	case overrideIdentity:
+	case ipcachetypes.OverrideIdentity:
 		m.identityOverride = false
 	case ipcachetypes.TunnelPeer:
 		m.tunnelPeer = ipcachetypes.TunnelPeer{}
