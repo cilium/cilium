@@ -66,8 +66,8 @@ type CreateSnapshotsInput struct {
 	//   on an Outpost, specify the ARN of the destination Outpost. The snapshots must be
 	//   created on the same Outpost as the instance.
 	// For more information, see  Create multi-volume local snapshots from instances
-	// on an Outpost (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#create-multivol-snapshot)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// on an Outpost (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#create-multivol-snapshot)
+	// in the Amazon EBS User Guide.
 	OutpostArn *string
 
 	// Tags to apply to every snapshot specified by the instance.

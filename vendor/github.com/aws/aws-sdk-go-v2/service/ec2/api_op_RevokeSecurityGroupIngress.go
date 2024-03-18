@@ -55,8 +55,7 @@ type RevokeSecurityGroupIngressInput struct {
 	DryRun *bool
 
 	// If the protocol is TCP or UDP, this is the start of the port range. If the
-	// protocol is ICMP, this is the type number. A value of -1 indicates all ICMP
-	// types.
+	// protocol is ICMP, this is the ICMP type or -1 (all ICMP types).
 	FromPort *int32
 
 	// The ID of the security group.
@@ -89,7 +88,7 @@ type RevokeSecurityGroupIngressInput struct {
 	SourceSecurityGroupOwnerId *string
 
 	// If the protocol is TCP or UDP, this is the end of the port range. If the
-	// protocol is ICMP, this is the code. A value of -1 indicates all ICMP codes.
+	// protocol is ICMP, this is the ICMP code or -1 (all ICMP codes).
 	ToPort *int32
 
 	noSmithyDocumentSerde

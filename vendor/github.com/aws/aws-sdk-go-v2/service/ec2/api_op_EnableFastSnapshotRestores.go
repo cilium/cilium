@@ -16,8 +16,8 @@ import (
 // they enter the enabled state. To get the current state of fast snapshot
 // restores, use DescribeFastSnapshotRestores . To disable fast snapshot restores,
 // use DisableFastSnapshotRestores . For more information, see Amazon EBS fast
-// snapshot restore (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-fast-snapshot-restore.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// snapshot restore (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-fast-snapshot-restore.html)
+// in the Amazon EBS User Guide.
 func (c *Client) EnableFastSnapshotRestores(ctx context.Context, params *EnableFastSnapshotRestoresInput, optFns ...func(*Options)) (*EnableFastSnapshotRestoresOutput, error) {
 	if params == nil {
 		params = &EnableFastSnapshotRestoresInput{}

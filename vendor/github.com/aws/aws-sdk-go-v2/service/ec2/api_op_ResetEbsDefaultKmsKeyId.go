@@ -14,8 +14,8 @@ import (
 // to the Amazon Web Services managed KMS key for EBS. After resetting the default
 // KMS key to the Amazon Web Services managed KMS key, you can continue to encrypt
 // by a customer managed KMS key by specifying it when you create the volume. For
-// more information, see Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// more information, see Amazon EBS encryption (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html)
+// in the Amazon EBS User Guide.
 func (c *Client) ResetEbsDefaultKmsKeyId(ctx context.Context, params *ResetEbsDefaultKmsKeyIdInput, optFns ...func(*Options)) (*ResetEbsDefaultKmsKeyIdOutput, error) {
 	if params == nil {
 		params = &ResetEbsDefaultKmsKeyIdInput{}

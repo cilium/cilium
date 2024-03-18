@@ -16,7 +16,9 @@ import (
 // endpoints and quotas (https://docs.aws.amazon.com/general/latest/gr/ec2-service.html)
 // . For information about enabling and disabling Regions for your account, see
 // Managing Amazon Web Services Regions (https://docs.aws.amazon.com/general/latest/gr/rande-manage.html)
-// in the Amazon Web Services General Reference.
+// in the Amazon Web Services General Reference. The order of the elements in the
+// response, including those within nested structures, might vary. Applications
+// should not assume the elements appear in a particular order.
 func (c *Client) DescribeRegions(ctx context.Context, params *DescribeRegionsInput, optFns ...func(*Options)) (*DescribeRegionsOutput, error) {
 	if params == nil {
 		params = &DescribeRegionsInput{}

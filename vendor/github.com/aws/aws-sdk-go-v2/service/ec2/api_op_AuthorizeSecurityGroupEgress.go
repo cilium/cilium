@@ -11,21 +11,22 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Adds the specified outbound (egress) rules to a security group for use with a
-// VPC. An outbound rule permits instances to send traffic to the specified IPv4 or
-// IPv6 CIDR address ranges, or to the instances that are associated with the
-// specified source security groups. When specifying an outbound rule for your
-// security group in a VPC, the IpPermissions must include a destination for the
-// traffic. You specify a protocol for each rule (for example, TCP). For the TCP
-// and UDP protocols, you must also specify the destination port or port range. For
-// the ICMP protocol, you must also specify the ICMP type and code. You can use -1
-// for the type or code to mean all types or all codes. Rule changes are propagated
-// to affected instances as quickly as possible. However, a small delay might
-// occur. For information about VPC security group quotas, see Amazon VPC quotas (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html)
-// . If you want to reference a security group across VPCs attached to a transit
-// gateway using the security group referencing feature (https://docs.aws.amazon.com/vpc/latest/tgw/tgw-transit-gateways.html#create-tgw)
-// , note that you can only reference security groups for ingress rules. You cannot
-// reference a security group for egress rules.
+// Adds the specified outbound (egress) rules to a security group. An outbound
+// rule permits instances to send traffic to the specified IPv4 or IPv6 address
+// ranges, the IP address ranges specified by a prefix list, or the instances that
+// are associated with a source security group. For more information, see Security
+// group rules (https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html)
+// . You must specify exactly one of the following destinations: an IPv4 or IPv6
+// address range, a prefix list, or a security group. You must specify a protocol
+// for each rule (for example, TCP). If the protocol is TCP or UDP, you must also
+// specify a port or port range. If the protocol is ICMP or ICMPv6, you must also
+// specify the ICMP type and code. Rule changes are propagated to instances
+// associated with the security group as quickly as possible. However, a small
+// delay might occur. For examples of rules that you can add to security groups for
+// specific access scenarios, see Security group rules for different use cases (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-rules-reference.html)
+// in the Amazon EC2 User Guide. For information about security group quotas, see
+// Amazon VPC quotas (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html)
+// in the Amazon VPC User Guide.
 func (c *Client) AuthorizeSecurityGroupEgress(ctx context.Context, params *AuthorizeSecurityGroupEgressInput, optFns ...func(*Options)) (*AuthorizeSecurityGroupEgressOutput, error) {
 	if params == nil {
 		params = &AuthorizeSecurityGroupEgressInput{}
@@ -48,7 +49,7 @@ type AuthorizeSecurityGroupEgressInput struct {
 	// This member is required.
 	GroupId *string
 
-	// Not supported. Use a set of IP permissions to specify the CIDR.
+	// Not supported. Use IP permissions instead.
 	CidrIp *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -57,29 +58,25 @@ type AuthorizeSecurityGroupEgressInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Not supported. Use a set of IP permissions to specify the port.
+	// Not supported. Use IP permissions instead.
 	FromPort *int32
 
-	// The sets of IP permissions. You can't specify a destination security group and
-	// a CIDR IP address range in the same set of permissions.
+	// The permissions for the security group rules.
 	IpPermissions []types.IpPermission
 
-	// Not supported. Use a set of IP permissions to specify the protocol name or
-	// number.
+	// Not supported. Use IP permissions instead.
 	IpProtocol *string
 
-	// Not supported. Use a set of IP permissions to specify a destination security
-	// group.
+	// Not supported. Use IP permissions instead.
 	SourceSecurityGroupName *string
 
-	// Not supported. Use a set of IP permissions to specify a destination security
-	// group.
+	// Not supported. Use IP permissions instead.
 	SourceSecurityGroupOwnerId *string
 
 	// The tags applied to the security group rule.
 	TagSpecifications []types.TagSpecification
 
-	// Not supported. Use a set of IP permissions to specify the port.
+	// Not supported. Use IP permissions instead.
 	ToPort *int32
 
 	noSmithyDocumentSerde

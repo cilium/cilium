@@ -14,8 +14,8 @@ import (
 // After you disable encryption by default, you can still create encrypted volumes
 // by enabling encryption when you create each volume. Disabling encryption by
 // default does not change the encryption status of your existing volumes. For more
-// information, see Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// information, see Amazon EBS encryption (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html)
+// in the Amazon EBS User Guide.
 func (c *Client) DisableEbsEncryptionByDefault(ctx context.Context, params *DisableEbsEncryptionByDefaultInput, optFns ...func(*Options)) (*DisableEbsEncryptionByDefaultOutput, error) {
 	if params == nil {
 		params = &DisableEbsEncryptionByDefaultInput{}

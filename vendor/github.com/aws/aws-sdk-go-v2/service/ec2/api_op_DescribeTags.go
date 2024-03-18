@@ -13,7 +13,9 @@ import (
 
 // Describes the specified tags for your EC2 resources. For more information about
 // tags, see Tag your Amazon EC2 resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon Elastic Compute Cloud User Guide. The order of the elements in the
+// response, including those within nested structures, might vary. Applications
+// should not assume the elements appear in a particular order.
 func (c *Client) DescribeTags(ctx context.Context, params *DescribeTagsInput, optFns ...func(*Options)) (*DescribeTagsOutput, error) {
 	if params == nil {
 		params = &DescribeTagsInput{}

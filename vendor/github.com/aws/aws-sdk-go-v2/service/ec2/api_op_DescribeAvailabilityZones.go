@@ -16,7 +16,9 @@ import (
 // request to view the state and any provided messages for that zone. For more
 // information about Availability Zones, Local Zones, and Wavelength Zones, see
 // Regions and zones (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon Elastic Compute Cloud User Guide. The order of the elements in the
+// response, including those within nested structures, might vary. Applications
+// should not assume the elements appear in a particular order.
 func (c *Client) DescribeAvailabilityZones(ctx context.Context, params *DescribeAvailabilityZonesInput, optFns ...func(*Options)) (*DescribeAvailabilityZonesOutput, error) {
 	if params == nil {
 		params = &DescribeAvailabilityZonesInput{}
@@ -49,7 +51,7 @@ type DescribeAvailabilityZonesInput struct {
 	//   - group-name - For Availability Zones, use the Region name. For Local Zones,
 	//   use the name of the group associated with the Local Zone (for example,
 	//   us-west-2-lax-1 ) For Wavelength Zones, use the name of the group associated
-	//   with the Wavelength Zone (for example, us-east-1-wl1-bos-wlz-1 ).
+	//   with the Wavelength Zone (for example, us-east-1-wl1 ).
 	//   - message - The Zone message.
 	//   - opt-in-status - The opt-in status ( opted-in | not-opted-in |
 	//   opt-in-not-required ).

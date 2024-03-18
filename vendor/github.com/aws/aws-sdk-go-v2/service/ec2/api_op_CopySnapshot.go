@@ -27,11 +27,11 @@ import (
 // snapshot. Snapshots copied to an Outpost are encrypted by default using the
 // default encryption key for the Region, or a different key that you specify in
 // the request using KmsKeyId. Outposts do not support unencrypted snapshots. For
-// more information, Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#ami)
-// in the Amazon Elastic Compute Cloud User Guide. Snapshots created by copying
-// another snapshot have an arbitrary volume ID that should not be used for any
-// purpose. For more information, see Copy an Amazon EBS snapshot (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-copy-snapshot.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// more information, Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#ami)
+// in the Amazon EBS User Guide. Snapshots created by copying another snapshot have
+// an arbitrary volume ID that should not be used for any purpose. For more
+// information, see Copy an Amazon EBS snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-copy-snapshot.html)
+// in the Amazon EBS User Guide.
 func (c *Client) CopySnapshot(ctx context.Context, params *CopySnapshotInput, optFns ...func(*Options)) (*CopySnapshotOutput, error) {
 	if params == nil {
 		params = &CopySnapshotInput{}
@@ -67,8 +67,8 @@ type CopySnapshotInput struct {
 	// Region to an Outpost. The snapshot must be in the Region for the destination
 	// Outpost. You cannot copy a snapshot from an Outpost to a Region, from one
 	// Outpost to another, or within the same Outpost. For more information, see Copy
-	// snapshots from an Amazon Web Services Region to an Outpost (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#copy-snapshots)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// snapshots from an Amazon Web Services Region to an Outpost (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#copy-snapshots)
+	// in the Amazon EBS User Guide.
 	DestinationOutpostArn *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -81,8 +81,8 @@ type CopySnapshotInput struct {
 	// enabled, enable encryption using this parameter. Otherwise, omit this parameter.
 	// Encrypted snapshots are encrypted, even if you omit this parameter and
 	// encryption by default is not enabled. You cannot set this parameter to false.
-	// For more information, see Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// For more information, see Amazon EBS encryption (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html)
+	// in the Amazon EBS User Guide.
 	Encrypted *bool
 
 	// The identifier of the Key Management Service (KMS) KMS key to use for Amazon
