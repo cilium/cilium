@@ -286,6 +286,10 @@ type syncerParams struct {
 }
 
 func registerSecretSyncer(params syncerParams) error {
+	if !params.K8sClientset.IsEnabled() {
+		return nil
+	}
+
 	// Create a Secret Resource for each namespace.
 	// The Cilium Agent only has permissions on the specific namespaces.
 	// Note that the different features can use the same namespace for
