@@ -47,7 +47,7 @@ func autoDetect() (int, error) {
 		prevErr := err
 		routes, err = getRoute(externalProbeIPv6)
 		if err != nil {
-			return 0, fmt.Errorf("%w, %w", err, prevErr)
+			return 0, fmt.Errorf("%w: %w", err, prevErr)
 		}
 	}
 

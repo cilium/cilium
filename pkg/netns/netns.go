@@ -93,7 +93,7 @@ func ReplaceNetNSWithName(netNSName string) (ns.NetNS, error) {
 // FIXME: replace "ip-netns" invocations with native Go code
 func RemoveNetNSWithName(netNSName string) error {
 	if out, err := exec.Command("ip", "netns", "del", netNSName).CombinedOutput(); err != nil {
-		return fmt.Errorf("Unable to delete named netns %s: %s %w", netNSName, out, err)
+		return fmt.Errorf("Unable to delete named netns %s: %s: %w", netNSName, out, err)
 	}
 
 	return nil

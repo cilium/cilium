@@ -165,11 +165,11 @@ func UpdateElementFromPointers(fd int, mapName string, structPtr unsafe.Pointer,
 	if ret != 0 || err != 0 {
 		switch err {
 		case unix.E2BIG:
-			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: the map is full, please consider resizing it. %w", mapName, fd, err)
+			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: the map is full, please consider resizing it: %w", mapName, fd, err)
 		case unix.EEXIST:
-			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: specified key already exists. %w", mapName, fd, err)
+			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: specified key already exists: %w", mapName, fd, err)
 		case unix.ENOENT:
-			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: key does not exist. %w", mapName, fd, err)
+			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: key does not exist: %w", mapName, fd, err)
 		default:
 			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: %w", mapName, fd, err)
 		}

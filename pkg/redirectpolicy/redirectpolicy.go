@@ -191,7 +191,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 		for i, portInfo := range addrMatcher.ToPorts {
 			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
 			if err != nil {
-				return nil, fmt.Errorf("invalid address matcher port %w", err)
+				return nil, fmt.Errorf("invalid address matcher port: %w", err)
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			fe = loadbalancer.NewL3n4Addr(proto, addrCluster, p, loadbalancer.ScopeExternal)
@@ -229,7 +229,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 		for i, portInfo := range svcMatcher.ToPorts {
 			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
 			if err != nil {
-				return nil, fmt.Errorf("invalid service matcher port %w", err)
+				return nil, fmt.Errorf("invalid service matcher port: %w", err)
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			// frontend ip will later be populated with the clusterIP of the service.
@@ -259,7 +259,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 	for i, portInfo := range redirectTo.ToPorts {
 		p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
 		if err != nil {
-			return nil, fmt.Errorf("invalid backend port %w", err)
+			return nil, fmt.Errorf("invalid backend port: %w", err)
 		}
 		beP := bePortInfo{
 			l4Addr: lb.L4Addr{
