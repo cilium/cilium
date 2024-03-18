@@ -69,6 +69,12 @@ type ServiceConfiguration interface {
 	K8sServiceProxyNameValue() string
 }
 
+// EnvoyConfigConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
+type EnvoyConfigConfiguration interface {
+	// K8sEnvoyConfigEnabled returns true if CiliumEnvoyConfig feature is enabled in Cilium
+	K8sEnvoyConfigEnabled() bool
+}
+
 // IngressConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
 type IngressConfiguration interface {
 	// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium

@@ -42,6 +42,10 @@ func (f *fakeWatcherConfiguration) K8sServiceProxyNameValue() string {
 	return ""
 }
 
+func (f *fakeWatcherConfiguration) K8sEnvoyConfigEnabled() bool {
+	return false
+}
+
 func (f *fakeWatcherConfiguration) K8sIngressControllerEnabled() bool {
 	return false
 }
