@@ -27,7 +27,7 @@ func NewGetBGPHandler(c *bgpv1.Controller) restapi.GetBgpPeersHandler {
 func (b *getBGP) Handle(params restapi.GetBgpPeersParams) middleware.Responder {
 	peers, err := b.bgpController.BGPMgr.GetPeers(params.HTTPRequest.Context())
 	if err != nil {
-		msg := fmt.Errorf("failed to get peers, %w", err)
+		msg := fmt.Errorf("failed to get peers: %w", err)
 		return api.Error(http.StatusInternalServerError, msg)
 	}
 

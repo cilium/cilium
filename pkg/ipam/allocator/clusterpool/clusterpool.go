@@ -59,7 +59,7 @@ func (a *AllocatorOperator) Init(ctx context.Context) error {
 
 		v4Allocators, err := newCIDRSets(false, operatorOption.Config.ClusterPoolIPv4CIDR, operatorOption.Config.NodeCIDRMaskSizeIPv4)
 		if err != nil {
-			return fmt.Errorf("unable to initialize IPv4 allocator %w", err)
+			return fmt.Errorf("unable to initialize IPv4 allocator: %w", err)
 		}
 		a.v4CIDRSet = v4Allocators
 	} else if len(operatorOption.Config.ClusterPoolIPv4CIDR) != 0 {
@@ -73,7 +73,7 @@ func (a *AllocatorOperator) Init(ctx context.Context) error {
 
 		v6Allocators, err := newCIDRSets(true, operatorOption.Config.ClusterPoolIPv6CIDR, operatorOption.Config.NodeCIDRMaskSizeIPv6)
 		if err != nil {
-			return fmt.Errorf("unable to initialize IPv6 allocator %w", err)
+			return fmt.Errorf("unable to initialize IPv6 allocator: %w", err)
 		}
 		a.v6CIDRSet = v6Allocators
 	} else if len(operatorOption.Config.ClusterPoolIPv6CIDR) != 0 {

@@ -242,7 +242,7 @@ func mergeExistingAWSCNIConfig(confDir string, pluginConfig []byte) ([]byte, err
 	awsFiles := []string{"10-aws.conflist", "10-aws.conflist.cilium_bak"}
 	found, err := findFile(confDir, awsFiles)
 	if err != nil {
-		return nil, fmt.Errorf("could not find existing AWS CNI config for chaining %w", err)
+		return nil, fmt.Errorf("could not find existing AWS CNI config for chaining: %w", err)
 	}
 
 	contents, err := os.ReadFile(found)
