@@ -195,6 +195,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
 
+      - name: Cleanup
+        run: |
+          eksctl delete cluster --name cilium-cilium-8329167846-1 --region us-east-2 --profile cilium-pr
+          eksctl delete cluster --name cilium-cilium-8329495315-1 --region us-east-2 --profile cilium-pr
+
       - name: Create EKS cluster
         uses: ./.github/actions/setup-eks-cluster
         with:
@@ -249,4 +254,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run eks-cleanup.yaml -f region=${{ matrix.region }} -f cluster-name=${{ env.clusterName }}
+          REF=${GITHUB_REF#refs/heads/}
+          echo "REF: $REF"
+          echo "REF2: ${{ inputs.context-ref || github.sha }}"
+          gh workflow run eks-cleanup.yaml --ref ${REF} -f region=${{ matrix.region }} -f cluster-name=${{ env.clusterName }}
