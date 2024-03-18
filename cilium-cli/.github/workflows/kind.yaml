@@ -58,17 +58,12 @@ jobs:
           config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
-      - name: Set NODES_WITHOUT_CILIUM
-        run: |
-          # To add more elements, keep it comma-separated.
-          echo "NODES_WITHOUT_CILIUM=chart-testing-worker2,chart-testing-worker3" >> $GITHUB_ENV
-
       # Install Cilium with HostPort support and enables Prometheus for extended connectivity test.
       - name: Install Cilium
         run: |
           cilium install \
             --version=${{ env.cilium_version }} \
-            --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
+            --nodes-without-cilium \
             --wait=false \
             --set bpf.monitorAggregation=none \
             --set cni.chainingMode=portmap \
@@ -138,7 +133,7 @@ jobs:
             --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
           cilium install \
           --version=${{ env.cilium_version}} \
-          --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
+          --nodes-without-cilium \
           --set encryption.enabled=true \
           --set encryption.type=ipsec \
           --set kubeProxyReplacement=false
@@ -250,7 +245,7 @@ jobs:
             --set cni.chainingMode=portmap \
             --set cluster.id=1 \
             --set cluster.name=$CLUSTER1 \
-            --nodes-without-cilium=${{ env.CLUSTER_NAME_1 }}-worker2
+            --nodes-without-cilium
 
       - name: Create kind cluster 2
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
