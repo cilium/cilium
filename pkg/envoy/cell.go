@@ -46,6 +46,7 @@ type envoyProxyConfig struct {
 	ProxyPrometheusPort               int
 	ProxyAdminPort                    int
 	EnvoyLog                          string
+	EnvoyBaseID                       uint64
 	ProxyConnectTimeout               uint
 	ProxyGID                          uint
 	ProxyMaxRequestsPerConnection     int
@@ -64,6 +65,7 @@ func (r envoyProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
+	flags.Uint64("envoy-base-id", 0, "Envoy base ID")
 	flags.Uint("proxy-connect-timeout", 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	flags.Uint("proxy-gid", 1337, "Group ID for proxy control plane sockets.")
 	flags.Int("proxy-max-requests-per-connection", 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
@@ -155,6 +157,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			XDSServer:                xdsServer,
 			runDir:                   option.Config.RunDir,
 			envoyLogPath:             params.EnvoyProxyConfig.EnvoyLog,
+			envoyBaseID:              params.EnvoyProxyConfig.EnvoyBaseID,
 			metricsListenerPort:      params.EnvoyProxyConfig.ProxyPrometheusPort,
 			adminListenerPort:        params.EnvoyProxyConfig.ProxyAdminPort,
 			connectTimeout:           int64(params.EnvoyProxyConfig.ProxyConnectTimeout),

@@ -1237,6 +1237,7 @@ data:
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
 
   external-envoy-proxy: {{ .Values.envoy.enabled | quote }}
+  envoy-base-id: {{ .Values.envoy.baseID | quote }}
 
 {{- if .Values.envoy.log.path }}
   envoy-log: {{ .Values.envoy.log.path | quote }}
