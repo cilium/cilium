@@ -203,7 +203,7 @@ for setting up your development environment.
 
 We encourage you to discuss your ideas for significant enhancements and feature
 requests on the ``#development`` channel on `Cilium Slack`_, bring them to the
-:ref:`weekly-community-meeting`, and/or create a `CFP design doc`_.
+:ref:`community-meeting`, and/or create a `CFP design doc`_.
 
 This roadmap does not give date commitments since the work is dependent on the
 community. If you're looking for commitments to apply engineering resources to

@@ -4,25 +4,38 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _weekly-community-meeting:
+.. _community-meeting:
 
-Weekly Community Meeting
-========================
+Community Meetings
+==================
 
-The Cilium contributors gather every Wednesday at 8am PDT, 17:00 CEST, for a
-Zoom call open to everyone. During that time, we discuss:
+The Cilium contributors gather regularly for a Zoom call open to everyone.
+During that time, we discuss:
 
 - Status of the next releases for each supported Cilium release
 - Current state of our CI: flakes being investigated and upcoming changes
 - Development items for the next release
 - Any other community-relevant topics during the open session
 
-If you want to discuss something during the next meeting's open session,
-you can add it to `the meeting's Google doc
-<https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#>`_.
-The Zoom link to the meeting is available in the ``#development`` Slack
-channel and in `the meeting notes
-<https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#>`_.
+If you want to discuss something during the next meeting's open session, you
+can add it to the meeting's Google doc. The Zoom link to the meeting is
+available in the ``#development`` Slack channel and in the meeting notes.
+
+Weekly Community Meeting
+------------------------
+
+This is a weekly meeting for all contributors.
+
+- Date: Every Wednesday at 8:00 AM US/Pacific (Los Angeles)
+- Meeting notes: `Google Doc <https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#>`__
+
+Monthly APAC Community Meeting
+------------------------------
+
+This is a monthly community meeting held at APAC friendly time.
+
+- Date: Every third Wednesday at 4:30 UTC
+- Meeting notes: `Google Doc <https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#>`__
 
 Slack
 =====
