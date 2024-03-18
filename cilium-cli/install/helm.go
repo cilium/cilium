@@ -8,7 +8,6 @@ package install
 import (
 	"fmt"
 
-	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/k8s"
 
@@ -109,14 +108,6 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 
 	default:
 		return nil, fmt.Errorf("cilium version unsupported %s", k.chartVersion)
-	}
-
-	// Set affinity to prevent Cilium from being scheduled on nodes labeled with
-	// "cilium.io/no-schedule=true"
-	if len(k.params.NodesWithoutCilium) != 0 {
-		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumScheduleAffinity...)
-		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumOperatorScheduleAffinity...)
-		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.SpireAgentScheduleAffinity...)
 	}
 
 	return helm.MergeVals(k.params.HelmOpts, helmMapOpts)
