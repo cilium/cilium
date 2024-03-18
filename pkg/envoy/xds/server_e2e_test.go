@@ -43,9 +43,9 @@ const (
 var (
 	DeferredCompletion = errors.New("Deferred completion")
 	nodes              = map[string]*envoy_config_core.Node{
-		node0: {Id: "sidecar~10.0.0.0~node0~bar"},
-		node1: {Id: "sidecar~10.0.0.1~node1~bar"},
-		node2: {Id: "sidecar~10.0.0.2~node2~bar"},
+		node0: {Id: "node0~10.0.0.0~node0~bar"},
+		node1: {Id: "node1~10.0.0.1~node1~bar"},
+		node2: {Id: "node2~10.0.0.2~node2~bar"},
 	}
 )
 
@@ -116,7 +116,8 @@ func (c *ResponseMatchesChecker) Check(params []interface{}, names []string) (re
 // parameters.
 var ResponseMatches Checker = &ResponseMatchesChecker{
 	&CheckerInfo{Name: "ResponseMatches", Params: []string{
-		"response", "VersionInfo", "Resources", "Canary", "TypeUrl"}},
+		"response", "VersionInfo", "Resources", "Canary", "TypeUrl",
+	}},
 }
 
 var resources = []*envoy_config_route.RouteConfiguration{

@@ -316,14 +316,13 @@ func (s *xdsServer) newSocketListener() (*net.UnixListener, error) {
 		return nil, fmt.Errorf("failed to open xDS listen socket at %s: %w", s.socketPath, err)
 	}
 
-	// Make the socket accessible by owner and group only. Group access is needed for Istio
-	// sidecar proxies.
+	// Make the socket accessible by owner and group only.
 	if err = os.Chmod(s.socketPath, 0660); err != nil {
 		return nil, fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
 	if err = os.Chown(s.socketPath, -1, s.config.proxyGID); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", s.socketPath)
+		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s", s.socketPath)
 	}
 	return socketListener, nil
 }
@@ -1696,7 +1695,6 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Put IPv4 last for compatibility with sidecar containers
 	var ips []string
 	if ipv6 := ep.GetIPv6Address(); ipv6 != "" {
 		ips = append(ips, ipv6)
@@ -1790,7 +1788,7 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	ip = ep.GetIPv4Address()
 	if ip != "" {
 		s.localEndpointStore.removeLocalEndpoint(ip)
-		// Delete node resources held in the cache for the endpoint (e.g., sidecar)
+		// Delete node resources held in the cache for the endpoint
 		s.NetworkPolicyMutator.DeleteNode(ip)
 	}
 }
