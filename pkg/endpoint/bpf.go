@@ -1162,20 +1162,31 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
 
-	err := e.applyPolicyMapChanges()
+	changed, err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
 
-	// Ignoring the revertFunc; keep all successful changes even if some fail.
-	err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+	// Only update Envoy if there are envoy redirects and there were queued incremental changes.
+	// This is safe to do here, since a PolicyMapChange cannot
+	// cause an envoy redirect to appear or disappear. It only allows for
+	// incremental updates. Thus, we don't need to worry about stale
+	// policy not being cleaned up.
+	if changed && (e.desiredPolicy.L4Policy.HasEnvoyRedirect() || e.isIngress) {
+		// Ignoring the revertFunc; keep all successful changes even if some fail.
+		e.getLogger().Debug("Endpoint has envoy redirects, applying changes to Envoy")
+		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+	} else {
+		e.getLogger().Debug("Endpoint has no envoy redirects, skipping Envoy update")
+	}
 
 	return err
 }
 
 // applyPolicyMapChanges applies any incremental policy map changes
 // collected on the desired policy.
-func (e *Endpoint) applyPolicyMapChanges() error {
+// Returns true if any changes were applied
+func (e *Endpoint) applyPolicyMapChanges() (bool, error) {
 	errors := 0
 
 	e.PolicyDebug(nil, "applyPolicyMapChanges")
@@ -1236,16 +1247,17 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	}
 
 	if errors > 0 {
-		return fmt.Errorf("updating desired PolicyMap state failed")
+		return true, fmt.Errorf("updating desired PolicyMap state failed")
 	}
 	if len(adds)+len(deletes) > 0 {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.AddedPolicyID:   adds,
 			logfields.DeletedPolicyID: deletes,
 		}).Debug("Applied policy map updates due identity changes")
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 // syncPolicyMap updates the bpf policy map state based on the
@@ -1254,7 +1266,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 func (e *Endpoint) syncPolicyMap() error {
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	err := e.applyPolicyMapChanges()
+	_, err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
@@ -1362,7 +1374,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	err := e.applyPolicyMapChanges()
+	_, err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
