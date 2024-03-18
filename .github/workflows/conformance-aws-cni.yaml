@@ -204,14 +204,6 @@ jobs:
           version: ${{ matrix.version }}
           spot: ${{ github.event_name != 'schedule' }}
 
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
-
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -253,6 +245,8 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
-      - name: Call clean up EKS workflow
+      - name: Call EKS clean up workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run eks-cleanup.yaml -f region=${{ matrix.region }} -f cluster-name=${{ env.clusterName }}
