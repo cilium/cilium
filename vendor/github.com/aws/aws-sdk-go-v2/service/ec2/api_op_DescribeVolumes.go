@@ -20,8 +20,10 @@ import (
 // Describes the specified EBS volumes or all of your EBS volumes. If you are
 // describing a long list of volumes, we recommend that you paginate the output to
 // make the list more manageable. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-// . For more information about EBS volumes, see Amazon EBS volumes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// . For more information about EBS volumes, see Amazon EBS volumes (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes.html)
+// in the Amazon EBS User Guide. The order of the elements in the response,
+// including those within nested structures, might vary. Applications should not
+// assume the elements appear in a particular order.
 func (c *Client) DescribeVolumes(ctx context.Context, params *DescribeVolumesInput, optFns ...func(*Options)) (*DescribeVolumesOutput, error) {
 	if params == nil {
 		params = &DescribeVolumesInput{}

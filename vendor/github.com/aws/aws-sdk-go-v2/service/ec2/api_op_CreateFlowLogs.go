@@ -61,9 +61,10 @@ type CreateFlowLogsInput struct {
 	// accounts.
 	DeliverCrossAccountRole *string
 
-	// The ARN of the IAM role that allows Amazon EC2 to publish flow logs to a
-	// CloudWatch Logs log group in your account. This parameter is required if the
-	// destination type is cloud-watch-logs and unsupported otherwise.
+	// The ARN of the IAM role that allows Amazon EC2 to publish flow logs to the log
+	// destination. This parameter is required if the destination type is
+	// cloud-watch-logs , or if the destination type is kinesis-data-firehose and the
+	// delivery stream and the resources to monitor are in different accounts.
 	DeliverLogsPermissionArn *string
 
 	// The destination options.

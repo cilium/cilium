@@ -19,8 +19,8 @@ import (
 // operation. Encrypted snapshots and snapshots with Amazon Web Services
 // Marketplace product codes cannot be made public. Snapshots encrypted with your
 // default KMS key cannot be shared with other accounts. For more information about
-// modifying snapshot permissions, see Share a snapshot (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modifying-snapshot-permissions.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// modifying snapshot permissions, see Share a snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)
+// in the Amazon EBS User Guide.
 func (c *Client) ModifySnapshotAttribute(ctx context.Context, params *ModifySnapshotAttributeInput, optFns ...func(*Options)) (*ModifySnapshotAttributeOutput, error) {
 	if params == nil {
 		params = &ModifySnapshotAttributeInput{}

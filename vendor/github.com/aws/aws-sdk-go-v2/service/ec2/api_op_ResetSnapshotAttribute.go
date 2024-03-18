@@ -12,8 +12,8 @@ import (
 )
 
 // Resets permission settings for the specified snapshot. For more information
-// about modifying snapshot permissions, see Share a snapshot (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modifying-snapshot-permissions.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// about modifying snapshot permissions, see Share a snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)
+// in the Amazon EBS User Guide.
 func (c *Client) ResetSnapshotAttribute(ctx context.Context, params *ResetSnapshotAttributeInput, optFns ...func(*Options)) (*ResetSnapshotAttributeOutput, error) {
 	if params == nil {
 		params = &ResetSnapshotAttributeInput{}
