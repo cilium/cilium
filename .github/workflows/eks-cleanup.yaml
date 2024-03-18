@@ -1,0 +1,48 @@
+name: EKS cleanup
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "EKS cluster region"
+        required: true
+      cluster-name:
+        description: "EKS cluster name"
+        required: true
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+
+env:
+  # renovate: datasource=github-releases depName=eksctl-io/eksctl
+  eksctl_version: v0.174.0
+
+jobs:
+  cleanup:
+    name: Cleanup EKS Clusters
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Clean up EKS
+        run: |
+          eksctl delete cluster --name ${{ inputs.clusterName }} --region ${{ inputs.region }}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
