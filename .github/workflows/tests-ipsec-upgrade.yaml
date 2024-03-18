@@ -104,7 +104,7 @@ jobs:
 
           - config: 'bpf-next'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240309.012251'
+            kernel: 'bpf-next-20240315.012542'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
