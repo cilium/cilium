@@ -37,7 +37,7 @@ func (c *ConfigModifyEvent) configModify(params PatchConfigParams, resChan chan 
 
 	om, err := option.Config.Opts.Library.ValidateConfigurationMap(cfgSpec.Options)
 	if err != nil {
-		msg := fmt.Errorf("Invalid configuration option %w", err)
+		msg := fmt.Errorf("Invalid configuration option: %w", err)
 		resChan <- api.Error(PatchConfigBadRequestCode, msg)
 		return
 	}

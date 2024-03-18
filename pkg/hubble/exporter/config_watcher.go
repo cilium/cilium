@@ -85,14 +85,14 @@ func (c *configWatcher) readConfig() (*DynamicExportersConfig, uint64, error) {
 	config := &DynamicExportersConfig{}
 	yamlFile, err := os.ReadFile(c.configFilePath)
 	if err != nil {
-		return nil, 0, fmt.Errorf("cannot read file '%s' %w", c.configFilePath, err)
+		return nil, 0, fmt.Errorf("cannot read file '%s': %w", c.configFilePath, err)
 	}
 	if err := yaml.Unmarshal(yamlFile, config); err != nil {
-		return nil, 0, fmt.Errorf("cannot parse yaml %w", err)
+		return nil, 0, fmt.Errorf("cannot parse yaml: %w", err)
 	}
 
 	if err := validateConfig(config); err != nil {
-		return nil, 0, fmt.Errorf("invalid yaml config file %w", err)
+		return nil, 0, fmt.Errorf("invalid yaml config file: %w", err)
 	}
 
 	return config, calculateHash(yamlFile), nil
