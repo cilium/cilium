@@ -286,16 +286,10 @@ type syncerParams struct {
 }
 
 func registerSecretSyncer(params syncerParams) error {
-	if !params.Config.EnableIngressController && !params.Config.EnableGatewayAPI {
-		return nil
-	}
-
-	secretSyncer := newSecretSyncer(params.Logger, params.XdsServer)
-
 	// Create a Secret Resource for each namespace.
 	// The Cilium Agent only has permissions on the specific namespaces.
 	// Note that the different features can use the same namespace for
-	// their TLS.
+	// their TLS secrets.
 	namespaces := map[string]struct{}{}
 
 	for namespace, cond := range map[string]func() bool{
@@ -319,6 +313,9 @@ func registerSecretSyncer(params syncerParams) error {
 	)
 
 	params.Lifecycle.Append(jobGroup)
+
+	secretSyncer := newSecretSyncer(params.Logger, params.XdsServer)
+
 	for ns := range namespaces {
 		jobGroup.Add(job.Observer(
 			fmt.Sprintf("k8s-secrets-resource-events-%s", ns),
