@@ -652,7 +652,7 @@ func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	err := s.RenderTemplateToFile(filename, policy, os.ModePerm)
 	if err != nil {
 		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
-		return 0, fmt.Errorf("cannot render the policy:  %w", err)
+		return 0, fmt.Errorf("cannot render the policy: %w", err)
 	}
 	path := s.GetFilePath(filename)
 	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)

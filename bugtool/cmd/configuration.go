@@ -239,11 +239,11 @@ func save(c *BugtoolConfiguration, path string) error {
 
 	data, err := json.MarshalIndent(c, "", "\t")
 	if err != nil {
-		return fmt.Errorf("Cannot marshal config %w", err)
+		return fmt.Errorf("Cannot marshal config: %w", err)
 	}
 	err = os.WriteFile(path, data, 0644)
 	if err != nil {
-		return fmt.Errorf("Cannot write config %w", err)
+		return fmt.Errorf("Cannot write config: %w", err)
 	}
 	return nil
 }
