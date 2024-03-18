@@ -47,7 +47,6 @@ type EndpointInfoSource interface {
 	GetIPv6Address() string
 	GetIdentity() identity.NumericIdentity
 	GetLabels() []string
-	HasSidecarProxy() bool
 	ConntrackName() string
 	ConntrackNameLocked() string
 }
