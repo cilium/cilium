@@ -84,11 +84,11 @@ type ModifySubnetAttributeInput struct {
 	MapCustomerOwnedIpOnLaunch *types.AttributeBooleanValue
 
 	// Specify true to indicate that network interfaces attached to instances created
-	// in the specified subnet should be assigned a public IPv4 address. Starting on
-	// February 1, 2024, Amazon Web Services will charge for all public IPv4 addresses,
-	// including public IPv4 addresses associated with running instances and Elastic IP
-	// addresses. For more information, see the Public IPv4 Address tab on the Amazon
-	// VPC pricing page (http://aws.amazon.com/vpc/pricing/) .
+	// in the specified subnet should be assigned a public IPv4 address. Amazon Web
+	// Services charges for all public IPv4 addresses, including public IPv4 addresses
+	// associated with running instances and Elastic IP addresses. For more
+	// information, see the Public IPv4 Address tab on the Amazon VPC pricing page (http://aws.amazon.com/vpc/pricing/)
+	// .
 	MapPublicIpOnLaunch *types.AttributeBooleanValue
 
 	// The type of hostname to assign to instances in the subnet at launch. For

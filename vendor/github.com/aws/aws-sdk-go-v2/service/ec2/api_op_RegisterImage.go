@@ -93,8 +93,8 @@ type RegisterImageInput struct {
 	// volume. If you create an AMI on an Outpost, then all backing snapshots must be
 	// on the same Outpost or in the Region of that Outpost. AMIs on an Outpost that
 	// include local snapshots can be used to launch instances on the same Outpost
-	// only. For more information, Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#ami)
-	// in the Amazon EC2 User Guide.
+	// only. For more information, Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#ami)
+	// in the Amazon EBS User Guide.
 	BlockDeviceMappings []types.BlockDeviceMapping
 
 	// The boot mode of the AMI. A value of uefi-preferred indicates that the AMI

@@ -12,8 +12,8 @@ import (
 )
 
 // Gets the current state of block public access for snapshots setting for the
-// account and Region. For more information, see Block public access for snapshots (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-public-access-snapshots.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// account and Region. For more information, see Block public access for snapshots (https://docs.aws.amazon.com/ebs/latest/userguide/block-public-access-snapshots.html)
+// in the Amazon EBS User Guide.
 func (c *Client) GetSnapshotBlockPublicAccessState(ctx context.Context, params *GetSnapshotBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetSnapshotBlockPublicAccessStateOutput, error) {
 	if params == nil {
 		params = &GetSnapshotBlockPublicAccessStateInput{}

@@ -17,8 +17,8 @@ import (
 // only the most recent modification request. You can also use CloudWatch Events to
 // check the status of a modification to an EBS volume. For information about
 // CloudWatch Events, see the Amazon CloudWatch Events User Guide (https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/)
-// . For more information, see Monitor the progress of volume modifications (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-volume-modifications.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// . For more information, see Monitor the progress of volume modifications (https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-modifications.html)
+// in the Amazon EBS User Guide.
 func (c *Client) DescribeVolumesModifications(ctx context.Context, params *DescribeVolumesModificationsInput, optFns ...func(*Options)) (*DescribeVolumesModificationsOutput, error) {
 	if params == nil {
 		params = &DescribeVolumesModificationsInput{}

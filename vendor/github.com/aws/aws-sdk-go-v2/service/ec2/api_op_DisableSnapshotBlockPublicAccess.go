@@ -17,8 +17,8 @@ import (
 // block public access is enabled in block-all-sharing mode, and you disable block
 // public access, all snapshots that were previously publicly shared are no longer
 // treated as private and they become publicly accessible again. For more
-// information, see Block public access for snapshots (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-public-access-snapshots.html)
-// in the Amazon Elastic Compute Cloud User Guide .
+// information, see Block public access for snapshots (https://docs.aws.amazon.com/ebs/latest/userguide/block-public-access-snapshots.html)
+// in the Amazon EBS User Guide .
 func (c *Client) DisableSnapshotBlockPublicAccess(ctx context.Context, params *DisableSnapshotBlockPublicAccessInput, optFns ...func(*Options)) (*DisableSnapshotBlockPublicAccessOutput, error) {
 	if params == nil {
 		params = &DisableSnapshotBlockPublicAccessInput{}
