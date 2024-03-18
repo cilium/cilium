@@ -2703,6 +2703,11 @@ func (c *DaemonConfig) K8sNetworkPolicyEnabled() bool {
 	return c.EnableK8sNetworkPolicy
 }
 
+// K8sEnvoyConfigEnabled returns true if CiliumEnvoyConfig feature is enabled in Cilium
+func (c *DaemonConfig) K8sEnvoyConfigEnabled() bool {
+	return c.EnableEnvoyConfig
+}
+
 // K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
 func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
 	return c.EnableIngressController
