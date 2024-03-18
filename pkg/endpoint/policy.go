@@ -122,10 +122,6 @@ func (e *Endpoint) LookupRedirectPort(ingress bool, protocol string, port uint16
 func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
 	// Skip updating the NetworkPolicy if no identity has been computed for this
 	// endpoint.
-	// This breaks a circular dependency between configuring NetworkPolicies in
-	// sidecar Envoy proxies and those proxies needing network connectivity
-	// to get their initial configuration, which is required for them to ACK
-	// the NetworkPolicies.
 	if e.SecurityIdentity == nil {
 		return nil, nil
 	}
@@ -698,7 +694,6 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	}
 
 	go func() {
-
 		// Free up resources with context.
 		defer cFunc()
 
