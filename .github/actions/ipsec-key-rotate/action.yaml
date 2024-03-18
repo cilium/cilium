@@ -3,19 +3,13 @@ description: Rotates keys and checks that established connections are not interr
 inputs:
   key-algo:
     required: true
-    type: string
-    description: "gcm(aes) or cbc(aes)"
-  key-type-one:
-    required: true
-    type: string
-    description: "'+' if we started with the per-tunnel key system"
+    description: "cli --auth-algo param value"
   key-type-two:
     required: true
-    type: string
     description: "'+' to rotate to the per-tunnel key system"
   extra-connectivity-test-flags:
     required: false
-    type: string
+    description: "connectivity test extra parameters"
 runs:
   using: composite
   steps:
@@ -25,56 +19,39 @@ runs:
         job-name: conformance-ipsec-e2e-key-rotation
         extra-connectivity-test-flags: ${{ inputs.extra-connectivity-test-flags }}
         operation-cmd: |
-          KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
-          if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
+          current_key=$(./cilium-cli encryption key-status)
+          echo "Rotating IPsec key (current $current_key)"
+          key_per_node=$([ "${{ inputs.key-type-two }}" == "+" ] && echo "true" || echo "false")
+          ./cilium-cli encryption rotate-key --auth-algo=${{ inputs.key-algo }} --key-per-node=$key_per_node
 
-          if [[ "${{ inputs.key-algo }}" == "gcm(aes)" ]]; then
-            key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-          elif [[ "${{ inputs.key-algo }}" == "cbc(aes)" ]]; then
-            key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-          else
-            echo "Invalid key type"; exit 1
-          fi
-          data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))${{ inputs.key-type-two }} ${key}\"}}"
-
-          echo "Updating IPsec secret with $data"
-          kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
-
-          # Compute number of expected keys during key rotation depending on
-          # whether we use the single-key system (1 key) or the per-tunnel
-          # keys system (4 keys).
-          exp_nb_keys=2
-          if [[ "${{ inputs.key-type-one }}" == "+" ]]; then
-            ((exp_nb_keys+=7))
-          fi
-          if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
-            ((exp_nb_keys+=7))
-          fi
+          new_key=$(./cilium-cli encryption key-status)
+          echo "New $new_key"
 
           # Wait until key rotation starts
           # We expect the amount of keys in use to grow during rotation.
           while true; do
-            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-            if [[ $keys_in_use == $exp_nb_keys ]]; then
+            status=$(./cilium-cli encryption status)
+            in_progress=$(echo "$status" | grep -c "IPsec key rotation in progress: true" || true)
+            if [[ "$in_progress" -eq "1" ]]; then
               break
             fi
-            echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
+            keys_in_use=$(echo "$status" | grep "IPsec keys in use:")
+            exp_nb_keys=$(echo "$status" | grep "IPsec expected key count:")
+            echo "Waiting until key rotation starts ($keys_in_use keys, $exp_nb_keys)"
             sleep 30s
           done
-
-          exp_nb_keys=1
-          if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
-            exp_nb_keys=8
-          fi
 
           # Wait until key rotation completes
           # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
           sleep $((4*60))
           while true; do
-            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-            if [[ $keys_in_use == $exp_nb_keys ]]; then
+            status=$(./cilium-cli encryption status)
+            in_progress=$(echo "$status" | grep -c "IPsec key rotation in progress: false" || true)
+            if [[ "$in_progress" -eq "1" ]]; then
               break
             fi
-            echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
+            keys_in_use=$(echo "$status" | grep "IPsec keys in use:")
+            exp_nb_keys=$(echo "$status" | grep "IPsec expected key count:")
+            echo "Waiting until key rotation completes ($keys_in_use keys, $exp_nb_keys)"
             sleep 30s
           done

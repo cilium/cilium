@@ -318,8 +318,7 @@ jobs:
         uses: ./.github/actions/ipsec-key-rotate
         with:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
-          key-algo: "gcm(aes)"
-          key-type-one: ""
+          key-algo: "gcm-aes"
           key-type-two: ""
 
       - name: Post-test information gathering

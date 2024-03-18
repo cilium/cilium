@@ -92,8 +92,8 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
-            key-one: 'gcm(aes)'
-            key-two: 'cbc(aes)'
+            key-one: 'gcm-aes'
+            key-two: 'hmac-sha256'
             key-type-one: '+'
             key-type-two: '+'
 
@@ -105,8 +105,8 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
-            key-one: 'cbc(aes)'
-            key-two: 'cbc(aes)'
+            key-one: 'hmac-sha256'
+            key-two: 'hmac-sha256'
             key-type-one: '+'
             key-type-two: ''
 
@@ -119,8 +119,8 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
+            key-one: 'gcm-aes'
+            key-two: 'gcm-aes'
             key-type-one: ''
             key-type-two: '+'
 
@@ -133,8 +133,8 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
-            key-one: 'cbc(aes)'
-            key-two: 'gcm(aes)'
+            key-one: 'hmac-sha256'
+            key-two: 'gcm-aes'
             key-type-one: ''
             key-type-two: ''
 
@@ -146,8 +146,8 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
-            key-one: 'cbc(aes)'
-            key-two: 'cbc(aes)'
+            key-one: 'hmac-sha256'
+            key-two: 'hmac-sha256'
             key-type-one: '+'
             key-type-two: '+'
 
@@ -160,8 +160,8 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
+            key-one: 'gcm-aes'
+            key-two: 'gcm-aes'
             key-type-one: '+'
             key-type-two: '+'
 
@@ -174,8 +174,8 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             encryption-overlay: 'true'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
+            key-one: 'gcm-aes'
+            key-two: 'gcm-aes'
             key-type-one: '+'
             key-type-two: '+'
 
@@ -187,8 +187,8 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
+            key-one: 'gcm-aes'
+            key-two: 'gcm-aes'
             key-type-one: '+'
             key-type-two: '+'
 
@@ -290,9 +290,9 @@ jobs:
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-          if [[ "${{ matrix.key-one }}" == "gcm(aes)" ]]; then
+          if [[ "${{ matrix.key-one }}" == "gcm-aes" ]]; then
             key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-          elif [[ "${{ matrix.key-one }}" == "cbc(aes)" ]]; then
+          elif [[ "${{ matrix.key-one }}" == "hmac-sha256" ]]; then
             key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
           else
             echo "Invalid key type"; exit 1
@@ -321,7 +321,6 @@ jobs:
         uses: ./.github/actions/ipsec-key-rotate
         with:
           key-algo: ${{ matrix.key-two }}
-          key-type-one: ${{ matrix.key-type-one }}
           key-type-two: ${{ matrix.key-type-two }}
 
       - name: Fetch artifacts
