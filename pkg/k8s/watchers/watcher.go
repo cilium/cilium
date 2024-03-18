@@ -179,6 +179,7 @@ type bgpSpeakerManager interface {
 
 	OnUpdateEndpoints(eps *k8s.Endpoints) error
 }
+
 type EgressGatewayManager interface {
 	OnAddEgressPolicy(config egressgateway.PolicyConfig)
 	OnDeleteEgressPolicy(configID types.NamespacedName)
@@ -480,9 +481,9 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		k8sGroups = append(k8sGroups, k8sAPIGroupNetworkingV1Core)
 	}
 
-	if k.cfg.K8sIngressControllerEnabled() || k.cfg.K8sGatewayAPIEnabled() {
-		// While Ingress controller is part of operator, we need to watch
-		// TLS secrets in pre-defined namespace for populating Envoy xDS SDS cache.
+	if k.cfg.K8sEnvoyConfigEnabled() || k.cfg.K8sIngressControllerEnabled() || k.cfg.K8sGatewayAPIEnabled() {
+		// Watch K8s TLS secrets in pre-defined namespace(s) for populating Envoy xDS SDS cache.
+		// Used by Ingress Controller, Gateway API and/or plain CiliumEnvoyConfig.
 		k8sGroups = append(k8sGroups, resources.K8sAPIGroupSecretV1Core)
 	}
 
@@ -543,6 +544,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 // WatcherConfiguration is the required configuration for enableK8sWatchers
 type WatcherConfiguration interface {
 	utils.ServiceConfiguration
+	utils.EnvoyConfigConfiguration
 	utils.IngressConfiguration
 	utils.GatewayAPIConfiguration
 	utils.PolicyConfiguration
