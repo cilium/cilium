@@ -24,8 +24,8 @@ import (
 // detach or force detach volumes that are attached to Amazon ECS or Fargate tasks.
 // Attempting to do this results in the UnsupportedOperationException exception
 // with the Unable to detach volume attached to ECS tasks error message. For more
-// information, see Detach an Amazon EBS volume (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-detaching-volume.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// information, see Detach an Amazon EBS volume (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-detaching-volume.html)
+// in the Amazon EBS User Guide.
 func (c *Client) DetachVolume(ctx context.Context, params *DetachVolumeInput, optFns ...func(*Options)) (*DetachVolumeOutput, error) {
 	if params == nil {
 		params = &DetachVolumeInput{}
