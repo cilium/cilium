@@ -418,7 +418,7 @@ jobs:
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }} \
-            --nodes-without-cilium=${{ env.clusterName1 }}-worker2
+            --nodes-without-cilium
 
       - name: Copy the Cilium CA secret to cluster2, as they must match
         run: |
