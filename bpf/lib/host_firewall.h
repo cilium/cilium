@@ -79,7 +79,6 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			  struct ipv6hdr *ip6, struct ct_buffer6 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_state ct_state_new = {};
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
@@ -125,9 +124,10 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
+		struct ct_state ct_state_new = {};
+
 		ct_state_new.src_sec_id = HOST_ID;
 		ct_state_new.proxy_redirect = proxy_port > 0;
-		ct_state_new.from_l7lb = false;
 
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
@@ -207,7 +207,6 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			   struct ct_buffer6 *ct_buffer, __u32 *src_sec_identity,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_state ct_state_new = {};
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
@@ -245,10 +244,11 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
+		struct ct_state ct_state_new = {};
+
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
 		ct_state_new.proxy_redirect = proxy_port > 0;
-		ct_state_new.from_l7lb = false;
 
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
@@ -355,7 +355,6 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			  struct iphdr *ip4, struct ct_buffer4 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_state ct_state_new = {};
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
@@ -401,9 +400,10 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
+		struct ct_state ct_state_new = {};
+
 		ct_state_new.src_sec_id = HOST_ID;
 		ct_state_new.proxy_redirect = proxy_port > 0;
-		ct_state_new.from_l7lb = false;
 
 		/* ext_err may contain a value from __eolicy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
@@ -477,7 +477,6 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 			   struct ct_buffer4 *ct_buffer, __u32 *src_sec_identity,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_state ct_state_new = {};
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
@@ -523,10 +522,11 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
+		struct ct_state ct_state_new = {};
+
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
 		ct_state_new.proxy_redirect = proxy_port > 0;
-		ct_state_new.from_l7lb = false;
 
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
