@@ -4,6 +4,7 @@
 package endpointmanager
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,14 +18,14 @@ func TestPolicyMapPressure(t *testing.T) {
 	policyMapPressureMinInterval = 0
 	p := newPolicyMapPressure()
 	p.gauge = &fakeGague{}
-	assert.Equal(float64(0), p.gauge.(*fakeGague).lastValue)
+	assert.Equal(float64(0), p.gauge.(*fakeGague).Load())
 	p.Update(endpoint.PolicyMapPressureEvent{
 		EndpointID: 1,
 		Value:      .5,
 	})
 	assertMetricEq := func(expected float64) {
 		assert.Eventually(func() bool {
-			return p.gauge.(*fakeGague).lastValue == expected
+			return p.gauge.(*fakeGague).Load() == expected
 		}, time.Second, 1*time.Millisecond)
 	}
 	assertMetricEq(.5)
@@ -38,9 +39,17 @@ func TestPolicyMapPressure(t *testing.T) {
 }
 
 type fakeGague struct {
-	lastValue float64
+	lastValue atomic.Value
 }
 
 func (f *fakeGague) Set(value float64) {
-	f.lastValue = value
+	f.lastValue.Store(value)
+}
+
+func (f *fakeGague) Load() float64 {
+	v := f.lastValue.Load()
+	if v == nil {
+		return 0
+	}
+	return v.(float64)
 }
