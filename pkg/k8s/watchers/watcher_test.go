@@ -38,6 +38,10 @@ var emptyResources = agentK8s.Resources{}
 
 type fakeWatcherConfiguration struct{}
 
+func (f *fakeWatcherConfiguration) K8sEnvoyConfigEnabled() bool {
+	return false
+}
+
 func (f *fakeWatcherConfiguration) K8sIngressControllerEnabled() bool {
 	return false
 }
