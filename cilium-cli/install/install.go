@@ -117,8 +117,8 @@ type Parameters struct {
 	// ListVersions lists all the available versions for install without actually installing.
 	ListVersions bool
 
-	// NodesWithoutCilium lists all nodes on which Cilium is not installed.
-	NodesWithoutCilium []string
+	// NodesWithoutCilium enables the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule
+	NodesWithoutCilium bool
 
 	// DryRun writes resources to be installed to stdout without actually installing them. For Helm
 	// installation mode only.
@@ -232,7 +232,7 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 
 	// Set affinity to prevent Cilium from being scheduled on nodes labeled with
 	// "cilium.io/no-schedule=true"
-	if len(k.params.NodesWithoutCilium) != 0 {
+	if k.params.NodesWithoutCilium {
 		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumScheduleAffinity...)
 		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumOperatorScheduleAffinity...)
 		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.SpireAgentScheduleAffinity...)
