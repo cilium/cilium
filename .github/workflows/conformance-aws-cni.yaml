@@ -197,8 +197,8 @@ jobs:
 
       - name: Cleanup
         run: |
-          eksctl delete cluster --name cilium-cilium-8329167846-1 --region us-east-2 --profile cilium-pr
-          eksctl delete cluster --name cilium-cilium-8329495315-1 --region us-east-2 --profile cilium-pr
+          eksctl delete cluster --name cilium-cilium-8329167846-1 --region us-east-2
+          eksctl delete cluster --name cilium-cilium-8329495315-1 --region us-east-2
 
       - name: Create EKS cluster
         uses: ./.github/actions/setup-eks-cluster
