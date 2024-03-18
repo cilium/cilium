@@ -142,7 +142,7 @@ func (r *tlsRouteReconciler) updateStatus(ctx context.Context, original *gateway
 
 func (r *tlsRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1alpha2.TLSRoute, modified *gatewayv1alpha2.TLSRoute) (ctrl.Result, error) {
 	if err := r.updateStatus(ctx, original, modified); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to update TLSRoute status while handling the reconcile error %w: %w", reconcileErr, err))
+		return controllerruntime.Fail(fmt.Errorf("failed to update TLSRoute status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}
 
 	return controllerruntime.Fail(reconcileErr)

@@ -340,7 +340,7 @@ func (c *cniConfigManager) renderCNIConf() (cniConfig []byte, err error) {
 func (c *cniConfigManager) mergeExistingCNIConfig(pluginConfig []byte) ([]byte, error) {
 	contents, err := c.findCNINetwork(c.config.CNIChainingTarget)
 	if err != nil {
-		return nil, fmt.Errorf("could not find existing CNI config for chaining %w", err)
+		return nil, fmt.Errorf("could not find existing CNI config for chaining: %w", err)
 	}
 
 	// Check to see if we're already inserted; otherwise we should append
