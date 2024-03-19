@@ -253,6 +253,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableLocalNodeRoute, defaults.EnableLocalNodeRoute, "Enable installation of the route which points the allocation prefix of the local node")
 	option.BindEnv(vp, option.EnableLocalNodeRoute)
 
+	flags.Bool(option.EnableExternalDSR, false, "Enable termination and DSR handling of external L4LBs")
+	option.BindEnv(vp, option.EnableExternalDSR)
+
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(vp, option.EnableIPv4Name)
 
