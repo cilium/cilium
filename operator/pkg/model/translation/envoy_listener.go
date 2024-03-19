@@ -95,7 +95,7 @@ func WithHostNetworkPort[T model.Listener](listeners []T, ipv4Enabled bool, ipv6
 			ports = append(ports, hl.GetPort())
 		}
 
-		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(slices.Unique(ports), ipv4Enabled, ipv6Enabled)
+		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(slices.SortedUnique(ports), ipv4Enabled, ipv6Enabled)
 
 		return listener
 	}
