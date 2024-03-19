@@ -103,6 +103,14 @@ type Parameters struct {
 	// Useful to test from upstream where a helm release is not available yet.
 	HelmChartDirectory string
 
+	// HelmRepository specifies the Helm repository to download Cilium Helm charts from.
+	HelmRepository string
+
+	// HelmReleaseName specifies the Helm release name for the Cilium CLI.
+	// Useful for referencing Cilium installations installed directly through Helm
+	// or overriding the Cilium CLI for install/upgrade/enable.
+	HelmReleaseName string
+
 	// HelmOpts are all the options the user used to pass into the Cilium cli
 	// template.
 	HelmOpts values.Options
@@ -114,12 +122,6 @@ type Parameters struct {
 	// specified by other flags. This options take precedence over the HelmResetValues option.
 	HelmReuseValues bool
 
-	// ListVersions lists all the available versions for install without actually installing.
-	ListVersions bool
-
-	// NodesWithoutCilium enables the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule
-	NodesWithoutCilium bool
-
 	// DryRun writes resources to be installed to stdout without actually installing them. For Helm
 	// installation mode only.
 	DryRun bool
@@ -128,13 +130,11 @@ type Parameters struct {
 	// For Helm installation mode only.
 	DryRunHelmValues bool
 
-	// HelmRepository specifies the Helm repository to download Cilium Helm charts from.
-	HelmRepository string
+	// ListVersions lists all the available versions for install without actually installing.
+	ListVersions bool
 
-	// HelmReleaseName specifies the Helm release name for the Cilium CLI.
-	// Useful for referencing Cilium installations installed directly through Helm
-	// or overriding the Cilium CLI for install/upgrade/enable.
-	HelmReleaseName string
+	// NodesWithoutCilium enables the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule
+	NodesWithoutCilium bool
 }
 
 func (p *Parameters) IsDryRun() bool {
