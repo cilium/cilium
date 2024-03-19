@@ -135,7 +135,6 @@ jobs:
             --set=ipv6.enabled=true \
             --set=clustermesh.useAPIServer=true \
             --set=clustermesh.apiserver.replicas=${{ matrix.external-kvstore && '0' || '1' }} \
-            --set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
             --set=clustermesh.config.enabled=true"
 
           # Run only a limited subset of tests to reduce the amount of time
@@ -375,7 +374,8 @@ jobs:
             ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --set kubeProxyReplacement=${{ matrix.kube-proxy == 'none' && 'strict' || 'partial' }}
 
       - name: Install Cilium in cluster2
         env:
@@ -385,7 +385,8 @@ jobs:
             ${{ steps.vars.outputs.cilium_image_settings }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster2 }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster2 }} \
+            --set kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }}
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -416,7 +417,8 @@ jobs:
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
-            --set clustermesh.apiserver.kvstoremesh.enabled=${{ !matrix.external-kvstore }}
+            --set clustermesh.apiserver.kvstoremesh.enabled=${{ !matrix.external-kvstore }} \
+            --set kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }}
 
       - name: Rollout Cilium agents in cluster2
         if: ${{ !matrix.external-kvstore }}
@@ -449,7 +451,8 @@ jobs:
             ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --set kubeProxyReplacement=${{ matrix.kube-proxy == 'none' && 'strict' || 'partial' }}
 
       - name: Rollout Cilium agents in cluster2
         if: ${{ !matrix.external-kvstore }}
