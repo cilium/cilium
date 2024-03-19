@@ -725,7 +725,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 		udpProtoPort53: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], map[string]struct{}{"::": {}}),
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], map[string]struct{}{"127.0.0.1": {}, "127.0.0.2": {}}),
-		}.Sort(),
+		}.Sort(nil),
 		udpProtoPort54: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort54][cachedWildcardSelector], nil),
 		},
@@ -734,12 +734,12 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 		},
 	}
 	restored1, _ := s.proxy.GetRules(uint16(epID1))
-	restored1.Sort()
+	restored1.Sort(nil)
 	c.Assert(restored1, checker.DeepEquals, expected1)
 
 	expected2 := restore.DNSRules{}
 	restored2, _ := s.proxy.GetRules(uint16(epID2))
-	restored2.Sort()
+	restored2.Sort(nil)
 	c.Assert(restored2, checker.DeepEquals, expected2)
 
 	expected3 := restore.DNSRules{
@@ -747,13 +747,13 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID1Selector], map[string]struct{}{"::": {}}),
 			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID3Selector], map[string]struct{}{}),
 			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID4Selector], map[string]struct{}{}),
-		}.Sort(),
+		}.Sort(nil),
 		tcpProtoPort53: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], map[string]struct{}{}),
 		},
 	}
 	restored3, _ := s.proxy.GetRules(uint16(epID3))
-	restored3.Sort()
+	restored3.Sort(nil)
 	c.Assert(restored3, checker.DeepEquals, expected3)
 
 	// Test with limited set of allowed IPs
@@ -764,7 +764,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 		udpProtoPort53: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], map[string]struct{}{}),
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], map[string]struct{}{"127.0.0.2": {}}),
-		}.Sort(),
+		}.Sort(nil),
 		udpProtoPort54: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort54][cachedWildcardSelector], nil),
 		},
@@ -773,7 +773,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 		},
 	}
 	restored1b, _ := s.proxy.GetRules(uint16(epID1))
-	restored1b.Sort()
+	restored1b.Sort(nil)
 	c.Assert(restored1b, checker.DeepEquals, expected1b)
 
 	// unlimited again
@@ -953,7 +953,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	// Restore Unmarshaled rules
 	var rules restore.DNSRules
 	err = json.Unmarshal(jsn, &rules)
-	rules = rules.Sort()
+	rules = rules.Sort(nil)
 	c.Assert(err, Equals, nil, Commentf("Could not unmarshal restored rules from json"))
 	c.Assert(rules, checker.DeepEquals, expected1)
 
@@ -1058,7 +1058,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 
 	// Get restored rules
 	restored, _ := s.proxy.GetRules(uint16(epID1))
-	restored.Sort()
+	restored.Sort(nil)
 
 	// remove rules
 	err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
