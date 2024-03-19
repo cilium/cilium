@@ -26,7 +26,7 @@ func (s *IDPoolTestSuite) TestLeaseAvailableID(c *C) {
 	minID, maxID := 1, 5
 	p := NewIDPool(ID(minID), ID(maxID))
 
-	leaseAllIDs(&p, minID, maxID, c)
+	leaseAllIDs(p, minID, maxID, c)
 }
 
 func (s *IDPoolTestSuite) TestInsertIDs(c *C) {
@@ -39,7 +39,7 @@ func (s *IDPoolTestSuite) TestInsertIDs(c *C) {
 		c.Assert(p.Insert(ID(i)), Equals, false)
 	}
 
-	leaseAllIDs(&p, minID-1, maxID+1, c)
+	leaseAllIDs(p, minID-1, maxID+1, c)
 }
 
 func (s *IDPoolTestSuite) TestInsertRemoveIDs(c *C) {
@@ -107,7 +107,7 @@ func (s *IDPoolTestSuite) TestReleaseID(c *C) {
 
 	// Lease all ids. This time, remove them before
 	// releasing them.
-	leaseAllIDs(&p, minID, maxID, c)
+	leaseAllIDs(p, minID, maxID, c)
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p.Remove(ID(i)), Equals, false)
 	}
@@ -122,40 +122,40 @@ func (s *IDPoolTestSuite) TestOperationsOnAvailableIDs(c *C) {
 
 	// Leasing available IDs should move its state to leased.
 	p0 := NewIDPool(ID(minID), ID(maxID))
-	leaseAllIDs(&p0, minID, maxID, c)
+	leaseAllIDs(p0, minID, maxID, c)
 	// Check all IDs are in leased state.
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p0.Release(ID(i)), Equals, true)
 	}
-	leaseAllIDs(&p0, minID, maxID, c)
+	leaseAllIDs(p0, minID, maxID, c)
 
 	// Releasing available IDs should not have any effect.
 	p1 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p1.Release(ID(i)), Equals, false)
 	}
-	leaseAllIDs(&p1, minID, maxID, c)
+	leaseAllIDs(p1, minID, maxID, c)
 
 	// Using available IDs should not have any effect.
 	p2 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p2.Use(ID(i)), Equals, false)
 	}
-	leaseAllIDs(&p2, minID, maxID, c)
+	leaseAllIDs(p2, minID, maxID, c)
 
 	// Inserting available IDs should not have any effect.
 	p3 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p3.Insert(ID(i)), Equals, false)
 	}
-	leaseAllIDs(&p3, minID, maxID, c)
+	leaseAllIDs(p3, minID, maxID, c)
 
 	// Removing available IDs should make them unavailable.
 	p4 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p4.Remove(ID(i)), Equals, true)
 	}
-	leaseAllIDs(&p4, minID, minID-1, c)
+	leaseAllIDs(p4, minID, minID-1, c)
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p4.Release(ID(i)), Equals, false)
 	}
@@ -165,8 +165,8 @@ func (s *IDPoolTestSuite) TestOperationsOnLeasedIDs(c *C) {
 	minID, maxID := 1, 5
 	var poolWithAllIDsLeased = func() *IDPool {
 		p := NewIDPool(ID(minID), ID(maxID))
-		leaseAllIDs(&p, minID, maxID, c)
-		return &p
+		leaseAllIDs(p, minID, maxID, c)
+		return p
 	}
 
 	// Releasing leased IDs should make it available again.
@@ -216,7 +216,7 @@ func (s *IDPoolTestSuite) TestOperationsOnUnavailableIDs(c *C) {
 		for i := minID; i <= maxID; i++ {
 			c.Assert(p.Remove(ID(i)), Equals, true)
 		}
-		return &p
+		return p
 	}
 
 	// Releasing unavailable IDs should not have any effect.
