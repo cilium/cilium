@@ -74,4 +74,4 @@ sleep 10s
 
 # Run connectivity test
 cilium --context "${CONTEXT1}" connectivity test --debug --multi-cluster "${CONTEXT2}" --test '!/*-deny,!/pod-to-.*-nodeport' \
-  --all-flows --collect-sysdump-on-failure --external-target google.com
+  --all-flows --collect-sysdump-on-failure --external-target google.com.
