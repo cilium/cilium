@@ -342,6 +342,17 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
+	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
+	// it only supports VXLAN right now.
+	if option.Config.EncryptionEnabled() && option.Config.EnableIPSecEncryptedOverlay {
+		if !option.Config.TunnelingEnabled() {
+			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
+		}
+		if params.TunnelConfig.Protocol() != tunnel.VXLAN {
+			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling protocol")
+		}
+	}
+
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
 	if !option.Config.DryMode {

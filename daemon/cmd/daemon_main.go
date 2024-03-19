@@ -373,6 +373,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPsecKeyWatcher, defaults.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	option.BindEnv(vp, option.EnableIPsecKeyWatcher)
 
+	flags.Bool(option.EnableIPSecEncryptedOverlay, defaults.EnableIPSecEncryptedOverlay, "Enable IPSec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host.")
+	option.BindEnv(vp, option.EnableIPSecEncryptedOverlay)
+
 	flags.Bool(option.EnableWireguard, false, "Enable WireGuard")
 	option.BindEnv(vp, option.EnableWireguard)
 
@@ -1343,6 +1346,10 @@ func initEnv(vp *viper.Viper) {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			log.WithError(err).Fatal("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later).")
 		}
+	}
+
+	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
+		log.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices

@@ -868,6 +868,8 @@ encryption:
     # -- Maximum duration of the IPsec key rotation. The previous key will be
     # removed after that delay.
     keyRotationDuration: "5m"
+    # -- Enable IPSec encrypted overlay
+    encryptedOverlay: false
   wireguard:
     # -- Enables the fallback to the user-space implementation.
     userspaceFallback: false
