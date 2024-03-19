@@ -151,6 +151,10 @@ func (s ServiceFlags) SVCType() SVCType {
 	}
 }
 
+func (s ServiceFlags) IsL7LB() bool {
+	return s&serviceFlagL7LoadBalancer != 0
+}
+
 // SVCExtTrafficPolicy returns a service traffic policy from the flags
 func (s ServiceFlags) SVCExtTrafficPolicy() SVCTrafficPolicy {
 	switch {
