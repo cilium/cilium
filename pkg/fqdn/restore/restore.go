@@ -11,6 +11,7 @@ package restore
 import (
 	"fmt"
 	"sort"
+	"testing"
 )
 
 // PortProtoV2 is 1 value at bit position 24.
@@ -84,7 +85,7 @@ type RuleRegex struct {
 
 // Sort is only used for testing
 // Sorts in place, but returns IPRules for convenience
-func (r IPRules) Sort() IPRules {
+func (r IPRules) Sort(_ *testing.T) IPRules {
 	sort.SliceStable(r, func(i, j int) bool {
 		if r[i].Re.Pattern != nil && r[j].Re.Pattern != nil {
 			return *r[i].Re.Pattern < *r[j].Re.Pattern
@@ -100,10 +101,10 @@ func (r IPRules) Sort() IPRules {
 
 // Sort is only used for testing
 // Sorts in place, but returns DNSRules for convenience
-func (r DNSRules) Sort() DNSRules {
+func (r DNSRules) Sort(_ *testing.T) DNSRules {
 	for pp, ipRules := range r {
 		if len(ipRules) > 0 {
-			ipRules = ipRules.Sort()
+			ipRules = ipRules.Sort(nil)
 			r[pp] = ipRules
 		}
 	}
