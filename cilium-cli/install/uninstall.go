@@ -13,8 +13,6 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/cilium/cilium-cli/defaults"
 )
 
 type UninstallParameters struct {
@@ -27,6 +25,7 @@ type UninstallParameters struct {
 	HelmChartDirectory   string
 	WorkerCount          int
 	Timeout              time.Duration
+	HelmReleaseName      string
 }
 
 type K8sUninstaller struct {
@@ -52,7 +51,7 @@ func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *ac
 		helmClient.DeletionPropagation = "foreground"
 	}
 	helmClient.Timeout = k.params.Timeout
-	if _, err := helmClient.Run(defaults.HelmReleaseName); err != nil {
+	if _, err := helmClient.Run(k.params.HelmReleaseName); err != nil {
 		return err
 	}
 	// If aws-node daemonset exists, remove io.cilium/aws-node-enabled node selector.

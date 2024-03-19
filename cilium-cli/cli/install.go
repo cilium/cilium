@@ -68,6 +68,7 @@ cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=clu
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
 				params.Writer = io.Discard
@@ -101,6 +102,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
 
 			cc, err := check.NewConnectivityTest(k8sClient, check.Parameters{
@@ -181,6 +183,7 @@ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
 				params.Writer = io.Discard

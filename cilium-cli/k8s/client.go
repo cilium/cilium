@@ -843,8 +843,8 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 	return &podVersion, nil
 }
 
-func (c *Client) GetRunningCiliumVersion() (string, error) {
-	release, err := action.NewGet(c.HelmActionConfig).Run(defaults.HelmReleaseName)
+func (c *Client) GetRunningCiliumVersion(ciliumHelmReleaseName string) (string, error) {
+	release, err := action.NewGet(c.HelmActionConfig).Run(ciliumHelmReleaseName)
 	if err != nil {
 		return "", err
 	}
