@@ -86,7 +86,7 @@ func (s *podToWorld2) Name() string {
 }
 
 func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
-	https := check.HTTPEndpoint("cilium-io-https", "https://cilium.io")
+	https := check.HTTPEndpoint("cilium-io-https", "https://cilium.io.")
 
 	fp := check.FlowParameters{
 		DNSRequired: true,
