@@ -67,7 +67,7 @@ type linuxNodeHandler struct {
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 
 	// Pool of available IDs for nodes.
-	nodeIDs idpool.IDPool
+	nodeIDs *idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
 	nodeIDsByIPs map[string]uint16
 
