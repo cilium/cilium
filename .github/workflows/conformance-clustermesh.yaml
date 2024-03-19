@@ -266,7 +266,7 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
             --flow-validation=disabled \
             --multi-cluster=${{ env.contextName2 }} \
-            --external-target=google.com \
+            --external-target=google.com. \
             --include-unsafe-tests \
             --collect-sysdump-on-failure"
 
