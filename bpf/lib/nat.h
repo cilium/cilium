@@ -506,6 +506,11 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	bool is_reply __maybe_unused = false;
 	int ret;
 
+	if ((bpf_ntohl(ip4->daddr) & 0xF0000000) == 0xE0000000) {
+		/* Multicast traffic should not be SNAT-ed. */
+		return NAT_PUNT_TO_STACK;
+	}
+
 	ret = snat_v4_needs_masquerade_hook(ctx, target);
 	if (IS_ERR(ret))
 		return ret;
