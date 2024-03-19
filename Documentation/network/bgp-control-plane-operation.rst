@@ -128,6 +128,40 @@ forwarded to a different node than before, will be reset.
 
 .. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/switches-interface-resilient-hashing.html
 
+Node Down
+---------
+
+If the node goes down, the BGP sessions from this node will be lost. The peer
+will withdraw the routes advertised by the node immediately or takes some time
+to stop forwarding traffic to the node depending on the Graceful Restart settings.
+The latter case is problematic when you advertise the route to a Service with
+``externalTrafficPolicy=Cluster`` because the peer will continue to forward traffic
+to the unavailable node until the restart timer (which is 120s by default) expires.
+
+Mitigation
+~~~~~~~~~~
+
+Involuntary Shutdown
+++++++++++++++++++++
+
+When a node is involuntarily shut down, there's no direct mitigation. You can
+choose to not use the BGP Graceful Restart feature, depending on the trade-off
+between the failure detection time vs stability provided by graceful restart in
+cases of Cilium pod restarts.
+
+Disabling the Graceful Restart allows the BGP peer to withdraw routes faster.
+Even if the node is shut down without BGP Notification or TCP connection close,
+the worst case time for peer to withdraw routes is the BGP hold time. When the
+Graceful Restart is enabled, the BGP peer may need hold time + restart time to
+withdraw routes received from the node.
+
+Voluntary Shutdown
+++++++++++++++++++
+
+When you voluntarily shut down a node, you can follow the steps described in the
+:ref:`bgp_control_plane_node_shutdown` section to avoid packet loss as much as
+possible.
+
 Peering Link Down
 -----------------
 
