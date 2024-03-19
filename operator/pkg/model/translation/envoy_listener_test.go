@@ -12,9 +12,11 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -373,5 +375,15 @@ func TestGetHostNetworkListenerAddresses(t *testing.T) {
 			assert.Equal(t, tC.expectedPrimaryAdress, primaryAddress)
 			assert.Equal(t, tC.expectedAdditionalAdresses, additionalAddresses)
 		})
+	}
+}
+
+func TestWithHostNetworkPortSorted(t *testing.T) {
+	modifiedEnvoyListener1 := WithHostNetworkPort([]model.Listener{&model.HTTPListener{Port: 80}, &model.HTTPListener{Port: 443}}, true, true)(&envoy_config_listener.Listener{})
+	modifiedEnvoyListener2 := WithHostNetworkPort([]model.Listener{&model.HTTPListener{Port: 443}, &model.HTTPListener{Port: 80}}, true, true)(&envoy_config_listener.Listener{})
+
+	diffOutput := cmp.Diff(modifiedEnvoyListener1, modifiedEnvoyListener2, protocmp.Transform())
+	if len(diffOutput) != 0 {
+		t.Errorf("Modified Envoy Listeners did not match for different order of http listener ports:\n%s\n", diffOutput)
 	}
 }
