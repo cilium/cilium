@@ -190,7 +190,7 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	if c.Options.CiliumNamespace == "" {
 		ns, err := detectCiliumNamespace(k)
 		if err == nil {
-			c.log("🔮 Detected Cilium installation in namespace %q", ns)
+			c.log("🔮 Detected Cilium installation in namespace: %q", ns)
 			c.Options.CiliumNamespace = ns
 		} else {
 			c.log("ℹ️ Failed to detect Cilium installation")
@@ -202,10 +202,10 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	if c.Options.CiliumOperatorNamespace == "" {
 		ns, err := detectCiliumOperatorNamespace(k)
 		if err == nil {
-			c.log("🔮 Detected Cilium operator in namespace %q", ns)
+			c.log("🔮 Detected Cilium operator in namespace: %q", ns)
 			c.Options.CiliumOperatorNamespace = ns
 		} else {
-			c.log("ℹ️ Failed to detect Cilium  operator ")
+			c.log("ℹ️ Failed to detect Cilium operator")
 		}
 	} else {
 		c.log("ℹ️  Cilium operator namespace: %s", c.Options.CiliumOperatorNamespace)
@@ -222,15 +222,15 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		if ns, err := detectCiliumSPIRENamespace(k); err != nil {
 			c.logDebug("Failed to detect Cilium SPIRE installation: %v", err)
 			if c.Options.CiliumOperatorNamespace != "" {
-				c.log("ℹ️ Failed to detect Cilium SPIRE installation - using Cilium namespace as Cilium SPIRE namespace: %s", c.Options.CiliumOperatorNamespace)
+				c.log("ℹ️ Failed to detect Cilium SPIRE installation - using Cilium namespace as Cilium SPIRE namespace: %q", c.Options.CiliumOperatorNamespace)
 				c.Options.CiliumSPIRENamespace = c.Options.CiliumOperatorNamespace
 			}
 		} else {
-			c.log("🔮 Detected Cilium SPIRE installation in namespace %q", ns)
+			c.log("🔮 Detected Cilium SPIRE installation in namespace: %q", ns)
 			c.Options.CiliumSPIRENamespace = ns
 		}
 	} else {
-		c.log("ℹ️  Cilium SPIRE namespace: %s", c.Options.CiliumSPIRENamespace)
+		c.log("ℹ️  Cilium SPIRE namespace: %q", c.Options.CiliumSPIRENamespace)
 	}
 
 	// Grab the Kubernetes nodes for the target cluster.
