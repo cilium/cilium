@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/k8s"
 
@@ -54,11 +55,12 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 		return err
 	}
 	upgradeParams := helm.UpgradeParameters{
-		Namespace:   params.Namespace,
-		Name:        params.HelmReleaseName,
-		Values:      vals,
-		ResetValues: false,
-		ReuseValues: true,
+		Namespace:    params.Namespace,
+		Name:         params.HelmReleaseName,
+		Values:       vals,
+		ResetValues:  false,
+		ReuseValues:  true,
+		WaitDuration: defaults.UninstallTimeout,
 	}
 	_, err = helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
 	return err
@@ -73,12 +75,13 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 		return err
 	}
 	upgradeParams := helm.UpgradeParameters{
-		Namespace:   params.Namespace,
-		Name:        params.HelmReleaseName,
-		Values:      vals,
-		ResetValues: false,
-		ReuseValues: true,
-		Wait:        params.Wait,
+		Namespace:    params.Namespace,
+		Name:         params.HelmReleaseName,
+		Values:       vals,
+		ResetValues:  false,
+		ReuseValues:  true,
+		Wait:         params.Wait,
+		WaitDuration: defaults.UninstallTimeout,
 	}
 	_, err = helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
 	return err
