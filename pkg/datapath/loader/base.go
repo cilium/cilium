@@ -265,10 +265,10 @@ func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 }
 
 func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	l.maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
+	l.maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
 	for _, dev := range option.Config.GetDevices() {
 		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
