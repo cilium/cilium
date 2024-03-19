@@ -44,7 +44,7 @@ const (
 type Service struct {
 	recorder *recorder.Recorder
 	dispatch *sink.Dispatch
-	ruleIDs  idpool.IDPool
+	ruleIDs  *idpool.IDPool
 	opts     recorderoption.Options
 }
 

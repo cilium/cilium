@@ -65,8 +65,8 @@ type IDPool struct {
 }
 
 // NewIDPool returns a new ID pool
-func NewIDPool(minID ID, maxID ID) IDPool {
-	return IDPool{
+func NewIDPool(minID ID, maxID ID) *IDPool {
+	return &IDPool{
 		minID:   minID,
 		maxID:   maxID,
 		idCache: newIDCache(minID, maxID),

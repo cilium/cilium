@@ -71,7 +71,7 @@ type linuxNodeHandler struct {
 
 	nodeMap nodemap.Map
 	// Pool of available IDs for nodes.
-	nodeIDs idpool.IDPool
+	nodeIDs *idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
 	nodeIDsByIPs map[string]uint16
 	// reverse map of the above
