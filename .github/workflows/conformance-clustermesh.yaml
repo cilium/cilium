@@ -498,8 +498,8 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
 
-          kubectl --context ${{ env.contextName1 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps
-          kubectl --context ${{ env.contextName2 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps
+          kubectl --context ${{ env.contextName1 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps --tail=-1
+          kubectl --context ${{ env.contextName2 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps --tail=-1
 
           if [ "${{ matrix.mode }}" == "external" ]; then
             for i in {1..2}; do
