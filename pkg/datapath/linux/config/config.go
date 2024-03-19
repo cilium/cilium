@@ -442,6 +442,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["DSR_XLATE_BACKEND"] = fmt.Sprintf("%d", dsrL4XlateBackend)
 		if option.Config.LoadBalancerUsesDSR() {
 			cDefinesMap["ENABLE_DSR"] = "1"
+			if option.Config.EnableRemoveDSRIPOption {
+				cDefinesMap["REMOVE_DSR_IP_OPTION"] = "1"
+			}
 			if option.Config.EnablePMTUDiscovery {
 				cDefinesMap["ENABLE_DSR_ICMP_ERRORS"] = "1"
 			}

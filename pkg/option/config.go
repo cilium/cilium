@@ -1132,6 +1132,10 @@ const (
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
 
+	// EnableRemoveDSRIPOption is the name of the option which determines whether to remove the DSR IP
+	// option for packets forwarded to the backend.
+	EnableRemoveDSRIPOption = "enable-remove-dsr-ip-opt"
+
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
 	// fragmentation-needed replies to the client (when needed).
 	EnablePMTUDiscovery = "enable-pmtu-discovery"
@@ -1880,6 +1884,10 @@ type DaemonConfig struct {
 	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
 	LoadBalancerRSSv6CIDR string
 	LoadBalancerRSSv6     net.IPNet
+
+	// EnableRemoveDSRIPOption is the name of the option which determines whether to remove the IP Options
+	// for DSR IP packets forwarded to the backend.
+	EnableRemoveDSRIPOption bool
 
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
@@ -3039,6 +3047,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.EnableMasqueradeRouteSource = vp.GetBool(EnableMasqueradeRouteSource)
+	c.EnableRemoveDSRIPOption = vp.GetBool(EnableRemoveDSRIPOption)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
 	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)

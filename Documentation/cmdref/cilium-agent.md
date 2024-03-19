@@ -153,6 +153,7 @@ cilium-agent [flags]
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
       --enable-recorder                                           Enable BPF datapath pcap recorder
+      --enable-remove-dsr-ip-opt                                  Enable removal of the DSR IP option for packets destined to the backend
       --enable-runtime-device-detection                           Enable runtime device detection and datapath reconfiguration (experimental)
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints

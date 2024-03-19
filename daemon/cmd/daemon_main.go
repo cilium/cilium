@@ -1056,6 +1056,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableBGPControlPlane, false, "Enable the BGP control plane.")
 	option.BindEnv(vp, option.EnableBGPControlPlane)
 
+	flags.Bool(option.EnableRemoveDSRIPOption, false, "Enable removal of the DSR IP option for packets destined to the backend")
+	option.BindEnv(vp, option.EnableRemoveDSRIPOption)
+
 	flags.Bool(option.EnablePMTUDiscovery, false, "Enable path MTU discovery to send ICMP fragmentation-needed replies to the client")
 	option.BindEnv(vp, option.EnablePMTUDiscovery)
 
