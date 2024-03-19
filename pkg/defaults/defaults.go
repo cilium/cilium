@@ -244,6 +244,11 @@ const (
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher = true
 
+	// Enable IPSec encrypted overlay
+	//
+	// This feature will encrypt overlay traffic before it leaves the cluster.
+	EnableIPSecEncryptedOverlay = false
+
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false

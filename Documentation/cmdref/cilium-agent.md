@@ -126,6 +126,7 @@ cilium-agent [flags]
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
       --enable-ipip-termination                                   Enable plain IPIP/IP6IP6 termination
       --enable-ipsec                                              Enable IPSec support
+      --enable-ipsec-encrypted-overlay                            Enable IPSec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host.
       --enable-ipsec-key-watcher                                  Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4                                               Enable IPv4 support (default true)
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4

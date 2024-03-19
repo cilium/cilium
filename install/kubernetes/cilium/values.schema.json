@@ -1460,6 +1460,9 @@
         },
         "ipsec": {
           "properties": {
+            "encryptedOverlay": {
+              "type": "boolean"
+            },
             "interface": {
               "type": "string"
             },
