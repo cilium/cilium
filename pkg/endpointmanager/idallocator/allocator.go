@@ -6,6 +6,8 @@ package idallocator
 import (
 	"fmt"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/idpool"
 )
 
@@ -14,21 +16,27 @@ const (
 	maxID = idpool.ID(4095)
 )
 
-var (
-	pool = idpool.NewIDPool(minID, maxID)
-)
+type IDAllocator struct {
+	pool *idpool.IDPool
+}
+
+func New() *IDAllocator {
+	return &IDAllocator{
+		pool: idpool.NewIDPool(minID, maxID),
+	}
+}
 
 // ReallocatePool starts over with a new pool. This function is only used for
 // tests and its implementation is not optimized for production.
-func ReallocatePool() {
+func (a *IDAllocator) ReallocatePool(c *check.C) {
 	for i := uint16(minID); i <= uint16(maxID); i++ {
-		Release(i)
+		a.Release(i)
 	}
 }
 
 // Allocate returns a new random ID from the pool
-func Allocate() uint16 {
-	id := pool.AllocateID()
+func (a *IDAllocator) Allocate() uint16 {
+	id := a.pool.AllocateID()
 
 	// Out of endpoint IDs
 	if id == idpool.NoID {
@@ -40,7 +48,7 @@ func Allocate() uint16 {
 
 // Reuse grabs a specific endpoint ID for reuse. This can be used when
 // restoring endpoints.
-func Reuse(id uint16) error {
+func (a *IDAllocator) Reuse(id uint16) error {
 	if idpool.ID(id) < minID {
 		return fmt.Errorf("unable to reuse endpoint: %d < %d", id, minID)
 	}
@@ -52,7 +60,7 @@ func Reuse(id uint16) error {
 		return nil
 	}
 
-	if !pool.Remove(idpool.ID(id)) {
+	if !a.pool.Remove(idpool.ID(id)) {
 		return fmt.Errorf("endpoint ID %d is already in use", id)
 	}
 
@@ -60,8 +68,8 @@ func Reuse(id uint16) error {
 }
 
 // Release releases an endpoint ID that was previously allocated or reused
-func Release(id uint16) error {
-	if !pool.Insert(idpool.ID(id)) {
+func (a *IDAllocator) Release(id uint16) error {
+	if !a.pool.Insert(idpool.ID(id)) {
 		return fmt.Errorf("Unable to release endpoint ID %d", id)
 	}
 

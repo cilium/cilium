@@ -14,6 +14,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	check "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -80,6 +81,9 @@ type EndpointManager struct {
 	// endpoints for removal on one run of the controller, then in the
 	// subsequent controller run will remove the endpoints.
 	markedEndpoints []uint16
+
+	// Allocator for local endpoint identifiers.
+	epIDAllocator *idallocator.IDAllocator
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -101,6 +105,7 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
 		subscribers:                  make(map[Subscriber]struct{}),
+		epIDAllocator:                idallocator.New(),
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 
@@ -206,12 +211,12 @@ func (mgr *EndpointManager) InitMetrics() {
 func (mgr *EndpointManager) AllocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
-		if err := idallocator.Reuse(currID); err != nil {
+		if err := mgr.epIDAllocator.Reuse(currID); err != nil {
 			return 0, fmt.Errorf("unable to reuse endpoint ID: %s", err)
 		}
 		newID = currID
 	} else {
-		id := idallocator.Allocate()
+		id := mgr.epIDAllocator.Allocate()
 		if id == uint16(0) {
 			return 0, fmt.Errorf("no more endpoint IDs available")
 		}
@@ -335,7 +340,7 @@ func (mgr *EndpointManager) LookupPodName(name string) *endpoint.Endpoint {
 // ReleaseID releases the ID of the specified endpoint from the EndpointManager.
 // Returns an error if the ID cannot be released.
 func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
-	return idallocator.Release(ep.ID)
+	return mgr.epIDAllocator.Release(ep.ID)
 }
 
 // unexpose removes the endpoint from the endpointmanager, so subsequent
@@ -395,10 +400,10 @@ func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.
 }
 
 // RemoveAll removes all endpoints from the global maps.
-func (mgr *EndpointManager) RemoveAll() {
+func (mgr *EndpointManager) RemoveAll(c *check.C) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	idallocator.ReallocatePool()
+	mgr.epIDAllocator.ReallocatePool(c)
 	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
 	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }
