@@ -26,7 +26,10 @@ import (
 func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	errorLogExceptions := []string{"Error in delegate stream, restarting", failedToListCRDs, removeInexistentID}
+	errorLogExceptions := []string{
+		"Error in delegate stream, restarting",
+		failedToUpdateLock, failedToReleaseLock,
+		failedToListCRDs, removeInexistentID}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
@@ -243,7 +246,9 @@ const (
 	localIDRestoreFail     = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 	routerIPMismatch       = "Mismatch of router IPs found during restoration"
 	emptyIPNodeIDAlloc     = "Attempt to allocate a node ID for an empty node IP address"
-	failedToListCRDs       = "the server could not find the requested resource"                          // cf. https://github.com/cilium/cilium/issues/16425
+	failedToListCRDs       = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
+	failedToUpdateLock     = "Failed to update lock:"
+	failedToReleaseLock    = "Failed to release lock:"
 	previouslyUsedCIDR     = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
 )
