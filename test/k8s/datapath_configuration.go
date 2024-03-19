@@ -609,14 +609,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			// Need to install Cilium w/ host fw prior to the host policy preparation
 			// step.
-			options := map[string]string{
+			deploymentManager.DeployCilium(map[string]string{
 				"hostFirewall.enabled": "true",
-			}
-			if helpers.RunsWithKubeProxyReplacement() {
-				// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-				options["enableIPv6Masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			}, DeployCiliumOptionsAndDNS)
 
 			hostPolicy := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
 			prepareHostPolicyEnforcement(kubectl, hostPolicy)
@@ -645,11 +640,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				options["gke.enabled"] = "false"
 				options["tunnelProtocol"] = "vxlan"
 			}
-			if helpers.RunsWithKubeProxyReplacement() {
-				// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-				options["enableIPv6Masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
@@ -665,11 +655,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				options["gke.enabled"] = "false"
 				options["tunnelProtocol"] = "vxlan"
 			}
-			if helpers.RunsWithKubeProxyReplacement() {
-				// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-				options["enableIPv6Masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
@@ -686,11 +671,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			} else {
 				options["autoDirectNodeRoutes"] = "true"
 			}
-			if helpers.RunsWithKubeProxyReplacement() {
-				// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-				options["enableIPv6Masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
@@ -704,11 +684,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			if !helpers.RunsOnGKE() {
 				options["autoDirectNodeRoutes"] = "true"
 			}
-			if helpers.RunsWithKubeProxyReplacement() {
-				// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-				options["enableIPv6Masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
