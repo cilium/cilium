@@ -479,20 +479,6 @@ var hostRulesListenersEnforceHTTPSCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfi
 					Name: "listener-insecure",
 					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
 						{
-							Name:    "foo.bar.com",
-							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-											Prefix: "/",
-										},
-									},
-									Action: toHTTPSRedirectAction(),
-								},
-							},
-						},
-						{
 							Name:    "*.foo.com",
 							Domains: []string{"*.foo.com", "*.foo.com:*"},
 							Routes: []*envoy_config_route_v3.Route{
@@ -518,6 +504,20 @@ var hostRulesListenersEnforceHTTPSCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfi
 										QueryParameters: []*envoy_config_route_v3.QueryParameterMatcher{},
 									},
 									Action: toRouteAction("random-namespace", "wildcard-foo-com", "8080"),
+								},
+							},
+						},
+						{
+							Name:    "foo.bar.com",
+							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: toHTTPSRedirectAction(),
 								},
 							},
 						},

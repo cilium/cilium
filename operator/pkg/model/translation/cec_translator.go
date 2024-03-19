@@ -4,7 +4,9 @@
 package translation
 
 import (
+	"cmp"
 	"fmt"
+	goslices "slices"
 	"sort"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -292,6 +294,7 @@ func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv
 		// the route name should match the value in http connection manager
 		// otherwise the request will be dropped by envoy
 		routeName := fmt.Sprintf("listener-%s", port)
+		goslices.SortStableFunc(virtualhosts, func(a, b *envoy_config_route_v3.VirtualHost) int { return cmp.Compare(a.Name, b.Name) })
 		rc, _ := NewRouteConfiguration(routeName, virtualhosts)
 		res = append(res, rc)
 	}
