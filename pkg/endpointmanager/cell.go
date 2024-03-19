@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/netip"
 	"sync"
+	"testing"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -120,7 +121,7 @@ type EndpointsModify interface {
 	RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error
 
 	// RemoveAll removes all endpoints from the global maps.
-	RemoveAll()
+	RemoveAll(testing.TB)
 }
 
 type EndpointManager interface {
