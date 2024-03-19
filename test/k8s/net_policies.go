@@ -426,17 +426,13 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			BeforeAll(func() {
-				opts := map[string]string{
-					"routingMode":          "native",
-					"autoDirectNodeRoutes": "true",
+				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+					map[string]string{
+						"routingMode":          "native",
+						"autoDirectNodeRoutes": "true",
 
-					"hostFirewall.enabled": "true",
-				}
-				if helpers.RunsWithKubeProxyReplacement() {
-					// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-					opts["enableIPv6Masquerade"] = "false"
-				}
-				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg, opts)
+						"hostFirewall.enabled": "true",
+					})
 
 				By("Retrieving backend pod and outside node IP addresses")
 				outsideNodeName, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
