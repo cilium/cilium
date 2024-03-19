@@ -38,7 +38,8 @@ func (s *EndpointManagerSuite) TestmarkAndSweep(c *C) {
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
 		ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, endpoint.StateReady)
-		mgr.expose(ep)
+		err := mgr.expose(ep)
+		c.Assert(err, IsNil)
 	}
 	c.Assert(len(mgr.GetEndpoints()), Equals, len(allEndpointIDs))
 
