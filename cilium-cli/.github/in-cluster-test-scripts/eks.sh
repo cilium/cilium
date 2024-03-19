@@ -28,7 +28,7 @@ sleep 10s
 [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
 # Run connectivity test
-cilium connectivity test --debug --all-flows --collect-sysdump-on-failure --external-target amazon.com
+cilium connectivity test --debug --all-flows --collect-sysdump-on-failure --external-target amazon.com.
 
 # Run performance test
 cilium connectivity perf --duration 1s
