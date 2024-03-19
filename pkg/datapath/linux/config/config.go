@@ -281,6 +281,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableIPSec {
 		cDefinesMap["ENABLE_IPSEC"] = "1"
+
+		if option.Config.EnableIPSecEncryptedOverlay {
+			cDefinesMap["ENABLE_ENCRYPTED_OVERLAY"] = "1"
+		}
 	}
 
 	if option.Config.EnableWireguard {
