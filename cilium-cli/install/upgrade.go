@@ -11,7 +11,6 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/k8s"
 )
@@ -31,7 +30,7 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Clien
 
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:    k.params.Namespace,
-		Name:         defaults.HelmReleaseName,
+		Name:         k.params.HelmReleaseName,
 		Chart:        k.chart, // k.chart was initialized in NewK8sInstaller, based on Version and HelmChartDirectory
 		Values:       vals,
 		ResetValues:  k.params.HelmResetValues,

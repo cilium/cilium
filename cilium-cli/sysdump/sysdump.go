@@ -211,6 +211,13 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		c.log("ℹ️  Cilium operator namespace: %s", c.Options.CiliumOperatorNamespace)
 	}
 
+	if c.Options.CiliumHelmReleaseName == "" {
+		c.log("ℹ️ Using default Cilium Helm release name: %q", defaults.HelmReleaseName)
+		c.Options.CiliumHelmReleaseName = defaults.HelmReleaseName
+	} else {
+		c.log("ℹ️ Cilium Helm release name: %q", c.Options.CiliumHelmReleaseName)
+	}
+
 	if c.Options.CiliumSPIRENamespace == "" {
 		if ns, err := detectCiliumSPIRENamespace(k); err != nil {
 			c.logDebug("Failed to detect Cilium SPIRE installation: %v", err)
@@ -2733,8 +2740,8 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		optionPrefix+"cilium-envoy-label-selector", DefaultCiliumEnvoyLabelSelector,
 		"The labels used to target Cilium Envoy pods")
 	cmd.Flags().StringVar(&options.CiliumHelmReleaseName,
-		"cilium-helm-release-name", DefaultCiliumHelmReleaseName,
-		"The Cilium Helm release name for which to get values")
+		optionPrefix+"cilium-helm-release-name", "",
+		"The Cilium Helm release name for which to get values. If not provided then the --helm-release-name global flag is used (if provided)")
 	cmd.Flags().StringVar(&options.CiliumOperatorLabelSelector,
 		optionPrefix+"cilium-operator-label-selector", DefaultCiliumOperatorLabelSelector,
 		"The labels used to target Cilium operator pods")

@@ -298,5 +298,5 @@ func Upgrade(
 	helmClient.Timeout = params.WaitDuration
 	helmClient.DryRun = params.IsDryRun()
 
-	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, params.Chart, params.Values)
+	return helmClient.RunWithContext(ctx, params.Name, params.Chart, params.Values)
 }

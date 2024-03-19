@@ -240,6 +240,7 @@ func newCmdClusterMeshEnableWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
 			if err := clustermesh.EnableWithHelm(ctx, k8sClient, params); err != nil {
 				fatalf("Unable to enable ClusterMesh: %s", err)
@@ -266,6 +267,7 @@ func newCmdClusterMeshDisableWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
 			if err := clustermesh.DisableWithHelm(ctx, k8sClient, params); err != nil {
 				fatalf("Unable to disable ClusterMesh: %s", err)
@@ -288,6 +290,7 @@ func newCmdClusterMeshConnectWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			if err := cm.ConnectWithHelm(context.Background()); err != nil {
 				fatalf("Unable to connect cluster: %s", err)
@@ -311,6 +314,7 @@ func newCmdClusterMeshDisconnectWithHelm() *cobra.Command {
 		Short: "Disconnect from a remote cluster",
 		Run: func(_ *cobra.Command, _ []string) {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			if err := cm.DisconnectWithHelm(context.Background()); err != nil {
 				fatalf("Unable to disconnect clusters: %s", err)
