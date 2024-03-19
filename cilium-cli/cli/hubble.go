@@ -120,6 +120,7 @@ func newCmdHubbleDisableWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
 			if err := hubble.DisableWithHelm(ctx, k8sClient, params); err != nil {
 				fatalf("Unable to disable Hubble:  %s", err)
