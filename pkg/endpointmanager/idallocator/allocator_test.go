@@ -6,100 +6,91 @@ package idallocator
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type IDSuite struct{}
-
-var _ = Suite(&IDSuite{})
-
-func (s *IDSuite) TestAllocation(c *C) {
+func TestAllocation(t *testing.T) {
 	ReallocatePool()
 
 	idsReturned := map[uint16]struct{}{}
 
 	for i := minID; i <= maxID; i++ {
 		id := Allocate()
-		c.Assert(id, Not(Equals), uint16(0))
+		assert.NotZero(t, id)
 
 		// check if same ID is returned more than once
-		_, ok := idsReturned[id]
-		c.Assert(ok, Equals, false)
+		assert.NotContains(t, idsReturned, id)
 
 		idsReturned[id] = struct{}{}
 	}
 
 	// We should be out of allocations
-	c.Assert(Allocate(), Equals, uint16(0))
+	assert.Zero(t, Allocate())
 }
 
-func (s *IDSuite) TestReuse(c *C) {
+func TestReuse(t *testing.T) {
 	ReallocatePool()
 
 	// Reusing IDs greater than the maxID is allowed
-	c.Assert(Reuse(uint16(maxID+10)), IsNil)
+	assert.Nil(t, Reuse(uint16(maxID+10)))
 
 	// Reusing IDs lesser than the minID is not allowed
-	c.Assert(Reuse(uint16(minID-1)), Not(IsNil))
+	assert.NotNil(t, Reuse(uint16(minID-1)))
 
 	idsReturned := map[uint16]struct{}{}
 
-	c.Assert(Reuse(uint16(2)), IsNil)
+	assert.Nil(t, Reuse(uint16(2)))
 	idsReturned[uint16(2)] = struct{}{}
 
-	c.Assert(Reuse(uint16(8)), IsNil)
+	assert.Nil(t, Reuse(uint16(8)))
 	idsReturned[uint16(8)] = struct{}{}
 
 	for i := minID; i <= maxID-2; i++ {
 		id := Allocate()
-		c.Assert(id, Not(Equals), uint16(0))
+		assert.NotZero(t, id)
 
 		// check if same ID is returned more than once
-		_, ok := idsReturned[id]
-		c.Assert(ok, Equals, false)
+		assert.NotContains(t, idsReturned, id)
 
 		idsReturned[id] = struct{}{}
 	}
 
 	// We should be out of allocations
-	c.Assert(Allocate(), Equals, uint16(0))
+	assert.Zero(t, Allocate())
 
 	// 2nd reuse should fail
-	c.Assert(Reuse(uint16(2)), Not(IsNil))
+	assert.NotNil(t, Reuse(uint16(2)))
 
 	// reuse of allocated id should fail
-	c.Assert(Reuse(uint16(3)), Not(IsNil))
+	assert.NotNil(t, Reuse(uint16(3)))
 
 	// release 5
-	c.Assert(Release(uint16(5)), IsNil)
+	assert.Nil(t, Release(uint16(5)))
 	delete(idsReturned, uint16(5))
 
 	// release 6
-	c.Assert(Release(uint16(6)), IsNil)
+	assert.Nil(t, Release(uint16(6)))
 	delete(idsReturned, uint16(6))
 
 	// reuse 5 after release
-	c.Assert(Reuse(uint16(5)), IsNil)
+	assert.Nil(t, Reuse(uint16(5)))
 	idsReturned[uint16(5)] = struct{}{}
 
 	// allocate only available id 6
-	c.Assert(Allocate(), Equals, uint16(6))
+	assert.Equal(t, uint16(6), Allocate())
 }
 
-func (s *IDSuite) TestRelease(c *C) {
+func TestRelease(t *testing.T) {
 	ReallocatePool()
 
 	for i := minID; i <= maxID; i++ {
-		c.Assert(Reuse(uint16(i)), IsNil)
+		assert.Nil(t, Reuse(uint16(i)))
 	}
 
 	// must be out of IDs
-	c.Assert(Allocate(), Equals, uint16(0))
+	assert.Zero(t, Allocate())
 
 	for i := minID; i <= maxID; i++ {
-		c.Assert(Release(uint16(i)), IsNil)
+		assert.Nil(t, Release(uint16(i)))
 	}
 }
