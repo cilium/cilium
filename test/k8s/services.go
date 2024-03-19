@@ -641,14 +641,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			var ccnpHostPolicy string
 
 			BeforeAll(func() {
-				options := map[string]string{
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"hostFirewall.enabled": "true",
-				}
-				if helpers.RunsWithKubeProxyReplacement() {
-					// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-					options["enableIPv6Masquerade"] = "false"
-				}
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
+				})
 
 				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), hostPolicyFilename)
 				res := kubectl.ExecMiddle("mktemp")
