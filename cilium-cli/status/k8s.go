@@ -51,6 +51,8 @@ type K8sStatusParameters struct {
 	// The output format
 	Output string
 
+	HelmReleaseName string
+
 	// Interactive specifies whether the summary output refreshes after each
 	// retry when --wait flag is specified.
 	Interactive bool
@@ -536,7 +538,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 			if !ok {
 				return fmt.Errorf("failed to initialize Helm client")
 			}
-			release, err := action.NewGet(client.HelmActionConfig).Run(defaults.HelmReleaseName)
+			release, err := action.NewGet(client.HelmActionConfig).Run(k.params.HelmReleaseName)
 			if err != nil {
 				return err
 			}

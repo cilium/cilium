@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/k8s"
 
@@ -35,6 +34,8 @@ type Parameters struct {
 
 	// Wait will cause Helm upgrades related to disabling Hubble to wait.
 	Wait bool
+
+	HelmReleaseName string
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
@@ -54,7 +55,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 	}
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   params.Namespace,
-		Name:        defaults.HelmReleaseName,
+		Name:        params.HelmReleaseName,
 		Values:      vals,
 		ResetValues: false,
 		ReuseValues: true,
@@ -73,7 +74,7 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 	}
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   params.Namespace,
-		Name:        defaults.HelmReleaseName,
+		Name:        params.HelmReleaseName,
 		Values:      vals,
 		ResetValues: false,
 		ReuseValues: true,

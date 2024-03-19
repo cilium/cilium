@@ -112,6 +112,11 @@ type Parameters struct {
 	// EnableKVStoreMesh indicates whether kvstoremesh should be enabled.
 	// For Helm mode only.
 	EnableKVStoreMesh bool
+
+	// HelmReleaseName specifies the Helm release name for the Cilium CLI.
+	// Useful for referencing Cilium installations installed directly through Helm
+	// or overriding the Cilium CLI for install/upgrade/enable.
+	HelmReleaseName string
 }
 
 func (p Parameters) waitTimeout() time.Duration {
@@ -1387,7 +1392,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 	}
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   params.Namespace,
-		Name:        defaults.HelmReleaseName,
+		Name:        params.HelmReleaseName,
 		Values:      helmVals,
 		ResetValues: false,
 		ReuseValues: true,
@@ -1407,7 +1412,7 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 	}
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   params.Namespace,
-		Name:        defaults.HelmReleaseName,
+		Name:        params.HelmReleaseName,
 		Values:      vals,
 		ResetValues: false,
 		ReuseValues: true,
@@ -1416,8 +1421,8 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 	return err
 }
 
-func getRelease(kc *k8s.Client) (*release.Release, error) {
-	return kc.HelmActionConfig.Releases.Last(defaults.HelmReleaseName)
+func getRelease(kc *k8s.Client, params Parameters) (*release.Release, error) {
+	return kc.HelmActionConfig.Releases.Last(params.HelmReleaseName)
 }
 
 // validateCAMatch determines if the certificate authority certificate being
@@ -1457,7 +1462,7 @@ func (k *K8sClusterMesh) validateCAMatch(aiLocal, aiRemote *accessInformation) (
 // (certgen) mode. As with classic mode, only autodetected IP-based
 // clustermesh-apiserver Service endpoints are currently supported.
 func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
-	localRelease, err := getRelease(k.client.(*k8s.Client))
+	localRelease, err := getRelease(k.client.(*k8s.Client), k.params)
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the target cluster")
 		return err
@@ -1495,7 +1500,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	}
 
 	// Get existing helm values for the remote cluster
-	remoteRelease, err := getRelease(remoteClient)
+	remoteRelease, err := getRelease(remoteClient, k.params)
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the remote cluster")
 		return err
@@ -1509,7 +1514,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   k.params.Namespace,
-		Name:        defaults.HelmReleaseName,
+		Name:        k.params.HelmReleaseName,
 		Values:      localHelmValues,
 		ResetValues: false,
 		ReuseValues: true,
@@ -1537,7 +1542,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 }
 
 func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
-	localRelease, err := getRelease(k.client.(*k8s.Client))
+	localRelease, err := getRelease(k.client.(*k8s.Client), k.params)
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the target cluster")
 		return err
@@ -1563,7 +1568,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	}
 
 	// Get existing helm values for the remote cluster
-	remoteRelease, err := getRelease(remoteClient)
+	remoteRelease, err := getRelease(remoteClient, k.params)
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the remote cluster")
 		return err
@@ -1576,7 +1581,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   k.params.Namespace,
-		Name:        defaults.HelmReleaseName,
+		Name:        k.params.HelmReleaseName,
 		Values:      localHelmValues,
 		ResetValues: false,
 		ReuseValues: true,

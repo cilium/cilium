@@ -34,6 +34,10 @@ func newCmdSysdump(hooks sysdump.Hooks) *cobra.Command {
 			if sysdumpOptions.CiliumNamespace == "" && cmd.Flags().Changed("namespace") {
 				sysdumpOptions.CiliumNamespace = namespace
 			}
+			// Honor --helm-release-name global flag in case it is set and --cilium-helm-release-name is not set
+			if sysdumpOptions.CiliumHelmReleaseName == "" && cmd.Flags().Changed("helm-release-name") {
+				sysdumpOptions.CiliumHelmReleaseName = helmReleaseName
+			}
 			// Silence klog to avoid displaying "throttling" messages - those are expected.
 			klog.SetOutput(io.Discard)
 			// Collect the sysdump.
