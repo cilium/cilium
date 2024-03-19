@@ -118,8 +118,10 @@ func newCmdUninstallWithHelm() *cobra.Command {
 			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
 			var hubbleParams = hubble.Parameters{
-				Writer: os.Stdout,
-				Wait:   true,
+				Writer:          os.Stdout,
+				Wait:            true,
+				Namespace:       namespace,
+				HelmReleaseName: helmReleaseName,
 			}
 
 			if params.Wait {
