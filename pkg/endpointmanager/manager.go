@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/netip"
 	"sync"
+	"testing"
 
 	"github.com/sirupsen/logrus"
 
@@ -88,6 +89,9 @@ type endpointManager struct {
 	// locaNodeStore allows to retrieve information and observe changes about
 	// the local node.
 	localNodeStore *node.LocalNodeStore
+
+	// Allocator for local endpoint identifiers.
+	epIDAllocator *idallocator.IDAllocator
 }
 
 // endpointDeleteFunc is used to abstract away concrete Endpoint Delete
@@ -105,6 +109,7 @@ func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, 
 		subscribers:                  make(map[Subscriber]struct{}),
 		controllers:                  controller.NewManager(),
 		localNodeStore:               lns,
+		epIDAllocator:                idallocator.New(),
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 	mgr.policyMapPressure = newPolicyMapPressure()
@@ -212,12 +217,12 @@ func (mgr *endpointManager) InitMetrics(registry *metrics.Registry) {
 func (mgr *endpointManager) allocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
-		if err := idallocator.Reuse(currID); err != nil {
+		if err := mgr.epIDAllocator.Reuse(currID); err != nil {
 			return 0, fmt.Errorf("unable to reuse endpoint ID: %s", err)
 		}
 		newID = currID
 	} else {
-		id := idallocator.Allocate()
+		id := mgr.epIDAllocator.Allocate()
 		if id == uint16(0) {
 			return 0, fmt.Errorf("no more endpoint IDs available")
 		}
@@ -375,7 +380,7 @@ func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*end
 // ReleaseID releases the ID of the specified endpoint from the endpointManager.
 // Returns an error if the ID cannot be released.
 func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
-	return idallocator.Release(ep.ID)
+	return mgr.epIDAllocator.Release(ep.ID)
 }
 
 // unexpose removes the endpoint from the endpointmanager, so subsequent
@@ -430,10 +435,10 @@ func (mgr *endpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.
 }
 
 // RemoveAll removes all endpoints from the global maps.
-func (mgr *endpointManager) RemoveAll() {
+func (mgr *endpointManager) RemoveAll(t testing.TB) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	idallocator.ReallocatePool()
+	mgr.epIDAllocator.ReallocatePool(t)
 	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
 	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }
