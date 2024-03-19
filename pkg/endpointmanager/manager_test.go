@@ -463,7 +463,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 			name: "existing cilium ID",
 			preTestRun: func() {
 				ep.ID = 1
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				return args{
@@ -517,7 +517,7 @@ func (s *EndpointManagerSuite) TestLookupCNIAttachmentID(c *C) {
 		ContainerInterfaceName: "bar",
 	})
 	c.Assert(err, IsNil)
-	mgr.expose(ep)
+	c.Assert(mgr.expose(ep), IsNil)
 
 	good := mgr.LookupCNIAttachmentID("foo:bar")
 	c.Assert(good, checker.DeepEquals, ep)
@@ -549,7 +549,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 			name: "existing LookupIPv4",
 			preTestRun: func() {
 				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				return args{
@@ -617,7 +617,7 @@ func (s *EndpointManagerSuite) TestLookupCEPName(c *C) {
 				K8sPodName:   "foo",
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				return args{
@@ -642,7 +642,7 @@ func (s *EndpointManagerSuite) TestLookupCEPName(c *C) {
 				DisableLegacyIdentifiers: true,
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				return args{
@@ -767,7 +767,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 			name: "Updating all references",
 			preTestRun: func() {
 				ep.ID = 1
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				return args{}
@@ -806,7 +806,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupWant: func() want {
 				return want{
@@ -826,7 +826,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
 				ep.Options.SetIfUnset(option.ConntrackLocal, option.OptionEnabled)
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupWant: func() want {
 				return want{
@@ -874,7 +874,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				return args{
@@ -898,7 +898,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 0)
@@ -924,7 +924,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(4)
-				mgr.expose(ep)
+				c.Assert(mgr.expose(ep), IsNil)
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
