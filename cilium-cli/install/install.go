@@ -130,6 +130,11 @@ type Parameters struct {
 
 	// HelmRepository specifies the Helm repository to download Cilium Helm charts from.
 	HelmRepository string
+
+	// HelmReleaseName specifies the Helm release name for the Cilium CLI.
+	// Useful for referencing Cilium installations installed directly through Helm
+	// or overriding the Cilium CLI for install/upgrade/enable.
+	HelmReleaseName string
 }
 
 func (p *Parameters) IsDryRun() bool {
@@ -253,7 +258,7 @@ func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient *k8s.Clien
 		return err
 	}
 	helmClient := action.NewInstall(k8sClient.HelmActionConfig)
-	helmClient.ReleaseName = defaults.HelmReleaseName
+	helmClient.ReleaseName = k.params.HelmReleaseName
 	helmClient.Namespace = k.params.Namespace
 	helmClient.Wait = k.params.Wait
 	helmClient.Timeout = k.params.WaitDuration
