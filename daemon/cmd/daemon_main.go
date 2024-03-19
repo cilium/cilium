@@ -1384,13 +1384,6 @@ func initEnv(vp *viper.Viper) {
 		}
 	}
 
-	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade && option.Config.EnableHostFirewall {
-		// We should be able to support this, but we first need to
-		// check how this plays in the datapath if BPF-masquerading is
-		// enabled for IPv4 only or IPv6 only.
-		log.Fatal("IPv6 BPF masquerade is not supported along with the host firewall.")
-	}
-
 	if option.Config.EnableHighScaleIPcache {
 		if option.Config.TunnelingEnabled() {
 			log.Fatal("The high-scale IPcache mode requires native routing.")
