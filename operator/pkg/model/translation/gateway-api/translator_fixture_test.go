@@ -1056,24 +1056,16 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 					Name: "listener-insecure",
 					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
 						{
-							Name:    "very.specific.com",
-							Domains: []string{"very.specific.com", "very.specific.com:*"},
+							Name:    "*.anotherwildcard.io",
+							Domains: []string{"*.anotherwildcard.io", "*.anotherwildcard.io:*"},
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
 										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
-											PathSeparatedPrefix: "/s1",
+											PathSeparatedPrefix: "/s4",
 										},
 									},
 									Action: routeActionBackendV1,
-								},
-								{
-									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
-											PathSeparatedPrefix: "/s3",
-										},
-									},
-									Action: routeActionBackendV3,
 								},
 							},
 						},
@@ -1120,16 +1112,24 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 							},
 						},
 						{
-							Name:    "*.anotherwildcard.io",
-							Domains: []string{"*.anotherwildcard.io", "*.anotherwildcard.io:*"},
+							Name:    "very.specific.com",
+							Domains: []string{"very.specific.com", "very.specific.com:*"},
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
 										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
-											PathSeparatedPrefix: "/s4",
+											PathSeparatedPrefix: "/s1",
 										},
 									},
 									Action: routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/s3",
+										},
+									},
+									Action: routeActionBackendV3,
 								},
 							},
 						},
@@ -1294,34 +1294,6 @@ var listenerHostNameMatchingCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 					Name: "listener-insecure",
 					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
 						{
-							Name:    "bar.com",
-							Domains: []string{"bar.com", "bar.com:*"},
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-											Prefix: "/",
-										},
-									},
-									Action: routeActionBackendV1,
-								},
-							},
-						},
-						{
-							Name:    "foo.bar.com",
-							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-											Prefix: "/",
-										},
-									},
-									Action: routeActionBackendV2,
-								},
-							},
-						},
-						{
 							Name:    "*.bar.com",
 							Domains: []string{"*.bar.com", "*.bar.com:*"},
 							Routes: []*envoy_config_route_v3.Route{
@@ -1346,6 +1318,34 @@ var listenerHostNameMatchingCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										},
 									},
 									Action: routeActionBackendV3,
+								},
+							},
+						},
+						{
+							Name:    "bar.com",
+							Domains: []string{"bar.com", "bar.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+							},
+						},
+						{
+							Name:    "foo.bar.com",
+							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: routeActionBackendV2,
 								},
 							},
 						},
