@@ -53,20 +53,19 @@ established because there was a mismatch between the configured
 There could be various reasons why BGP peering is not established, such as a
 mismatch in BGP capability or an incorrect Peer IP address. BGP layer errors
 are likely to appear in the logs, but there are cases where low-level errors,
-such as lack of connectivity to the Peer IP or an eBGP Peer being ahead of the
-1-hop, may not be reflected in the logs. In such cases, using tools like
+such as lack of connectivity to the Peer IP or when an eBGP peer is more than 1
+hop away, may not be reflected in the logs. In such cases, using tools like
 ``WireShark`` or ``tcpdump`` can be effective.
 
 The existing BGP session went down immediately after applying the new CiliumBGPPeeringPolicy
 --------------------------------------------------------------------------------------------
 
 A node may be selected by multiple ``CiliumBPFPeeringPolicy`` objects based on
-the configured ``nodeSelector`` fields. A node can only have one
-``CiliumBGPPeeringPolicy`` applied, and if multiple policies are applied, the
-node will clear all BGP configurations. First, rollback the last applied
-``CiliumBGPPeeringPolicy`` and check the logs of the node where the BGP session
-went down. If multiple policies were applied, there should be logs indicating
-this:
+the configured ``nodeSelector`` fields. If multiple policies are applied, the
+BGP control plane will clear all pre-existing state configured on the node.
+First, rollback the last applied ``CiliumBGPPeeringPolicy`` and check the logs
+of the node where the BGP session went down. If multiple policies were applied,
+there should be logs indicating this:
 
 .. code:: bash
 
