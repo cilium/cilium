@@ -315,22 +315,22 @@ var hostRulesExpectedConfigEnforceHTTPS = []*envoy_config_route_v3.RouteConfigur
 		Name: "listener-insecure",
 		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
 			{
-				Name:    "foo.bar.com",
-				Domains: domainsHelper("foo.bar.com"),
-				Routes: []*envoy_config_route_v3.Route{
-					{
-						Match:  envoyRouteMatchRootPath(),
-						Action: envoyHTTPSRouteRedirect(),
-					},
-				},
-			},
-			{
 				Name:    "*.foo.com",
 				Domains: domainsHelper("*.foo.com"),
 				Routes: []*envoy_config_route_v3.Route{
 					{
 						Match:  withAuthority(envoyRouteMatchRootPath(), "^[^.]+[.]foo[.]com$"),
 						Action: envoyRouteAction("random-namespace", "wildcard-foo-com", "8080"),
+					},
+				},
+			},
+			{
+				Name:    "foo.bar.com",
+				Domains: domainsHelper("foo.bar.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyHTTPSRouteRedirect(),
 					},
 				},
 			},
@@ -573,7 +573,8 @@ var pathRulesExpectedConfig = []*envoy_config_route_v3.RouteConfiguration{
 					{
 						Match:  envoyRouteMatchPrefixPath("/aaa"),
 						Action: envoyRouteAction("random-namespace", "aaa-prefix", "8080"),
-					}},
+					},
+				},
 			},
 			{
 				Name:    "trailing-slash-path-rules",
@@ -1019,6 +1020,24 @@ var complexIngressExpectedConfigEnforceHTTPS = []*envoy_config_route_v3.RouteCon
 		Name: "listener-insecure",
 		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
 			{
+				Name:    "*",
+				Domains: domainsHelper("*"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchExactPath("/dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
+					},
+					{
+						Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
+					},
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
+					},
+				},
+			},
+			{
 				Name:    "another-very-secure.server.com",
 				Domains: domainsHelper("another-very-secure.server.com"),
 				Routes: []*envoy_config_route_v3.Route{
@@ -1051,24 +1070,6 @@ var complexIngressExpectedConfigEnforceHTTPS = []*envoy_config_route_v3.RouteCon
 					{
 						Match:  envoyRouteMatchRootPath(),
 						Action: envoyHTTPSRouteRedirect(),
-					},
-				},
-			},
-			{
-				Name:    "*",
-				Domains: domainsHelper("*"),
-				Routes: []*envoy_config_route_v3.Route{
-					{
-						Match:  envoyRouteMatchExactPath("/dummy-path"),
-						Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
-					},
-					{
-						Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
-						Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
-					},
-					{
-						Match:  envoyRouteMatchRootPath(),
-						Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
 					},
 				},
 			},
@@ -1270,16 +1271,6 @@ var multipleRouteHostnamesExpectedConfig = []*envoy_config_route_v3.RouteConfigu
 		Name: "listener-insecure",
 		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
 			{
-				Name:    "foo.example.com",
-				Domains: domainsHelper("foo.example.com"),
-				Routes: []*envoy_config_route_v3.Route{
-					{
-						Match:  envoyRouteMatchRootPath(),
-						Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
-					},
-				},
-			},
-			{
 				Name:    "bar.example.com",
 				Domains: domainsHelper("bar.example.com"),
 				Routes: []*envoy_config_route_v3.Route{
@@ -1296,6 +1287,16 @@ var multipleRouteHostnamesExpectedConfig = []*envoy_config_route_v3.RouteConfigu
 					{
 						Match:  envoyRouteMatchRootPath(),
 						Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
+					},
+				},
+			},
+			{
+				Name:    "foo.example.com",
+				Domains: domainsHelper("foo.example.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
 					},
 				},
 			},
