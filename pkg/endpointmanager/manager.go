@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -83,7 +82,7 @@ type EndpointManager struct {
 	markedEndpoints []uint16
 
 	// Allocator for local endpoint identifiers.
-	epIDAllocator *idallocator.IDAllocator
+	epIDAllocator *epIDAllocator
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -105,7 +104,7 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
 		subscribers:                  make(map[Subscriber]struct{}),
-		epIDAllocator:                idallocator.New(),
+		epIDAllocator:                newEPIDAllocator(),
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 
@@ -211,12 +210,12 @@ func (mgr *EndpointManager) InitMetrics() {
 func (mgr *EndpointManager) AllocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
-		if err := mgr.epIDAllocator.Reuse(currID); err != nil {
+		if err := mgr.epIDAllocator.reuse(currID); err != nil {
 			return 0, fmt.Errorf("unable to reuse endpoint ID: %s", err)
 		}
 		newID = currID
 	} else {
-		id := mgr.epIDAllocator.Allocate()
+		id := mgr.epIDAllocator.allocate()
 		if id == uint16(0) {
 			return 0, fmt.Errorf("no more endpoint IDs available")
 		}
@@ -340,7 +339,7 @@ func (mgr *EndpointManager) LookupPodName(name string) *endpoint.Endpoint {
 // ReleaseID releases the ID of the specified endpoint from the EndpointManager.
 // Returns an error if the ID cannot be released.
 func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
-	return mgr.epIDAllocator.Release(ep.ID)
+	return mgr.epIDAllocator.release(ep.ID)
 }
 
 // unexpose removes the endpoint from the endpointmanager, so subsequent
@@ -403,7 +402,7 @@ func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.
 func (mgr *EndpointManager) RemoveAll(c *check.C) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	mgr.epIDAllocator.ReallocatePool(c)
+	mgr.epIDAllocator.reallocatePool(c)
 	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
 	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }
