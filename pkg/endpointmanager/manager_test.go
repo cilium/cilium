@@ -129,7 +129,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		name      string
 		setupArgs func() args
 		setupWant func() want
-		cm        apiv1.EndpointChangeRequest
+		cm        *apiv1.EndpointChangeRequest
 	}{
 		{
 			name: "endpoint does not exist",
@@ -148,7 +148,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by cilium local ID",
-			cm: apiv1.EndpointChangeRequest{
+			cm: &apiv1.EndpointChangeRequest{
 				ID: 1234,
 			},
 			setupArgs: func() args {
@@ -166,7 +166,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by cilium global ID",
-			cm: apiv1.EndpointChangeRequest{
+			cm: &apiv1.EndpointChangeRequest{
 				ID: 1234,
 			},
 			setupArgs: func() args {
@@ -183,7 +183,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by container ID",
-			cm: apiv1.EndpointChangeRequest{
+			cm: &apiv1.EndpointChangeRequest{
 				ContainerID: "1234",
 			},
 			setupArgs: func() args {
@@ -201,7 +201,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by docker endpoint ID",
-			cm: apiv1.EndpointChangeRequest{
+			cm: &apiv1.EndpointChangeRequest{
 				DockerEndpointID: "1234",
 			},
 			setupArgs: func() args {
@@ -219,7 +219,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by container name",
-			cm: apiv1.EndpointChangeRequest{
+			cm: &apiv1.EndpointChangeRequest{
 				ContainerName: "foo",
 			},
 			setupArgs: func() args {
@@ -237,7 +237,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by pod name",
-			cm: apiv1.EndpointChangeRequest{
+			cm: &apiv1.EndpointChangeRequest{
 				K8sNamespace: "default",
 				K8sPodName:   "foo",
 			},
@@ -256,7 +256,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by ipv4",
-			cm: apiv1.EndpointChangeRequest{
+			cm: &apiv1.EndpointChangeRequest{
 				Addressing: &apiv1.AddressPair{
 					IPV4: "127.0.0.1",
 				},
@@ -304,12 +304,15 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), &tt.cm)
-		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+		var ep *endpoint.Endpoint
+		var err error
 		mgr := NewEndpointManager(&dummyEpSyncher{})
-
-		err = mgr.expose(ep)
-		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+		if tt.cm != nil {
+			ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), tt.cm)
+			c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+			err = mgr.expose(ep)
+			c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+		}
 
 		args := tt.setupArgs()
 		want := tt.setupWant()
