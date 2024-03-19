@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -321,7 +320,6 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		} else {
 			c.Assert(got, IsNil, Commentf("Test Name: %s", tt.name))
 		}
-		idallocator.ReallocatePool()
 	}
 }
 
@@ -629,7 +627,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 	for _, tt := range tests {
 		tt.preTestRun()
 
-		mgr.RemoveAll()
+		mgr.RemoveAll(c)
 		c.Assert(len(mgr.endpoints), Equals, 0, Commentf("Test Name: %s", tt.name))
 		c.Assert(len(mgr.endpointsAux), Equals, 0, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
