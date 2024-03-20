@@ -535,8 +535,10 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
 	ret = ipv6_hdrlen_offset(ctx, &tuple->nexthdr, l3_off);
-	if (ret < 0)
+	if (ret < 0) {
+		*l4_off = -1; /* clang workaround */
 		return ret;
+	}
 
 	*l4_off = l3_off + ret;
 

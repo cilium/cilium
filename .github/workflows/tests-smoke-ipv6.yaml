@@ -165,11 +165,14 @@ jobs:
           echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          kubectl -n kube-system cp "$(kubectl -n kube-system get pods -l k8s-app=cilium -o json | jq -r '.items[0].metadata.name')":/var/lib/cilium/bpf bpf
+          kubectl -n kube-system cp "$(kubectl -n kube-system get pods -l k8s-app=cilium -o json | jq -r '.items[0].metadata.name')":/run/cilium/state bpf/state
+          tar cvvzf bpf.tar.gz bpf
+          rm -rf bpf
 
       - name: Upload cilium-sysdump
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: ${{ failure() }}
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: bpf.tar.gz
+          path: bpf.tar.gz
