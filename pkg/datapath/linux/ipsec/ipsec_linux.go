@@ -152,12 +152,24 @@ func getGlobalIPsecKey(ip net.IP) *ipSecKey {
 // pre-shared key. The per-node-pair keys are computed with a SHA256 hash of
 // the global key, source node IP, destination node IP appended together.
 func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP, srcBootID, dstBootID []byte) []byte {
-	input := append(globalKey, srcNodeIP...)
+	inputLen := len(globalKey) + len(srcNodeIP) + len(dstNodeIP) + len(srcBootID) + len(dstBootID)
+	input := make([]byte, 0, inputLen)
+	input = append(input, globalKey...)
+	input = append(input, srcNodeIP...)
 	input = append(input, dstNodeIP...)
-	input = append(input, srcBootID...)
-	input = append(input, dstBootID...)
+	input = append(input, srcBootID[:36]...)
+	input = append(input, dstBootID[:36]...)
 	output := sha256.Sum256(input)
 	return output[:len(globalKey)]
+}
+
+// canonicalIP returns a canonical IPv4 address (4 bytes)
+// in case we were dealing with a v4 mapped V6 address.
+func canonicalIP(ip net.IP) net.IP {
+	if v4 := ip.To4(); v4 != nil {
+		return v4
+	}
+	return ip
 }
 
 // deriveNodeIPsecKey builds a per-node-pair ipSecKey object from the global
@@ -168,6 +180,9 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 		ReqID: globalKey.ReqID,
 		ESN:   globalKey.ESN,
 	}
+
+	srcNodeIP = canonicalIP(srcNodeIP)
+	dstNodeIP = canonicalIP(dstNodeIP)
 
 	if globalKey.Aead != nil {
 		nodeKey.Aead = &netlink.XfrmStateAlgo{
