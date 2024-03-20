@@ -81,6 +81,8 @@ var (
 	parallelWorkers          int
 	ciliumAgentContainerName string
 	excludeObjectFiles       bool
+	hubbleMetrics            bool
+	hubbleMetricsPort        int
 )
 
 func init() {
@@ -111,6 +113,8 @@ func init() {
 	BugtoolRootCmd.Flags().IntVar(&parallelWorkers, "parallel-workers", 0, "Maximum number of parallel worker tasks, use 0 for number of CPUs")
 	BugtoolRootCmd.Flags().StringVarP(&ciliumAgentContainerName, "cilium-agent-container-name", "", "cilium-agent", "Name of the Cilium Agent main container (when k8s-mode is true)")
 	BugtoolRootCmd.Flags().BoolVar(&excludeObjectFiles, "exclude-object-files", false, "Exclude per-endpoint object files. Template object files will be kept")
+	BugtoolRootCmd.Flags().BoolVar(&hubbleMetrics, "hubble-metrics", true, "When set, hubble prometheus metrics")
+	BugtoolRootCmd.Flags().IntVar(&hubbleMetricsPort, "hubble-metrics-port", 9965, "Port to query for hubble metrics")
 }
 
 func getVerifyCiliumPods() (k8sPods []string) {
@@ -218,6 +222,12 @@ func runTool() {
 		if envoyMetrics {
 			if err := dumpEnvoy(cmdDir, "http://admin/stats/prometheus", "envoy-metrics.txt"); err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to retrieve envoy prometheus metrics: %s\n", err)
+			}
+		}
+
+		if hubbleMetrics {
+			if err := dumpHubbleMetrics(cmdDir); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to retrieve hubble prometheus metrics: %s\n", err)
 			}
 		}
 
@@ -496,6 +506,12 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 	}
 
 	return ciliumPods, nil
+}
+
+func dumpHubbleMetrics(rootDir string) error {
+	httpClient := http.DefaultClient
+	url := fmt.Sprintf("http://localhost:%d/metrics", hubbleMetricsPort)
+	return downloadToFile(httpClient, url, filepath.Join(rootDir, "hubble-metrics.txt"))
 }
 
 func dumpEnvoy(rootDir string, resource string, fileName string) error {
