@@ -35,6 +35,7 @@ var ConfigReconcilers = cell.ProvidePrivate(
 	NewPreflightReconciler,
 	NewNeighborReconciler,
 	NewPodCIDRReconciler,
+	NewPodIPPoolReconciler,
 )
 
 // GetActiveReconcilers returns a list of reconcilers in order of priority that should be used to reconcile the BGP config.

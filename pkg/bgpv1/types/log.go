@@ -30,4 +30,10 @@ const (
 
 	// PathLogField is used as key for BGP path in the log field.
 	PathLogField = "path"
+
+	// PrefixLogField is used as key for BGP prefix in the log field.
+	PrefixLogField = "prefix"
+
+	// AdvertTypeLogField is used as key for BGP advertisement type in the log field.
+	AdvertTypeLogField = "advertisement_type"
 )
