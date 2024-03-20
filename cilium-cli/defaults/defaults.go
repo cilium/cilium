@@ -138,6 +138,7 @@ var (
 	ExpectedDropReasons = []string{
 		"Policy denied",
 		"Policy denied by denylist",
+		"Unsupported L2 protocol",
 		"Unsupported L3 protocol",
 		"Stale or unroutable IP",
 		"Authentication required",
