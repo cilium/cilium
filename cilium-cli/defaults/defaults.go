@@ -88,10 +88,7 @@ const (
 
 	IngressClassName = "cilium"
 
-	// HelmReleaseName is the default Helm release name for Cilium.
-	HelmValuesSecretName          = "cilium-cli-helm-values"
-	HelmValuesSecretKeyName       = "io.cilium.cilium-cli"
-	HelmChartVersionSecretKeyName = "io.cilium.chart-version"
+	HelmValuesSecretName = "cilium-cli-helm-values"
 
 	CiliumNoScheduleLabel = "cilium.io/no-schedule"
 
