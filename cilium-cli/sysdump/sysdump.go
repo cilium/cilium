@@ -36,6 +36,7 @@ import (
 )
 
 const sysdumpLogFile = "cilium-sysdump.log"
+const helmReleaseName = "cilium"
 
 // Options groups together the set of options required to collect a sysdump.
 type Options struct {
@@ -212,8 +213,8 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	}
 
 	if c.Options.CiliumHelmReleaseName == "" {
-		c.log("ℹ️ Using default Cilium Helm release name: %q", defaults.HelmReleaseName)
-		c.Options.CiliumHelmReleaseName = defaults.HelmReleaseName
+		c.log("ℹ️ Using default Cilium Helm release name: %q", helmReleaseName)
+		c.Options.CiliumHelmReleaseName = helmReleaseName
 	} else {
 		c.log("ℹ️ Cilium Helm release name: %q", c.Options.CiliumHelmReleaseName)
 	}
