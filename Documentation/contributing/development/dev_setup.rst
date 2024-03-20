@@ -609,6 +609,15 @@ This allows you to use a preconfigured development environment in the cloud or l
 The container is based on the official Cilium builder image and provides all the dependencies
 required to build Cilium.
 
+You can also install common packages, such as kind, kubectl, and cilium-cli, with ``contrib/scripts/devcontainer-setup.sh``:
+
+.. code-block:: shell-session
+
+    $ ./contrib/scripts/devcontainer-setup.sh
+
+Package versions can be modified to fit your requirements.
+This needs to only be set up once when the ``devcontainer`` is first created.
+
 .. note::
 
     The current Dev Container is running as root. Non-root user support requires non-root
