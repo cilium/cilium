@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -191,6 +192,10 @@ func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 	rid := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindCEP, endpoint.Namespace, endpoint.Name)
 	for _, pair := range endpoint.Networking.Addressing {
 		if pair.IPV4 != "" {
+			if len(epLabels) == 0 {
+				epLabels = k.getLabelsForIP(pair.IPV4, id)
+			}
+
 			ipsAdded = append(ipsAdded, pair.IPV4)
 			prefix := ip.IPToNetPrefix(net.ParseIP(pair.IPV4))
 			k.ipcache.UpsertMetadata(
@@ -208,6 +213,10 @@ func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 		}
 
 		if pair.IPV6 != "" {
+			if len(epLabels) == 0 {
+				epLabels = k.getLabelsForIP(pair.IPV6, id)
+			}
+
 			ipsAdded = append(ipsAdded, pair.IPV6)
 			prefix := ip.IPToNetPrefix(net.ParseIP(pair.IPV6))
 			k.ipcache.UpsertMetadata(
@@ -226,6 +235,17 @@ func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 	}
 
 	return ipsAdded
+}
+
+func (k *K8sWatcher) getLabelsForIP(ip string, id identity.NumericIdentity) labels.Labels {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+	epid := k.identityManager.LookupIdentityByID(ctx, id)
+	if epid == nil {
+		log.WithField(logfields.IPAddr, ip).Warning("Unable to find identity mapping to IP address for CEP ipcache metadata")
+		return nil
+	}
+	return epid.Labels
 }
 
 func (k *K8sWatcher) removeEndpointIPCacheMetadata(endpoint *types.CiliumEndpoint, ipsAdded []string) {

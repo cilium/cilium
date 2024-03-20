@@ -514,6 +514,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.bwManager,
 		d.db,
 		d.nodeAddrs,
+		params.IdentityAllocator,
 	)
 	params.NodeDiscovery.RegisterK8sGetters(d.k8sWatcher)
 
