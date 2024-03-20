@@ -672,7 +672,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				options["enableIPv6Masquerade"] = "false"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
 
@@ -691,7 +690,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
 				options["enableIPv6Masquerade"] = "false"
 			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
@@ -713,7 +711,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				options["enableIPv6Masquerade"] = "false"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
 
@@ -730,7 +727,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
 				options["enableIPv6Masquerade"] = "false"
 			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
