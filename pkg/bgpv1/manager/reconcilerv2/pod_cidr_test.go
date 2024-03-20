@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
@@ -41,10 +40,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		name                  string
 		peerConfig            []*v2alpha1.CiliumBGPPeerConfig
 		advertisements        []*v2alpha1.CiliumBGPAdvertisement
-		preconfiguredAdverts  map[types.Family][]string
+		preconfiguredAdverts  map[types.Family]map[string]struct{}
 		testCiliumNode        *v2api.CiliumNode
 		testBGPInstanceConfig *v2alpha1.CiliumBGPNodeInstance
-		expectedAdverts       map[types.Family][]string
+		expectedAdverts       map[types.Family]map[string]struct{}
 	}{
 		{
 			name: "pod cidr advertisement with no preconfigured advertisements",
@@ -56,7 +55,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				blueAdvert,
 			},
-			preconfiguredAdverts: map[types.Family][]string{},
+			preconfiguredAdverts: map[types.Family]map[string]struct{}{},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
@@ -81,9 +80,15 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			expectedAdverts: map[types.Family][]string{
-				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
-				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
+			expectedAdverts: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
 			},
 		},
 		{
@@ -96,7 +101,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				blueAdvert,
 			},
-			preconfiguredAdverts: map[types.Family][]string{},
+			preconfiguredAdverts: map[types.Family]map[string]struct{}{},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
@@ -129,9 +134,15 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			expectedAdverts: map[types.Family][]string{
-				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
-				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
+			expectedAdverts: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
 			},
 		},
 		{
@@ -144,9 +155,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				blueAdvert,
 			},
-			preconfiguredAdverts: map[types.Family][]string{
+			preconfiguredAdverts: map[types.Family]map[string]struct{}{
 				// pod cidr 3 is extra advertisement, reconcile should clean this.
-				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {podCIDR3},
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR3: struct{}{},
+				},
 			},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
@@ -172,9 +185,15 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			expectedAdverts: map[types.Family][]string{
-				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
-				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
+			expectedAdverts: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
 			},
 		},
 		{
@@ -188,9 +207,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				//redPodCIDRAdvert,
 				//bluePodCIDRAdvert,
 			},
-			preconfiguredAdverts: map[types.Family][]string{
+			preconfiguredAdverts: map[types.Family]map[string]struct{}{
 				// pod cidr 1,2 already advertised, reconcile should clean this as there is no matching pod cidr advertisement.
-				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
 			},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
@@ -216,7 +238,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			expectedAdverts: map[types.Family][]string{
+			expectedAdverts: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
 			},
@@ -230,10 +252,15 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				//bluePodCIDRAdvert,
 			},
-			preconfiguredAdverts: map[types.Family][]string{
-				// pod cidr 1,2 already advertised, reconcile should clean v6 advertisement.
-				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
-				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
+			preconfiguredAdverts: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
 			},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
@@ -259,8 +286,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			expectedAdverts: map[types.Family][]string{
-				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {podCIDR1, podCIDR2},
+			expectedAdverts: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1: struct{}{},
+					podCIDR2: struct{}{},
+				},
 			},
 		},
 	}
@@ -287,13 +317,13 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 
 			presetAdverts := make(AFPathsMap)
 			for preAdvertFam, preAdverts := range tt.preconfiguredAdverts {
-				var pathList []*types.Path
-				for _, preAdvert := range preAdverts {
+				pathSet := make(map[string]*types.Path)
+				for preAdvert := range preAdverts {
 					path := types.NewPathForPrefix(netip.MustParsePrefix(preAdvert))
 					path.Family = preAdvertFam
-					pathList = append(pathList, path)
+					pathSet[preAdvert] = path
 				}
-				presetAdverts[preAdvertFam] = pathList
+				presetAdverts[preAdvertFam] = pathSet
 			}
 			podCIDRReconciler.setMetadata(testBGPInstance, PodCIDRReconcilerMetadata{presetAdverts})
 
@@ -309,46 +339,16 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			}
 
 			// check if the advertisements are as expected
-			expectedAdverts := make(AFPathsMap)
-			for expectedFam, expectedAdvertsList := range tt.expectedAdverts {
-				var pathList []*types.Path
-				for _, expectedAdvert := range expectedAdvertsList {
-					pathList = append(pathList, types.NewPathForPrefix(netip.MustParsePrefix(expectedAdvert)))
+			runningFamilyPaths := make(map[types.Family]map[string]struct{})
+			for family, paths := range podCIDRReconciler.getMetadata(testBGPInstance).AFPaths {
+				pathSet := make(map[string]struct{})
+				for pathKey := range paths {
+					pathSet[pathKey] = struct{}{}
 				}
-				expectedAdverts[expectedFam] = pathList
+				runningFamilyPaths[family] = pathSet
 			}
 
-			requireEqualPodCIDRMetadata(req, expectedAdverts, podCIDRReconciler.getMetadata(testBGPInstance).AFPaths)
+			req.Equal(tt.expectedAdverts, runningFamilyPaths)
 		})
-	}
-}
-
-func requireEqualPodCIDRMetadata(req *require.Assertions, expected, running AFPathsMap) {
-	expectedFamSet := sets.New[types.Family]()
-	runningFamSet := sets.New[types.Family]()
-
-	for fam := range expected {
-		expectedFamSet.Insert(fam)
-	}
-
-	for fam := range running {
-		runningFamSet.Insert(fam)
-	}
-
-	req.Truef(runningFamSet.Equal(expectedFamSet), "expected: %v, running: %v", expectedFamSet, runningFamSet)
-
-	for fam := range expected {
-		expectedPrefixSet := sets.New[string]()
-		runningPrefixSet := sets.New[string]()
-
-		for _, path := range expected[fam] {
-			expectedPrefixSet.Insert(path.NLRI.String())
-		}
-
-		for _, path := range running[fam] {
-			runningPrefixSet.Insert(path.NLRI.String())
-		}
-
-		req.Truef(runningPrefixSet.Equal(expectedPrefixSet), "expected: %v, running: %v", expectedPrefixSet, runningPrefixSet)
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"net/netip"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -36,8 +35,6 @@ type PodCIDRReconciler struct {
 	logger     logrus.FieldLogger
 	peerAdvert *CiliumPeerAdvertisement
 }
-
-type AFPathsMap map[types.Family][]*types.Path
 
 // PodCIDRReconcilerMetadata is a map of advertisements per family, key is family type
 type PodCIDRReconcilerMetadata struct {
@@ -91,7 +88,18 @@ func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 		return err
 	}
 
-	return r.reconcileFamilyAdvertisements(ctx, p, desiredFamilyAdverts)
+	// reconcile family advertisements
+	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{
+		Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Ctx:          ctx,
+		Instance:     p.BGPInstance,
+		DesiredPaths: desiredFamilyAdverts,
+		CurrentPaths: r.getMetadata(p.BGPInstance).AFPaths,
+	})
+
+	// We set the metadata even if there is an error to make sure metadata state matches underlying BGP instance state.
+	r.setMetadata(p.BGPInstance, PodCIDRReconcilerMetadata{AFPaths: updatedAFPaths})
+	return err
 }
 
 // getDesiredPathsPerFamily returns a map of desired paths per address family.
@@ -109,84 +117,24 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(p ReconcileParams, desiredP
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
-
-			// create existingPathsSet for easier existence check.
-			existingPathsSet := sets.New[string]()
-			existingPaths, ok := desiredFamilyAdverts[agentFamily]
-			if ok {
-				for _, existingPath := range existingPaths {
-					existingPathsSet.Insert(existingPath.NLRI.String())
-				}
-			} else {
-				desiredFamilyAdverts[agentFamily] = make([]*types.Path, 0)
+			pathsPerFamily, exists := desiredFamilyAdverts[agentFamily]
+			if !exists {
+				pathsPerFamily = make(PathMap)
+				desiredFamilyAdverts[agentFamily] = pathsPerFamily
 			}
 
 			// there are some advertisements which have pod CIDR advert enabled.
 			// we need to add podCIDR prefixes to the desiredFamilyAdverts.
 			if len(familyAdverts) != 0 {
-				var paths []*types.Path
 				for _, prefix := range desiredPrefixes {
 					path := types.NewPathForPrefix(prefix)
 					path.Family = agentFamily
-
-					// skip if path already exists.
-					if existingPathsSet.Has(path.NLRI.String()) {
-						continue
-					}
-					paths = append(paths, path)
+					pathsPerFamily[path.NLRI.String()] = path
 				}
-
-				desiredFamilyAdverts[agentFamily] = append(desiredFamilyAdverts[agentFamily], paths...)
 			}
 		}
 	}
 	return desiredFamilyAdverts, nil
-}
-
-func (r *PodCIDRReconciler) reconcileFamilyAdvertisements(ctx context.Context, p ReconcileParams, desiredPaths AFPathsMap) error {
-	l := r.logger.WithFields(logrus.Fields{
-		types.ReconcilerLogField: r.Name(),
-		types.InstanceLogField:   p.DesiredConfig.Name,
-	})
-	runningState := r.getMetadata(p.BGPInstance)
-
-	// to delete family advertisements that are not in desiredPaths
-	for family := range runningState.AFPaths {
-		if _, ok := desiredPaths[family]; !ok {
-			runningAdverts, err := ReconcileAdvertisement(&AdvertisementsReconcilerParams{
-				Logger:                l,
-				Ctx:                   ctx,
-				Instance:              p.BGPInstance,
-				CurrentAdvertisements: runningState.AFPaths[family],
-				ToAdvertise:           nil,
-			})
-			if err != nil {
-				runningState.AFPaths[family] = runningAdverts
-				return err
-			}
-			delete(runningState.AFPaths, family)
-		}
-	}
-
-	// to update family advertisements that are in both runningState and desiredPaths
-	for family := range desiredPaths {
-		runningAdverts, err := ReconcileAdvertisement(&AdvertisementsReconcilerParams{
-			Logger:                l,
-			Ctx:                   ctx,
-			Instance:              p.BGPInstance,
-			CurrentAdvertisements: runningState.AFPaths[family],
-			ToAdvertise:           desiredPaths[family],
-		})
-
-		// update runningState with the new advertisements
-		// even on error, we want to update the runningState with current advertisements.
-		runningState.AFPaths[family] = runningAdverts
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (r *PodCIDRReconciler) getMetadata(i *instance.BGPInstance) PodCIDRReconcilerMetadata {
