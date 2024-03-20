@@ -27,18 +27,11 @@ To run the tests in your local environment, execute the following command from t
 
 .. code-block:: shell-session
 
-    $ make -C test run_bpf_tests
-
-The output is verbose by default. Verbose mode can be disabled by setting the ``V`` option to ``0``:
-
-.. code-block:: shell-session
-
-    $ make -C test run_bpf_tests V=0
+    $ make run_bpf_tests
 
 .. note:: 
 
-    Running BPF tests only works on Linux machines and requires admin privileges.
-    The makefile uses sudo implicitly and may prompt you for credentials.
+    Running BPF tests requires Docker and is only expected to work on Linux.
 
 Writing tests
 =============
