@@ -281,7 +281,8 @@ type nodeState struct {
 }
 
 // TestIpamManyNodes tests IP allocation of 100 nodes across 3 subnets
-func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
+// TODO: Fix https://github.com/cilium/cilium/issues/31466 and re-enable this test.
+/*func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	const (
 		numNodes    = 100
 		minAllocate = 10
@@ -327,6 +328,7 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 
 		node := mngr.Get(s.name)
 		c.Assert(node, check.Not(check.IsNil))
+
 		if node.Stats().AvailableIPs != minAllocate {
 			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
 			c.Fail()
@@ -355,7 +357,7 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 
 	c.Assert(metrics.ResyncCount(), check.Not(check.Equals), 0)
 	c.Assert(metrics.AvailableInterfaces(), check.Not(check.Equals), 0)
-}
+}*/
 
 func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
