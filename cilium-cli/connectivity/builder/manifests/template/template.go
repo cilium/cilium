@@ -6,11 +6,16 @@ package template
 import (
 	"bytes"
 	"html/template"
+	"strings"
 )
 
 // Render executes temp template with data and returns the result
 func Render(temp string, data any) (string, error) {
-	tm, err := template.New("template").Parse(temp)
+	fns := template.FuncMap{
+		"trimSuffix": func(in, suffix string) string { return strings.TrimSuffix(in, suffix) },
+	}
+
+	tm, err := template.New("template").Funcs(fns).Parse(temp)
 	if err != nil {
 		return "", err
 	}
