@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
-	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -66,9 +66,9 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 	IPGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcachetypes.K8sMetadata {
 			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) {
-				return &ipcache.K8sMetadata{
+				return &ipcachetypes.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",
 				}
@@ -181,9 +181,9 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 	IPGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcachetypes.K8sMetadata {
 			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) {
-				return &ipcache.K8sMetadata{
+				return &ipcachetypes.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",
 				}

@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -54,7 +55,7 @@ func NewListener(m Map, mn monitorNotify) *BPFListener {
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
-	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcachetypes.K8sMetadata) {
 	var (
 		k8sNamespace, k8sPodName string
 		newIdentity, oldIdentity uint32
@@ -97,7 +98,7 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 // is not required to upsert the new pair.
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
-	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	encryptKey uint8, k8sMeta *ipcachetypes.K8sMetadata) {
 	cidr := cidrCluster.AsIPNet()
 
 	scopedLog := log

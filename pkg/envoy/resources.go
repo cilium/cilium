@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -98,7 +99,7 @@ func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion
 // IP/ID mappings.
 func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
-	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	encryptKey uint8, k8sMeta *ipcachetypes.K8sMetadata) {
 	cidr := cidrCluster.AsIPNet()
 
 	cidrStr := cidr.String()

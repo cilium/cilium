@@ -119,8 +119,8 @@ func TestInjectLabels(t *testing.T) {
 	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	// Remove remote-node label, ensure transition to local cidr identity space
-	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
-	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
+	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", types.OverrideIdentity(false), labels.LabelRemoteNode)
+	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", types.OverrideIdentity(false), labels.LabelRemoteNode)
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
@@ -145,9 +145,9 @@ func TestInjectLabels(t *testing.T) {
 	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	// Clean up.
-	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid-cidr", overrideIdentity(false), labels.Labels{})
-	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid-cidr", overrideIdentity(false), labels.Labels{})
-	IPIdentityCache.metadata.remove(inClusterPrefix, "kube-uid", overrideIdentity(false), labels.LabelKubeAPIServer)
+	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid-cidr", types.OverrideIdentity(false), labels.Labels{})
+	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid-cidr", types.OverrideIdentity(false), labels.Labels{})
+	IPIdentityCache.metadata.remove(inClusterPrefix, "kube-uid", types.OverrideIdentity(false), labels.LabelKubeAPIServer)
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
@@ -175,14 +175,14 @@ func TestInjectLabels(t *testing.T) {
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityIngress, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID)
 	// Clean up.
-	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", overrideIdentity(false), labels.LabelIngress)
+	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", types.OverrideIdentity(false), labels.LabelIngress)
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix2})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 
 	// Assert that a CIDR identity can be overridden automatically (without
-	// overrideIdentity=true) when the prefix becomes associated with an entity
+	// types.OverrideIdentity=true) when the prefix becomes associated with an entity
 	// within the cluster.
 	IPIdentityCache.metadata.upsertLocked(aPrefix, source.Generated, "cnp-uid", labels.LabelWorld)
 	assert.Len(t, IPIdentityCache.metadata.m, 3)
@@ -502,7 +502,7 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.False(t, id.ID.IsReservedIdentity())
 
 	// Force an identity override
-	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", overrideIdentity(true), fooLabels)
+	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", types.OverrideIdentity(true), fooLabels)
 	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
@@ -513,7 +513,7 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.Equal(t, id.ID, fooID.ID)
 
 	// Remove identity override from prefix, should assign a CIDR identity again
-	ipc.metadata.remove(worldPrefix, "cep-uid", overrideIdentity(true), fooLabels)
+	ipc.metadata.remove(worldPrefix, "cep-uid", types.OverrideIdentity(true), fooLabels)
 	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
@@ -534,7 +534,7 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.False(t, ok)
 
 	// Create a new entry again via override
-	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", overrideIdentity(true), barLabels)
+	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", types.OverrideIdentity(true), barLabels)
 	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
@@ -552,7 +552,7 @@ func TestOverrideIdentity(t *testing.T) {
 
 	// Remove all metadata at once, this should remove the whole entry
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
-	ipc.metadata.remove(worldPrefix, "cep-uid", overrideIdentity(true), barLabels)
+	ipc.metadata.remove(worldPrefix, "cep-uid", types.OverrideIdentity(true), barLabels)
 	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
@@ -560,6 +560,39 @@ func TestOverrideIdentity(t *testing.T) {
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.Equal(t, barID.ReferenceCount, 1)
 	assert.False(t, ok)
+
+	// Add unmanaged labels to simulate what the pod watcher does when it
+	// receives a pod-add event.
+	ipc.metadata.upsertLocked(inClusterPrefix, source.Kubernetes, "pod-uid", labels.LabelUnmanaged)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, identity.ReservedIdentityUnmanaged, id.ID)
+	assert.True(t, ok)
+
+	// Override identity based on new labels, simulating what the CEP does when
+	// it receives a CEP-add event.
+	ipc.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "cep-uid", types.OverrideIdentity(true), barLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, barID.ID, id.ID)
+	assert.Equal(t, barID.Labels, allocator.LookupIdentityByID(ctx, id.ID).Labels)
+	assert.True(t, ok)
+
+	// Remove the override and assert that the identity falls back to unmanaged.
+	ipc.metadata.remove(inClusterPrefix, "cep-uid", types.OverrideIdentity(true), barLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, identity.ReservedIdentityUnmanaged, id.ID)
+	assert.True(t, ok)
 }
 
 func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {

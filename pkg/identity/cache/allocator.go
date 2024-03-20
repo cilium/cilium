@@ -31,6 +31,10 @@ var (
 	// IdentitiesPath is the path to where identities are stored in the
 	// key-value store.
 	IdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "identities", "v1")
+
+	// ErrAllocatorUninitialized is an error that occurs when the identity
+	// allocator is not yet initialized.
+	ErrAllocatorUninitialized = errors.New("allocator not initialized")
 )
 
 // CachingIdentityAllocator manages the allocation of identities for both
@@ -353,11 +357,11 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	// were successfully synced
 	err = m.WaitForInitialGlobalIdentities(ctx)
 	if err != nil {
-		return nil, false, err
+		return nil, false, &ErrGlobalIdentitiesNotReady{cause: err.Error()}
 	}
 
 	if m.IdentityAllocator == nil {
-		return nil, false, fmt.Errorf("allocator not initialized")
+		return nil, false, ErrAllocatorUninitialized
 	}
 
 	idp, isNew, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls.LabelArray()})
@@ -439,11 +443,11 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// were successfully synced
 	err = m.WaitForInitialGlobalIdentities(ctx)
 	if err != nil {
-		return false, err
+		return false, &ErrGlobalIdentitiesNotReady{cause: err.Error()}
 	}
 
 	if m.IdentityAllocator == nil {
-		return false, fmt.Errorf("allocator not initialized")
+		return false, ErrAllocatorUninitialized
 	}
 
 	// Rely on the eventual Kv-Store events for delete
@@ -548,4 +552,14 @@ func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
 	}
 
 	return idLabels
+}
+
+// ErrGlobalIdentitiesNotReady is an error that represents global identities
+// allocation is not yet ready to be used by the identity allocator.
+type ErrGlobalIdentitiesNotReady struct {
+	cause string
+}
+
+func (e *ErrGlobalIdentitiesNotReady) Error() string {
+	return "global identities not yet ready: " + e.cause
 }

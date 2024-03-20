@@ -70,6 +70,9 @@ const (
 
 var (
 	// LabelHealth is the label used for health.
+	LabelUnmanaged = Labels{IDNameUnmanaged: NewLabel(IDNameUnmanaged, "", LabelSourceReserved)}
+
+	// LabelHealth is the label used for health.
 	LabelHealth = Labels{IDNameHealth: NewLabel(IDNameHealth, "", LabelSourceReserved)}
 
 	// LabelHost is the label used for the host endpoint.

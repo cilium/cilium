@@ -13,12 +13,19 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // PolicyHandler is responsible for handling identity updates into the core
 // policy engine. See SelectorCache.UpdateIdentities() for more details.
 type PolicyHandler interface {
 	UpdateIdentities(added, deleted cache.IdentityCache, wg *sync.WaitGroup)
+}
+
+// PolicyUpdateHandler is responsible for handling policy updates into the core
+// policy engine. See Updater.TriggerPolicyUpdates() for more details.
+type PolicyUpdateHandler interface {
+	TriggerPolicyUpdates(force bool, reason string)
 }
 
 // DatapathHandler is responsible for ensuring that policy updates in the
@@ -41,12 +48,14 @@ type ResourceID string
 type ResourceKind string
 
 var (
+	ResourceKindCEP      = ResourceKind("cep")
 	ResourceKindCNP      = ResourceKind("cnp")
 	ResourceKindCCNP     = ResourceKind("ccnp")
 	ResourceKindDaemon   = ResourceKind("daemon")
 	ResourceKindEndpoint = ResourceKind("ep")
 	ResourceKindNetpol   = ResourceKind("netpol")
 	ResourceKindNode     = ResourceKind("node")
+	ResourceKindPod      = ResourceKind("pod")
 )
 
 // NewResourceID returns a ResourceID populated with the standard fields for
@@ -60,6 +69,16 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	str.WriteRune('/')
 	str.WriteString(name)
 	return ResourceID(str.String())
+}
+
+// IdentityOverride can be used to override the identity of a given prefix.
+// Must be provided together with a set of labels. Any other labels associated
+// with this prefix are ignored while an override is present.
+// This type implements ipcache.IPMetadata
+type OverrideIdentity bool
+
+func (o OverrideIdentity) IsValid() bool {
+	return o != false
 }
 
 // TunnelPeer is the IP address of the host associated with this prefix. This is
@@ -106,4 +125,44 @@ func (id RequestedIdentity) IsValid() bool {
 
 func (id RequestedIdentity) ID() identity.NumericIdentity {
 	return identity.NumericIdentity(id)
+}
+
+// K8sMetadata contains Kubernetes pod information of the IP
+type K8sMetadata struct {
+	// Namespace is the Kubernetes namespace of the pod behind the IP
+	Namespace string
+	// PodName is the Kubernetes pod name behind the IP
+	PodName string
+	// NamedPorts is the set of named ports for the pod
+	NamedPorts types.NamedPortMap
+}
+
+// IsValid returns true if K8sMetadata is valid.
+func (m *K8sMetadata) IsValid() bool {
+	// NamedPorts are optional, so no need to check them here.
+	return m.Namespace != "" && m.PodName != ""
+}
+
+// String returns the string representation of the key elements of K8sMetadata.
+func (m *K8sMetadata) String() string {
+	return m.Namespace + "/" + m.PodName
+}
+
+// Equal returns true if two K8sMetadata pointers contain the same data or are
+// both nil.
+func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
+	if m == o {
+		return true
+	} else if m == nil || o == nil {
+		return false
+	}
+	if len(m.NamedPorts) != len(o.NamedPorts) {
+		return false
+	}
+	for k, v := range m.NamedPorts {
+		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
+			return false
+		}
+	}
+	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }

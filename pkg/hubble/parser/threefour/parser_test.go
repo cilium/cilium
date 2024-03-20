@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -111,9 +112,9 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	ipGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcachetypes.K8sMetadata {
 			if ip == netip.MustParseAddr("192.168.60.11") {
-				return &ipcache.K8sMetadata{
+				return &ipcachetypes.K8sMetadata{
 					Namespace: "remote",
 					PodName:   "pod-192.168.60.11",
 				}

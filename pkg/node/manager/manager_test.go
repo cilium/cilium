@@ -72,7 +72,7 @@ func AddrOrPrefixToIP(ip string) (netip.Prefix, error) {
 	return prefix, err
 }
 
-func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
+func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcacheTypes.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
 	addr, err := AddrOrPrefixToIP(ip)
 	if err != nil {
 		i.events <- nodeEvent{fmt.Sprintf("upsert failed: %s", err), addr}

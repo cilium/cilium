@@ -119,11 +119,12 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		IdentityAllocator: idAlloc,
-		PolicyHandler:     iao.policy.GetSelectorCache(),
-		DatapathHandler:   params.EndpointManager,
-		CacheStatus:       params.CacheStatus,
+		Context:             ctx,
+		IdentityAllocator:   idAlloc,
+		PolicyHandler:       iao.policy.GetSelectorCache(),
+		PolicyUpdateHandler: policyUpdater,
+		DatapathHandler:     params.EndpointManager,
+		CacheStatus:         params.CacheStatus,
 	})
 
 	params.Lifecycle.Append(cell.Hook{

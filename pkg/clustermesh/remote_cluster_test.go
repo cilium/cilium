@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -19,8 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -51,9 +54,19 @@ func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix strin
 type fakeIPCache struct{ updates atomic.Int32 }
 
 func (f *fakeIPCache) Delete(string, source.Source) bool { return false }
-func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcache.Identity) (bool, error) {
+func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcachetypes.K8sMetadata, ipcache.Identity) (bool, error) {
 	f.updates.Add(1)
 	return false, nil
+}
+
+// TODO: Implement
+func (f *fakeIPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcachetypes.ResourceID, aux ...ipcache.IPMetadata) {
+}
+func (f *fakeIPCache) RemoveMetadata(prefix netip.Prefix, resource ipcachetypes.ResourceID, aux ...ipcache.IPMetadata) {
+}
+func (f *fakeIPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcachetypes.ResourceID) {
+}
+func (f *fakeIPCache) RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcachetypes.ResourceID) {
 }
 
 func TestRemoteClusterRun(t *testing.T) {

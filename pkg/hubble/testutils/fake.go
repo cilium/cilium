@@ -24,6 +24,7 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -342,12 +343,12 @@ var NoopLinkGetter = FakeLinkGetter{}
 
 // FakeIPGetter is used for unit tests that needs IPGetter.
 type FakeIPGetter struct {
-	OnGetK8sMetadata  func(ip netip.Addr) *ipcache.K8sMetadata
+	OnGetK8sMetadata  func(ip netip.Addr) *ipcachetypes.K8sMetadata
 	OnLookupSecIDByIP func(ip netip.Addr) (ipcache.Identity, bool)
 }
 
 // GetK8sMetadata implements FakeIPGetter.GetK8sMetadata.
-func (f *FakeIPGetter) GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata {
+func (f *FakeIPGetter) GetK8sMetadata(ip netip.Addr) *ipcachetypes.K8sMetadata {
 	if f.OnGetK8sMetadata != nil {
 		return f.OnGetK8sMetadata(ip)
 	}
@@ -364,7 +365,7 @@ func (f *FakeIPGetter) LookupSecIDByIP(ip netip.Addr) (ipcache.Identity, bool) {
 
 // NoopIPGetter always returns an empty response.
 var NoopIPGetter = FakeIPGetter{
-	OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+	OnGetK8sMetadata: func(ip netip.Addr) *ipcachetypes.K8sMetadata {
 		return nil
 	},
 	OnLookupSecIDByIP: func(ip netip.Addr) (ipcache.Identity, bool) {

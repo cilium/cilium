@@ -68,22 +68,13 @@ type IPKeyPair struct {
 	Key uint8
 }
 
-// K8sMetadata contains Kubernetes pod information of the IP
-type K8sMetadata struct {
-	// Namespace is the Kubernetes namespace of the pod behind the IP
-	Namespace string
-	// PodName is the Kubernetes pod name behind the IP
-	PodName string
-	// NamedPorts is the set of named ports for the pod
-	NamedPorts types.NamedPortMap
-}
-
 // Configuration is init-time configuration for the IPCache.
 type Configuration struct {
 	context.Context
 	// Accessors to other subsystems, provided by the daemon
 	cache.IdentityAllocator
 	ipcacheTypes.PolicyHandler
+	ipcacheTypes.PolicyUpdateHandler
 	ipcacheTypes.DatapathHandler
 	k8s.CacheStatus
 }
@@ -97,7 +88,7 @@ type IPCache struct {
 	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
 	ipToHostIPCache   map[string]IPKeyPair
-	ipToK8sMetadata   map[string]K8sMetadata
+	ipToK8sMetadata   map[string]ipcacheTypes.K8sMetadata
 
 	listeners []IPIdentityMappingListener
 
@@ -141,7 +132,7 @@ func NewIPCache(c *Configuration) *IPCache {
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		ipToHostIPCache:   map[string]IPKeyPair{},
-		ipToK8sMetadata:   map[string]K8sMetadata{},
+		ipToK8sMetadata:   map[string]ipcacheTypes.K8sMetadata{},
 		controllers:       controller.NewManager(),
 		namedPorts:        types.NewNamedPortMultiMap(),
 		metadata:          newMetadata(),
@@ -225,7 +216,7 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 
 // GetK8sMetadata returns Kubernetes metadata for the given IP address.
 // The returned pointer should *never* be modified.
-func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *K8sMetadata {
+func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *ipcacheTypes.K8sMetadata {
 	if !ip.IsValid() {
 		return nil
 	}
@@ -234,8 +225,17 @@ func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *K8sMetadata {
 	return ipc.getK8sMetadata(ip.String())
 }
 
+// GetK8sMetadata returns Kubernetes metadata for the given IP address,
+// accepting string for ease of integration with the rest of the code.
+// The returned pointer should *never* be modified.
+func (ipc *IPCache) GetK8sMetadataByString(ip string) *ipcacheTypes.K8sMetadata {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	return ipc.getK8sMetadata(ip)
+}
+
 // getK8sMetadata returns Kubernetes metadata for the given IP address.
-func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
+func (ipc *IPCache) getK8sMetadata(ip string) *ipcacheTypes.K8sMetadata {
 	if k8sMeta, ok := ipc.ipToK8sMetadata[ip]; ok {
 		return &k8sMeta
 	}
@@ -257,7 +257,7 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 // function, ensure that the corresponding delete occurs via Delete().
 //
 // Deprecated: Prefer UpsertLabels() instead.
-func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
+func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcacheTypes.K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 	return ipc.upsertLocked(ip, hostIP, hostKey, k8sMeta, newIdentity, false /* !force */)
@@ -282,7 +282,7 @@ func (ipc *IPCache) upsertLocked(
 	ip string,
 	hostIP net.IP,
 	hostKey uint8,
-	k8sMeta *K8sMetadata,
+	k8sMeta *ipcacheTypes.K8sMetadata,
 	newIdentity Identity,
 	force bool,
 ) (namedPortsChanged bool, err error) {
@@ -349,6 +349,11 @@ func (ipc *IPCache) upsertLocked(
 	// Endpoint IP identities take precedence over CIDR identities, so if the
 	// IP is a full CIDR prefix and there's an existing equivalent endpoint IP,
 	// don't notify the listeners.
+	//
+	// TODO: Rework this logic to leverage the cluster-aware metadata from
+	// ipc.metadata. Likely, the metadata will need to be passed to this
+	// function given that the metadata mutex must be taken before the ipcache
+	// mutex, which the latter is already taken at this point in the code.
 	if cidrCluster, err = cmtypes.ParsePrefixCluster(ip); err == nil {
 		if cidrCluster.IsSingleIP() {
 			if _, endpointIPFound := ipc.ipToIdentityCache[cidrCluster.AddrCluster().String()]; endpointIPFound {
@@ -588,11 +593,11 @@ func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource
 // with users of other APIs such as UpsertLabels(), UpsertMetadata() and other
 // variations on inserting metadata into the IPCache.
 func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
-	ipc.UpsertMetadata(prefix, src, resource, overrideIdentity(true), identityLabels)
+	ipc.UpsertMetadata(prefix, src, resource, ipcacheTypes.OverrideIdentity(true), identityLabels)
 }
 
 func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
-	ipc.RemoveMetadata(cidr, resource, overrideIdentity(true), identityLabels)
+	ipc.RemoveMetadata(cidr, resource, ipcacheTypes.OverrideIdentity(true), identityLabels)
 }
 
 // WaitForRevision will block until the desired revision has been reached (or passed).
@@ -889,23 +894,4 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 		}
 	}
 	return cidrs
-}
-
-// Equal returns true if two K8sMetadata pointers contain the same data or are
-// both nil.
-func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
-	if m == o {
-		return true
-	} else if m == nil || o == nil {
-		return false
-	}
-	if len(m.NamedPorts) != len(o.NamedPorts) {
-		return false
-	}
-	for k, v := range m.NamedPorts {
-		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
-			return false
-		}
-	}
-	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }
