@@ -58,7 +58,7 @@
 	___bpf_apply(__bpf_log_arg, ___bpf_narg(args))(ptr, args)
 
 /* These values have to stay in sync with the enum */
-/* values in test/bpf_tests/trf.proto */
+/* values in bpf/tests/bpftest/trf.proto */
 #define TEST_ERROR 0
 #define TEST_PASS 1
 #define TEST_FAIL 2
