@@ -30,8 +30,8 @@ var (
 	//go:embed manifests/client-egress-only-dns.yaml
 	clientEgressOnlyDNSPolicyYAML string
 
-	//go:embed manifests/client-egress-to-fqdns-one-one-one-one.yaml
-	clientEgressToFQDNsCiliumIOPolicyYAML string
+	//go:embed manifests/client-egress-to-fqdns.yaml
+	clientEgressToFQDNsPolicyYAML string
 
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
@@ -198,7 +198,7 @@ func renderTemplates(param check.Parameters) (map[string]string, error) {
 		"clientEgressToCIDRExternalDenyPolicyYAML": clientEgressToCIDRExternalDenyPolicyYAML,
 		"clientEgressL7HTTPPolicyYAML":             clientEgressL7HTTPPolicyYAML,
 		"clientEgressL7HTTPNamedPortPolicyYAML":    clientEgressL7HTTPNamedPortPolicyYAML,
-		"clientEgressToFQDNsCiliumIOPolicyYAML":    clientEgressToFQDNsCiliumIOPolicyYAML,
+		"clientEgressToFQDNsPolicyYAML":            clientEgressToFQDNsPolicyYAML,
 		"clientEgressL7TLSPolicyYAML":              clientEgressL7TLSPolicyYAML,
 		"clientEgressL7HTTPMatchheaderSecretYAML":  clientEgressL7HTTPMatchheaderSecretYAML,
 		"echoIngressFromCIDRYAML":                  echoIngressFromCIDRYAML,
