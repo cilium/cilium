@@ -931,7 +931,6 @@ func TestCount(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, k := range mapsexp.Keys(cache)[:size/4] {
-		k := k
 		if err := m.Delete(k); err != nil {
 			t.Fatal(err)
 		}
