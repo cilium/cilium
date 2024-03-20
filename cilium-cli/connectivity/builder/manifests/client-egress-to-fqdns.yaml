@@ -1,7 +1,7 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: client-egress-to-fqdns-{{.ExternalTarget}}
+  name: client-egress-to-fqdns-{{trimSuffix .ExternalTarget "."}}
 spec:
   endpointSelector:
     matchLabels:
