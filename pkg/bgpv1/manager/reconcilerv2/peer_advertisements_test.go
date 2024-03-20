@@ -77,6 +77,14 @@ var (
 		},
 	}
 
+	redAdvertWithSelector = func(selector *slimv1.LabelSelector) *v2alpha1.CiliumBGPAdvertisement {
+		cpy := redAdvert.DeepCopy()
+		for i := range cpy.Spec.Advertisements {
+			cpy.Spec.Advertisements[i].Selector = selector
+		}
+		return cpy
+	}
+
 	bluePodCIDRAdvert = v2alpha1.BGPAdvertisement{
 		AdvertisementType: v2alpha1.BGPPodCIDRAdvert,
 		Attributes: &v2alpha1.BGPAttributes{
@@ -128,6 +136,14 @@ var (
 				blueServicePodAdvert,
 			},
 		},
+	}
+
+	blueAdvertWithSelector = func(selector *slimv1.LabelSelector) *v2alpha1.CiliumBGPAdvertisement {
+		cpy := blueAdvert.DeepCopy()
+		for i := range cpy.Spec.Advertisements {
+			cpy.Spec.Advertisements[i].Selector = selector
+		}
+		return cpy
 	}
 
 	// red peer config
