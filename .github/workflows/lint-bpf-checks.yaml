@@ -43,7 +43,7 @@ jobs:
             coccinelle:
               - 'contrib/coccinelle/**'
             bpf-tests-runner:
-              - 'test/bpf_tests/**'
+              - 'bpf/tests/bpftest/**'
               - 'pkg/bpf/**'
             workflow-description:
               - '.github/workflows/lint-bpf-checks.yaml'
@@ -138,27 +138,6 @@ jobs:
     name: BPF unit/integration Tests
     runs-on: ubuntu-22.04
     steps:
-      - name: Install Go
-        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
-        with:
-          # renovate: datasource=golang-version depName=go
-          go-version: 1.22.10
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        with:
-          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
-          key: llvm-10.0
-      - name: Install LLVM and Clang prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libtinfo5
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
-        with:
-          version: "10.0"
-          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -166,4 +145,4 @@ jobs:
           fetch-depth: 0
       - name: Run BPF tests
         run: |
-          make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
+          make run_bpf_tests || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)

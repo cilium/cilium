@@ -863,7 +863,10 @@ force :;
 # it exists here so the entire source code repo can be mounted into the container.
 CILIUM_BUILDER_IMAGE=$(shell cat images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
 run_bpf_tests:
-	docker run -v $$(pwd):/src --privileged -w /src -e RUN_WITH_SUDO=false $(CILIUM_BUILDER_IMAGE) "make" "-C" "test/" "run_bpf_tests"
+	docker run --rm --privileged \
+		-v $$(pwd):/src -w /src \
+		$(CILIUM_BUILDER_IMAGE) \
+		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "all" "run"
 
 run-builder:
 	docker run -it --rm -v $$(pwd):/go/src/github.com/cilium/cilium $(CILIUM_BUILDER_IMAGE) bash
