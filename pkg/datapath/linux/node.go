@@ -1243,8 +1243,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 				ipv4CIDRs := info.GetIPv4CIDRs()
 				ipv4PodSubnets := make([]*net.IPNet, 0, len(ipv4CIDRs))
 				for _, c := range ipv4CIDRs {
-					cidr := c // create a copy to be able to take a reference
-					ipv4PodSubnets = append(ipv4PodSubnets, &cidr)
+					ipv4PodSubnets = append(ipv4PodSubnets, &c)
 				}
 				n.nodeConfig.IPv4PodSubnets = ipv4PodSubnets
 			}

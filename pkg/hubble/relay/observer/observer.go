@@ -278,7 +278,6 @@ func (fc *flowCollector) collect(ctx context.Context, g *errgroup.Group, peers [
 		}
 		connected = append(connected, p.Name)
 		fc.connectedNodes[p.Name] = struct{}{}
-		p := p
 		g.Go(func() error {
 			// retrieveFlowsFromPeer returns blocks until the peer finishes
 			// the request by closing the connection, an error occurs,

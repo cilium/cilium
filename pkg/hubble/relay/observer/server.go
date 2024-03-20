@@ -169,7 +169,6 @@ func (s *Server) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) 
 			continue
 		}
 		n.State = relaypb.NodeState_NODE_CONNECTED
-		p := p
 		g.Go(func() error {
 			n := n
 			client := s.opts.ocb.observerClient(&p)
@@ -215,7 +214,6 @@ func (s *Server) GetNamespaces(ctx context.Context, req *observerpb.GetNamespace
 			continue
 		}
 
-		p := p
 		g.Go(func() error {
 			client := s.opts.ocb.observerClient(&p)
 			nsResp, err := client.GetNamespaces(ctx, req)
@@ -273,7 +271,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 			mu.Unlock()
 			continue
 		}
-		p := p
+
 		g.Go(func() error {
 			client := s.opts.ocb.observerClient(&p)
 			status, err := client.ServerStatus(ctx, req)

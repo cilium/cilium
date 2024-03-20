@@ -278,7 +278,6 @@ func TestDB_Fuzz(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numWorkers)
 	for i := 0; i < numWorkers; i++ {
-		i := i
 		go func() {
 			fuzzWorker(&actionLog, i, numIterations)
 			wg.Done()

@@ -1992,7 +1992,6 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 
 	g, _ := errgroup.WithContext(context.TODO())
 	for _, ciliumPod := range ciliumPods {
-		ciliumPod := ciliumPod
 		g.Go(func() error {
 			var err error
 			// The plumbing of Kubernetes services typically lags
