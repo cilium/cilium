@@ -966,6 +966,15 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, 
 		cmd = append(cmd, "--insecure")
 	}
 
+	if host := peer.Address(ipFam); strings.HasSuffix(host, ".") {
+		// Let's explicitly configure the Host header in case the DNS name has a
+		// trailing dot. This allows us to use trailing dots to prevent system
+		// resolvers from appending suffixes from the search list, while
+		// circumventing shenanigans associated with the host header including
+		// the trailing dot.
+		cmd = append(cmd, "-H", fmt.Sprintf("Host: %s", strings.TrimSuffix(host, ".")))
+	}
+
 	cmd = append(cmd, opts...)
 	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
 		peer.Scheme(),
