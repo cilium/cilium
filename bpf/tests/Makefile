@@ -31,17 +31,17 @@ endif
 
 TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
-%.o: %.c $(LIB)
+%.o: %.ll %.i $(LIB)
 	@$(ECHO_CC)
-	@# Remove the .o file to force recompilation, only rely on make's caching, not clangs
+	# Remove the .o file to force recompilation, only rely on make's caching, not clangs
 	rm -f $@
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $<
+
+%.ll: %.c
+	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
-%.ll: %.c $(LIB)
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c -emit-llvm $< -o $@
-
-%.i: %.c $(LIB)
+%.i: %.c
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -E -c $< -o $@
 
