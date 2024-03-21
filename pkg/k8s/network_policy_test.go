@@ -73,6 +73,15 @@ var (
 		},
 	}
 
+	int8090        = int32(8090)
+	port8080to8090 = slim_networkingv1.NetworkPolicyPort{
+		Port: &intstr.IntOrString{
+			Type:   intstr.Int,
+			IntVal: 8080,
+		},
+		EndPort: &int8090,
+	}
+
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
 )
 
@@ -577,6 +586,36 @@ func TestParseNetworkPolicyEgressL4AllowAll(t *testing.T) {
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
 	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctxAToC90))
+}
+
+func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
+	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+		Spec: slim_networkingv1.NetworkPolicySpec{
+			PodSelector: labelSelectorA,
+			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
+				{
+					Ports: []slim_networkingv1.NetworkPolicyPort{port8080to8090},
+					To:    []slim_networkingv1.NetworkPolicyPeer{},
+				},
+			},
+		},
+	})
+
+	ctxAToC8080 := ctxAToC
+	ctxAToC8080.DPorts = []*models.Port{{Port: 8080, Protocol: models.PortProtocolTCP}}
+	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8080), api.Allowed)
+
+	ctxAToC8085 := ctxAToC
+	ctxAToC8085.DPorts = []*models.Port{{Port: 8085, Protocol: models.PortProtocolTCP}}
+	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8085), api.Allowed)
+
+	ctxAToC8090 := ctxAToC
+	ctxAToC8090.DPorts = []*models.Port{{Port: 8090, Protocol: models.PortProtocolTCP}}
+	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8090), api.Allowed)
+
+	ctxAToC8091 := ctxAToC
+	ctxAToC8091.DPorts = []*models.Port{{Port: 8091, Protocol: models.PortProtocolTCP}}
+	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8091), api.Denied)
 }
 
 func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
