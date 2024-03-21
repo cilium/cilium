@@ -787,6 +787,26 @@
                   "type": "object"
                 },
                 "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "properties": {
+                        "drop": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
                   "type": "object"
                 }
               },
@@ -1037,6 +1057,20 @@
               "type": "object"
             },
             "podSecurityContext": {
+              "properties": {
+                "fsGroup": {
+                  "type": "integer"
+                },
+                "runAsGroup": {
+                  "type": "integer"
+                },
+                "runAsNonRoot": {
+                  "type": "boolean"
+                },
+                "runAsUser": {
+                  "type": "integer"
+                }
+              },
               "type": "object"
             },
             "priorityClassName": {
@@ -1052,6 +1086,26 @@
               "type": "object"
             },
             "securityContext": {
+              "properties": {
+                "allowPrivilegeEscalation": {
+                  "type": "boolean"
+                },
+                "capabilities": {
+                  "properties": {
+                    "drop": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
               "type": "object"
             },
             "service": {
