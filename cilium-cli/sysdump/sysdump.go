@@ -1457,6 +1457,21 @@ func (c *Collector) Run() error {
 	helmTasks := []Task{
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting Helm metadata from the release",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetHelmMetadata(ctx, c.Options.CiliumHelmReleaseName, c.Options.CiliumNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to get the helm metadata from the release: %w", err)
+				}
+				if err := c.WriteString(ciliumHelmMetadataFileName, v); err != nil {
+					return fmt.Errorf("failed to write the helm metadata to the file: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting Helm values from the release",
 			Quick:           true,
 			Task: func(ctx context.Context) error {

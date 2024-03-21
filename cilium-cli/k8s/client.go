@@ -914,6 +914,32 @@ func (c *Client) GetHelmValues(_ context.Context, releaseName string, namespace 
 
 }
 
+// GetHelmMetadata is the function for cilium cli sysdump to collect the helm metadata from the release directly
+func (c *Client) GetHelmMetadata(_ context.Context, releaseName string, namespace string) (string, error) {
+	if c.RESTClientGetter == nil {
+		return "", fmt.Errorf("no RESTClientGetter for Helm Values")
+	}
+	helmDriver := ""
+	actionConfig := action.Configuration{}
+	logger := func(_ string, _ ...interface{}) {}
+	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
+		return "", err
+	}
+
+	client := action.NewGetMetadata(&actionConfig)
+	meta, err := client.Run(releaseName)
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve helm meta from release %s: %w", releaseName, err)
+	}
+
+	buf := new(bytes.Buffer)
+	if err = output.EncodeYAML(buf, meta); err != nil {
+		return "", fmt.Errorf("unable to parse helm metas from release %s: %w", releaseName, err)
+	}
+	return buf.String(), nil
+
+}
+
 // CreateEphemeralContainer will create a EphemeralContainer (debug container) in the specified pod.
 // EphemeralContainers are special containers which can be added after-the-fact in running pods. They're
 // useful for debugging, either when the target container image doesn't have necessary tools, or because
