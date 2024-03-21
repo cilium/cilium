@@ -51,7 +51,7 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 		DestPort:         dport,
 		Nexthdr:          uint8(proto),
 		TrafficDirection: uint8(direction),
-	})
+	}, f.GetPolicyMatchType())
 	if !ok {
 		logger.WithFields(logrus.Fields{
 			logfields.Identity:         remoteIdentity,
@@ -108,12 +108,12 @@ func extractFlowKey(f *flowpb.Flow) (
 	return
 }
 
-func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
-	// Check for L4 policy rules
-	derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
-
-	// TODO: We should inspect f.GetPolicyMatchType() to reduce the number of lookups here
-	if !ok {
+func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
+	switch matchType {
+	case monitorAPI.PolicyMatchL3L4, monitorAPI.PolicyMatchL4Only:
+		// Check for L4 policy rules
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
+	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         key.Identity,
@@ -121,9 +121,7 @@ func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key) (derivedFrom labels.
 			Nexthdr:          0,
 			TrafficDirection: key.TrafficDirection,
 		})
-	}
-
-	if !ok {
+	case monitorAPI.PolicyMatchAll:
 		// Check for allow-all policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         0,
