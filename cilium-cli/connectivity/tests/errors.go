@@ -48,7 +48,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID}
+		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
@@ -276,4 +276,12 @@ const (
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
 
+)
+
+var (
+	// knownBugWireguardCollision is for a known issue: https://github.com/cilium/cilium/issues/31535.
+	// In spite of this occurrence, fqdn connectivity tests still pass thus it should be ok to ignore these for a while
+	// while we fix this issue.
+	// TODO: Remove this after: #31535 has been fixed.
+	knownIssueWireguardCollision = regexMatcher{regexp.MustCompile("Cannot forward proxied DNS lookup.*:51871.*bind: address already in use")} // from: https://github.com/cilium/cilium/issues/30901
 )
