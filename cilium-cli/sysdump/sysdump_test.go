@@ -348,6 +348,10 @@ func (c *fakeClient) GetVersion(_ context.Context) (string, error) {
 	panic("implement me")
 }
 
+func (c *fakeClient) GetHelmMetadata(_ context.Context, _ string, _ string) (string, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) GetHelmValues(_ context.Context, _ string, _ string) (string, error) {
 	panic("implement me")
 }
