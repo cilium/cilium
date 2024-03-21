@@ -14,11 +14,9 @@ import (
 
 	apiv1 "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -26,7 +24,6 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/revert"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -61,21 +58,6 @@ func (s *EndpointManagerSuite) SetUpSuite(c *C) {
 func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
-
-func (s *EndpointManagerSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
-	return 0, nil, nil, nil
-}
-
-func (s *EndpointManagerSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	return nil, nil, nil
-}
-
-func (s *EndpointManagerSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
-	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
-	return nil, nil
-}
-
-func (s *EndpointManagerSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
 
 func (s *EndpointManagerSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	return nil, nil
@@ -751,10 +733,8 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 func (s *EndpointManagerSuite) TestRemove(c *C) {
 	mgr := New(&dummyEpSyncher{}, nil, nil)
 	ep := endpoint.NewTestEndpointWithState(c, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 7, endpoint.StateReady)
-	type args struct {
-	}
-	type want struct {
-	}
+	type args struct{}
+	type want struct{}
 	tests := []struct {
 		name        string
 		setupArgs   func() args
