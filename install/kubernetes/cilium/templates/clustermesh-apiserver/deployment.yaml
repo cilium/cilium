@@ -79,6 +79,10 @@ spec:
         {{- with .Values.clustermesh.apiserver.etcd.init.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
