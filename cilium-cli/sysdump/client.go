@@ -41,6 +41,7 @@ type KubernetesClient interface {
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
 	GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.Version, error)
 	GetVersion(ctx context.Context) (string, error)
+	GetHelmMetadata(ctx context.Context, releaseName string, namespace string) (string, error)
 	GetHelmValues(ctx context.Context, releaseName string, namespace string) (string, error)
 	ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error)
 	ListCiliumCIDRGroups(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error)
