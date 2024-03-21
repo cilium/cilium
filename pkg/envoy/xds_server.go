@@ -1626,7 +1626,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		if port == 0 && l4.PortName != "" {
 			port = ep.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
 			if port == 0 {
-				return true
+				return true // Skip if a named port can not be resolved (yet)
 			}
 		}
 
@@ -1703,8 +1703,10 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 			return true
 		}
 
+		// NPDS supports port ranges.
 		PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
 			Port:     uint32(port),
+			EndPort:  uint32(l4.EndPort),
 			Protocol: protocol,
 			Rules:    SortPortNetworkPolicyRules(rules),
 		})
