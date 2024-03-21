@@ -90,7 +90,9 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 }
 
 // proxyID returns a unique string to identify a proxy mapping,
-// and the resolved destination port and protocol numbers, if any.
+// and the resolved destination port number, if any.
+// For port ranges the proxy is identified by the first port in
+// the range, as overlapping proxy port ranges are not supported.
 // Must be called with e.mutex held.
 func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16, uint8) {
 	port := l4.Port

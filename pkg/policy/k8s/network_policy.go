@@ -31,10 +31,6 @@ func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 	}
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
-	if k8s.NetworkPolicyHasEndPort(k8sNP) {
-		scopedLog.Warning("EndPort in kubernetes NetworkPolicy is not supported")
-	}
-
 	opts := policy.AddOptions{
 		Source: source.Kubernetes,
 		Resource: ipcacheTypes.NewResourceID(

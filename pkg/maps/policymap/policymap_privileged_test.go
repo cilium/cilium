@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -44,7 +45,7 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 func TestPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
-	fooEntry := newKey(1, 1, 1, 1)
+	fooEntry := newKey(1, 1, SinglePortMask, 1, 1)
 	err := testMap.AllowKey(fooEntry, 0, 0)
 	require.Nil(t, err)
 
@@ -55,7 +56,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	require.EqualValues(t, fooEntry, dump[0].Key)
 
 	// Special case: allow-all entry
-	barEntry := newKey(0, 0, 0, 0)
+	barEntry := newKey(0, 0, SinglePortMask, 0, 0)
 	err = testMap.AllowKey(barEntry, 0, 0)
 	require.Nil(t, err)
 
@@ -66,8 +67,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 
 func TestDeleteNonexistentKey(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
-
-	key := newKey(27, 80, u8proto.TCP, trafficdirection.Ingress)
+	key := newKey(27, 80, SinglePortMask, u8proto.TCP, trafficdirection.Ingress)
 	err := testMap.Map.Delete(&key)
 	require.NotNil(t, err)
 	var errno unix.Errno
@@ -78,7 +78,7 @@ func TestDeleteNonexistentKey(t *testing.T) {
 func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
-	fooKey := newKey(1, 1, 1, 1)
+	fooKey := newKey(1, 1, SinglePortMask, 1, 1)
 	fooEntry := newDenyEntry(fooKey)
 	err := testMap.DenyKey(fooKey)
 	require.Nil(t, err)
@@ -91,7 +91,7 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 	require.EqualValues(t, fooEntry, dump[0].PolicyEntry)
 
 	// Special case: deny-all entry
-	barKey := newKey(0, 0, 0, 0)
+	barKey := newKey(0, 0, SinglePortMask, 0, 0)
 	err = testMap.DenyKey(barKey)
 	require.Nil(t, err)
 

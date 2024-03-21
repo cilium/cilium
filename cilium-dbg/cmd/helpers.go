@@ -346,15 +346,15 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 				err       error
 			)
 			if pa.isDeny {
-				err = policyMap.Deny(pa.label, pa.port, u8p, pa.trafficDirection)
+				err = policyMap.Deny(pa.label, pa.port, policymap.SinglePortMask, u8p, pa.trafficDirection)
 			} else {
-				err = policyMap.Allow(pa.label, pa.port, u8p, pa.trafficDirection, authType, proxyPort)
+				err = policyMap.Allow(pa.label, pa.port, policymap.SinglePortMask, u8p, pa.trafficDirection, authType, proxyPort)
 			}
 			if err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
-			if err := policyMap.Delete(pa.label, pa.port, u8p, pa.trafficDirection); err != nil {
+			if err := policyMap.Delete(pa.label, pa.port, policymap.SinglePortMask, u8p, pa.trafficDirection); err != nil {
 				Fatalf("Cannot delete policy key '%s': %s\n", entry, err)
 			}
 		}
