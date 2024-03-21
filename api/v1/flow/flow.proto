@@ -125,6 +125,11 @@ message Flow {
     repeated Policy egress_allowed_by = 21001;
     // The CiliumNetworkPolicies allowing the ingress of the flow.
     repeated Policy ingress_allowed_by = 21002;
+
+    // The CiliumNetworkPolicies denying the egress of the flow.
+    repeated Policy egress_denied_by = 21004;
+    // The CiliumNetworkPolicies denying the ingress of the flow.
+    repeated Policy ingress_denied_by = 21005;
 }
 
 enum FlowType {
