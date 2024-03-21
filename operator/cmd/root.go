@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
+	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
@@ -154,6 +155,15 @@ var (
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
+		) ciliumidentity.SharedConfig {
+			return ciliumidentity.SharedConfig{
+				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
+				EnableOperatorManageCIDs: daemonCfg.OperatorManagesGlobalIdentities,
+			}
+		}),
+
+		cell.Provide(func(
+			daemonCfg *option.DaemonConfig,
 		) ciliumendpointslice.SharedConfig {
 			return ciliumendpointslice.SharedConfig{
 				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
@@ -203,6 +213,11 @@ var (
 			// setup operations. This is a hacky workaround until the kvstore is
 			// refactored into a proper cell.
 			identitygc.Cell,
+
+			// CiliumIdentity controller manages Cilium Identity API objects. It
+			// creates, deletes and updates Cilium Identities (CIDs) based on CID,
+			// Pod, Namespace and CES events.
+			ciliumidentity.Cell,
 
 			// CiliumEndpointSlice controller depends on the CiliumEndpoint and
 			// CiliumEndpointSlice resources. It reconciles the state of CESs in the
