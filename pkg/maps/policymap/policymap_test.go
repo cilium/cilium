@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -263,7 +264,7 @@ func TestPolicyMapWildcarding(t *testing.T) {
 		}
 
 		// Get key
-		key := newKey(uint32(tt.args.id), uint16(tt.args.dport), u8proto.U8proto(tt.args.proto),
+		key := newKey(uint32(tt.args.id), uint16(tt.args.dport), policyapi.FullPortMask, u8proto.U8proto(tt.args.proto),
 			trafficdirection.TrafficDirection(tt.args.trafficDirection))
 
 		// Compure entry & validate key and entry
