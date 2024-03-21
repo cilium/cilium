@@ -4,12 +4,14 @@
 package ciliumidentity
 
 import (
-	"errors"
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/sirupsen/logrus"
 )
 
 // SecIDs is used to handle duplicate CIDs. Operator itself will not generate
@@ -26,12 +28,15 @@ type CIDState struct {
 	// Maps label string generated from GlobalIdentity.GetKey() to CID name.
 	labelsToID map[string]*SecIDs
 	mu         lock.RWMutex
+
+	logger logrus.FieldLogger
 }
 
-func NewCIDState() *CIDState {
+func NewCIDState(logger logrus.FieldLogger) *CIDState {
 	cidState := &CIDState{
 		idToLabels: make(map[string]*key.GlobalIdentity),
 		labelsToID: make(map[string]*SecIDs),
+		logger:     logger,
 	}
 
 	return cidState
@@ -49,11 +54,13 @@ func (c *CIDState) Upsert(id string, k *key.GlobalIdentity) {
 		return
 	}
 
+	c.logger.Infof("Upsert internal mapping between Cilium Identity %s and labels %s", id, k.Labels().String())
+
 	c.idToLabels[id] = k
 
 	keyStr := k.GetKey()
 	secIDs, exists := c.labelsToID[keyStr]
-	if !exists {
+	if !exists || secIDs == nil {
 		c.labelsToID[keyStr] = &SecIDs{
 			selectedID: id,
 			ids:        map[string]struct{}{id: {}},
@@ -76,6 +83,8 @@ func (c *CIDState) Remove(id string) {
 	if !exists {
 		return
 	}
+
+	c.logger.Infof("Remove internal mapping between Cilium Identity %s and labels %s", id, k.Labels().String())
 
 	delete(c.idToLabels, id)
 
@@ -161,32 +170,21 @@ func (c *CIDUsageInPods) AssignCIDToPod(podName, cidName string) (string, int) {
 }
 
 // RemovePod removes the pod from the pod to CID map, decrements the CID usage
-// and returns the CID name and its usage count after decrementing the usage.
+// and returns CID name, its usage count after decrementing the usage and if the
+// pod is found in the cache.
 // The return values are used to track when old CIDs are no longer used.
-func (c *CIDUsageInPods) RemovePod(podName string) (string, int, error) {
+func (c *CIDUsageInPods) RemovePod(podName string) (string, int, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	cidName, exists := c.podToCID[podName]
 	if !exists {
-		return "", 0, errors.New("cilium identity not found in pods usage cache")
+		return "", 0, false
 	}
 	count := c.decrementUsage(cidName)
 	delete(c.podToCID, podName)
 
-	return cidName, count, nil
-}
-
-func (c *CIDUsageInPods) CIDUsedByPod(podName string) (string, bool) {
-	if len(podName) == 0 {
-		return "", false
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	cidName, exists := c.podToCID[podName]
-	return cidName, exists
+	return cidName, count, true
 }
 
 func (c *CIDUsageInPods) CIDUsageCount(cidName string) int {
@@ -309,4 +307,85 @@ func (c *CIDUsageInCES) decrementUsage(cidName int64) int {
 	}
 
 	return count
+}
+
+type EnqueueTimeTracker struct {
+	enqueuedAt map[string]time.Time
+	mu         lock.Mutex
+}
+
+func (e *EnqueueTimeTracker) SetEnqueueTimeIfNotSet(item string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.enqueuedAt[item].IsZero() {
+		e.enqueuedAt[item] = time.Now()
+	}
+}
+
+func (e *EnqueueTimeTracker) GetEnqueueTimeAndReset(item string) (time.Time, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	enqueuedTime, exists := e.enqueuedAt[item]
+	if !exists {
+		return time.Time{}, false
+	}
+
+	delete(e.enqueuedAt, item)
+	return enqueuedTime, true
+}
+
+// CIDDeletionTracker tracks which CIDs are marked for deletion.
+// This is required for simultaneous CID management by both cilium-operator and
+// cilium-agent.
+type CIDDeletionTracker struct {
+	markedForDeletion map[string]time.Time
+	mu                lock.RWMutex
+
+	logger logrus.FieldLogger
+}
+
+func NewCIDDeletionTracker(logger logrus.FieldLogger) *CIDDeletionTracker {
+	return &CIDDeletionTracker{
+		markedForDeletion: make(map[string]time.Time),
+		logger:            logger,
+	}
+}
+
+func (c *CIDDeletionTracker) Mark(cidName string) {
+	if len(cidName) == 0 {
+		return
+	}
+
+	c.logger.WithField(logfields.CIDName, cidName).Info("Add Cilium Identitiy deletion mark")
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.markedForDeletion[cidName] = time.Now()
+}
+
+func (c *CIDDeletionTracker) Unmark(cidName string) {
+	if len(cidName) == 0 {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, exists := c.markedForDeletion[cidName]; !exists {
+		return
+	}
+
+	c.logger.WithField(logfields.CIDName, cidName).Info("Remove Cilium Identity deletion mark")
+
+	delete(c.markedForDeletion, cidName)
+}
+
+func (c *CIDDeletionTracker) MarkedTime(cidName string) (time.Time, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	markedTime, marked := c.markedForDeletion[cidName]
+	return markedTime, marked
 }

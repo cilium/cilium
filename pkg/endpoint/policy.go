@@ -913,6 +913,20 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	})
 }
 
+// UpdateSecurityIdentity updates the security identity of the endpoint using
+// the SetIdentity(), after the lock is aquired.
+func (e *Endpoint) UpdateSecurityIdentity(identity *identityPkg.Identity, newEndpoint bool) error {
+	if err := e.lockAlive(); err != nil {
+		return ErrNotAlive
+	}
+
+	defer e.unlock()
+
+	e.SetIdentity(identity, newEndpoint)
+
+	return nil
+}
+
 // AnnotationsResolverCB provides an implementation for resolving the pod
 // annotations.
 type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)

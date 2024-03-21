@@ -29,9 +29,12 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/hybrid"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -74,6 +77,7 @@ type policyParams struct {
 	SecretManager   certificatemanager.SecretManager
 	CacheStatus     k8s.CacheStatus
 	ClusterInfo     cmtypes.ClusterInfo
+	CiliumIdentities resource.Resource[*cilium_api_v2.CiliumIdentity]
 }
 
 type policyOut struct {
@@ -99,8 +103,21 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+
 	iao := &identityAllocatorOwner{}
-	idAlloc := cache.NewCachingIdentityAllocator(iao)
+	var idAlloc CachingIdentityAllocator
+	if option.Config.OperatorManagesGlobalIdentities {
+		if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+			return policyOut{}, fmt.Errorf("operator managing global identities is only supported with CRD identity allocation mode")
+		}
+		if option.Config.DisableCiliumEndpointCRD {
+			return policyOut{}, fmt.Errorf("operator managing global identities is only supported when Cilium Endpoint CRD is enabled")
+		}
+		idAlloc = hybrid.NewHybridIDAllocator(ctx, iao, params.CiliumIdentities)
+	} else {
+		idAlloc = cache.NewCachingIdentityAllocator(iao)
+	}
 
 	iao.policy = policy.NewStoppedPolicyRepository(
 		idAlloc,
@@ -115,8 +132,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		return policyOut{}, fmt.Errorf("failed to create policy update trigger: %w", err)
 	}
 	iao.policyUpdater = policyUpdater
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           ctx,

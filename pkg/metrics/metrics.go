@@ -563,6 +563,11 @@ var (
 	// processed (successful and failed) requests
 	APILimiterProcessedRequests = NoOpCounterVec
 
+	// LocalEndpointIDReconcileTotal is the count of reconciliation for local
+	// endpoints by the local identity allocator. It includes successful and
+	// failed reconciliation counts.
+	LocalEndpointIDReconcileTotal = NoOpCounterVec
+
 	// WorkQueueDepth is the depth of the workqueue
 	//
 	// We set actual metrics here instead of NoOp for the workqueue metrics
@@ -710,6 +715,7 @@ type LegacyMetrics struct {
 	APILimiterRateLimit              metric.Vec[metric.Gauge]
 	APILimiterAdjustmentFactor       metric.Vec[metric.Gauge]
 	APILimiterProcessedRequests      metric.Vec[metric.Counter]
+	LocalEndpointIDReconcileTotal    metric.Vec[metric.Counter]
 	WorkQueueDepth                   metric.Vec[metric.Gauge]
 	WorkQueueAddsTotal               metric.Vec[metric.Counter]
 	WorkQueueLatency                 metric.Vec[metric.Observer]
@@ -1311,6 +1317,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			LabelAddressType,
 		}),
 
+		LocalEndpointIDReconcileTotal: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: Namespace + "_local_endpoint_id_reconcile_total",
+			Namespace: Namespace,
+			Name:      "local_endpoint_id_reconcile_total",
+			Help:      "Count of reconcilations for local endpoints by the local identity allocator",
+		}, []string{LabelOutcome}),
+
 		WorkQueueDepth:                   WorkQueueDepth,
 		WorkQueueAddsTotal:               WorkQueueAddsTotal,
 		WorkQueueLatency:                 WorkQueueLatency,
@@ -1404,6 +1417,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APILimiterRateLimit = lm.APILimiterRateLimit
 	APILimiterAdjustmentFactor = lm.APILimiterAdjustmentFactor
 	APILimiterProcessedRequests = lm.APILimiterProcessedRequests
+	LocalEndpointIDReconcileTotal = lm.LocalEndpointIDReconcileTotal
 
 	return lm
 }

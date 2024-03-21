@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity/key"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -34,10 +37,10 @@ func TestMain(m *testing.M) {
 func TestCIDState(t *testing.T) {
 	// The subtests below share the same state to serially test insert, lookup and
 	// remove operations of CIDState.
-	state := NewCIDState()
-	k1 := GetCIDKeyFromK8sLabels(k8sLables_A)
-	k2 := GetCIDKeyFromK8sLabels(k8sLables_B)
-	k3 := GetCIDKeyFromK8sLabels(k8sLables_B_duplicate)
+	state := NewCIDState(logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-identity-controller"))
+	k1 := key.GetCIDKeyFromK8sLabels(k8sLables_A)
+	k2 := key.GetCIDKeyFromK8sLabels(k8sLables_B)
+	k3 := key.GetCIDKeyFromK8sLabels(k8sLables_B_duplicate)
 
 	t.Run("Insert into CID state", func(t *testing.T) {
 		state.Upsert("1", k1)
@@ -94,12 +97,12 @@ func TestCIDState(t *testing.T) {
 
 		cidKey, exists := state.LookupByID("1")
 		assert.Equal(t, true, exists, "cid 1 LookupByID - found")
-		assert.Equal(t, GetCIDKeyFromK8sLabels(k8sLables_A), cidKey, "cid 1 LookupByID - correct key")
+		assert.Equal(t, key.GetCIDKeyFromK8sLabels(k8sLables_A), cidKey, "cid 1 LookupByID - correct key")
 
-		_, exists = state.LookupByKey(GetCIDKeyFromK8sLabels(k8sLables_C))
+		_, exists = state.LookupByKey(key.GetCIDKeyFromK8sLabels(k8sLables_C))
 		assert.Equal(t, false, exists, "labels C LookupByKey - not found")
 
-		cidName, exists := state.LookupByKey(GetCIDKeyFromK8sLabels(k8sLables_A))
+		cidName, exists := state.LookupByKey(key.GetCIDKeyFromK8sLabels(k8sLables_A))
 		assert.Equal(t, true, exists, "labels C LookupByKey - not found")
 		assert.Equal(t, "1", cidName, "labels C LookupByKey - correct CID")
 	})
@@ -142,10 +145,10 @@ func TestCIDState(t *testing.T) {
 func TestCIDStateThreadSafety(t *testing.T) {
 	// This test ensures that no changes to the CID state break its thread safety.
 	// Multiple go routines in parallel continuously keep using CIDState.
-	state := NewCIDState()
+	state := NewCIDState(logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-identity-controller"))
 
-	k := GetCIDKeyFromK8sLabels(k8sLables_A)
-	k2 := GetCIDKeyFromK8sLabels(k8sLables_B)
+	k := key.GetCIDKeyFromK8sLabels(k8sLables_A)
+	k2 := key.GetCIDKeyFromK8sLabels(k8sLables_B)
 
 	wg := sync.WaitGroup{}
 	queryStateFunc := func() {
@@ -189,12 +192,12 @@ func TestCIDUsageInPods(t *testing.T) {
 	podName1 := "pod1"
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists := state.CIDUsedByPod(podName1)
+	usedCID, exists := state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
-	prevCID, count, err := state.RemovePod(podName1)
-	assert.Error(t, err)
+	prevCID, count, found := state.RemovePod(podName1)
+	assert.Equal(t, false, found)
 	assert.Equal(t, "", prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 
@@ -204,7 +207,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -215,7 +218,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -226,7 +229,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -237,7 +240,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 2, state.CIDUsageCount(cidName2), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -249,24 +252,24 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
 	assertTxt = "Remove Pod 1"
-	prevCID, count, err = state.RemovePod(podName1)
-	assert.NoError(t, err)
+	prevCID, count, found = state.RemovePod(podName1)
+	assert.Equal(t, true, found)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
 	assertTxt = "Remove Pod 2"
-	prevCID, count, err = state.RemovePod(podName2)
-	assert.NoError(t, err)
+	prevCID, count, found = state.RemovePod(podName2)
+	assert.Equal(t, true, found)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 }
@@ -320,4 +323,57 @@ func TestCIDUsageInCES(t *testing.T) {
 	assert.Equal(t, 2, len(unusedCIDs), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("2000"), assertTxt)
+}
+
+func TestCIDDeletionTracker(t *testing.T) {
+	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-identity-controller-test")
+	c := NewCIDDeletionTracker(logger)
+	markedTime, isMarked := c.MarkedTime("1000")
+	assert.Equal(t, false, isMarked)
+	assert.Equal(t, time.Time{}, markedTime)
+
+	c.Mark("1000")
+	markedTime, isMarked = c.MarkedTime("1000")
+	assert.Equal(t, true, isMarked)
+	assert.NotEqual(t, time.Time{}, markedTime)
+
+	c.Mark("2000")
+	markedTime, isMarked = c.MarkedTime("2000")
+	assert.Equal(t, true, isMarked)
+	assert.NotEqual(t, time.Time{}, markedTime)
+
+	c.Unmark("1000")
+	markedTime, isMarked = c.MarkedTime("1000")
+	assert.Equal(t, false, isMarked)
+	assert.Equal(t, time.Time{}, markedTime)
+
+	c.Unmark("3000")
+	markedTime, isMarked = c.MarkedTime("2000")
+	assert.Equal(t, true, isMarked)
+	assert.NotEqual(t, time.Time{}, markedTime)
+	markedTime, isMarked = c.MarkedTime("3000")
+	assert.Equal(t, false, isMarked)
+	assert.Equal(t, time.Time{}, markedTime)
+}
+
+func TestEnqueueTimeTracker(t *testing.T) {
+	e := EnqueueTimeTracker{enqueuedAt: make(map[string]time.Time)}
+	enqueueAt, exists := e.GetEnqueueTimeAndReset("1000")
+	assert.Equal(t, false, exists)
+	assert.Equal(t, time.Time{}, enqueueAt)
+
+	e.SetEnqueueTimeIfNotSet("1000")
+	enqueueAt, exists = e.GetEnqueueTimeAndReset("1000")
+	assert.Equal(t, true, exists)
+	assert.NotEqual(t, time.Time{}, enqueueAt)
+
+	enqueueAt, exists = e.GetEnqueueTimeAndReset("1000")
+	assert.Equal(t, false, exists)
+	assert.Equal(t, time.Time{}, enqueueAt)
+
+	e.SetEnqueueTimeIfNotSet("2000")
+	e.SetEnqueueTimeIfNotSet("2000")
+	enqueueAt, exists = e.GetEnqueueTimeAndReset("2000")
+	assert.Equal(t, true, exists)
+	assert.NotEqual(t, time.Time{}, enqueueAt)
 }

@@ -665,8 +665,14 @@ const (
 	// CEPUID is the UID of the CiliumEndpoint.
 	CEPUID = "ciliumEndpointUID"
 
+	// CIDName is the name of the CiliumIdentity.
+	CIDName = "ciliumIdentityName"
+
 	// CESName is the name of the CiliumEndpointSlice.
 	CESName = "ciliumEndpointSliceName"
+
+	// CIDCreated indicates whether a new CiliumIdentity is created.
+	CIDCreated = "ciliumIdentityCreated"
 
 	// WorkQueueQPSLimit is the QPS limit for WorkQueues.
 	WorkQueueQPSLimit = "workQueueQPSLimit"

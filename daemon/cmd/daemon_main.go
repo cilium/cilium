@@ -1032,6 +1032,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
 
+	flags.Bool(option.OperatorManagesGlobalIdentities, false, "Denotes whether cilium-operator is responsible for creating global security identities in the form of Cilium Identity custom resource")
+	option.BindEnv(vp, option.OperatorManagesGlobalIdentities)
+
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
 	option.BindEnv(vp, option.EnableK8sTerminatingEndpoint)
 
