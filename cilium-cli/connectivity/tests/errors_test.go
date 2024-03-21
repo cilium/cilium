@@ -7,7 +7,25 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/blang/semver/v4"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestErrorExceptionMatching(t *testing.T) {
+	s := NoErrorsInLogs(semver.MustParse("1.15.0")).(*noErrorsInLogs)
+	fails := s.findUniqueFailures(
+		`level=error msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
+		level=info msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
+level=info msg="foo"
+level=error msg="bar"
+level=error error="Failed to update lock:..."
+level=error msg="bar"
+		`)
+	assert.Equal(t, len(fails), 1)
+	assert.Contains(t, fails, "level=error msg=\"bar\"")
+	assert.Equal(t, fails["level=error msg=\"bar\""], 2)
+}
 
 func TestComputeExpectedDropReasons(t *testing.T) {
 	defaultReasons := []string{"reason0", "reason1"}
