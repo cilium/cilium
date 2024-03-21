@@ -80,6 +80,7 @@ const (
 	cniConfigMapFileName                     = "cni-configmap-<ts>.yaml"
 	cniConfigFileName                        = "cniconf-%s-%s-<ts>.txt"
 	eniconfigsFileName                       = "aws-eniconfigs-<ts>.yaml"
+	ciliumHelmMetadataFileName               = "cilium-helm-metadata-<ts>.yaml"
 	ciliumHelmValuesFileName                 = "cilium-helm-values-<ts>.yaml"
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
