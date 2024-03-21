@@ -233,7 +233,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	mngr.Subscribe(dp)
 	c.Assert(err, check.IsNil)
 
@@ -305,7 +305,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -387,7 +387,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -408,7 +408,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -440,7 +440,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	mngr.Subscribe(signalNodeHandler)
 	c.Assert(err, check.IsNil)
 	defer mngr.Stop(context.TODO())
@@ -484,7 +484,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 func (s *managerTestSuite) TestIpcache(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -532,7 +532,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -608,7 +608,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&option.DaemonConfig{EnableRemoteNodeIdentity: true}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{EnableRemoteNodeIdentity: true}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -684,7 +684,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&option.DaemonConfig{EncryptNode: true, EnableIPSec: true}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{EncryptNode: true, EnableIPSec: true}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -779,7 +779,7 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -875,7 +875,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 
 	baseBackgroundSyncInterval = 1 * time.Millisecond
 	hp := cell.NewHealthProvider()
-	m, err := New(&option.DaemonConfig{}, newIPcacheMock(), newIPSetMock(), NewNodeMetrics(), cell.TestScopeFromProvider(cell.FullModuleID{"test"}, hp))
+	m, err := New(&option.DaemonConfig{}, newIPcacheMock(), newIPSetMock(), nil, NewNodeMetrics(), cell.TestScopeFromProvider(cell.FullModuleID{"test"}, hp))
 	assert.NoError(err)
 
 	m.nodes[nodeTypes.Identity{
@@ -937,7 +937,7 @@ func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New(&option.DaemonConfig{LocalRouterIPv4: "169.254.4.6"}, ipcache, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{LocalRouterIPv4: "169.254.4.6"}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1032,10 +1032,11 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
+	filter := func(no *nodeTypes.Node) bool { return no.Name != "node1" }
 	mngr, err := New(&option.DaemonConfig{
 		RoutingMode:          option.RoutingModeNative,
 		EnableIPv4Masquerade: true,
-	}, newIPcacheMock(), newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), cell.TestScope())
 	mngr.Subscribe(dp)
 	c.Assert(err, check.IsNil)
 	defer mngr.Stop(context.TODO())
@@ -1082,6 +1083,39 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", true)
+
+	n2 := nodeTypes.Node{
+		Name:    "node2",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.1.0.1"),
+			},
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("2001:ABCE::1"),
+			},
+		},
+		Source: source.CustomResource,
+	}
+	mngr.NodeUpdated(n2)
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		c.Assert(nodeEvent, checker.DeepEquals, n2)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		c.Errorf("timeout while waiting for NodeAdd() event")
+	}
+
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", true)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.1.0.1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCE::1", false)
 
 	n1.IPv4HealthIP = net.ParseIP("192.0.2.20")
 	mngr.NodeUpdated(n1)
