@@ -77,7 +77,7 @@ cilium-agent [flags]
       --conntrack-gc-max-interval duration                        Set the maximum interval for the connection-tracking garbage collection
       --controller-group-metrics strings                          List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                                 Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
-      --datapath-mode string                                      Datapath mode name (default "veth")
+      --datapath-mode string                                      Datapath mode name (veth, netkit, lb-only) (default "veth")
   -D, --debug                                                     Enable debugging mode
       --debug-verbose strings                                     List of enabled verbose debug groups
       --devices strings                                           List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'

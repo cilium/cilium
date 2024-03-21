@@ -284,3 +284,5 @@ replace (
 	// as to why we are using a private fork.
 	sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.8.0-2
 )
+
+replace github.com/cilium/ebpf => github.com/cilium/ebpf v0.13.3-0.20240314165416-06282fb6ba65

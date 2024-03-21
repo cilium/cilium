@@ -2756,7 +2756,8 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth"
+        "veth",
+        "netkit"
       ]
     },
     "DebugInfo": {
@@ -8620,7 +8621,8 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth"
+        "veth",
+        "netkit"
       ]
     },
     "DebugInfo": {

@@ -56,7 +56,7 @@ type buildResult struct {
 	err       error
 }
 
-func receiveResult(c *C, results chan buildResult) (*buildResult, error) {
+func receiveResult(results chan buildResult) (*buildResult, error) {
 	select {
 	case result := <-results:
 		if result.err != nil {
@@ -122,7 +122,7 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		compiled := make(map[string]int, t.builds)
 		used := make(map[string]int, t.builds)
 		for i := 0; i < t.builds; i++ {
-			result, err := receiveResult(c, results)
+			result, err := receiveResult(results)
 			c.Assert(err, IsNil)
 
 			used[result.path] = used[result.path] + 1

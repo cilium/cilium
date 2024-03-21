@@ -230,8 +230,8 @@ type Endpoint struct {
 	// Constant after endpoint creation / restoration.
 	IPv4IPAMPool string
 
-	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
-	// Constant after endpoint creation / restoration.
+	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint (veth),
+	// or it may be all zeroes (netkit). Constant after endpoint creation / restoration.
 	nodeMAC mac.MAC
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from

@@ -104,6 +104,8 @@ func wrapRawLink(raw *RawLink) (_ Link, err error) {
 		return &tcxLink{*raw}, nil
 	case NetfilterType:
 		return &netfilterLink{*raw}, nil
+	case NetkitType:
+		return &netkitLink{*raw}, nil
 	default:
 		return raw, nil
 	}
@@ -140,6 +142,7 @@ type NetNsInfo sys.NetNsLinkInfo
 type XDPInfo sys.XDPLinkInfo
 type TCXInfo sys.TcxLinkInfo
 type NetfilterInfo sys.NetfilterLinkInfo
+type NetkitInfo sys.NetkitLinkInfo
 
 // Tracing returns tracing type-specific link info.
 //
@@ -343,6 +346,8 @@ func (l *RawLink) Info() (*Info, error) {
 		extra = &TCXInfo{}
 	case NetfilterType:
 		extra = &NetfilterInfo{}
+	case NetkitType:
+		extra = &NetkitInfo{}
 	default:
 		return nil, fmt.Errorf("unknown link info type: %d", info.Type)
 	}

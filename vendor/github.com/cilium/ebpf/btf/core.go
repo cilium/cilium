@@ -164,6 +164,33 @@ func (k coreKind) String() string {
 	}
 }
 
+type mergedSpec []*Spec
+
+func (s mergedSpec) TypeByID(id TypeID) (Type, error) {
+	for _, sp := range s {
+		t, err := sp.TypeByID(id)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		return t, nil
+	}
+	return nil, fmt.Errorf("look up type with ID %d (first ID is %d): %w", id, s[0].imm.firstTypeID, ErrNotFound)
+}
+
+func (s mergedSpec) NamedTypes(name essentialName) []TypeID {
+	var typeIDs []TypeID
+	for _, sp := range s {
+		namedTypes := sp.imm.namedTypes[name]
+		if len(namedTypes) > 0 {
+			typeIDs = append(typeIDs, namedTypes...)
+		}
+	}
+	return typeIDs
+}
+
 // CORERelocate calculates changes needed to adjust eBPF instructions for differences
 // in types.
 //
@@ -177,17 +204,16 @@ func (k coreKind) String() string {
 //
 // Fixups are returned in the order of relos, e.g. fixup[i] is the solution
 // for relos[i].
-func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder, resolveLocalTypeID func(Type) (TypeID, error)) ([]COREFixup, error) {
-	if target == nil {
-		var err error
-		target, _, err = kernelSpec()
-		if err != nil {
-			return nil, fmt.Errorf("load kernel spec: %w", err)
-		}
+func CORERelocate(relos []*CORERelocation, targets []*Spec, bo binary.ByteOrder, resolveLocalTypeID func(Type) (TypeID, error)) ([]COREFixup, error) {
+	if len(targets) == 0 {
+		// Explicitly check for nil here since the argument used to be optional.
+		return nil, fmt.Errorf("targets must be provided")
 	}
 
-	if bo != target.imm.byteOrder {
-		return nil, fmt.Errorf("can't relocate %s against %s", bo, target.imm.byteOrder)
+	for _, target := range targets {
+		if bo != target.imm.byteOrder {
+			return nil, fmt.Errorf("can't relocate %s against %s", bo, target.imm.byteOrder)
+		}
 	}
 
 	type reloGroup struct {
@@ -229,14 +255,15 @@ func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder, re
 		group.indices = append(group.indices, i)
 	}
 
+	mergeTarget := mergedSpec(targets)
 	for localType, group := range relosByType {
 		localTypeName := localType.TypeName()
 		if localTypeName == "" {
 			return nil, fmt.Errorf("relocate unnamed or anonymous type %s: %w", localType, ErrNotSupported)
 		}
 
-		targets := target.imm.namedTypes[newEssentialName(localTypeName)]
-		fixups, err := coreCalculateFixups(group.relos, target, targets, bo)
+		targets := mergeTarget.NamedTypes(newEssentialName(localTypeName))
+		fixups, err := coreCalculateFixups(group.relos, &mergeTarget, targets, bo)
 		if err != nil {
 			return nil, fmt.Errorf("relocate %s: %w", localType, err)
 		}
@@ -259,7 +286,7 @@ var errIncompatibleTypes = errors.New("incompatible types")
 //
 // The best target is determined by scoring: the less poisoning we have to do
 // the better the target is.
-func coreCalculateFixups(relos []*CORERelocation, targetSpec *Spec, targets []TypeID, bo binary.ByteOrder) ([]COREFixup, error) {
+func coreCalculateFixups(relos []*CORERelocation, targetSpec *mergedSpec, targets []TypeID, bo binary.ByteOrder) ([]COREFixup, error) {
 	bestScore := len(relos)
 	var bestFixups []COREFixup
 	for _, targetID := range targets {
