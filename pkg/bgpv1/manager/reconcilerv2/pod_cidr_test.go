@@ -28,9 +28,12 @@ var (
 
 // test fixtures
 var (
-	podCIDR1 = "10.10.1.0/24"
-	podCIDR2 = "10.10.2.0/24"
-	podCIDR3 = "10.10.3.0/24"
+	podCIDR1v4 = "10.10.1.0/24"
+	podCIDR1v6 = "2001:db8:1::/96"
+	podCIDR2v4 = "10.10.2.0/24"
+	podCIDR2v6 = "2001:db8:2::/96"
+	podCIDR3v4 = "10.10.3.0/24"
+	podCIDR3v6 = "2001:db8:3::/96"
 )
 
 func Test_PodCIDRAdvertisement(t *testing.T) {
@@ -62,7 +65,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2api.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1, podCIDR2},
+						PodCIDRs: []string{
+							podCIDR1v4,
+							podCIDR2v4,
+							podCIDR1v6,
+							podCIDR2v6,
+						},
 					},
 				},
 			},
@@ -82,12 +90,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			expectedAdverts: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v4: struct{}{},
+					podCIDR2v4: struct{}{},
 				},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v6: struct{}{},
+					podCIDR2v6: struct{}{},
 				},
 			},
 		},
@@ -108,7 +116,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2api.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1, podCIDR2},
+						PodCIDRs: []string{
+							podCIDR1v4,
+							podCIDR2v4,
+							podCIDR1v6,
+							podCIDR2v6,
+						},
 					},
 				},
 			},
@@ -136,12 +149,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			expectedAdverts: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v4: struct{}{},
+					podCIDR2v4: struct{}{},
 				},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v6: struct{}{},
+					podCIDR2v6: struct{}{},
 				},
 			},
 		},
@@ -158,7 +171,8 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			preconfiguredAdverts: map[types.Family]map[string]struct{}{
 				// pod cidr 3 is extra advertisement, reconcile should clean this.
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-					podCIDR3: struct{}{},
+					podCIDR3v4: struct{}{},
+					podCIDR3v6: struct{}{},
 				},
 			},
 			testCiliumNode: &v2api.CiliumNode{
@@ -167,7 +181,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2api.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1, podCIDR2},
+						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
 				},
 			},
@@ -187,13 +201,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			expectedAdverts: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v4: struct{}{},
+					podCIDR2v4: struct{}{},
 				},
-				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
-				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
 			},
 		},
 		{
@@ -210,8 +221,8 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			preconfiguredAdverts: map[types.Family]map[string]struct{}{
 				// pod cidr 1,2 already advertised, reconcile should clean this as there is no matching pod cidr advertisement.
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v4: struct{}{},
+					podCIDR2v4: struct{}{},
 				},
 			},
 			testCiliumNode: &v2api.CiliumNode{
@@ -220,7 +231,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2api.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1, podCIDR2},
+						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
 				},
 			},
@@ -254,12 +265,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			preconfiguredAdverts: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v4: struct{}{},
+					podCIDR2v4: struct{}{},
 				},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v6: struct{}{},
+					podCIDR2v6: struct{}{},
 				},
 			},
 			testCiliumNode: &v2api.CiliumNode{
@@ -268,7 +279,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2api.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1, podCIDR2},
+						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
 				},
 			},
@@ -288,8 +299,8 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			expectedAdverts: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-					podCIDR1: struct{}{},
-					podCIDR2: struct{}{},
+					podCIDR1v4: struct{}{},
+					podCIDR2v4: struct{}{},
 				},
 			},
 		},

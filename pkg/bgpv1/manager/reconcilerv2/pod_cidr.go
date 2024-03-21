@@ -129,7 +129,14 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(p ReconcileParams, desiredP
 				for _, prefix := range desiredPrefixes {
 					path := types.NewPathForPrefix(prefix)
 					path.Family = agentFamily
-					pathsPerFamily[path.NLRI.String()] = path
+
+					// we only add path corresponding to the family of the prefix.
+					if agentFamily.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
+						pathsPerFamily[path.NLRI.String()] = path
+					}
+					if agentFamily.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
+						pathsPerFamily[path.NLRI.String()] = path
+					}
 				}
 			}
 		}
