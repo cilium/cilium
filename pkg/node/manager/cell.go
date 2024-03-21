@@ -70,17 +70,19 @@ type NodeManager interface {
 	StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors)
 }
 
-func newAllNodeManager(
-	lc cell.Lifecycle,
-	ipCache *ipcache.IPCache,
-	ipsetMgr ipset.Manager,
-	nodeMetrics *nodeMetrics,
-	healthScope cell.Scope,
-) (NodeManager, error) {
-	mngr, err := New(option.Config, ipCache, ipsetMgr, nodeMetrics, healthScope)
+func newAllNodeManager(in struct {
+	cell.In
+	Lifecycle   cell.Lifecycle
+	IPCache     *ipcache.IPCache
+	IPSetMgr    ipset.Manager
+	IPSetFilter IPSetFilterFn `optional:"true"`
+	NodeMetrics *nodeMetrics
+	HealthScope cell.Scope
+}) (NodeManager, error) {
+	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.HealthScope)
 	if err != nil {
 		return nil, err
 	}
-	lc.Append(mngr)
+	in.Lifecycle.Append(mngr)
 	return mngr, nil
 }

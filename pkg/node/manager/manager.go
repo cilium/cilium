@@ -76,6 +76,11 @@ type IPCache interface {
 	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
 }
 
+// IPSetFilterFn is a function allowing to optionally filter out the insertion
+// of IPSet entries based on node characteristics. The insertion is performed
+// if the function returns false, and skipped otherwise.
+type IPSetFilterFn func(*nodeTypes.Node) bool
+
 var _ Notifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
@@ -122,7 +127,8 @@ type manager struct {
 	ipcache IPCache
 
 	// ipsetMgr is the ipset cluster nodes configuration manager
-	ipsetMgr ipset.Manager
+	ipsetMgr    ipset.Manager
+	ipsetFilter IPSetFilterFn
 
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
@@ -255,7 +261,11 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetFilter IPSetFilterFn, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+	if ipsetFilter == nil {
+		ipsetFilter = func(*nodeTypes.Node) bool { return false }
+	}
+
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -263,6 +273,7 @@ func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, nodeMe
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
 		ipsetMgr:          ipsetMgr,
+		ipsetFilter:       ipsetFilter,
 		metrics:           nodeMetrics,
 		healthScope:       healthScope,
 	}
@@ -514,7 +525,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	for _, address := range n.IPAddresses {
 		prefix := ip.IPToNetPrefix(address.IP)
 
-		if address.Type == addressing.NodeInternalIP {
+		if address.Type == addressing.NodeInternalIP && !m.ipsetFilter(&n) {
 			ipsetEntries = append(ipsetEntries, prefix)
 		}
 
