@@ -33,6 +33,7 @@ IPv4 Masq                node             16k             Max 16k IPv4 cidrs use
 IPv6 Masq                node             16k             Max 16k IPv6 cidrs used by BPF-based ip-masq-agent
 Service Source Ranges    node             64k             Max 64k cumulative LB source ranges across all services
 Egress Policy            endpoint         16k             Max 16k endpoints across all destination CIDRs across all clusters 
+Node                     node             16k             Max 16k distinct node IPs (IPv4 & IPv6) across all clusters.
 ======================== ================ =============== =====================================================
 
 For some BPF maps, the upper capacity limit can be overridden using command
