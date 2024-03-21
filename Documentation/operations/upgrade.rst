@@ -340,6 +340,8 @@ Helm Options
 * The deprecated Helm option ``remoteNodeIdentity`` has been removed. This should have no impact on users who used the previous default
   value of ``true``: Remote nodes will now always use ``remote-node`` identity. If you have network policies based on
   ``enable-remote-node-identity=false`` make sure to update them.
+* The clustermesh-apiserver ``podSecurityContext`` and ``securityContext`` settings now
+  default to drop all capabilities and run as non-root user.
 
 Added Metrics
 ~~~~~~~~~~~~~
