@@ -22,3 +22,6 @@ Encapsulation Cluster Pool Kubernetes CRD
 * The AKS cluster must be created with ``--network-plugin none``. See the
   `Bring your own CNI <https://docs.microsoft.com/en-us/azure/aks/use-byo-cni?tabs=azure-cli>`_
   documentation for more details about BYOCNI prerequisites / implications.
+
+* Make sure that you set a cluster pool IPAM pod CIDR that does not overlap with the default service
+  CIDR of AKS. For example, you can use ``--helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16``.

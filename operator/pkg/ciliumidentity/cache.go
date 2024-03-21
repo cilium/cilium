@@ -4,7 +4,10 @@
 package ciliumidentity
 
 import (
+<<<<<<< HEAD
 	"errors"
+=======
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -17,7 +20,11 @@ import (
 // Operator is compatible with Agents simultaneously managing CIDs.
 type SecIDs struct {
 	selectedID string
+<<<<<<< HEAD
 	ids        map[string]struct{}
+=======
+	ids        map[string]bool
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 }
 
 type CIDState struct {
@@ -50,6 +57,7 @@ func (c *CIDState) Upsert(id string, k *key.GlobalIdentity) {
 	}
 
 	c.idToLabels[id] = k
+<<<<<<< HEAD
 
 	keyStr := k.GetKey()
 	secIDs, exists := c.labelsToID[keyStr]
@@ -62,6 +70,27 @@ func (c *CIDState) Upsert(id string, k *key.GlobalIdentity) {
 	}
 
 	secIDs.ids[id] = struct{}{}
+=======
+	c.addLabelsToID(id, k)
+}
+
+func (c *CIDState) addLabelsToID(id string, k *key.GlobalIdentity) {
+	keyStr := k.GetKey()
+	secIDs, exists := c.labelsToID[keyStr]
+	if !exists || secIDs == nil {
+		newSecIDs := &SecIDs{
+			selectedID: id,
+			ids:        make(map[string]bool),
+		}
+		c.labelsToID[keyStr] = newSecIDs
+		secIDs = newSecIDs
+	}
+
+	secIDs.ids[id] = true
+	if len(secIDs.selectedID) == 0 {
+		secIDs.selectedID = id
+	}
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 }
 
 func (c *CIDState) Remove(id string) {
@@ -78,9 +107,26 @@ func (c *CIDState) Remove(id string) {
 	}
 
 	delete(c.idToLabels, id)
+<<<<<<< HEAD
 
 	keyStr := k.GetKey()
 	secIDs := c.labelsToID[keyStr]
+=======
+	c.removeLabelsToID(id, k)
+}
+
+func (c *CIDState) removeLabelsToID(id string, k *key.GlobalIdentity) {
+	keyStr := k.GetKey()
+	secIDs, exists := c.labelsToID[keyStr]
+	if !exists {
+		return
+	}
+
+	if secIDs == nil {
+		delete(c.labelsToID, keyStr)
+		return
+	}
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 
 	delete(secIDs.ids, id)
 	if len(secIDs.ids) == 0 {
@@ -88,8 +134,11 @@ func (c *CIDState) Remove(id string) {
 		return
 	}
 
+<<<<<<< HEAD
 	// After removing id, we need to set another one in selectedID by taking it
 	// from the duplicates.
+=======
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 	if secIDs.selectedID == id {
 		for nextID := range secIDs.ids {
 			secIDs.selectedID = nextID
@@ -119,7 +168,15 @@ func (c *CIDState) LookupByKey(k *key.GlobalIdentity) (string, bool) {
 		return "", false
 	}
 
+<<<<<<< HEAD
 	return secIDs.selectedID, true
+=======
+	var id string
+	if secIDs != nil {
+		id = secIDs.selectedID
+	}
+	return id, true
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 }
 
 type CIDUsageInPods struct {
@@ -163,18 +220,30 @@ func (c *CIDUsageInPods) AssignCIDToPod(podName, cidName string) (string, int) {
 // RemovePod removes the pod from the pod to CID map, decrements the CID usage
 // and returns the CID name and its usage count after decrementing the usage.
 // The return values are used to track when old CIDs are no longer used.
+<<<<<<< HEAD
 func (c *CIDUsageInPods) RemovePod(podName string) (string, int, error) {
+=======
+func (c *CIDUsageInPods) RemovePod(podName string) (string, int) {
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	cidName, exists := c.podToCID[podName]
 	if !exists {
+<<<<<<< HEAD
 		return "", 0, errors.New("cilium identity not found in pods usage cache")
+=======
+		return "", 0
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 	}
 	count := c.decrementUsage(cidName)
 	delete(c.podToCID, podName)
 
+<<<<<<< HEAD
 	return cidName, count, nil
+=======
+	return cidName, count
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 }
 
 func (c *CIDUsageInPods) CIDUsedByPod(podName string) (string, bool) {
@@ -201,7 +270,11 @@ func (c *CIDUsageInPods) CIDUsageCount(cidName string) int {
 }
 
 // decrementUsage reduces the usage count for a CID and removes it from the map
+<<<<<<< HEAD
 // if the count is 0. Must be used only after acquiring the write lock.
+=======
+// if the count is 0. Must be used only after aquiring the write lock.
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 func (c *CIDUsageInPods) decrementUsage(cidName string) int {
 	c.cidUsageCount[cidName]--
 
@@ -231,37 +304,64 @@ func NewCIDUsageInCES() *CIDUsageInCES {
 // When the CES is new, it will just add all used CIDs. When CES is updated, it
 // uses previous CID usage for the same CES, that it tracks, to accordingly
 // reduce CID usage in CES.
+<<<<<<< HEAD
 func (c *CIDUsageInCES) ProcessCESUpsert(cesName string, endpoints []v2alpha1.CoreCiliumEndpoint) []int64 {
 	if cesName == "" {
+=======
+func (c *CIDUsageInCES) ProcessCESUpsert(ces *v2alpha1.CiliumEndpointSlice) []int64 {
+	if ces == nil {
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 		return nil
 	}
 
 	var cidsWithNoCESUsage []int64
+<<<<<<< HEAD
 	newUsedCIDs := make([]int64, len(endpoints))
+=======
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+<<<<<<< HEAD
 	for i, cep := range endpoints {
+=======
+	newUsedCIDs := make([]int64, len(ces.Endpoints))
+	for i, cep := range ces.Endpoints {
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 		c.cidUsageCount[cep.IdentityID]++
 		newUsedCIDs[i] = cep.IdentityID
 	}
 
+<<<<<<< HEAD
 	for _, cid := range c.prevCIDsUsedInCES[cesName] {
+=======
+	for _, cid := range c.prevCIDsUsedInCES[ces.Name] {
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 		count := c.decrementUsage(cid)
 		if count == 0 {
 			cidsWithNoCESUsage = append(cidsWithNoCESUsage, cid)
 		}
 	}
 
+<<<<<<< HEAD
 	c.prevCIDsUsedInCES[cesName] = newUsedCIDs
+=======
+	c.prevCIDsUsedInCES[ces.Name] = newUsedCIDs
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 
 	return cidsWithNoCESUsage
 }
 
+<<<<<<< HEAD
 // ProcessCESDelete reduces the CID usage in CES, based on the provided CES.
 func (c *CIDUsageInCES) ProcessCESDelete(cesName string, endpoints []v2alpha1.CoreCiliumEndpoint) []int64 {
 	if cesName == "" {
+=======
+// ProcessCESUpsert reduces the CID usage in CES, based on the provided CES.
+func (c *CIDUsageInCES) ProcessCESDelete(ces *v2alpha1.CiliumEndpointSlice) []int64 {
+	if ces == nil {
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 		return nil
 	}
 
@@ -270,14 +370,22 @@ func (c *CIDUsageInCES) ProcessCESDelete(cesName string, endpoints []v2alpha1.Co
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+<<<<<<< HEAD
 	for _, cep := range endpoints {
+=======
+	for _, cep := range ces.Endpoints {
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 		count := c.decrementUsage(cep.IdentityID)
 		if count == 0 {
 			cidsWithNoCESUsage = append(cidsWithNoCESUsage, cep.IdentityID)
 		}
 	}
 
+<<<<<<< HEAD
 	delete(c.prevCIDsUsedInCES, cesName)
+=======
+	delete(c.prevCIDsUsedInCES, ces.Name)
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 
 	return cidsWithNoCESUsage
 }
@@ -287,19 +395,32 @@ func (c *CIDUsageInCES) CIDUsageCount(cidName string) int {
 		return 0
 	}
 
+<<<<<<< HEAD
+=======
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 	cidNum, err := strconv.Atoi(cidName)
 	if err != nil {
 		return 0
 	}
 
+<<<<<<< HEAD
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+=======
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 	return c.cidUsageCount[int64(cidNum)]
 }
 
 // decrementUsage reduces the usage count for a CID and removes it from the map
+<<<<<<< HEAD
 // if the count is 0. Must be used only after acquiring the write lock.
+=======
+// if the count is 0. Must be used only after aquiring the write lock.
+>>>>>>> 0f5459ccb9 (Operator manages identities - full implementation)
 func (c *CIDUsageInCES) decrementUsage(cidName int64) int {
 	c.cidUsageCount[cidName]--
 	count := c.cidUsageCount[cidName]

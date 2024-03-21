@@ -21,8 +21,8 @@ import (
 // response to events such as create/modify/delete.
 const backendOpTimeout = 10 * time.Second
 
-// idMap provides mapping from ID to an AllocatorKey
-type idMap map[idpool.ID]AllocatorKey
+// IDMap provides mapping from ID to an AllocatorKey
+type IDMap map[idpool.ID]AllocatorKey
 
 // keyMap provides mapping from AllocatorKey to ID
 type keyMap map[string]idpool.ID
@@ -40,7 +40,7 @@ type cache struct {
 	// cache is a local cache of all IDs allocated in the kvstore. It is
 	// being maintained by watching for kvstore events and can thus lag
 	// behind.
-	cache idMap
+	cache IDMap
 
 	// keyCache shadows cache and allows access by key
 	keyCache keyMap
@@ -51,7 +51,7 @@ type cache struct {
 	// startWatch() fails to perform the initial list, then the cache is
 	// never pointed to nextCache. This guarantees that a valid cache is
 	// kept at all times.
-	nextCache idMap
+	nextCache IDMap
 
 	// nextKeyCache follows the same logic as nextCache but for keyCache
 	nextKeyCache keyMap
@@ -71,7 +71,7 @@ type cache struct {
 func newCache(a *Allocator) (c cache) {
 	c = cache{
 		allocator:   a,
-		cache:       idMap{},
+		cache:       IDMap{},
 		keyCache:    keyMap{},
 		stopChan:    make(chan struct{}),
 		controllers: controller.NewManager(),
@@ -233,7 +233,7 @@ func (c *cache) start() waitChan {
 	c.mutex.Lock()
 
 	// start with a fresh nextCache
-	c.nextCache = idMap{}
+	c.nextCache = IDMap{}
 	c.nextKeyCache = keyMap{}
 	c.mutex.Unlock()
 
