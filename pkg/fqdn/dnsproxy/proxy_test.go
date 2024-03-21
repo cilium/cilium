@@ -24,10 +24,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -39,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -70,21 +67,6 @@ func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
 func (s *DNSProxyTestSuite) GetProxyPort(string) (uint16, error) {
 	return 0, nil
 }
-
-func (s *DNSProxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
-	return 0, nil, nil, nil
-}
-
-func (s *DNSProxyTestSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	return nil, nil, nil
-}
-
-func (s *DNSProxyTestSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
-	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
-	return nil, nil
-}
-
-func (s *DNSProxyTestSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
 
 func (s *DNSProxyTestSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	return nil, nil
@@ -208,12 +190,14 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 			case ip.String() == DNSServerListenerAddr.IP.String():
 				ident := ipcache.Identity{
 					ID:     dstID1,
-					Source: source.Unspec}
+					Source: source.Unspec,
+				}
 				return ident, true
 			default:
 				ident := ipcache.Identity{
 					ID:     dstID2,
-					Source: source.Unspec}
+					Source: source.Unspec,
+				}
 				return ident, true
 			}
 		},
@@ -384,7 +368,6 @@ func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponseWithRefused(c *C
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
 	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
-
 }
 
 func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
@@ -414,7 +397,6 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v)", rtt))
 	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
 	c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
-
 }
 
 func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
@@ -450,6 +432,7 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %+v", response.Answer))
 	c.Assert(response.Answer[0].String(), Equals, "ciliuM.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
 }
+
 func (s *DNSProxyTestSuite) TestCheckNoRules(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
@@ -1218,9 +1201,7 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	rules := policy.L7DataMap{}
 
 	addEgress := func(e []api.EgressRule) {
-		var (
-			portRuleDNS []api.PortRuleDNS
-		)
+		var portRuleDNS []api.PortRuleDNS
 		for _, egress := range e {
 			if egress.ToPorts != nil {
 				for _, ports := range egress.ToPorts {
