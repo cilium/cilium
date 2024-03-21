@@ -29,7 +29,7 @@ var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-flow-p
 // provided flow.
 func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) ||
-		f.GetVerdict() != flowpb.Verdict_FORWARDED {
+		(f.GetVerdict() != flowpb.Verdict_FORWARDED && f.GetVerdict() != flowpb.Verdict_REDIRECTED) {
 		// we are only interested in policy verdict notifications for forwarded flows
 		return
 	}
