@@ -106,8 +106,48 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.IngressAllowedBy)
 	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// check same flow at egress with deny
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_DROPPED,
+		DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       uint32(localID),
+			Identity: uint32(localIdentity),
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       uint32(remoteID),
+			Identity: uint32(remoteIdentity),
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+	CorrelatePolicy(endpointGetter, flow)
+
+	require.Nil(t, flow.EgressAllowedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -169,8 +209,48 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 	CorrelatePolicy(endpointGetter, flow)
 
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.EgressAllowedBy)
 	if diff := cmp.Diff(expected, flow.IngressAllowedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// check same flow at ingress with deny
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_DROPPED,
+		DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
+		TrafficDirection: flowpb.TrafficDirection_INGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       uint32(localID),
+			Identity: uint32(localIdentity),
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       uint32(remoteID),
+			Identity: uint32(remoteIdentity),
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
+	}
+	CorrelatePolicy(endpointGetter, flow)
+
+	require.Nil(t, flow.EgressAllowedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	require.Nil(t, flow.EgressDeniedBy)
+	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }
