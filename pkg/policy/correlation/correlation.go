@@ -26,9 +26,19 @@ var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-flow-p
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
 func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
-	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) ||
-		(f.GetVerdict() != flowpb.Verdict_FORWARDED && f.GetVerdict() != flowpb.Verdict_REDIRECTED) {
-		// we are only interested in policy verdict notifications for forwarded flows
+	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
+		// If it's not a policy verdict, we don't care.
+		return
+	}
+
+	// We are only interested in flows which are either allowed (i.e. the verdict is either
+	// FORWARDED or REDIRECTED) or explicitly denied (i.e. DROPPED, and matched by a deny policy),
+	// since we cannot usefully annotate the verdict otherwise. (Put differently, which policy
+	// should be listed in {in|e}gress_denied_by for an unmatched flow?)
+	verdict := f.GetVerdict()
+	allowed := verdict == flowpb.Verdict_FORWARDED || verdict == flowpb.Verdict_REDIRECTED
+	denied := verdict == flowpb.Verdict_DROPPED && f.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
+	if !(allowed || denied) {
 		return
 	}
 
@@ -62,12 +72,16 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 		return
 	}
 
-	allowedBy := toProto(derivedFrom, rev)
-	switch direction {
-	case trafficdirection.Egress:
-		f.EgressAllowedBy = allowedBy
-	case trafficdirection.Ingress:
-		f.IngressAllowedBy = allowedBy
+	rules := toProto(derivedFrom, rev)
+	switch {
+	case direction == trafficdirection.Egress && allowed:
+		f.EgressAllowedBy = rules
+	case direction == trafficdirection.Egress && denied:
+		f.EgressDeniedBy = rules
+	case direction == trafficdirection.Ingress && allowed:
+		f.IngressAllowedBy = rules
+	case direction == trafficdirection.Ingress && denied:
+		f.IngressDeniedBy = rules
 	}
 }
 
