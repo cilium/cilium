@@ -8,9 +8,6 @@ import (
 )
 
 const (
-	// renovate: datasource=github-releases depName=cilium/cilium
-	Version = "v1.15.2"
-
 	CiliumPodSelector = "app.kubernetes.io/part-of=cilium"
 
 	AgentContainerName   = "cilium-agent"
@@ -99,9 +96,6 @@ const (
 
 	CiliumNoScheduleLabel = "cilium.io/no-schedule"
 
-	// HelmRepository specifies Helm repository to download Cilium charts from.
-	HelmRepository = "https://helm.cilium.io"
-
 	// ClustermeshMaxConnectedClusters is the default number of the maximum
 	// number of clusters that should be allowed to connect to the Clustermesh.
 	ClustermeshMaxConnectedClusters = 255
@@ -111,6 +105,12 @@ const (
 )
 
 var (
+	// renovate: datasource=github-releases depName=cilium/cilium
+	Version = "v1.15.2"
+
+	// HelmRepository specifies Helm repository to download Cilium charts from.
+	HelmRepository = "https://helm.cilium.io"
+
 	// CiliumScheduleAffinity is the node affinity to prevent Cilium from being schedule on
 	// nodes labeled with CiliumNoScheduleLabel.
 	CiliumScheduleAffinity = []string{
