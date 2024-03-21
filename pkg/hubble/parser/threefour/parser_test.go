@@ -368,15 +368,16 @@ func TestDecodeDropNotify(t *testing.T) {
 
 func TestDecodePolicyVerdictNotify(t *testing.T) {
 	localIP := "1.2.3.4"
-	localID := uint64(1234)
+	localID := uint64(12)
+	localIdentity := uint64(1234)
 	remoteIP := "5.6.7.8"
-	remoteID := uint64(5678)
+	remoteIdentity := uint64(5678)
 	dstPort := uint32(443)
 
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-			if securityIdentity == uint32(remoteID) {
-				return &identity.Identity{ID: identity.NumericIdentity(remoteID), Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
+			if securityIdentity == uint32(remoteIdentity) {
+				return &identity.Identity{ID: identity.NumericIdentity(remoteIdentity), Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 		},
@@ -384,14 +385,14 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
 	policyKey := policy.Key{
-		Identity:         uint32(remoteID),
+		Identity:         uint32(remoteIdentity),
 		DestPort:         uint16(dstPort),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Egress.Uint8(),
 	}
 	ep := &testutils.FakeEndpointInfo{
 		ID:           localID,
-		Identity:     identity.NumericIdentity(localID),
+		Identity:     identity.NumericIdentity(localIdentity),
 		IPv4:         net.ParseIP(localIP),
 		PodName:      "xwing",
 		PodNamespace: "default",
@@ -404,6 +405,12 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr(localIP) {
+				return ep, true
+			}
+			return nil, false
+		},
+		OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
 				return ep, true
 			}
 			return nil, false
@@ -421,7 +428,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
-		RemoteLabel: identity.NumericIdentity(remoteID),
+		RemoteLabel: identity.NumericIdentity(remoteIdentity),
 		Verdict:     0, // CTX_ACT_OK
 		Source:      uint16(localID),
 	}
@@ -474,7 +481,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
-		RemoteLabel: identity.NumericIdentity(remoteID),
+		RemoteLabel: identity.NumericIdentity(remoteIdentity),
 		Verdict:     -151, // drop reason: Stale or unroutable IP
 	}
 	data, err = testutils.CreateL3L4Payload(pvn)

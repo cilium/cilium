@@ -4,8 +4,6 @@
 package correlation
 
 import (
-	"net/netip"
-
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -35,16 +33,16 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	}
 
 	// extract fields relevant for looking up the policy
-	direction, endpointIP, remoteIdentity, proto, dport := extractFlowKey(f)
+	direction, endpointID, remoteIdentity, proto, dport := extractFlowKey(f)
 	if dport == 0 || proto == 0 {
-		logger.WithField(logfields.IPAddr, endpointIP).Debug("failed to extract flow key")
+		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to extract flow key")
 		return
 	}
 
 	// obtain reference to endpoint on which the policy verdict was taken
-	epInfo, ok := endpointGetter.GetEndpointInfo(endpointIP)
+	epInfo, ok := endpointGetter.GetEndpointInfoByID(endpointID)
 	if !ok {
-		logger.WithField(logfields.IPAddr, endpointIP).Debug("failed to lookup endpoint")
+		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to lookup endpoint")
 		return
 	}
 
@@ -75,7 +73,7 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 
 func extractFlowKey(f *flowpb.Flow) (
 	direction trafficdirection.TrafficDirection,
-	endpointIP netip.Addr,
+	endpointID uint16,
 	remoteIdentity identity.NumericIdentity,
 	proto u8proto.U8proto,
 	dport uint16) {
@@ -83,15 +81,16 @@ func extractFlowKey(f *flowpb.Flow) (
 	switch f.GetTrafficDirection() {
 	case flowpb.TrafficDirection_EGRESS:
 		direction = trafficdirection.Egress
-		endpointIP, _ = netip.ParseAddr(f.GetIP().GetSource())
+		// We only get a uint32 because proto has no 16-bit types.
+		endpointID = uint16(f.GetSource().GetID())
 		remoteIdentity = identity.NumericIdentity(f.GetDestination().GetIdentity())
 	case flowpb.TrafficDirection_INGRESS:
 		direction = trafficdirection.Ingress
-		endpointIP, _ = netip.ParseAddr(f.GetIP().GetDestination())
+		endpointID = uint16(f.GetDestination().GetID())
 		remoteIdentity = identity.NumericIdentity(f.GetSource().GetIdentity())
 	default:
 		direction = trafficdirection.Invalid
-		endpointIP = netip.IPv4Unspecified()
+		endpointID = 0
 		remoteIdentity = identity.IdentityUnknown
 	}
 
