@@ -32,7 +32,6 @@ var Cell = cell.Module(
 type ProxyConfig struct {
 	ProxyPortrangeMin uint16
 	ProxyPortrangeMax uint16
-	DNSProxyPort      uint16
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
@@ -62,7 +61,7 @@ func newProxy(params proxyParams) *Proxy {
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
-	return createProxy(params.Config.ProxyPortrangeMin, params.Config.ProxyPortrangeMax, params.Config.DNSProxyPort, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
+	return createProxy(params.Config.ProxyPortrangeMin, params.Config.ProxyPortrangeMax, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 }
 
 type envoyProxyIntegrationParams struct {
