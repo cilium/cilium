@@ -731,13 +731,27 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   newPod.ObjectMeta.Name,
 		logfields.K8sNamespace: newPod.ObjectMeta.Namespace,
+		logfields.K8sUID:       newPod.ObjectMeta.UID,
 		"podIPs":               newPodIPs,
 		"hostIP":               newPod.Status.HostIP,
 	})
 
 	svcs := k.genServiceMappings(newPod, newPodIPs, logger)
 
+	// Cache the new pod UID for host port services in the case of
+	// StatefulSets, where the namespace/name of a pod is not unique, so we
+	// must index on the UID. This is done to ensure proper handling of
+	// StatefulSets, see GH-30409.
+	k.hostPortCache[newPod.GetUID()] = struct{}{}
+
 	if oldPod != nil {
+		if k8sUtils.GetObjNamespaceName(oldPod) == k8sUtils.GetObjNamespaceName(newPod) && oldPod.GetUID() != newPod.GetUID() {
+			// Remove the old pod UID from the cache as the new pod UID should take
+			// over. See deletePodHostData() for more details on why this delete is
+			// done here.
+			delete(k.hostPortCache, oldPod.GetUID())
+		}
+
 		for _, dpSvc := range svcs {
 			svcsAdded = append(svcsAdded, dpSvc.Frontend.L3n4Addr)
 		}
@@ -802,20 +816,30 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		return nil
 	}
 
+	uid := pod.ObjectMeta.UID
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		logfields.K8sUID:       uid,
 		"podIPs":               podIPs,
 		"hostIP":               pod.Status.HostIP,
 	})
+
+	if _, ok := k.hostPortCache[uid]; !ok {
+		// Preemptively exit here because if the UID did not exist in the
+		// cache, then this is a delayed delete event that was received for the
+		// old instance of StatefulSet pod. The cache should be updated in the
+		// upsertHostPortMapping() case with the new pod UID.
+		return nil
+	} else {
+		delete(k.hostPortCache, uid)
+	}
 
 	svcs := k.genServiceMappings(pod, podIPs, logger)
 	if len(svcs) == 0 {
 		return nil
 	}
 
-	// TODO: Pull this into a separate hostPortManager which holds a map of pod
-	// UID to service
 	for _, dpSvc := range svcs {
 		svc, _ := k.svcManager.GetDeepCopyServiceByFrontend(dpSvc.Frontend.L3n4Addr)
 		// Check whether the service being deleted is in fact "owned" by the pod being deleted.
@@ -836,6 +860,8 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 
 	return nil
 }
+
+type hostPortCache map[types.UID]struct{}
 
 func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
 	logger := log.WithFields(logrus.Fields{

@@ -209,6 +209,10 @@ type K8sWatcher struct {
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
 
+	// hostPortCache maintains a mapping of all pod UIDs to host port services.
+	// See comment on insertion into hostPortCache.
+	hostPortCache hostPortCache
+
 	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
 	datapath datapath.Datapath
@@ -256,6 +260,7 @@ func NewK8sWatcher(
 		bgpSpeakerManager:     bgpSpeakerManager,
 		cgroupManager:         cgroupManager,
 		bandwidthManager:      bandwidthManager,
+		hostPortCache:         make(hostPortCache),
 		cfg:                   cfg,
 		resources:             resources,
 	}
@@ -580,7 +585,7 @@ func (k *K8sWatcher) StopK8sServiceHandler() {
 	close(k.stop)
 }
 
-func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
+func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, _ *k8s.Endpoints) error {
 	// Headless services do not need any datapath implementation
 	if svcInfo.IsHeadless {
 		return nil
