@@ -6,6 +6,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -20,29 +21,47 @@ import (
 	"github.com/cilium/cilium-cli/utils/features"
 )
 
+type logMatcher interface {
+	IsMatch(log string) bool
+}
+
+type stringMatcher string
+
+func (s stringMatcher) IsMatch(log string) bool {
+	return strings.Contains(log, string(s))
+}
+
+type regexMatcher struct {
+	*regexp.Regexp
+}
+
+func (r regexMatcher) IsMatch(log string) bool {
+	return r.Regexp.MatchString(log)
+}
+
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
 func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	errorLogExceptions := []string{
-		"Error in delegate stream, restarting",
+	errorLogExceptions := []logMatcher{
+		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
 		failedToListCRDs, removeInexistentID}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
-	var errorMsgsWithExceptions = map[string][]string{
+	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:        nil,
 		deadLockHeader:      nil,
 		segmentationFault:   nil,
 		NACKreceived:        nil,
 		RunInitFailed:       nil,
-		sizeMismatch:        {"globals/cilium_policy"},
+		sizeMismatch:        {stringMatcher("globals/cilium_policy")},
 		emptyBPFInitArg:     nil,
-		RemovingMapMsg:      {"globals/cilium_policy"},
+		RemovingMapMsg:      {stringMatcher("globals/cilium_policy")},
 		logBufferMessage:    nil,
 		ClangErrorsMsg:      nil,
 		ClangErrorMsg:       nil,
@@ -61,7 +80,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 }
 
 type noErrorsInLogs struct {
-	errorMsgsWithExceptions map[string][]string
+	errorMsgsWithExceptions map[string][]logMatcher
 }
 
 func (n *noErrorsInLogs) Name() string {
@@ -194,14 +213,14 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) (containers []string) {
 	return containers
 }
 
-func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, a *check.Action) {
+func (n *noErrorsInLogs) findUniqueFailures(logs string) map[string]int {
 	uniqueFailures := make(map[string]int)
 	for _, msg := range strings.Split(logs, "\n") {
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
 			if strings.Contains(msg, fail) {
 				ok := false
 				for _, ignore := range ignoreMsgs {
-					if strings.Contains(msg, ignore) {
+					if ignore.IsMatch(msg) {
 						ok = true
 						break
 					}
@@ -213,6 +232,11 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, a *check.Acti
 			}
 		}
 	}
+	return uniqueFailures
+}
+
+func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, a *check.Action) {
+	uniqueFailures := n.findUniqueFailures(logs)
 	if len(uniqueFailures) > 0 {
 		var failures strings.Builder
 		for f, c := range uniqueFailures {
@@ -226,29 +250,30 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, a *check.Acti
 
 const (
 	// Logs messages that should not be in the cilium logs
-	panicMessage           = "panic:"
-	deadLockHeader         = "POTENTIAL DEADLOCK:"                                      // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	segmentationFault      = "segmentation fault"                                       // from https://github.com/cilium/cilium/issues/3233
-	NACKreceived           = "NACK received for version"                                // from https://github.com/cilium/cilium/issues/4003
-	RunInitFailed          = "JoinEP: "                                                 // from https://github.com/cilium/cilium/pull/5052
-	sizeMismatch           = "size mismatch for BPF map"                                // from https://github.com/cilium/cilium/issues/7851
-	emptyBPFInitArg        = "empty argument passed to bpf/init.sh"                     // from https://github.com/cilium/cilium/issues/10228
-	RemovingMapMsg         = "Removing map to allow for property upgrade"               // from https://github.com/cilium/cilium/pull/10626
-	logBufferMessage       = "Log buffer too small to dump verifier log"                // from https://github.com/cilium/cilium/issues/10517
-	ClangErrorsMsg         = " errors generated."                                       // from https://github.com/cilium/cilium/issues/10857
-	ClangErrorMsg          = "1 error generated."                                       // from https://github.com/cilium/cilium/issues/10857
-	symbolSubstitution     = "Skipping symbol substitution"                             //
-	uninitializedRegen     = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
-	unstableStat           = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
-	removeTransientRule    = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
-	removeInexistentID     = "removing identity not added to the identity manager!"     // from https://github.com/cilium/cilium/issues/16419
-	missingIptablesWait    = "Missing iptables wait arg (-w):"
-	localIDRestoreFail     = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
-	routerIPMismatch       = "Mismatch of router IPs found during restoration"
-	emptyIPNodeIDAlloc     = "Attempt to allocate a node ID for an empty node IP address"
-	failedToListCRDs       = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
-	failedToUpdateLock     = "Failed to update lock:"
-	failedToReleaseLock    = "Failed to release lock:"
-	previouslyUsedCIDR     = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
-	klogLeaderElectionFail = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
+	panicMessage                         = "panic:"
+	deadLockHeader                       = "POTENTIAL DEADLOCK:"                                      // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	segmentationFault                    = "segmentation fault"                                       // from https://github.com/cilium/cilium/issues/3233
+	NACKreceived                         = "NACK received for version"                                // from https://github.com/cilium/cilium/issues/4003
+	RunInitFailed                        = "JoinEP: "                                                 // from https://github.com/cilium/cilium/pull/5052
+	sizeMismatch                         = "size mismatch for BPF map"                                // from https://github.com/cilium/cilium/issues/7851
+	emptyBPFInitArg                      = "empty argument passed to bpf/init.sh"                     // from https://github.com/cilium/cilium/issues/10228
+	RemovingMapMsg                       = "Removing map to allow for property upgrade"               // from https://github.com/cilium/cilium/pull/10626
+	logBufferMessage                     = "Log buffer too small to dump verifier log"                // from https://github.com/cilium/cilium/issues/10517
+	ClangErrorsMsg                       = " errors generated."                                       // from https://github.com/cilium/cilium/issues/10857
+	ClangErrorMsg                        = "1 error generated."                                       // from https://github.com/cilium/cilium/issues/10857
+	symbolSubstitution                   = "Skipping symbol substitution"                             //
+	uninitializedRegen                   = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
+	unstableStat                         = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
+	removeTransientRule                  = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
+	removeInexistentID     stringMatcher = "removing identity not added to the identity manager!"     // from https://github.com/cilium/cilium/issues/16419
+	missingIptablesWait                  = "Missing iptables wait arg (-w):"
+	localIDRestoreFail                   = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
+	routerIPMismatch                     = "Mismatch of router IPs found during restoration"
+	emptyIPNodeIDAlloc                   = "Attempt to allocate a node ID for an empty node IP address"
+	failedToListCRDs       stringMatcher = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
+	failedToUpdateLock     stringMatcher = "Failed to update lock:"
+	failedToReleaseLock    stringMatcher = "Failed to release lock:"
+	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
+	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
+
 )
