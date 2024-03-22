@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -24,8 +25,37 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func mustTCProgram(t *testing.T) *ebpf.Program {
+// lo accesses the default loopback interface present in the current netns.
+var lo = &netlink.GenericLink{
+	LinkAttrs: netlink.LinkAttrs{Index: 1},
+	LinkType:  "loopback",
+}
+
+func newTCProgram() (*ebpf.Program, error) {
+	return ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type: ebpf.SchedCLS,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 0),
+			asm.Return(),
+		},
+		License: "Apache-2.0",
+	})
+}
+
+func mustTCProgram(tb testing.TB) *ebpf.Program {
+	p, err := newTCProgram()
+	if err != nil {
+		tb.Skipf("tc programs not supported: %s", err)
+	}
+	tb.Cleanup(func() {
+		p.Close()
+	})
+	return p
+}
+
+func mustTCProgramWithName(t *testing.T, name string) *ebpf.Program {
 	p, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Name: name,
 		Type: ebpf.SchedCLS,
 		Instructions: asm.Instructions{
 			asm.Mov.Imm(asm.R0, 0),
@@ -354,40 +384,81 @@ func TestAddHostDeviceAddr(t *testing.T) {
 	})
 }
 
-func TestAttachRemoveTCProgram(t *testing.T) {
+func TestAttachTCProgram(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)
-
 	ns.Do(func() error {
-		ifName := "dummy0"
-		dummy := &netlink.Dummy{
-			LinkAttrs: netlink.LinkAttrs{
-				Name: ifName,
-			},
-		}
-		err := netlink.LinkAdd(dummy)
+		prog := mustTCProgram(t)
+		linkDir := testutils.TempBPFFS(t)
+
+		require.NoError(t, attachTCProgram(lo, prog, "test", linkDir, directionToParent(dirEgress)))
+		require.NoError(t, detachTCProgram(lo, "test", linkDir, directionToParent(dirEgress)))
+
+		return nil
+	})
+}
+
+// Replace an existing program attached using netlink attach.
+func TestAttachTCWithPreviousAttach(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		prog := mustTCProgram(t)
+		linkDir := testutils.TempBPFFS(t)
+
+		// Important to set the cil_ prefix to the program name so that the
+		// attachment algorithm is aware that it needs to attach via netlink.
+		require.NoError(t, replaceTCFilter(lo, prog, "cil_test", directionToParent(dirEgress)))
+
+		require.NoError(t, attachTCProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress)))
+
+		hasFilters, err := hasCiliumTCFilters(lo, directionToParent(dirEgress))
 		require.NoError(t, err)
+		require.False(t, hasFilters)
+
+		hasFilters, err = hasCiliumTCXLinks(lo, ebpf.AttachTCXEgress)
+		require.NoError(t, err)
+		require.False(t, hasFilters)
+
+		require.NoError(t, detachTCProgram(lo, "cil_test", linkDir, directionToParent(dirEgress)))
+
+		hasFilters, err = hasCiliumTCXLinks(lo, ebpf.AttachTCXEgress)
+		require.NoError(t, err)
+		require.False(t, hasFilters)
+
+		return nil
+	})
+}
+
+func TestHasCiliumTCFilters(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		// Test if function succeeds and returns false if no filters are attached
+		hasFilters, err := hasCiliumTCFilters(lo, directionToParent(dirEgress))
+		require.NoError(t, err)
+		require.False(t, hasFilters)
 
 		prog := mustTCProgram(t)
 
-		bpffs := testutils.TempBPFFS(t)
-		err = attachTCProgram(dummy, prog, "test", bpffsDeviceLinksDir(bpffs, dummy), directionToParent(dirEgress))
+		err = replaceTCFilter(lo, prog, "no_prefix_test", directionToParent(dirEgress))
 		require.NoError(t, err)
 
-		filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))
+		// Test if function succeeds and return false if no filter with 'cil' prefix is attached
+		hasFilters, err = hasCiliumTCFilters(lo, directionToParent(dirEgress))
 		require.NoError(t, err)
-		require.NotEmpty(t, filters)
+		require.False(t, hasFilters)
 
-		err = removeTCFilters(dummy.Attrs().Name, directionToParent(dirEgress))
+		err = replaceTCFilter(lo, prog, "cil_test", directionToParent(dirEgress))
 		require.NoError(t, err)
 
-		filters, err = netlink.FilterList(dummy, directionToParent(dirEgress))
+		// Test if function succeeds and return true if filter with 'cil' prefix is attached
+		hasFilters, err = hasCiliumTCFilters(lo, directionToParent(dirEgress))
 		require.NoError(t, err)
-		require.Empty(t, filters)
-
-		err = netlink.LinkDel(dummy)
-		require.NoError(t, err)
+		require.True(t, hasFilters)
 
 		return nil
 	})

@@ -9,13 +9,12 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-
-	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -288,58 +287,107 @@ func resolveAndInsertCalls(coll *ebpf.Collection, mapName string, calls []ebpf.M
 	return nil
 }
 
-// attachTCProgram attaches the TC program 'prog' to link.
-func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName, bpffsDir string, qdiscParent uint32) error {
+// attachTCProgram attaches prog to device using tcx if available, or legacy tc
+// as a fallback.
+//
+// Attempts to update an existing tcx link first, then progressively falls back to creating a tcx link,
+// which if successful allows to remove the older netlink attachment.
+// Finally it creates a legacy tc filter if all else failed.
+func attachTCProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32) error {
 	if prog == nil {
 		return errors.New("cannot attach a nil program")
 	}
 
-	// Remove tcx bpf_links created by newer versions of Cilium. They cannot be
-	// overwritten by netlink-based tc attachments, as tcx is a separate hook
-	// altogether. Remove the tcx link first to avoid tc programs being run twice
-	// for every packet. This cannot be done seamlessly and will cause a small
-	// window of connection interruption.
-	pin := filepath.Join(bpffsDir, progName)
-	if err := os.Remove(pin); err == nil {
-		log.WithField("device", link.Attrs().Name).WithField("pinPath", pin).
-			Info("Removed tcx link before legacy tc downgrade, possible connectivity interruption")
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
+	err := updateTCX(prog, progName, bpffsDir)
+	if err == nil {
+		// Link was updated, nothing left to do.
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		// Unrecoverable error, surface to the caller.
+		return fmt.Errorf("attaching tc program: %w", err)
 	}
 
-	if err := replaceQdisc(link); err != nil {
-		return fmt.Errorf("replacing clsact qdisc for interface %s: %w", link.Attrs().Name, err)
+	err = attachTCX(device, prog, progName, bpffsDir, parentToAttachType(parent))
+	if err == nil {
+		// if we successfully attach a tcx link, the legacy tc attachment becomes inactive
+		// and can be removed. This allows a seamless upgrade to tcx attachments.
+		if err = removeTCFilters(device, parent); err != nil {
+			log.WithError(err).Error("Unable to remove legacy TC attachments")
+		}
+		return nil
+	}
+	if !errors.Is(err, link.ErrNotSupported) {
+		// Unrecoverable error, surface to the caller.
+		return fmt.Errorf("attaching tcx program %s: %w", progName, err)
+	}
+
+	// No tcx support, fall back to legacy tc.
+	return replaceTCFilter(device, prog, progName, parent)
+}
+
+// hasCiliumTCFilters returns true if device has Cilium-managed bpf filters
+// for the given direction (parent).
+func hasCiliumTCFilters(device netlink.Link, parent uint32) (bool, error) {
+	filters, err := netlink.FilterList(device, parent)
+	if err != nil {
+		return false, fmt.Errorf("listing tc filters for device %s, direction %d: %w", device.Attrs().Name, parent, err)
+	}
+
+	for _, f := range filters {
+		if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
+			// If any filter contains the cil_ prefix in the name we know Cilium
+			// previously attached its programs to this netlink device.
+			if strings.HasPrefix(bpfFilter.Name, "cil_") {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func replaceTCFilter(device netlink.Link, prog *ebpf.Program, progName string, parent uint32) error {
+	if err := replaceQdisc(device); err != nil {
+		return fmt.Errorf("replacing clsact qdisc for interface %s: %w", device.Attrs().Name, err)
 	}
 
 	filter := &netlink.BpfFilter{
 		FilterAttrs: netlink.FilterAttrs{
-			LinkIndex: link.Attrs().Index,
-			Parent:    qdiscParent,
+			LinkIndex: device.Attrs().Index,
+			Parent:    parent,
 			Handle:    1,
 			Protocol:  unix.ETH_P_ALL,
 			Priority:  option.Config.TCFilterPriority,
 		},
 		Fd:           prog.FD(),
-		Name:         fmt.Sprintf("%s-%s", progName, link.Attrs().Name),
+		Name:         fmt.Sprintf("%s-%s", progName, device.Attrs().Name),
 		DirectAction: true,
 	}
 
 	if err := netlink.FilterReplace(filter); err != nil {
-		return fmt.Errorf("replacing tc filter for interface %s: %w", link.Attrs().Name, err)
+		return fmt.Errorf("replacing tc filter for interface %s: %w", device.Attrs().Name, err)
 	}
+
+	log.Infof("Program %s attached to device %s using legacy tc", progName, device.Attrs().Name)
 
 	return nil
 }
 
-// removeTCFilters removes all tc filters from the given interface.
-// Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via tcDir.
-func removeTCFilters(ifName string, tcDir uint32) error {
-	link, err := netlink.LinkByName(ifName)
-	if err != nil {
+// detachTCProgram attempts to remove an existing tcx and legacy tc link with
+// the given properties. Always attempts to remove both tcx and tc attachments.
+func detachTCProgram(device netlink.Link, progName, bpffsDir string, parent uint32) error {
+	if err := detachTCX(bpffsDir, progName); err != nil {
 		return err
 	}
 
-	filters, err := netlink.FilterList(link, tcDir)
+	return removeTCFilters(device, parent)
+}
+
+// removeTCFilters removes all tc filters from the given interface.
+// Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via parent.
+func removeTCFilters(device netlink.Link, parent uint32) error {
+	filters, err := netlink.FilterList(device, parent)
 	if err != nil {
 		return err
 	}
@@ -829,60 +877,43 @@ func renameDevice(from, to string) error {
 	return nil
 }
 
-// DeviceHasTCProgramLoaded checks whether a given device has tc filter/qdisc progs attached.
-func (l *loader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
-	const bpfProgPrefix = "cil_"
-
-	link, err := netlink.LinkByName(hostInterface)
+// DeviceHasTCProgramLoaded returns true if the given device has a tc(x) program
+// attached.
+//
+// If checkEgress is true, returns true if there's both an ingress and
+// egress program attached.
+func (l *loader) DeviceHasTCProgramLoaded(device string, checkEgress bool) (bool, error) {
+	link, err := netlink.LinkByName(device)
 	if err != nil {
-		return false, fmt.Errorf("unable to find endpoint link by name: %w", err)
+		return false, fmt.Errorf("retrieving device %s: %w", device, err)
 	}
 
-	dd, err := netlink.QdiscList(link)
+	itcx, err := hasCiliumTCXLinks(link, ebpf.AttachTCXIngress)
 	if err != nil {
-		return false, fmt.Errorf("unable to fetch qdisc list for endpoint: %w", err)
+		return false, err
 	}
-	var found bool
-	for _, d := range dd {
-		if d.Type() == qdiscClsact {
-			found = true
-			break
-		}
+	itc, err := hasCiliumTCFilters(link, netlink.HANDLE_MIN_INGRESS)
+	if err != nil {
+		return false, err
 	}
-	if !found {
+
+	// Need ingress programs at minimum, bail out if these are already missing.
+	if !itc && !itcx {
 		return false, nil
 	}
 
-	ff, err := netlink.FilterList(link, netlink.HANDLE_MIN_INGRESS)
-	if err != nil {
-		return false, fmt.Errorf("unable to fetch ingress filter list: %w", err)
-	}
-	var filtersCount int
-	for _, f := range ff {
-		if filter, ok := f.(*netlink.BpfFilter); ok {
-			if strings.HasPrefix(filter.Name, bpfProgPrefix) {
-				filtersCount++
-			}
-		}
-	}
-	if filtersCount == 0 {
-		return false, nil
-	}
 	if !checkEgress {
 		return true, nil
 	}
 
-	ff, err = netlink.FilterList(link, netlink.HANDLE_MIN_EGRESS)
+	etcx, err := hasCiliumTCXLinks(link, ebpf.AttachTCXEgress)
 	if err != nil {
-		return false, fmt.Errorf("unable to fetch egress filter list: %w", err)
+		return false, err
 	}
-	filtersCount = 0
-	for _, f := range ff {
-		if filter, ok := f.(*netlink.BpfFilter); ok {
-			if strings.HasPrefix(filter.Name, bpfProgPrefix) {
-				filtersCount++
-			}
-		}
+	etc, err := hasCiliumTCFilters(link, netlink.HANDLE_MIN_EGRESS)
+	if err != nil {
+		return false, err
 	}
-	return len(ff) > 0 && filtersCount > 0, nil
+
+	return etc || etcx, nil
 }
