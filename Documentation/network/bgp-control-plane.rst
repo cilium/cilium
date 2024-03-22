@@ -305,9 +305,14 @@ defaults to the ``LoadBalancerIP`` service. You can also specify the ``.serviceA
 field to advertise specific service types, with options such as ``LoadBalancerIP``,
 ``ClusterIP`` and ``ExternalIP``.
 
+It is worth noting that when you configure ``virtualRouters[*].serviceAdvertisements`` as ``ClusterIP``,
+the BGP Control Plane only considers the configuration of the service's ``.spec.internalTrafficPolicy`` and ignores
+the configuration of ``.spec.externalTrafficPolicy``.
+For ``ExternalIP`` and ``LoadBalancerIP``, it only considers the configuration of
+the service's ``.spec.externalTrafficPolicy`` and ignores the configuration of ``.spec.internalTrafficPolicy``.
+
 The ``.serviceSelector`` field is a label selector that selects Services matching
 the specified ``.matchLabels`` or ``.matchExpressions``.
-
 
 When your upstream router supports Equal Cost Multi Path(ECMP), you can use
 this feature to load balance traffic to the Service across multiple nodes by
