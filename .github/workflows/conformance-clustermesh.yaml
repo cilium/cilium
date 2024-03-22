@@ -227,6 +227,7 @@ jobs:
             --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
             --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
+            --helm-set=clustermesh.enableEndpointSliceSynchronization=true \
             "
 
           CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
