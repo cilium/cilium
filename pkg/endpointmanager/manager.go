@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/netip"
 	"sync"
-	"testing"
 
 	"github.com/sirupsen/logrus"
 
@@ -431,15 +430,6 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 // and prevents the endpoint from being globally acccessible via other packages.
 func (mgr *endpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	return mgr.deleteEndpoint(ep, conf)
-}
-
-// RemoveAll removes all endpoints from the global maps.
-func (mgr *endpointManager) RemoveAll(t testing.TB) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
-	mgr.epIDAllocator.reallocatePool(t)
-	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
-	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }
 
 // lookupCiliumID looks up endpoint by endpoint ID
