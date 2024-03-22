@@ -399,6 +399,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		SecurityIdentity:         e.SecurityIdentity,
 		Options:                  e.Options,
 		DNSRules:                 e.DNSRules,
+		DNSRulesV2:               e.DNSRulesV2,
 		DNSHistory:               e.DNSHistory,
 		DNSZombies:               e.DNSZombies,
 		K8sPodName:               e.K8sPodName,
@@ -485,6 +486,10 @@ type serializableEndpoint struct {
 	// DNSRules is the collection of current DNS rules for this endpoint.
 	DNSRules restore.DNSRules
 
+	// DNSRulesV2 is the collection of current DNS rules for this endpoint,
+	// that conform to using V2 of the PortProto key.
+	DNSRulesV2 restore.DNSRules
+
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
 	DNSHistory *fqdn.DNSCache
@@ -555,6 +560,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
 	ep.DNSRules = r.DNSRules
+	ep.DNSRulesV2 = r.DNSRulesV2
 	ep.DNSHistory = r.DNSHistory
 	ep.DNSZombies = r.DNSZombies
 	ep.K8sPodName = r.K8sPodName
