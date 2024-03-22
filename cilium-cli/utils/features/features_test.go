@@ -138,10 +138,14 @@ func TestFeatureSet_extractFromConfigMap(t *testing.T) {
 		"enable-ipv6":                "true",
 		"mesh-auth-mutual-enabled":   "true",
 		"enable-ipv4-egress-gateway": "true",
+		"ipam":                       "eni",
+		"enable-ipsec":               "true",
 	}
 	fs.ExtractFromConfigMap(&cm)
 	assert.True(t, fs[IPv4].Enabled)
 	assert.True(t, fs[IPv6].Enabled)
 	assert.True(t, fs[AuthSpiffe].Enabled)
 	assert.True(t, fs[EgressGateway].Enabled)
+	assert.True(t, fs[IPsecEnabled].Enabled)
+	assert.Equal(t, "eni", fs[CiliumIPAMMode].Mode)
 }
