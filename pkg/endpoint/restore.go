@@ -103,23 +103,8 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 			logfields.EndpointID: epDirName,
 			logfields.Path:       cHeaderFile,
 		})
-		// This function checks the presence of a bug previously observed: the
-		// file was sometimes only found after the second check.
-		// We can remove this if we haven't seen the issue occur after a while.
-		headerFileExists := func() error {
-			_, fileExists := os.Stat(cHeaderFile)
-			for i := 0; i < 2 && fileExists != nil; i++ {
-				time.Sleep(100 * time.Millisecond)
-				_, err := os.Stat(cHeaderFile)
-				if (fileExists == nil) != (err == nil) {
-					scopedLog.WithError(err).Warn("BUG: stat() has unstable behavior")
-				}
-				fileExists = err
-			}
-			return fileExists
-		}
 
-		if err := headerFileExists(); err != nil {
+		if _, err := os.Stat(cHeaderFile); err != nil {
 			scopedLog.WithError(err).Warn("C header file not found. Ignoring endpoint")
 			continue
 		}
