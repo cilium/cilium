@@ -5,7 +5,6 @@ package endpointmanager
 
 import (
 	"fmt"
-	"testing"
 
 	"github.com/cilium/cilium/pkg/idpool"
 )
@@ -22,14 +21,6 @@ type epIDAllocator struct {
 func newEPIDAllocator() *epIDAllocator {
 	return &epIDAllocator{
 		pool: idpool.NewIDPool(minID, maxID),
-	}
-}
-
-// reallocatePool starts over with a new pool. This function is only used for
-// tests and its implementation is not optimized for production.
-func (a *epIDAllocator) reallocatePool(t testing.TB) {
-	for i := uint16(minID); i <= uint16(maxID); i++ {
-		a.release(i)
 	}
 }
 
