@@ -193,7 +193,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		// Restore old rules
 		for _, possibleEP := range possibleEndpoints {
 			// Upgrades from old ciliums have this nil
-			if possibleEP.DNSRules != nil {
+			if possibleEP.DNSRules != nil || possibleEP.DNSRulesV2 != nil {
 				proxy.DefaultDNSProxy.RestoreRules(possibleEP)
 			}
 		}
