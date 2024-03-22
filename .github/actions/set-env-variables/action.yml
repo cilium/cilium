@@ -26,3 +26,4 @@ runs:
         echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
         echo "KIND_K8S_IMAGE=$KIND_K8S_IMAGE" >> $GITHUB_ENV
         echo "KIND_K8S_VERSION=$KIND_K8S_VERSION" >> $GITHUB_ENV
+        echo "CILIUM_STABLE_VERSION=$(curl https://raw.githubusercontent.com/cilium/cilium/main/stable.txt)" >> $GITHUB_ENV
