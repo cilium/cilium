@@ -248,12 +248,12 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 	var createdTsBytesWritten int
 
 	// Finally the samples, one line for each.
+	if metricType == dto.MetricType_COUNTER && strings.HasSuffix(name, "_total") {
+		compliantName = compliantName + "_total"
+	}
 	for _, metric := range in.Metric {
 		switch metricType {
 		case dto.MetricType_COUNTER:
-			if strings.HasSuffix(name, "_total") {
-				compliantName = compliantName + "_total"
-			}
 			if metric.Counter == nil {
 				return written, fmt.Errorf(
 					"expected counter in metric %s %s", compliantName, metric,
