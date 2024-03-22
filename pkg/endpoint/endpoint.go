@@ -60,6 +60,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -252,8 +253,16 @@ type Endpoint struct {
 	status *EndpointStatus
 
 	// DNSRules is the collection of current endpoint-specific DNS proxy
-	// rules. These can be restored during Cilium restart.
+	// rules that conform to using restore.PortProto V1 (that is, they do
+	// **not** take protocol into account). These can be restored during
+	// Cilium restart.
+	// TODO: This can be removed when 1.16 is deprecated.
 	DNSRules restore.DNSRules
+
+	// DNSRulesV2 is the collection of current endpoint-specific DNS proxy
+	// rules that conform to using restore.PortProto V2 (that is, they take
+	// protocol into account). These can be restored during Cilium restart.
+	DNSRulesV2 restore.DNSRules
 
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
@@ -545,6 +554,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		ifName:           ifName,
 		OpLabels:         labels.NewOpLabels(),
 		DNSRules:         nil,
+		DNSRulesV2:       nil,
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
@@ -1602,7 +1612,16 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 
 // OnDNSPolicyUpdateLocked is called when the Endpoint's DNS policy has been updated
 func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
-	e.DNSRules = rules
+	e.DNSRulesV2 = rules
+	// Keep V1 in tact in case of a downgrade.
+	e.DNSRules = make(restore.DNSRules)
+	for pp, rules := range rules {
+		proto := pp.Protocol()
+		// Filter out non-UDP/TCP protocol
+		if proto == uint8(u8proto.TCP) || proto == uint8(u8proto.UDP) {
+			e.DNSRules[pp.ToV1()] = rules
+		}
+	}
 }
 
 // getProxyStatistics gets the ProxyStatistics for the flows with the

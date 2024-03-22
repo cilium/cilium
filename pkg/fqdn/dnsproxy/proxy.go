@@ -316,8 +316,14 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	if ep.IPv6.IsValid() {
 		p.restoredEPs[ep.IPv6] = ep
 	}
+	// Use V2 if it is populated, otherwise
+	// use V1.
+	dnsRules := ep.DNSRulesV2
+	if len(dnsRules) == 0 && len(ep.DNSRules) > 0 {
+		dnsRules = ep.DNSRules
+	}
 	restoredRules := make(map[restore.PortProto][]restoredIPRule, len(ep.DNSRules))
-	for pp, dnsRule := range ep.DNSRules {
+	for pp, dnsRule := range dnsRules {
 		ipRules := make([]restoredIPRule, 0, len(dnsRule))
 		for _, ipRule := range dnsRule {
 			if ipRule.Re.Pattern == nil {
@@ -341,7 +347,7 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	}
 	p.restored[uint64(ep.ID)] = restoredRules
 
-	log.Debugf("Restored rules for endpoint %d: %v", ep.ID, ep.DNSRules)
+	log.Debugf("Restored rules for endpoint %d: %v", ep.ID, dnsRules)
 }
 
 // 'p' must be locked
