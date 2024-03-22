@@ -118,7 +118,7 @@ func (r *ServiceReconciler) populateLocalServices(localNodeName string) (localSe
 
 endpointsLoop:
 	for _, eps := range epList {
-		svc, exists, err := r.resolveSvcFromEndpoints(eps)
+		_, exists, err := r.resolveSvcFromEndpoints(eps)
 		if err != nil {
 			// Cannot resolve service from endpoints. We have nothing to do here.
 			continue
@@ -126,11 +126,6 @@ endpointsLoop:
 
 		if !exists {
 			// No service associated with this endpoint. We're not interested in this.
-			continue
-		}
-
-		// We only need Endpoints tracking for externalTrafficPolicy=Local
-		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
 			continue
 		}
 
@@ -295,70 +290,99 @@ func (r *ServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualR
 	if !svcSelector.Matches(serviceLabelSet(svc)) {
 		return nil, nil
 	}
-	// Ignore externalTrafficPolicy == Local && no local endpoints.
-	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
-		!hasLocalEndpoints(svc, ls) {
-		return nil, nil
-	}
+
 	var desiredRoutes []netip.Prefix
 	// Loop over the service advertisements and determine the desired routes.
 	for _, svcAdv := range newc.ServiceAdvertisements {
 		switch svcAdv {
 		case v2alpha1api.BGPLoadBalancerIPAddr:
-			if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
-				continue
-			}
-			// Ignore service managed by an unsupported LB class.
-			if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2alpha1api.BGPLoadBalancerClass {
-				// The service is managed by a different LB class.
-				continue
-			}
-			for _, ingress := range svc.Status.LoadBalancer.Ingress {
-				if ingress.IP == "" {
-					continue
-				}
-				addr, err := netip.ParseAddr(ingress.IP)
-				if err != nil {
-					continue
-				}
-				desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
-			}
+			desiredRoutes = append(desiredRoutes, r.lbSvcDesiredRoutes(svc, ls)...)
 		case v2alpha1api.BGPClusterIPAddr:
-			if svc.Spec.ClusterIP == "" || len(svc.Spec.ClusterIPs) == 0 || svc.Spec.ClusterIP == corev1.ClusterIPNone {
-				continue
-			}
-			ips := sets.New[string]()
-			if svc.Spec.ClusterIP != "" {
-				ips.Insert(svc.Spec.ClusterIP)
-			}
-			for _, clusterIP := range svc.Spec.ClusterIPs {
-				if clusterIP == "" || clusterIP == corev1.ClusterIPNone {
-					continue
-				}
-				ips.Insert(clusterIP)
-			}
-			for _, ip := range sets.List(ips) {
-				addr, err := netip.ParseAddr(ip)
-				if err != nil {
-					continue
-				}
-				desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
-			}
+			desiredRoutes = append(desiredRoutes, r.clusterIPDesiredRoutes(svc, ls)...)
 		case v2alpha1api.BGPExternalIPAddr:
-			for _, extIP := range svc.Spec.ExternalIPs {
-				if extIP == "" {
-					continue
-				}
-				addr, err := netip.ParseAddr(extIP)
-				if err != nil {
-					continue
-				}
-				desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
-			}
+			desiredRoutes = append(desiredRoutes, r.externalIPDesiredRoutes(svc, ls)...)
 		}
 	}
 
 	return desiredRoutes, err
+}
+
+func (r *ServiceReconciler) externalIPDesiredRoutes(svc *slim_corev1.Service, ls localServices) []netip.Prefix {
+	var desiredRoutes []netip.Prefix
+	// Ignore externalTrafficPolicy == Local && no local endpoints.
+	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
+		!hasLocalEndpoints(svc, ls) {
+		return desiredRoutes
+	}
+	for _, extIP := range svc.Spec.ExternalIPs {
+		if extIP == "" {
+			continue
+		}
+		addr, err := netip.ParseAddr(extIP)
+		if err != nil {
+			continue
+		}
+		desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
+	}
+	return desiredRoutes
+}
+
+func (r *ServiceReconciler) clusterIPDesiredRoutes(svc *slim_corev1.Service, ls localServices) []netip.Prefix {
+	var desiredRoutes []netip.Prefix
+	// Ignore internalTrafficPolicy == Local && no local endpoints.
+	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal &&
+		!hasLocalEndpoints(svc, ls) {
+		return desiredRoutes
+	}
+	if svc.Spec.ClusterIP == "" || len(svc.Spec.ClusterIPs) == 0 || svc.Spec.ClusterIP == corev1.ClusterIPNone {
+		return desiredRoutes
+	}
+	ips := sets.New[string]()
+	if svc.Spec.ClusterIP != "" {
+		ips.Insert(svc.Spec.ClusterIP)
+	}
+	for _, clusterIP := range svc.Spec.ClusterIPs {
+		if clusterIP == "" || clusterIP == corev1.ClusterIPNone {
+			continue
+		}
+		ips.Insert(clusterIP)
+	}
+	for _, ip := range sets.List(ips) {
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			continue
+		}
+		desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
+	}
+	return desiredRoutes
+}
+
+func (r *ServiceReconciler) lbSvcDesiredRoutes(svc *slim_corev1.Service, ls localServices) []netip.Prefix {
+	var desiredRoutes []netip.Prefix
+	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
+		return desiredRoutes
+	}
+	// Ignore externalTrafficPolicy == Local && no local endpoints.
+	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
+		!hasLocalEndpoints(svc, ls) {
+		return desiredRoutes
+	}
+	// Ignore service managed by an unsupported LB class.
+	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2alpha1api.BGPLoadBalancerClass {
+		// The service is managed by a different LB class.
+		return desiredRoutes
+	}
+	for _, ingress := range svc.Status.LoadBalancer.Ingress {
+		if ingress.IP == "" {
+			continue
+		}
+		addr, err := netip.ParseAddr(ingress.IP)
+		if err != nil {
+			continue
+		}
+		desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
+	}
+	return desiredRoutes
 }
 
 // reconcileService gets the desired routes of a given service and makes sure that is what is being announced.
