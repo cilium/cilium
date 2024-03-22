@@ -293,7 +293,75 @@ options:
   a request to a different node with the following load balancer configuration:
 
   - LoadBalancer & NodePort XDP Acceleration
-  - Direct Server Return (DSR)
+  - Direct Server Return (DSR) in non-Geneve dispatch mode
+
+  Egress Gateway replies are not encrypted when XDP Acceleration is enabled.
+
+Which traffic is encrypted
+==========================
+
+The following table denotes which packets are encrypted with WireGuard depending
+on the mode. Configurations or communication pairs not present in the following
+table are not subject to encryption with WireGuard and therefore assumed to be unencrypted.
+
++----------------+-------------------+----------------------+-----------------+
+| Origin         | Destination       | Configuration        | Encryption mode |
++================+===================+======================+=================+
+| Pod            | remote Pod        | any                  | default         |
++----------------+-------------------+----------------------+-----------------+
+| Pod            | remote Node       | any                  | node-to-node    |
++----------------+-------------------+----------------------+-----------------+
+| Node           | remote Pod        | any                  | node-to-node    |
++----------------+-------------------+----------------------+-----------------+
+| Node           | remote Node       | any                  | node-to-node    |
++----------------+-------------------+----------------------+-----------------+
+| **Services**                                                                |
++----------------+-------------------+----------------------+-----------------+
+| Pod            | remote Pod via    | any                  | default         |
+|                | ClusterIP Service |                      |                 |
++----------------+-------------------+----------------------+-----------------+
+| Pod            | remote Pod via    | Socket LB            | default         |
+|                | non ClusterIP     |                      |                 |
+|                | Service (e.g.,    |                      |                 |
+|                | NodePort)         |                      |                 |
++----------------+-------------------+----------------------+-----------------+
+| Pod            | remote Pod via    | kube-proxy           | node-to-node    |
+|                | non ClusterIP     |                      |                 |
+|                | Service           |                      |                 |
++----------------+-------------------+----------------------+-----------------+
+| Client outside | remote Pod via    | KPR,                 | default         |
+| cluster        | Service           | overlay routing,     |                 |
+|                |                   | without DSR,         |                 |
+|                |                   | without XDP          |                 |
++----------------+-------------------+----------------------+-----------------+
+| Client outside | remote Pod via    | native routing,      | node-to-node    |
+| cluster        | Service           | without XDP          |                 |
++----------------+-------------------+----------------------+-----------------+
+| Client outside | remote Pod or     | DSR in Geneve mode,  | default         |
+| cluster        | remote Node via   | without XDP          |                 |
+|                | Service           |                      |                 |
++----------------+-------------------+----------------------+-----------------+
+| Pod            | remote Pod via L7 | L7 Proxy / Ingress   | default         |
+|                | Proxy or L7       |                      |                 |
+|                | Ingress Service   |                      |                 |
++----------------+-------------------+----------------------+-----------------+
+| **Egress Gateway**                                                          |
++----------------+-------------------+----------------------+-----------------+
+| Pod            |Egress Gateway node| Egress Gateway       | default         |
++----------------+-------------------+----------------------+-----------------+
+| Egress Gateway | Pod               | Egress Gateway       | default         |
+| node           |                   | without XDP          |                 |
++----------------+-------------------+----------------------+-----------------+
+
+* **Pod**: Cilium-managed K8s Pod running in non-host network namespace.
+* **Node**: K8s host running Cilium, or Pod running in host network namespace
+  managed by Cilium.
+* **Service**: K8s Service (ClusterIP, NodePort, LoadBalancer, ExternalIP).
+* **Client outside cluster**: Any client which runs outside K8s cluster.
+  Request between client and Node is not encrypted. Depending on Cilium
+  configuration (see the table at the beginning of this section), it might be
+  encrypted only between intermediate Node (which received client request first)
+  and destination Node.
 
 Legal
 =====
