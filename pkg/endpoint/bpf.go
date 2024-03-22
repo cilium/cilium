@@ -155,13 +155,13 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	}
 	defer f.Cleanup()
 
-	if e.DNSRules != nil {
-		// Note: e.DNSRules is updated by syncEndpointHeaderFile and regenerateBPF
+	if e.DNSRulesV2 != nil {
+		// Note: e.DNSRulesV2 is updated by syncEndpointHeaderFile and regenerateBPF
 		// before they call into writeHeaderfile, because GetDNSRules must not be
 		// called with endpoint.mutex held.
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: headerPath,
-			"DNSRules":     e.DNSRules,
+			"DNSRulesV2":   e.DNSRulesV2,
 		}).Debug("writing header file with DNSRules")
 	}
 
