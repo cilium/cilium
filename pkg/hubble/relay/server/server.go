@@ -55,7 +55,6 @@ type Server struct {
 	healthServer     *healthServer
 	metricsServer    *http.Server
 	opts             options
-	stop             chan struct{}
 }
 
 // New creates a new Server.
@@ -152,7 +151,6 @@ func New(options ...Option) (*Server, error) {
 
 	return &Server{
 		pm:               pm,
-		stop:             make(chan struct{}),
 		server:           grpcServer,
 		grpcHealthServer: grpcHealthServer,
 		metricsServer:    metricsServer,
@@ -199,7 +197,6 @@ func (s *Server) Serve() error {
 // Stop terminates the hubble-relay server.
 func (s *Server) Stop() {
 	s.opts.log.Info("Stopping server...")
-	close(s.stop)
 	s.server.Stop()
 	if s.metricsServer != nil {
 		if err := s.metricsServer.Shutdown(context.Background()); err != nil {
