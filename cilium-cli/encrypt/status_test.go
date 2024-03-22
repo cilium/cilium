@@ -8,6 +8,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 func Test_nodeStatusFromOutput(t *testing.T) {
@@ -260,10 +262,11 @@ Errors: 3
 	}
 }
 
-func Test_clusterNodeStatus(t *testing.T) {
+func Test_getClusterStatus(t *testing.T) {
 	testCases := []struct {
 		name                  string
 		nodeStatusMap         map[string]models.EncryptionStatus
+		ikProps               ipsecKeyProps
 		expectedClusterStatus clusterStatus
 	}{
 		{
@@ -302,9 +305,11 @@ func Test_clusterNodeStatus(t *testing.T) {
 					},
 				},
 			},
+			ikProps: ipsecKeyProps{expectedCount: 1},
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:          2,
 				EncIPsecNodeCount:       2,
+				IPsecExpectedKeyCount:   1,
 				IPsecKeysInUseNodeCount: map[int64]int64{1: 2},
 				IPsecMaxSeqNum:          "0x77c/0xffffffff",
 				XfrmErrors:              make(map[string]int64),
@@ -338,12 +343,15 @@ func Test_clusterNodeStatus(t *testing.T) {
 					},
 				},
 			},
+			ikProps: ipsecKeyProps{expectedCount: 1},
 			expectedClusterStatus: clusterStatus{
-				TotalNodeCount:          2,
-				EncIPsecNodeCount:       2,
-				IPsecKeysInUseNodeCount: map[int64]int64{1: 1, 2: 1},
-				IPsecMaxSeqNum:          "0x77c/0xffffffff",
-				IPsecErrCount:           5,
+				TotalNodeCount:             2,
+				EncIPsecNodeCount:          2,
+				IPsecExpectedKeyCount:      1,
+				IPsecKeyRotationInProgress: true,
+				IPsecKeysInUseNodeCount:    map[int64]int64{1: 1, 2: 1},
+				IPsecMaxSeqNum:             "0x77c/0xffffffff",
+				IPsecErrCount:              5,
 				XfrmErrors: map[string]int64{
 					"XfrmInHdrError": 1,
 					"XfrmInNoState":  4,
@@ -384,13 +392,20 @@ func Test_clusterNodeStatus(t *testing.T) {
 					Mode: "Disabled",
 				},
 			},
+			ikProps: ipsecKeyProps{
+				perNode:       true,
+				expectedCount: 1,
+			},
 			expectedClusterStatus: clusterStatus{
-				TotalNodeCount:          3,
-				EncDisabledNodeCount:    1,
-				EncIPsecNodeCount:       2,
-				IPsecKeysInUseNodeCount: map[int64]int64{1: 1, 2: 1},
-				IPsecMaxSeqNum:          "0x77c/0xffffffff",
-				IPsecErrCount:           5,
+				TotalNodeCount:             3,
+				EncDisabledNodeCount:       1,
+				EncIPsecNodeCount:          2,
+				IPsecExpectedKeyCount:      1,
+				IPsecPerNodeKey:            true,
+				IPsecKeyRotationInProgress: true,
+				IPsecKeysInUseNodeCount:    map[int64]int64{1: 1, 2: 1},
+				IPsecMaxSeqNum:             "0x77c/0xffffffff",
+				IPsecErrCount:              5,
 				XfrmErrors: map[string]int64{
 					"XfrmInHdrError": 1,
 					"XfrmInNoState":  4,
@@ -405,7 +420,7 @@ func Test_clusterNodeStatus(t *testing.T) {
 
 	for _, tt := range testCases {
 		// function to test
-		actualClusterStatus, err := clusterNodeStatus(tt.nodeStatusMap)
+		actualClusterStatus, err := getClusterStatus(tt.nodeStatusMap, tt.ikProps)
 
 		require.NoError(t, err)
 		require.Equal(t, tt.expectedClusterStatus, actualClusterStatus)
@@ -446,5 +461,73 @@ func Test_maxSequenceNumber(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, tt.expectedMaxSeqNum, actualMaxSequenceNumber)
+	}
+}
+
+func Test_expectedIPsecKeyCount(t *testing.T) {
+	testCases := []struct {
+		ciliumPods int
+		fs         features.Set
+		perNodeKey bool
+		expected   int
+	}{
+		{
+			ciliumPods: 1,
+			fs:         features.Set{},
+			perNodeKey: false,
+			expected:   1,
+		},
+		{
+			ciliumPods: 100,
+			fs:         features.Set{},
+			perNodeKey: false,
+			expected:   1,
+		},
+		{
+			ciliumPods: 10,
+			fs:         features.Set{},
+			perNodeKey: true,
+			expected:   18,
+		},
+		{
+			ciliumPods: 10,
+			fs: features.Set{
+				features.IPv6: features.Status{Enabled: true},
+			},
+			perNodeKey: true,
+			expected:   36,
+		},
+		{
+			ciliumPods: 10,
+			fs: features.Set{
+				features.CiliumIPAMMode: features.Status{Mode: "eni"},
+			},
+			perNodeKey: true,
+			expected:   27,
+		},
+		{
+			ciliumPods: 10,
+			fs: features.Set{
+				features.IPv6:           features.Status{Enabled: true},
+				features.CiliumIPAMMode: features.Status{Mode: "azure"},
+			},
+			perNodeKey: true,
+			expected:   54,
+		},
+		{
+			ciliumPods: 20,
+			fs: features.Set{
+				features.CiliumIPAMMode: features.Status{Mode: "eni"},
+			},
+			perNodeKey: true,
+			expected:   57,
+		},
+	}
+
+	for _, tt := range testCases {
+		// function to test
+		actual := expectedIPsecKeyCount(tt.ciliumPods, tt.fs, tt.perNodeKey)
+
+		require.Equal(t, tt.expected, actual)
 	}
 }

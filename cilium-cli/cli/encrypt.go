@@ -37,8 +37,8 @@ func newCmdEncryptStatus() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.CiliumNamespace = namespace
 			s := encrypt.NewEncrypt(k8sClient, params)
-			if err := s.GetEncryptStatus(context.Background()); err != nil {
-				fatalf("Unable to get encrypt status: %s", err)
+			if err := s.PrintEncryptStatus(context.Background()); err != nil {
+				fatalf("Unable to print encryption status: %s", err)
 			}
 			return nil
 		},
