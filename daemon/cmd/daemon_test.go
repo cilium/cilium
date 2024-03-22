@@ -182,7 +182,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	ctx := context.Background()
 
 	controller.NewManager().RemoveAllAndWait()
-	ds.d.endpointManager.RemoveAll(c)
 
 	// It's helpful to keep the directories around if a test failed; only delete
 	// them if tests succeed.

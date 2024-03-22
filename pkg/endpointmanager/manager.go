@@ -14,7 +14,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	check "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -396,15 +395,6 @@ func (mgr *EndpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 // and prevents the endpoint from being globally acccessible via other packages.
 func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	return mgr.deleteEndpoint(ep, conf)
-}
-
-// RemoveAll removes all endpoints from the global maps.
-func (mgr *EndpointManager) RemoveAll(c *check.C) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
-	mgr.epIDAllocator.reallocatePool(c)
-	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
-	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }
 
 // lookupCiliumID looks up endpoint by endpoint ID
