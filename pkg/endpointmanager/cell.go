@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/netip"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -116,9 +115,6 @@ type EndpointsModify interface {
 	// RemoveEndpoint stops the active handling of events by the specified endpoint,
 	// and prevents the endpoint from being globally acccessible via other packages.
 	RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error
-
-	// RemoveAll removes all endpoints from the global maps.
-	RemoveAll(testing.TB)
 }
 
 type EndpointManager interface {
