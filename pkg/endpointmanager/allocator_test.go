@@ -9,6 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// reallocatePool starts over with a new pool. This function is only used for
+// tests and its implementation is not optimized for production.
+func (a *epIDAllocator) reallocatePool(t testing.TB) {
+	for i := uint16(minID); i <= uint16(maxID); i++ {
+		a.release(i)
+	}
+}
+
 func TestAllocation(t *testing.T) {
 	p := newEPIDAllocator()
 
