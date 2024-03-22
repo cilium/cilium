@@ -37,7 +37,7 @@ func (c *ConfigModifyEvent) configModify(params PatchConfigParams, resChan chan 
 
 	om, err := option.Config.Opts.Library.ValidateConfigurationMap(cfgSpec.Options)
 	if err != nil {
-		msg := fmt.Errorf("Invalid configuration option %s", err)
+		msg := fmt.Errorf("Invalid configuration option: %w", err)
 		resChan <- api.Error(PatchConfigBadRequestCode, msg)
 		return
 	}
@@ -89,7 +89,7 @@ func (c *ConfigModifyEvent) configModify(params PatchConfigParams, resChan chan 
 		// Only recompile if configuration has changed.
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.tunnelConfig, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
+			msg := fmt.Errorf("Unable to recompile base programs: %w", err)
 			// Revert configuration changes
 			option.Config.ConfigPatchMutex.Lock()
 			if policyEnforcementChanged {

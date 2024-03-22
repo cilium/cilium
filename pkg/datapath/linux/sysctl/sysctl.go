@@ -200,7 +200,7 @@ func (ay *directSysctl) Write(name string, value string) error {
 	// Check if the value is already set to the desired value.
 	val, err := ay.Read(name)
 	if err != nil {
-		return fmt.Errorf("could not read the sysctl file %s: %s", path, err)
+		return fmt.Errorf("could not read the sysctl file %s: %w", path, err)
 	}
 	// If the value is already set, return.
 	if strings.TrimRight(string(val), "\n") == value {

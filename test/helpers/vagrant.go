@@ -40,11 +40,11 @@ func CreateVM(scope string) error {
 	cmd := getCmd(createCMD)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("error getting stdout: %s", err)
+		return fmt.Errorf("error getting stdout: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return fmt.Errorf("error getting stderr: %s", err)
+		return fmt.Errorf("error getting stderr: %w", err)
 	}
 
 	globalWriter := ginkgoext.NewWriter(ginkgo.GinkgoWriter)

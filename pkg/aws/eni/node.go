@@ -431,7 +431,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		return 0,
 			unableToGetSecurityGroups,
-			fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
+			fmt.Errorf("%s: %w", errUnableToGetSecurityGroups, err)
 	}
 
 	desc := "Cilium-CNI (" + n.node.InstanceID() + ")"
@@ -462,7 +462,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 			eniID, eni, err = n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false)
 		}
 		if err != nil {
-			return 0, unableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
+			return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 		}
 	}
 
@@ -499,7 +499,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 		return 0,
 			unableToAttachENI,
-			fmt.Errorf("%s at index %d: %s", errUnableToAttachENI, index, err)
+			fmt.Errorf("%s at index %d: %w", errUnableToAttachENI, index, err)
 	}
 
 	scopedLog = scopedLog.WithFields(logrus.Fields{
@@ -525,7 +525,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 				return toAllocate, "", nil
 			}
 
-			return 0, unableToMarkENIForDeletion, fmt.Errorf("unable to mark ENI for deletion on termination: %s", err)
+			return 0, unableToMarkENIForDeletion, fmt.Errorf("unable to mark ENI for deletion on termination: %w", err)
 		}
 	}
 

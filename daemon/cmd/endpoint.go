@@ -138,7 +138,8 @@ func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Re
 
 	if nerr, err := d.deleteEndpointByContainerID(params.Endpoint.ContainerID); err != nil {
 		r.Error(err)
-		if apierr, ok := err.(*api.APIError); ok {
+		apierr := &api.APIError{}
+		if errors.As(err, &apierr) {
 			return apierr
 		}
 		return api.Error(DeleteEndpointInvalidCode, err)
@@ -388,7 +389,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 
 	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err != nil {
-		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
+		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %w", err))
 	}
 
 	oldEp := d.endpointManager.LookupCiliumID(ep.ID)
@@ -505,7 +506,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	// e.ID assigned here
 	err = d.endpointManager.AddEndpoint(owner, ep, "Create endpoint from API PUT")
 	if err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
+		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %w", err))
 	}
 
 	var regenTriggered bool
@@ -834,7 +835,8 @@ func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middlewar
 
 	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
 		r.Error(err)
-		if apierr, ok := err.(*api.APIError); ok {
+		apierr := &api.APIError{}
+		if errors.As(err, &apierr) {
 			return apierr
 		}
 		return api.Error(DeleteEndpointIDErrorsCode, err)
@@ -857,12 +859,11 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 	}
 
 	if err := ep.Update(cfg); err != nil {
-		switch err.(type) {
-		case endpoint.UpdateValidationError:
+		var updateValidationError endpoint.UpdateValidationError
+		if errors.As(err, &updateValidationError) {
 			return api.Error(PatchEndpointIDConfigInvalidCode, err)
-		default:
-			return api.Error(PatchEndpointIDConfigFailedCode, err)
 		}
+		return api.Error(PatchEndpointIDConfigFailedCode, err)
 	}
 	if err := d.endpointManager.UpdateReferences(ep); err != nil {
 		return api.Error(PatchEndpointIDNotFoundCode, err)
@@ -882,7 +883,8 @@ func patchEndpointIDConfigHandler(d *Daemon, params PatchEndpointIDConfigParams)
 
 	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
 		r.Error(err)
-		if apierr, ok := err.(*api.APIError); ok {
+		apierr := &api.APIError{}
+		if errors.As(err, &apierr) {
 			return apierr
 		}
 		return api.Error(PatchEndpointIDFailedCode, err)

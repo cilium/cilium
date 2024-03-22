@@ -57,12 +57,12 @@ func Launch(spec *healthApi.Spec, initialized <-chan struct{}) (*CiliumHealth, e
 
 	ch.server, err = server.NewServer(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate cilium-health server: %s", err)
+		return nil, fmt.Errorf("failed to instantiate cilium-health server: %w", err)
 	}
 
 	ch.client, err = client.NewDefaultClient()
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate cilium-health client: %s", err)
+		return nil, fmt.Errorf("failed to instantiate cilium-health client: %w", err)
 	}
 
 	go ch.runServer(initialized)

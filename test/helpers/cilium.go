@@ -103,7 +103,7 @@ func (s *SSHMeta) BpfIPCacheList(localScopeOnly bool) (map[string]uint32, error)
 				}
 				nid64, err := strconv.ParseUint(s[idIdx:endIdx], 10, 32)
 				if err != nil {
-					return nil, fmt.Errorf("cannot parse identity from: %s (%s): %s", s, s[idIdx:endIdx], err)
+					return nil, fmt.Errorf("cannot parse identity from: %s (%s): %w", s, s[idIdx:endIdx], err)
 				}
 				nid = uint32(nid64)
 				if localScopeOnly && !identity.NumericIdentity(nid).HasLocalScope() {
@@ -574,7 +574,7 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 
 	revision, err := s.PolicyGetRevision()
 	if err != nil {
-		return -1, fmt.Errorf("cannot get policy revision: %s", err)
+		return -1, fmt.Errorf("cannot get policy revision: %w", err)
 	}
 	s.logger.WithFields(logrus.Fields{
 		logfields.Path:           path,
@@ -645,7 +645,7 @@ func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	err := s.RenderTemplateToFile(filename, policy, os.ModePerm)
 	if err != nil {
 		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
-		return 0, fmt.Errorf("cannot render the policy:  %s", err)
+		return 0, fmt.Errorf("cannot render the policy: %w", err)
 	}
 	path := s.GetFilePath(filename)
 	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)

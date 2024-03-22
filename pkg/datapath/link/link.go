@@ -38,11 +38,11 @@ func DeleteByName(ifName string) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
+		return fmt.Errorf("failed to lookup %q: %w", ifName, err)
 	}
 
 	if err = netlink.LinkDel(iface); err != nil {
-		return fmt.Errorf("failed to delete %q: %v", ifName, err)
+		return fmt.Errorf("failed to delete %q: %w", ifName, err)
 	}
 
 	return nil

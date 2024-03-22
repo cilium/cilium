@@ -37,7 +37,7 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 	opts := serveroption.Options{}
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %v", err)
+			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
 	if opts.Listener == nil {

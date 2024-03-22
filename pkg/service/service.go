@@ -298,7 +298,7 @@ func (s *Service) RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resour
 		// map so that the service will get the l7 flag set in bpf
 		// datapath.
 		if _, _, err := s.UpsertService(svc); err != nil {
-			return fmt.Errorf("error while updating service in LB map: %s", err)
+			return fmt.Errorf("error while updating service in LB map: %w", err)
 		}
 	}
 	return nil
@@ -349,7 +349,7 @@ func (s *Service) RegisterL7LBServiceBackendSync(serviceName lb.ServiceName, bac
 		// map so that the registered BackendSync are informed about the current
 		// Service Backends (e.g. Envoy)
 		if _, _, err := s.UpsertService(svc); err != nil {
-			return fmt.Errorf("error while updating service: %s", err)
+			return fmt.Errorf("error while updating service: %w", err)
 		}
 	}
 	return nil
@@ -387,7 +387,7 @@ func (s *Service) DeregisterL7LBServiceRedirect(serviceName lb.ServiceName, reso
 	svcs := s.GetDeepCopyServicesByName(serviceName.Name, serviceName.Namespace)
 	for _, svc := range svcs {
 		if _, _, err := s.UpsertService(svc); err != nil {
-			return fmt.Errorf("Error while removing service from LB map: %s", err)
+			return fmt.Errorf("Error while removing service from LB map: %w", err)
 		}
 	}
 	return nil
@@ -439,7 +439,7 @@ func (s *Service) DeregisterL7LBServiceBackendSync(serviceName lb.ServiceName, b
 	svcs := s.GetDeepCopyServicesByName(serviceName.Name, serviceName.Namespace)
 	for _, svc := range svcs {
 		if _, _, err := s.UpsertService(svc); err != nil {
-			return fmt.Errorf("Error while removing service from LB map: %s", err)
+			return fmt.Errorf("Error while removing service from LB map: %w", err)
 		}
 	}
 	return nil
@@ -1057,7 +1057,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 			logfields.BackendPreferred: b.Preferred,
 		}).Info("Persisting updated backend state for backend")
 		if err := s.lbmap.UpdateBackendWithState(b); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to update backend %+v %w", b, err))
+			errs = errors.Join(errs, fmt.Errorf("failed to update backend %+v: %w", b, err))
 		}
 	}
 
@@ -1285,7 +1285,7 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 				Warn("Deleting no longer present service")
 
 			if err := s.deleteServiceLocked(svc); err != nil {
-				return stale, fmt.Errorf("Unable to remove service %+v: %s", svc, err)
+				return stale, fmt.Errorf("Unable to remove service %+v: %w", svc, err)
 			}
 		} else if svc.restoredBackendHashes.Len() > 0 {
 			// The service is still associated with stale backends
@@ -1335,7 +1335,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		addrID, err := AcquireID(p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
 		if err != nil {
 			return nil, false, false, nil,
-				fmt.Errorf("Unable to allocate service ID %d for %v: %s",
+				fmt.Errorf("Unable to allocate service ID %d for %v: %w",
 					p.Frontend.ID, p.Frontend, err)
 		}
 		p.Frontend.ID = addrID.ID
@@ -1595,7 +1595,7 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 	failed, restored, skipped := 0, 0, 0
 	backends, err := s.lbmap.DumpBackendMaps()
 	if err != nil {
-		return fmt.Errorf("Unable to dump backend maps: %s", err)
+		return fmt.Errorf("Unable to dump backend maps: %w", err)
 	}
 
 	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
@@ -1848,7 +1848,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		s.lbmap.DeleteBackendByID(id)
 	}
 	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
-		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
+		return fmt.Errorf("Unable to release service ID %d: %w", svc.frontend.ID, err)
 	}
 
 	// Delete managed neighbor entries of the LB
@@ -1890,7 +1890,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 				id, err := AcquireBackendID(backend.L3n4Addr)
 				if err != nil {
 					s.backendRefCount.Delete(hash)
-					return nil, nil, nil, fmt.Errorf("Unable to acquire backend ID for %q: %s",
+					return nil, nil, nil, fmt.Errorf("Unable to acquire backend ID for %q: %w",
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
@@ -1919,7 +1919,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 				b.State = backends[i].State
 				// Update the persisted backend state in BPF maps.
 				if err := s.lbmap.UpdateBackendWithState(backends[i]); err != nil {
-					return nil, nil, nil, fmt.Errorf("failed to update backend %+v %w",
+					return nil, nil, nil, fmt.Errorf("failed to update backend %+v: %w",
 						backends[i], err)
 				}
 			case backends[i].Weight != b.Weight:

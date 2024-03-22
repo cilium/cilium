@@ -97,7 +97,7 @@ func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID, err e
 		select {
 		case <-lockTimer.After(time.Duration(10) * time.Millisecond):
 		case <-ctx.Done():
-			err = fmt.Errorf("lock was cancelled: %s", ctx.Err())
+			err = fmt.Errorf("lock was cancelled: %w", ctx.Err())
 			return
 		}
 	}
@@ -133,7 +133,7 @@ func LockPath(ctx context.Context, backend BackendOperations, path string) (l *L
 	if err != nil {
 		kvstoreLocks.unlock(path, id)
 		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})
-		err = fmt.Errorf("error while locking path %s: %s", path, err)
+		err = fmt.Errorf("error while locking path %s: %w", path, err)
 		return nil, err
 	}
 

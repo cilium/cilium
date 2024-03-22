@@ -40,7 +40,7 @@ func NewExporter(
 	opts := exporteroption.Default // start with defaults
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %v", err)
+			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
 	logger.WithField("options", opts).Info("Configuring Hubble event exporter")

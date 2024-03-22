@@ -259,12 +259,12 @@ func runServe(vp *viper.Viper) error {
 			Addr:                   addr,
 			ReuseSocketAddrAndPort: true,
 		}); err != nil {
-			return fmt.Errorf("failed to start gops agent: %v", err)
+			return fmt.Errorf("failed to start gops agent: %w", err)
 		}
 	}
 	srv, err := server.New(opts...)
 	if err != nil {
-		return fmt.Errorf("cannot create hubble-relay server: %v", err)
+		return fmt.Errorf("cannot create hubble-relay server: %w", err)
 	}
 	go func() {
 		sigs := make(chan os.Signal, 1)

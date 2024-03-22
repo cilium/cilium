@@ -50,7 +50,7 @@ func filterByDNSQueries(queryPatterns []string) (FilterFunc, error) {
 	for _, pattern := range queryPatterns {
 		query, err := regexp.Compile(pattern)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compile regexp: %v", err)
+			return nil, fmt.Errorf("failed to compile regexp: %w", err)
 		}
 		queries = append(queries, query)
 	}
@@ -94,7 +94,7 @@ func (f *FQDNFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 	if ff.GetDnsQuery() != nil {
 		dnsFilters, err := filterByDNSQueries(ff.GetDnsQuery())
 		if err != nil {
-			return nil, fmt.Errorf("invalid DNS query filter: %v", err)
+			return nil, fmt.Errorf("invalid DNS query filter: %w", err)
 		}
 		fs = append(fs, dnsFilters)
 	}

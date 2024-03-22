@@ -128,7 +128,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		return 0,
 			unableToGetSecurityGroups,
-			fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
+			fmt.Errorf("%s: %w", errUnableToGetSecurityGroups, err)
 	}
 
 	scopedLog = scopedLog.WithFields(logrus.Fields{
@@ -149,7 +149,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, toAllocate-1, bestSubnet.ID, securityGroupIDs,
 		utils.FillTagWithENIIndex(map[string]string{}, index))
 	if err != nil {
-		return 0, unableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
+		return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 	}
 
 	scopedLog = scopedLog.WithField(fieldENIID, eniID)
@@ -165,7 +165,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		if err2 != nil {
 			scopedLog.Errorf("Failed to release ENI after failure to attach, %s", err2.Error())
 		}
-		return 0, unableToAttachENI, fmt.Errorf("%s %s", errUnableToAttachENI, err)
+		return 0, unableToAttachENI, fmt.Errorf("%s: %w", errUnableToAttachENI, err)
 	}
 	_, err = n.manager.api.WaitENIAttached(ctx, eniID)
 	if err != nil {
@@ -173,7 +173,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		if err2 != nil {
 			scopedLog.Errorf("Failed to release ENI after failure to attach, %s", err2.Error())
 		}
-		return 0, unableToAttachENI, fmt.Errorf("%s %s", errUnableToAttachENI, err)
+		return 0, unableToAttachENI, fmt.Errorf("%s: %w", errUnableToAttachENI, err)
 	}
 
 	n.enis[eniID] = *eni

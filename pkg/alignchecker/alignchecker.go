@@ -24,12 +24,12 @@ import (
 func CheckStructAlignments(pathToObj string, toCheck map[string][]any, checkOffsets bool) error {
 	spec, err := btf.LoadSpec(pathToObj)
 	if err != nil {
-		return fmt.Errorf("cannot parse BTF debug info %s: %s", pathToObj, err)
+		return fmt.Errorf("cannot parse BTF debug info %s: %w", pathToObj, err)
 	}
 
 	structInfo, err := getStructInfosFromBTF(spec, toCheck)
 	if err != nil {
-		return fmt.Errorf("cannot extract struct info from BTF %s: %s", pathToObj, err)
+		return fmt.Errorf("cannot extract struct info from BTF %s: %w", pathToObj, err)
 	}
 
 	for cName, goStructs := range toCheck {

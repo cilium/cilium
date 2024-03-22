@@ -67,7 +67,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 
 		portInt, err := strconv.ParseUint(port, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse port: %s", err)
+			return nil, fmt.Errorf("unable to parse port: %w", err)
 		}
 
 		// Don't need to validate, regex already did that.

@@ -20,7 +20,7 @@ import (
 func MustCompile(constraint string) semver.Range {
 	verCheck, err := Compile(constraint)
 	if err != nil {
-		panic(fmt.Errorf("cannot compile go-version constraint '%s' %s", constraint, err))
+		panic(fmt.Errorf("cannot compile go-version constraint '%s': %w", constraint, err))
 	}
 	return verCheck
 }
@@ -36,7 +36,7 @@ func Compile(constraint string) (semver.Range, error) {
 func MustVersion(version string) semver.Version {
 	ver, err := Version(version)
 	if err != nil {
-		panic(fmt.Errorf("cannot compile go-version version '%s' %s", version, err))
+		panic(fmt.Errorf("cannot compile go-version version '%s': %w", version, err))
 	}
 	return ver
 }

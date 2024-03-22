@@ -15,12 +15,12 @@ import (
 func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool) (bpf.MapKey, bool, error) {
 	srcAddrPort, err := netip.ParseAddrPort(srcAddr)
 	if err != nil {
-		return nil, false, fmt.Errorf("invalid source address '%s': %s", srcAddr, err)
+		return nil, false, fmt.Errorf("invalid source address '%s': %w", srcAddr, err)
 	}
 
 	dstAddrPort, err := netip.ParseAddrPort(dstAddr)
 	if err != nil {
-		return nil, false, fmt.Errorf("invalid destination address '%s': %s", dstAddr, err)
+		return nil, false, fmt.Errorf("invalid destination address '%s': %w", dstAddr, err)
 	}
 
 	if srcAddrPort.Addr().Is4() {

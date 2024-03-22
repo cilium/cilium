@@ -89,7 +89,7 @@ func (p *ProtocolFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilte
 	if ff.GetProtocol() != nil {
 		pf, err := filterByProtocol(ff.GetProtocol())
 		if err != nil {
-			return nil, fmt.Errorf("invalid protocol filter: %v", err)
+			return nil, fmt.Errorf("invalid protocol filter: %w", err)
 		}
 		fs = append(fs, pf)
 	}

@@ -65,7 +65,7 @@ func (c *Ipnet) UnmarshalJSON(json []byte) error {
 func parseCIDR(c string) (*net.IPNet, error) {
 	_, n, err := net.ParseCIDR(c)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid CIDR %s: %s", c, err)
+		return nil, fmt.Errorf("Invalid CIDR %s: %w", c, err)
 	}
 	return n, nil
 }
@@ -104,7 +104,7 @@ func NewIPMasqAgent(configPath string) (*IPMasqAgent, error) {
 func newIPMasqAgent(configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create fsnotify watcher: %s", err)
+		return nil, fmt.Errorf("Failed to create fsnotify watcher: %w", err)
 	}
 
 	configDir := filepath.Dir(configPath)
@@ -112,7 +112,7 @@ func newIPMasqAgent(configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error
 	// the watcher will fail to add
 	if err := watcher.Add(configDir); err != nil {
 		watcher.Close()
-		return nil, fmt.Errorf("Failed to add %q dir to fsnotify watcher: %s", configDir, err)
+		return nil, fmt.Errorf("Failed to add %q dir to fsnotify watcher: %w", configDir, err)
 	}
 
 	a := &IPMasqAgent{
@@ -230,7 +230,7 @@ func (a *IPMasqAgent) readConfig() (bool, error) {
 			a.masqLinkLocalIPv6 = false
 			return true, nil
 		}
-		return false, fmt.Errorf("Failed to read %s: %s", a.configPath, err)
+		return false, fmt.Errorf("Failed to read %s: %w", a.configPath, err)
 	}
 
 	if len(raw) == 0 {
@@ -242,11 +242,11 @@ func (a *IPMasqAgent) readConfig() (bool, error) {
 
 	jsonStr, err := yaml.ToJSON(raw)
 	if err != nil {
-		return false, fmt.Errorf("Failed to convert to json: %s", err)
+		return false, fmt.Errorf("Failed to convert to json: %w", err)
 	}
 
 	if err := json.Unmarshal(jsonStr, &cfg); err != nil {
-		return false, fmt.Errorf("Failed to de-serialize json: %s", err)
+		return false, fmt.Errorf("Failed to de-serialize json: %w", err)
 	}
 
 	nonMasqCIDRs := map[string]net.IPNet{}
@@ -266,7 +266,7 @@ func (a *IPMasqAgent) readConfig() (bool, error) {
 func (a *IPMasqAgent) restore() error {
 	cidrsInMap, err := a.ipMasqMap.Dump()
 	if err != nil {
-		return fmt.Errorf("Failed to dump ip-masq-agent cidrs from map: %s", err)
+		return fmt.Errorf("Failed to dump ip-masq-agent cidrs from map: %w", err)
 	}
 
 	cidrs := map[string]net.IPNet{}

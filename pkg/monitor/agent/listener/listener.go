@@ -4,6 +4,7 @@
 package listener
 
 import (
+	"errors"
 	"net"
 	"os"
 
@@ -50,16 +51,16 @@ func IsDisconnected(err error) bool {
 		return false
 	}
 
-	op, ok := err.(*net.OpError)
-	if !ok {
+	op := &net.OpError{}
+	if !errors.As(err, &op) {
 		return false
 	}
 
-	syscerr, ok := op.Err.(*os.SyscallError)
-	if !ok {
+	syscerr := &os.SyscallError{}
+	if !errors.As(op.Err, &syscerr) {
 		return false
 	}
 
-	errn := syscerr.Err.(unix.Errno)
-	return errn == unix.EPIPE
+	var errn unix.Errno
+	return errors.As(syscerr.Err, &errn) && errors.Is(errn, unix.EPIPE)
 }

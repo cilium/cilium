@@ -418,7 +418,7 @@ func (a *Allocator) WaitForInitialSync(ctx context.Context) error {
 	select {
 	case <-a.initialListDone:
 	case <-ctx.Done():
-		return fmt.Errorf("identity sync was cancelled: %s", ctx.Err())
+		return fmt.Errorf("identity sync was cancelled: %w", ctx.Err())
 	}
 
 	return nil
@@ -524,13 +524,13 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		if value != 0 {
 			// re-create master key
 			if err := a.backend.UpdateKeyIfLocked(ctx, value, key, true, lock); err != nil {
-				return 0, false, false, fmt.Errorf("unable to re-create missing master key '%s': %s while allocating ID: %s", key, value, err)
+				return 0, false, false, fmt.Errorf("unable to re-create missing master key '%s': %s while allocating ID: %w", key, value, err)
 			}
 		}
 	} else {
 		_, firstUse, err = a.localKeys.allocate(k, key, value)
 		if err != nil {
-			return 0, false, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
+			return 0, false, false, fmt.Errorf("unable to reserve local key '%s': %w", k, err)
 		}
 
 		if firstUse {
@@ -545,7 +545,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
-			return 0, false, false, fmt.Errorf("unable to create secondary key '%s': %s", k, err)
+			return 0, false, false, fmt.Errorf("unable to create secondary key '%s': %w", k, err)
 		}
 
 		// mark the key as verified in the local cache
@@ -572,7 +572,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	oldID, firstUse, err := a.localKeys.allocate(k, key, id)
 	if err != nil {
 		a.idPool.Release(unmaskedID)
-		return 0, false, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
+		return 0, false, false, fmt.Errorf("unable to reserve local key '%s': %w", k, err)
 	}
 
 	// Another local writer beat us to allocating an ID for the same key,
@@ -602,7 +602,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
 		releaseKeyAndID()
-		return 0, false, false, fmt.Errorf("unable to allocate ID %s for key %s: %s", strID, key2, err)
+		return 0, false, false, fmt.Errorf("unable to allocate ID %s for key %s: %w", strID, key2, err)
 	}
 
 	// Notify pool that leased ID is now in-use.
@@ -613,7 +613,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
 		releaseKeyAndID()
-		return 0, false, false, fmt.Errorf("secondary key creation failed '%s': %s", k, err)
+		return 0, false, false, fmt.Errorf("secondary key creation failed '%s': %w", k, err)
 	}
 
 	// mark the key as verified in the local cache
@@ -651,7 +651,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	select {
 	case <-a.initialListDone:
 	case <-ctx.Done():
-		return 0, false, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %s", ctx.Err())
+		return 0, false, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %w", ctx.Err())
 	}
 
 	kvstore.Trace("Allocating from kvstore", nil, logrus.Fields{fieldKey: key})
@@ -690,7 +690,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		select {
 		case <-ctx.Done():
 			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
-			return 0, false, false, fmt.Errorf("key allocation cancelled: %s", ctx.Err())
+			return 0, false, false, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
 		default:
 			scopedLog.WithError(err).Warning("Key allocation attempt failed")
 		}
@@ -813,7 +813,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 	select {
 	case <-a.initialListDone:
 	case <-ctx.Done():
-		return false, fmt.Errorf("release was cancelled while waiting for initial key list to be received: %s", ctx.Err())
+		return false, fmt.Errorf("release was cancelled while waiting for initial key list to be received: %w", ctx.Err())
 	}
 
 	k := a.encodeKey(key)

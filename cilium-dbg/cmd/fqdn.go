@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -117,10 +118,8 @@ func listFQDNCache() {
 		}
 		result, err := client.Policy.GetFqdnCacheID(params)
 		if err != nil {
-			switch err := err.(type) {
-			case *policy.GetFqdnCacheIDNotFound:
-				// print out empty lookups slice
-			default:
+			notFound := &policy.GetFqdnCacheIDNotFound{}
+			if !errors.As(err, &notFound) {
 				Fatalf("Error: %s\n", err)
 			}
 		} else {
@@ -139,10 +138,8 @@ func listFQDNCache() {
 
 		result, err := client.Policy.GetFqdnCache(params)
 		if err != nil {
-			switch err := err.(type) {
-			case *policy.GetFqdnCacheNotFound:
-				// print out empty lookups slice
-			default:
+			notFound := &policy.GetFqdnCacheNotFound{}
+			if !errors.As(err, &notFound) {
 				Fatalf("Error: %s\n", err)
 			}
 		} else {

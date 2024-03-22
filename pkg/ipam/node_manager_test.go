@@ -157,7 +157,7 @@ func (n *nodeOperationsMock) releaseIP(ip string) error {
 func (n *nodeOperationsMock) ReleaseIPs(ctx context.Context, release *ReleaseAction) error {
 	for _, ipToDelete := range release.IPsToRelease {
 		if err := n.releaseIP(ipToDelete); err != nil {
-			return fmt.Errorf("unable to release IP %s: %s", ipToDelete, err)
+			return fmt.Errorf("unable to release IP %s: %w", ipToDelete, err)
 		}
 	}
 	return nil

@@ -5,6 +5,7 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -178,8 +179,8 @@ func (s *LocalExecutor) ExecContext(ctx context.Context, cmd string, options ...
 	}
 
 	if err != nil {
-
-		if exitError, ok := err.(*exec.ExitError); ok {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
 			res.exitcode = exitError.ExitCode()
 		}
 		res.success = false
@@ -228,7 +229,8 @@ func (s *LocalExecutor) ExecInBackground(ctx context.Context, cmd string, option
 		res.duration = time.Since(start)
 
 		if err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
+			exitError := &exec.ExitError{}
+			if errors.As(err, &exitError) {
 				res.exitcode = exitError.ExitCode()
 			}
 			res.success = false

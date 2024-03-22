@@ -137,7 +137,7 @@ func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	log.Debug("Waiting for proxy updates to complete...")
 	err = proxyWaitGroup.Wait()
 	if err != nil {
-		return fmt.Errorf("proxy updates failed: %s", err)
+		return fmt.Errorf("proxy updates failed: %w", err)
 	}
 	log.Debug("Wait time for proxy updates: ", time.Since(start))
 
@@ -213,7 +213,7 @@ func (mgr *endpointManager) allocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
 		if err := idallocator.Reuse(currID); err != nil {
-			return 0, fmt.Errorf("unable to reuse endpoint ID: %s", err)
+			return 0, fmt.Errorf("unable to reuse endpoint ID: %w", err)
 		}
 		newID = currID
 	} else {

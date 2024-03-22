@@ -49,15 +49,15 @@ func parsePrevResult(n *NetConf) (*NetConf, error) {
 	if n.RawPrevResult != nil {
 		resultBytes, err := json.Marshal(n.RawPrevResult)
 		if err != nil {
-			return nil, fmt.Errorf("could not serialize prevResult: %v", err)
+			return nil, fmt.Errorf("could not serialize prevResult: %w", err)
 		}
 		res, err := version.NewResult(n.CNIVersion, resultBytes)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse prevResult: %v", err)
+			return nil, fmt.Errorf("could not parse prevResult: %w", err)
 		}
 		n.PrevResult, err = current.NewResultFromResult(res)
 		if err != nil {
-			return nil, fmt.Errorf("could not convert result to current version: %v", err)
+			return nil, fmt.Errorf("could not convert result to current version: %w", err)
 		}
 	}
 
@@ -69,7 +69,7 @@ func parsePrevResult(n *NetConf) (*NetConf, error) {
 func ReadNetConf(path string) (*NetConf, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read CNI configuration '%s': %s", path, err)
+		return nil, fmt.Errorf("unable to read CNI configuration '%s': %w", path, err)
 	}
 
 	netConfList := &NetConfList{}
@@ -89,7 +89,7 @@ func ReadNetConf(path string) (*NetConf, error) {
 func LoadNetConf(bytes []byte) (*NetConf, error) {
 	n := &NetConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
-		return nil, fmt.Errorf("failed to load netconf: %s", err)
+		return nil, fmt.Errorf("failed to load netconf: %w", err)
 	}
 
 	return parsePrevResult(n)

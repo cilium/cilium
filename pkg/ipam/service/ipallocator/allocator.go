@@ -183,7 +183,7 @@ func (r *Range) Restore(net *net.IPNet, data []byte) error {
 		return fmt.Errorf("not a snapshottable allocator")
 	}
 	if err := snapshottable.Restore(net.String(), data); err != nil {
-		return fmt.Errorf("restoring snapshot encountered %v", err)
+		return fmt.Errorf("restoring snapshot encountered: %w", err)
 	}
 	return nil
 }

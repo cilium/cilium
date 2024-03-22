@@ -651,7 +651,7 @@ func (p *Parser) parse() (internalSelector, error) {
 		case IdentifierToken, DoesNotExistToken:
 			r, err := p.parseRequirement()
 			if err != nil {
-				return nil, fmt.Errorf("unable to parse requirement: %v", err)
+				return nil, fmt.Errorf("unable to parse requirement: %w", err)
 			}
 			requirements = append(requirements, *r)
 			t, l := p.consume(Values)

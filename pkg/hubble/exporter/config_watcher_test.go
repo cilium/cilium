@@ -110,12 +110,12 @@ func TestInvalidConfigFile(t *testing.T) {
 		{
 			name:             "duplicated name",
 			watcher:          &configWatcher{configFilePath: "testdata/duplicate-names-flowlogs-config.yaml"},
-			expectedErrorMsg: "invalid yaml config file duplicated flowlog name test001",
+			expectedErrorMsg: "invalid yaml config file: duplicated flowlog name test001",
 		},
 		{
 			name:             "duplicated path",
 			watcher:          &configWatcher{configFilePath: "testdata/duplicate-paths-flowlogs-config.yaml"},
-			expectedErrorMsg: "invalid yaml config file duplicated flowlog path /var/log/network/flow-log/pa/test001.log",
+			expectedErrorMsg: "invalid yaml config file: duplicated flowlog path /var/log/network/flow-log/pa/test001.log",
 		},
 	}
 
