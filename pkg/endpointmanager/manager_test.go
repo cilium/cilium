@@ -38,6 +38,15 @@ func (mgr *EndpointManager) waitEndpointRemoved(ep *endpoint.Endpoint, conf endp
 	return nil
 }
 
+// RemoveAll removes all endpoints from the global maps.
+func (mgr *EndpointManager) RemoveAll(c *C) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+	mgr.epIDAllocator.reallocatePool(c)
+	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
+	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
+}
+
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
 // Note: only used for unit tests, to avoid ep.Delete()
