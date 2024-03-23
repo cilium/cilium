@@ -134,6 +134,13 @@
       ]
     },
     {
+      // Allow github.com/cilium/cilium to upgrade to prerelease versions.
+      "ignoreUnstable": false,
+      "matchPackageNames": [
+        "github.com/cilium/cilium",
+      ],
+    },
+    {
       // Images that directly use docker.io/library/golang for building.
       "groupName": "golang-images",
       "matchFiles": [
