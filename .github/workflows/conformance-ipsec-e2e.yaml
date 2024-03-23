@@ -84,7 +84,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             key-one: 'gcm(aes)'
-            key-two: 'cbc(aes)'
+            key-two: 'hmac-sha256'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -95,7 +95,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             key-one: 'cbc(aes)'
-            key-two: 'cbc(aes)'
+            key-two: 'hmac-sha256'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -107,7 +107,7 @@ jobs:
             encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
+            key-two: 'gcm-aes'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -119,7 +119,7 @@ jobs:
             encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'cbc(aes)'
-            key-two: 'gcm(aes)'
+            key-two: 'gcm-aes'
 
     timeout-minutes: 75
     steps:

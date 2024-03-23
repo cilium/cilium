@@ -308,7 +308,7 @@ jobs:
         uses: ./.github/actions/ipsec-key-rotate
         with:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
-          key-type: "gcm(aes)"
+          key-type: "gcm-aes"
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}

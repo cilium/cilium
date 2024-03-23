@@ -3,11 +3,10 @@ description: Rotates keys and checks that established connections are not interr
 inputs:
   key-type:
     required: true
-    type: string
-    description: "gcm(aes) or cbc(aes)"
+    description: "IPsec key authentication algorithm"
   extra-connectivity-test-flags:
     required: false
-    type: string
+    description: "Connectivity tests extra flags"
 runs:
   using: composite
   steps:
@@ -17,28 +16,16 @@ runs:
         job-name: conformance-ipsec-e2e-key-rotation
         extra-connectivity-test-flags: ${{ inputs.extra-connectivity-test-flags }}
         operation-cmd: |
-          KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -d' ' -f1)
-          if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
-
-          if [[ "${{ inputs.key-type }}" == "gcm(aes)" ]]; then
-            key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-          elif [[ "${{ inputs.key-type }}" == "cbc(aes)" ]]; then
-            key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-          else
-            echo "Invalid key type"; exit 1
-          fi
-          data="{\"stringData\":{\"keys\":\"$((($KEYID+1))) ${key}\"}}"
-
-          echo "Updating IPsec secret with $data"
-          kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+          echo "Rotating IPsec key"
+          ./cilium-cli encryption rotate-key --auth-algo ${{ inputs.key-type }}
 
           # Wait until key rotation starts
           while true; do
-            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-            if [[ $keys_in_use == 2 ]]; then
+            one_key_node_count=$(./cilium-cli encryption status -o json | jq '."ipsec-keys-in-use-node-count"."1"')
+            if [[ "$one_key_node_count" == "null" ]]; then
               break
             fi
-            echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
+            echo "Waiting until key rotation starts (seeing 1 active key on $one_key_node_count nodes)"
             sleep 30s
           done
 
@@ -46,10 +33,10 @@ runs:
           # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
           sleep $((4*60))
           while true; do
-            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-            if [[ $keys_in_use == 1 ]]; then
+            two_keys_node_count=$(./cilium-cli encryption status -o json | jq '."ipsec-keys-in-use-node-count"."2"')
+            if [[ "$two_keys_node_count" == "null" ]]; then
               break
             fi
-            echo "Waiting until key rotation completes (seeing $keys_in_use keys)"
+            echo "Waiting until key rotation completes (seeing 2 active keys on $two_keys_node_count nodes)"
             sleep 30s
           done
