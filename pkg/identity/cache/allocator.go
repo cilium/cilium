@@ -211,7 +211,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 const eventsQueueSize = 1024
 
-// InitIdentityAllocator creates the the identity allocator. Only the first
+// InitIdentityAllocator creates the identity allocator. Only the first
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
 // identity.InitWellKnownIdentities()).
