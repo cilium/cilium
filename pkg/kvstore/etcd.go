@@ -463,7 +463,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	defer cancel()
 
 	select {
-	// Wait for the the initial connection to be established
+	// Wait for the initial connection to be established
 	case <-e.firstSession:
 		if err := e.sessionError(); err != nil {
 			return err

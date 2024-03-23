@@ -822,7 +822,7 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	_, _, _ = m.svc.UpsertService(p1)
 	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, len(localActiveBackends))
 
-	// Insert the the ClusterIP frontend of svc1
+	// Insert the ClusterIP frontend of svc1
 	p2 := &lb.SVC{
 		Frontend:            clusterIP,
 		Backends:            allBackends,

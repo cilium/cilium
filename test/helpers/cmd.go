@@ -144,7 +144,7 @@ type CmdRes struct {
 	stderr   *Buffer         // Stderr from running cmd
 	success  bool            // Whether command successfully executed
 	exitcode int             // The exit code of cmd
-	duration time.Duration   // Is the representation of the the time that command took to execute.
+	duration time.Duration   // Is the representation of the time that command took to execute.
 	wg       *sync.WaitGroup // Used to wait until the command has finished running when used in conjunction with a Context
 	err      error           // If the command had any error being executed, the error will be written here.
 }

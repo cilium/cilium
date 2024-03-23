@@ -122,7 +122,7 @@ type CachedSelectionUser interface {
 // identitySelector. Users of the SelectorCache take care of creating
 // identitySelectors as needed by identity policies. The set of
 // identitySelectors is read locked during an IdentityPolicy update so
-// that the the policy is always updated using a coherent set of
+// that the policy is always updated using a coherent set of
 // cached selections.
 //
 // identitySelector is used as a map key, so it must not be implemented by a

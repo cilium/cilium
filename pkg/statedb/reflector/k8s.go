@@ -85,7 +85,7 @@ func Kubernetes[Obj any](p KubernetesParams[Obj]) Reflector[Obj] {
 }
 
 // KubernetesCell constructs a cell that constructs a Kubernetes source and
-// adds it to the the application lifecycle. If you need dynamic control
+// adds it to the application lifecycle. If you need dynamic control
 // over if and when to start or stop the reflection, use [Kubernetes] and
 // call Reflector.Start and Reflector.Stop manually.
 //

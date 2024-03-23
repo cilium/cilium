@@ -42,7 +42,7 @@ type PolicyContext interface {
 
 	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
 	// the protobuf representation the Envoy can consume. The bool
-	// return parameter tells whether the the rule enforcement can
+	// return parameter tells whether the rule enforcement can
 	// be short-circuited upon the first allowing rule. This is
 	// false if any of the rules has side-effects, requiring all
 	// such rules being evaluated.
