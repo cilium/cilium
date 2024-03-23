@@ -121,7 +121,7 @@ func (ipam *IPAM) DebugStatus() string {
 	return str
 }
 
-// Pool is the the IP pool from which to allocate.
+// Pool is the IP pool from which to allocate.
 type Pool string
 
 func (p Pool) String() string {

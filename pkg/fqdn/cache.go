@@ -217,7 +217,7 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
 	return changed
 }
 
-// AddNameToCleanup adds the IP with the given TTL to the the cleanup map to
+// AddNameToCleanup adds the IP with the given TTL to the cleanup map to
 // delete the entry from the policy when it expires.
 // Need to be called with a write lock
 func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
