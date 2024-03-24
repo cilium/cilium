@@ -309,7 +309,11 @@ func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string
 func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
-	for backend, hostNames := range backendsForHost {
+	orderedBackends := maps.Keys(backendsForHost)
+	goslices.Sort(orderedBackends)
+
+	for _, backend := range orderedBackends {
+		hostNames := backendsForHost[backend]
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{
