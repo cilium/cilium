@@ -12,8 +12,10 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -68,6 +70,25 @@ func TestNewHTTPListener(t *testing.T) {
 		require.Len(t, listener.GetFilterChains(), 1)
 	})
 
+	t.Run("TLS filterchain order", func(t *testing.T) {
+		res1, err1 := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
+			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
+			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
+		})
+		res2, err2 := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
+			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
+			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
+		})
+
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+
+		diffOutput := cmp.Diff(res1, res2, protocmp.Transform())
+		if len(diffOutput) != 0 {
+			t.Errorf("Listeners filterchain order did not match:\n%s\n", diffOutput)
+		}
+	})
+
 	t.Run("TLS", func(t *testing.T) {
 		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
@@ -86,11 +107,8 @@ func TestNewHTTPListener(t *testing.T) {
 		require.Equal(t, "tls", listener.GetFilterChains()[1].GetFilterChainMatch().TransportProtocol)
 		require.Equal(t, "tls", listener.GetFilterChains()[2].GetFilterChainMatch().TransportProtocol)
 		require.Len(t, listener.GetFilterChains()[1].GetFilters(), 1)
-		var serverNames []string
-		serverNames = append(serverNames, listener.GetFilterChains()[1].GetFilterChainMatch().ServerNames...)
-		serverNames = append(serverNames, listener.GetFilterChains()[2].GetFilterChainMatch().ServerNames...)
-		sort.Strings(serverNames)
-		require.Equal(t, []string{"dummy.anotherserver.com", "dummy.server.com"}, serverNames)
+		require.Equal(t, []string{"dummy.server.com"}, listener.GetFilterChains()[1].GetFilterChainMatch().ServerNames)
+		require.Equal(t, []string{"dummy.anotherserver.com"}, listener.GetFilterChains()[2].GetFilterChainMatch().ServerNames)
 
 		downStreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
 		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
