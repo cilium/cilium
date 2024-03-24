@@ -4,7 +4,9 @@
 package translation
 
 import (
+	"cmp"
 	"fmt"
+	goslices "slices"
 	"syscall"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -13,6 +15,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -138,7 +141,11 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 		},
 	})
 
-	for secret, hostNames := range tls {
+	orderedSecrets := maps.Keys(tls)
+	goslices.SortStableFunc(orderedSecrets, func(a, b model.TLSSecret) int { return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name) })
+
+	for _, secret := range orderedSecrets {
+		hostNames := tls[secret]
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := NewHTTPConnectionManager(
 			secureHttpConnectionManagerName,
