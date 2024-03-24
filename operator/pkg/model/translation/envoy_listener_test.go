@@ -138,7 +138,17 @@ func TestNewHTTPListener(t *testing.T) {
 
 func TestNewSNIListener(t *testing.T) {
 	t.Run("normal SNI listener", func(t *testing.T) {
-		res, err := NewSNIListener("dummy-name", map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}})
+		res, err := NewSNIListener("dummy-name",
+			map[string][]string{
+				"foo-namespace/dummy-service:443": {
+					"foo.bar",
+				},
+				"dummy-namespace/dummy-service:443": {
+					"example.org",
+					"example.com",
+				},
+			},
+		)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -147,8 +157,41 @@ func TestNewSNIListener(t *testing.T) {
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
-		require.Len(t, listener.GetFilterChains(), 1)
-		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
+		require.Len(t, listener.GetFilterChains(), 2)
+		require.Equal(t, []string{"example.com", "example.org"}, listener.GetFilterChains()[0].FilterChainMatch.ServerNames)
+		require.Equal(t, []string{"foo.bar"}, listener.GetFilterChains()[1].FilterChainMatch.ServerNames)
+	})
+
+	t.Run("SNI listener with stable filterchain sort-order", func(t *testing.T) {
+		res1, err1 := NewSNIListener("dummy-name",
+			map[string][]string{
+				"dummy-namespace/dummy-service:443": {
+					"example.org",
+					"example.com",
+				},
+				"foo-namespace/dummy-service:443": {
+					"foo.bar",
+				},
+			},
+		)
+		res2, err2 := NewSNIListener("dummy-name",
+			map[string][]string{
+				"foo-namespace/dummy-service:443": {
+					"foo.bar",
+				},
+				"dummy-namespace/dummy-service:443": {
+					"example.org",
+					"example.com",
+				},
+			},
+		)
+		require.Nil(t, err1)
+		require.Nil(t, err2)
+
+		diffOutput := cmp.Diff(res1, res2, protocmp.Transform())
+		if len(diffOutput) != 0 {
+			t.Errorf("Listeners did not match:\n%s\n", diffOutput)
+		}
 	})
 
 	t.Run("normal SNI listener with Proxy Protocol", func(t *testing.T) {
