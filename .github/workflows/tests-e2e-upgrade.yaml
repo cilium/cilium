@@ -227,6 +227,18 @@ jobs:
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
 
+          - name: '16'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.15-20240305.092417'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            encryption: 'wireguard'
+            encryption-node: 'false'
+            host-fw: 'true'
 
     timeout-minutes: 60
     steps:
