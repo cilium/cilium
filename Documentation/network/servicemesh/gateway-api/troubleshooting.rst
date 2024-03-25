@@ -126,9 +126,9 @@ Checking resources
   
   If any of these are set to false, you can get more information by looking at the ``Message`` and ``Reason`` fields.
 
-#. Check the Cilium Operator log for information
+#. Check Cilium Operator logs
 
-  The Cilium Operator log may contain further debugging information. For example, if you did not install the required Custom Resource Definitions, you will see an error like this:
+  The Cilium Operator logs may contain further debugging information. For example, if the required Custom Resource Definitions (CRDs) are not installed, an error will be logged:
 
   .. code-block:: shell-session
     
