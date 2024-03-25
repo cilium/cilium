@@ -1,3 +1,11 @@
+# v1.16.0 (2024-03-21)
+
+* **Feature**: Add config switch `DisableDefaultTimeout` that allows you to disable the default operation timeout (5 seconds) for IMDS calls.
+
+# v1.15.4 (2024-03-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.15.3 (2024-03-07)
 
 * **Bug Fix**: Remove dependency on go-cmp.

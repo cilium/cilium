@@ -1,3 +1,11 @@
+# v1.152.0 (2024-03-19)
+
+* **Feature**: This release adds the new DescribeMacHosts API operation for getting information about EC2 Mac Dedicated Hosts. Users can now see the latest macOS versions that their underlying Apple Mac can support without needing to be updated.
+
+# v1.151.1 (2024-03-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.151.0 (2024-03-15)
 
 * **Feature**: Add media accelerator and neuron device information on the describe instance types API.
