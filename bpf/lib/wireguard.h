@@ -65,7 +65,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
-# if defined(TUNNEL_MODE)
+# if defined(HAVE_ENCAP)
 		/* A rudimentary check (inspired by is_enap()) whether a pkt
 		 * is coming from tunnel device. In tunneling mode WG needs to
 		 * encrypt such pkts, so that src sec ID can be transferred.
@@ -92,7 +92,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 				break;
 			}
 		}
-# endif /* TUNNEL_MODE */
+# endif /* HAVE_ENCAP */
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		break;
@@ -101,10 +101,10 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		goto out;
 	}
 
-#if defined(TUNNEL_MODE)
+#if defined(HAVE_ENCAP)
 	if (from_tunnel)
 		goto encrypt;
-#endif /* TUNNEL_MODE */
+#endif /* HAVE_ENCAP */
 
 #ifndef ENABLE_NODE_ENCRYPTION
 	/* A pkt coming from L7 proxy (i.e., Envoy or the DNS proxy on behalf of
