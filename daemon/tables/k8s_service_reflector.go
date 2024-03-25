@@ -2,7 +2,6 @@ package tables
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +20,7 @@ var K8sReflectorCell = cell.Invoke(registerK8sReflector)
 
 func registerK8sReflector(lc cell.Lifecycle, c client.Clientset, s *Services) error {
 	if !c.IsEnabled() {
-		return fmt.Errorf("Please set --k8s-kubeconfig-path")
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

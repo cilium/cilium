@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
+	"github.com/cilium/cilium/daemon/tables"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
@@ -120,9 +121,6 @@ var (
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
-
-		// Reconciler cell provides the shared metrics for all the reconcilers.
-		reconciler.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -244,6 +242,9 @@ var (
 
 		// The device reloader reloads the datapath when the devices change at runtime.
 		cell.Invoke(registerDeviceReloader),
+
+		// Control-plane tables
+		tables.Cell,
 	)
 )
 
