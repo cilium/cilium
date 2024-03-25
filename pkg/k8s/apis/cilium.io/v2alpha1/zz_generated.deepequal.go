@@ -538,9 +538,6 @@ func (in *CiliumBGPNodeConfigOverrideSpec) DeepEqual(other *CiliumBGPNodeConfigO
 		return false
 	}
 
-	if in.NodeRef != other.NodeRef {
-		return false
-	}
 	if ((in.BGPInstances != nil) && (other.BGPInstances != nil)) || ((in.BGPInstances == nil) != (other.BGPInstances == nil)) {
 		in, other := &in.BGPInstances, &other.BGPInstances
 		if other == nil {
