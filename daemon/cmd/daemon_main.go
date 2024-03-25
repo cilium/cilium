@@ -87,6 +87,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
@@ -1635,6 +1636,7 @@ type daemonParams struct {
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
 	LRPManager          *redirectpolicy.Manager
+	NodeDiscovery       *nodediscovery.NodeDiscovery
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
