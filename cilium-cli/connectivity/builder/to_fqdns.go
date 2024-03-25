@@ -5,6 +5,7 @@ package builder
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
@@ -28,7 +29,7 @@ func (t toFqdns) build(ct *check.ConnectivityTest, templates map[string]string) 
 					egress = check.ResultDNSOK
 					egress.HTTP = check.HTTP{
 						Method: "GET",
-						URL:    "https://cilium.io.",
+						URL:    "https://cilium.io",
 					}
 					// Expect packets for cilium.io / 104.198.14.52 to be dropped.
 					return check.ResultDropCurlTimeout, check.ResultNone
@@ -43,7 +44,9 @@ func (t toFqdns) build(ct *check.ConnectivityTest, templates map[string]string) 
 					egress = check.ResultDNSOK
 					egress.HTTP = check.HTTP{
 						Method: "GET",
-						URL:    fmt.Sprintf("http://%s/", extTarget),
+						// Trim the trailing dot, if any, to match the behavior of the curl
+						// action and make sure that flow validation can succeed.
+						URL: fmt.Sprintf("http://%s/", strings.TrimSuffix(extTarget, ".")),
 					}
 					return egress, check.ResultNone
 				}
