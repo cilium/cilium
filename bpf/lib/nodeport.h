@@ -1424,7 +1424,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	lb6_fill_key(&key, &tuple);
 
-	svc = lb6_lookup_service(&key, false, false);
+	svc = lb6_lookup_service(&key, false);
 	if (svc) {
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
 					l4_off, src_sec_identity, ext_err);
@@ -2962,7 +2962,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	lb4_fill_key(&key, &tuple);
 
-	svc = lb4_lookup_service(&key, false, false);
+	svc = lb4_lookup_service(&key, false);
 	if (svc) {
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					has_l4_header, l4_off,
