@@ -14,8 +14,10 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
 
-// CiliumBGPNodeConfigOverride is used to overrides some of the BGP configurations which are node local.
-// Users can user this resource to override auto-generated BGP settings for the node.
+// CiliumBGPNodeConfigOverride specifies configuration overrides for a CiliumBGPNodeConfig.
+// It allows fine-tuning of BGP behavior on a per-node basis. For the override to be effective,
+// the names in CiliumBGPNodeConfigOverride and CiliumBGPNodeConfig must match exactly. This
+// matching ensures that specific node configurations are applied correctly and only where intended.
 type CiliumBGPNodeConfigOverride struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
@@ -40,11 +42,6 @@ type CiliumBGPNodeConfigOverrideList struct {
 }
 
 type CiliumBGPNodeConfigOverrideSpec struct {
-	// NodeRef is the name of the node for which the BGP configuration is overridden.
-	//
-	// +kubebuilder:validation:Required
-	NodeRef string `json:"nodeRef"`
-
 	// BGPInstances is a list of BGP instances to override.
 	//
 	// +kubebuilder:validation:Required
