@@ -9,6 +9,7 @@ import (
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -289,10 +290,18 @@ func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv
 			virtualhosts = append(virtualhosts, vhs)
 		}
 
+		defaultTimeoutMutator := func(routeConfig *envoy_config_route_v3.RouteConfiguration) *envoy_config_route_v3.RouteConfiguration {
+			for i := range routeConfig.VirtualHosts {
+				for j := range routeConfig.VirtualHosts[i].Routes {
+					routeConfig.VirtualHosts[i].Routes[j].GetRoute().Timeout = durationpb.New(0)
+				}
+			}
+			return routeConfig
+		}
 		// the route name should match the value in http connection manager
 		// otherwise the request will be dropped by envoy
 		routeName := fmt.Sprintf("listener-%s", port)
-		rc, _ := NewRouteConfiguration(routeName, virtualhosts)
+		rc, _ := NewRouteConfiguration(routeName, virtualhosts, defaultTimeoutMutator)
 		res = append(res, rc)
 	}
 
