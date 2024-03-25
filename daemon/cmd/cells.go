@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
@@ -244,6 +245,10 @@ var (
 
 		// The device reloader reloads the datapath when the devices change at runtime.
 		cell.Invoke(registerDeviceReloader),
+
+		// The node discovery cell provides the local node configuration and node discovery
+		// which communicate changes in local node information to the API server or KVStore.
+		nodediscovery.Cell,
 	)
 )
 
