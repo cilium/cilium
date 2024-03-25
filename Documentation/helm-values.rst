@@ -2125,7 +2125,7 @@
      - list
      - ``["lbipam.cilium.io","service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]``
    * - :spelling:ignore:`ingressController.loadbalancerMode`
-     - Default ingress load balancer mode Supported values: shared, dedicated For granular control, use the following annotations on the ingress resource ingress.cilium.io/loadbalancer-mode: shared
+     - Default ingress load balancer mode Supported values: shared, dedicated For granular control, use the following annotations on the ingress resource: "ingress.cilium.io/loadbalancer-mode: dedicated" (or "shared").
      - string
      - ``"dedicated"``
    * - :spelling:ignore:`ingressController.secretsNamespace`
