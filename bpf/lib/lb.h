@@ -928,9 +928,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (backend && !state->syn)
 				break;
 
-			svc = lb6_lookup_service(key, false, true);
-			if (!svc)
-				goto no_service;
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (!backend)
@@ -1576,9 +1573,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (backend && !state->syn)
 				break;
 
-			svc = lb4_lookup_service(key, false, true);
-			if (!svc)
-				goto no_service;
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (!backend)
