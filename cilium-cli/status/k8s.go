@@ -50,6 +50,10 @@ type K8sStatusParameters struct {
 
 	// The output format
 	Output string
+
+	// Interactive specifies whether the summary output refreshes after each
+	// retry when --wait flag is specified.
+	Interactive bool
 }
 
 type K8sStatusCollector struct {
@@ -332,7 +336,7 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 		}
 		if !k.statusIsReady(s) && k.params.Wait {
 			time.Sleep(defaults.WaitRetryInterval)
-			if k.params.Output == OutputSummary {
+			if k.params.Output == OutputSummary && k.params.Interactive {
 				statusFmt := s.Format()
 				cursorUp(lines)
 				lines = len(strings.Split(statusFmt, "\n"))
