@@ -65,6 +65,10 @@ type GetNodeAddresses interface {
 	GetNodeAddresses() []nodeTypes.Address
 }
 
+type Syncer interface {
+	WaitForRemoteNodesSync(ctx context.Context)
+}
+
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	Manager               nodemanager.NodeManager
@@ -241,6 +245,13 @@ func (n *NodeDiscovery) StartDiscovery() {
 // and https://github.com/cilium/cilium/pull/14670.
 func (n *NodeDiscovery) WaitForLocalNodeInit() {
 	<-n.localStateInitialized
+}
+
+func (n *NodeDiscovery) WaitForRemoteNodesSync(ctx context.Context) {
+	select {
+	case <-n.Registered:
+	case <-ctx.Done():
+	}
 }
 
 func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
