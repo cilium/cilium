@@ -152,6 +152,7 @@ api
 apiKey
 apiKeys
 apiserver
+ariane
 arithmetics
 artii
 asm
