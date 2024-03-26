@@ -326,3 +326,69 @@ Triage process
 * ``Flake, DNS not ready, #3333``
 * ``CI-Bug, K8sValidatedPolicyTest: Namespaces, pod not ready, #9939``
 * ``Regression, k8s host policy, #1111``
+
+Disabling Github Actions Workflows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+    Do not use the `GitHub web UI <https://docs.github.com/en/actions/using-workflows/disabling-and-enabling-a-workflow?tool=webui>`_
+    to disable GitHub Actions workflows. It makes it difficult to find out who
+    disabled the workflows and why.
+
+Alternatives to Disabling Github Actions Workflows
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Before proceeding, consider the following alternatives to disabling an entire
+GitHub Actions workflow.
+
+- Skip individual tests. If specific tests are causing the workflow to fail,
+  disable those tests instead of disabling the workflow. When you disable a
+  workflow, all the tests in the workflow stop running. This makes it easier
+  to introduce new regressions that would have been caught by these tests
+  otherwise.
+- Remove the workflow from the list of required status checks. This way the
+  workflow still runs on pull requests, but you can still merge them without
+  the workflow succeeding. To remove the workflow from the required status check
+  list, post a message in the `#testing Slack channel <https://cilium.slack.com/archives/C7PE7V806>`_
+  and @mention people in the `cilium-maintainers team <https://github.com/orgs/cilium/teams/cilium-maintainers>`__.
+
+Step 1: Open a GitHub Issue
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Open a GitHub issue to track activities related to fixing the workflow. If there
+are existing test flake GitHub issues, list them in the tracking issue. Find an
+assignee for the tracking issue to avoid the situation where the workflow remains
+disabled indefinitely because nobody is assigned to actually fix the workflow.
+
+Step 2: Update the required status check list
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the workflow is in the required status check list, it needs to be removed
+from the list. Notify the `cilium-maintainers team <https://github.com/orgs/cilium/teams/cilium-maintainers>`__
+by mentioning ``@cilium/cilium-maintainers`` in the tracking issue and ask them
+to remove the workflow from the required status check list.
+
+Step 3: Update the workflow configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Update the workflow configuration as described in the following sub-steps
+depending on whether the workflow is triggered by the ``/test`` comment
+or by the ``pull_request`` or ``pull_request_target`` trigger. Open a pull
+request with your changes, have it reviewed, then merged.
+
+.. tabs::
+  .. group-tab:: ``/test`` comment trigger
+
+    For those workflows that get triggered by the ``/test`` comment, update
+    ariane-config.yaml and remove the workflow from ``triggers:/test:workflows``
+    section (`an example <https://github.com/cilium/cilium/pull/29488>`_). Do not
+    remove the targeted trigger (``triggers:/ci-e2e`` for example) so that you can
+    still use the targeted trigger to run the workflow when needed.
+
+  .. group-tab:: ``pull_request`` or ``pull_request_target`` trigger
+
+    For those workflows that get triggered by the ``pull_request`` or
+    ``pull_request_target`` trigger, remove the trigger from the workflow file.
+    Do not remove the ``schedule`` trigger if the workflow has it. It is useful
+    to be able to see if the workflow has stabilized enough over time when making
+    the decision to re-enable the workflow.
