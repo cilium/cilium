@@ -4,7 +4,6 @@
 package manager
 
 import (
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -74,7 +73,7 @@ func newAllNodeManager(in struct {
 	cell.In
 	Lifecycle   cell.Lifecycle
 	IPCache     *ipcache.IPCache
-	IPSetMgr    ipset.Manager
+	IPSetMgr    datapath.IPSetManager
 	IPSetFilter IPSetFilterFn `optional:"true"`
 	NodeMetrics *nodeMetrics
 	HealthScope cell.Scope

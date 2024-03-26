@@ -19,6 +19,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -43,7 +44,7 @@ Members:
 func TestManager(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	var mgr Manager
+	var mgr types.IPSetManager
 
 	ipsets := make(map[string]tables.AddrSet) // mocked kernel IP sets
 	var mu lock.Mutex                         // protect the ipsets map
@@ -133,7 +134,7 @@ func TestManager(t *testing.T) {
 			cell.Invoke(reconciler.Register[*tables.IPSet]),
 		),
 
-		cell.Invoke(func(m Manager) {
+		cell.Invoke(func(m types.IPSetManager) {
 			mgr = m
 		}),
 	)
@@ -147,82 +148,82 @@ func TestManager(t *testing.T) {
 			name:   "check Cilium ipsets have been created",
 			action: func() {},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(),
-				CiliumNodeIPSetV6: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
 			name: "add an IPv4 address",
 			action: func() {
-				mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, netip.MustParseAddr("1.1.1.1"))
+				mgr.AddToIPSet(types.CiliumNodeIPSetV4, types.INetFamily, netip.MustParseAddr("1.1.1.1"))
 			},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("1.1.1.1"),
 				),
-				CiliumNodeIPSetV6: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
 			name: "add another IPv4 address",
 			action: func() {
-				mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, netip.MustParseAddr("2.2.2.2"))
+				mgr.AddToIPSet(types.CiliumNodeIPSetV4, types.INetFamily, netip.MustParseAddr("2.2.2.2"))
 			},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("1.1.1.1"),
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
 			name: "add the same IPv4 address",
 			action: func() {
-				mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, netip.MustParseAddr("2.2.2.2"))
+				mgr.AddToIPSet(types.CiliumNodeIPSetV4, types.INetFamily, netip.MustParseAddr("2.2.2.2"))
 			},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("1.1.1.1"),
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
 			name: "remove an IPv4 address",
 			action: func() {
-				mgr.RemoveFromIPSet(CiliumNodeIPSetV4, netip.MustParseAddr("1.1.1.1"))
+				mgr.RemoveFromIPSet(types.CiliumNodeIPSetV4, netip.MustParseAddr("1.1.1.1"))
 			},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
 			name: "remove a missing IPv4 address",
 			action: func() {
-				mgr.RemoveFromIPSet(CiliumNodeIPSetV4, netip.MustParseAddr("3.3.3.3"))
+				mgr.RemoveFromIPSet(types.CiliumNodeIPSetV4, netip.MustParseAddr("3.3.3.3"))
 			},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
 			name: "add an IPv6 address",
 			action: func() {
-				mgr.AddToIPSet(CiliumNodeIPSetV6, INet6Family, netip.MustParseAddr("cafe::1"))
+				mgr.AddToIPSet(types.CiliumNodeIPSetV6, types.INet6Family, netip.MustParseAddr("cafe::1"))
 			},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: tables.NewAddrSet(
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(
 					netip.MustParseAddr("cafe::1"),
 				),
 			},
@@ -230,13 +231,13 @@ func TestManager(t *testing.T) {
 		{
 			name: "remove an IPv6 address",
 			action: func() {
-				mgr.RemoveFromIPSet(CiliumNodeIPSetV6, netip.MustParseAddr("cafe::1"))
+				mgr.RemoveFromIPSet(types.CiliumNodeIPSetV6, netip.MustParseAddr("cafe::1"))
 			},
 			expected: map[string]tables.AddrSet{
-				CiliumNodeIPSetV4: tables.NewAddrSet(
+				types.CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: tables.NewAddrSet(),
+				types.CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 	}
@@ -320,7 +321,7 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 			cell.Invoke(reconciler.Register[*tables.IPSet]),
 
 			// force manager instantiation
-			cell.Invoke(func(_ Manager) {}),
+			cell.Invoke(func(_ types.IPSetManager) {}),
 		),
 	)
 
@@ -329,16 +330,16 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 
 	// create ipv4 and ipv6 node ipsets to simulate stale entries from previous Cilium run
 	withLocked(&mu, func() {
-		ipsets[CiliumNodeIPSetV4] = tables.NewAddrSet(netip.MustParseAddr("2.2.2.2"))
-		ipsets[CiliumNodeIPSetV6] = tables.NewAddrSet(netip.MustParseAddr("cafe::1"))
+		ipsets[types.CiliumNodeIPSetV4] = tables.NewAddrSet(netip.MustParseAddr("2.2.2.2"))
+		ipsets[types.CiliumNodeIPSetV6] = tables.NewAddrSet(netip.MustParseAddr("cafe::1"))
 	})
 
 	assert.NoError(t, hive.Start(context.Background()))
 
 	// Cilium node ipsets should have been pruned
 	withLocked(&mu, func() {
-		assert.NotContains(t, ipsets, CiliumNodeIPSetV4)
-		assert.NotContains(t, ipsets, CiliumNodeIPSetV6)
+		assert.NotContains(t, ipsets, types.CiliumNodeIPSetV4)
+		assert.NotContains(t, ipsets, types.CiliumNodeIPSetV6)
 	})
 
 	// create a custom ipset (not managed by Cilium)

@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -107,8 +106,8 @@ func (ipt *ipt) initArgs(waitSeconds int) {
 
 // package name is iptables so we use ip4tables internally for "iptables"
 var (
-	ip4tables = &ipt{prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
-	ip6tables = &ipt{prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
+	ip4tables = &ipt{prog: "iptables", ipset: datapath.CiliumNodeIPSetV4}
+	ip6tables = &ipt{prog: "ip6tables", ipset: datapath.CiliumNodeIPSetV6}
 )
 
 func (ipt *ipt) getProg() string {
