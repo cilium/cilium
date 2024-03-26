@@ -332,7 +332,7 @@ jobs:
             # We expect the amount of keys in use to grow during rotation.
             while true; do
               keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ \$keys_in_use == \$exp_nb_keys ]]; then
+              if [[ $keys_in_use == $exp_nb_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
@@ -350,7 +350,7 @@ jobs:
             sleep $((4*60))
             while true; do
               keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ \$keys_in_use == \$exp_nb_keys ]]; then
+              if [[ $keys_in_use == $exp_nb_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation completes (seeing $keys_in_use keys)"
