@@ -74,7 +74,7 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable --ui
-          cilium status --wait
+          cilium status --wait --interactive=false
 
       - name: Relay Port Forward
         run: |
@@ -141,7 +141,7 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable
-          cilium status --wait
+          cilium status --wait --interactive=false
 
       - name: Relay Port Forward
         run: |
