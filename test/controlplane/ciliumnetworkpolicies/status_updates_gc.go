@@ -255,9 +255,10 @@ func init() {
 				operatorCfg.SkipCNPStatusStartupClean = true
 			}).
 			StartAgent().
+			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
 			StartOperator().
-			Execute(func() error { return applyDummyCNPs(test) }).
-			Eventually(func() error { return validateCNPs(test) })
+			Execute(func() error { t.Helper(); return applyDummyCNPs(test) }).
+			Eventually(func() error { t.Helper(); return validateCNPs(test) })
 
 		test.StopAgent()
 		test.StopOperator()
@@ -270,9 +271,10 @@ func init() {
 				operatorCfg.SkipCNPStatusStartupClean = false
 			}).
 			StartAgent().
+			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
 			StartOperator().
-			Execute(func() error { return applyDummyCNPs(test) }).
-			Eventually(func() error { return validateCNPsAfterGC(test) })
+			Execute(func() error { t.Helper(); return applyDummyCNPs(test) }).
+			Eventually(func() error { t.Helper(); return validateCNPsAfterGC(test) })
 
 		test.StopAgent()
 		test.StopOperator()

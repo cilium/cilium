@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,21 +54,23 @@ type trackerAndDecoder struct {
 }
 
 type ControlPlaneTest struct {
-	t              *testing.T
-	nodeName       string
-	clients        *k8sClient.FakeClientset
-	trackers       []trackerAndDecoder
-	agentHandle    *agentHandle
-	operatorHandle *operatorHandle
-	Datapath       *fakeDatapath.FakeDatapath
+	t                   *testing.T
+	nodeName            string
+	clients             *k8sClient.FakeClientset
+	trackers            []trackerAndDecoder
+	agentHandle         *agentHandle
+	operatorHandle      *operatorHandle
+	Datapath            *fakeDatapath.FakeDatapath
+	establishedWatchers *sync.Map
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
 	clients, _ := k8sClient.NewFakeClientset()
-	clients.KubernetesFakeClientset = addFieldSelection(clients.KubernetesFakeClientset)
-	clients.SlimFakeClientset = addFieldSelection(clients.SlimFakeClientset)
-	clients.CiliumFakeClientset = addFieldSelection(clients.CiliumFakeClientset)
-	clients.APIExtFakeClientset = addFieldSelection(clients.APIExtFakeClientset)
+	var w sync.Map
+	clients.KubernetesFakeClientset = augmentTracker(clients.KubernetesFakeClientset, t, &w)
+	clients.SlimFakeClientset = augmentTracker(clients.SlimFakeClientset, t, &w)
+	clients.CiliumFakeClientset = augmentTracker(clients.CiliumFakeClientset, t, &w)
+	clients.APIExtFakeClientset = augmentTracker(clients.APIExtFakeClientset, t, &w)
 	fd := clients.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(k8sVersion)
 
@@ -87,10 +90,11 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	}
 
 	return &ControlPlaneTest{
-		t:        t,
-		nodeName: nodeName,
-		clients:  clients,
-		trackers: trackers,
+		t:                   t,
+		nodeName:            nodeName,
+		clients:             clients,
+		trackers:            trackers,
+		establishedWatchers: &w,
 	}
 }
 
@@ -256,6 +260,21 @@ func (cpt *ControlPlaneTest) Get(gvr schema.GroupVersionResource, ns, name strin
 	return nil, err
 }
 
+// EnsureWatchers delays progress of the test until watchers for resources have been established on
+// the clientset.
+func (cpt *ControlPlaneTest) EnsureWatchers(resources ...string) *ControlPlaneTest {
+	retryUptoDuration(func() error {
+		for _, resource := range resources {
+			if _, ok := cpt.establishedWatchers.Load(resource); !ok {
+				return fmt.Errorf("no watcher for %s yet", resource)
+			}
+		}
+		return nil
+	}, validationTimeout)
+
+	return cpt
+}
+
 func (cpt *ControlPlaneTest) UpdateObjectsFromFile(filename string) *ControlPlaneTest {
 	bs, err := os.ReadFile(filename)
 	if err != nil {
@@ -286,6 +305,7 @@ func (cpt *ControlPlaneTest) DeleteObjects(objs ...k8sRuntime.Object) *ControlPl
 }
 
 func (cpt *ControlPlaneTest) Eventually(check func() error) *ControlPlaneTest {
+	cpt.t.Helper()
 	if err := retryUptoDuration(check, validationTimeout); err != nil {
 		cpt.t.Fatal(err)
 	}
@@ -293,6 +313,7 @@ func (cpt *ControlPlaneTest) Eventually(check func() error) *ControlPlaneTest {
 }
 
 func (cpt *ControlPlaneTest) Execute(task func() error) *ControlPlaneTest {
+	cpt.t.Helper()
 	if err := task(); err != nil {
 		cpt.t.Fatal(err)
 	}
@@ -454,8 +475,6 @@ var _ watch.Interface = &filteringWatcher{}
 
 func (fw *filteringWatcher) Stop() {
 	fw.parent.Stop()
-	close(fw.events)
-	fw.events = nil
 }
 
 func (fw *filteringWatcher) ResultChan() <-chan watch.Event {
@@ -471,6 +490,7 @@ func (fw *filteringWatcher) ResultChan() <-chan watch.Event {
 				fw.events <- event
 			}
 		}
+		close(fw.events)
 	}()
 	return fw.events
 }
@@ -513,9 +533,19 @@ func filterList(obj k8sRuntime.Object, restrictions k8sTesting.ListRestrictions)
 	}
 }
 
-// addFieldSelection augments the fake clientset to support filtering with a field selector
-// in List and Watch actions
-func addFieldSelection[T fakeWithTracker](f T) T {
+// augmentTracker augments the fake clientset to support filtering with a field selector
+// in List and Watch actions, as well as recording which watchers have been established.
+// The reason we need to do this is the following: The k8s object tracker's implementation
+// of Watch is not equivalent to Watch on a real api-server, as it does not respect the
+// ResourceVersion from whence to start the watch. As a consequence, when informers (or
+// reflectors) call ListAndWatch, they miss events which occur between the end of List and
+// the establishment of Watch.
+//
+// To decrease the likelihood of this race occurring in the control plane tests, we
+// install a mechanism to wait for watchers of specific resources: see also
+// EnsureWatchers. This isn't a complete fix - if multiple watchers for the same resource
+// are established, this may give false positives.
+func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *sync.Map) T {
 	o := f.Tracker()
 	objectReaction := k8sTesting.ObjectReaction(o)
 
@@ -542,6 +572,11 @@ func addFieldSelection[T fakeWithTracker](f T) T {
 			if err != nil {
 				return false, nil, err
 			}
+			if _, ok := watchers.Load(gvr.Resource); ok {
+				t.Logf("Multiple watches for resource %q intercepted. This highlights a potential cause for flakes", gvr.Resource)
+			}
+			watchers.Store(gvr.Resource, struct{}{})
+
 			fw := &filteringWatcher{
 				parent:       watch,
 				restrictions: w.GetWatchRestrictions(),
