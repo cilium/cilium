@@ -25,6 +25,10 @@ import (
 //     can allocate.
 //   - vpc-max-security-groups-per-interface : The maximum number of security
 //     groups that you can assign to a network interface.
+//
+// The order of the elements in the response, including those within nested
+// structures, might vary. Applications should not assume the elements appear in a
+// particular order.
 func (c *Client) DescribeAccountAttributes(ctx context.Context, params *DescribeAccountAttributesInput, optFns ...func(*Options)) (*DescribeAccountAttributesOutput, error) {
 	if params == nil {
 		params = &DescribeAccountAttributesInput{}

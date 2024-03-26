@@ -11,17 +11,17 @@ type NodeSuite struct{}
 
 var _ = Suite(&NodeSuite{})
 
-func (s *NodeSuite) TestIstioNodeToIP(c *C) {
+func (s *NodeSuite) TestEnvoyNodeToIP(c *C) {
 	var ip string
 	var err error
 
-	ip, err = IstioNodeToIP("sidecar~10.1.1.0~v0.default~default.svc.cluster.local")
+	ip, err = EnvoyNodeIdToIP("host~127.0.0.1~no-id~localdomain")
 	c.Assert(err, IsNil)
-	c.Check(ip, Equals, "10.1.1.0")
+	c.Check(ip, Equals, "127.0.0.1")
 
-	_, err = IstioNodeToIP("sidecar~10.1.1.0~v0.default")
+	_, err = EnvoyNodeIdToIP("host~127.0.0.1~localdomain")
 	c.Assert(err, Not(IsNil))
 
-	_, err = IstioNodeToIP("sidecar~not-an-ip~v0.default~default.svc.cluster.local")
+	_, err = EnvoyNodeIdToIP("host~not-an-ip~v0.default~default.svc.cluster.local")
 	c.Assert(err, Not(IsNil))
 }

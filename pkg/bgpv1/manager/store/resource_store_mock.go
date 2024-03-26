@@ -53,3 +53,11 @@ func (mds *mockBGPCPResourceStore[T]) Delete(key resource.Key) {
 
 	delete(mds.objects, key)
 }
+
+func InitMockStore[T runtime.Object](objects []T) BGPCPResourceStore[T] {
+	store := NewMockBGPCPResourceStore[T]()
+	for _, obj := range objects {
+		store.Upsert(obj)
+	}
+	return store
+}

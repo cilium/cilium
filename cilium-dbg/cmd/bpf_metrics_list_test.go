@@ -36,11 +36,25 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 					Key:    metricsmap.Key{Reason: 132, Dir: 2},
 					Values: metricsmap.Values{{Count: 300, Bytes: 3000}},
 				},
+				// 'Duplicate' metric that had reserved bits of its key utilized in a
+				// newer version of Cilium. This should result in counters being summed
+				// with other keys with matching known fields. For example, Cilium 1.16
+				// adds line and file info to each metric, which older versions will
+				// ignore. In this case, all keys with the same reason and direction
+				// should be summed and presented as a single metric.
+				{
+					Key:    metricsmap.Key{Reason: 132, Dir: 2},
+					Values: metricsmap.Values{{Count: 1, Bytes: 1}},
+				},
+				{
+					Key:    metricsmap.Key{Reason: 140, Dir: 2, Line: 1337, File: 1},
+					Values: metricsmap.Values{{Count: 400, Bytes: 4000}},
+				},
 			},
 		),
 	}
 
-	desc := func(x int) string {
+	reason := func(x int) string {
 		return monitorAPI.DropReason(uint8(x))
 	}
 
@@ -48,30 +62,39 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 		return strings.ToLower(metricsmap.MetricDirection(uint8(d)))
 	}
 
-	jsonEncodedMetricsMap := jsonMetrics{
-		jsonMetric{
-			Reason:      0,
-			Description: desc(0),
-			Values: map[string]jsonMetricValues{
-				dir(1): {
-					Packets: 100,
-					Bytes:   1000,
-				},
-				dir(2): {
-					Packets: 200,
-					Bytes:   2000,
-				},
-			},
+	file := func(f uint8) string {
+		return monitorAPI.BPFFileName(f)
+	}
+
+	want := jsonMetrics{
+		{
+			Reason:    reason(0),
+			Direction: dir(1),
+			Packets:   100,
+			Bytes:     1000,
+			File:      file(0),
 		},
-		jsonMetric{
-			Reason:      132,
-			Description: desc(132),
-			Values: map[string]jsonMetricValues{
-				dir(2): {
-					Packets: 300,
-					Bytes:   3000,
-				},
-			},
+		{
+			Reason:    reason(0),
+			Direction: dir(2),
+			Packets:   200,
+			Bytes:     2000,
+			File:      file(0),
+		},
+		{
+			Reason:    reason(132),
+			Direction: dir(2),
+			Packets:   301,
+			Bytes:     3001,
+			File:      file(0),
+		},
+		{
+			Reason:    reason(140),
+			Direction: dir(2),
+			Line:      1337,
+			File:      file(1),
+			Packets:   400,
+			Bytes:     4000,
 		},
 	}
 
@@ -81,17 +104,13 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 		}
 	}, c)
 
-	var jsonEncodedMetricsMapDump jsonMetrics
-	err := json.Unmarshal([]byte(rawDump), &jsonEncodedMetricsMapDump)
+	var got jsonMetrics
+	err := json.Unmarshal([]byte(rawDump), &got)
 	c.Assert(err, IsNil, Commentf("invalid JSON output: '%s', '%s'", err, rawDump))
 
-	sort.Slice(jsonEncodedMetricsMap, func(i, j int) bool {
-		return jsonEncodedMetricsMap[i].Reason <= jsonEncodedMetricsMap[j].Reason
+	sort.Slice(got, func(i, j int) bool {
+		return got[i].Packets <= got[j].Packets
 	})
 
-	sort.Slice(jsonEncodedMetricsMapDump, func(i, j int) bool {
-		return jsonEncodedMetricsMapDump[i].Reason <= jsonEncodedMetricsMapDump[j].Reason
-	})
-
-	c.Assert(jsonEncodedMetricsMap, checker.DeepEquals, jsonEncodedMetricsMapDump)
+	c.Assert(want, checker.DeepEquals, got)
 }

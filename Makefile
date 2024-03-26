@@ -55,12 +55,9 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 
 TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.datapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
-BPF_SOURCE_NAMES_TO_IDS ?= bpf/source_names_to_ids.h
-GO_SOURCE_NAMES_TO_IDS ?= pkg/monitor/datapath_drop.go
+build: $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
-build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
-
-build-container: check-sources ## Builds components required for cilium-agent container.
+build-container: ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
 
 build-container-operator: ## Builds components required for cilium-operator container.
@@ -497,10 +494,8 @@ endif
 	$(QUIET) contrib/scripts/check-time.sh
 	@$(ECHO_CHECK) contrib/scripts/check-go-testdata.sh
 	$(QUIET) contrib/scripts/check-go-testdata.sh
-
-check-sources:
-	@$(ECHO_CHECK) pkg/datapath/loader/check-sources.sh
-	$(QUIET) BPF_SOURCE_NAMES_TO_IDS=$(BPF_SOURCE_NAMES_TO_IDS) GO_SOURCE_NAMES_TO_IDS=$(GO_SOURCE_NAMES_TO_IDS) pkg/datapath/loader/check-sources.sh
+	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
+	$(QUIET) contrib/scripts/check-source-info.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
@@ -566,14 +561,17 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean check-sources
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
 force :;
 
 # this top level run_bpf_tests target will run the bpf unit tests inside the Cilium Builder container.
 # it exists here so the entire source code repo can be mounted into the container.
 CILIUM_BUILDER_IMAGE=$(shell cat images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
 run_bpf_tests:
-	docker run -v $$(pwd):/src --privileged -w /src -e RUN_WITH_SUDO=false $(CILIUM_BUILDER_IMAGE) "make" "-C" "test/" "run_bpf_tests"
+	docker run --rm --privileged \
+		-v $$(pwd):/src -w /src \
+		$(CILIUM_BUILDER_IMAGE) \
+		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "all" "run"
 
 run-builder:
 	docker run -it --rm -v $$(pwd):/go/src/github.com/cilium/cilium $(CILIUM_BUILDER_IMAGE) bash

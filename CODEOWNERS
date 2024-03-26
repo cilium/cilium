@@ -424,6 +424,7 @@ Makefile* @cilium/build
 /pkg/common/ipsec/ @cilium/ipsec
 /pkg/completion/ @cilium/proxy
 /pkg/components/ @cilium/sig-agent
+/pkg/container/ @cilium/sig-foundations
 /pkg/container/bitlpm/ @cilium/ipcache @cilium/sig-policy
 /pkg/contexthelpers/ @cilium/kvstore
 /pkg/controller @cilium/sig-agent
@@ -542,7 +543,7 @@ Makefile* @cilium/build
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
 # Datapath tests
 /test/bpf/ @cilium/sig-datapath
-/test/bpf_tests/ @cilium/sig-datapath
+/bpf/tests/bpftest/ @cilium/sig-datapath
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure

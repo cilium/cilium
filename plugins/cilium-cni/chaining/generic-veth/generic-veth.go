@@ -245,8 +245,8 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 }
 
 func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext, delClient *lib.DeletionFallbackClient) (err error) {
-	id := endpointid.NewCNIAttachmentID(pluginCtx.Args.ContainerID, pluginCtx.Args.IfName)
-	if err := delClient.EndpointDelete(id); err != nil {
+	req := &models.EndpointBatchDeleteRequest{ContainerID: pluginCtx.Args.ContainerID}
+	if err := delClient.EndpointDeleteMany(req); err != nil {
 		pluginCtx.Logger.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
 	return nil

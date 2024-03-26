@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -55,8 +55,6 @@ const (
 	ciliumForwardChain    = "CILIUM_FORWARD"
 	feederDescription     = "cilium-feeder:"
 	xfrmDescription       = "cilium-xfrm-notrack:"
-	CiliumNodeIpsetV4     = "cilium_node_set_v4"
-	CiliumNodeIpsetV6     = "cilium_node_set_v6"
 )
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
@@ -109,9 +107,8 @@ func (ipt *ipt) initArgs(waitSeconds int) {
 
 // package name is iptables so we use ip4tables internally for "iptables"
 var (
-	ip4tables = &ipt{prog: "iptables", ipset: CiliumNodeIpsetV4}
-	ip6tables = &ipt{prog: "ip6tables", ipset: CiliumNodeIpsetV6}
-	ipset     = &ipt{prog: "ipset"}
+	ip4tables = &ipt{prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
+	ip6tables = &ipt{prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
 )
 
 func (ipt *ipt) getProg() string {
@@ -453,20 +450,6 @@ func (m *Manager) renameChains(prefix string) error {
 	return nil
 }
 
-func (m *Manager) ingressProxyRule(l4Match, markMatch, mark, ip, port, name string) []string {
-	return []string{
-		"-t", "mangle",
-		"-A", ciliumPreMangleChain,
-		"-p", l4Match,
-		"-m", "mark", "--mark", markMatch,
-		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy",
-		"-j", "TPROXY",
-		"--tproxy-mark", mark,
-		"--on-ip", ip,
-		"--on-port", port,
-	}
-}
-
 func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 	// Mark host proxy transparent connections to be routed to the local stack.
 	// This comes before the TPROXY rules in the chain, and setting the mark
@@ -489,51 +472,30 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 		"--set-mark", toProxyMark}
 }
 
-func (m *Manager) iptIngressProxyRule(rules string, prog iptablesInterface, l4proto, ip string, proxyPort uint16, name string) error {
+func (m *Manager) iptProxyRule(rules string, prog iptablesInterface, l4proto, ip string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
-	ingressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
+	markMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
 	// TPROXY params
-	ingressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
-	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
+	tProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
+	tProxyPort := fmt.Sprintf("%d", proxyPort)
 
-	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, ingressMarkMatch, ip))
+	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, markMatch, ip))
 	if existingRuleRegex.MatchString(rules) {
 		return nil
 	}
 
-	rule := m.ingressProxyRule(l4proto, ingressMarkMatch, ingressProxyMark, ip, ingressProxyPort, name)
-	return prog.runProg(rule)
-}
-
-func (m *Manager) egressProxyRule(l4Match, markMatch, mark, ip, port, name string) []string {
-	return []string{
+	rule := []string{
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
-		"-p", l4Match,
+		"-p", l4proto,
 		"-m", "mark", "--mark", markMatch,
 		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy",
 		"-j", "TPROXY",
-		"--tproxy-mark", mark,
+		"--tproxy-mark", tProxyMark,
 		"--on-ip", ip,
-		"--on-port", port,
+		"--on-port", tProxyPort,
 	}
-}
-
-func (m *Manager) iptEgressProxyRule(rules string, prog iptablesInterface, l4proto, ip string, proxyPort uint16, name string) error {
-	// Match
-	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
-	egressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
-	// TPROXY params
-	egressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
-	egressProxyPort := fmt.Sprintf("%d", proxyPort)
-
-	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, egressMarkMatch, ip))
-	if existingRuleRegex.MatchString(rules) {
-		return nil
-	}
-
-	rule := m.egressProxyRule(l4proto, egressMarkMatch, egressProxyMark, ip, egressProxyPort, name)
 	return prog.runProg(rule)
 }
 
@@ -761,22 +723,16 @@ func (m *Manager) copyProxyRules(oldChain string, match string) error {
 }
 
 // Redirect packets to the host proxy via TPROXY, as directed by the Cilium
-// datapath bpf programs via skb marks (egress) or DSCP (ingress).
-func (m *Manager) addProxyRules(prog iptablesInterface, ip string, proxyPort uint16, ingress bool, name string) error {
+// datapath bpf programs via skb marks.
+func (m *Manager) addProxyRules(prog iptablesInterface, ip string, proxyPort uint16, name string) error {
 	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-S"})
 	if err != nil {
 		return err
 	}
 
 	for _, proto := range []string{"tcp", "udp"} {
-		if ingress {
-			if err := m.iptIngressProxyRule(rules, prog, proto, ip, proxyPort, name); err != nil {
-				return err
-			}
-		} else {
-			if err := m.iptEgressProxyRule(rules, prog, proto, ip, proxyPort, name); err != nil {
-				return err
-			}
+		if err := m.iptProxyRule(rules, prog, proto, ip, proxyPort, name); err != nil {
+			return err
 		}
 	}
 
@@ -990,7 +946,7 @@ func (m *Manager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	return nil
 }
 
-func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, localOnly bool, name string) error {
 	if m.haveBPFSocketAssign {
 		log.WithField("port", proxyPort).
 			Debug("Skipping proxy rule install due to BPF support")
@@ -1008,7 +964,7 @@ func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingre
 
 	for {
 		attempt += 1
-		err := m.doInstallProxyRules(proxyPort, ingress, localOnly, name)
+		err := m.doInstallProxyRules(proxyPort, localOnly, name)
 		if err == nil {
 			log.Info("Iptables proxy rules installed")
 			return nil
@@ -1023,7 +979,7 @@ func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingre
 	}
 }
 
-func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *Manager) doInstallProxyRules(proxyPort uint16, localOnly bool, name string) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -1035,12 +991,12 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool,
 		ipv6 = "::1"
 	}
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, ingress, name); err != nil {
+		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, name); err != nil {
 			return err
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, ingress, name); err != nil {
+		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, name); err != nil {
 			return err
 		}
 	}
@@ -1194,46 +1150,9 @@ func (m *Manager) installForwardChainRulesIpX(prog iptablesInterface, ifName, lo
 	return nil
 }
 
-// AddToNodeIpset adds an IP address to the ipset for cluster nodes. It creates
-// the ipset if it doesn't already exist and doesn't error if either the ipset
-// or the IP already exist.
-func (m *Manager) AddToNodeIpset(nodeIP net.IP) {
-	scopedLog := log.WithField(logfields.IPAddr, nodeIP.String())
-	ciliumNodeIpset := CiliumNodeIpsetV4
-	if ip.IsIPv6(nodeIP) {
-		ciliumNodeIpset = CiliumNodeIpsetV6
-	}
-	if err := createIpset(ciliumNodeIpset, ip.IsIPv6(nodeIP)); err != nil {
-		scopedLog.WithError(err).Errorf("Failed to create ipset %s", ciliumNodeIpset)
-		return
-	}
-	progArgs := []string{"add", ciliumNodeIpset, nodeIP.String(), "-exist"}
-	if err := ipset.runProg(progArgs); err != nil {
-		scopedLog.WithError(err).Errorf("Failed to add IP to ipset %s", ciliumNodeIpset)
-	}
-}
-
-// RemoveFromBodeIpset removes an IP address from the ipset for cluster nodes.
-func (m *Manager) RemoveFromNodeIpset(nodeIP net.IP) {
-	scopedLog := log.WithField(logfields.IPAddr, nodeIP.String())
-	ciliumNodeIpset := CiliumNodeIpsetV4
-	if ip.IsIPv6(nodeIP) {
-		ciliumNodeIpset = CiliumNodeIpsetV6
-	}
-	progArgs := []string{"del", ciliumNodeIpset, nodeIP.String(), "-exist"}
-	if err := ipset.runProg(progArgs); err != nil {
-		scopedLog.WithError(err).Errorf("Failed to remove IP from ipset %s", ciliumNodeIpset)
-	}
-}
-
-func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDeliveryInterface,
+func (m *Manager) installMasqueradeRules(prog iptablesInterface, localDeliveryInterface,
 	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
 	if m.sharedCfg.NodeIpsetNeeded {
-		// Exclude traffic to nodes from masquerade.
-		if err := createIpset(prog.getIpset(), prog == ip6tables); err != nil {
-			return err
-		}
-
 		progArgs := []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
@@ -1485,29 +1404,6 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 	return nil
 }
 
-func createIpset(name string, ipv6 bool) error {
-	ipsetFamily := "inet"
-	if ipv6 {
-		ipsetFamily = "inet6"
-	}
-	progArgs := []string{"create", name, "iphash", "family", ipsetFamily, "-exist"}
-	return ipset.runProg(progArgs)
-}
-
-func removeIpset(name string) error {
-	if !ipsetExists(name) {
-		return nil
-	}
-	progArgs := []string{"destroy", name}
-	return ipset.runProg(progArgs)
-}
-
-func ipsetExists(name string) bool {
-	progArgs := []string{"list", name}
-	err := ipset.runProg(progArgs)
-	return err == nil
-}
-
 func (m *Manager) installHostTrafficMarkRule(prog iptablesInterface) error {
 	// Mark all packets sourced from processes running on the host with a
 	// special marker so that we can differentiate traffic sourced locally
@@ -1607,31 +1503,6 @@ func (m *Manager) doInstallRules(ifName string, firstInitialization, install boo
 		return err
 	}
 
-	// Create ipsets for node IP address only if needed. If they already exist,
-	// we will simply ignore the error.
-	// Note we don't need a backup system as for iptables rules because the
-	// contents of ipsets doesn't depend on configuration. Whether they are
-	// needed depends on the configuration, but the content doesn't.
-	if m.sharedCfg.NodeIpsetNeeded {
-		if m.sharedCfg.IptablesMasqueradingIPv4Enabled {
-			if err := createIpset(CiliumNodeIpsetV4, false); err != nil {
-				return err
-			}
-		}
-		if m.sharedCfg.IptablesMasqueradingIPv6Enabled {
-			if err := createIpset(CiliumNodeIpsetV6, true); err != nil {
-				return err
-			}
-		}
-	} else {
-		if err := removeIpset(CiliumNodeIpsetV4); err != nil {
-			return err
-		}
-		if err := removeIpset(CiliumNodeIpsetV6); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -1671,7 +1542,7 @@ func (m *Manager) installRules(ifName string) error {
 		}
 
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled {
-			if err := m.installMasqueradeRules(ip4tables, ifName, localDeliveryInterface,
+			if err := m.installMasqueradeRules(ip4tables, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
 				node.GetIPv4AllocRange().String(),
 				node.GetHostMasqueradeIPv4().String(),
@@ -1687,7 +1558,7 @@ func (m *Manager) installRules(ifName string) error {
 		}
 
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled {
-			if err := m.installMasqueradeRules(ip6tables, ifName, localDeliveryInterface,
+			if err := m.installMasqueradeRules(ip6tables, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
 				node.GetIPv6AllocRange().String(),
 				node.GetHostMasqueradeIPv6().String(),

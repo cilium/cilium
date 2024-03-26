@@ -127,9 +127,6 @@ const (
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"
 
-	// DisableEnvoyVersionCheck do not perform Envoy binary version check on startup
-	DisableEnvoyVersionCheck = "disable-envoy-version-check"
-
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
 
@@ -154,27 +151,8 @@ const (
 	// EncryptNode enables node IP encryption
 	EncryptNode = "encrypt-node"
 
-	// EnvoyLog sets the path to a separate Envoy log file, if any
-	EnvoyLog = "envoy-log"
-
 	// GopsPort is the TCP port for the gops server.
 	GopsPort = "gops-port"
-
-	// ProxyAdminPort specifies the port to serve Cilium Envoy Admin API on.
-	ProxyAdminPort = "proxy-admin-port"
-
-	// ProxyPrometheusPort specifies the port to serve Cilium host proxy metrics on.
-	ProxyPrometheusPort = "proxy-prometheus-port"
-
-	// ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy
-	ProxyMaxRequestsPerConnection = "proxy-max-requests-per-connection"
-
-	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy in seconds
-	ProxyMaxConnectionDuration = "proxy-max-connection-duration-seconds"
-
-	// ProxyIdleTimeout specifies the idle_timeout setting (in seconds), which applies
-	// for the connection from proxy to upstream cluster
-	ProxyIdleTimeout = "proxy-idle-timeout-seconds"
 
 	// FixedIdentityMapping is the key-value for the fixed identity mapping
 	// which allows to use reserved label for fixed identities
@@ -1207,42 +1185,9 @@ const (
 	RoutingModeTunnel = "tunnel"
 )
 
-// Envoy option names
 const (
-	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
-	// includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and
-	// redirecting for paths that contain escaped slashes. These are necessary to keep path based
-	// access control functional, and should not interfere with normal operation. Set this to
-	// false only with caution.
-	HTTPNormalizePath = "http-normalize-path"
-
 	// HTTP403Message specifies the response body for 403 responses, defaults to "Access denied"
 	HTTP403Message = "http-403-msg"
-
-	// HTTPRequestTimeout specifies the time in seconds after which forwarded requests time out
-	HTTPRequestTimeout = "http-request-timeout"
-
-	// HTTPIdleTimeout spcifies the time in seconds if http stream being idle after which the
-	// request times out
-	HTTPIdleTimeout = "http-idle-timeout"
-
-	// HTTPMaxGRPCTimeout specifies the maximum time in seconds that limits the values of
-	// "grpc-timeout" headers being honored.
-	HTTPMaxGRPCTimeout = "http-max-grpc-timeout"
-
-	// HTTPRetryCount specifies the number of retries performed after a forwarded request fails
-	HTTPRetryCount = "http-retry-count"
-
-	// HTTPRetryTimeout is the time in seconds before an uncompleted request is retried.
-	HTTPRetryTimeout = "http-retry-timeout"
-
-	// ProxyConnectTimeout specifies the time in seconds after which a TCP connection attempt
-	// is considered timed out
-	ProxyConnectTimeout = "proxy-connect-timeout"
-
-	// ProxyGID specifies the group ID that has access to unix domain sockets opened by Cilium
-	// agent for proxy configuration and access logging.
-	ProxyGID = "proxy-gid"
 
 	// ReadCNIConfiguration reads the CNI configuration file and extracts
 	// Cilium relevant information. This can be used to pass per node
@@ -1566,65 +1511,9 @@ type DaemonConfig struct {
 	// RunInterval. Zero means unlimited.
 	MaxControllerInterval int
 
-	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
-	// includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and
-	// redirecting for paths that contain escaped slashes. These are necessary to keep path based
-	// access control functional, and should not interfere with normal operation. Set this to
-	// false only with caution.
-	HTTPNormalizePath bool
-
 	// HTTP403Message is the error message to return when a HTTP 403 is returned
 	// by the proxy, if L7 policy is configured.
 	HTTP403Message string
-
-	// HTTPRequestTimeout is the time in seconds after which Envoy responds with an
-	// error code on a request that has not yet completed. This needs to be longer
-	// than the HTTPIdleTimeout
-	HTTPRequestTimeout int
-
-	// HTTPIdleTimeout is the time in seconds of a HTTP stream having no traffic after
-	// which Envoy responds with an error code. This needs to be shorter than the
-	// HTTPRequestTimeout
-	HTTPIdleTimeout int
-
-	// HTTPMaxGRPCTimeout is the upper limit to which "grpc-timeout" headers in GRPC
-	// requests are honored by Envoy. If 0 there is no limit. GRPC requests are not
-	// bound by the HTTPRequestTimeout, but ARE affected by the idle timeout!
-	HTTPMaxGRPCTimeout int
-
-	// HTTPRetryCount is the upper limit on how many times Envoy retries failed requests.
-	HTTPRetryCount int
-
-	// HTTPRetryTimeout is the time in seconds before an uncompleted request is retried.
-	HTTPRetryTimeout int
-
-	// ProxyConnectTimeout is the time in seconds after which Envoy considers a TCP
-	// connection attempt to have timed out.
-	ProxyConnectTimeout int
-
-	// ProxyGID specifies the group ID that has access to unix domain sockets opened by Cilium
-	// agent for proxy configuration and access logging.
-	ProxyGID int
-
-	// ProxyAdminPort specifies the port to serve Envoy admin on.
-	ProxyAdminPort int
-
-	// ProxyPrometheusPort specifies the port to serve Envoy metrics on.
-	ProxyPrometheusPort int
-
-	// ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy
-	ProxyMaxRequestsPerConnection int
-
-	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy
-	ProxyMaxConnectionDuration time.Duration
-
-	// ProxyIdleTimeout specifies the idle_timeout setting (in seconds), which applies
-	// for the connection from proxy to upstream cluster
-	ProxyIdleTimeout time.Duration
-
-	// EnvoyLogPath specifies where to store the Envoy proxy logs when Envoy
-	// runs in the same container as Cilium.
-	EnvoyLogPath string
 
 	ProcFs string
 
@@ -1741,8 +1630,6 @@ type DaemonConfig struct {
 	EnableTracing                 bool
 	EnableIPIPTermination         bool
 	EnableUnreachableRoutes       bool
-	EnvoyLog                      string
-	DisableEnvoyVersionCheck      bool
 	FixedIdentityMapping          map[string]string
 	FixedIdentityMappingValidator func(val string) (string, error) `json:"-"`
 	IPv4Range                     string
@@ -1780,7 +1667,6 @@ type DaemonConfig struct {
 	PreAllocateMaps         bool
 	IPv6NodeAddr            string
 	IPv4NodeAddr            string
-	SidecarIstioProxyImage  string
 	SocketPath              string
 	TracePayloadlen         int
 	Version                 string
@@ -2393,9 +2279,6 @@ type DaemonConfig struct {
 
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
-
-	// EnvoySecretNamespaces for TLS secrets. Used by CiliumEnvoyConfig via SDS.
-	EnvoySecretNamespaces []string
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -3068,13 +2951,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
-	c.EnvoyLogPath = vp.GetString(EnvoyLog)
-	c.HTTPNormalizePath = vp.GetBool(HTTPNormalizePath)
-	c.HTTPIdleTimeout = vp.GetInt(HTTPIdleTimeout)
-	c.HTTPMaxGRPCTimeout = vp.GetInt(HTTPMaxGRPCTimeout)
-	c.HTTPRequestTimeout = vp.GetInt(HTTPRequestTimeout)
-	c.HTTPRetryCount = vp.GetInt(HTTPRetryCount)
-	c.HTTPRetryTimeout = vp.GetInt(HTTPRetryTimeout)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)
 	c.IdentityRestoreGracePeriod = vp.GetDuration(IdentityRestoreGracePeriod)
 	c.IPAM = vp.GetString(IPAM)
@@ -3125,13 +3001,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MTU = vp.GetInt(MTUName)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.ProcFs = vp.GetString(ProcFs)
-	c.ProxyConnectTimeout = vp.GetInt(ProxyConnectTimeout)
-	c.ProxyGID = vp.GetInt(ProxyGID)
-	c.ProxyAdminPort = vp.GetInt(ProxyAdminPort)
-	c.ProxyPrometheusPort = vp.GetInt(ProxyPrometheusPort)
-	c.ProxyMaxRequestsPerConnection = vp.GetInt(ProxyMaxRequestsPerConnection)
-	c.ProxyMaxConnectionDuration = time.Duration(vp.GetInt64(ProxyMaxConnectionDuration))
-	c.ProxyIdleTimeout = time.Duration(vp.GetInt64(ProxyIdleTimeout))
 	c.RestoreState = vp.GetBool(Restore)
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
@@ -3529,12 +3398,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.UseCiliumInternalIPForIPsec = vp.GetBool(UseCiliumInternalIPForIPsec)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
-
-	// Disable Envoy version check if L7 proxy is disabled.
-	c.DisableEnvoyVersionCheck = vp.GetBool(DisableEnvoyVersionCheck)
-	if !c.EnableL7Proxy {
-		c.DisableEnvoyVersionCheck = true
-	}
 
 	// VTEP integration enable option
 	c.EnableVTEP = vp.GetBool(EnableVTEP)

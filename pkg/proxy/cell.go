@@ -4,6 +4,8 @@
 package proxy
 
 import (
+	"github.com/spf13/pflag"
+
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -20,30 +22,27 @@ var Cell = cell.Module(
 	"l7-proxy",
 	"L7 Proxy provides support for L7 network policies",
 
-	cell.Provide(func() ProxyConfig { return DefaultProxyConfig }),
-
 	cell.Provide(newProxy),
 	cell.Provide(newEnvoyProxyIntegration),
 	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
+	cell.Config(ProxyConfig{}),
 )
 
 type ProxyConfig struct {
-	MinPort, MaxPort uint16
-	DNSProxyPort     uint16
+	ProxyPortrangeMin uint16
+	ProxyPortrangeMax uint16
 }
 
-var DefaultProxyConfig = ProxyConfig{
-	MinPort: 10000,
-	MaxPort: 20000,
-	// The default value for the DNS proxy port is set to 0 to allocate a random
-	// port.
-	DNSProxyPort: 0,
+func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
+	flags.Uint16("proxy-portrange-min", 10000, "Start of port range that is used to allocate ports for L7 proxies.")
+	flags.Uint16("proxy-portrange-max", 20000, "End of port range that is used to allocate ports for L7 proxies.")
 }
 
 type proxyParams struct {
 	cell.In
 
+	Config                ProxyConfig
 	Datapath              datapath.Datapath
 	EndpointInfoRegistry  logger.EndpointInfoRegistry
 	MonitorAgent          monitoragent.Agent
@@ -51,7 +50,7 @@ type proxyParams struct {
 	DNSProxyIntegration   *dnsProxyIntegration
 }
 
-func newProxy(params proxyParams, cfg ProxyConfig) *Proxy {
+func newProxy(params proxyParams) *Proxy {
 	if !option.Config.EnableL7Proxy {
 		log.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
@@ -62,7 +61,7 @@ func newProxy(params proxyParams, cfg ProxyConfig) *Proxy {
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
-	return createProxy(cfg.MinPort, cfg.MaxPort, cfg.DNSProxyPort, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
+	return createProxy(params.Config.ProxyPortrangeMin, params.Config.ProxyPortrangeMax, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 }
 
 type envoyProxyIntegrationParams struct {

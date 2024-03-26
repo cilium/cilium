@@ -504,7 +504,7 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 
 	err := proxyWaitGroup.Context().Err()
 	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
+		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
 	}
 
 	start := time.Now()
@@ -1424,7 +1424,6 @@ func (e *Endpoint) GetDisableLegacyIdentifiers() bool {
 	e.unconditionalRLock()
 	defer e.runlock()
 	return e.disableLegacyIdentifiers
-
 }
 
 func (e *Endpoint) setState(toState State, reason string) bool {
@@ -2535,10 +2534,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	return errs
 }
 
-// WaitForFirstRegeneration waits for specific conditions before returning:
-// * if the endpoint has a sidecar proxy, it waits for the endpoint's BPF
-// program to be generated for the first time.
-// * otherwise, waits for the endpoint to complete its first full regeneration.
+// WaitForFirstRegeneration waits for the endpoint to complete its first full regeneration.
 func (e *Endpoint) WaitForFirstRegeneration(ctx context.Context) error {
 	e.getLogger().Info("Waiting for endpoint to be generated")
 

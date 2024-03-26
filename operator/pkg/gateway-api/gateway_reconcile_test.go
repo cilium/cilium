@@ -40,13 +40,51 @@ var gwFixture = []client.Object{
 			Namespace: "default",
 		},
 	},
-
+	&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cilium-gateway-valid-gateway",
+			Namespace: "another-namespace",
+			Annotations: map[string]string{
+				"pre-existing-annotation": "true",
+			},
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						IP: "10.10.10.11",
+						Ports: []corev1.PortStatus{
+							{
+								Port:     80,
+								Protocol: "TCP",
+							},
+						},
+					},
+				},
+			},
+		},
+	},
 	&corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cilium-gateway-valid-gateway",
 			Namespace: "default",
 			Annotations: map[string]string{
 				"pre-existing-annotation": "true",
+			},
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						IP: "10.10.10.10",
+						Ports: []corev1.PortStatus{
+							{
+								Port:     80,
+								Protocol: "TCP",
+							},
+						},
+					},
+				},
 			},
 		},
 	},
@@ -322,35 +360,6 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		gw := &gatewayv1.Gateway{}
 		err = c.Get(context.Background(), key, gw)
 		require.NoError(t, err)
-		require.Empty(t, gw.Status.Addresses)
-
-		// Simulate LB service update
-		lb := &corev1.Service{}
-		err = c.Get(context.Background(), client.ObjectKey{Namespace: "default", Name: "cilium-gateway-valid-gateway"}, lb)
-		require.NoError(t, err)
-		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
-		require.Equal(t, "valid-gateway", lb.Labels["io.cilium.gateway/owning-gateway"])
-		require.Equal(t, "true", lb.Annotations["pre-existing-annotation"])
-
-		// Update LB status
-		lb.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
-			{
-				IP: "10.10.10.10",
-				Ports: []corev1.PortStatus{
-					{
-						Port:     80,
-						Protocol: "TCP",
-					},
-				},
-			},
-		}
-		err = c.Status().Update(context.Background(), lb)
-		require.NoError(t, err)
-
-		// Perform second reconciliation
-		result, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
-		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result)
 
 		// Check that the gateway status has been updated
 		err = c.Get(context.Background(), key, gw)

@@ -18,8 +18,8 @@ import (
 // have access to all the information needed to restore the volume. You cannot
 // delete a snapshot of the root device of an EBS volume used by a registered AMI.
 // You must first de-register the AMI before you can delete the snapshot. For more
-// information, see Delete an Amazon EBS snapshot (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-deleting-snapshot.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// information, see Delete an Amazon EBS snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-deleting-snapshot.html)
+// in the Amazon EBS User Guide.
 func (c *Client) DeleteSnapshot(ctx context.Context, params *DeleteSnapshotInput, optFns ...func(*Options)) (*DeleteSnapshotOutput, error) {
 	if params == nil {
 		params = &DeleteSnapshotInput{}

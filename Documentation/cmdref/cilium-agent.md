@@ -83,6 +83,7 @@ cilium-agent [flags]
       --devices strings                                           List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'
       --direct-routing-device string                              Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --disable-endpoint-crd                                      Disable use of CiliumEndpoint CRD
+      --disable-envoy-version-check                               Do not perform Envoy version check
       --disable-iptables-feeder-rules strings                     Chains to ignore when installing feeder rules.
       --dns-max-ips-per-restored-rule int                         Maximum number of IPs to maintain for each restored DNS rule (default 1000)
       --dns-policy-unload-on-shutdown                             Unload DNS policy rules on graceful shutdown
@@ -171,6 +172,7 @@ cilium-agent [flags]
       --encryption-strict-mode-cidr string                        In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-queue-size int                                   Size of EventQueue per-endpoint (default 25)
+      --envoy-base-id uint                                        Envoy base ID
       --envoy-config-retry-interval duration                      Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
       --envoy-config-timeout duration                             Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources (default 2m0s)
       --envoy-log string                                          Path to a separate Envoy log file, if any
@@ -293,6 +295,7 @@ cilium-agent [flags]
       --monitor-aggregation-interval duration                     Monitor report interval when monitor aggregation is enabled (default 5s)
       --monitor-queue-size int                                    Size of the event queue when reading monitor events
       --mtu int                                                   Overwrite auto-detected MTU of underlying network
+      --multicast-enabled                                         Enables multicast in Cilium
       --node-encryption-opt-out-labels string                     Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
       --node-labels strings                                       List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)
       --node-port-bind-protection                                 Reject application bind(2) requests to service ports in the NodePort range (default true)
@@ -309,11 +312,14 @@ cilium-agent [flags]
       --prepend-iptables-chains                                   Prepend custom iptables chains instead of appending (default true)
       --procfs string                                             Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+      --proxy-admin-port int                                      Port to serve Envoy admin interface on.
       --proxy-connect-timeout uint                                Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                            Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)
       --proxy-max-connection-duration-seconds int                 Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                     Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
+      --proxy-portrange-max uint16                                End of port range that is used to allocate ports for L7 proxies. (default 20000)
+      --proxy-portrange-min uint16                                Start of port range that is used to allocate ports for L7 proxies. (default 10000)
       --proxy-prometheus-port int                                 Port to serve Envoy metrics on. Default 0 (disabled).
       --read-cni-conf string                                      CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restore                                                   Restores state, if possible, from previous daemon (default true)

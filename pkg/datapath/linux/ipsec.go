@@ -22,6 +22,46 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+// getDefaultEncryptionInterface() is needed to find the interface used when
+// populating neighbor table and doing arpRequest. For most configurations
+// there is only a single interface so choosing [0] works by choosing the only
+// interface. However EKS, uses multiple interfaces, but fortunately for us
+// in EKS any interface would work so pick the [0] index here as well.
+func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
+	if option.Config.TunnelingEnabled() {
+		return n.datapathConfig.TunnelDevice
+	}
+	devices := option.Config.GetDevices()
+	if len(devices) > 0 {
+		return devices[0]
+	}
+	if len(option.Config.EncryptInterface) > 0 {
+		return option.Config.EncryptInterface[0]
+	}
+	return ""
+}
+
+func (n *linuxNodeHandler) getLinkLocalIP(family int) (net.IP, error) {
+	iface := n.getDefaultEncryptionInterface()
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return nil, err
+	}
+	addr, err := netlink.AddrList(link, family)
+	if err != nil {
+		return nil, err
+	}
+	return addr[0].IPNet.IP, nil
+}
+
+func (n *linuxNodeHandler) getV4LinkLocalIP() (net.IP, error) {
+	return n.getLinkLocalIP(netlink.FAMILY_V4)
+}
+
+func (n *linuxNodeHandler) getV6LinkLocalIP() (net.IP, error) {
+	return n.getLinkLocalIP(netlink.FAMILY_V6)
+}
+
 func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8, nodeID uint16) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Reason:   spec,
@@ -124,7 +164,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
 
-			localNodeInternalIP, err := getV4LinkLocalIP()
+			localNodeInternalIP, err := n.getV4LinkLocalIP()
 			if err != nil {
 				log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
 				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link: %w", err))
@@ -165,7 +205,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 			// Check if we should use the NodeInternalIPs instead of the
 			// CiliumInternalIPs for the IPsec encapsulation.
 			if !option.Config.UseCiliumInternalIPForIPsec {
-				localIP, err = getV4LinkLocalIP()
+				localIP, err = n.getV4LinkLocalIP()
 				if err != nil {
 					log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
 				}
@@ -218,7 +258,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
 
-			localNodeInternalIP, err := getV6LinkLocalIP()
+			localNodeInternalIP, err := n.getV6LinkLocalIP()
 			if err != nil {
 				log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
 				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
@@ -249,7 +289,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 			// Check if we should use the NodeInternalIPs instead of the
 			// CiliumInternalIPs for the IPsec encapsulation.
 			if !option.Config.UseCiliumInternalIPForIPsec {
-				localIP, err = getV6LinkLocalIP()
+				localIP, err = n.getV6LinkLocalIP()
 				if err != nil {
 					log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
 					errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
@@ -320,13 +360,7 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 }
 
 func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
-	var device string
-
-	if !option.Config.TunnelingEnabled() {
-		device = option.Config.EncryptInterface[0]
-	} else {
-		device = n.datapathConfig.TunnelDevice
-	}
+	device := n.getDefaultEncryptionInterface()
 	return route.Route{
 		Nexthop: nil,
 		Device:  device,

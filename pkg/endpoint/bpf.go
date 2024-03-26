@@ -585,7 +585,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
+		return 0, compilationExecuted, fmt.Errorf("error while configuring proxy redirects: %w", err)
 	}
 
 	stats.waitingForLock.Start()

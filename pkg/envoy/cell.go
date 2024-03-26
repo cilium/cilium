@@ -30,6 +30,7 @@ var Cell = cell.Module(
 	"envoy-proxy",
 	"Envoy proxy and control-plane",
 
+	cell.Config(envoyProxyConfig{}),
 	cell.Config(secretSyncConfig{}),
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
@@ -39,6 +40,44 @@ var Cell = cell.Module(
 	cell.Invoke(registerEnvoyVersionCheck),
 	cell.Invoke(registerSecretSyncer),
 )
+
+type envoyProxyConfig struct {
+	DisableEnvoyVersionCheck          bool
+	ProxyPrometheusPort               int
+	ProxyAdminPort                    int
+	EnvoyLog                          string
+	EnvoyBaseID                       uint64
+	ProxyConnectTimeout               uint
+	ProxyGID                          uint
+	ProxyMaxRequestsPerConnection     int
+	ProxyMaxConnectionDurationSeconds int
+	ProxyIdleTimeoutSeconds           int
+	HTTPNormalizePath                 bool
+	HTTPRequestTimeout                uint
+	HTTPIdleTimeout                   uint
+	HTTPMaxGRPCTimeout                uint
+	HTTPRetryCount                    uint
+	HTTPRetryTimeout                  uint
+}
+
+func (r envoyProxyConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy version check")
+	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
+	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
+	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
+	flags.Uint64("envoy-base-id", 0, "Envoy base ID")
+	flags.Uint("proxy-connect-timeout", 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
+	flags.Uint("proxy-gid", 1337, "Group ID for proxy control plane sockets.")
+	flags.Int("proxy-max-requests-per-connection", 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
+	flags.Int("proxy-max-connection-duration-seconds", 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
+	flags.Int("proxy-idle-timeout-seconds", 60, "Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s")
+	flags.Bool("http-normalize-path", true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
+	flags.Uint("http-request-timeout", 60*60, "Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited")
+	flags.Uint("http-idle-timeout", 0, "Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
+	flags.Uint("http-max-grpc-timeout", 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
+	flags.Uint("http-retry-count", 3, "Number of retries performed after a forwarded request attempt fails")
+	flags.Uint("http-retry-timeout", 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
+}
 
 type secretSyncConfig struct {
 	EnvoySecretsNamespace string
@@ -65,6 +104,8 @@ type xdsServerParams struct {
 	IPCache            *ipcache.IPCache
 	LocalEndpointStore *LocalEndpointStore
 
+	EnvoyProxyConfig envoyProxyConfig
+
 	// Depend on access log server to enforce init order.
 	// This ensures that the access log server is ready before it gets used by the
 	// Cilium Envoy filter after receiving the resources via xDS server.
@@ -76,7 +117,19 @@ type xdsServerParams struct {
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
-	xdsServer, err := newXDSServer(GetSocketDir(option.Config.RunDir), params.IPCache, params.LocalEndpointStore)
+	xdsServer, err := newXDSServer(
+		params.IPCache,
+		params.LocalEndpointStore,
+		xdsServerConfig{
+			envoySocketDir:     GetSocketDir(option.Config.RunDir),
+			proxyGID:           int(params.EnvoyProxyConfig.ProxyGID),
+			httpRequestTimeout: int(params.EnvoyProxyConfig.HTTPRequestTimeout),
+			httpIdleTimeout:    params.EnvoyProxyConfig.ProxyIdleTimeoutSeconds,
+			httpMaxGRPCTimeout: int(params.EnvoyProxyConfig.HTTPMaxGRPCTimeout),
+			httpRetryCount:     int(params.EnvoyProxyConfig.HTTPRetryCount),
+			httpRetryTimeout:   int(params.EnvoyProxyConfig.HTTPRetryTimeout),
+			httpNormalizePath:  params.EnvoyProxyConfig.HTTPNormalizePath,
+		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Envoy xDS server: %w", err)
 	}
@@ -87,13 +140,13 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	}
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(startContext cell.HookContext) error {
+		OnStart: func(_ cell.HookContext) error {
 			if err := xdsServer.start(); err != nil {
 				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
 			}
 			return nil
 		},
-		OnStop: func(stopContext cell.HookContext) error {
+		OnStop: func(_ cell.HookContext) error {
 			xdsServer.stop()
 			return nil
 		},
@@ -101,8 +154,16 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 
 	if !option.Config.ExternalEnvoyProxy {
 		return &onDemandXdsStarter{
-			XDSServer: xdsServer,
-			runDir:    option.Config.RunDir,
+			XDSServer:                xdsServer,
+			runDir:                   option.Config.RunDir,
+			envoyLogPath:             params.EnvoyProxyConfig.EnvoyLog,
+			envoyBaseID:              params.EnvoyProxyConfig.EnvoyBaseID,
+			metricsListenerPort:      params.EnvoyProxyConfig.ProxyPrometheusPort,
+			adminListenerPort:        params.EnvoyProxyConfig.ProxyAdminPort,
+			connectTimeout:           int64(params.EnvoyProxyConfig.ProxyConnectTimeout),
+			maxRequestsPerConnection: uint32(params.EnvoyProxyConfig.ProxyMaxRequestsPerConnection),
+			maxConnectionDuration:    time.Duration(params.EnvoyProxyConfig.ProxyMaxConnectionDurationSeconds) * time.Second,
+			idleTimeout:              time.Duration(params.EnvoyProxyConfig.ProxyIdleTimeoutSeconds) * time.Second,
 		}, nil
 	}
 
@@ -118,6 +179,7 @@ type accessLogServerParams struct {
 
 	Lifecycle          cell.Lifecycle
 	LocalEndpointStore *LocalEndpointStore
+	EnvoyProxyConfig   envoyProxyConfig
 }
 
 func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
@@ -126,16 +188,16 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 		return nil
 	}
 
-	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.LocalEndpointStore)
+	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore)
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(startContext cell.HookContext) error {
+		OnStart: func(_ cell.HookContext) error {
 			if err := accessLogServer.start(); err != nil {
 				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
 			}
 			return nil
 		},
-		OnStop: func(stopContext cell.HookContext) error {
+		OnStop: func(_ cell.HookContext) error {
 			accessLogServer.stop()
 			return nil
 		},
@@ -151,11 +213,12 @@ type versionCheckParams struct {
 	Logger           logrus.FieldLogger
 	JobRegistry      job.Registry
 	Scope            cell.Scope
+	EnvoyProxyConfig envoyProxyConfig
 	EnvoyAdminClient *EnvoyAdminClient
 }
 
 func registerEnvoyVersionCheck(params versionCheckParams) {
-	if !option.Config.EnableL7Proxy || option.Config.DisableEnvoyVersionCheck {
+	if !option.Config.EnableL7Proxy || params.EnvoyProxyConfig.DisableEnvoyVersionCheck {
 		return
 	}
 
@@ -200,7 +263,7 @@ func newArtifactCopier(lifecycle cell.Lifecycle) *ArtifactCopier {
 	}
 
 	lifecycle.Append(cell.Hook{
-		OnStart: func(startContext cell.HookContext) error {
+		OnStart: func(_ cell.HookContext) error {
 			if err := artifactCopier.Copy(); err != nil {
 				return fmt.Errorf("failed to copy artifacts to envoy: %w", err)
 			}
@@ -226,16 +289,14 @@ type syncerParams struct {
 }
 
 func registerSecretSyncer(params syncerParams) error {
-	if !params.Config.EnableIngressController && !params.Config.EnableGatewayAPI {
+	if !params.K8sClientset.IsEnabled() {
 		return nil
 	}
-
-	secretSyncer := newSecretSyncer(params.Logger, params.XdsServer)
 
 	// Create a Secret Resource for each namespace.
 	// The Cilium Agent only has permissions on the specific namespaces.
 	// Note that the different features can use the same namespace for
-	// their TLS.
+	// their TLS secrets.
 	namespaces := map[string]struct{}{}
 
 	for namespace, cond := range map[string]func() bool{
@@ -259,6 +320,9 @@ func registerSecretSyncer(params syncerParams) error {
 	)
 
 	params.Lifecycle.Append(jobGroup)
+
+	secretSyncer := newSecretSyncer(params.Logger, params.XdsServer)
+
 	for ns := range namespaces {
 		jobGroup.Add(job.Observer(
 			fmt.Sprintf("k8s-secrets-resource-events-%s", ns),
