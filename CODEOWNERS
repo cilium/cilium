@@ -458,6 +458,7 @@ Makefile* @cilium/build
 /pkg/flowdebug/ @cilium/proxy
 /pkg/fqdn/ @cilium/fqdn
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
+/pkg/healthv2/ @cilium/sig-foundations
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hive/job/metrics.go @cilium/sig-foundations @cilium/metrics
