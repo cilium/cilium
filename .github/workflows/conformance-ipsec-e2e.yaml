@@ -312,7 +312,7 @@ jobs:
             exp_nb_keys=2
             # If IPv6 is disabled, we expect one key per remote node.
             # Otherwise, we expect two.
-            if [ "${{ matrix.ipv6 }}" == "false" ]; then
+            if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
               if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
                 ((exp_nb_keys+=3))
               fi
