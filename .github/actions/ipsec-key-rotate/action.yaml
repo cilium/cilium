@@ -58,7 +58,7 @@ runs:
             if [[ $keys_in_use == $exp_nb_keys ]]; then
               break
             fi
-            echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
+            echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
             sleep 30s
           done
 
@@ -75,6 +75,6 @@ runs:
             if [[ $keys_in_use == $exp_nb_keys ]]; then
               break
             fi
-            echo "Waiting until key rotation completes (seeing $keys_in_use keys)"
+            echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
             sleep 30s
           done
