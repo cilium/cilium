@@ -99,7 +99,9 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
-	iao := &identityAllocatorOwner{}
+	iao := &identityAllocatorOwner{
+		endpointManager: params.EndpointManager,
+	}
 	idAlloc := cache.NewCachingIdentityAllocator(iao)
 
 	iao.policy = policy.NewStoppedPolicyRepository(
@@ -164,21 +166,24 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 // identityAllocatorOwner is used to break the circular dependency between
 // CachingIdentityAllocator and policy.Repository.
 type identityAllocatorOwner struct {
-	policy        *policy.Repository
-	policyUpdater *policy.Updater
+	policy          *policy.Repository
+	policyUpdater   *policy.Updater
+	endpointManager endpointmanager.EndpointManager
 }
 
 // UpdateIdentities informs the policy package of all identity changes
-// and also triggers policy updates.
+// and triggers incremental policy updates.
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
+//
+// This function does *not* regenerate all endpoints.
 func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted cache.IdentityCache) {
-	wg := &sync.WaitGroup{}
-	iao.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
-	// Wait for update propagation to endpoints before triggering policy updates
-	wg.Wait()
-	iao.policyUpdater.TriggerPolicyUpdates(false, "one or more identities created or deleted")
+	notifyWG := &sync.WaitGroup{}
+	iao.policy.GetSelectorCache().UpdateIdentities(added, deleted, notifyWG)
+
+	// Push queued incremental updates to the datapath (bpf and Envoy)
+	iao.endpointManager.UpdatePolicyMaps(context.Background(), notifyWG)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
