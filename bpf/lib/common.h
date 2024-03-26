@@ -67,6 +67,7 @@ enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
 	XFER_PKT_ENCAP		= (1 << 1),  /* needs encap, tunnel info is in metadata. */
 	XFER_PKT_SNAT_DONE	= (1 << 2),  /* SNAT is done */
+	XFER_PKT_FOO		= (1 << 3),
 };
 
 /* For use in ctx_get_xfer(), after XDP called ctx_move_xfer(). */
