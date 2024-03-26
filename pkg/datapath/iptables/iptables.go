@@ -324,6 +324,10 @@ func (m *IptablesManager) Init() {
 
 	m.haveIp6tables = haveIp6tables
 
+	if option.Config.EnableIPSec && option.Config.EnableL7Proxy {
+		m.DisableIPEarlyDemux()
+	}
+
 	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
 		if option.Config.Tunnel == option.TunnelDisabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
@@ -344,14 +348,7 @@ func (m *IptablesManager) Init() {
 			log.WithError(err).Warning("xt_socket kernel module could not be loaded")
 
 			if option.Config.EnableXTSocketFallback {
-				disabled := sysctl.Disable("net.ipv4.ip_early_demux") == nil
-
-				if disabled {
-					m.ipEarlyDemuxDisabled = true
-					log.Warning("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
-				} else {
-					log.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
-				}
+				m.DisableIPEarlyDemux()
 			}
 		}
 	} else {
@@ -363,6 +360,20 @@ func (m *IptablesManager) Init() {
 	ip6tables.initArgs(int(option.Config.IPTablesLockTimeout / time.Second))
 }
 
+func (m *IptablesManager) DisableIPEarlyDemux() {
+	if m.ipEarlyDemuxDisabled {
+		return
+	}
+
+	err := sysctl.Disable("net.ipv4.ip_early_demux")
+	if err == nil {
+		m.ipEarlyDemuxDisabled = true
+		log.Info("Disabled ip_early_demux to allow proxy redirection.")
+	} else {
+		log.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
+	}
+}
+
 // SupportsOriginalSourceAddr tells if an L7 proxy can use POD's original source address and port in
 // the upstream connection to allow the destination to properly derive the source security ID from
 // the source IP address.
@@ -370,7 +381,7 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
 	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
 	// the source security ID.
-	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && option.Config.Tunnel == option.TunnelDisabled
+	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && (option.Config.Tunnel == option.TunnelDisabled || option.Config.EnableIPSec)
 }
 
 // removeRules removes iptables rules installed by Cilium.
@@ -433,10 +444,12 @@ func (m *IptablesManager) inboundProxyRedirectRule(cmd string) []string {
 	// 2. route original direction traffic that would otherwise be intercepted
 	//    by ip_early_demux
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-m", "socket", "--transparent",
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
 		"--set-mark", toProxyMark}
@@ -493,6 +506,8 @@ func (m *IptablesManager) installStaticProxyRules() error {
 	matchProxyReply := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyNoIDMask)
 	// L7 proxy upstream return traffic has Endpoint ID in the mask
 	matchL7ProxyUpstream := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
+	// match traffic from a proxy (either in forward or in return direction)
+	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
 
 	if option.Config.EnableIPv4 {
 		// No conntrack for traffic to proxy
@@ -565,8 +580,8 @@ func (m *IptablesManager) installStaticProxyRules() error {
 		if err := ip4tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+			"-m", "mark", "--mark", matchFromProxy,
+			"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 			"-j", "ACCEPT"}); err != nil {
 			return err
 		}
@@ -627,8 +642,8 @@ func (m *IptablesManager) installStaticProxyRules() error {
 		if err := ip6tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+			"-m", "mark", "--mark", matchFromProxy,
+			"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 			"-j", "ACCEPT"}); err != nil {
 			return err
 		}

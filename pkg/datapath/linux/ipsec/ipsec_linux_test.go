@@ -57,7 +57,7 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, NotNil)
 }
 
@@ -79,20 +79,25 @@ func (p *IPSecSuitePrivileged) TestParseSPI(c *C) {
 		input    string
 		expSPI   uint8
 		expOff   int
+		expESN   bool
 		expError bool
 	}{
-		{"254", 0, 0, true},
-		{"15", 15, 0, false},
-		{"abc", 1, -1, false},
-		{"0", 0, 0, true},
+		{"254", 0, 0, false, true},
+		{"15", 15, 0, false, false},
+		{"3+", 3, 0, true, false},
+		{"abc", 1, -1, false, false},
+		{"0", 0, 0, false, true},
 	}
 	for _, tc := range testCases {
-		spi, off, err := parseSPI(tc.input)
+		spi, off, esn, err := parseSPI(tc.input)
 		if spi != tc.expSPI {
 			c.Fatalf("For input %q, expected SPI %d, but got %d", tc.input, tc.expSPI, spi)
 		}
 		if off != tc.expOff {
 			c.Fatalf("For input %q, expected base offset %d, but got %d", tc.input, tc.expOff, off)
+		}
+		if esn != tc.expESN {
+			c.Fatalf("For input %q, expected ESN %t, but got %t", tc.input, tc.expESN, esn)
 		}
 		if tc.expError {
 			c.Assert(err, NotNil)
@@ -122,7 +127,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -140,7 +145,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -169,7 +174,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -188,18 +193,18 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
 		Src: remote,
 		Dst: local,
 		Dir: netlink.XFRM_DIR_IN,
 		Mark: &netlink.XfrmMark{
-			Mask:  linux_defaults.IPsecMarkMaskIn,
+			Mask:  linux_defaults.IPsecMarkBitMask,
 			Value: linux_defaults.RouteMarkToProxy,
 		},
 	})
@@ -218,10 +223,44 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, ErrorMatches, "unable to replace local state: IPSec key missing")
 
 	cleanIPSecStatesAndPolicies(c)
+}
+
+func (p *IPSecSuitePrivileged) TestUpdateExistingIPSecEndpoint(c *C) {
+	_, local, err := net.ParseCIDR("1.1.3.4/16")
+	c.Assert(err, IsNil)
+	_, remote, err := net.ParseCIDR("1.2.3.4/16")
+	c.Assert(err, IsNil)
+
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	c.Assert(err, IsNil)
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	c.Assert(err, IsNil)
+	key := &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
+		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	ipSecKeysGlobal["1.1.3.4"] = key
+	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[""] = key
+
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	c.Assert(err, IsNil)
+
+	// test updateExisting (xfrm delete + add)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true)
+	c.Assert(err, IsNil)
+
+	cleanIPSecStatesAndPolicies(c)
+	ipSecKeysGlobal["1.1.3.4"] = nil
+	ipSecKeysGlobal["1.2.3.4"] = nil
+	ipSecKeysGlobal[""] = nil
 }
 
 func cleanIPSecStatesAndPolicies(c *C) {

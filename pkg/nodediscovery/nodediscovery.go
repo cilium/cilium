@@ -243,6 +243,7 @@ func (n *NodeDiscovery) fillLocalNode() {
 	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
 	n.localNode.Labels = node.GetLabels()
 	n.localNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
+	n.localNode.BootID = node.GetBootID()
 
 	if node.GetK8sExternalIPv4() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
@@ -560,6 +561,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		}
 		nodeResource.ObjectMeta.Annotations[annotation.WireguardPubKey] = pk
 	}
+
+	nodeResource.Spec.BootID = n.localNode.BootID
 
 	switch option.Config.IPAM {
 	case ipamOption.IPAMClusterPoolV2:
