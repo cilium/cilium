@@ -298,12 +298,12 @@ errors.
  * In addition to the above XFRM errors, packet drops of type ``No node ID
    found`` (code 197) may also occur under normal operations. These drops can
    happen if a pod attempts to send traffic to a pod on a new node for which
-   the Cilium agent didn't yet receive the CiliumNode object. It can also
-   happen if the IP address of the destination node changed and the agent
-   didn't receive the updated CiliumNode object yet. In both cases, the IPsec
-   configuration in the kernel isn't ready yet, so Cilium drops the packets at
-   the source. These drops will stop once the CiliumNode information is
-   propagated across the cluster.
+   the Cilium agent didn't yet receive the CiliumNode object or to a pod on a
+   node that was recently deleted. It can also happen if the IP address of the
+   destination node changed and the agent didn't receive the updated CiliumNode
+   object yet. In both cases, the IPsec configuration in the kernel isn't ready
+   yet, so Cilium drops the packets at the source. These drops will stop once
+   the CiliumNode information is propagated across the cluster.
 
 Disabling Encryption
 ====================
