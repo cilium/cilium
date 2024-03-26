@@ -29,7 +29,7 @@ env:
   region: us-east-2
   eksctl_version: v0.147.0
   # renovate: datasource=github-releases depName=cilium/cilium
-  cilium_version: v1.15.2
+  cilium_version: v1.15.3
   kubectl_version: v1.23.6
 
 jobs:
