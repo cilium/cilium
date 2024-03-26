@@ -66,6 +66,7 @@ func newCmdStatus() *cobra.Command {
 		"worker-count", status.DefaultWorkerCount,
 		"The number of workers to use")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
+	cmd.Flags().BoolVar(&params.Interactive, "interactive", true, "Refresh the status summary output after each retry when --wait flag is specified")
 
 	return cmd
 }
