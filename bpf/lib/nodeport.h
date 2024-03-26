@@ -818,14 +818,14 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 {
 	struct ipv6_nat_entry *dsr_entry __maybe_unused;
 	struct ipv6_ct_tuple dsr_tuple __maybe_unused;
-	__u16 rev_nat_index = 0;
+	__u16 svc_id = 0;
 
 	if (!ct_has_nodeport_egress_entry6(get_ct_map6(tuple), tuple,
-					   &rev_nat_index, is_defined(ENABLE_DSR)))
+					   &svc_id, is_defined(ENABLE_DSR)))
 		return NULL;
 
-	if (rev_nat_index)
-		return lb6_lookup_rev_nat_entry(ctx, rev_nat_index);
+	if (svc_id)
+		return lb6_lookup_rev_nat_entry(ctx, svc_id);
 
 #ifdef ENABLE_DSR
 	dsr_tuple = *tuple;
@@ -952,7 +952,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
+		ret = lb6_rev_nat(ctx, l4_off, ct_state.svc_id,
 				  &tuple);
 		if (IS_ERR(ret))
 			return ret;
@@ -1388,7 +1388,7 @@ skip_service_lookup:
 		__ipv6_ct_tuple_reverse(&tuple);
 
 		/* only match CT entries that belong to the same service: */
-		ct_state.rev_nat_index = ct_state_svc.rev_nat_index;
+		ct_state.svc_id = ct_state_svc.svc_id;
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
@@ -2346,14 +2346,14 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 {
 	struct ipv4_nat_entry *dsr_entry __maybe_unused;
 	struct ipv4_ct_tuple dsr_tuple __maybe_unused;
-	__u16 rev_nat_index = 0;
+	__u16 svc_id = 0;
 
 	if (!ct_has_nodeport_egress_entry4(get_ct_map4(tuple), tuple,
-					   &rev_nat_index, is_defined(ENABLE_DSR)))
+					   &svc_id, is_defined(ENABLE_DSR)))
 		return NULL;
 
-	if (rev_nat_index)
-		return lb4_lookup_rev_nat_entry(ctx, rev_nat_index);
+	if (svc_id)
+		return lb4_lookup_rev_nat_entry(ctx, svc_id);
 
 #ifdef ENABLE_DSR
 	dsr_tuple = *tuple;
@@ -2442,7 +2442,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			      CT_ENTRY_NODEPORT, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
-		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
+		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.svc_id, false,
 				  &tuple, has_l4_header);
 		if (IS_ERR(ret))
 			return ret;
@@ -2947,7 +2947,7 @@ skip_service_lookup:
 		__ipv4_ct_tuple_reverse(&tuple);
 
 		/* only match CT entries that belong to the same service: */
-		ct_state.rev_nat_index = ct_state_svc.rev_nat_index;
+		ct_state.svc_id = ct_state_svc.svc_id;
 
 		/* Cache is_fragment in advance, lb4_local may invalidate ip4. */
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, is_fragment,

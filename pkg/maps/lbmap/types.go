@@ -66,10 +66,10 @@ type ServiceValue interface {
 	GetCount() int
 
 	// Set reverse NAT identifier
-	SetRevNat(int)
+	SetSvcID(int)
 
 	// Get reverse NAT identifier
-	GetRevNat() int
+	GetSvcID() int
 
 	// Set flags
 	SetFlags(uint16)
@@ -180,7 +180,7 @@ func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4Add
 	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
-		ID:       loadbalancer.ID(svcValue.GetRevNat()),
+		ID:       loadbalancer.ID(svcValue.GetSvcID()),
 	}
 	return feL3n4AddrID
 }

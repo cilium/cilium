@@ -88,7 +88,7 @@ func dumpSVC(serviceList map[string][]string) {
 		svc := svcKey.String()
 		svcKey = svcKey.ToHost()
 		backendSlot := svcKey.GetBackendSlot()
-		revNATID := svcVal.GetRevNat()
+		ServiceID := svcVal.GetSvcID()
 		backendID := svcVal.GetBackendID()
 		flags := loadbalancer.ServiceFlags(svcVal.GetFlags())
 
@@ -101,7 +101,7 @@ func dumpSVC(serviceList map[string][]string) {
 			if flags.IsL7LB() {
 				extra = fmt.Sprintf("(L7LB Proxy Port: %d)", byteorder.NetworkToHost16(uint16(svcVal.GetBackendID())))
 			}
-			entry = fmt.Sprintf("%s:%d (%d) (%d) [%s] %s", ip, 0, revNATID, backendSlot, flags, extra)
+			entry = fmt.Sprintf("%s:%d (%d) (%d) [%s] %s", ip, 0, ServiceID, backendSlot, flags, extra)
 		} else if backend, found := backendMap[backendID]; !found {
 			entry = fmt.Sprintf("backend %d not found", backendID)
 		} else {
@@ -110,7 +110,7 @@ func dumpSVC(serviceList map[string][]string) {
 				fmtStr = "[%s]:%d (%d) (%d)"
 			}
 			entry = fmt.Sprintf(fmtStr, backend.GetAddress(),
-				backend.GetPort(), revNATID, backendSlot)
+				backend.GetPort(), ServiceID, backendSlot)
 		}
 
 		serviceList[svc] = append(serviceList[svc], entry)

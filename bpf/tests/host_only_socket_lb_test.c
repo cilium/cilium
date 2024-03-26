@@ -43,7 +43,7 @@ int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 	.value = { \
 		.flags = SVC_FLAG_ROUTABLE, \
 		.count = 1, \
-		.rev_nat_index = 1, \
+		.svc_id = 1, \
 		.backend_id = (_beid) \
 	} \
 }

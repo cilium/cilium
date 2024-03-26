@@ -207,11 +207,11 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 		 * The conntrack entry is used to understand that the packet being received is a reply.
 		 * This will put the packet to where it needs to be in the revDNAT stack.
 		 * NodePort related traffic requires that the CT state is flagged with the node_port field
-		 * and that a rev_nat_index is set.
+		 * and that a svc_id is set.
 		 */
 		struct ct_state ct_state = {
 			.node_port = true,
-			.rev_nat_index = 123,
+			.svc_id = 123,
 		};
 
 		/*
@@ -245,7 +245,7 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 
 		struct ct_state ct_state = {
 			.node_port = true,
-			.rev_nat_index = 123,
+			.svc_id = 123,
 		};
 		ipv6_ct_tuple_swap_addrs(&otuple);
 		ct_create6(get_ct_map6(&otuple), NULL, &otuple, ctx, CT_EGRESS, &ct_state, NULL);

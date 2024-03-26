@@ -103,7 +103,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 				return fmt.Errorf("Invalid backend ID 0")
 			}
 			svcVal.SetBackendID(loadbalancer.BackendID(backendID))
-			svcVal.SetRevNat(int(p.ID))
+			svcVal.SetSvcID(int(p.ID))
 			svcKey.SetBackendSlot(slot)
 			if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
 				if errors.Is(err, unix.E2BIG) {
@@ -121,7 +121,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	}
 
 	zeroValue := svcVal.New().(ServiceValue)
-	zeroValue.SetRevNat(int(p.ID)) // TODO change to uint16
+	zeroValue.SetSvcID(int(p.ID)) // TODO change to uint16
 	revNATKey := zeroValue.RevNatKey()
 	revNATValue := svcKey.RevNatValue()
 	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
@@ -318,15 +318,15 @@ func (*LBBPFMap) DeleteBackendByID(id loadbalancer.BackendID) error {
 
 // DeleteAffinityMatch removes the affinity match for the given svc and backend ID
 // tuple from the BPF map
-func (*LBBPFMap) DeleteAffinityMatch(revNATID uint16, backendID loadbalancer.BackendID) error {
+func (*LBBPFMap) DeleteAffinityMatch(ServiceID uint16, backendID loadbalancer.BackendID) error {
 	return AffinityMatchMap.Delete(
-		NewAffinityMatchKey(revNATID, backendID).ToNetwork())
+		NewAffinityMatchKey(ServiceID, backendID).ToNetwork())
 }
 
 // AddAffinityMatch adds the given affinity match to the BPF map.
-func (*LBBPFMap) AddAffinityMatch(revNATID uint16, backendID loadbalancer.BackendID) error {
+func (*LBBPFMap) AddAffinityMatch(ServiceID uint16, backendID loadbalancer.BackendID) error {
 	return AffinityMatchMap.Update(
-		NewAffinityMatchKey(revNATID, backendID).ToNetwork(),
+		NewAffinityMatchKey(ServiceID, backendID).ToNetwork(),
 		&AffinityMatchValue{})
 }
 
@@ -337,7 +337,7 @@ func (*LBBPFMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet, e
 
 	parse := func(key bpf.MapKey, value bpf.MapValue) {
 		matchKey := key.(*AffinityMatchKey).ToHost()
-		svcID := matchKey.RevNATID
+		svcID := matchKey.ServiceID
 		backendID := matchKey.BackendID
 
 		if _, ok := matches[svcID]; !ok {
@@ -358,11 +358,11 @@ func (*LBBPFMap) DumpSourceRanges(ipv6 bool) (datapathTypes.SourceRangeSetByServ
 	ret := datapathTypes.SourceRangeSetByServiceID{}
 	parser := func(key bpf.MapKey, value bpf.MapValue) {
 		k := key.(SourceRangeKey).ToHost()
-		revNATID := k.GetRevNATID()
-		if _, found := ret[revNATID]; !found {
-			ret[revNATID] = []*cidr.CIDR{}
+		ServiceID := k.GetServiceID()
+		if _, found := ret[ServiceID]; !found {
+			ret[ServiceID] = []*cidr.CIDR{}
 		}
-		ret[revNATID] = append(ret[revNATID], k.GetCIDR())
+		ret[ServiceID] = append(ret[ServiceID], k.GetCIDR())
 	}
 
 	m := SourceRange4Map
@@ -391,7 +391,7 @@ func deleteRevNatLocked(key RevNatKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
-func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CIDR,
+func (*LBBPFMap) UpdateSourceRanges(ServiceID uint16, prevSourceRanges []*cidr.CIDR,
 	sourceRanges []*cidr.CIDR, ipv6 bool) error {
 
 	m := SourceRange4Map
@@ -404,7 +404,7 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 		// k8s api server does not catch the IP family mismatch, so we need to catch it here
 		if ip.IsIPv6(cidr.IP) == !ipv6 {
 			log.WithFields(logrus.Fields{
-				logfields.ServiceID: revNATID,
+				logfields.ServiceID: ServiceID,
 				logfields.CIDR:      cidr,
 			}).Warn("Source range's IP family does not match with the LB's. Ignoring the source range CIDR")
 			continue
@@ -414,7 +414,7 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 
 	for _, prevCIDR := range prevSourceRanges {
 		if _, found := srcRangeMap[prevCIDR.String()]; !found {
-			if err := m.Delete(srcRangeKey(prevCIDR, revNATID, ipv6)); err != nil {
+			if err := m.Delete(srcRangeKey(prevCIDR, ServiceID, ipv6)); err != nil {
 				return err
 			}
 		} else {
@@ -423,7 +423,7 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 	}
 
 	for _, cidr := range srcRangeMap {
-		if err := m.Update(srcRangeKey(cidr, revNATID, ipv6), &SourceRangeValue{}); err != nil {
+		if err := m.Update(srcRangeKey(cidr, ServiceID, ipv6), &SourceRangeValue{}); err != nil {
 			return err
 		}
 	}
@@ -564,7 +564,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
+func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, ServiceID int, svcType loadbalancer.SVCType,
 	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
@@ -574,7 +574,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revN
 
 	fe.SetBackendSlot(0)
 	v.SetCount(activeBackends)
-	v.SetRevNat(revNATID)
+	v.SetSvcID(ServiceID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcExtLocal:      svcExtLocal,

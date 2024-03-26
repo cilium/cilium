@@ -183,33 +183,33 @@ func (m *LBMockMap) DumpBackendMaps() ([]*lb.Backend, error) {
 	return list, nil
 }
 
-func (m *LBMockMap) AddAffinityMatch(revNATID uint16, backendID lb.BackendID) error {
+func (m *LBMockMap) AddAffinityMatch(ServiceID uint16, backendID lb.BackendID) error {
 	m.Lock()
 	defer m.Unlock()
-	if _, ok := m.AffinityMatch[revNATID]; !ok {
-		m.AffinityMatch[revNATID] = map[lb.BackendID]struct{}{}
+	if _, ok := m.AffinityMatch[ServiceID]; !ok {
+		m.AffinityMatch[ServiceID] = map[lb.BackendID]struct{}{}
 	}
-	if _, ok := m.AffinityMatch[revNATID][backendID]; ok {
+	if _, ok := m.AffinityMatch[ServiceID][backendID]; ok {
 		return fmt.Errorf("Backend %d already exists in %d affinity map",
-			backendID, revNATID)
+			backendID, ServiceID)
 	}
-	m.AffinityMatch[revNATID][backendID] = struct{}{}
+	m.AffinityMatch[ServiceID][backendID] = struct{}{}
 	return nil
 }
 
-func (m *LBMockMap) DeleteAffinityMatch(revNATID uint16, backendID lb.BackendID) error {
+func (m *LBMockMap) DeleteAffinityMatch(ServiceID uint16, backendID lb.BackendID) error {
 	m.Lock()
 	defer m.Unlock()
-	if _, ok := m.AffinityMatch[revNATID]; !ok {
-		return fmt.Errorf("Affinity map for %d does not exist", revNATID)
+	if _, ok := m.AffinityMatch[ServiceID]; !ok {
+		return fmt.Errorf("Affinity map for %d does not exist", ServiceID)
 	}
-	if _, ok := m.AffinityMatch[revNATID][backendID]; !ok {
+	if _, ok := m.AffinityMatch[ServiceID][backendID]; !ok {
 		return fmt.Errorf("Backend %d does not exist in %d affinity map",
-			backendID, revNATID)
+			backendID, ServiceID)
 	}
-	delete(m.AffinityMatch[revNATID], backendID)
-	if len(m.AffinityMatch[revNATID]) == 0 {
-		delete(m.AffinityMatch, revNATID)
+	delete(m.AffinityMatch[ServiceID], backendID)
+	if len(m.AffinityMatch[ServiceID]) == 0 {
+		delete(m.AffinityMatch, ServiceID)
 	}
 	return nil
 }
@@ -218,15 +218,15 @@ func (m *LBMockMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet
 	return m.AffinityMatch, nil
 }
 
-func (m *LBMockMap) UpdateSourceRanges(revNATID uint16, prevRanges []*cidr.CIDR,
+func (m *LBMockMap) UpdateSourceRanges(ServiceID uint16, prevRanges []*cidr.CIDR,
 	ranges []*cidr.CIDR, ipv6 bool) error {
 	m.Lock()
 	defer m.Unlock()
 
 	if len(prevRanges) == 0 {
-		m.SourceRanges[revNATID] = []*cidr.CIDR{}
+		m.SourceRanges[ServiceID] = []*cidr.CIDR{}
 	}
-	if len(prevRanges) != len(m.SourceRanges[revNATID]) {
+	if len(prevRanges) != len(m.SourceRanges[ServiceID]) {
 		return fmt.Errorf("Inconsistent view of source ranges")
 	}
 	srcRanges := []*cidr.CIDR{}
@@ -236,7 +236,7 @@ func (m *LBMockMap) UpdateSourceRanges(revNATID uint16, prevRanges []*cidr.CIDR,
 		}
 		srcRanges = append(srcRanges, cidr)
 	}
-	m.SourceRanges[revNATID] = srcRanges
+	m.SourceRanges[ServiceID] = srcRanges
 
 	return nil
 }

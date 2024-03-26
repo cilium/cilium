@@ -134,7 +134,7 @@ struct {
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       const struct lb4_key *orig_key,
-					       __u16 rev_nat_id)
+					       __u16 svc_id)
 {
 	struct ipv4_revnat_entry val = {}, *tmp;
 	struct ipv4_revnat_tuple key = {};
@@ -146,7 +146,7 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 
 	val.address = orig_key->address;
 	val.port = orig_key->dport;
-	val.rev_nat_index = rev_nat_id;
+	val.svc_id = svc_id;
 
 	tmp = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val)))
@@ -425,7 +425,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 out:
 #endif
 	if (sock4_update_revnat(ctx_full, backend, &orig_key,
-				svc->rev_nat_index) < 0) {
+				svc->svc_id) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -597,7 +597,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		if (!svc)
 			svc = sock4_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx_full, NULL));
-		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
+		if (!svc || svc->svc_id != val->svc_id ||
 		    (svc->count == 0 && !lb4_svc_is_l7loadbalancer(svc))) {
 			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
@@ -659,7 +659,7 @@ struct {
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const struct lb6_key *orig_key,
-					       __u16 rev_nat_index)
+					       __u16 svc_id)
 {
 	struct ipv6_revnat_entry val = {}, *tmp;
 	struct ipv6_revnat_tuple key = {};
@@ -671,7 +671,7 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 
 	val.address = orig_key->address;
 	val.port = orig_key->dport;
-	val.rev_nat_index = rev_nat_index;
+	val.svc_id = svc_id;
 
 	tmp = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val)))
@@ -1070,7 +1070,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 out:
 #endif
 	if (sock6_update_revnat(ctx, backend, &orig_key,
-				svc->rev_nat_index) < 0) {
+				svc->svc_id) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -1189,7 +1189,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		if (!svc)
 			svc = sock6_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx, NULL));
-		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
+		if (!svc || svc->svc_id != val->svc_id ||
 		    (svc->count == 0 && !lb6_svc_is_l7loadbalancer(svc))) {
 			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);

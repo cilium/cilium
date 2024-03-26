@@ -192,7 +192,7 @@ func (k *Service6Key) ToHost() ServiceKey {
 type Service6Value struct {
 	BackendID uint32    `align:"$union0"`
 	Count     uint16    `align:"count"`
-	RevNat    uint16    `align:"rev_nat_index"`
+	SvcID     uint16    `align:"svc_id"`
 	Flags     uint8     `align:"flags"`
 	Flags2    uint8     `align:"flags2"`
 	Pad       pad2uint8 `align:"pad"`
@@ -202,14 +202,14 @@ func (s *Service6Value) New() bpf.MapValue { return &Service6Value{} }
 
 func (s *Service6Value) String() string {
 	sHost := s.ToHost().(*Service6Value)
-	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.RevNat, sHost.Flags, sHost.Flags2)
+	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.SvcID, sHost.Flags, sHost.Flags2)
 }
 
 func (s *Service6Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service6Value) GetCount() int        { return int(s.Count) }
-func (s *Service6Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
-func (s *Service6Value) GetRevNat() int       { return int(s.RevNat) }
-func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
+func (s *Service6Value) SetSvcID(id int)      { s.SvcID = uint16(id) }
+func (s *Service6Value) GetSvcID() int        { return int(s.SvcID) }
+func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.SvcID} }
 func (s *Service6Value) SetFlags(flags uint16) {
 	s.Flags = uint8(flags & 0xff)
 	s.Flags2 = uint8(flags >> 8)
@@ -239,14 +239,14 @@ func (s *Service6Value) GetBackendID() loadbalancer.BackendID {
 
 func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
+	n.SvcID = byteorder.HostToNetwork16(n.SvcID)
 	return &n
 }
 
 // ToHost converts Service6Value to host byte order.
 func (s *Service6Value) ToHost() ServiceValue {
 	h := *s
-	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
+	h.SvcID = byteorder.NetworkToHost16(h.SvcID)
 	return &h
 }
 
@@ -454,9 +454,9 @@ const SizeofSockRevNat6Key = int(unsafe.Sizeof(SockRevNat6Key{}))
 
 // SockRevNat6Value is an entry in the reverse NAT sock map.
 type SockRevNat6Value struct {
-	address     types.IPv6 `align:"address"`
-	port        int16      `align:"port"`
-	revNatIndex uint16     `align:"rev_nat_index"`
+	address types.IPv6 `align:"address"`
+	port    int16      `align:"port"`
+	svcID   uint16     `align:"svc_id"`
 }
 
 // SizeofSockRevNat6Value is the size of type SockRevNat6Value.
@@ -484,7 +484,7 @@ func (k *SockRevNat6Key) New() bpf.MapKey { return &SockRevNat6Key{} }
 
 // String converts the value into a human readable string format.
 func (v *SockRevNat6Value) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
+	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.svcID)
 }
 
 func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
