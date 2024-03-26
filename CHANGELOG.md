@@ -1,5 +1,81 @@
 # Changelog
 
+## v1.15.3
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bgpv1: BGP Control Plane metrics (Backport PR #31568, Upstream PR #31469, @YutaroHayakawa)
+* cni: use default logger with timestamps. (Backport PR #31342, Upstream PR #31014, @tommyp1ckles)
+* Introduce `cilium-dbg encrypt flush --stale` flag to remove XFRM states and policies with stale node IDs. (Backport PR #31342, Upstream PR #31159, @pchaigno)
+
+**Bugfixes:**
+* [v1.15 - Author backport] envoy: enable k8s secret watch even if only CEC is enabled (#31451, @mhofstetter)
+* cni: Use batch endpoint deletion API in chaining plugin (Backport PR #31515, Upstream PR #31456, @sayboras)
+* Fix a bug in the StateDB library that may have caused stale read after write. This may have potentially affected the L2 announcements feature and the node address selection. (Backport PR #31342, Upstream PR #31164, @joamaki)
+* Fix a bug where pod label updates are not reflected in endpoint labels in presence of filtered labels. (Backport PR #31473, Upstream PR #31395, @tklauser)
+* Fixed issue with assigning 0 nodeID when corresponding bpf map run out of space.  Potentially it could have impacted connectivity in large clusters (>4k nodes) with IPSec or Mutual Auth enabled. Otherwise, it was merely generating unnecessary error log messages. (Backport PR #31490, Upstream PR #31380, @marseel)
+* gateway-api: Retrieve LB service from same namespace (Backport PR #31490, Upstream PR #31271, @sayboras)
+* Handle InvalidParameterValue as well for PD fallback (Backport PR #31490, Upstream PR #31016, @hemanthmalla)
+* helm: Update pod affinity for cilium-envoy (Backport PR #31490, Upstream PR #31150, @sayboras)
+* hubble/relay: Fix certificate reloading in PeerManager (Backport PR #31568, Upstream PR #31376, @glrf)
+* Hubble: fix traffic direction and is reply when IPSec is enabled (Backport PR #31568, Upstream PR #31211, @kaworu)
+* k8s/utils: correctly filter out labels in StripPodSpecialLabels (Backport PR #31473, Upstream PR #31421, @tklauser)
+* metrics: Disable prometheus metrics by default (Backport PR #31342, Upstream PR #31144, @joestringer)
+* operator: fix errors/warnings metric. (Backport PR #31490, Upstream PR #31214, @tommyp1ckles)
+
+**CI Changes:**
+* [v1.15] test: Remove duplicate Cilium deployments in some datapath config tests (#31520, @qmonnet)
+* Additionally test host firewall + KPR disabled in E2E tests (Backport PR #31342, Upstream PR #30914, @giorio94)
+* AKS: avoid overlapping pod and service CIDRs (Backport PR #31568, Upstream PR #31504, @bimmlerd)
+* bgpv1: avoid object tracker vs informer race (Backport PR #31490, Upstream PR #31010, @bimmlerd)
+* bgpv1: fix Test_PodIPPoolAdvert flakiness (Backport PR #31490, Upstream PR #31365, @rastislavs)
+* bpf: fix go testdata check in ci (Backport PR #31554, Upstream PR #31419, @mhofstetter)
+* Centralize configuration of kind version/image in GitHub Action workflows (Backport PR #31191, Upstream PR #30916, @giorio94)
+* Checkout the target branch, instead of the default one, on pull_request based GHA test workflows (Backport PR #31191, Upstream PR #31198, @giorio94)
+* ci-e2e: Add matrix for bpf.tproxy and ingress-controller (Backport PR #31490, Upstream PR #31272, @sayboras)
+* ci: Bump lvh-kind ssh-startup-wait-retries (Backport PR #31490, Upstream PR #31387, @YutaroHayakawa)
+* controlplane: fix mechanism for ensuring watchers (Backport PR #31490, Upstream PR #31030, @bimmlerd)
+* Fix bug preventing consistent symbols between ELF and BTF for eBPF unit tests. (Backport PR #31342, Upstream PR #30610, @learnitall)
+* gateway-api: Enable GRPCRoute conformance tests (Backport PR #31342, Upstream PR #31055, @sayboras)
+* gha: disable fail-fast on integration tests (Backport PR #31490, Upstream PR #31420, @giorio94)
+* gha: drop unused check_url environment variable (Backport PR #31191, Upstream PR #30928, @giorio94)
+* introduce ARM github workflows (Backport PR #31342, Upstream PR #31196, @aanm)
+* ipam: deepcopy interface resource correctly. (Backport PR #31490, Upstream PR #26998, @tommyp1ckles)
+* k8s_install.sh: specify the CNI version (Backport PR #31342, Upstream PR #31182, @aanm)
+* loader: fix issue where errors cancelled compile cause error logs. (Backport PR #31342, Upstream PR #30988, @tommyp1ckles)
+* Reduce flakiness of controlplane tests (Backport PR #31490, Upstream PR #30906, @bimmlerd)
+* slices: don't modify missed input slice in test (Backport PR #31490, Upstream PR #31119, @bimmlerd)
+
+**Misc Changes:**
+* Add monitor aggregation for all events related to packets ingressing to the network-facing device. (Backport PR #31342, Upstream PR #31015, @learnitall)
+* Address race condition in TestGetIdentity (Backport PR #31541, Upstream PR #30885, @bimmlerd)
+* bgpv1: Adjust ConnectionRetryTimeSeconds to 1 in component tests (Backport PR #31342, Upstream PR #31218, @YutaroHayakawa)
+* chore(deps): update all github action dependencies (v1.15) (#31480, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (#31582, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.3 (v1.15) (#31464, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.8 docker digest to 8560736 (v1.15) (#31450, @renovate[bot])
+* chore(deps): update gcr.io/distroless/static-debian11:nonroot docker digest to 55c6361 (v1.15) (#31453, @renovate[bot])
+* chore: update json-mock image source in examples (Backport PR #31568, Upstream PR #31373, @loomkoom)
+* cilium-dbg: listing load-balancing configurations displays L7LB proxy port (Backport PR #31568, Upstream PR #31503, @mhofstetter)
+* datapath, bpf: Remove unnecessary IPsec code (Backport PR #31490, Upstream PR #31344, @pchaigno)
+* doc: Clarified GwAPI KPR prerequisites (Backport PR #31490, Upstream PR #31366, @PhilipSchmid)
+* docs: Warn on key rotations during upgrades (Backport PR #31490, Upstream PR #31437, @pchaigno)
+* Don't emit an error message on namespace termination due to Ingress reconciliation (Backport PR #31342, Upstream PR #30808, @giorio94)
+* Downgrade L2 Neighbor Discovery failure log to Debug (Backport PR #31342, Upstream PR #31179, @YutaroHayakawa)
+* endpointmanager: Improve health reporter messages when stopped (Backport PR #31342, Upstream PR #31231, @christarazi)
+* hive/cell/health: don't warn when reporting on stopped reporter. (Backport PR #31490, Upstream PR #31262, @tommyp1ckles)
+* ingress: Update docs with network policy example (Backport PR #31342, Upstream PR #31060, @sayboras)
+* job: avoid a race condition in TestTimer_ExitOnCloseFnCtx (Backport PR #31490, Upstream PR #30929, @bimmlerd)
+* loader: add message if error is ENOTSUP (Backport PR #31490, Upstream PR #31413, @kkourt)
+* policy: Fix missing labels from SelectorCache selectors (Backport PR #31490, Upstream PR #31358, @christarazi)
+* Replaced `declare_tailcall_if` with logic in the loader (Backport PR #31554, Upstream PR #30467, @dylandreimerink)
+
+**Other Changes:**
+* install: Update image digests for v1.15.2 (#31378, @jrajahalme)
+* v1.15: IPsec Fixes (#31610, @pchaigno)
+
 ## v1.15.2
 
 Summary of Changes
