@@ -7,18 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/blang/semver/v4"
-	check "github.com/cilium/checkmate"
 )
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type iptablesTestSuite struct{}
-
-var _ = check.Suite(&iptablesTestSuite{})
 
 type expectation struct {
 	args string
@@ -27,7 +16,7 @@ type expectation struct {
 }
 
 type mockIptables struct {
-	c            *check.C
+	t            *testing.T
 	prog         string
 	ipset        string
 	expectations []expectation
@@ -42,21 +31,17 @@ func (ipt *mockIptables) getIpset() string {
 	return ipt.ipset
 }
 
-func (ipt *mockIptables) getVersion() (semver.Version, error) {
-	return semver.Version{}, nil
-}
-
 func (ipt *mockIptables) runProgOutput(args []string) (out string, err error) {
 	a := strings.Join(args, " ")
 	i := ipt.index
 	ipt.index++
 
 	if len(ipt.expectations) < ipt.index {
-		ipt.c.Errorf("%d: Unexpected %s %s", i, ipt.prog, a)
+		ipt.t.Errorf("%d: Unexpected %s %s", i, ipt.prog, a)
 		return "", fmt.Errorf("Unexpected %s %s", ipt.prog, a)
 	}
 	if a != ipt.expectations[i].args {
-		ipt.c.Errorf("%d: Unexpected %s (%q != %q)", i, ipt.prog, a, ipt.expectations[i].args)
+		ipt.t.Errorf("%d: Unexpected %s (%q != %q)", i, ipt.prog, a, ipt.expectations[i].args)
 		return "", fmt.Errorf("Unexpected %s %s", ipt.prog, a)
 	}
 	out = string(ipt.expectations[i].out)
@@ -68,7 +53,7 @@ func (ipt *mockIptables) runProgOutput(args []string) (out string, err error) {
 func (ipt *mockIptables) runProg(args []string) error {
 	out, err := ipt.runProgOutput(args)
 	if len(out) > 0 {
-		ipt.c.Errorf("%d: Unexpected output for %s %s", ipt.index-1, ipt.prog, strings.Join(args, " "))
+		ipt.t.Errorf("%d: Unexpected output for %s %s", ipt.index-1, ipt.prog, strings.Join(args, " "))
 	}
 	return err
 }
@@ -95,8 +80,8 @@ var mockManager = &Manager{
 	},
 }
 
-func (s *iptablesTestSuite) TestRenameCustomChain(c *check.C) {
-	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
+func TestRenameCustomChain(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
 			args: "-t mangle -S CILIUM_PRE_mangle",
@@ -111,17 +96,21 @@ func (s *iptablesTestSuite) TestRenameCustomChain(c *check.C) {
 	}
 	chain.doRename(mockIp4tables, "OLD_CILIUM_PRE_mangle")
 	err := mockIp4tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	mockIp6tables := &mockIptables{c: c, prog: "ip6tables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 	mockIp6tables.expectations = mockIp4tables.expectations
 	chain.doRename(mockIp6tables, "OLD_CILIUM_PRE_mangle")
 	err = mockIp6tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func (s *iptablesTestSuite) TestCopyProxyRulesv4(c *check.C) {
-	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
+func TestCopyProxyRulesv4(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
 			args: "-t mangle -S",
@@ -152,11 +141,13 @@ func (s *iptablesTestSuite) TestCopyProxyRulesv4(c *check.C) {
 	// Copies DNS proxy rules from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
 	mockManager.doCopyProxyRules(mockIp4tables, "mangle", tproxyMatch, "cilium-dns-egress", "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
 	err := mockIp4tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func (s *iptablesTestSuite) TestCopyProxyRulesv6(c *check.C) {
-	mockIp6tables := &mockIptables{c: c, prog: "ip6tables"}
+func TestCopyProxyRulesv6(t *testing.T) {
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 	mockIp6tables.expectations = []expectation{
 		{
 			args: "-t mangle -S",
@@ -187,11 +178,13 @@ func (s *iptablesTestSuite) TestCopyProxyRulesv6(c *check.C) {
 	// Copies DNS proxy rules from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
 	mockManager.doCopyProxyRules(mockIp6tables, "mangle", tproxyMatch, "cilium-dns-egress", "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
 	err := mockIp6tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
-	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
+func TestAddProxyRulesv4(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
 			args: "-t mangle -S",
@@ -225,7 +218,9 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	// Adds new proxy rules
 	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, "cilium-dns-egress")
 	err := mockIp4tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	mockIp4tables.expectations = []expectation{
 		{
@@ -258,7 +253,9 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	// Nothing to add
 	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, "cilium-dns-egress")
 	err = mockIp4tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	mockIp4tables.expectations = []expectation{
 		{
@@ -299,7 +296,9 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	// New port number, adds new ones, deletes stale rules. Does not touch OLD_ chains
 	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37380, "cilium-dns-egress")
 	err = mockIp4tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	mockIp4tables.expectations = []expectation{
 		{
@@ -340,11 +339,13 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	// Same port number, new IP, adds new ones, deletes stale rules. Does not touch OLD_ chains
 	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, "cilium-dns-egress")
 	err = mockIp4tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func (s *iptablesTestSuite) TestGetProxyPort(c *check.C) {
-	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
+func TestGetProxyPort(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
 			args: "-t mangle -n -L CILIUM_PRE_mangle",
@@ -362,8 +363,12 @@ TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90
 
 	// Finds the latest port number if multiple rules for the same proxy name
 	port := mockManager.doGetProxyPort(mockIp4tables, "cilium-dns-egress")
-	c.Assert(port, check.Equals, uint16(43479))
-	c.Assert(mockIp4tables.checkExpectations(), check.IsNil)
+	if port != uint16(43479) {
+		t.Fatalf("expected port number %d, got %d", uint16(43479), port)
+	}
+	if err := mockIp4tables.checkExpectations(); err != nil {
+		t.Fatal(err)
+	}
 
 	// Now test the proxy port fetch when the proxy is not DNS. It should
 	// fallback to 0.0.0.0 instead of localhost.
@@ -383,12 +388,16 @@ TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90
 	}
 
 	port = mockManager.doGetProxyPort(mockIp4tables, "cilium-random-proxy")
-	c.Assert(port, check.Equals, uint16(43479))
-	c.Assert(mockIp4tables.checkExpectations(), check.IsNil)
+	if port != uint16(43479) {
+		t.Fatalf("expected port number %d, got %d", uint16(43479), port)
+	}
+	if err := mockIp4tables.checkExpectations(); err != nil {
+		t.Fatal(err)
+	}
 }
 
-func (s *iptablesTestSuite) TestAddProxyRulesv6(c *check.C) {
-	mockIp6tables := &mockIptables{c: c, prog: "ip6tables"}
+func TestAddProxyRulesv6(t *testing.T) {
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 	mockIp6tables.expectations = []expectation{
 		{
 			args: "-t mangle -S",
@@ -422,7 +431,9 @@ func (s *iptablesTestSuite) TestAddProxyRulesv6(c *check.C) {
 	// Adds new proxy rules
 	mockManager.addProxyRules(mockIp6tables, "::1", 43477, "cilium-dns-egress")
 	err := mockIp6tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	mockIp6tables.expectations = []expectation{
 		{
@@ -455,7 +466,9 @@ func (s *iptablesTestSuite) TestAddProxyRulesv6(c *check.C) {
 	// Nothing to add
 	mockManager.addProxyRules(mockIp6tables, "::1", 43477, "cilium-dns-egress")
 	err = mockIp6tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	mockIp6tables.expectations = []expectation{
 		{
@@ -496,11 +509,13 @@ func (s *iptablesTestSuite) TestAddProxyRulesv6(c *check.C) {
 	// New port number, adds new ones, deletes stale rules. Does not touch OLD_ chains
 	mockManager.addProxyRules(mockIp6tables, "::1", 43479, "cilium-dns-egress")
 	err = mockIp6tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func (s *iptablesTestSuite) TestRemoveCiliumRulesv4(c *check.C) {
-	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
+func TestRemoveCiliumRulesv4(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
 			args: "-t mangle -S",
@@ -543,11 +558,13 @@ func (s *iptablesTestSuite) TestRemoveCiliumRulesv4(c *check.C) {
 	// Only removes Cilium chains with the OLD_ prefix
 	mockManager.removeCiliumRules("mangle", mockIp4tables, oldCiliumPrefix+"CILIUM_")
 	err := mockIp4tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func (s *iptablesTestSuite) TestRemoveCiliumRulesv6(c *check.C) {
-	mockIp6tables := &mockIptables{c: c, prog: "ip6tables"}
+func TestRemoveCiliumRulesv6(t *testing.T) {
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 	mockIp6tables.expectations = []expectation{
 		{
 			args: "-t mangle -S",
@@ -590,5 +607,7 @@ func (s *iptablesTestSuite) TestRemoveCiliumRulesv6(c *check.C) {
 	// Only removes Cilium chains with the OLD_ prefix
 	mockManager.removeCiliumRules("mangle", mockIp6tables, oldCiliumPrefix+"CILIUM_")
 	err := mockIp6tables.checkExpectations()
-	c.Assert(err, check.IsNil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
