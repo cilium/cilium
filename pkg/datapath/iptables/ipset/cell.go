@@ -50,6 +50,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(cfg *option.DaemonConfig) Config {
 		return Config{NodeIPSetNeeded: cfg.NodeIpsetNeeded()}
 	}),
+	cell.ProvidePrivate(newNodeSyncer),
 )
 
 type Config struct {
