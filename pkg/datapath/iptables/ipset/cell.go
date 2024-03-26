@@ -47,12 +47,12 @@ var Cell = cell.Module(
 			log: logger,
 		}
 	}),
-	cell.ProvidePrivate(func(cfg *option.DaemonConfig) config {
-		return config{NodeIPSetNeeded: cfg.NodeIpsetNeeded()}
+	cell.ProvidePrivate(func(cfg *option.DaemonConfig) Config {
+		return Config{NodeIPSetNeeded: cfg.NodeIpsetNeeded()}
 	}),
 )
 
-type config struct {
+type Config struct {
 	NodeIPSetNeeded bool
 }
 

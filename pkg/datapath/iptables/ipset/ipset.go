@@ -98,25 +98,33 @@ func (m *manager) RemoveFromIPSet(name string, addrs ...netip.Addr) {
 	txn.Commit()
 }
 
+type params struct {
+	cell.In
+
+	Logger    logrus.FieldLogger
+	Lifecycle cell.Lifecycle
+
+	DB    *statedb.DB
+	Table statedb.RWTable[*tables.IPSet]
+
+	Cfg Config
+}
+
 func newIPSetManager(
-	lc cell.Lifecycle,
-	logger logrus.FieldLogger,
-	db *statedb.DB,
-	table statedb.RWTable[*tables.IPSet],
-	cfg config,
+	p params,
 	ipset *ipset,
 	_ reconciler.Reconciler[*tables.IPSet], // needed to enforce the correct hive ordering
 ) Manager {
-	db.RegisterTable(table)
+	p.DB.RegisterTable(p.Table)
 	mgr := &manager{
-		logger:  logger,
-		enabled: cfg.NodeIPSetNeeded,
-		db:      db,
-		table:   table,
+		logger:  p.Logger,
+		enabled: p.Cfg.NodeIPSetNeeded,
+		db:      p.DB,
+		table:   p.Table,
 		ipset:   ipset,
 	}
 
-	lc.Append(cell.Hook{OnStart: mgr.onStart})
+	p.Lifecycle.Append(cell.Hook{OnStart: mgr.onStart})
 
 	return mgr
 }

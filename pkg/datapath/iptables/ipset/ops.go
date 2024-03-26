@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
-func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) reconciler.Operations[*tables.IPSet] {
+func newOps(logger logrus.FieldLogger, ipset *ipset, cfg Config) reconciler.Operations[*tables.IPSet] {
 	return &ops{
 		enabled: cfg.NodeIPSetNeeded,
 		ipset:   ipset,

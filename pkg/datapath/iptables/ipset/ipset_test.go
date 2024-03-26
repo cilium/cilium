@@ -59,8 +59,8 @@ func TestManager(t *testing.T) {
 			"ipset-manager-test",
 			"ipset-manager-test",
 
-			cell.Provide(func() config {
-				return config{NodeIPSetNeeded: true}
+			cell.Provide(func() Config {
+				return Config{NodeIPSetNeeded: true}
 			}),
 
 			cell.Provide(
@@ -286,8 +286,8 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 			"ipset-manager-test",
 			"ipset-manager-test",
 
-			cell.Provide(func() config {
-				return config{NodeIPSetNeeded: false}
+			cell.Provide(func() Config {
+				return Config{NodeIPSetNeeded: false}
 			}),
 
 			cell.Provide(
