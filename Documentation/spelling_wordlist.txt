@@ -30,6 +30,7 @@ DTrace
 Dangaard
 Datadog
 Dataplane
+Deconfigure
 Dinan
 Dockerfile
 Dockerfiles
@@ -736,6 +737,7 @@ unix
 unlabel
 unmanaged
 unmigrated
+unselect
 unsettable
 untriaged
 untrusted
