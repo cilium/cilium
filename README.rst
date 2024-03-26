@@ -357,3 +357,4 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |artifacthub| image:: https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/cilium
     :alt: Artifact Hub
     :target: https://artifacthub.io/packages/helm/cilium/cilium
+
