@@ -165,7 +165,7 @@ func TestVerifier(t *testing.T) {
 					name := fmt.Sprintf("%s_%s", bpfProgram.name, configName)
 					cmd := exec.Command("make", "-C", "bpf", "clean", fmt.Sprintf("%s.o", bpfProgram.name))
 					cmd.Dir = *ciliumBasePath
-					cmd.Env = append(cmd.Env,
+					cmd.Env = append(os.Environ(),
 						fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
 						fmt.Sprintf("KERNEL=%s", kernelVersion),
 					)
