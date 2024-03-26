@@ -1,5 +1,62 @@
 # Changelog
 
+## v1.14.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bgpv1: BGP Control Plane metrics (Backport PR #31569, Upstream PR #31469, @YutaroHayakawa)
+* cni: use default logger with timestamps. (Backport PR #31335, Upstream PR #31014, @tommyp1ckles)
+* Introduce `cilium-dbg encrypt flush --stale` flag to remove XFRM states and policies with stale node IDs. (Backport PR #31335, Upstream PR #31159, @pchaigno)
+
+**Bugfixes:**
+* [v1.14 - Author backport] envoy: enable k8s secret watch even if only CEC is enabled (#31452, @mhofstetter)
+* Fix a bug where pod label updates are not reflected in endpoint labels in presence of filtered labels. (Backport PR #31474, Upstream PR #31395, @tklauser)
+* gateway-api: Retrieve LB service from same namespace (Backport PR #31495, Upstream PR #31271, @sayboras)
+* Handle InvalidParameterValue as well for PD fallback (Backport PR #31495, Upstream PR #31016, @hemanthmalla)
+* helm: Update pod affinity for cilium-envoy (Backport PR #31495, Upstream PR #31150, @sayboras)
+* Hubble: fix traffic direction and is reply when IPSec is enabled (Backport PR #31569, Upstream PR #31211, @kaworu)
+* k8s/utils: correctly filter out labels in StripPodSpecialLabels (Backport PR #31474, Upstream PR #31421, @tklauser)
+
+**CI Changes:**
+* [v1.14] test: Remove duplicate Cilium deployments in some datapath config tests (#31521, @qmonnet)
+* AKS: avoid overlapping pod and service CIDRs (Backport PR #31569, Upstream PR #31504, @bimmlerd)
+* Centralize configuration of kind version/image in GitHub Action workflows (Backport PR #31192, Upstream PR #30916, @giorio94)
+* Checkout the target branch, instead of the default one, on pull_request based GHA test workflows (Backport PR #31192, Upstream PR #31198, @giorio94)
+* ci: Bump lvh-kind ssh-startup-wait-retries (Backport PR #31495, Upstream PR #31387, @YutaroHayakawa)
+* ci: fix checking `github.event.pull_request.head.sha` (Backport PR #31495, Upstream PR #26775, @mhofstetter)
+* controlplane: fix mechanism for ensuring watchers (Backport PR #31542, Upstream PR #31030, @bimmlerd)
+* gha: checkout target branch in multi pool workflow (#31545, @giorio94)
+* gha: disable fail-fast on integration tests (Backport PR #31495, Upstream PR #31420, @giorio94)
+* gha: drop unused check_url environment variable (Backport PR #31192, Upstream PR #30928, @giorio94)
+* introduce ARM github workflows (Backport PR #31335, Upstream PR #31196, @aanm)
+* ipam: deepcopy interface resource correctly. (Backport PR #31495, Upstream PR #26998, @tommyp1ckles)
+* k8s_install.sh: specify the CNI version (Backport PR #31335, Upstream PR #31182, @aanm)
+* loader: fix issue where errors cancelled compile cause error logs. (Backport PR #31335, Upstream PR #30988, @tommyp1ckles)
+* Reduce flakiness of controlplane tests (Backport PR #31542, Upstream PR #30906, @bimmlerd)
+* slices: don't modify missed input slice in test (Backport PR #31495, Upstream PR #31119, @bimmlerd)
+
+**Misc Changes:**
+* Add monitor aggregation for all events related to packets ingressing to the network-facing device. (Backport PR #31335, Upstream PR #31015, @learnitall)
+* Address race condition in TestGetIdentity (Backport PR #31542, Upstream PR #30885, @bimmlerd)
+* bgpv1: Adjust ConnectionRetryTimeSeconds to 1 in component tests (Backport PR #31335, Upstream PR #31218, @YutaroHayakawa)
+* chore(deps): update all github action dependencies (v1.14) (#31483, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (#31583, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.3 (v1.14) (#31465, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.8 docker digest to 8560736 (v1.14) (#31481, @renovate[bot])
+* chore(deps): update gcr.io/distroless/static-debian11:nonroot docker digest to 55c6361 (v1.14) (#31482, @renovate[bot])
+* cilium-dbg: listing load-balancing configurations displays L7LB proxy port (Backport PR #31569, Upstream PR #31503, @mhofstetter)
+* doc: Clarified GwAPI KPR prerequisites (Backport PR #31495, Upstream PR #31366, @PhilipSchmid)
+* docs: Warn on key rotations during upgrades (Backport PR #31495, Upstream PR #31437, @pchaigno)
+* Downgrade L2 Neighbor Discovery failure log to Debug (Backport PR #31335, Upstream PR #31179, @YutaroHayakawa)
+* ingress: Update docs with network policy example (Backport PR #31335, Upstream PR #31060, @sayboras)
+
+**Other Changes:**
+* bgpv1: Disable PodCIDR Reconciler for unsupported IPAM modes (#31353, @YutaroHayakawa)
+* install: Update image digests for v1.14.8 (#31404, @thorn3r)
+* v1.14: IPsec Fixes (#31611, @pchaigno)
+
 ## v1.14.8
 
 Summary of Changes
