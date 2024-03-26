@@ -249,6 +249,6 @@ func init() {
 	encryptFlushCmd.Flags().Uint8Var(&spiToFilter, spiFlagName, 0, "Only delete states and policies with this SPI. If multiple filters are used, they all apply")
 	encryptFlushCmd.Flags().StringVar(&nodeIDParam, nodeIDFlagName, "", "Only delete states and policies with this node ID. Decimal or hexadecimal (0x) format. If multiple filters are used, they all apply")
 	encryptFlushCmd.Flags().BoolVar(&cleanStale, staleFlagName, false, "Delete stale states and policies based on the current node ID map content")
-	CncryptCmd.AddCommand(encryptFlushCmd)
+	EncryptCmd.AddCommand(encryptFlushCmd)
 	command.AddOutputOption(encryptFlushCmd)
 }
