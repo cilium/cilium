@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.13.14
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* cni: use default logger with timestamps. (Backport PR #31309, Upstream PR #31014, @tommyp1ckles)
+* Introduce `cilium-dbg encrypt flush --stale` flag to remove XFRM states and policies with stale node IDs. (Backport PR #31309, Upstream PR #31159, @pchaigno)
+
+**Bugfixes:**
+* Fix a bug where pod label updates are not reflected in endpoint labels in presence of filtered labels. (Backport PR #31476, Upstream PR #31395, @tklauser)
+* Fix bug leading to missed ipcache updates for the CiliumInternalIP when `--enable-remote-node-identity=false`, and unnecessary `ipcache_errors_total` metric increase if Cilium operates in kvstore mode. (#31396, @giorio94)
+* gateway-api: Retrieve LB service from same namespace (Backport PR #31496, Upstream PR #31271, @sayboras)
+* Handle InvalidParameterValue as well for PD fallback (Backport PR #31496, Upstream PR #31016, @hemanthmalla)
+* Hubble: fix traffic direction and is reply when IPSec is enabled (Backport PR #31496, Upstream PR #31211, @kaworu)
+* k8s/utils: correctly filter out labels in StripPodSpecialLabels (Backport PR #31476, Upstream PR #31421, @tklauser)
+
+**CI Changes:**
+* AKS: avoid overlapping pod and service CIDRs (Backport PR #31570, Upstream PR #31504, @bimmlerd)
+* Centralize configuration of kind version/image in GitHub Action workflows (Backport PR #31195, Upstream PR #30916, @giorio94)
+* Checkout the target branch, instead of the default one, on pull_request based GHA test workflows (Backport PR #31195, Upstream PR #31198, @giorio94)
+* ci: Bump lvh-kind ssh-startup-wait-retries (Backport PR #31496, Upstream PR #31387, @YutaroHayakawa)
+* gha: disable fail-fast on integration tests (Backport PR #31496, Upstream PR #31420, @giorio94)
+* gha: drop unused check_url environment variable (Backport PR #31195, Upstream PR #30928, @giorio94)
+* introduce ARM github workflows (Backport PR #31309, Upstream PR #31196, @aanm)
+* ipam: deepcopy interface resource correctly. (Backport PR #31496, Upstream PR #26998, @tommyp1ckles)
+* loader: fix issue where errors cancelled compile cause error logs. (Backport PR #31309, Upstream PR #30988, @tommyp1ckles)
+
+**Misc Changes:**
+* Add monitor aggregation for all events related to packets ingressing to the network-facing device. (Backport PR #31309, Upstream PR #31015, @learnitall)
+* chore(deps): update all github action dependencies (v1.13) (#31485, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (#31584, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.8 docker digest to 8560736 (v1.13) (#31484, @renovate[bot])
+* cilium-dbg: listing load-balancing configurations displays L7LB proxy port (Backport PR #31570, Upstream PR #31503, @mhofstetter)
+* doc: Clarified GwAPI KPR prerequisites (Backport PR #31496, Upstream PR #31366, @PhilipSchmid)
+* docs: Warn on key rotations during upgrades (Backport PR #31496, Upstream PR #31437, @pchaigno)
+
+**Other Changes:**
+* install: Update image digests for v1.13.13 (#31405, @thorn3r)
+* v1.13: IPsec Fixes (#31612, @pchaigno)
+
 ## v1.13.13
 
 Summary of Changes
