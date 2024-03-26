@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -116,14 +117,6 @@ var Cell = cell.Module(
 
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
-	cell.Provide(func(cfg *option.DaemonConfig) linuxdatapath.DevicesConfig {
-		// Provide the configured devices to the devices controller.
-		// This is temporary until DevicesController takes ownership of the
-		// device-related configuration options.
-		return linuxdatapath.DevicesConfig{
-			Devices: cfg.GetDevices(),
-		}
-	}),
 
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
 	ipcache.Cell,
@@ -175,6 +168,8 @@ func newDatapath(params datapathParams) types.Datapath {
 		BWManager:      params.BandwidthManager,
 		Loader:         params.Loader,
 		NodeManager:    params.NodeManager,
+		DB:             params.DB,
+		Devices:        params.Devices,
 	}, datapathConfig)
 
 	params.LC.Append(cell.Hook{
@@ -205,6 +200,8 @@ type datapathParams struct {
 	// This is required until option.Config.GetDevices() has been removed and
 	// uses of it converted to Table[Device].
 	DeviceManager *linuxdatapath.DeviceManager
+	DB            *statedb.DB
+	Devices       statedb.Table[*tables.Device]
 
 	BandwidthManager types.BandwidthManager
 

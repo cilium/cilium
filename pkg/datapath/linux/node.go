@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -83,6 +85,9 @@ type linuxNodeHandler struct {
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 	enableEncapsulation    func(node *nodeTypes.Node) bool
 	nodeNeighborQueue      datapath.NodeNeighborEnqueuer
+
+	db      *statedb.DB
+	devices statedb.Table[*tables.Device]
 }
 
 var (
@@ -99,8 +104,12 @@ func NewNodeHandler(
 	nodeMap nodemap.Map,
 	mtu datapath.MTUConfiguration,
 	nbq datapath.NodeNeighborEnqueuer,
+	db *statedb.DB,
+	devices statedb.Table[*tables.Device],
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
+		db:                     db,
+		devices:                devices,
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
 		nodeConfig:             datapath.LocalNodeConfiguration{MtuConfig: mtu},
@@ -666,6 +675,7 @@ func (n *linuxNodeHandler) insertNeighborCommon(ctx context.Context, nextHop Nex
 			HardwareAddr: nil,
 		}
 		if err := netlink.NeighSet(&neighInit); err != nil {
+			// EINVAL is expected (see above)
 			errs = errors.Join(errs, fmt.Errorf("next hop insert failed for %+v: %w", neighInit, err))
 		}
 	}
@@ -1186,7 +1196,9 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 				return fmt.Errorf("direct routing device is required, but not defined")
 			}
 
-			devices := option.Config.GetDevices()
+			nativeDevices, _ := tables.SelectedDevices(n.devices, n.db.ReadTxn())
+			devices := tables.DeviceNames(nativeDevices)
+
 			targetDevices := make([]string, 0, len(devices)+1)
 			targetDevices = append(targetDevices, option.Config.DirectRoutingDevice)
 			targetDevices = append(targetDevices, devices...)
