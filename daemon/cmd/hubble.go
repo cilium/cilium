@@ -133,14 +133,43 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
+	grpcMetrics := grpc_prometheus.NewServerMetrics()
+	var metricsTLSConfig *certloader.WatchedServerConfig
+	if option.Config.HubbleMetricsServerTLSEnabled {
+		metricsTLSConfigChan, err := certloader.FutureWatchedServerConfig(
+			logger.WithField("config", "hubble-metrics-server-tls"),
+			option.Config.HubbleMetricsServerTLSClientCAFiles,
+			option.Config.HubbleMetricsServerTLSCertFile,
+			option.Config.HubbleMetricsServerTLSKeyFile,
+		)
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble metrics server TLS configuration")
+			return
+		}
+		waitingMsgTimeout := time.After(30 * time.Second)
+		for metricsTLSConfig == nil {
+			select {
+			case metricsTLSConfig = <-metricsTLSConfigChan:
+			case <-waitingMsgTimeout:
+				logger.Info("Waiting for Hubble metrics server TLS certificate and key files to be created")
+			case <-d.ctx.Done():
+				logger.WithError(d.ctx.Err()).Error("Timeout while waiting for Hubble metrics server TLS certificate and key files to be created")
+				return
+			}
+		}
+		go func() {
+			<-d.ctx.Done()
+			metricsTLSConfig.Stop()
+		}()
+	}
+
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
 			"metrics": option.Config.HubbleMetrics,
+			"tls":     option.Config.HubbleMetricsServerTLSEnabled,
 		}).Info("Starting Hubble Metrics server")
-		grpcMetrics := grpc_prometheus.NewServerMetrics()
-
-		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics, grpcMetrics, option.Config.EnableHubbleOpenMetrics); err != nil {
+		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, metricsTLSConfig, option.Config.HubbleMetrics, grpcMetrics, option.Config.EnableHubbleOpenMetrics); err != nil {
 			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
 			return
 		}
@@ -320,6 +349,7 @@ func (d *Daemon) launchHubble() {
 				case <-waitingMsgTimeout:
 					logger.Info("Waiting for Hubble server TLS certificate and key files to be created")
 				case <-d.ctx.Done():
+					logger.WithError(d.ctx.Err()).Error("Timeout while waiting for Hubble server TLS certificate and key files to be created")
 					return
 				}
 			}
@@ -335,7 +365,10 @@ func (d *Daemon) launchHubble() {
 			return
 		}
 
-		logger.WithField("address", address).Info("Starting Hubble server")
+		logger.WithFields(logrus.Fields{
+			"address": address,
+			"tls":     !option.Config.HubbleTLSDisabled,
+		}).Info("Starting Hubble server")
 		go func() {
 			if err := srv.Serve(); err != nil {
 				logger.WithError(err).WithField("address", address).Error("Error while serving from Hubble server")

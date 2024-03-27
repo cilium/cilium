@@ -1022,6 +1022,32 @@ hubble:
     enableOpenMetrics: false
     # -- Configure the port the hubble metric server listens on.
     port: 9965
+    tls:
+      # Enable hubble metrics server TLS.
+      enabled: false
+      # Configure hubble metrics server TLS.
+      server:
+        # -- base64 encoded PEM values for the Hubble metrics server certificate.
+        cert: ""
+        # -- base64 encoded PEM values for the Hubble metrics server key.
+        key: ""
+        # -- Extra DNS names added to certificate when it's auto generated
+        extraDnsNames: []
+        # -- Extra IP addresses added to certificate when it's auto generated
+        extraIpAddresses: []
+        # -- Configure mTLS for the Hubble metrics server.
+        mtls:
+          # When set to true enforces mutual TLS between Hubble Metrics server and its clients.
+          # False allow non-mutual TLS connections.
+          # This option has no effect when TLS is disabled.
+          enabled: false
+          useSecret: false
+          # -- Name of the ConfigMap containing the CA to validate client certificates against.
+          # If mTLS is enabled and this is unspecified, it will default to the
+          # same CA used for Hubble metrics server certificates.
+          name: ~
+          # -- Entry of the ConfigMap containing the CA.
+          key: ca.crt
     # -- Annotations to be added to hubble-metrics service.
     serviceAnnotations: {}
     serviceMonitor:
@@ -1048,6 +1074,10 @@ hubble:
       # @schema
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
+      # Configure TLS for the ServiceMonitor.
+      # Note, when using TLS you will either need to specify
+      # tlsConfig.insecureSkipVerify or specify a CA to use.
+      tlsConfig: {}
     # -- Grafana dashboards for hubble
     # grafana can import dashboards based on the label and value
     # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
