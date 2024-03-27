@@ -79,6 +79,10 @@ Supported Ingress Annotations
        | ``shared``.
      - | ``dedicated``
        | (from Helm chart)
+   * - ``ingress.cilium.io/loadbalancer-class``
+     - | The loadbalancer class for the ingress.
+       | Only applicable when ``loadbalancer-mode`` is set to ``dedicated``.
+     - unspecified
    * - ``ingress.cilium.io/service-type``
      - | The Service type for dedicated Ingress.
        | Applicable values are ``LoadBalancer``
