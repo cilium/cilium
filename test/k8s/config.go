@@ -32,7 +32,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		ciliumFilename string
 	)
-	BeforeAll(func() {
+	BeforeEach(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		res := kubectl.ExecShort("kubectl label --overwrite --all node io.cilium.testing-")
@@ -42,14 +42,14 @@ var _ = SkipDescribeIf(func() bool {
 		RedeployCilium(kubectl, ciliumFilename, map[string]string{})
 	})
 
-	AfterAll(func() {
+	AfterEach(func() {
 		res := kubectl.ExecShort("kubectl label --overwrite --all node io.cilium.testing-")
 		Expect(res.GetErr("unlabel node")).To(BeNil())
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
-	It("Correctly computes config overrides", func() {
+	It("Correctly computes config overrides with CNC v2alpha1", func() {
 		pods, err := kubectl.GetPodsNodes(helpers.CiliumNamespace, helpers.CiliumSelector)
 		Expect(err).To(BeNil(), "error finding cilium pods")
 
@@ -80,13 +80,13 @@ var _ = SkipDescribeIf(func() bool {
 			Expect(err).NotTo(HaveOccurred())
 			out := map[string]string{}
 			for p, res := range ress {
-				Expect(res.GetErr(p)).NotTo((HaveOccurred()))
+				Expect(res.GetErr(p)).NotTo(HaveOccurred())
 				out[podtonode[p]] = res.Stdout()
 			}
 			return out
 		}
 
-		By("Creating a CiliumNodeConfig")
+		By("Creating a CiliumNodeConfig v2alpha1")
 		// Create a CiliumNodeConfig that does not apply to any nodes
 		cnc := `
 apiVersion: cilium.io/v2alpha1
@@ -134,6 +134,92 @@ spec:
 			delete(nodeConfigKeys, nodeName)
 			Expect(nodeConfigKeys).To(HaveEach(""))
 		}
+	})
 
+	It("Correctly computes config overrides with CNC v2", func() {
+		pods, err := kubectl.GetPodsNodes(helpers.CiliumNamespace, helpers.CiliumSelector)
+		Expect(err).To(BeNil(), "error finding cilium pods")
+
+		// pick a node
+		var nodeName string
+		for _, v := range pods {
+			nodeName = v
+			break
+		}
+		if nodeName == "" {
+			Fail("No cilium pods were found")
+		}
+
+		recreatePods := func() {
+			By("Deleting all cilium pods")
+			kubectl.DeleteResource("-n kube-system pod", "-l "+helpers.CiliumAgentLabel)
+			// Wait for pods to be up and running
+			kubectl.WaitForCiliumReadiness(0, "not all cilium pods returned")
+		}
+
+		// returns a map of nodename -> config key
+		getNodeConfigKeys := func(key string) map[string]string {
+			podtonode, err := kubectl.GetPodsNodes(helpers.CiliumNamespace, helpers.CiliumSelector)
+			Expect(err).To(BeNil(), "error finding cilium pods")
+
+			ress, err := kubectl.ExecInPods(context.TODO(), helpers.CiliumNamespace, helpers.CiliumSelector,
+				fmt.Sprintf("/bin/sh -c 'cat /tmp/cilium/config-map/%s || true'", key))
+			Expect(err).NotTo(HaveOccurred())
+			out := map[string]string{}
+			for p, res := range ress {
+				Expect(res.GetErr(p)).NotTo((HaveOccurred()))
+				out[podtonode[p]] = res.Stdout()
+			}
+			return out
+		}
+
+		By("Creating a CiliumNodeConfig v2")
+		// Create a CiliumNodeConfig that does not apply to any nodes
+		cnc := `
+apiVersion: cilium.io/v2
+kind: CiliumNodeConfig
+metadata:
+  namespace: kube-system
+  name: testing-v2
+spec:
+  nodeSelector:
+    matchLabels:
+      io.cilium.testing: bar
+  defaults:
+    test-key: bar
+`
+		f, err := os.CreateTemp("", "pernodeconfig-")
+		Expect(err).Should(BeNil())
+		defer os.Remove(f.Name())
+
+		_, err = f.WriteString(cnc)
+		Expect(err).Should(BeNil())
+
+		res := kubectl.Apply(helpers.ApplyOptions{
+			FilePath:  f.Name(),
+			Namespace: "kube-system",
+		})
+		Expect(res.GetErr("apply")).To(BeNil())
+
+		// ensure no pods have this key
+		recreatePods()
+		nodeConfigKeys := getNodeConfigKeys("test-key")
+		Expect(nodeConfigKeys).To(HaveKey(nodeName))
+		Expect(nodeConfigKeys).To(HaveEach("")) //ensure that all elements are ""
+
+		// Now, label 1 node and check the only it gets this config key
+		By("Labeling node %s with io.cilium.testing=bar", nodeName)
+		res = kubectl.ExecShort(fmt.Sprintf("kubectl label node %s io.cilium.testing=bar", nodeName))
+		Expect(res.GetErr("label node")).To(BeNil())
+		recreatePods()
+		By("Ensuring only node %s has the config override", nodeName)
+		nodeConfigKeys = getNodeConfigKeys("test-key")
+		// ensure it is zero
+		Expect(nodeConfigKeys).To(HaveKeyWithValue(nodeName, "bar"))
+		// If there are other nodes, make sure it doesn't have the config key
+		if len(nodeConfigKeys) > 1 {
+			delete(nodeConfigKeys, nodeName)
+			Expect(nodeConfigKeys).To(HaveEach(""))
+		}
 	})
 })
