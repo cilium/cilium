@@ -30,8 +30,8 @@ import (
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -47,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -713,7 +712,7 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool) *e
 		BpfRoot:                  bpf.GetMapRoot(),
 		IsL7Lb:                   l7lb,
 	}
-	// Set Ingress source addresses if configuring for L7 LB One of these will be used when
+	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
 	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
 	// (in such a case use of the original source address would lead to broken routing for the
 	// return traffic, as it would not be sent to the this node where upstream connection
@@ -747,20 +746,6 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool) *e
 	}
 }
 
-func getListenerSocketMarkOption(isIngress bool) *envoy_config_core.SocketOption {
-	socketMark := int64(0xB00)
-	if isIngress {
-		socketMark = 0xA00
-	}
-	return &envoy_config_core.SocketOption{
-		Description: "Listener socket mark",
-		Level:       unix.SOL_SOCKET,
-		Name:        unix.SO_MARK,
-		Value:       &envoy_config_core.SocketOption_IntValue{IntValue: socketMark},
-		State:       envoy_config_core.SocketOption_STATE_PREBIND,
-	}
-}
-
 func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
 	clusterName := egressClusterName
 	tlsClusterName := egressTLSClusterName
@@ -771,12 +756,8 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	}
 
 	listenerConf := &envoy_config_listener.Listener{
-		Name:        name,
-		Address:     getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
-		Transparent: &wrapperspb.BoolValue{Value: true},
-		SocketOptions: []*envoy_config_core.SocketOption{
-			getListenerSocketMarkOption(isIngress),
-		},
+		Name:    name,
+		Address: getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 		// FilterChains: []*envoy_config_listener.FilterChain
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
 			// Always insert tls_inspector as the first filter
@@ -1385,7 +1366,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
 		for _, id := range sel.GetSelections() {
-			r.RemotePolicies = append(r.RemotePolicies, uint64(id))
+			r.RemotePolicies = append(r.RemotePolicies, (uint32)(id))
 		}
 
 		// No remote policies would match this rule. Discard it.
@@ -1478,9 +1459,9 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 				return nil
 			}
 			// convert from []uint32 to []uint64
-			remotePolicies := make([]uint64, len(selections))
+			remotePolicies := make([]uint32, len(selections))
 			for i, id := range selections {
-				remotePolicies[i] = uint64(id)
+				remotePolicies[i] = uint32(id)
 			}
 			return &cilium.PortNetworkPolicyRule{
 				RemotePolicies: remotePolicies,
@@ -1489,7 +1470,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 
 	// Use map to remove duplicates
-	remoteMap := make(map[uint64]struct{})
+	remoteMap := make(map[uint32]struct{})
 	wildcardFound := false
 	for sel, l7 := range selectors {
 		if sel.IsWildcard() {
@@ -1498,7 +1479,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 		}
 
 		for _, id := range sel.GetSelections() {
-			remoteMap[uint64(id)] = struct{}{}
+			remoteMap[uint32(id)] = struct{}{}
 		}
 
 		if l7.IsRedirect() {
@@ -1519,7 +1500,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 
 	// Convert to a sorted slice
-	remotePolicies := make([]uint64, 0, len(remoteMap))
+	remotePolicies := make([]uint32, 0, len(remoteMap))
 	for id := range remoteMap {
 		remotePolicies = append(remotePolicies, id)
 	}

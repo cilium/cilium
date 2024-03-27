@@ -76,6 +76,7 @@ func (m *Brotli) validate(all bool) error {
 	if len(errors) > 0 {
 		return BrotliMultiError(errors)
 	}
+
 	return nil
 }
 

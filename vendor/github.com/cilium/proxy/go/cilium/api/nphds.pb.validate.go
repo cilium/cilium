@@ -93,6 +93,7 @@ func (m *NetworkPolicyHosts) validate(all bool) error {
 	if len(errors) > 0 {
 		return NetworkPolicyHostsMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -60,6 +60,7 @@ func (m *PreviousRoutesConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return PreviousRoutesConfigMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -60,6 +60,7 @@ func (m *UriSanInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return UriSanInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -158,6 +159,7 @@ func (m *DnsSanInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsSanInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -256,6 +258,7 @@ func (m *SubjectInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return SubjectInputMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -59,9 +59,20 @@ func (m *AsyncFileManagerConfig) validate(all bool) error {
 
 	// no validation rules for Id
 
-	switch m.ManagerType.(type) {
-
+	oneofManagerTypePresent := false
+	switch v := m.ManagerType.(type) {
 	case *AsyncFileManagerConfig_ThreadPool_:
+		if v == nil {
+			err := AsyncFileManagerConfigValidationError{
+				field:  "ManagerType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofManagerTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetThreadPool()).(type) {
@@ -93,6 +104,9 @@ func (m *AsyncFileManagerConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofManagerTypePresent {
 		err := AsyncFileManagerConfigValidationError{
 			field:  "ManagerType",
 			reason: "value is required",
@@ -101,12 +115,12 @@ func (m *AsyncFileManagerConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return AsyncFileManagerConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -206,11 +220,21 @@ func (m *AsyncFileManagerConfig_ThreadPool) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for ThreadCount
+	if m.GetThreadCount() > 1024 {
+		err := AsyncFileManagerConfig_ThreadPoolValidationError{
+			field:  "ThreadCount",
+			reason: "value must be less than or equal to 1024",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return AsyncFileManagerConfig_ThreadPoolMultiError(errors)
 	}
+
 	return nil
 }
 

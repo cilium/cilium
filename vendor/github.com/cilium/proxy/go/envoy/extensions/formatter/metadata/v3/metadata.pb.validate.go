@@ -60,6 +60,7 @@ func (m *Metadata) validate(all bool) error {
 	if len(errors) > 0 {
 		return MetadataMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	kafka_api "github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
-	kafka_api "github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )

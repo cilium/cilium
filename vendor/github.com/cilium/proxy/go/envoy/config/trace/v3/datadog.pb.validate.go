@@ -79,9 +79,12 @@ func (m *DatadogConfig) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for CollectorHostname
+
 	if len(errors) > 0 {
 		return DatadogConfigMultiError(errors)
 	}
+
 	return nil
 }
 

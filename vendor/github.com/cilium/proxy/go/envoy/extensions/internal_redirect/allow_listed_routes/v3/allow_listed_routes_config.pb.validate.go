@@ -76,6 +76,7 @@ func (m *AllowListedRoutesConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return AllowListedRoutesConfigMultiError(errors)
 	}
+
 	return nil
 }
 

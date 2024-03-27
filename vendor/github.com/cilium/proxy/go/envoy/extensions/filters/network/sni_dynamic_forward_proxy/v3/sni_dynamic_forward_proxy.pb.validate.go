@@ -97,9 +97,18 @@ func (m *FilterConfig) validate(all bool) error {
 		}
 	}
 
-	switch m.PortSpecifier.(type) {
-
+	switch v := m.PortSpecifier.(type) {
 	case *FilterConfig_PortValue:
+		if v == nil {
+			err := FilterConfigValidationError{
+				field:  "PortSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if val := m.GetPortValue(); val <= 0 || val > 65535 {
 			err := FilterConfigValidationError{
@@ -112,11 +121,14 @@ func (m *FilterConfig) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return FilterConfigMultiError(errors)
 	}
+
 	return nil
 }
 

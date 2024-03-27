@@ -155,6 +155,7 @@ func (m *Gzip) validate(all bool) error {
 	if len(errors) > 0 {
 		return GzipMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -253,6 +254,7 @@ func (m *Gzip_CompressionLevel) validate(all bool) error {
 	if len(errors) > 0 {
 		return Gzip_CompressionLevelMultiError(errors)
 	}
+
 	return nil
 }
 

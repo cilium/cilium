@@ -134,6 +134,7 @@ func (m *InternalUpstreamTransport) validate(all bool) error {
 	if len(errors) > 0 {
 		return InternalUpstreamTransportMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -288,6 +289,7 @@ func (m *InternalUpstreamTransport_MetadataValueSource) validate(all bool) error
 	if len(errors) > 0 {
 		return InternalUpstreamTransport_MetadataValueSourceMultiError(errors)
 	}
+
 	return nil
 }
 

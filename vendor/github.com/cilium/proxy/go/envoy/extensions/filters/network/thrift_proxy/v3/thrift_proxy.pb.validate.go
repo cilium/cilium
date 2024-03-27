@@ -101,6 +101,7 @@ func (m *Trds) validate(all bool) error {
 	if len(errors) > 0 {
 		return TrdsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -391,6 +392,7 @@ func (m *ThriftProxy) validate(all bool) error {
 	if len(errors) > 0 {
 		return ThriftProxyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -497,9 +499,18 @@ func (m *ThriftFilter) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.ConfigType.(type) {
-
+	switch v := m.ConfigType.(type) {
 	case *ThriftFilter_TypedConfig:
+		if v == nil {
+			err := ThriftFilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedConfig()).(type) {
@@ -530,11 +541,14 @@ func (m *ThriftFilter) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return ThriftFilterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -655,6 +669,7 @@ func (m *ThriftProtocolOptions) validate(all bool) error {
 	if len(errors) > 0 {
 		return ThriftProtocolOptionsMultiError(errors)
 	}
+
 	return nil
 }
 

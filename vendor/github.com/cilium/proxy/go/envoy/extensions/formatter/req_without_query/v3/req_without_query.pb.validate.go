@@ -60,6 +60,7 @@ func (m *ReqWithoutQuery) validate(all bool) error {
 	if len(errors) > 0 {
 		return ReqWithoutQueryMultiError(errors)
 	}
+
 	return nil
 }
 

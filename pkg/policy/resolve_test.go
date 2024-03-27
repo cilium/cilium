@@ -173,6 +173,10 @@ func (d DummyOwner) LookupRedirectPortLocked(bool, string, uint16) uint16 {
 	return 4242
 }
 
+func (d DummyOwner) HasBPFPolicyMap() bool {
+	return true
+}
+
 func (d DummyOwner) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 	return 80
 }

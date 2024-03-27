@@ -60,6 +60,7 @@ func (m *Composite) validate(all bool) error {
 	if len(errors) > 0 {
 		return CompositeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -187,6 +188,7 @@ func (m *ExecuteFilterAction) validate(all bool) error {
 	if len(errors) > 0 {
 		return ExecuteFilterActionMultiError(errors)
 	}
+
 	return nil
 }
 

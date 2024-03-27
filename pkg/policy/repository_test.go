@@ -9,6 +9,7 @@ import (
 	stdlog "log"
 	"testing"
 
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {

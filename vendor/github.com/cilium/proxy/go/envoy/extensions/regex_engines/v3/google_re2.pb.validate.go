@@ -60,6 +60,7 @@ func (m *GoogleRE2) validate(all bool) error {
 	if len(errors) > 0 {
 		return GoogleRE2MultiError(errors)
 	}
+
 	return nil
 }
 

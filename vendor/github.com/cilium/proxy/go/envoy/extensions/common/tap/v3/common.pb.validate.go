@@ -57,9 +57,20 @@ func (m *CommonExtensionConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch m.ConfigType.(type) {
-
+	oneofConfigTypePresent := false
+	switch v := m.ConfigType.(type) {
 	case *CommonExtensionConfig_AdminConfig:
+		if v == nil {
+			err := CommonExtensionConfigValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetAdminConfig()).(type) {
@@ -91,6 +102,17 @@ func (m *CommonExtensionConfig) validate(all bool) error {
 		}
 
 	case *CommonExtensionConfig_StaticConfig:
+		if v == nil {
+			err := CommonExtensionConfigValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetStaticConfig()).(type) {
@@ -122,6 +144,9 @@ func (m *CommonExtensionConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofConfigTypePresent {
 		err := CommonExtensionConfigValidationError{
 			field:  "ConfigType",
 			reason: "value is required",
@@ -130,12 +155,12 @@ func (m *CommonExtensionConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return CommonExtensionConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -248,6 +273,7 @@ func (m *AdminConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return AdminConfigMultiError(errors)
 	}
+
 	return nil
 }
 

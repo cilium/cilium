@@ -8,6 +8,7 @@ import (
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -16,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/test"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -255,7 +255,7 @@ var ExpectedHttpRule122HeaderMatch = &cilium.PortNetworkPolicyRule_HttpRules{
 }
 
 var ExpectedPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1001, 1002},
+	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule12,
 }
 
@@ -264,7 +264,7 @@ var ExpectedPortNetworkPolicyRule12Wildcard = &cilium.PortNetworkPolicyRule{
 }
 
 var ExpectedPortNetworkPolicyRule122HeaderMatch = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1001, 1002},
+	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule122HeaderMatch,
 }
 
@@ -273,7 +273,7 @@ var ExpectedPortNetworkPolicyRule122HeaderMatchWildcard = &cilium.PortNetworkPol
 }
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1001, 1003},
+	RemotePolicies: []uint32{1001, 1003},
 	L7:             ExpectedHttpRule1,
 }
 
@@ -422,10 +422,10 @@ var ExpectedPerPortPolicies12RequiresV2 = []*cilium.PortNetworkPolicy{
 		Port:     80,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			RemotePolicies: []uint64{1001, 1002},
+			RemotePolicies: []uint32{1001, 1002},
 			L7:             ExpectedHttpRule1,
 		}, {
-			RemotePolicies: []uint64{1002},
+			RemotePolicies: []uint32{1002},
 			L7:             ExpectedHttpRule12,
 		}},
 	},
@@ -611,7 +611,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 		Port:     9090,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint64{1001, 1002}, // Effective wildcard due to only one selector in the policy
+			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
 			L7Proto: "tester",
 			L7: &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{
@@ -663,7 +663,7 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 		Port:     9092,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint64{1001, 1002}, // Effective wildcard due to only one selector in the policy
+			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
 			L7Proto: "kafka",
 			L7: &cilium.PortNetworkPolicyRule_KafkaRules{
 				KafkaRules: &cilium.KafkaNetworkPolicyRules{
@@ -720,7 +720,7 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 		Port:     3306,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint64{1001, 1002}, // Effective wildcard due to only one selector in the policy
+			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
 			L7Proto: "envoy.filters.network.mysql_proxy",
 			L7: &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{

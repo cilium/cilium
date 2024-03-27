@@ -71,6 +71,7 @@ func (m *PreviousPrioritiesConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return PreviousPrioritiesConfigMultiError(errors)
 	}
+
 	return nil
 }
 

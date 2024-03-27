@@ -119,9 +119,12 @@ func (m *HeaderValidatorConfig) validate(all bool) error {
 
 	// no validation rules for HeadersWithUnderscoresAction
 
+	// no validation rules for StripFragmentFromPath
+
 	if len(errors) > 0 {
 		return HeaderValidatorConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -226,11 +229,21 @@ func (m *HeaderValidatorConfig_UriPathNormalizationOptions) validate(all bool) e
 
 	// no validation rules for SkipMergingSlashes
 
-	// no validation rules for PathWithEscapedSlashesAction
+	if _, ok := HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction_name[int32(m.GetPathWithEscapedSlashesAction())]; !ok {
+		err := HeaderValidatorConfig_UriPathNormalizationOptionsValidationError{
+			field:  "PathWithEscapedSlashesAction",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return HeaderValidatorConfig_UriPathNormalizationOptionsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -345,6 +358,7 @@ func (m *HeaderValidatorConfig_Http1ProtocolOptions) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderValidatorConfig_Http1ProtocolOptionsMultiError(errors)
 	}
+
 	return nil
 }
 

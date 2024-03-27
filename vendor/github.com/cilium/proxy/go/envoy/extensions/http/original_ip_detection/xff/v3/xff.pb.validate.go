@@ -62,6 +62,7 @@ func (m *XffConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return XffConfigMultiError(errors)
 	}
+
 	return nil
 }
 

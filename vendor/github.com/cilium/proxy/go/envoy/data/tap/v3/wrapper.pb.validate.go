@@ -57,9 +57,20 @@ func (m *TraceWrapper) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Trace.(type) {
-
+	oneofTracePresent := false
+	switch v := m.Trace.(type) {
 	case *TraceWrapper_HttpBufferedTrace:
+		if v == nil {
+			err := TraceWrapperValidationError{
+				field:  "Trace",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTracePresent = true
 
 		if all {
 			switch v := interface{}(m.GetHttpBufferedTrace()).(type) {
@@ -91,6 +102,17 @@ func (m *TraceWrapper) validate(all bool) error {
 		}
 
 	case *TraceWrapper_HttpStreamedTraceSegment:
+		if v == nil {
+			err := TraceWrapperValidationError{
+				field:  "Trace",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTracePresent = true
 
 		if all {
 			switch v := interface{}(m.GetHttpStreamedTraceSegment()).(type) {
@@ -122,6 +144,17 @@ func (m *TraceWrapper) validate(all bool) error {
 		}
 
 	case *TraceWrapper_SocketBufferedTrace:
+		if v == nil {
+			err := TraceWrapperValidationError{
+				field:  "Trace",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTracePresent = true
 
 		if all {
 			switch v := interface{}(m.GetSocketBufferedTrace()).(type) {
@@ -153,6 +186,17 @@ func (m *TraceWrapper) validate(all bool) error {
 		}
 
 	case *TraceWrapper_SocketStreamedTraceSegment:
+		if v == nil {
+			err := TraceWrapperValidationError{
+				field:  "Trace",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTracePresent = true
 
 		if all {
 			switch v := interface{}(m.GetSocketStreamedTraceSegment()).(type) {
@@ -184,6 +228,9 @@ func (m *TraceWrapper) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofTracePresent {
 		err := TraceWrapperValidationError{
 			field:  "Trace",
 			reason: "value is required",
@@ -192,12 +239,12 @@ func (m *TraceWrapper) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return TraceWrapperMultiError(errors)
 	}
+
 	return nil
 }
 

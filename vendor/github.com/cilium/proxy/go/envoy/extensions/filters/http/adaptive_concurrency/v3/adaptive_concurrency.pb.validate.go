@@ -169,6 +169,7 @@ func (m *GradientControllerConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return GradientControllerConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -296,9 +297,49 @@ func (m *AdaptiveConcurrency) validate(all bool) error {
 		}
 	}
 
-	switch m.ConcurrencyControllerConfig.(type) {
+	if all {
+		switch v := interface{}(m.GetConcurrencyLimitExceededStatus()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AdaptiveConcurrencyValidationError{
+					field:  "ConcurrencyLimitExceededStatus",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AdaptiveConcurrencyValidationError{
+					field:  "ConcurrencyLimitExceededStatus",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConcurrencyLimitExceededStatus()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AdaptiveConcurrencyValidationError{
+				field:  "ConcurrencyLimitExceededStatus",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
+	oneofConcurrencyControllerConfigPresent := false
+	switch v := m.ConcurrencyControllerConfig.(type) {
 	case *AdaptiveConcurrency_GradientControllerConfig:
+		if v == nil {
+			err := AdaptiveConcurrencyValidationError{
+				field:  "ConcurrencyControllerConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConcurrencyControllerConfigPresent = true
 
 		if m.GetGradientControllerConfig() == nil {
 			err := AdaptiveConcurrencyValidationError{
@@ -341,6 +382,9 @@ func (m *AdaptiveConcurrency) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofConcurrencyControllerConfigPresent {
 		err := AdaptiveConcurrencyValidationError{
 			field:  "ConcurrencyControllerConfig",
 			reason: "value is required",
@@ -349,12 +393,12 @@ func (m *AdaptiveConcurrency) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return AdaptiveConcurrencyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -515,6 +559,7 @@ func (m *GradientControllerConfig_ConcurrencyLimitCalculationParams) validate(al
 	if len(errors) > 0 {
 		return GradientControllerConfig_ConcurrencyLimitCalculationParamsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -761,6 +806,7 @@ func (m *GradientControllerConfig_MinimumRTTCalculationParams) validate(all bool
 	if len(errors) > 0 {
 		return GradientControllerConfig_MinimumRTTCalculationParamsMultiError(errors)
 	}
+
 	return nil
 }
 

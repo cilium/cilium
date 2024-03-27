@@ -100,6 +100,7 @@ func (m *WrrLocality) validate(all bool) error {
 	if len(errors) > 0 {
 		return WrrLocalityMultiError(errors)
 	}
+
 	return nil
 }
 

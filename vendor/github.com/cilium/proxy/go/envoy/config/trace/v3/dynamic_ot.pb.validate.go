@@ -100,6 +100,7 @@ func (m *DynamicOtConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return DynamicOtConfigMultiError(errors)
 	}
+
 	return nil
 }
 

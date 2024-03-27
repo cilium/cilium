@@ -120,6 +120,7 @@ func (m *StreamTapsRequest) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamTapsRequestMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -221,6 +222,7 @@ func (m *StreamTapsResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamTapsResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -364,6 +366,7 @@ func (m *StreamTapsRequest_Identifier) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamTapsRequest_IdentifierMultiError(errors)
 	}
+
 	return nil
 }
 

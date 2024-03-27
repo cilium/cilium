@@ -60,6 +60,7 @@ func (m *LedsDummy) validate(all bool) error {
 	if len(errors) > 0 {
 		return LedsDummyMultiError(errors)
 	}
+
 	return nil
 }
 

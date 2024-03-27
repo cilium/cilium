@@ -209,6 +209,7 @@ func (m *HealthCheck) validate(all bool) error {
 	if len(errors) > 0 {
 		return HealthCheckMultiError(errors)
 	}
+
 	return nil
 }
 

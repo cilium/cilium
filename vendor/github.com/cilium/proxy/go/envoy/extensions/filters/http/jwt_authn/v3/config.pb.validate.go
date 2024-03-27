@@ -112,6 +112,8 @@ func (m *JwtProvider) validate(all bool) error {
 
 	// no validation rules for HeaderInMetadata
 
+	// no validation rules for FailedStatusInMetadata
+
 	// no validation rules for ClockSkewSeconds
 
 	if all {
@@ -143,9 +145,54 @@ func (m *JwtProvider) validate(all bool) error {
 		}
 	}
 
-	switch m.JwksSourceSpecifier.(type) {
+	for idx, item := range m.GetClaimToHeaders() {
+		_, _ = idx, item
 
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, JwtProviderValidationError{
+						field:  fmt.Sprintf("ClaimToHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, JwtProviderValidationError{
+						field:  fmt.Sprintf("ClaimToHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return JwtProviderValidationError{
+					field:  fmt.Sprintf("ClaimToHeaders[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	oneofJwksSourceSpecifierPresent := false
+	switch v := m.JwksSourceSpecifier.(type) {
 	case *JwtProvider_RemoteJwks:
+		if v == nil {
+			err := JwtProviderValidationError{
+				field:  "JwksSourceSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofJwksSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRemoteJwks()).(type) {
@@ -177,6 +224,17 @@ func (m *JwtProvider) validate(all bool) error {
 		}
 
 	case *JwtProvider_LocalJwks:
+		if v == nil {
+			err := JwtProviderValidationError{
+				field:  "JwksSourceSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofJwksSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetLocalJwks()).(type) {
@@ -208,6 +266,9 @@ func (m *JwtProvider) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofJwksSourceSpecifierPresent {
 		err := JwtProviderValidationError{
 			field:  "JwksSourceSpecifier",
 			reason: "value is required",
@@ -216,12 +277,12 @@ func (m *JwtProvider) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return JwtProviderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -324,6 +385,7 @@ func (m *JwtCacheConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return JwtCacheConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -449,32 +511,34 @@ func (m *RemoteJwks) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetCacheDuration()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, RemoteJwksValidationError{
-					field:  "CacheDuration",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, RemoteJwksValidationError{
-					field:  "CacheDuration",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetCacheDuration()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RemoteJwksValidationError{
+	if d := m.GetCacheDuration(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = RemoteJwksValidationError{
 				field:  "CacheDuration",
-				reason: "embedded message failed validation",
+				reason: "value is not a valid duration",
 				cause:  err,
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lt := time.Duration(9000000000*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur < gte || dur >= lt {
+				err := RemoteJwksValidationError{
+					field:  "CacheDuration",
+					reason: "value must be inside range [1ms, 2500000h0m0s)",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
 		}
 	}
 
@@ -539,6 +603,7 @@ func (m *RemoteJwks) validate(all bool) error {
 	if len(errors) > 0 {
 		return RemoteJwksMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -636,9 +701,39 @@ func (m *JwksAsyncFetch) validate(all bool) error {
 
 	// no validation rules for FastListener
 
+	if all {
+		switch v := interface{}(m.GetFailedRefetchDuration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, JwksAsyncFetchValidationError{
+					field:  "FailedRefetchDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, JwksAsyncFetchValidationError{
+					field:  "FailedRefetchDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFailedRefetchDuration()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return JwksAsyncFetchValidationError{
+				field:  "FailedRefetchDuration",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return JwksAsyncFetchMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -771,6 +866,7 @@ func (m *JwtHeader) validate(all bool) error {
 	if len(errors) > 0 {
 		return JwtHeaderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -875,6 +971,7 @@ func (m *ProviderWithAudiences) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProviderWithAudiencesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -973,12 +1070,30 @@ func (m *JwtRequirement) validate(all bool) error {
 
 	var errors []error
 
-	switch m.RequiresType.(type) {
-
+	switch v := m.RequiresType.(type) {
 	case *JwtRequirement_ProviderName:
+		if v == nil {
+			err := JwtRequirementValidationError{
+				field:  "RequiresType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for ProviderName
-
 	case *JwtRequirement_ProviderAndAudiences:
+		if v == nil {
+			err := JwtRequirementValidationError{
+				field:  "RequiresType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetProviderAndAudiences()).(type) {
@@ -1010,6 +1125,16 @@ func (m *JwtRequirement) validate(all bool) error {
 		}
 
 	case *JwtRequirement_RequiresAny:
+		if v == nil {
+			err := JwtRequirementValidationError{
+				field:  "RequiresType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRequiresAny()).(type) {
@@ -1041,6 +1166,16 @@ func (m *JwtRequirement) validate(all bool) error {
 		}
 
 	case *JwtRequirement_RequiresAll:
+		if v == nil {
+			err := JwtRequirementValidationError{
+				field:  "RequiresType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRequiresAll()).(type) {
@@ -1072,6 +1207,16 @@ func (m *JwtRequirement) validate(all bool) error {
 		}
 
 	case *JwtRequirement_AllowMissingOrFailed:
+		if v == nil {
+			err := JwtRequirementValidationError{
+				field:  "RequiresType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetAllowMissingOrFailed()).(type) {
@@ -1103,6 +1248,16 @@ func (m *JwtRequirement) validate(all bool) error {
 		}
 
 	case *JwtRequirement_AllowMissing:
+		if v == nil {
+			err := JwtRequirementValidationError{
+				field:  "RequiresType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetAllowMissing()).(type) {
@@ -1133,11 +1288,14 @@ func (m *JwtRequirement) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return JwtRequirementMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1282,6 +1440,7 @@ func (m *JwtRequirementOrList) validate(all bool) error {
 	if len(errors) > 0 {
 		return JwtRequirementOrListMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1428,6 +1587,7 @@ func (m *JwtRequirementAndList) validate(all bool) error {
 	if len(errors) > 0 {
 		return JwtRequirementAndListMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1566,9 +1726,18 @@ func (m *RequirementRule) validate(all bool) error {
 		}
 	}
 
-	switch m.RequirementType.(type) {
-
+	switch v := m.RequirementType.(type) {
 	case *RequirementRule_Requires:
+		if v == nil {
+			err := RequirementRuleValidationError{
+				field:  "RequirementType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRequires()).(type) {
@@ -1600,6 +1769,16 @@ func (m *RequirementRule) validate(all bool) error {
 		}
 
 	case *RequirementRule_RequirementName:
+		if v == nil {
+			err := RequirementRuleValidationError{
+				field:  "RequirementType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if utf8.RuneCountInString(m.GetRequirementName()) < 1 {
 			err := RequirementRuleValidationError{
@@ -1612,11 +1791,14 @@ func (m *RequirementRule) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return RequirementRuleMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1773,6 +1955,7 @@ func (m *FilterStateRule) validate(all bool) error {
 	if len(errors) > 0 {
 		return FilterStateRuleMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2029,6 +2212,7 @@ func (m *JwtAuthentication) validate(all bool) error {
 	if len(errors) > 0 {
 		return JwtAuthenticationMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2127,9 +2311,20 @@ func (m *PerRouteConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch m.RequirementSpecifier.(type) {
-
+	oneofRequirementSpecifierPresent := false
+	switch v := m.RequirementSpecifier.(type) {
 	case *PerRouteConfig_Disabled:
+		if v == nil {
+			err := PerRouteConfigValidationError{
+				field:  "RequirementSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequirementSpecifierPresent = true
 
 		if m.GetDisabled() != true {
 			err := PerRouteConfigValidationError{
@@ -2143,6 +2338,17 @@ func (m *PerRouteConfig) validate(all bool) error {
 		}
 
 	case *PerRouteConfig_RequirementName:
+		if v == nil {
+			err := PerRouteConfigValidationError{
+				field:  "RequirementSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRequirementSpecifierPresent = true
 
 		if utf8.RuneCountInString(m.GetRequirementName()) < 1 {
 			err := PerRouteConfigValidationError{
@@ -2156,6 +2362,9 @@ func (m *PerRouteConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofRequirementSpecifierPresent {
 		err := PerRouteConfigValidationError{
 			field:  "RequirementSpecifier",
 			reason: "value is required",
@@ -2164,12 +2373,12 @@ func (m *PerRouteConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return PerRouteConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2243,3 +2452,138 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = PerRouteConfigValidationError{}
+
+// Validate checks the field values on JwtClaimToHeader with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *JwtClaimToHeader) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on JwtClaimToHeader with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// JwtClaimToHeaderMultiError, or nil if none found.
+func (m *JwtClaimToHeader) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *JwtClaimToHeader) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetHeaderName()) < 1 {
+		err := JwtClaimToHeaderValidationError{
+			field:  "HeaderName",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if !_JwtClaimToHeader_HeaderName_Pattern.MatchString(m.GetHeaderName()) {
+		err := JwtClaimToHeaderValidationError{
+			field:  "HeaderName",
+			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if utf8.RuneCountInString(m.GetClaimName()) < 1 {
+		err := JwtClaimToHeaderValidationError{
+			field:  "ClaimName",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return JwtClaimToHeaderMultiError(errors)
+	}
+
+	return nil
+}
+
+// JwtClaimToHeaderMultiError is an error wrapping multiple validation errors
+// returned by JwtClaimToHeader.ValidateAll() if the designated constraints
+// aren't met.
+type JwtClaimToHeaderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m JwtClaimToHeaderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m JwtClaimToHeaderMultiError) AllErrors() []error { return m }
+
+// JwtClaimToHeaderValidationError is the validation error returned by
+// JwtClaimToHeader.Validate if the designated constraints aren't met.
+type JwtClaimToHeaderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e JwtClaimToHeaderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e JwtClaimToHeaderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e JwtClaimToHeaderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e JwtClaimToHeaderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e JwtClaimToHeaderValidationError) ErrorName() string { return "JwtClaimToHeaderValidationError" }
+
+// Error satisfies the builtin error interface
+func (e JwtClaimToHeaderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sJwtClaimToHeader.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = JwtClaimToHeaderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = JwtClaimToHeaderValidationError{}
+
+var _JwtClaimToHeader_HeaderName_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")

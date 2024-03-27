@@ -118,6 +118,7 @@ func (m *UuidRequestIdConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return UuidRequestIdConfigMultiError(errors)
 	}
+
 	return nil
 }
 

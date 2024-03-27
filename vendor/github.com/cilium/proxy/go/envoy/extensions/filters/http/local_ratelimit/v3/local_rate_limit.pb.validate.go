@@ -36,8 +36,6 @@ var (
 	_ = anypb.Any{}
 	_ = sort.Sort
 
-	_ = v3.XRateLimitHeadersRFCVersion(0)
-
 	_ = v3.VhRateLimitsOptions(0)
 )
 
@@ -352,6 +350,7 @@ func (m *LocalRateLimit) validate(all bool) error {
 	if len(errors) > 0 {
 		return LocalRateLimitMultiError(errors)
 	}
+
 	return nil
 }
 

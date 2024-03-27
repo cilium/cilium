@@ -149,9 +149,49 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 
 	}
 
-	switch m.UpstreamProtocolOptions.(type) {
+	if all {
+		switch v := interface{}(m.GetHeaderValidationConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "HeaderValidationConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "HeaderValidationConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHeaderValidationConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpProtocolOptionsValidationError{
+				field:  "HeaderValidationConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
+	oneofUpstreamProtocolOptionsPresent := false
+	switch v := m.UpstreamProtocolOptions.(type) {
 	case *HttpProtocolOptions_ExplicitHttpConfig_:
+		if v == nil {
+			err := HttpProtocolOptionsValidationError{
+				field:  "UpstreamProtocolOptions",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofUpstreamProtocolOptionsPresent = true
 
 		if all {
 			switch v := interface{}(m.GetExplicitHttpConfig()).(type) {
@@ -183,6 +223,17 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 		}
 
 	case *HttpProtocolOptions_UseDownstreamProtocolConfig:
+		if v == nil {
+			err := HttpProtocolOptionsValidationError{
+				field:  "UpstreamProtocolOptions",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofUpstreamProtocolOptionsPresent = true
 
 		if all {
 			switch v := interface{}(m.GetUseDownstreamProtocolConfig()).(type) {
@@ -214,6 +265,17 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 		}
 
 	case *HttpProtocolOptions_AutoConfig:
+		if v == nil {
+			err := HttpProtocolOptionsValidationError{
+				field:  "UpstreamProtocolOptions",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofUpstreamProtocolOptionsPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAutoConfig()).(type) {
@@ -245,6 +307,9 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofUpstreamProtocolOptionsPresent {
 		err := HttpProtocolOptionsValidationError{
 			field:  "UpstreamProtocolOptions",
 			reason: "value is required",
@@ -253,12 +318,12 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return HttpProtocolOptionsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -359,9 +424,20 @@ func (m *HttpProtocolOptions_ExplicitHttpConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch m.ProtocolConfig.(type) {
-
+	oneofProtocolConfigPresent := false
+	switch v := m.ProtocolConfig.(type) {
 	case *HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions:
+		if v == nil {
+			err := HttpProtocolOptions_ExplicitHttpConfigValidationError{
+				field:  "ProtocolConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofProtocolConfigPresent = true
 
 		if all {
 			switch v := interface{}(m.GetHttpProtocolOptions()).(type) {
@@ -393,6 +469,17 @@ func (m *HttpProtocolOptions_ExplicitHttpConfig) validate(all bool) error {
 		}
 
 	case *HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions:
+		if v == nil {
+			err := HttpProtocolOptions_ExplicitHttpConfigValidationError{
+				field:  "ProtocolConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofProtocolConfigPresent = true
 
 		if all {
 			switch v := interface{}(m.GetHttp2ProtocolOptions()).(type) {
@@ -424,6 +511,17 @@ func (m *HttpProtocolOptions_ExplicitHttpConfig) validate(all bool) error {
 		}
 
 	case *HttpProtocolOptions_ExplicitHttpConfig_Http3ProtocolOptions:
+		if v == nil {
+			err := HttpProtocolOptions_ExplicitHttpConfigValidationError{
+				field:  "ProtocolConfig",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofProtocolConfigPresent = true
 
 		if all {
 			switch v := interface{}(m.GetHttp3ProtocolOptions()).(type) {
@@ -455,6 +553,9 @@ func (m *HttpProtocolOptions_ExplicitHttpConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofProtocolConfigPresent {
 		err := HttpProtocolOptions_ExplicitHttpConfigValidationError{
 			field:  "ProtocolConfig",
 			reason: "value is required",
@@ -463,12 +564,12 @@ func (m *HttpProtocolOptions_ExplicitHttpConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return HttpProtocolOptions_ExplicitHttpConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -661,6 +762,7 @@ func (m *HttpProtocolOptions_UseDownstreamHttpConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpProtocolOptions_UseDownstreamHttpConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -881,6 +983,7 @@ func (m *HttpProtocolOptions_AutoHttpConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpProtocolOptions_AutoHttpConfigMultiError(errors)
 	}
+
 	return nil
 }
 

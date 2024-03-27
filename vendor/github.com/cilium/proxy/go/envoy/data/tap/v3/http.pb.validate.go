@@ -118,6 +118,7 @@ func (m *HttpBufferedTrace) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpBufferedTraceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -218,9 +219,18 @@ func (m *HttpStreamedTraceSegment) validate(all bool) error {
 
 	// no validation rules for TraceId
 
-	switch m.MessagePiece.(type) {
-
+	switch v := m.MessagePiece.(type) {
 	case *HttpStreamedTraceSegment_RequestHeaders:
+		if v == nil {
+			err := HttpStreamedTraceSegmentValidationError{
+				field:  "MessagePiece",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRequestHeaders()).(type) {
@@ -252,6 +262,16 @@ func (m *HttpStreamedTraceSegment) validate(all bool) error {
 		}
 
 	case *HttpStreamedTraceSegment_RequestBodyChunk:
+		if v == nil {
+			err := HttpStreamedTraceSegmentValidationError{
+				field:  "MessagePiece",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRequestBodyChunk()).(type) {
@@ -283,6 +303,16 @@ func (m *HttpStreamedTraceSegment) validate(all bool) error {
 		}
 
 	case *HttpStreamedTraceSegment_RequestTrailers:
+		if v == nil {
+			err := HttpStreamedTraceSegmentValidationError{
+				field:  "MessagePiece",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRequestTrailers()).(type) {
@@ -314,6 +344,16 @@ func (m *HttpStreamedTraceSegment) validate(all bool) error {
 		}
 
 	case *HttpStreamedTraceSegment_ResponseHeaders:
+		if v == nil {
+			err := HttpStreamedTraceSegmentValidationError{
+				field:  "MessagePiece",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetResponseHeaders()).(type) {
@@ -345,6 +385,16 @@ func (m *HttpStreamedTraceSegment) validate(all bool) error {
 		}
 
 	case *HttpStreamedTraceSegment_ResponseBodyChunk:
+		if v == nil {
+			err := HttpStreamedTraceSegmentValidationError{
+				field:  "MessagePiece",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetResponseBodyChunk()).(type) {
@@ -376,6 +426,16 @@ func (m *HttpStreamedTraceSegment) validate(all bool) error {
 		}
 
 	case *HttpStreamedTraceSegment_ResponseTrailers:
+		if v == nil {
+			err := HttpStreamedTraceSegmentValidationError{
+				field:  "MessagePiece",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetResponseTrailers()).(type) {
@@ -406,11 +466,14 @@ func (m *HttpStreamedTraceSegment) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return HttpStreamedTraceSegmentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -609,6 +672,7 @@ func (m *HttpBufferedTrace_Message) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpBufferedTrace_MessageMultiError(errors)
 	}
+
 	return nil
 }
 

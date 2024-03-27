@@ -59,6 +59,7 @@ func (m *Cors) validate(all bool) error {
 	if len(errors) > 0 {
 		return CorsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -315,6 +316,7 @@ func (m *CorsPolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return CorsPolicyMultiError(errors)
 	}
+
 	return nil
 }
 

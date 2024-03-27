@@ -180,6 +180,7 @@ func (m *ClusterLoadAssignment) validate(all bool) error {
 	if len(errors) > 0 {
 		return ClusterLoadAssignmentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -357,9 +358,12 @@ func (m *ClusterLoadAssignment_Policy) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for WeightedPriorityHealth
+
 	if len(errors) > 0 {
 		return ClusterLoadAssignment_PolicyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -504,6 +508,7 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) validate(all bool) error {
 	if len(errors) > 0 {
 		return ClusterLoadAssignment_Policy_DropOverloadMultiError(errors)
 	}
+
 	return nil
 }
 

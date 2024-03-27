@@ -231,9 +231,20 @@ func (m *AdmissionControl) validate(all bool) error {
 		}
 	}
 
-	switch m.EvaluationCriteria.(type) {
-
+	oneofEvaluationCriteriaPresent := false
+	switch v := m.EvaluationCriteria.(type) {
 	case *AdmissionControl_SuccessCriteria_:
+		if v == nil {
+			err := AdmissionControlValidationError{
+				field:  "EvaluationCriteria",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEvaluationCriteriaPresent = true
 
 		if all {
 			switch v := interface{}(m.GetSuccessCriteria()).(type) {
@@ -265,6 +276,9 @@ func (m *AdmissionControl) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofEvaluationCriteriaPresent {
 		err := AdmissionControlValidationError{
 			field:  "EvaluationCriteria",
 			reason: "value is required",
@@ -273,12 +287,12 @@ func (m *AdmissionControl) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return AdmissionControlMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -437,6 +451,7 @@ func (m *AdmissionControl_SuccessCriteria) validate(all bool) error {
 	if len(errors) > 0 {
 		return AdmissionControl_SuccessCriteriaMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -587,6 +602,7 @@ func (m *AdmissionControl_SuccessCriteria_HttpCriteria) validate(all bool) error
 	if len(errors) > 0 {
 		return AdmissionControl_SuccessCriteria_HttpCriteriaMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -706,6 +722,7 @@ func (m *AdmissionControl_SuccessCriteria_GrpcCriteria) validate(all bool) error
 	if len(errors) > 0 {
 		return AdmissionControl_SuccessCriteria_GrpcCriteriaMultiError(errors)
 	}
+
 	return nil
 }
 

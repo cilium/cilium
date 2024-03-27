@@ -137,9 +137,78 @@ func (m *HealthCheckEvent) validate(all bool) error {
 		}
 	}
 
-	switch m.Event.(type) {
+	if all {
+		switch v := interface{}(m.GetMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HealthCheckEventValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HealthCheckEventValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheckEventValidationError{
+				field:  "Metadata",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
+	if all {
+		switch v := interface{}(m.GetLocality()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HealthCheckEventValidationError{
+					field:  "Locality",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HealthCheckEventValidationError{
+					field:  "Locality",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheckEventValidationError{
+				field:  "Locality",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	oneofEventPresent := false
+	switch v := m.Event.(type) {
 	case *HealthCheckEvent_EjectUnhealthyEvent:
+		if v == nil {
+			err := HealthCheckEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetEjectUnhealthyEvent()).(type) {
@@ -171,6 +240,17 @@ func (m *HealthCheckEvent) validate(all bool) error {
 		}
 
 	case *HealthCheckEvent_AddHealthyEvent:
+		if v == nil {
+			err := HealthCheckEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAddHealthyEvent()).(type) {
@@ -202,6 +282,17 @@ func (m *HealthCheckEvent) validate(all bool) error {
 		}
 
 	case *HealthCheckEvent_HealthCheckFailureEvent:
+		if v == nil {
+			err := HealthCheckEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetHealthCheckFailureEvent()).(type) {
@@ -233,6 +324,17 @@ func (m *HealthCheckEvent) validate(all bool) error {
 		}
 
 	case *HealthCheckEvent_DegradedHealthyHost:
+		if v == nil {
+			err := HealthCheckEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetDegradedHealthyHost()).(type) {
@@ -264,6 +366,17 @@ func (m *HealthCheckEvent) validate(all bool) error {
 		}
 
 	case *HealthCheckEvent_NoLongerDegradedHost:
+		if v == nil {
+			err := HealthCheckEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetNoLongerDegradedHost()).(type) {
@@ -295,6 +408,9 @@ func (m *HealthCheckEvent) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofEventPresent {
 		err := HealthCheckEventValidationError{
 			field:  "Event",
 			reason: "value is required",
@@ -303,12 +419,12 @@ func (m *HealthCheckEvent) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return HealthCheckEventMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -419,6 +535,7 @@ func (m *HealthCheckEjectUnhealthy) validate(all bool) error {
 	if len(errors) > 0 {
 		return HealthCheckEjectUnhealthyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -522,6 +639,7 @@ func (m *HealthCheckAddHealthy) validate(all bool) error {
 	if len(errors) > 0 {
 		return HealthCheckAddHealthyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -636,6 +754,7 @@ func (m *HealthCheckFailure) validate(all bool) error {
 	if len(errors) > 0 {
 		return HealthCheckFailureMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -737,6 +856,7 @@ func (m *DegradedHealthyHost) validate(all bool) error {
 	if len(errors) > 0 {
 		return DegradedHealthyHostMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -838,6 +958,7 @@ func (m *NoLongerDegradedHost) validate(all bool) error {
 	if len(errors) > 0 {
 		return NoLongerDegradedHostMultiError(errors)
 	}
+
 	return nil
 }
 

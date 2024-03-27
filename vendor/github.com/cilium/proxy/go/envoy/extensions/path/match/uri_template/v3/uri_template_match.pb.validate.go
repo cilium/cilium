@@ -71,6 +71,7 @@ func (m *UriTemplateMatchConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return UriTemplateMatchConfigMultiError(errors)
 	}
+
 	return nil
 }
 

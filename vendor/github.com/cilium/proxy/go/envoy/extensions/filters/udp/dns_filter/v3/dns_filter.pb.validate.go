@@ -129,6 +129,7 @@ func (m *DnsFilterConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsFilterConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -226,9 +227,20 @@ func (m *DnsFilterConfig_ServerContextConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch m.ConfigSource.(type) {
-
+	oneofConfigSourcePresent := false
+	switch v := m.ConfigSource.(type) {
 	case *DnsFilterConfig_ServerContextConfig_InlineDnsTable:
+		if v == nil {
+			err := DnsFilterConfig_ServerContextConfigValidationError{
+				field:  "ConfigSource",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSourcePresent = true
 
 		if all {
 			switch v := interface{}(m.GetInlineDnsTable()).(type) {
@@ -260,6 +272,17 @@ func (m *DnsFilterConfig_ServerContextConfig) validate(all bool) error {
 		}
 
 	case *DnsFilterConfig_ServerContextConfig_ExternalDnsTable:
+		if v == nil {
+			err := DnsFilterConfig_ServerContextConfigValidationError{
+				field:  "ConfigSource",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSourcePresent = true
 
 		if all {
 			switch v := interface{}(m.GetExternalDnsTable()).(type) {
@@ -291,6 +314,9 @@ func (m *DnsFilterConfig_ServerContextConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofConfigSourcePresent {
 		err := DnsFilterConfig_ServerContextConfigValidationError{
 			field:  "ConfigSource",
 			reason: "value is required",
@@ -299,12 +325,12 @@ func (m *DnsFilterConfig_ServerContextConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return DnsFilterConfig_ServerContextConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -542,6 +568,7 @@ func (m *DnsFilterConfig_ClientContextConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return DnsFilterConfig_ClientContextConfigMultiError(errors)
 	}
+
 	return nil
 }
 

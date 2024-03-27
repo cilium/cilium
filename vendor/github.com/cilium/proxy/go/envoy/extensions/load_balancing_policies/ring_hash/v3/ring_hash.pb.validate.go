@@ -115,9 +115,68 @@ func (m *RingHash) validate(all bool) error {
 
 	}
 
+	if all {
+		switch v := interface{}(m.GetConsistentHashingLbConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RingHashValidationError{
+					field:  "ConsistentHashingLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RingHashValidationError{
+					field:  "ConsistentHashingLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConsistentHashingLbConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RingHashValidationError{
+				field:  "ConsistentHashingLbConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetLocalityWeightedLbConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RingHashValidationError{
+					field:  "LocalityWeightedLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RingHashValidationError{
+					field:  "LocalityWeightedLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocalityWeightedLbConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RingHashValidationError{
+				field:  "LocalityWeightedLbConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return RingHashMultiError(errors)
 	}
+
 	return nil
 }
 

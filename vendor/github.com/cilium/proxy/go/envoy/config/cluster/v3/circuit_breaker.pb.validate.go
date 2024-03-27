@@ -132,6 +132,7 @@ func (m *CircuitBreakers) validate(all bool) error {
 	if len(errors) > 0 {
 		return CircuitBreakersMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -418,6 +419,7 @@ func (m *CircuitBreakers_Thresholds) validate(all bool) error {
 	if len(errors) > 0 {
 		return CircuitBreakers_ThresholdsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -579,6 +581,7 @@ func (m *CircuitBreakers_Thresholds_RetryBudget) validate(all bool) error {
 	if len(errors) > 0 {
 		return CircuitBreakers_Thresholds_RetryBudgetMultiError(errors)
 	}
+
 	return nil
 }
 

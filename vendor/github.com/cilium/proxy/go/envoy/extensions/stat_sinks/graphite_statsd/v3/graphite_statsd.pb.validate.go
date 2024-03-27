@@ -74,9 +74,20 @@ func (m *GraphiteStatsdSink) validate(all bool) error {
 
 	}
 
-	switch m.StatsdSpecifier.(type) {
-
+	oneofStatsdSpecifierPresent := false
+	switch v := m.StatsdSpecifier.(type) {
 	case *GraphiteStatsdSink_Address:
+		if v == nil {
+			err := GraphiteStatsdSinkValidationError{
+				field:  "StatsdSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofStatsdSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAddress()).(type) {
@@ -108,6 +119,9 @@ func (m *GraphiteStatsdSink) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofStatsdSpecifierPresent {
 		err := GraphiteStatsdSinkValidationError{
 			field:  "StatsdSpecifier",
 			reason: "value is required",
@@ -116,12 +130,12 @@ func (m *GraphiteStatsdSink) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return GraphiteStatsdSinkMultiError(errors)
 	}
+
 	return nil
 }
 

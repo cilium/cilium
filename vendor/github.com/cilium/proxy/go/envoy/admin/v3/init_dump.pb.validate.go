@@ -94,6 +94,7 @@ func (m *UnreadyTargetsDumps) validate(all bool) error {
 	if len(errors) > 0 {
 		return UnreadyTargetsDumpsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -199,6 +200,7 @@ func (m *UnreadyTargetsDumps_UnreadyTargetsDump) validate(all bool) error {
 	if len(errors) > 0 {
 		return UnreadyTargetsDumps_UnreadyTargetsDumpMultiError(errors)
 	}
+
 	return nil
 }
 

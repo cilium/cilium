@@ -89,6 +89,7 @@ func (m *WasmAccessLog) validate(all bool) error {
 	if len(errors) > 0 {
 		return WasmAccessLogMultiError(errors)
 	}
+
 	return nil
 }
 

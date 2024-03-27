@@ -254,6 +254,7 @@ func (m *RateLimitQuotaFilterConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitQuotaFilterConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -386,6 +387,7 @@ func (m *RateLimitQuotaOverride) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitQuotaOverrideMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -644,6 +646,7 @@ func (m *RateLimitQuotaBucketSettings) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitQuotaBucketSettingsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -745,9 +748,20 @@ func (m *RateLimitQuotaBucketSettings_NoAssignmentBehavior) validate(all bool) e
 
 	var errors []error
 
-	switch m.NoAssignmentBehavior.(type) {
-
+	oneofNoAssignmentBehaviorPresent := false
+	switch v := m.NoAssignmentBehavior.(type) {
 	case *RateLimitQuotaBucketSettings_NoAssignmentBehavior_FallbackRateLimit:
+		if v == nil {
+			err := RateLimitQuotaBucketSettings_NoAssignmentBehaviorValidationError{
+				field:  "NoAssignmentBehavior",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofNoAssignmentBehaviorPresent = true
 
 		if all {
 			switch v := interface{}(m.GetFallbackRateLimit()).(type) {
@@ -779,6 +793,9 @@ func (m *RateLimitQuotaBucketSettings_NoAssignmentBehavior) validate(all bool) e
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofNoAssignmentBehaviorPresent {
 		err := RateLimitQuotaBucketSettings_NoAssignmentBehaviorValidationError{
 			field:  "NoAssignmentBehavior",
 			reason: "value is required",
@@ -787,12 +804,12 @@ func (m *RateLimitQuotaBucketSettings_NoAssignmentBehavior) validate(all bool) e
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RateLimitQuotaBucketSettings_NoAssignmentBehaviorMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -933,9 +950,20 @@ func (m *RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior) validate(all bo
 		}
 	}
 
-	switch m.ExpiredAssignmentBehavior.(type) {
-
+	oneofExpiredAssignmentBehaviorPresent := false
+	switch v := m.ExpiredAssignmentBehavior.(type) {
 	case *RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior_FallbackRateLimit:
+		if v == nil {
+			err := RateLimitQuotaBucketSettings_ExpiredAssignmentBehaviorValidationError{
+				field:  "ExpiredAssignmentBehavior",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofExpiredAssignmentBehaviorPresent = true
 
 		if all {
 			switch v := interface{}(m.GetFallbackRateLimit()).(type) {
@@ -967,6 +995,17 @@ func (m *RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior) validate(all bo
 		}
 
 	case *RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior_ReuseLastAssignment_:
+		if v == nil {
+			err := RateLimitQuotaBucketSettings_ExpiredAssignmentBehaviorValidationError{
+				field:  "ExpiredAssignmentBehavior",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofExpiredAssignmentBehaviorPresent = true
 
 		if all {
 			switch v := interface{}(m.GetReuseLastAssignment()).(type) {
@@ -998,6 +1037,9 @@ func (m *RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior) validate(all bo
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofExpiredAssignmentBehaviorPresent {
 		err := RateLimitQuotaBucketSettings_ExpiredAssignmentBehaviorValidationError{
 			field:  "ExpiredAssignmentBehavior",
 			reason: "value is required",
@@ -1006,12 +1048,12 @@ func (m *RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior) validate(all bo
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RateLimitQuotaBucketSettings_ExpiredAssignmentBehaviorMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1260,6 +1302,7 @@ func (m *RateLimitQuotaBucketSettings_DenyResponseSettings) validate(all bool) e
 	if len(errors) > 0 {
 		return RateLimitQuotaBucketSettings_DenyResponseSettingsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1429,6 +1472,7 @@ func (m *RateLimitQuotaBucketSettings_BucketIdBuilder) validate(all bool) error 
 	if len(errors) > 0 {
 		return RateLimitQuotaBucketSettings_BucketIdBuilderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1537,6 +1581,7 @@ func (m *RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior_ReuseLastAssignm
 	if len(errors) > 0 {
 		return RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior_ReuseLastAssignmentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1651,12 +1696,33 @@ func (m *RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilder) validate(all
 
 	var errors []error
 
-	switch m.ValueSpecifier.(type) {
-
+	oneofValueSpecifierPresent := false
+	switch v := m.ValueSpecifier.(type) {
 	case *RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilder_StringValue:
+		if v == nil {
+			err := RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilderValidationError{
+				field:  "ValueSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofValueSpecifierPresent = true
 		// no validation rules for StringValue
-
 	case *RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilder_CustomValue:
+		if v == nil {
+			err := RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilderValidationError{
+				field:  "ValueSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofValueSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetCustomValue()).(type) {
@@ -1688,6 +1754,9 @@ func (m *RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilder) validate(all
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofValueSpecifierPresent {
 		err := RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilderValidationError{
 			field:  "ValueSpecifier",
 			reason: "value is required",
@@ -1696,12 +1765,12 @@ func (m *RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilder) validate(all
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilderMultiError(errors)
 	}
+
 	return nil
 }
 

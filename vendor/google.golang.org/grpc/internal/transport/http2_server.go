@@ -171,10 +171,15 @@ func NewServerTransport(conn net.Conn, config *ServerConfig) (_ ServerTransport,
 		ID:  http2.SettingMaxFrameSize,
 		Val: http2MaxFrameLen,
 	}}
-	if config.MaxStreams != math.MaxUint32 {
+	// TODO(zhaoq): Have a better way to signal "no limit" because 0 is
+	// permitted in the HTTP2 spec.
+	maxStreams := config.MaxStreams
+	if maxStreams == 0 {
+		maxStreams = math.MaxUint32
+	} else {
 		isettings = append(isettings, http2.Setting{
 			ID:  http2.SettingMaxConcurrentStreams,
-			Val: config.MaxStreams,
+			Val: maxStreams,
 		})
 	}
 	dynamicWindow := true
@@ -233,7 +238,7 @@ func NewServerTransport(conn net.Conn, config *ServerConfig) (_ ServerTransport,
 		kp.Timeout = defaultServerKeepaliveTimeout
 	}
 	if kp.Time != infinity {
-		if err = syscall.SetTCPUserTimeout(conn, kp.Timeout); err != nil {
+		if err = syscall.SetTCPUserTimeout(rawConn, kp.Timeout); err != nil {
 			return nil, connectionErrorf(false, err, "transport: failed to set TCP_USER_TIMEOUT: %v", err)
 		}
 	}
@@ -253,7 +258,7 @@ func NewServerTransport(conn net.Conn, config *ServerConfig) (_ ServerTransport,
 		framer:            framer,
 		readerDone:        make(chan struct{}),
 		writerDone:        make(chan struct{}),
-		maxStreams:        config.MaxStreams,
+		maxStreams:        maxStreams,
 		inTapHandle:       config.InTapHandle,
 		fc:                &trInFlow{limit: uint32(icwz)},
 		state:             reachable,

@@ -68,12 +68,30 @@ func (m *FileAccessLog) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.AccessLogFormat.(type) {
-
+	switch v := m.AccessLogFormat.(type) {
 	case *FileAccessLog_Format:
+		if v == nil {
+			err := FileAccessLogValidationError{
+				field:  "AccessLogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Format
-
 	case *FileAccessLog_JsonFormat:
+		if v == nil {
+			err := FileAccessLogValidationError{
+				field:  "AccessLogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetJsonFormat()).(type) {
@@ -105,6 +123,16 @@ func (m *FileAccessLog) validate(all bool) error {
 		}
 
 	case *FileAccessLog_TypedJsonFormat:
+		if v == nil {
+			err := FileAccessLogValidationError{
+				field:  "AccessLogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedJsonFormat()).(type) {
@@ -136,6 +164,16 @@ func (m *FileAccessLog) validate(all bool) error {
 		}
 
 	case *FileAccessLog_LogFormat:
+		if v == nil {
+			err := FileAccessLogValidationError{
+				field:  "AccessLogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if m.GetLogFormat() == nil {
 			err := FileAccessLogValidationError{
@@ -177,11 +215,14 @@ func (m *FileAccessLog) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return FileAccessLogMultiError(errors)
 	}
+
 	return nil
 }
 

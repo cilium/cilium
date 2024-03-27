@@ -105,6 +105,7 @@ func (m *HeaderToMetadata) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderToMetadataMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -227,12 +228,30 @@ func (m *HeaderToMetadata_KeyValuePair) validate(all bool) error {
 
 	// no validation rules for Encode
 
-	switch m.ValueType.(type) {
-
+	switch v := m.ValueType.(type) {
 	case *HeaderToMetadata_KeyValuePair_Value:
+		if v == nil {
+			err := HeaderToMetadata_KeyValuePairValidationError{
+				field:  "ValueType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Value
-
 	case *HeaderToMetadata_KeyValuePair_RegexValueRewrite:
+		if v == nil {
+			err := HeaderToMetadata_KeyValuePairValidationError{
+				field:  "ValueType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetRegexValueRewrite()).(type) {
@@ -263,11 +282,14 @@ func (m *HeaderToMetadata_KeyValuePair) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return HeaderToMetadata_KeyValuePairMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -452,6 +474,7 @@ func (m *HeaderToMetadata_Rule) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderToMetadata_RuleMultiError(errors)
 	}
+
 	return nil
 }
 
