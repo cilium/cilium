@@ -2120,12 +2120,8 @@
      - Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker
      - object
      - ``{}``
-   * - :spelling:ignore:`ingressController.hostNetwork.sharedHTTPPort`
-     - Configure a specific port on the host network that gets used for the shared HTTP listener. This is used for HTTP and HTTPS.
-     - int
-     - ``0``
-   * - :spelling:ignore:`ingressController.hostNetwork.sharedTLSPassthroughPort`
-     - Configure a specific port on the host network that gets used for the shared TLS passthrough listener
+   * - :spelling:ignore:`ingressController.hostNetwork.sharedPort`
+     - Configure a specific port on the host network that gets used for the shared listener. This is used for HTTP and HTTPS.
      - int
      - ``0``
    * - :spelling:ignore:`ingressController.ingressLBAnnotationPrefixes`

@@ -18,8 +18,7 @@ const (
 	ServiceTypeAnnotation      = annotation.IngressPrefix + "/service-type"
 	InsecureNodePortAnnotation = annotation.IngressPrefix + "/insecure-node-port"
 	SecureNodePortAnnotation   = annotation.IngressPrefix + "/secure-node-port"
-	TLSPtHostPortAnnotation    = annotation.IngressPrefix + "/tls-passthrough-host-port"
-	HTTPHostPortAnnotation     = annotation.IngressPrefix + "/http-host-port"
+	HTTPHostPortAnnotation     = annotation.IngressPrefix + "/host-port"
 	TLSPassthroughAnnotation   = annotation.IngressPrefix + "/tls-passthrough"
 	ForceHTTPSAnnotation       = annotation.IngressPrefix + "/force-https"
 
@@ -89,23 +88,9 @@ func GetAnnotationInsecureNodePort(ingress *networkingv1.Ingress) (*uint32, erro
 	return &res, nil
 }
 
-// GetAnnotationHTTPHostPort returns the HTTP host port for the ingress if possible.
-func GetAnnotationHTTPHostPort(ingress *networkingv1.Ingress) (*uint32, error) {
+// GetAnnotationHostPort returns the host port for the ingress if possible.
+func GetAnnotationHostPort(ingress *networkingv1.Ingress) (*uint32, error) {
 	val, exists := annotation.Get(ingress, HTTPHostPortAnnotation)
-	if !exists {
-		return nil, nil
-	}
-	intVal, err := strconv.ParseInt(val, 10, 32)
-	if err != nil {
-		return nil, err
-	}
-	res := uint32(intVal)
-	return &res, nil
-}
-
-// GetAnnotationTLSHostPort returns the TLS host port for the ingress if possible.
-func GetAnnotationTLSHostPort(ingress *networkingv1.Ingress) (*uint32, error) {
-	val, exists := annotation.Get(ingress, TLSPtHostPortAnnotation)
 	if !exists {
 		return nil, nil
 	}
