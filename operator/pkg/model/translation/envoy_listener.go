@@ -317,7 +317,7 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 }
 
 // NewSNIListenerWithDefaults same as NewSNIListener but with default mutators applied.
-func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewSNIListenerWithDefaults(name string, ptBackendsToHostnames map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -325,19 +325,17 @@ func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string
 			defaultTCPKeepAliveProbeIntervalInSeconds,
 			defaultTCPKeepAliveMaxFailures),
 	)
-	return NewSNIListener(name, backendsForHost, fns...)
+	return NewSNIListener(name, ptBackendsToHostnames, fns...)
 }
 
-// NewSNIListener creates a new Envoy listener with the given name.
-// The listener will be configured to use SNI to determine thhe backend
-func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) ([]*envoy_config_listener.FilterChain, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedBackends := maps.Keys(backendsForHost)
+	orderedBackends := maps.Keys(ptBackendsToHostnames)
 	goslices.Sort(orderedBackends)
 
 	for _, backend := range orderedBackends {
-		hostNames := backendsForHost[backend]
+		hostNames := ptBackendsToHostnames[backend]
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{
@@ -355,6 +353,20 @@ func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFun
 			},
 		})
 	}
+
+	return filterChains, nil
+}
+
+// NewSNIListener creates a new Envoy listener with the given name.
+// The listener will be configured to use SNI to determine thhe backend
+func NewSNIListener(name string, ptBackendsToHostnames map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+	filterChains := []*envoy_config_listener.FilterChain{}
+
+	tlsPassthroughFilterChains, err := tlsPassthroughFilterChains(ptBackendsToHostnames)
+	if err != nil {
+		return ciliumv2.XDSResource{}, fmt.Errorf("failed to create tls passthrough filterchains: %w", err)
+	}
+	filterChains = append(filterChains, tlsPassthroughFilterChains...)
 
 	listener := &envoy_config_listener.Listener{
 		Name:         name,
