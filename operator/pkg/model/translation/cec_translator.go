@@ -147,10 +147,10 @@ func (i *cecTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResou
 	if len(m.HTTP) == 0 {
 		return nil
 	}
-	tlsMap := make(map[model.TLSSecret][]string)
+	tlsSecretsToHostnames := make(map[model.TLSSecret][]string)
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
-			tlsMap[s] = append(tlsMap[s], h.Hostname)
+			tlsSecretsToHostnames[s] = append(tlsSecretsToHostnames[s], h.Hostname)
 		}
 	}
 
@@ -167,7 +167,7 @@ func (i *cecTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResou
 		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
 	}
 
-	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap, mutatorFuncs...)
+	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsSecretsToHostnames, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
