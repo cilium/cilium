@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -274,6 +275,141 @@ func TestManager(t *testing.T) {
 			}, 1*time.Second, 50*time.Millisecond)
 		})
 	}
+
+	assert.NoError(t, hive.Stop(context.Background()))
+}
+
+func TestManagerWaitForNodesSync(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	ipsets := make(map[string]tables.AddrSet) // mocked kernel IP sets
+	var mu lock.Mutex                         // protect the ipsets map
+
+	var nodesSynced atomic.Bool // mock nodes synchronization
+
+	tmpl := template.Must(template.New("ipsets").Parse(textTmpl))
+
+	hive := hive.New(
+		statedb.Cell,
+		job.Cell,
+		reconciler.Cell,
+
+		cell.Module(
+			"ipset-manager-test",
+			"ipset-manager-test",
+
+			cell.Provide(func() Config {
+				return Config{NodeIPSetNeeded: true}
+			}),
+
+			cell.Provide(func() nodesSyncedFunc {
+				return func() bool {
+					return nodesSynced.Load()
+				}
+			}),
+
+			cell.Provide(
+				newIPSetManager,
+				tables.NewIPSetTable,
+				reconciler.New[*tables.IPSet],
+				newReconcilerConfig,
+				newOps,
+			),
+			cell.Provide(func(logger logrus.FieldLogger) *ipset {
+				return &ipset{
+					executable: funcExecutable(func(ctx context.Context, command string, arg ...string) ([]byte, error) {
+						mu.Lock()
+						defer mu.Unlock()
+
+						t.Logf("%s %s", command, strings.Join(arg, " "))
+
+						subCommand := arg[0]
+						name := arg[1]
+
+						switch subCommand {
+						case "create":
+							if _, found := ipsets[name]; !found {
+								ipsets[name] = tables.NewAddrSet()
+							}
+							return nil, nil
+						case "destroy":
+							if _, found := ipsets[name]; !found {
+								return nil, fmt.Errorf("ipset %s not found", name)
+							}
+							delete(ipsets, name)
+							return nil, nil
+						case "list":
+							if _, found := ipsets[name]; !found {
+								return nil, fmt.Errorf("ipset %s not found", name)
+							}
+							var bb bytes.Buffer
+							if err := tmpl.Execute(&bb, map[string]tables.AddrSet{name: ipsets[name]}); err != nil {
+								return nil, err
+							}
+							b := bb.Bytes()
+							return b, nil
+						case "add":
+							if _, found := ipsets[name]; !found {
+								return nil, fmt.Errorf("ipset %s not found", name)
+							}
+							addr := netip.MustParseAddr(arg[len(arg)-2])
+							ipsets[name] = ipsets[name].Insert(addr)
+							return nil, nil
+						case "del":
+							if _, found := ipsets[name]; !found {
+								return nil, fmt.Errorf("ipset %s not found", name)
+							}
+							addr := netip.MustParseAddr(arg[len(arg)-2])
+							if !ipsets[name].Has(addr) {
+								return nil, nil
+							}
+							ipsets[name] = ipsets[name].Delete(addr)
+							return nil, nil
+						}
+						return nil, nil
+					}),
+					log: logger,
+				}
+			}),
+			cell.Invoke(reconciler.Register[*tables.IPSet]),
+
+			// force manager instantiation
+			cell.Invoke(func(_ types.IPSetManager) {}),
+		),
+	)
+
+	time.MaxInternalTimerDelay = time.Millisecond
+	t.Cleanup(func() { time.MaxInternalTimerDelay = 0 })
+
+	// create ipv4 and ipv6 node ipsets to simulate stale entries from previous Cilium run
+	withLocked(&mu, func() {
+		ipsets[types.CiliumNodeIPSetV4] = tables.NewAddrSet(netip.MustParseAddr("2.2.2.2"))
+		ipsets[types.CiliumNodeIPSetV6] = tables.NewAddrSet(netip.MustParseAddr("cafe::1"))
+	})
+
+	assert.NoError(t, hive.Start(context.Background()))
+
+	// Cilium node ipsets should not have been pruned before nodes synchronization
+	withLocked(&mu, func() {
+		assert.Contains(t, ipsets, types.CiliumNodeIPSetV4)
+		assert.Contains(t, ipsets, types.CiliumNodeIPSetV6)
+	})
+
+	nodesSynced.Store(true)
+
+	// Cilium node ipsets should eventually be pruned after nodes synchronization
+	assert.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+
+		if _, ok := ipsets[types.CiliumNodeIPSetV4]; !ok {
+			return false
+		}
+		if _, ok := ipsets[types.CiliumNodeIPSetV6]; !ok {
+			return false
+		}
+		return true
+	}, 1*time.Second, 50*time.Millisecond)
 
 	assert.NoError(t, hive.Stop(context.Background()))
 }
