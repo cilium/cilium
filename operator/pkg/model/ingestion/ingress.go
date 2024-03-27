@@ -287,7 +287,11 @@ func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.T
 				continue
 			}
 
-			route := model.TLSRoute{}
+			route := model.TLSRoute{
+				Hostnames: []string{
+					host,
+				},
+			}
 
 			backend := model.Backend{
 				Name:      path.Backend.Service.Name,
