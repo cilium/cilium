@@ -7,11 +7,11 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"sync"
 	"time"
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/ip"
@@ -33,11 +33,11 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 			Cache:   NewDNSCache(0),
 			IPCache: testipcache.NewMockIPCache(),
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
+			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]netip.Addr, _ uint64) channels.DoneChan {
 				for k, v := range selectorIPMapping {
 					selIPMap[k] = v
 				}
-				return &sync.WaitGroup{}
+				return channels.ClosedDoneChan
 			},
 		})
 	)
@@ -79,11 +79,11 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 			Cache:   NewDNSCache(0),
 			IPCache: testipcache.NewMockIPCache(),
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
+			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]netip.Addr, _ uint64) channels.DoneChan {
 				for k, v := range selectorIPMapping {
 					selIPMap[k] = v
 				}
-				return &sync.WaitGroup{}
+				return channels.ClosedDoneChan
 			},
 		})
 	)

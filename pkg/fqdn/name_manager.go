@@ -10,12 +10,12 @@ import (
 	"net/netip"
 	"regexp"
 	"slices"
-	"sync"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ip"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -140,8 +140,8 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
-			return &sync.WaitGroup{}
+		config.UpdateSelectors = func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, _ uint64) channels.DoneChan {
+			return channels.ClosedDoneChan
 		}
 	}
 	if config.GetEndpointsDNSInfo == nil {
@@ -167,7 +167,7 @@ func NewNameManager(config Config) *NameManager {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) *sync.WaitGroup {
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) channels.DoneChan {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -192,7 +192,7 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // matchNames that match them will cause these rules to regenerate.
 // Note: This is used only when DNS entries are cleaned up, not when new results
 // are ingested.
-func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) *sync.WaitGroup {
+func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) channels.DoneChan {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 

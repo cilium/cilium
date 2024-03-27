@@ -6,8 +6,8 @@ package fqdn
 import (
 	"context"
 	"net/netip"
-	"sync"
 
+	"github.com/cilium/cilium/pkg/channels"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
@@ -25,7 +25,7 @@ type Config struct {
 
 	// UpdateSelectors is a callback to update the mapping of FQDNSelector to
 	// sets of IPs.
-	UpdateSelectors func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, ipcacheRevision uint64) *sync.WaitGroup
+	UpdateSelectors func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, ipcacheRevision uint64) channels.DoneChan
 
 	// GetEndpointsDNSInfo is a function that returns a list of fqdn-relevant fields from all Endpoints known to the agent.
 	// The endpoint's DNSHistory and DNSZombies are used as part of the garbage collection and restoration processes.

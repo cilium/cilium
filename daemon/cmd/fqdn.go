@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
@@ -70,11 +71,11 @@ type requestNameKey struct{}
 //
 // returns a WaitGroup that is done when all policymaps have been updated
 // and all endpoints referencing the IPs are able to pass traffic.
-func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQDNSelector][]netip.Addr, ipcacheRevision uint64) (wg *sync.WaitGroup) {
+func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQDNSelector][]netip.Addr, ipcacheRevision uint64) channels.DoneChan {
 	// There may be nothing to update - in this case, we exit and do not need
 	// to trigger policy updates for all endpoints.
 	if len(selectors) == 0 {
-		return &sync.WaitGroup{}
+		return channels.ClosedDoneChan
 	}
 	logger := log.WithField("qname", ctx.Value(requestNameKey{}))
 
@@ -92,29 +93,33 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQ
 		updateResult |= res
 	}
 
+	var policyMapsDone channels.DoneChan
+
 	// UpdatePolicyMaps consumes notifyWG, and returns its own WaitGroup
 	// that is Done() when all endpoints have pushed their incremental changes
 	// down in to their bpf PolicyMap.
 	if updateResult&policy.UpdateResultUpdatePolicyMaps > 0 {
 		logger.Debug("FQDN selector update requires UpdatePolicyMaps.")
-		wg = d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
+		policyMapsDone = d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
 	} else {
-		wg = &sync.WaitGroup{}
+		policyMapsDone = channels.ClosedDoneChan
+	}
+
+	if updateResult&policy.UpdateResultIdentitiesNeeded == 0 || ipcacheRevision == 0 {
+		return policyMapsDone
 	}
 
 	// If any of the selectors indicated they're missing identities,
 	// we also need to wait for a full ipcache round.
-	if updateResult&policy.UpdateResultIdentitiesNeeded > 0 && ipcacheRevision > 0 {
-		wg.Add(1)
-		go func() {
-			logger.Debug("FQDN selector update requires IPCache completion.")
-			d.ipcache.WaitForRevision(ipcacheRevision)
-			wg.Done()
-		}()
-	}
+	ipCacheDone := make(chan struct{})
+	go func() {
+		logger.Debug("FQDN selector update requires IPCache completion.")
+		d.ipcache.WaitForRevision(ipcacheRevision)
+		close(ipCacheDone)
+	}()
 
 	// This releases the nameManager lock; at this point, it is safe for another fqdn update to proceed
-	return
+	return channels.Merge(policyMapsDone, ipCacheDone)
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
@@ -422,7 +427,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		doneCh := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -430,17 +435,12 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
-		updateComplete := make(chan struct{})
-		go func(wg *sync.WaitGroup, done chan struct{}) {
-			wg.Wait()
-			close(updateComplete)
-		}(wg, updateComplete)
 
 		select {
 		case <-updateCtx.Done():
 			log.Error("Timed out waiting for datapath updates of FQDN IP information; returning response")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
-		case <-updateComplete:
+		case <-doneCh:
 		}
 
 		log.WithFields(logrus.Fields{
