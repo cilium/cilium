@@ -1946,6 +1946,7 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 		restAPI.EndpointPutEndpointIDHandler = NewPutEndpointIDHandler(d)
 		restAPI.EndpointPatchEndpointIDHandler = NewPatchEndpointIDHandler(d)
 		restAPI.EndpointDeleteEndpointIDHandler = NewDeleteEndpointIDHandler(d)
+		restAPI.EndpointDeleteEndpointHandler = NewDeleteEndpointHandler(d)
 
 		// /endpoint/{id}config/
 		restAPI.EndpointGetEndpointIDConfigHandler = NewGetEndpointIDConfigHandler(d)
