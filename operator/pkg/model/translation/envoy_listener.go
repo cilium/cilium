@@ -90,14 +90,16 @@ func WithXffNumTrustedHops(xff uint32) ListenerMutator {
 	}
 }
 
-func WithHostNetworkPort[T model.Listener](listeners []T, ipv4Enabled bool, ipv6Enabled bool) ListenerMutator {
+func WithHostNetworkPort(m *model.Model, ipv4Enabled bool, ipv6Enabled bool) ListenerMutator {
+	ports := []uint32{}
+	for _, hl := range m.HTTP {
+		ports = append(ports, hl.GetPort())
+	}
+	for _, hl := range m.TLS {
+		ports = append(ports, hl.GetPort())
+	}
+
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
-		ports := []uint32{}
-
-		for _, hl := range listeners {
-			ports = append(ports, hl.GetPort())
-		}
-
 		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(slices.SortedUnique(ports), ipv4Enabled, ipv6Enabled)
 
 		return listener
