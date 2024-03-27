@@ -79,6 +79,8 @@ type EndpointsLookup interface {
 
 	// IngressEndpointExists returns true if the ingress endpoint exists.
 	IngressEndpointExists() bool
+
+	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
 }
 
 type EndpointsModify interface {
@@ -168,6 +170,7 @@ type EndpointManager interface {
 	// each endpoint that reaches the desired revision calls 'done' independently.
 	// The provided callback should not block and generally be lightweight.
 	CallbackForEndpointsAtPolicyRev(ctx context.Context, rev uint64, done func(time.Time)) error
+	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint

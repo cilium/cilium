@@ -12,6 +12,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -66,6 +67,9 @@ type LRPConfig struct {
 	// backendPortsByPortName is a map indexed by port name with the value as
 	// a pointer to bePortInfo for easy lookup into backendPorts
 	backendPortsByPortName map[portName]*bePortInfo
+	// skipRedirectFromBackend is the flag that enables/disables redirection
+	// for traffic matching the policy frontend(s) from the backends selected by the policy
+	skipRedirectFromBackend bool
 }
 
 type frontend = lb.L3n4Addr
@@ -76,7 +80,8 @@ type frontend = lb.L3n4Addr
 // a pod.
 type backend struct {
 	lb.L3n4Addr
-	podID podID
+	podID          podID
+	podNetnsCookie uint64
 }
 
 func (be *backend) GetModel() *models.LRPBackend {
@@ -287,14 +292,15 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
 
 	return &LRPConfig{
-		uid:                    uid,
-		serviceID:              k8sSvc,
-		frontendMappings:       feMappings,
-		backendSelector:        selector,
-		backendPorts:           bePorts,
-		backendPortsByPortName: bePortsMap,
-		lrpType:                lrpType,
-		frontendType:           frontendType,
+		uid:                     uid,
+		serviceID:               k8sSvc,
+		frontendMappings:        feMappings,
+		backendSelector:         selector,
+		backendPorts:            bePorts,
+		backendPortsByPortName:  bePortsMap,
+		lrpType:                 lrpType,
+		frontendType:            frontendType,
+		skipRedirectFromBackend: spec.SkipRedirectFromBackend,
 		id: k8s.ServiceID{
 			Name:      name,
 			Namespace: namespace,
@@ -304,8 +310,8 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 
 // policyConfigSelectsPod determines if the given pod is selected by the policy
 // config based on matching labels of config and pod.
-func (config *LRPConfig) policyConfigSelectsPod(podInfo *podMetadata) bool {
-	return config.backendSelector.Matches(labels.Set(podInfo.labels))
+func (config *LRPConfig) policyConfigSelectsPod(pod *slimcorev1.Pod) bool {
+	return config.backendSelector.Matches(labels.Set(pod.GetLabels()))
 }
 
 // checkNamespace returns true if config namespace matches with the given namespace.

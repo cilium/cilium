@@ -170,6 +170,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB_MAGLEV_LUT_SIZE 32749
 #define LB4_MAGLEV_MAP_OUTER test_cilium_lb4_maglev_outer
 #define LB6_MAGLEV_MAP_OUTER test_cilium_lb6_maglev_outer
+#define LB4_SKIP_MAP test_cilium_skip_lb4
 #define THROTTLE_MAP test_cilium_throttle
 #define THROTTLE_MAP_SIZE 65536
 #define ENABLE_ARP_RESPONDER
@@ -184,6 +185,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES	65536
+#define CILIUM_LB_SKIP_MAP_MAX_ENTRIES		100
 #define POLICY_MAP_SIZE 16384
 #define AUTH_MAP_SIZE 512000
 #define CONFIG_MAP_SIZE 256
