@@ -59,6 +59,7 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 	tailcalls := make(map[uint32]*TailCall)
 
 	const (
+		// Corresponds to CILIUM_MAP_CALLS.
 		cilium_calls_map = 2
 	)
 
