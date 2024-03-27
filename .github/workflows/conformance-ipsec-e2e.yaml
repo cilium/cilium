@@ -140,6 +140,8 @@ jobs:
             devices: 'eth0'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
+            key-type-one: '+'
+            key-type-two: '+'
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -153,6 +155,8 @@ jobs:
             devices: 'eth0'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
+            key-type-one: '+'
+            key-type-two: '+'
 
     timeout-minutes: 75
     steps:
