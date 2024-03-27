@@ -22,6 +22,7 @@
     "test/packet/scripts/install.sh",
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
+    "install/kubernetes/Makefile.values",
   ],
   "schedule": [
     "on monday"
@@ -501,6 +502,14 @@
         "default: (?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>.*?)\\s"
       ],
       "datasourceTemplate": "docker"
-    }
+    },
+    {
+      "fileMatch": [
+        "^install/kubernetes/Makefile.values$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION:=(?<currentValue>.*)\\s+.+_DIGEST:=(?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    },
   ]
 }
