@@ -154,8 +154,21 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return err
 	}
 
+	iface, err := netlink.LinkByName(xdpDev)
+	if err != nil {
+		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
+	}
+
 	progs := []progDefinition{{progName: symbolFromHostNetdevXDP, direction: ""}}
-	finalize, err := replaceDatapath(ctx, xdpDev, objPath, progs, xdpMode)
+	finalize, err := replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   xdpDev,
+			elf:      objPath,
+			programs: progs,
+			xdpMode:  xdpMode,
+			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), iface),
+		},
+	)
 	if err != nil {
 		return err
 	}
