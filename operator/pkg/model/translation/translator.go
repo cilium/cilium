@@ -120,53 +120,44 @@ func (i *defaultTranslator) getServices(_ *model.Model) []*ciliumv2.ServiceListe
 func (i *defaultTranslator) getResources(m *model.Model) []ciliumv2.XDSResource {
 	var res []ciliumv2.XDSResource
 
-	res = append(res, i.getHTTPRouteListener(m)...)
-	res = append(res, i.getTLSRouteListener(m)...)
+	res = append(res, i.getListener(m)...)
 	res = append(res, i.getEnvoyHTTPRouteConfiguration(m)...)
 	res = append(res, i.getClusters(m)...)
 
 	return res
 }
 
-// getHTTPRouteListener returns the listener for the given model with HTTPRoute.
-// TLS and non-TLS filters for HTTP traffic are applied by default.
-// Only one single listener is returned for shared LB mode.
-func (i *defaultTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResource {
-	if len(m.HTTP) == 0 {
-		return nil
-	}
+func tlsSecretsToHostnames(httpListeners []model.HTTPListener) map[model.TLSSecret][]string {
 	tlsSecretsToHostnames := make(map[model.TLSSecret][]string)
-	for _, h := range m.HTTP {
+	for _, h := range httpListeners {
 		for _, s := range h.TLS {
 			tlsSecretsToHostnames[s] = append(tlsSecretsToHostnames[s], h.Hostname)
 		}
 	}
 
-	mutatorFuncs := []ListenerMutator{}
-	if i.useProxyProtocol {
-		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
-	}
-	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsSecretsToHostnames, mutatorFuncs...)
-	return []ciliumv2.XDSResource{l}
+	return tlsSecretsToHostnames
 }
 
-// getTLSRouteListener returns the listener for the given model with TLSRoute.
-// it will set up filters for SNI matching by default.
-func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSResource {
-	if len(m.TLS) == 0 {
-		return nil
-	}
-	ptBackendsToHostnames := make(map[string][]string)
-	for _, h := range m.TLS {
+func tlsPassthroughBackendsToHostnames(tlsListeners []model.TLSListener) map[string][]string {
+	tlsPassthroughBackendsToHostnames := make(map[string][]string)
+	for _, h := range tlsListeners {
 		for _, route := range h.Routes {
 			for _, backend := range route.Backends {
 				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				ptBackendsToHostnames[key] = append(ptBackendsToHostnames[key], route.Hostnames...)
+				tlsPassthroughBackendsToHostnames[key] = append(tlsPassthroughBackendsToHostnames[key], route.Hostnames...)
 			}
 		}
 	}
 
-	if len(ptBackendsToHostnames) == 0 {
+	return tlsPassthroughBackendsToHostnames
+}
+
+// getListener returns the listener for the given model.
+// - HTTP non-TLS filters
+// - HTTP TLS filters
+// - TLS passthrough filters
+func (i *defaultTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
+	if len(m.HTTP) == 0 && len(m.TLS) == 0 {
 		return nil
 	}
 
@@ -174,7 +165,8 @@ func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSRe
 	if i.useProxyProtocol {
 		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
 	}
-	l, _ := NewSNIListenerWithDefaults("listener", ptBackendsToHostnames, mutatorFuncs...)
+
+	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLS), mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
