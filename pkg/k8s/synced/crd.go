@@ -105,7 +105,8 @@ func AllCiliumCRDResourceNames() []string {
 	return append(
 		AgentCRDResourceNames(),
 		CRDResourceName(v2.CEWName),
-		CRDResourceName(v2alpha1.CNCName),
+		CRDResourceName(v2.CNCName),
+		CRDResourceName(v2alpha1.CNCName), // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
 	)
 }
 

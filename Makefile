@@ -246,7 +246,8 @@ CRDS_CILIUM_V2 := ciliumnetworkpolicies \
                   ciliumlocalredirectpolicies \
                   ciliumegressgatewaypolicies \
                   ciliumenvoyconfigs \
-                  ciliumclusterwideenvoyconfigs
+                  ciliumclusterwideenvoyconfigs \
+                  ciliumnodeconfigs
 CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
                         ciliumbgppeeringpolicies \
                         ciliumbgpclusterconfigs \
@@ -255,7 +256,6 @@ CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
                         ciliumbgpnodeconfigs \
                         ciliumbgpnodeconfigoverrides \
                         ciliumloadbalancerippools \
-                        ciliumnodeconfigs \
                         ciliumcidrgroups \
                         ciliuml2announcementpolicies \
                         ciliumpodippools
