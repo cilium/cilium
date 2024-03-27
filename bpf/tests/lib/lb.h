@@ -3,11 +3,13 @@
 
 #ifdef ENABLE_IPV4
 static __always_inline void
-lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_index)
+lb_v4_add_service_with_proto(__be32 addr, __be16 port, __u8 proto,
+			     __u16 backend_count, __u16 rev_nat_index)
 {
 	struct lb4_key svc_key = {
 		.address = addr,
 		.dport = port,
+		.proto = proto,
 		.scope = LB_LOOKUP_SCOPE_EXT,
 	};
 	struct lb4_service svc_value = {
@@ -29,9 +31,9 @@ lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_i
 }
 
 static __always_inline void
-lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
-		  __u32 backend_id, __be32 backend_addr, __be16 backend_port,
-		  __u8 backend_proto, __u8 cluster_id)
+lb_v4_add_backend_with_proto(__be32 svc_addr, __be16 svc_port, __u8 svc_proto,
+			     __u16 backend_slot, __u32 backend_id, __be32 backend_addr,
+			     __be16 backend_port, __u8 backend_proto, __u8 cluster_id)
 {
 	struct lb4_backend backend = {
 		.address = backend_addr,
@@ -46,6 +48,7 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 	struct lb4_key svc_key = {
 		.address = svc_addr,
 		.dport = svc_port,
+		.proto = svc_proto,
 		.backend_slot = backend_slot,
 		.scope = LB_LOOKUP_SCOPE_EXT,
 	};
@@ -55,6 +58,21 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 	};
 	/* Point the service's backend_slot at the created backend: */
 	map_update_elem(&LB4_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
+}
+
+static __always_inline void
+lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_index)
+{
+	lb_v4_add_service_with_proto(addr, port, 0, backend_count, rev_nat_index);
+}
+
+static __always_inline void
+lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
+		  __u32 backend_id, __be32 backend_addr, __be16 backend_port,
+		  __u8 backend_proto, __u8 cluster_id)
+{
+	lb_v4_add_backend_with_proto(svc_addr, svc_port, 0, backend_slot, backend_id,
+				     backend_addr, backend_port, backend_proto, cluster_id);
 }
 #endif
 

@@ -112,6 +112,8 @@ static volatile const __section(".rodata") __u8 v6_node_three[] = {0xfd, 0x07, 0
 
 #define NEXTHDR_MAX             255
 
+#define PROTO_ANY               0       /* ANY protocol. */
+
 /* Define SCTP header here because this is all we need. */
 struct sctphdr {
 	__be16 source;
