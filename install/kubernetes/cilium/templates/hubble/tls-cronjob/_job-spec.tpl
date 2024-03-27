@@ -39,6 +39,10 @@ spec:
             - "--hubble-relay-server-cert-generate"
             - "--hubble-relay-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             {{- end }}
+            {{- if and .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
+            - "--hubble-metrics-server-cert-generate"
+            - "--hubble-metrics-server-cert-validity-duration={{ $certValiditySecondsStr }}"
+            {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}

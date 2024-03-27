@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/dns"               // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/drop"              // invoke init
@@ -27,6 +29,7 @@ import (
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/policy"            // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/port-distribution" // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/tcp"               // invoke init
+	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -86,7 +89,7 @@ func initMetricHandlers(enabled api.Map) (*api.Handlers, error) {
 	return api.DefaultRegistry().ConfigureHandlers(registry, enabled)
 }
 
-func initMetricsServer(address string, enableOpenMetrics bool, errChan chan error) {
+func initMetricsServer(address string, metricsTLSConfig *certloader.WatchedServerConfig, enableOpenMetrics bool, errChan chan error) {
 	go func() {
 		mux := http.NewServeMux()
 		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
@@ -99,7 +102,14 @@ func initMetricsServer(address string, enableOpenMetrics bool, errChan chan erro
 			Addr:    address,
 			Handler: mux,
 		}
-		errChan <- srv.ListenAndServe()
+		if metricsTLSConfig != nil {
+			srv.TLSConfig = metricsTLSConfig.ServerConfig(&tls.Config{ //nolint:gosec
+				MinVersion: serveroption.MinTLSVersion,
+			})
+			errChan <- srv.ListenAndServeTLS("", "")
+		} else {
+			errChan <- srv.ListenAndServe()
+		}
 	}()
 
 }
@@ -123,7 +133,7 @@ func initPodDeletionHandler() {
 }
 
 // initMetrics initializes the metrics system
-func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) (<-chan error, error) {
+func initMetrics(address string, metricsTLSConfig *certloader.WatchedServerConfig, enabled api.Map, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) (<-chan error, error) {
 	e, err := initMetricHandlers(enabled)
 	if err != nil {
 		return nil, err
@@ -137,7 +147,7 @@ func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.S
 
 	errChan := make(chan error, 1)
 
-	initMetricsServer(address, enableOpenMetrics, errChan)
+	initMetricsServer(address, metricsTLSConfig, enableOpenMetrics, errChan)
 	initPodDeletionHandler()
 
 	return errChan, nil
@@ -145,15 +155,15 @@ func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.S
 
 // EnableMetrics starts the metrics server with a given list of metrics. This is the
 // function Cilium uses to configure Hubble metrics in embedded mode.
-func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) error {
-	errChan, err := initMetrics(metricsServer, api.ParseMetricList(m), grpcMetrics, enableOpenMetrics)
+func EnableMetrics(log logrus.FieldLogger, metricsServer string, metricsTLSConfig *certloader.WatchedServerConfig, m []string, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) error {
+	errChan, err := initMetrics(metricsServer, metricsTLSConfig, api.ParseMetricList(m), grpcMetrics, enableOpenMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup metrics: %w", err)
 	}
 	go func() {
 		err := <-errChan
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.WithError(err).Error("Unable to initialize metrics server")
+			log.WithError(err).Error("Unable to initialize Hubble metrics server")
 		}
 	}()
 	return nil

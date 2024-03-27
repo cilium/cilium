@@ -359,6 +359,11 @@ spec:
           mountPath: /var/lib/cilium/bgp
           readOnly: true
         {{- end }}
+        {{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
+        - name: hubble-metrics-tls
+          mountPath: /var/lib/cilium/tls/hubble-metrics
+          readOnly: true
+        {{- end }}
         {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
         - name: hubble-tls
           mountPath: /var/lib/cilium/tls/hubble
@@ -957,6 +962,45 @@ spec:
               - key: {{ .Values.tls.caBundle.key }}
                 path: client-ca.crt
           {{- end }}
+      {{- end }}
+      {{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
+      - name: hubble-metrics-tls
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: hubble-metrics-server-certs
+              optional: true
+              items:
+              - key: tls.crt
+                path: server.crt
+              - key: tls.key
+                path: server.key
+          {{- if .Values.hubble.metrics.tls.server.mtls.enabled }}
+          {{- if .Values.hubble.metrics.tls.server.mtls.name }}
+          {{/* Use the client CA specified by the user if they configured one */}}
+          - {{ .Values.hubble.metrics.tls.server.mtls.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.hubble.metrics.tls.server.mtls.name }}
+              optional: false
+              items:
+              - key: {{ .Values.hubble.metrics.tls.server.mtls.key }}
+                path: client-ca.crt
+          {{/* If the CA bundle isn't configured use the server CA as the client CA */}}
+          {{- else if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: client-ca.crt
+          {{/* Fall back to the caBundle CA if it's been configured */}}
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: client-ca.crt
+          {{- end }}
+          {{- end }}
+
       {{- end }}
       {{- if .Values.hubble.export.dynamic.enabled }}
       - name: hubble-flowlog-config

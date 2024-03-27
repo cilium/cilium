@@ -30,6 +30,14 @@ spec:
     interval: {{ .Values.hubble.metrics.serviceMonitor.interval | quote }}
     honorLabels: true
     path: /metrics
+    {{- if .Values.hubble.metrics.tls.enabled }}
+    {{- $cn := list (.Values.cluster.name | replace "." "-") "hubble-metrics.cilium.io" | join "." }}
+    {{- $tlsConfig := merge .Values.hubble.metrics.serviceMonitor.tlsConfig (dict "serverName" $cn) }}
+    tlsConfig: {{ $tlsConfig | toYaml | nindent 6 }}
+    scheme: https
+    {{- else }}
+    scheme: http
+    {{- end }}
     {{- with .Values.hubble.metrics.serviceMonitor.relabelings }}
     relabelings:
     {{- toYaml . | nindent 4 }}
