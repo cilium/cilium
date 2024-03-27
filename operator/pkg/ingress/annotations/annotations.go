@@ -17,6 +17,7 @@ import (
 
 const (
 	LBModeAnnotation           = annotation.IngressPrefix + "/loadbalancer-mode"
+	LBClassAnnotation          = annotation.IngressPrefix + "/loadbalancer-class"
 	ServiceTypeAnnotation      = annotation.IngressPrefix + "/service-type"
 	InsecureNodePortAnnotation = annotation.IngressPrefix + "/insecure-node-port"
 	SecureNodePortAnnotation   = annotation.IngressPrefix + "/secure-node-port"
@@ -51,6 +52,16 @@ const (
 func GetAnnotationIngressLoadbalancerMode(ingress *networkingv1.Ingress) string {
 	value, _ := annotation.Get(ingress, LBModeAnnotation, LBModeAnnotationAlias)
 	return value
+}
+
+// GetAnnotationLoadBalancerClass returns the loadbalancer class from the ingress if possible.
+// Defaults to nil
+func GetAnnotationLoadBalancerClass(ingress *networkingv1.Ingress) *string {
+	val, exists := annotation.Get(ingress, LBClassAnnotation)
+	if !exists {
+		return nil
+	}
+	return &val
 }
 
 // GetAnnotationServiceType returns the service type for the ingress if possible.

@@ -493,6 +493,60 @@ func TestGetAnnotationEnforceHTTPSEnabled(t *testing.T) {
 	}
 }
 
+func TestGetAnnotationLoadBalancerClass(t *testing.T) {
+	type args struct {
+		ingress *networkingv1.Ingress
+	}
+	tests := []struct {
+		name string
+		args args
+		want *string
+	}{
+		{
+			name: "no load balancer class annotation",
+			args: args{
+				ingress: &networkingv1.Ingress{},
+			},
+			want: nil,
+		},
+		{
+			name: "load balancer class annotation present",
+			args: args{
+				ingress: &networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"ingress.cilium.io/loadbalancer-class": "foo",
+						},
+					},
+				},
+			},
+			want: stringp("foo"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetAnnotationLoadBalancerClass(tt.args.ingress)
+			if !isStringpEqual(got, tt.want) {
+				t.Errorf("GetAnnotationLoadBalancerClass() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func uint32p(u uint32) *uint32 {
 	return &u
+}
+
+func stringp(s string) *string {
+	return &s
+}
+
+func isStringpEqual(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }

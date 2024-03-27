@@ -269,6 +269,13 @@ func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress
 
 	r.propagateIngressAnnotationsAndLabels(ingress, &svc.ObjectMeta)
 
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		lbClass := annotations.GetAnnotationLoadBalancerClass(ingress)
+		if lbClass != nil {
+			svc.Spec.LoadBalancerClass = lbClass
+		}
+	}
+
 	// Explicitly set the controlling OwnerReference on the CiliumEnvoyConfig
 	if err := controllerutil.SetControllerReference(ingress, cec, r.client.Scheme()); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to set controller reference on CiliumEnvoyConfig: %w", err)
