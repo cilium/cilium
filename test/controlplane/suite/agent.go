@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 type agentHandle struct {
@@ -74,6 +75,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		statedb.Cell,
 		job.Cell,
 		metrics.Cell,
+		reconciler.Cell,
 		store.Cell,
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon], dp *fakeTypes.FakeDatapath) {

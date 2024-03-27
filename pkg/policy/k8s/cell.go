@@ -6,7 +6,6 @@ package k8s
 import (
 	"context"
 
-	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -80,11 +79,7 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 		return // skip watcher if K8s is not enabled
 	}
 
-	// We want to subscribe before the start hook is invoked in order to not miss
-	// any events
 	ctx, cancel := context.WithCancel(context.Background())
-	svcCacheNotifications := stream.ToChannel(ctx, p.ServiceCache.Notifications(),
-		stream.WithBufferSize(int(p.Config.K8sServiceCacheSize)))
 
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {
@@ -99,7 +94,6 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				k8sResourceSynced:                p.K8sResourceSynced,
 				k8sAPIGroups:                     p.K8sAPIGroups,
 				svcCache:                         p.ServiceCache,
-				svcCacheNotifications:            svcCacheNotifications,
 				policyManager:                    policyManager,
 				CiliumNetworkPolicies:            p.CiliumNetworkPolicies,
 				CiliumClusterwideNetworkPolicies: p.CiliumClusterwideNetworkPolicies,

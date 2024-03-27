@@ -125,6 +125,7 @@ func BenchmarkUpsertBackend(b *testing.B) {
 		beAddr1 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(i), loadbalancer.ScopeExternal)
 		p.Services.UpsertBackends(
 			wtxn,
+			"test",
 			name,
 			BackendParams{
 				L3n4Addr: beAddr1,
@@ -202,6 +203,7 @@ func BenchmarkControlPlane(b *testing.B) {
 			addrCluster2, _ := types.AddrClusterFromIP(addr2[:])
 			p.Services.UpsertBackends(
 				wtxn,
+				name.Name,
 				name,
 				BackendParams{
 					L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, 12345, loadbalancer.ScopeExternal),

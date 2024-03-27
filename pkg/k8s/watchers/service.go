@@ -16,8 +16,9 @@ import (
 )
 
 func (k *K8sWatcher) servicesInit() {
-	var synced atomic.Bool
 	swgSvcs := lock.NewStoppableWaitGroup()
+	var synced atomic.Bool
+	synced.Store(true)
 
 	k.blockWaitGroupToSyncResources(
 		k.stop,
@@ -25,9 +26,22 @@ func (k *K8sWatcher) servicesInit() {
 		func() bool { return synced.Load() },
 		resources.K8sAPIGroupServiceV1Core,
 	)
-	go k.serviceEventLoop(&synced, swgSvcs)
-
 	k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupServiceV1Core)
+
+	/*
+		var synced atomic.Bool
+		swgSvcs := lock.NewStoppableWaitGroup()
+
+		k.blockWaitGroupToSyncResources(
+			k.stop,
+			swgSvcs,
+			func() bool { return synced.Load() },
+			resources.K8sAPIGroupServiceV1Core,
+		)
+		go k.serviceEventLoop(&synced, swgSvcs)
+
+		k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupServiceV1Core)
+	*/
 }
 
 func (k *K8sWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {

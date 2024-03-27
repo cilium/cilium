@@ -352,7 +352,7 @@ func (n ServiceName) String() string {
 }
 
 func (n ServiceName) Equal(other ServiceName) bool {
-	return n.Namespace == other.Namespace && n.Name == other.Namespace && n.Cluster == other.Cluster
+	return n.Namespace == other.Namespace && n.Name == other.Name && n.Cluster == other.Cluster
 }
 
 func (n ServiceName) Compare(other ServiceName) int {

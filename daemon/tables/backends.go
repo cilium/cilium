@@ -13,7 +13,13 @@ import (
 type BackendParams struct {
 	loadbalancer.L3n4Addr
 
-	Source        source.Source
+	// TODO this is the name of the EndpointSlice. This is used to clean up
+	// backends removed from an EndpointSlice. Need to rethink the naming for
+	// the fields though. Perhaps just have one string field?
+	// FIXME how to deal with backends that are owned by many?
+	Owner  string
+	Source source.Source
+
 	NodeName      string
 	PortName      string
 	Weight        uint16
@@ -25,6 +31,18 @@ type Backend struct {
 	BackendParams
 
 	ReferencedBy container.ImmSet[loadbalancer.ServiceName]
+}
+
+func (be *Backend) ToLoadBalancerBackend() *loadbalancer.Backend {
+	return &loadbalancer.Backend{
+		FEPortName: be.PortName,
+		ID:         0,
+		Weight:     be.Weight,
+		NodeName:   be.NodeName,
+		L3n4Addr:   be.L3n4Addr,
+		State:      be.State,
+		Preferred:  false, // TODO Preferred unused?
+	}
 }
 
 func (be *Backend) removeRef(name loadbalancer.ServiceName) (*Backend, bool) {
@@ -64,6 +82,15 @@ var (
 		FromKey: index.Stringer[loadbalancer.ServiceName],
 		Unique:  false,
 	}
+
+	BackendOwnerIndex = statedb.Index[*Backend, string]{
+		Name: "owner",
+		FromObject: func(obj *Backend) index.KeySet {
+			return index.NewKeySet(index.String(obj.Owner))
+		},
+		FromKey: index.String,
+		Unique:  false,
+	}
 )
 
 func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
@@ -71,6 +98,7 @@ func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
 		BackendsTableName,
 		BackendAddrIndex,
 		BackendServiceIndex,
+		BackendOwnerIndex,
 	)
 	if err != nil {
 		return nil, err

@@ -9,6 +9,7 @@ import (
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/daemon/controllers"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/daemon/tables"
@@ -245,6 +246,9 @@ var (
 
 		// Control-plane tables
 		tables.Cell,
+
+		// Table[Service] -> ServiceManager
+		controllers.ServiceControllerCell,
 	)
 )
 

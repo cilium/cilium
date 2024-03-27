@@ -2,6 +2,7 @@ package tables
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -18,8 +19,7 @@ import (
 type ServiceParams struct {
 	L3n4Addr loadbalancer.L3n4Addr
 	Type     loadbalancer.SVCType
-	PortName string
-	NodePort uint16
+	PortName loadbalancer.FEPortName
 	Labels   labels.Labels
 	Source   source.Source
 
@@ -189,6 +189,7 @@ func (s *Services) UpsertService(txn ServiceWriteTxn, name loadbalancer.ServiceN
 	if found {
 		// Do not allow services with same address but different names to override each other.
 		if !existing.Name.Equal(name) {
+			fmt.Printf(">>> conflict: %q vs %q\n", existing.Name, name)
 			return ErrServiceConflict
 		}
 
@@ -251,16 +252,17 @@ func (s *Services) DeleteServicesBySource(txn ServiceWriteTxn, source source.Sou
 	return nil
 }
 
-func (s *Services) UpsertBackends(txn ServiceWriteTxn, name loadbalancer.ServiceName, bes ...BackendParams) error {
+func (s *Services) UpsertBackends(txn ServiceWriteTxn, owner string, serviceName loadbalancer.ServiceName, bes ...BackendParams) error {
 	// TODO: Do we want the ability to do a "sub-transaction" that can be aborted? Here we may do partial
 	// updates and return an error and are assuming the caller will abort the transaction, but not sure if
 	// that's a safe design.
+	//
 
-	if err := s.updateBackends(txn, name, bes); err != nil {
+	if err := s.updateBackends(txn, owner, serviceName, bes); err != nil {
 		return err
 	}
 
-	iter, _ := s.svcs.Get(txn, ServiceNameIndex.Query(name))
+	iter, _ := s.svcs.Get(txn, ServiceNameIndex.Query(serviceName))
 	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
 		svc = svc.Clone()
 		svc.BPFStatus = reconciler.StatusPending()
@@ -281,28 +283,46 @@ func newServiceNameSet(names ...loadbalancer.ServiceName) container.ImmSet[loadb
 	)
 }
 
-func (s *Services) updateBackends(txn ServiceWriteTxn, name loadbalancer.ServiceName, bes []BackendParams) error {
+func (s *Services) updateBackends(txn ServiceWriteTxn, owner string, serviceName loadbalancer.ServiceName, bes []BackendParams) error {
+	// Find all owned backends
+	iter, _ := s.bes.Get(txn, BackendOwnerIndex.Query(owner))
+	owned := map[loadbalancer.L3n4Addr]*Backend{}
+	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
+		owned[be.L3n4Addr] = be
+	}
+
+	// TODO: validate first, and only then insert.
 	for _, bep := range bes {
 		var be Backend
 
-		if old, _, ok := s.bes.First(txn, BackendAddrIndex.Query(bep.L3n4Addr)); ok {
-			if old.Source != be.Source {
+		if old, ok := owned[bep.L3n4Addr]; ok {
+			if old.Source != bep.Source {
 				// FIXME likely want to be able to have many sources for
-				// a backend?
+				// a backend? How to merge e.g. State?
 				return ErrServiceSourceMismatch
 			}
 			be = *old
 			// FIXME how to merge the other fields?
-			be.ReferencedBy = be.ReferencedBy.Insert(name)
+			be.ReferencedBy = be.ReferencedBy.Insert(serviceName)
+
+			// Drop it from owned so we'll only have the orphan backends left.
+			delete(owned, bep.L3n4Addr)
 		} else {
-			be.ReferencedBy = newServiceNameSet(name)
+			be.ReferencedBy = newServiceNameSet(serviceName)
 		}
+		bep.Owner = owner // FIXME
 		be.BackendParams = bep
 
 		if _, _, err := s.bes.Insert(txn, &be); err != nil {
 			return err
 		}
 	}
+
+	// Remove orphans
+	for _, be := range owned {
+		s.bes.Delete(txn, be)
+	}
+
 	return nil
 }
 

@@ -555,6 +555,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		})
 
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
+			/* FIXME
 			clusterInfo := cmtypes.ClusterInfo{
 				ID:   option.Config.ClusterID,
 				Name: option.Config.ClusterName,
@@ -567,7 +568,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				SharedOnly:   true,
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
-			})
+			})*/
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd

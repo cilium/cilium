@@ -33,6 +33,7 @@ func (p *PolicyWatcher) isSelectableService(svc *k8s.Service) bool {
 	return p.config.EnableHighScaleIPcache || svc.IsExternal()
 }
 
+/* FIXME
 // onServiceEvent processes a ServiceNotification and (if necessary)
 // recalculates all policies affected by this change.
 func (p *PolicyWatcher) onServiceEvent(event k8s.ServiceNotification) {
@@ -43,7 +44,7 @@ func (p *PolicyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 			logfields.ServiceID: event.ID,
 		}).Warning("Failed to recalculate CiliumNetworkPolicy rules after service event")
 	}
-}
+}*/
 
 // updateToServicesPolicies is to be invoked when a service has changed (i.e. it was
 // added, removed, its endpoints have changed, or its labels have changed).

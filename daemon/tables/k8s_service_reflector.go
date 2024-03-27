@@ -2,14 +2,18 @@ package tables
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -21,28 +25,130 @@ import (
 
 var K8sReflectorCell = cell.Invoke(registerK8sReflector)
 
-func registerK8sReflector(lc cell.Lifecycle, c client.Clientset, s *Services) error {
-	if !c.IsEnabled() {
+type reflectorParams struct {
+	cell.In
+
+	Scope             cell.Scope
+	Lifecycle         cell.Lifecycle
+	Jobs              job.Registry
+	ServicesResource  resource.Resource[*slim_corev1.Service]
+	EndpointsResource resource.Resource[*k8s.Endpoints]
+	Services          *Services
+}
+
+func registerK8sReflector(p reflectorParams) error {
+	if p.ServicesResource == nil {
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-	lc.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			startK8sReflector(ctx, c, s, &wg)
-			return nil
-		},
-		OnStop: func(cell.HookContext) error {
-			cancel()
-			wg.Wait()
-			return nil
-		},
-	})
+	g := p.Jobs.NewGroup(p.Scope)
+	g.Add(job.OneShot("reflector", func(ctx context.Context, health cell.HealthReporter) error {
+		runResourceReflector(ctx, p.ServicesResource, p.EndpointsResource, p.Services)
+		return nil
+	}))
+	p.Lifecycle.Append(g)
 	return nil
 }
 
-func startK8sReflector(ctx context.Context, c client.Clientset, s *Services, wg *sync.WaitGroup) {
+func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_corev1.Service], epR resource.Resource[*k8s.Endpoints], svcs *Services) {
+	svcEvents := svcR.Events(ctx)
+	epEvents := epR.Events(ctx)
+
+	for svcEvents != nil || epEvents != nil {
+		select {
+		case ev, ok := <-svcEvents:
+			if !ok {
+				svcEvents = nil
+				continue
+			}
+			txn := svcs.WriteTxn()
+			obj := ev.Object
+			switch ev.Kind {
+			case resource.Sync:
+				// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
+				// with each table in StateDB and increment that prior to start and then decrement when done.
+				// The generic reconciler would not perform pruning if it's not ready.
+				// (perhaps could be configurable to also avoid Update/Delete)
+				ev.Done(nil)
+			case resource.Upsert:
+				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+				var err error
+				for _, svc := range toServiceParams(obj) {
+					err = svcs.UpsertService(txn, name, svc)
+					if err != nil {
+						// TODO: how to resolve conflicts when the same service or frontend address
+						// is added from different sources? do we retry, give up or update Service.Status?
+						// Or should *Service be designed to allow overlaps by merging them ("shadowed services")?
+						fmt.Printf("error with name %s, %#v: %s\n", name, svc, err)
+						break
+					}
+				}
+				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
+			case resource.Delete:
+				svcs.DeleteServicesByName(txn, loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}, source.Kubernetes)
+			}
+			txn.Commit()
+
+		case ev, ok := <-epEvents:
+			if !ok {
+				epEvents = nil
+				continue
+			}
+
+			txn := svcs.WriteTxn()
+			obj := ev.Object
+			switch ev.Kind {
+			case resource.Sync:
+				// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
+				// with each table in StateDB and increment that prior to start and then decrement when done.
+				// The generic reconciler would not perform pruning if it's not ready.
+				// (perhaps could be configurable to also avoid Update/Delete)
+				ev.Done(nil)
+			case resource.Upsert:
+				name, backends := endpointsToBackendParams(obj)
+				fmt.Printf("endpoint slice updated for %q: %v\n", name, backends)
+
+				err := svcs.UpsertBackends(
+					txn,
+					obj.EndpointSliceName,
+					name,
+					backends...)
+
+				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
+			case resource.Delete:
+				// FIXME delete by owner. Or should we keep the state here to figure out which backends are
+				// gone when the endpoint slice changes? The "owner" ("EndpointSliceName") notion doesn't really
+				// translate to e.g. REST API.
+				name, backends := endpointsToBackendParams(obj)
+				var err error
+				for _, p := range backends {
+					err := svcs.DeleteBackend(
+						txn,
+						name,
+						p.L3n4Addr,
+					)
+					if err != nil {
+						break
+					}
+				}
+				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
+			}
+			txn.Commit()
+
+		}
+	}
+
+}
+
+// startK8sReflector_EventObservable reflects services and endpoints from api-server into the service and backend
+// tables without the intermediate cache.Store by directly hooking into the stream of events from client-go's
+// Reflector.
+//
+// This is the end-goal as it's more resource efficient, but for now we have many uses of Resource[*Service] and
+// Resource[*Endpoints], so this will have to wait.
+//
+// Still TBD here is to batch things up in order to commit multiple objects in one go.
+func startK8sReflector_EventObservable(ctx context.Context, c client.Clientset, s *Services, wg *sync.WaitGroup) {
 	// TODO consider doing a typed version of K8sEventObservable that also emits stuff
 	// in batches, so that things like this are easier to do.
 	services := reflector.K8sEventObservable(utils.ListerWatcherFromTyped(c.Slim().CoreV1().Services("")))
@@ -68,7 +174,8 @@ func startK8sReflector(ctx context.Context, c client.Clientset, s *Services, wg 
 						// TODO: how to resolve conflicts when the same service or frontend address
 						// is added from different sources? do we retry, give up or update Service.Status?
 						// Or should *Service be designed to allow overlaps by merging them ("shadowed services")?
-						panic(err)
+						fmt.Printf("error with name %s, %#v: %s\n", name, svc, err)
+						//panic(err)
 					}
 				}
 			case reflector.CacheStoreDelete:
@@ -87,7 +194,8 @@ func startK8sReflector(ctx context.Context, c client.Clientset, s *Services, wg 
 						err := s.UpsertService(txn, name, p)
 						if err != nil {
 							// TODO: how to handle
-							panic(err)
+							fmt.Printf("error with name %s, %#v: %s\n", name, p, err)
+							//panic(err)
 						}
 					}
 				}
@@ -110,15 +218,18 @@ func startK8sReflector(ctx context.Context, c client.Clientset, s *Services, wg 
 				eps := ev.Obj.(*slim_discovery_v1.EndpointSlice)
 
 				name, backends := endpointSliceToBackendParams(eps)
+				fmt.Printf("endpoint slice updated for %q: %v\n", name, backends)
 
 				err := s.UpsertBackends(
 					txn,
+					eps.Namespace+"/"+eps.Name,
 					name,
 					backends...)
 				if err != nil {
 					panic(err)
 				}
 			case reflector.CacheStoreDelete:
+				// FIXME delete by owner
 				eps := ev.Obj.(*slim_discovery_v1.EndpointSlice)
 				name, backends := endpointSliceToBackendParams(eps)
 				for _, p := range backends {
@@ -138,10 +249,12 @@ func startK8sReflector(ctx context.Context, c client.Clientset, s *Services, wg 
 					name, backends := endpointSliceToBackendParams(eps)
 					err := s.UpsertBackends(
 						txn,
+						eps.Namespace+"/"+eps.Name,
 						name,
 						backends...)
 					if err != nil {
-						panic(err)
+						fmt.Printf("error with upsert backend: %s: %s\n", name, err)
+						//panic(err)
 					}
 				}
 			}
@@ -180,29 +293,73 @@ func toServiceParams(svc *slim_corev1.Service) (out []ServiceParams) {
 				continue
 			}
 			params.L3n4Addr.L4Addr = *p
-			params.PortName = port.Name
+			params.PortName = loadbalancer.FEPortName(port.Name)
 			out = append(out, params)
 		}
 	}
 
+	// FIXME
+	zeroV4 := cmtypes.MustParseAddrCluster("0.0.0.0")
+	zeroV6 := cmtypes.MustParseAddrCluster("::")
+
 	// NodePort
 	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort {
-		params.Type = loadbalancer.SVCTypeNodePort
-		for _, port := range svc.Spec.Ports {
-			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			if p == nil {
+		for _, family := range svc.Spec.IPFamilies {
+			switch family {
+			case slim_corev1.IPv4Protocol:
+				params.L3n4Addr.AddrCluster = zeroV4
+			case slim_corev1.IPv6Protocol:
+				params.L3n4Addr.AddrCluster = zeroV6
+			default:
 				continue
 			}
-			params.L3n4Addr.L4Addr = *p
-			params.PortName = port.Name
-			params.NodePort = uint16(port.NodePort)
-			out = append(out, params)
+			params.Type = loadbalancer.SVCTypeNodePort
+			for _, port := range svc.Spec.Ports {
+
+				// FIXME proper zero value ipv4/ipv6
+				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
+				if p == nil {
+					continue
+				}
+				params.L3n4Addr.L4Addr = *p
+
+				params.PortName = loadbalancer.FEPortName(port.Name)
+				out = append(out, params)
+			}
 		}
 	}
 
 	// LoadBalancer
 	// ExternalIP
 
+	return
+}
+
+func endpointsToBackendParams(ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []BackendParams) {
+	name = loadbalancer.ServiceName{
+		Name:      ep.ServiceID.Name,
+		Namespace: ep.ServiceID.Namespace,
+	}
+	for addrCluster, be := range ep.Backends {
+		for portName, l4Addr := range be.Ports {
+			l3n4Addr := loadbalancer.L3n4Addr{addrCluster, *l4Addr, loadbalancer.ScopeExternal}
+			state := loadbalancer.BackendStateActive
+			if be.Terminating {
+				state = loadbalancer.BackendStateTerminating
+			}
+			params := BackendParams{
+				L3n4Addr:      l3n4Addr,
+				Owner:         ep.EndpointSliceName,
+				Source:        source.Kubernetes,
+				NodeName:      be.NodeName,
+				PortName:      portName,
+				Weight:        0,
+				State:         state,
+				HintsForZones: be.HintsForZones,
+			}
+			out = append(out, params)
+		}
+	}
 	return
 }
 

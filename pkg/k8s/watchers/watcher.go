@@ -21,12 +21,9 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/cidr"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -50,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -536,6 +532,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 	return nil
 }
 
+/*
 func (k *K8sWatcher) k8sServiceHandler() {
 	eventHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
@@ -580,6 +577,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 		}
 	}
 }
+
 
 func (k *K8sWatcher) RunK8sServiceHandler() {
 	go k.k8sServiceHandler()
@@ -869,6 +867,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 	}
 	return nil
 }
+*/
 
 // K8sEventProcessed is called to do metrics accounting for each processed
 // Kubernetes event

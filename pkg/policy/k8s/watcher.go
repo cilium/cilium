@@ -27,9 +27,8 @@ type PolicyWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
-	policyManager         PolicyManager
-	svcCache              serviceCache
-	svcCacheNotifications <-chan k8s.ServiceNotification
+	policyManager PolicyManager
+	svcCache      serviceCache
 
 	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
@@ -61,7 +60,6 @@ func (p *PolicyWatcher) watchResources(ctx context.Context) {
 		cnpEvents := p.CiliumNetworkPolicies.Events(ctx)
 		ccnpEvents := p.CiliumClusterwideNetworkPolicies.Events(ctx)
 		cidrGroupEvents := p.CiliumCIDRGroups.Events(ctx)
-		serviceEvents := p.svcCacheNotifications
 
 		for {
 			select {
@@ -175,18 +173,21 @@ func (p *PolicyWatcher) watchResources(ctx context.Context) {
 					err = p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				}
 				event.Done(err)
-			case event, ok := <-serviceEvents:
-				if !ok {
-					serviceEvents = nil
-					break
-				}
 
-				switch event.Action {
-				case k8s.UpdateService, k8s.DeleteService:
-					p.onServiceEvent(event)
-				}
+				/* FIXME synthesize the service events from Table[Service].
+				case event, ok := <-serviceEvents:
+					if !ok {
+						serviceEvents = nil
+						break
+					}
+
+					switch event.Action {
+					case k8s.UpdateService, k8s.DeleteService:
+						p.onServiceEvent(event)
+					}
+				*/
 			}
-			if knpEvents == nil && cnpEvents == nil && ccnpEvents == nil && cidrGroupEvents == nil && serviceEvents == nil {
+			if knpEvents == nil && cnpEvents == nil && ccnpEvents == nil && cidrGroupEvents == nil /*&& serviceEvents == nil*/ {
 				return
 			}
 		}

@@ -571,18 +571,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	debug.RegisterStatusObject("ipam", d.ipam)
 	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
-	d.k8sWatcher.RunK8sServiceHandler()
-
 	if option.Config.DNSPolicyUnloadOnShutdown {
 		log.Debugf("Registering cleanup function to unload DNS policies due to --%s", option.DNSPolicyUnloadOnShutdown)
 
 		// add to pre-cleanup funcs because this needs to run on graceful shutdown, but
 		// before the relevant subystems are being shut down.
 		cleaner.preCleanupFuncs.Add(func() {
-			// Stop k8s watchers
-			log.Info("Stopping k8s service handler")
-			d.k8sWatcher.StopK8sServiceHandler()
-
 			// Iterate over the policy repository and remove L7 DNS part
 			needsPolicyRegen := false
 			removeL7DNSRules := func(pr policyAPI.Ports) error {
