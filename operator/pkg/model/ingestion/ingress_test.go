@@ -1844,6 +1844,9 @@ var sslPassthruTLSListeners = []model.TLSListener{
 		Hostname: "sslpassthru.example.com",
 		Routes: []model.TLSRoute{
 			{
+				Hostnames: []string{
+					"sslpassthru.example.com",
+				},
 				Backends: []model.Backend{
 					{
 						Name:      "dummy-backend",
@@ -1999,6 +2002,9 @@ var sslPassthruTLSListenersNodePort = []model.TLSListener{
 		Hostname: "sslpassthru.example.com",
 		Routes: []model.TLSRoute{
 			{
+				Hostnames: []string{
+					"sslpassthru.example.com",
+				},
 				Backends: []model.Backend{
 					{
 						Name:      "dummy-backend",
@@ -2075,6 +2081,9 @@ var sslPassthruMultiplePathsTLSListeners = []model.TLSListener{
 		Hostname: "sslpassthru.example.com",
 		Routes: []model.TLSRoute{
 			{
+				Hostnames: []string{
+					"sslpassthru.example.com",
+				},
 				Backends: []model.Backend{
 					{
 						Name:      "dummy-backend",
