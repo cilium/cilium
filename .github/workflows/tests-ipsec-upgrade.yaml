@@ -72,7 +72,7 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        config: ['5.4', '5.10', '6.1', 'bpf-next']
+        config: ['5.4', '5.10', '6.1', '5.15', 'bpf-next']
         mode: ['minor', 'patch']
         include:
           # Define three config sets
@@ -92,6 +92,16 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
             endpoint-routes: 'true'
+
+          - config: '5.15'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.15-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-overlay: 'true'
+            endpoint-routes: 'false'
 
           - config: '6.1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -143,6 +153,14 @@ jobs:
           - config: 'bpf-next'
             mode: 'patch'
             name: '8'
+
+          - config: '5.15'
+            mode: 'minor'
+            name: '9'
+
+          - config: '5.15'
+            mode: 'patch'
+            name: '10'
 
     timeout-minutes: 70
     steps:
@@ -231,6 +249,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -251,6 +270,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
