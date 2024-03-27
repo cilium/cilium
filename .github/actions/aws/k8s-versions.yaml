@@ -7,6 +7,8 @@ include:
     region: us-west-2
   - version: "1.26"
     region: us-west-1
+    default: true
   - version: "1.27"
     region: us-east-2
     default: true
+    ipsec: true

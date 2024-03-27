@@ -4,3 +4,4 @@ includeItem:
   version: str()
   region: str()
   default: bool(required=False)
+  ipsec: bool(required=False)
