@@ -127,6 +127,17 @@ const (
 
 	// CECName is the full name of Cilium Envoy Config
 	CECName = CECPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumNodeConfig (CNC)
+
+	// CNCPluralName is the plural name of Cilium Node Config
+	CNCPluralName = "ciliumnodeconfigs"
+
+	// CNCKindDefinition is the kind name of Cilium Node Config
+	CNCKindDefinition = "CiliumNodeConfig"
+
+	// CNCName is the full name of Cilium Node Config
+	CNCName = CNCPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -180,6 +191,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEndpointList{},
 		&CiliumNode{},
 		&CiliumNodeList{},
+		&CiliumNodeConfig{},
+		&CiliumNodeConfigList{},
 		&CiliumExternalWorkload{},
 		&CiliumExternalWorkloadList{},
 		&CiliumIdentity{},
