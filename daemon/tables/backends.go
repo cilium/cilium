@@ -13,12 +13,12 @@ import (
 type BackendParams struct {
 	loadbalancer.L3n4Addr
 
-	Source    source.Source
-	PortName  string
-	NodeName  string
-	Weight    uint16
-	State     loadbalancer.BackendState
-	Preferred loadbalancer.Preferred
+	Source        source.Source
+	NodeName      string
+	PortName      string
+	Weight        uint16
+	State         loadbalancer.BackendState
+	HintsForZones []string
 }
 
 type Backend struct {

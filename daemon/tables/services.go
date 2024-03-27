@@ -18,6 +18,8 @@ import (
 type ServiceParams struct {
 	L3n4Addr loadbalancer.L3n4Addr
 	Type     loadbalancer.SVCType
+	PortName string
+	NodePort uint16
 	Labels   labels.Labels
 	Source   source.Source
 

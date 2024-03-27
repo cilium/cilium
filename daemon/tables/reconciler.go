@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
@@ -34,7 +33,7 @@ func serviceReconcilerConfig(bes statedb.RWTable[*Backend]) reconciler.Config[*S
 
 // backendsState tracks what backends exist and how they're referenced by services.
 type backendsState struct {
-	allocator *service.IDAllocator
+	allocator *IDAllocator
 
 	revisions map[loadbalancer.L3n4Addr]statedb.Revision
 
@@ -113,20 +112,20 @@ type serviceOps struct {
 	backends      statedb.Table[*Backend]
 
 	numBackends map[loadbalancer.L3n4Addr]int
-	allocator   *service.IDAllocator
+	allocator   *IDAllocator
 }
 
 func newServiceOps(bes statedb.Table[*Backend]) *serviceOps {
 	return &serviceOps{
 		backendsState: &backendsState{
-			allocator:  service.NewIDAllocator(service.FirstFreeBackendID, service.MaxSetOfBackendID),
+			allocator:  NewIDAllocator(FirstFreeBackendID, MaxSetOfBackendID),
 			revisions:  map[loadbalancer.L3n4Addr]uint64{},
 			references: map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
 			refCounts:  map[loadbalancer.L3n4Addr]int{},
 		},
 		backends:    bes,
 		numBackends: map[loadbalancer.L3n4Addr]int{},
-		allocator:   service.NewIDAllocator(service.FirstFreeServiceID, service.MaxSetOfServiceID),
+		allocator:   NewIDAllocator(FirstFreeServiceID, MaxSetOfServiceID),
 	}
 }
 
@@ -156,10 +155,6 @@ func sortedBackends(bes []*Backend) []*Backend {
 		case a.State < b.State:
 			return true
 		case a.State > b.State:
-			return false
-		case bool(a.Preferred) && !bool(b.Preferred):
-			return true
-		case !bool(a.Preferred) && bool(b.Preferred):
 			return false
 		default:
 			switch a.L3n4Addr.AddrCluster.Addr().Compare(b.L3n4Addr.AddrCluster.Addr()) {
