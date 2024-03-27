@@ -168,7 +168,11 @@ jobs:
             --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
             --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
             --set=clustermesh.config.enabled=true \
-            --set=extraConfig.clustermesh-ip-identities-sync-timeout=10m"
+            --set=extraConfig.clustermesh-ip-identities-sync-timeout=10m \
+            --set=clustermesh.apiserver.readinessProbe.periodSeconds=1 \
+            --set=clustermesh.apiserver.kvstoremesh.readinessProbe.periodSeconds=1 \
+            --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxSurge=1 `# Use surge update strategy to enable clients to failover` \
+            --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxUnavailable=0"
 
           # Run only a limited subset of tests to reduce the amount of time
           # required. The full suite is run in conformance-clustermesh.
@@ -433,7 +437,7 @@ jobs:
             --conn-disrupt-dispatch-interval 0ms
 
 
-      - name: Upgrade Cilium in cluster1 and enable kvstoremesh
+      - name: Upgrade Cilium in cluster1
         env:
           KVSTORE_ID: 1
         run: |
@@ -441,15 +445,7 @@ jobs:
             ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
-            --set clustermesh.apiserver.kvstoremesh.enabled=true
-
-      - name: Rollout Cilium agents in cluster2
-        if: ${{ !matrix.external-kvstore }}
-        run: |
-          # This makes sure that the remote agents reconnect to the new instance of the
-          # clustermesh-apiserver, without waiting for the watchdog mechanism to kick in.
-          kubectl --context ${{ env.contextName2 }} rollout restart -n kube-system ds/cilium
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -457,6 +453,91 @@ jobs:
           cilium --context ${{ env.contextName2 }} status --wait
           cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
           cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Write the Service manifest for testing failover
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          cat << EOF > echo-failover.yaml
+          apiVersion: v1
+          kind: Service
+          metadata:
+            annotations:
+              service.cilium.io/global: "true"
+            labels:
+              kind: echo
+              context: failover
+            name: echo-other-node-failover
+            namespace: cilium-test
+          spec:
+            ipFamilies:
+            - IPv4
+            - IPv6
+            ipFamilyPolicy: PreferDualStack
+            ports:
+            - name: http
+              port: 80
+              protocol: TCP
+              targetPort: 8080
+            selector:
+              name: echo-other-node
+            sessionAffinity: None
+            type: ClusterIP
+          EOF
+
+      - name: Restart clustermesh-apiserver and ensure client can connect to new Service
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          echo "Restarting clustermesh-apiserver deployments"
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout restart deployment -l k8s-app=clustermesh-apiserver
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout status deployment -l k8s-app=clustermesh-apiserver
+
+          echo "Deploying a global Service to test failover"
+          kubectl --context ${{ env.contextName1 }} apply -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} apply -f echo-failover.yaml
+
+          echo "Testing client connection to global Service"
+          kubectl --context ${{ env.contextName1 }} -n cilium-test exec deploy/client -i -- curl -s -v --connect-timeout 2 --max-time 5 --retry-max-time 60 --retry-all-errors --retry 10 --output /dev/null --fail echo-other-node-failover
+
+          # Clean up the service so that it can be re-deployed in subsequent steps
+          kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
+
+      - name: Enable kvstoremesh on cluster1
+        if: ${{ !matrix.external-kvstore }}
+        env:
+          KVSTORE_ID: 1
+        run: |
+          cilium --context ${{ env.contextName1 }} upgrade --reset-values \
+            ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --set clustermesh.apiserver.kvstoremesh.enabled=true
+
+      - name: Wait for cluster mesh status to be ready
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait
+          cilium --context ${{ env.contextName2 }} status --wait
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Restart clustermesh-apiserver and ensure client can connect to new Service
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          echo "Restarting clustermesh-apiserver deployments"
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout restart deployment -l k8s-app=clustermesh-apiserver
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout status deployment -l k8s-app=clustermesh-apiserver
+
+          echo "Deploying a global Service to test failover"
+          kubectl --context ${{ env.contextName1 }} apply -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} apply -f echo-failover.yaml
+
+          echo "Testing client connection to global Service"
+          kubectl --context ${{ env.contextName1 }} -n cilium-test exec deploy/client -i -- curl -s -v --connect-timeout 2 --max-time 5 --retry-max-time 60 --retry-all-errors --retry 10 --output /dev/null --fail echo-other-node-failover
+
+          # Clean up the service so that it can be re-deployed in subsequent steps
+          kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
 
       - name: Gather additional troubleshooting information
         run: |
@@ -558,13 +639,6 @@ jobs:
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
-
-      - name: Rollout Cilium agents in cluster2
-        if: ${{ !matrix.external-kvstore }}
-        run: |
-          # This makes sure that the remote agents reconnect to the new instance of the
-          # clustermesh-apiserver, without waiting for the watchdog mechanism to kick in.
-          kubectl --context ${{ env.contextName2 }} rollout restart -n kube-system ds/cilium
 
       - name: Wait for cluster mesh status to be ready
         run: |
