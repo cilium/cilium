@@ -500,8 +500,8 @@ func TestGetHostNetworkListenerAddresses(t *testing.T) {
 }
 
 func TestWithHostNetworkPortSorted(t *testing.T) {
-	modifiedEnvoyListener1 := WithHostNetworkPort([]model.Listener{&model.HTTPListener{Port: 80}, &model.HTTPListener{Port: 443}}, true, true)(&envoy_config_listener.Listener{})
-	modifiedEnvoyListener2 := WithHostNetworkPort([]model.Listener{&model.HTTPListener{Port: 443}, &model.HTTPListener{Port: 80}}, true, true)(&envoy_config_listener.Listener{})
+	modifiedEnvoyListener1 := WithHostNetworkPort(&model.Model{HTTP: []model.HTTPListener{{Port: 80}, {Port: 443}}}, true, true)(&envoy_config_listener.Listener{})
+	modifiedEnvoyListener2 := WithHostNetworkPort(&model.Model{HTTP: []model.HTTPListener{{Port: 443}, {Port: 80}}}, true, true)(&envoy_config_listener.Listener{})
 
 	diffOutput := cmp.Diff(modifiedEnvoyListener1, modifiedEnvoyListener2, protocmp.Transform())
 	if len(diffOutput) != 0 {

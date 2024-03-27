@@ -179,7 +179,7 @@ func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 	}
 
 	if i.hostNetworkEnabled {
-		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m.HTTP, i.ipv4Enabled, i.ipv6Enabled))
+		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m, i.ipv4Enabled, i.ipv6Enabled))
 	}
 
 	if i.xffNumTrustedHops > 0 {
