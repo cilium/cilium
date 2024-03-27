@@ -22,6 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var (
+	HostMask = net.IPv4Mask(255, 255, 255, 255)
+)
+
 // getDefaultEncryptionInterface() is needed to find the interface used when
 // populating neighbor table and doing arpRequest. For most configurations
 // there is only a single interface so choosing [0] works by choosing the only
@@ -257,6 +261,36 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 			errs = errors.Join(errs, upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi, nodeID))
 			if err != nil {
 				statesUpdated = false
+			}
+
+			// In Encrypt Overlay mode, outermost header is ESP tunnel.
+			// Packet format : [IP|ESP|IP|VxLAN|<payload>]
+			// ESP tunnel src/dst addresses are underlay IPs of the node (NodeInternalIP).
+			// VxLAN tunnel src/dst addresses are also underlay IPs of the node (NodeInternalIP).
+			if option.Config.EnableIPSecEncryptedOverlay {
+				localUnderlayIP := n.nodeAddressing.IPv4().PrimaryExternal()
+				if localUnderlayIP == nil {
+					return false, errs
+				}
+				remoteUnderlayIP := newNode.GetNodeIP(false)
+				if remoteUnderlayIP == nil {
+					return false, errs
+				}
+
+				localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: HostMask}
+				remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: HostMask}
+
+				spi, err = ipsec.UpsertIPsecEndpoint(localOverlayIPExactMatch, remoteOverlayIPExactMatch, localUnderlayIP, remoteUnderlayIP, nodeID, newNode.BootID, ipsec.IPSecDirOut, false, updateExisting)
+				errs = errors.Join(errs, upsertIPsecLog(err, "overlay out IPv4", localOverlayIPExactMatch, remoteOverlayIPExactMatch, spi, nodeID))
+				if err != nil {
+					statesUpdated = false
+				}
+
+				spi, err = ipsec.UpsertIPsecEndpoint(localOverlayIPExactMatch, remoteOverlayIPExactMatch, localUnderlayIP, remoteUnderlayIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, false, updateExisting)
+				errs = errors.Join(errs, upsertIPsecLog(err, "overlay in IPv4", localOverlayIPExactMatch, remoteOverlayIPExactMatch, spi, nodeID))
+				if err != nil {
+					statesUpdated = false
+				}
 			}
 		}
 	}
