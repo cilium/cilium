@@ -103,6 +103,11 @@ func (m *LRPSpec) contextValidateFrontendMappings(ctx context.Context, formats s
 	for i := 0; i < len(m.FrontendMappings); i++ {
 
 		if m.FrontendMappings[i] != nil {
+
+			if swag.IsZero(m.FrontendMappings[i]) { // not required
+				return nil
+			}
+
 			if err := m.FrontendMappings[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("frontend-mappings" + "." + strconv.Itoa(i))
