@@ -156,17 +156,17 @@ func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSRe
 	if len(m.TLS) == 0 {
 		return nil
 	}
-	backendsMap := make(map[string][]string)
+	ptBackendsToHostnames := make(map[string][]string)
 	for _, h := range m.TLS {
 		for _, route := range h.Routes {
 			for _, backend := range route.Backends {
 				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				backendsMap[key] = append(backendsMap[key], route.Hostnames...)
+				ptBackendsToHostnames[key] = append(ptBackendsToHostnames[key], route.Hostnames...)
 			}
 		}
 	}
 
-	if len(backendsMap) == 0 {
+	if len(ptBackendsToHostnames) == 0 {
 		return nil
 	}
 
@@ -174,7 +174,7 @@ func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSRe
 	if i.useProxyProtocol {
 		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
 	}
-	l, _ := NewSNIListenerWithDefaults("listener", backendsMap, mutatorFuncs...)
+	l, _ := NewSNIListenerWithDefaults("listener", ptBackendsToHostnames, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
