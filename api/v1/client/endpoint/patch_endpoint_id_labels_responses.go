@@ -57,7 +57,7 @@ func (o *PatchEndpointIDLabelsReader) ReadResponse(response runtime.ClientRespon
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[PATCH /endpoint/{id}/labels] PatchEndpointIDLabels", response, response.Code())
 	}
 }
 
@@ -97,6 +97,11 @@ func (o *PatchEndpointIDLabelsOK) IsServerError() bool {
 // IsCode returns true when this patch endpoint Id labels o k response a status code equal to that given
 func (o *PatchEndpointIDLabelsOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the patch endpoint Id labels o k response
+func (o *PatchEndpointIDLabelsOK) Code() int {
+	return 200
 }
 
 func (o *PatchEndpointIDLabelsOK) Error() string {
@@ -150,6 +155,11 @@ func (o *PatchEndpointIDLabelsForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
+// Code gets the status code for the patch endpoint Id labels forbidden response
+func (o *PatchEndpointIDLabelsForbidden) Code() int {
+	return 403
+}
+
 func (o *PatchEndpointIDLabelsForbidden) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsForbidden ", 403)
 }
@@ -199,6 +209,11 @@ func (o *PatchEndpointIDLabelsNotFound) IsServerError() bool {
 // IsCode returns true when this patch endpoint Id labels not found response a status code equal to that given
 func (o *PatchEndpointIDLabelsNotFound) IsCode(code int) bool {
 	return code == 404
+}
+
+// Code gets the status code for the patch endpoint Id labels not found response
+func (o *PatchEndpointIDLabelsNotFound) Code() int {
+	return 404
 }
 
 func (o *PatchEndpointIDLabelsNotFound) Error() string {
@@ -252,6 +267,11 @@ func (o *PatchEndpointIDLabelsTooManyRequests) IsCode(code int) bool {
 	return code == 429
 }
 
+// Code gets the status code for the patch endpoint Id labels too many requests response
+func (o *PatchEndpointIDLabelsTooManyRequests) Code() int {
+	return 429
+}
+
 func (o *PatchEndpointIDLabelsTooManyRequests) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsTooManyRequests ", 429)
 }
@@ -302,6 +322,11 @@ func (o *PatchEndpointIDLabelsUpdateFailed) IsServerError() bool {
 // IsCode returns true when this patch endpoint Id labels update failed response a status code equal to that given
 func (o *PatchEndpointIDLabelsUpdateFailed) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the patch endpoint Id labels update failed response
+func (o *PatchEndpointIDLabelsUpdateFailed) Code() int {
+	return 500
 }
 
 func (o *PatchEndpointIDLabelsUpdateFailed) Error() string {

@@ -39,7 +39,7 @@ func (o *GetPolicyReader) ReadResponse(response runtime.ClientResponse, consumer
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /policy] GetPolicy", response, response.Code())
 	}
 }
 
@@ -80,6 +80,11 @@ func (o *GetPolicyOK) IsServerError() bool {
 // IsCode returns true when this get policy o k response a status code equal to that given
 func (o *GetPolicyOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get policy o k response
+func (o *GetPolicyOK) Code() int {
+	return 200
 }
 
 func (o *GetPolicyOK) Error() string {
@@ -142,6 +147,11 @@ func (o *GetPolicyNotFound) IsServerError() bool {
 // IsCode returns true when this get policy not found response a status code equal to that given
 func (o *GetPolicyNotFound) IsCode(code int) bool {
 	return code == 404
+}
+
+// Code gets the status code for the get policy not found response
+func (o *GetPolicyNotFound) Code() int {
+	return 404
 }
 
 func (o *GetPolicyNotFound) Error() string {
