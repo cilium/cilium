@@ -62,15 +62,13 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 	for _, m := range resp.Payload.Modules {
 		tally[cell.Level(m.Level)] += 1
 	}
-	fmt.Fprintf(w, "\t%s(%d) %s(%d) %s(%d) %s(%d)\n",
+	fmt.Fprintf(w, "\t%s(%d) %s(%d) %s(%d)\n",
 		cell.StatusStopped,
 		tally[cell.StatusStopped],
 		cell.StatusDegraded,
 		tally[cell.StatusDegraded],
 		cell.StatusOK,
 		tally[cell.StatusOK],
-		cell.StatusUnknown,
-		tally[cell.StatusUnknown],
 	)
 }
 
