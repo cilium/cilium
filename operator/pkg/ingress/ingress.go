@@ -40,9 +40,8 @@ type ingressReconciler struct {
 	defaultSecretName       string
 	enforcedHTTPS           bool
 
-	hostNetworkEnabled                  bool
-	hostNetworkSharedHTTPPort           uint32
-	hostNetworkSharedTLSPassthroughPort uint32
+	hostNetworkEnabled    bool
+	hostNetworkSharedPort uint32
 
 	cecTranslator       translation.CECTranslator
 	dedicatedTranslator translation.Translator
@@ -61,8 +60,7 @@ func newIngressReconciler(
 	defaultSecretName string,
 	enforcedHTTPS bool,
 	hostNetworkEnabled bool,
-	hostNetworkSharedHTTPPort uint32,
-	hostNetworkSharedTLSPassthroughPort uint32,
+	hostNetworkSharedPort uint32,
 ) *ingressReconciler {
 	return &ingressReconciler{
 		logger: logger,
@@ -79,9 +77,8 @@ func newIngressReconciler(
 		defaultSecretName:       defaultSecretName,
 		enforcedHTTPS:           enforcedHTTPS,
 
-		hostNetworkEnabled:                  hostNetworkEnabled,
-		hostNetworkSharedHTTPPort:           hostNetworkSharedHTTPPort,
-		hostNetworkSharedTLSPassthroughPort: hostNetworkSharedTLSPassthroughPort,
+		hostNetworkEnabled:    hostNetworkEnabled,
+		hostNetworkSharedPort: hostNetworkSharedPort,
 	}
 }
 

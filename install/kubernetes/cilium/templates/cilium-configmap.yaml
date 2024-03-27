@@ -269,8 +269,7 @@ data:
   ingress-default-secret-name: {{ .Values.ingressController.defaultSecretName | quote }}
   {{- end }}
   ingress-hostnetwork-enabled: {{ .Values.ingressController.hostNetwork.enabled | quote }}
-  ingress-hostnetwork-shared-http-port: {{ .Values.ingressController.hostNetwork.sharedHTTPPort | quote }}
-  ingress-hostnetwork-shared-tlspassthrough-port: {{ .Values.ingressController.hostNetwork.sharedTLSPassthroughPort | quote }}
+  ingress-hostnetwork-shared-listener-port: {{ .Values.ingressController.hostNetwork.sharedListenerPort | quote }}
   ingress-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.ingressController.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 

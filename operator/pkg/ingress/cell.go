@@ -36,32 +36,30 @@ var Cell = cell.Module(
 		IngressSharedLBServiceName:  "cilium-ingress",
 		IngressDefaultLBMode:        "dedicated",
 
-		IngressHostnetworkEnabled:                  false,
-		IngressHostnetworkSharedHTTPPort:           0,
-		IngressHostnetworkSharedTLSPassthroughPort: 0,
-		IngressHostnetworkNodelabelselector:        "",
+		IngressHostnetworkEnabled:            false,
+		IngressHostnetworkSharedListenerPort: 0,
+		IngressHostnetworkNodelabelselector:  "",
 	}),
 	cell.Invoke(registerReconciler),
 	cell.Provide(registerSecretSync),
 )
 
 type ingressConfig struct {
-	KubeProxyReplacement                       string
-	EnableNodePort                             bool
-	EnableIngressController                    bool
-	EnforceIngressHTTPS                        bool
-	EnableIngressProxyProtocol                 bool
-	EnableIngressSecretsSync                   bool
-	IngressSecretsNamespace                    string
-	IngressLBAnnotationPrefixes                []string
-	IngressSharedLBServiceName                 string
-	IngressDefaultLBMode                       string
-	IngressDefaultSecretNamespace              string
-	IngressDefaultSecretName                   string
-	IngressHostnetworkEnabled                  bool
-	IngressHostnetworkSharedHTTPPort           uint32
-	IngressHostnetworkSharedTLSPassthroughPort uint32
-	IngressHostnetworkNodelabelselector        string
+	KubeProxyReplacement                 string
+	EnableNodePort                       bool
+	EnableIngressController              bool
+	EnforceIngressHTTPS                  bool
+	EnableIngressProxyProtocol           bool
+	EnableIngressSecretsSync             bool
+	IngressSecretsNamespace              string
+	IngressLBAnnotationPrefixes          []string
+	IngressSharedLBServiceName           string
+	IngressDefaultLBMode                 string
+	IngressDefaultSecretNamespace        string
+	IngressDefaultSecretName             string
+	IngressHostnetworkEnabled            bool
+	IngressHostnetworkSharedListenerPort uint32
+	IngressHostnetworkNodelabelselector  string
 }
 
 func (r ingressConfig) Flags(flags *pflag.FlagSet) {
@@ -78,8 +76,7 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("ingress-default-secret-namespace", r.IngressDefaultSecretNamespace, "Default secret namespace for Ingress.")
 	flags.String("ingress-default-secret-name", r.IngressDefaultSecretName, "Default secret name for Ingress.")
 	flags.Bool("ingress-hostnetwork-enabled", r.IngressHostnetworkEnabled, "Exposes ingress listeners on the host network.")
-	flags.Uint32("ingress-hostnetwork-shared-http-port", r.IngressHostnetworkSharedHTTPPort, "Port on the host network that gets used for the shared HTTP listener (HTTP & HTTPS)")
-	flags.Uint32("ingress-hostnetwork-shared-tlspassthrough-port", r.IngressHostnetworkSharedTLSPassthroughPort, "Port on the host network that gets used for the shared TLS passthrough listener")
+	flags.Uint32("ingress-hostnetwork-shared-listener-port", r.IngressHostnetworkSharedListenerPort, "Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)")
 	flags.String("ingress-hostnetwork-nodelabelselector", r.IngressHostnetworkNodelabelselector, "Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
 }
 
@@ -134,8 +131,7 @@ func registerReconciler(params ingressParams) error {
 		params.IngressConfig.EnforceIngressHTTPS,
 
 		params.IngressConfig.IngressHostnetworkEnabled,
-		params.IngressConfig.IngressHostnetworkSharedHTTPPort,
-		params.IngressConfig.IngressHostnetworkSharedTLSPassthroughPort,
+		params.IngressConfig.IngressHostnetworkSharedListenerPort,
 	)
 
 	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {

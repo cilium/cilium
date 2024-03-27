@@ -184,7 +184,7 @@ func TestGetAnnotationInsecureNodePort(t *testing.T) {
 	}
 }
 
-func TestGetAnnotationTLSHostPort(t *testing.T) {
+func TestGetAnnotationHostListenerPort(t *testing.T) {
 	type args struct {
 		ingress *networkingv1.Ingress
 	}
@@ -195,19 +195,19 @@ func TestGetAnnotationTLSHostPort(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "no TLS host port annotation",
+			name: "no host listener port annotation",
 			args: args{
 				ingress: &networkingv1.Ingress{},
 			},
 			want: nil,
 		},
 		{
-			name: "TLS host port annotation with valid value",
+			name: "host listener port annotation with valid value",
 			args: args{
 				ingress: &networkingv1.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"ingress.cilium.io/tls-passthrough-host-port": "1000",
+							"ingress.cilium.io/host-listener-port": "1000",
 						},
 					},
 				},
@@ -215,12 +215,12 @@ func TestGetAnnotationTLSHostPort(t *testing.T) {
 			want: uint32p(1000),
 		},
 		{
-			name: "TLS host port annotation with invalid non-numeric value",
+			name: "host listener port annotation with invalid non-numeric value",
 			args: args{
 				ingress: &networkingv1.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"ingress.cilium.io/tls-passthrough-host-port": "invalid-numeric-value",
+							"ingress.cilium.io/host-listener-port": "invalid-numeric-value",
 						},
 					},
 				},
@@ -232,73 +232,13 @@ func TestGetAnnotationTLSHostPort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetAnnotationTLSHostPort(tt.args.ingress)
+			got, err := GetAnnotationHostListenerPort(tt.args.ingress)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetAnnotationTLSHostPort() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetAnnotationHostListenerPort() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationTLSHostPort() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetAnnotationHTTPHostPort(t *testing.T) {
-	type args struct {
-		ingress *networkingv1.Ingress
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *uint32
-		wantErr bool
-	}{
-		{
-			name: "no HTTP host port annotation",
-			args: args{
-				ingress: &networkingv1.Ingress{},
-			},
-			want: nil,
-		},
-		{
-			name: "HTTP host port annotation with valid value",
-			args: args{
-				ingress: &networkingv1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"ingress.cilium.io/http-host-port": "1000",
-						},
-					},
-				},
-			},
-			want: uint32p(1000),
-		},
-		{
-			name: "HTTP host port annotation with invalid non-numeric value",
-			args: args{
-				ingress: &networkingv1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"ingress.cilium.io/http-host-port": "invalid-numeric-value",
-						},
-					},
-				},
-			},
-			want:    nil,
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetAnnotationHTTPHostPort(tt.args.ingress)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetAnnotationHTTPHostPort() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationHTTPHostPort() got = %v, want %v", got, tt.want)
+				t.Errorf("GetAnnotationHostListenerPort() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

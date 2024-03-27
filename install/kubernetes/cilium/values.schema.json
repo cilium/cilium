@@ -3423,10 +3423,7 @@
               },
               "type": "object"
             },
-            "sharedHTTPPort": {
-              "type": "integer"
-            },
-            "sharedTLSPassthroughPort": {
+            "sharedListenerPort": {
               "type": "integer"
             }
           },
