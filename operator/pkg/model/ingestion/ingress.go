@@ -276,7 +276,11 @@ func IngressPassthrough(ing networkingv1.Ingress, defaultSecretNamespace, defaul
 				continue
 			}
 
-			route := model.TLSRoute{}
+			route := model.TLSRoute{
+				Hostnames: []string{
+					host,
+				},
+			}
 
 			backend := model.Backend{
 				Name:      path.Backend.Service.Name,
