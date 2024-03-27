@@ -124,6 +124,11 @@ func (m *L4Policy) contextValidateEgress(ctx context.Context, formats strfmt.Reg
 	for i := 0; i < len(m.Egress); i++ {
 
 		if m.Egress[i] != nil {
+
+			if swag.IsZero(m.Egress[i]) { // not required
+				return nil
+			}
+
 			if err := m.Egress[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
@@ -144,6 +149,11 @@ func (m *L4Policy) contextValidateIngress(ctx context.Context, formats strfmt.Re
 	for i := 0; i < len(m.Ingress); i++ {
 
 		if m.Ingress[i] != nil {
+
+			if swag.IsZero(m.Ingress[i]) { // not required
+				return nil
+			}
+
 			if err := m.Ingress[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))

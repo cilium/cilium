@@ -99,6 +99,11 @@ func (m *WireguardInterface) contextValidatePeers(ctx context.Context, formats s
 	for i := 0; i < len(m.Peers); i++ {
 
 		if m.Peers[i] != nil {
+
+			if swag.IsZero(m.Peers[i]) { // not required
+				return nil
+			}
+
 			if err := m.Peers[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("peers" + "." + strconv.Itoa(i))
