@@ -1175,13 +1175,15 @@ hubble:
       # false, the certs for Hubble server need to be provided by setting
       # appropriate values below.
       enabled: true
-      # -- Set the method to auto-generate certificates. Supported values:
+      # -- Sets the method to auto-generate certificates. Supported values:
+      # - cronJob:      This method uses a Kubernetes CronJob to generate any
+      #                 certificates not provided by the user at
+      #                 installation time.
+      # - certmanager:  This method uses cert-manager to generate & rotate
+      #                 certificates.
       # - helm:         This method uses Helm to generate all certificates.
-      # - cronJob:      This method uses a Kubernetes CronJob the generate any
-      #                 certificates not provided by the user at installation
-      #                 time.
-      # - certmanager:  This method use cert-manager to generate & rotate certificates.
-      method: helm
+      #                 Deprecated and will be removed in Cilium v1.16.
+      method: cronJob
       # -- Generated certificates validity duration in days.
       certValidityDuration: 1095
       # -- Schedule for certificates regeneration (regardless of their expiration date).
@@ -3054,21 +3056,22 @@ clustermesh:
       #               CA is shared across all clusters part of the mesh.
       authMode: legacy
       # -- Configure automatic TLS certificates generation.
-      # A Kubernetes CronJob is used the generate any
-      # certificates not provided by the user at installation
-      # time.
+      # A Kubernetes CronJob is used to generate any certificates not provided
+      # by the user at installation time.
       auto:
         # -- When set to true, automatically generate a CA and certificates to
         # enable mTLS between clustermesh-apiserver and external workload instances.
         # If set to false, the certs to be provided by setting appropriate values below.
         enabled: true
-        # Sets the method to auto-generate certificates. Supported values:
+        # -- Sets the method to auto-generate certificates. Supported values:
+        # - cronJob:      This method uses a Kubernetes CronJob to generate any
+        #                 certificates not provided by the user at
+        #                 installation time.
+        # - certmanager:  This method uses cert-manager to generate & rotate
+        #                 certificates.
         # - helm:         This method uses Helm to generate all certificates.
-        # - cronJob:      This method uses a Kubernetes CronJob the generate any
-        #                 certificates not provided by the user at installation
-        #                 time.
-        # - certmanager:  This method use cert-manager to generate & rotate certificates.
-        method: helm
+        #                 Deprecated and will be removed in Cilium v1.16.
+        method: cronJob
         # -- Generated certificates validity duration in days.
         certValidityDuration: 1095
         # -- Schedule for certificates regeneration (regardless of their expiration date).
@@ -3080,10 +3083,9 @@ clustermesh:
         # CA is (re)regenerated only if it is not provided as a helm value and the k8s
         # secret is manually deleted.
         #
-        # Defaults to none. Commented syntax gives midnight of the first day of every
-        # fourth month. For syntax, see
-        # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
-        # schedule: "0 0 1 */4 *"
+        # Defaults to midnight of the first day of every fourth month. For
+        # syntax, see https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
+        schedule: "0 0 1 */4 *"
 
         # [Example]
         # certManagerIssuerRef:
