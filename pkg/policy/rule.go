@@ -613,22 +613,26 @@ func (r *rule) resolveIngressPolicy(
 func (r *rule) matches(securityIdentity *identity.Identity) bool {
 	r.metadata.Mutex.Lock()
 	defer r.metadata.Mutex.Unlock()
-	var ruleMatches bool
+	isNode := securityIdentity.ID == identity.ReservedIdentityHost
 
 	if ruleMatches, cached := r.metadata.IdentitySelected[securityIdentity.ID]; cached {
 		return ruleMatches
 	}
-	isNode := securityIdentity.ID == identity.ReservedIdentityHost
+
+	// Short-circuit if the rule's selector type (node vs. endpoint) does not match the
+	// identity's type
 	if (r.NodeSelector.LabelSelector != nil) != isNode {
 		r.metadata.IdentitySelected[securityIdentity.ID] = false
-		return ruleMatches
+		return false
 	}
+
 	// Fall back to costly matching.
-	if ruleMatches = r.getSelector().Matches(securityIdentity.LabelArray); ruleMatches {
-		// Update cache so we don't have to do costly matching again.
-		r.metadata.IdentitySelected[securityIdentity.ID] = true
-	} else {
-		r.metadata.IdentitySelected[securityIdentity.ID] = false
+	ruleMatches := r.getSelector().Matches(securityIdentity.LabelArray)
+
+	// Update cache so we don't have to do costly matching again.
+	// the local Host identity has mutable labels, so we cannot use the cache
+	if !isNode {
+		r.metadata.IdentitySelected[securityIdentity.ID] = ruleMatches
 	}
 
 	return ruleMatches
