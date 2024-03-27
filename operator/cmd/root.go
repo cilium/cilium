@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
+	"github.com/cilium/cilium/pkg/healthv2"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -64,6 +65,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -114,6 +116,10 @@ var (
 				EnableGatewayAPI: operatorCfg.EnableGatewayAPI,
 			}
 		}),
+
+		statedb.Cell,
+
+		healthv2.Cell,
 	)
 
 	// ControlPlane implements the control functions.
