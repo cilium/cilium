@@ -32,6 +32,7 @@ const (
 	defaultPassthroughPort  = uint32(443)
 	defaultInsecureHTTPPort = uint32(80)
 	defaultSecureHTTPPort   = uint32(443)
+	defaultHostNetworkPort  = uint32(80)
 )
 
 func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -243,19 +244,11 @@ func (r *ingressReconciler) getSharedListenerPorts() (uint32, uint32, uint32) {
 		return defaultPassthroughPort, defaultInsecureHTTPPort, defaultSecureHTTPPort
 	}
 
-	passthroughListenerPort := defaultPassthroughPort
-	if r.hostNetworkSharedTLSPassthroughPort > 0 {
-		passthroughListenerPort = r.hostNetworkSharedTLSPassthroughPort
+	if r.hostNetworkSharedPort > 0 {
+		return r.hostNetworkSharedPort, r.hostNetworkSharedPort, r.hostNetworkSharedPort
 	}
 
-	insecureHTTPListenerPort := defaultInsecureHTTPPort
-	secureHTTPListenerPort := defaultSecureHTTPPort
-	if r.hostNetworkSharedHTTPPort > 0 {
-		insecureHTTPListenerPort = r.hostNetworkSharedHTTPPort
-		secureHTTPListenerPort = r.hostNetworkSharedHTTPPort
-	}
-
-	return passthroughListenerPort, insecureHTTPListenerPort, secureHTTPListenerPort
+	return defaultHostNetworkPort, defaultHostNetworkPort, defaultHostNetworkPort
 }
 
 func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
@@ -289,30 +282,16 @@ func (r *ingressReconciler) getDedicatedListenerPorts(ingress *networkingv1.Ingr
 		return defaultPassthroughPort, defaultInsecureHTTPPort, defaultSecureHTTPPort
 	}
 
-	passthroughListenerPort := defaultPassthroughPort
-	insecureHTTPListenerPort := defaultInsecureHTTPPort
-	secureHTTPListenerPort := defaultSecureHTTPPort
-
-	tlsPort, err := annotations.GetAnnotationTLSHostPort(ingress)
+	port, err := annotations.GetAnnotationHostListenerPort(ingress)
 	if err != nil {
-		r.logger.WithError(err).Warnf("Failed to parse TLS host port - using default listener port")
-	} else if tlsPort == nil || *tlsPort == 0 {
-		r.logger.Warnf("No TLS host port defined in annotation - using default listener port")
+		r.logger.WithError(err).Warnf("Failed to parse host port - using default listener port")
+		return defaultHostNetworkPort, defaultHostNetworkPort, defaultHostNetworkPort
+	} else if port == nil || *port == 0 {
+		r.logger.Warnf("No host port defined in annotation - using default listener port")
+		return defaultHostNetworkPort, defaultHostNetworkPort, defaultHostNetworkPort
 	} else {
-		passthroughListenerPort = *tlsPort
+		return *port, *port, *port
 	}
-
-	httpPort, err := annotations.GetAnnotationHTTPHostPort(ingress)
-	if err != nil {
-		r.logger.WithError(err).Warnf("Failed to parse HTTP host port - using default listener port")
-	} else if httpPort == nil || *httpPort == 0 {
-		r.logger.Warnf("No HTTP host port defined in annotation - using default listener port")
-	} else {
-		insecureHTTPListenerPort = *httpPort
-		secureHTTPListenerPort = *httpPort
-	}
-
-	return passthroughListenerPort, insecureHTTPListenerPort, secureHTTPListenerPort
 }
 
 func (r *ingressReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {

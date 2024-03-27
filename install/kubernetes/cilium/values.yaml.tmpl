@@ -782,11 +782,8 @@ ingressController:
   hostNetwork:
     # -- Configure whether the Envoy listeners should be exposed on the host network.
     enabled: false
-    # -- Configure a specific port on the host network that gets used for the shared HTTP listener.
-    # This is used for HTTP and HTTPS.
-    sharedHTTPPort: 0
-    # -- Configure a specific port on the host network that gets used for the shared TLS passthrough listener
-    sharedTLSPassthroughPort: 0
+    # -- Configure a specific port on the host network that gets used for the shared listener.
+    sharedListenerPort: 80
     # Specify the nodes where the Ingress listeners should be exposed
     nodes:
       # -- Specify the labels of the nodes where the Ingress listeners should be exposed

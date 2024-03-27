@@ -17,75 +17,74 @@ cilium-operator hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
-      --bgp-v2-api-enabled                                      Enables BGPv2 APIs in Cilium
-      --ces-dynamic-rate-limit-nodes strings                    List of nodes used for the dynamic rate limit steps
-      --ces-dynamic-rate-limit-qps-burst strings                List of qps burst used for the dynamic rate limit steps
-      --ces-dynamic-rate-limit-qps-limit strings                List of qps limits used for the dynamic rate limit steps
-      --ces-enable-dynamic-rate-limit                           Flag to enable dynamic rate limit specified in separate fields instead of the static one
-      --ces-max-ciliumendpoints-per-ces int                     Maximum number of CiliumEndpoints allowed in a CES (default 100)
-      --ces-slice-mode string                                   Slicing mode define how ceps are grouped into a CES (default "cesSliceModeIdentity")
-      --ces-write-qps-burst int                                 CES work queue burst rate. Ignored when ces-enable-dynamic-rate-limit is set (default 20)
-      --ces-write-qps-limit float                               CES work queue rate limit. Ignored when ces-enable-dynamic-rate-limit is set (default 10)
-      --cluster-id uint32                                       Unique identifier of the cluster
-      --cluster-name string                                     Name of the cluster (default "default")
-      --clustermesh-concurrent-service-endpoint-syncs int       The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
-      --clustermesh-config string                               Path to the ClusterMesh configuration directory
-      --clustermesh-enable-endpoint-sync                        Whether or not the endpoint slice cluster mesh synchronization is enabled.
-      --clustermesh-endpoint-updates-batch-period duration      The length of endpoint slice updates batching period for remote cluster services. Processing of pod changes will be delayed by this duration to join them with potential upcoming updates and reduce the overall number of endpoints updates. Larger number = higher endpoint programming latency, but lower number of endpoints revision generated. (default 500ms)
-      --clustermesh-endpoints-per-slice int                     The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
-      --controller-group-metrics strings                        List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
-      --enable-cilium-operator-server-access strings            List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
-      --enable-gateway-api-proxy-protocol                       Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
-      --enable-gateway-api-secrets-sync                         Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
-      --enable-ingress-controller                               Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
-      --enable-ingress-proxy-protocol                           Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
-      --enable-ingress-secrets-sync                             Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
-      --enable-k8s                                              Enable the k8s clientset (default true)
-      --enable-k8s-api-discovery                                Enable discovery of Kubernetes API groups and resources with the discovery API
-      --enable-k8s-endpoint-slice                               Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
-      --enable-node-ipam                                        Enable Node IPAM
-      --enable-node-port                                        Enable NodePort type services by Cilium
-      --enforce-ingress-https                                   Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
-      --gateway-api-hostnetwork-enabled                         Exposes Gateway listeners on the host network.
-      --gateway-api-hostnetwork-nodelabelselector string        Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
-      --gateway-api-secrets-namespace string                    Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
-      --gateway-api-xff-num-trusted-hops uint32                 The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
-      --gops-port uint16                                        Port for gops server to listen on (default 9891)
-      --identity-gc-interval duration                           GC interval for security identities (default 15m0s)
-      --identity-gc-rate-interval duration                      Interval used for rate limiting the GC of security identities (default 1m0s)
-      --identity-gc-rate-limit int                              Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
-      --identity-heartbeat-timeout duration                     Timeout after which identity expires on lack of heartbeat (default 30m0s)
-      --ingress-default-lb-mode string                          Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
-      --ingress-default-secret-name string                      Default secret name for Ingress.
-      --ingress-default-secret-namespace string                 Default secret namespace for Ingress.
-      --ingress-hostnetwork-enabled                             Exposes ingress listeners on the host network.
-      --ingress-hostnetwork-nodelabelselector string            Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
-      --ingress-hostnetwork-shared-http-port uint32             Port on the host network that gets used for the shared HTTP listener (HTTP & HTTPS)
-      --ingress-hostnetwork-shared-tlspassthrough-port uint32   Port on the host network that gets used for the shared TLS passthrough listener
-      --ingress-lb-annotation-prefixes strings                  Annotations and labels which are needed to propagate from Ingress to the Load Balancer. (default [lbipam.cilium.io,service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
-      --ingress-secrets-namespace string                        Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
-      --ingress-shared-lb-service-name string                   Name of shared LB service name for Ingress. (default "cilium-ingress")
-      --k8s-api-server string                                   Kubernetes API server URL
-      --k8s-client-burst int                                    Burst value allowed for the K8s client
-      --k8s-client-qps float32                                  Queries per second limit for the K8s client
-      --k8s-heartbeat-timeout duration                          Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
-      --k8s-kubeconfig-path string                              Absolute path of the kubernetes kubeconfig file
-      --k8s-service-proxy-name string                           Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
-      --kube-proxy-replacement string                           Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
-      --loadbalancer-l7-algorithm string                        Default LB algorithm for services that do not specify related annotation (default "round_robin")
-      --loadbalancer-l7-ports strings                           List of service ports that will be automatically redirected to backend.
-      --max-connected-clusters uint32                           Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
-      --mesh-auth-mutual-enabled                                The flag to enable mutual authentication for the SPIRE server (beta).
-      --mesh-auth-spiffe-trust-domain string                    The trust domain for the SPIFFE identity. (default "spiffe.cilium")
-      --mesh-auth-spire-agent-socket string                     The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
-      --mesh-auth-spire-server-address string                   SPIRE server endpoint. (default "spire-server.spire.svc:8081")
-      --mesh-auth-spire-server-connection-timeout duration      SPIRE server connection timeout. (default 10s)
-      --operator-api-serve-addr string                          Address to serve API requests (default "localhost:9234")
-      --operator-pprof                                          Enable serving pprof debugging API
-      --operator-pprof-address string                           Address that pprof listens on (default "localhost")
-      --operator-pprof-port uint16                              Port that pprof listens on (default 6061)
-      --operator-prometheus-serve-addr string                   Address to serve Prometheus metrics (default ":9963")
-      --skip-crd-creation                                       When true, Kubernetes Custom Resource Definitions will not be created
+      --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
+      --ces-dynamic-rate-limit-nodes strings                 List of nodes used for the dynamic rate limit steps
+      --ces-dynamic-rate-limit-qps-burst strings             List of qps burst used for the dynamic rate limit steps
+      --ces-dynamic-rate-limit-qps-limit strings             List of qps limits used for the dynamic rate limit steps
+      --ces-enable-dynamic-rate-limit                        Flag to enable dynamic rate limit specified in separate fields instead of the static one
+      --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
+      --ces-slice-mode string                                Slicing mode define how ceps are grouped into a CES (default "cesSliceModeIdentity")
+      --ces-write-qps-burst int                              CES work queue burst rate. Ignored when ces-enable-dynamic-rate-limit is set (default 20)
+      --ces-write-qps-limit float                            CES work queue rate limit. Ignored when ces-enable-dynamic-rate-limit is set (default 10)
+      --cluster-id uint32                                    Unique identifier of the cluster
+      --cluster-name string                                  Name of the cluster (default "default")
+      --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
+      --clustermesh-config string                            Path to the ClusterMesh configuration directory
+      --clustermesh-enable-endpoint-sync                     Whether or not the endpoint slice cluster mesh synchronization is enabled.
+      --clustermesh-endpoint-updates-batch-period duration   The length of endpoint slice updates batching period for remote cluster services. Processing of pod changes will be delayed by this duration to join them with potential upcoming updates and reduce the overall number of endpoints updates. Larger number = higher endpoint programming latency, but lower number of endpoints revision generated. (default 500ms)
+      --clustermesh-endpoints-per-slice int                  The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
+      --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
+      --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-gateway-api-proxy-protocol                    Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+      --enable-gateway-api-secrets-sync                      Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
+      --enable-ingress-controller                            Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
+      --enable-ingress-proxy-protocol                        Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+      --enable-ingress-secrets-sync                          Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
+      --enable-k8s                                           Enable the k8s clientset (default true)
+      --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
+      --enable-node-ipam                                     Enable Node IPAM
+      --enable-node-port                                     Enable NodePort type services by Cilium
+      --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
+      --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
+      --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
+      --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
+      --gateway-api-xff-num-trusted-hops uint32              The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
+      --gops-port uint16                                     Port for gops server to listen on (default 9891)
+      --identity-gc-interval duration                        GC interval for security identities (default 15m0s)
+      --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)
+      --identity-gc-rate-limit int                           Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
+      --identity-heartbeat-timeout duration                  Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --ingress-default-lb-mode string                       Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
+      --ingress-default-secret-name string                   Default secret name for Ingress.
+      --ingress-default-secret-namespace string              Default secret namespace for Ingress.
+      --ingress-hostnetwork-enabled                          Exposes ingress listeners on the host network.
+      --ingress-hostnetwork-nodelabelselector string         Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
+      --ingress-hostnetwork-shared-listener-port uint32      Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)
+      --ingress-lb-annotation-prefixes strings               Annotations and labels which are needed to propagate from Ingress to the Load Balancer. (default [lbipam.cilium.io,service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
+      --ingress-secrets-namespace string                     Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
+      --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
+      --k8s-api-server string                                Kubernetes API server URL
+      --k8s-client-burst int                                 Burst value allowed for the K8s client
+      --k8s-client-qps float32                               Queries per second limit for the K8s client
+      --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
+      --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
+      --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
+      --kube-proxy-replacement string                        Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
+      --loadbalancer-l7-algorithm string                     Default LB algorithm for services that do not specify related annotation (default "round_robin")
+      --loadbalancer-l7-ports strings                        List of service ports that will be automatically redirected to backend.
+      --max-connected-clusters uint32                        Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
+      --mesh-auth-mutual-enabled                             The flag to enable mutual authentication for the SPIRE server (beta).
+      --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium")
+      --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
+      --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
+      --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
+      --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
+      --operator-pprof                                       Enable serving pprof debugging API
+      --operator-pprof-address string                        Address that pprof listens on (default "localhost")
+      --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
+      --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
 ```
 
 ### SEE ALSO
