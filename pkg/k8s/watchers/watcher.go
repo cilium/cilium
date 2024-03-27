@@ -409,9 +409,9 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
 }
 
-// resourceGroups are all of the core Kubernetes and Cilium resource groups
+// ResourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
-func (k *K8sWatcher) resourceGroups() (resourceGroups, waitForCachesOnly []string) {
+func (k *K8sWatcher) ResourceGroups() (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
@@ -458,11 +458,18 @@ func (k *K8sWatcher) resourceGroups() (resourceGroups, waitForCachesOnly []strin
 
 // InitK8sSubsystem takes a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
+// It initializes the K8s subsystem and starts the watchers for the resources
+// that the daemon is interested in.
+// The resources slice contains the names of the resources that the daemon
+// is interested in. The cachesOnly slice contains the names of the resources
+// that the daemon is interested in, but only for cache synchronization.
+// The cachesSynced channel is closed when all caches are synchronized, both
+// for the resources and cachesOnly slices.
 // To be called after WaitForCRDsToRegister() so that all needed CRDs have
 // already been registered.
-func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
+func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, resources []string, cachesOnly []string, cachesSynced chan struct{}) {
 	log.Info("Enabling k8s event listener")
-	resources, waitForCachesOnly := k.resourceGroups()
+	// resources, waitForCachesOnly := k.resourceGroups()
 	if err := k.enableK8sWatchers(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
@@ -474,7 +481,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 
 	go func() {
 		log.Info("Waiting until all pre-existing resources have been received")
-		allResources := append(resources, waitForCachesOnly...)
+		allResources := append(resources, cachesOnly...)
 		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
 			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
