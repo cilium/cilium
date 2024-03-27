@@ -167,28 +167,6 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 	return nil
 }
 
-// forEachEndpointAndCIDR iterates through each combination of endpoints and
-// destination/excluded CIDRs of the receiver policy, and for each of them it
-// calls the f callback function passing the given endpoint and CIDR, together
-// with a boolean value indicating if the CIDR belongs to the excluded ones and
-// the gatewayConfig of the receiver policy
-func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Prefix, bool, *gatewayConfig)) {
-
-	for _, endpoint := range config.matchedEndpoints {
-		for _, endpointIP := range endpoint.ips {
-			isExcludedCIDR := false
-			for _, dstCIDR := range config.dstCIDRs {
-				f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfig)
-			}
-
-			isExcludedCIDR = true
-			for _, excludedCIDR := range config.excludedCIDRs {
-				f(endpointIP, excludedCIDR, isExcludedCIDR, &config.gatewayConfig)
-			}
-		}
-	}
-}
-
 // ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress gateway policy
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
