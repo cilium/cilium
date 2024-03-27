@@ -186,12 +186,12 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 	}
 }
 
-func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
+func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 	i := &cecTranslator{
 		secretsNamespace: "cilium-secrets",
 		useProxyProtocol: true,
 	}
-	res := i.getHTTPRouteListener(&model.Model{
+	res := i.getListener(&model.Model{
 		HTTP: []model.HTTPListener{
 			{
 				TLS: []model.TLSSecret{
@@ -216,12 +216,12 @@ func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
 	require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 }
 
-func TestSharedIngressTranslator_getHTTPRouteListener(t *testing.T) {
+func TestSharedIngressTranslator_getListener(t *testing.T) {
 	i := &cecTranslator{
 		secretsNamespace: "cilium-secrets",
 	}
 
-	res := i.getHTTPRouteListener(&model.Model{
+	res := i.getListener(&model.Model{
 		HTTP: []model.HTTPListener{
 			{
 				TLS: []model.TLSSecret{
