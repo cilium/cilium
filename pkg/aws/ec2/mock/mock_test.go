@@ -149,7 +149,7 @@ func (e *MockSuite) TestPrefixToIps(c *check.C) {
 	subnet, err := cidrSet.AllocateNext()
 	c.Assert(err, check.IsNil)
 	subnetStr := subnet.String()
-	ips, _ := ip.PrefixToIps(subnetStr)
+	ips, _ := ip.PrefixToIps(subnetStr, 0)
 	c.Assert(ips[0], checker.Equals, "10.128.0.0")
 	c.Assert(ips[len(ips)-1], checker.Equals, "10.128.0.15")
 }
