@@ -44,10 +44,11 @@ func NewLocalNodeConfig(mtu mtu.MTU, config *option.DaemonConfig) (datapath.Loca
 			config.IPAM != ipamOption.IPAMENI &&
 			config.IPAM != ipamOption.IPAMAzure &&
 			config.IPAM != ipamOption.IPAMAlibabaCloud,
-		AuxiliaryPrefixes: auxPrefixes,
-		EnableIPSec:       config.EnableIPSec,
-		EncryptNode:       config.EncryptNode,
-		IPv4PodSubnets:    config.IPv4PodSubnets,
-		IPv6PodSubnets:    config.IPv6PodSubnets,
+		AuxiliaryPrefixes:           auxPrefixes,
+		EnableIPSec:                 config.EnableIPSec,
+		EnableIPSecEncryptedOverlay: config.EnableIPSecEncryptedOverlay,
+		EncryptNode:                 config.EncryptNode,
+		IPv4PodSubnets:              config.IPv4PodSubnets,
+		IPv6PodSubnets:              config.IPv6PodSubnets,
 	}, nil
 }

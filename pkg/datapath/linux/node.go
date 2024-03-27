@@ -1262,6 +1262,12 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		}
 	}
 
+	if !newConfig.EnableIPSecEncryptedOverlay {
+		if err := ipsec.DeleteXfrmWithReqID(ipsec.EncryptOverlayReqID); err != nil {
+			return fmt.Errorf("failed to delete encrypt overlay xfrm policies on node configuration change: %w", err)
+		}
+	}
+
 	var errs error
 	if !n.isInitialized {
 		n.isInitialized = true

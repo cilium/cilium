@@ -67,6 +67,9 @@ const (
 
 	// DefaultReqID is the default reqid used for all IPSec rules.
 	DefaultReqID = 1
+
+	// EncryptOverlayReqID is the reqid used for encrypting overlay traffic.
+	EncryptOverlayReqID = 2
 )
 
 type dir string
@@ -921,6 +924,52 @@ func DeleteXfrm() error {
 	ee = resiliency.NewErrorSet("failed to delete XFRM states", len(xfrmStateList))
 	for _, s := range xfrmStateList {
 		if isXfrmStateCilium(s) {
+			if err := netlink.XfrmStateDel(&s); err != nil {
+				ee.Add(err)
+			}
+		}
+	}
+
+	return ee.Error()
+}
+
+// DeleteXfrmWithReqID remove any XFRM policy or state from tables which matches the reqID
+func DeleteXfrmWithReqID(reqID int) error {
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	if err != nil {
+		return err
+	}
+
+	ee := resiliency.NewErrorSet("failed to delete XFRM policies", len(xfrmPolicyList))
+policy:
+	for _, p := range xfrmPolicyList {
+		if !isXfrmPolicyCilium(p) {
+			continue
+		}
+
+		// check if there exists a template with req ID as the one we are looking for
+		// if so, delete the policy.
+		for _, tmpl := range p.Tmpls {
+			if tmpl.Reqid == reqID {
+				if err := netlink.XfrmPolicyDel(&p); err != nil {
+					ee.Add(err)
+				}
+				continue policy
+			}
+		}
+	}
+	if err := ee.Error(); err != nil {
+		return err
+	}
+
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		log.WithError(err).Warning("unable to fetch xfrm state list")
+		return err
+	}
+	ee = resiliency.NewErrorSet("failed to delete XFRM states", len(xfrmStateList))
+	for _, s := range xfrmStateList {
+		if isXfrmStateCilium(s) && s.Reqid == reqID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
 				ee.Add(err)
 			}
