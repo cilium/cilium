@@ -2079,6 +2079,8 @@ nodeinit:
     override: ~
     repository: "${CILIUM_NODEINIT_REPO}"
     tag: "${CILIUM_NODEINIT_VERSION}"
+    digest: "${CILIUM_NODEINIT_DIGEST}"
+    useDigest: true
     pullPolicy: "${PULL_POLICY}"
 
   # -- The priority class to use for the nodeinit pod.
