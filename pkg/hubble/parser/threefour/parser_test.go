@@ -700,6 +700,17 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
+	// TRACE_TO_STACK Encrypt Overlay
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Source:   hostEP,
+		ObsPoint: monitorAPI.TraceToStack,
+		Reason:   monitor.TraceReasonEncryptOverlay,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
+
 	// TRACE_TO_STACK SRV6 decap Ingress
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
