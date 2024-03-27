@@ -45,7 +45,7 @@ func (o *GetBgpRoutePoliciesReader) ReadResponse(response runtime.ClientResponse
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /bgp/route-policies] GetBgpRoutePolicies", response, response.Code())
 	}
 }
 
@@ -86,6 +86,11 @@ func (o *GetBgpRoutePoliciesOK) IsServerError() bool {
 // IsCode returns true when this get bgp route policies o k response a status code equal to that given
 func (o *GetBgpRoutePoliciesOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get bgp route policies o k response
+func (o *GetBgpRoutePoliciesOK) Code() int {
+	return 200
 }
 
 func (o *GetBgpRoutePoliciesOK) Error() string {
@@ -149,6 +154,11 @@ func (o *GetBgpRoutePoliciesInternalServerError) IsCode(code int) bool {
 	return code == 500
 }
 
+// Code gets the status code for the get bgp route policies internal server error response
+func (o *GetBgpRoutePoliciesInternalServerError) Code() int {
+	return 500
+}
+
 func (o *GetBgpRoutePoliciesInternalServerError) Error() string {
 	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesInternalServerError  %+v", 500, o.Payload)
 }
@@ -208,6 +218,11 @@ func (o *GetBgpRoutePoliciesDisabled) IsServerError() bool {
 // IsCode returns true when this get bgp route policies disabled response a status code equal to that given
 func (o *GetBgpRoutePoliciesDisabled) IsCode(code int) bool {
 	return code == 501
+}
+
+// Code gets the status code for the get bgp route policies disabled response
+func (o *GetBgpRoutePoliciesDisabled) Code() int {
+	return 501
 }
 
 func (o *GetBgpRoutePoliciesDisabled) Error() string {

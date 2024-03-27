@@ -45,7 +45,7 @@ func (o *GetIPReader) ReadResponse(response runtime.ClientResponse, consumer run
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /ip] GetIP", response, response.Code())
 	}
 }
 
@@ -86,6 +86,11 @@ func (o *GetIPOK) IsServerError() bool {
 // IsCode returns true when this get Ip o k response a status code equal to that given
 func (o *GetIPOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get Ip o k response
+func (o *GetIPOK) Code() int {
+	return 200
 }
 
 func (o *GetIPOK) Error() string {
@@ -149,6 +154,11 @@ func (o *GetIPBadRequest) IsCode(code int) bool {
 	return code == 400
 }
 
+// Code gets the status code for the get Ip bad request response
+func (o *GetIPBadRequest) Code() int {
+	return 400
+}
+
 func (o *GetIPBadRequest) Error() string {
 	return fmt.Sprintf("[GET /ip][%d] getIpBadRequest  %+v", 400, o.Payload)
 }
@@ -207,6 +217,11 @@ func (o *GetIPNotFound) IsServerError() bool {
 // IsCode returns true when this get Ip not found response a status code equal to that given
 func (o *GetIPNotFound) IsCode(code int) bool {
 	return code == 404
+}
+
+// Code gets the status code for the get Ip not found response
+func (o *GetIPNotFound) Code() int {
+	return 404
 }
 
 func (o *GetIPNotFound) Error() string {

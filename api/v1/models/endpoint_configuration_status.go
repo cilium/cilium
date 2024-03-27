@@ -132,6 +132,10 @@ func (m *EndpointConfigurationStatus) ContextValidate(ctx context.Context, forma
 
 func (m *EndpointConfigurationStatus) contextValidateError(ctx context.Context, formats strfmt.Registry) error {
 
+	if swag.IsZero(m.Error) { // not required
+		return nil
+	}
+
 	if err := m.Error.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("error")
@@ -145,6 +149,10 @@ func (m *EndpointConfigurationStatus) contextValidateError(ctx context.Context, 
 }
 
 func (m *EndpointConfigurationStatus) contextValidateImmutable(ctx context.Context, formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Immutable) { // not required
+		return nil
+	}
 
 	if err := m.Immutable.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
@@ -161,6 +169,11 @@ func (m *EndpointConfigurationStatus) contextValidateImmutable(ctx context.Conte
 func (m *EndpointConfigurationStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Realized != nil {
+
+		if swag.IsZero(m.Realized) { // not required
+			return nil
+		}
+
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

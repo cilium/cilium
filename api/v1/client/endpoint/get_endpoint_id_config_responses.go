@@ -45,7 +45,7 @@ func (o *GetEndpointIDConfigReader) ReadResponse(response runtime.ClientResponse
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /endpoint/{id}/config] GetEndpointIDConfig", response, response.Code())
 	}
 }
 
@@ -86,6 +86,11 @@ func (o *GetEndpointIDConfigOK) IsServerError() bool {
 // IsCode returns true when this get endpoint Id config o k response a status code equal to that given
 func (o *GetEndpointIDConfigOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get endpoint Id config o k response
+func (o *GetEndpointIDConfigOK) Code() int {
+	return 200
 }
 
 func (o *GetEndpointIDConfigOK) Error() string {
@@ -150,6 +155,11 @@ func (o *GetEndpointIDConfigNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
+// Code gets the status code for the get endpoint Id config not found response
+func (o *GetEndpointIDConfigNotFound) Code() int {
+	return 404
+}
+
 func (o *GetEndpointIDConfigNotFound) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigNotFound ", 404)
 }
@@ -199,6 +209,11 @@ func (o *GetEndpointIDConfigTooManyRequests) IsServerError() bool {
 // IsCode returns true when this get endpoint Id config too many requests response a status code equal to that given
 func (o *GetEndpointIDConfigTooManyRequests) IsCode(code int) bool {
 	return code == 429
+}
+
+// Code gets the status code for the get endpoint Id config too many requests response
+func (o *GetEndpointIDConfigTooManyRequests) Code() int {
+	return 429
 }
 
 func (o *GetEndpointIDConfigTooManyRequests) Error() string {

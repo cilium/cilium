@@ -109,6 +109,11 @@ func (m *TraceSelector) ContextValidate(ctx context.Context, formats strfmt.Regi
 func (m *TraceSelector) contextValidateFrom(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.From != nil {
+
+		if swag.IsZero(m.From) { // not required
+			return nil
+		}
+
 		if err := m.From.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("from")
@@ -125,6 +130,11 @@ func (m *TraceSelector) contextValidateFrom(ctx context.Context, formats strfmt.
 func (m *TraceSelector) contextValidateTo(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.To != nil {
+
+		if swag.IsZero(m.To) { // not required
+			return nil
+		}
+
 		if err := m.To.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("to")

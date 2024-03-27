@@ -57,7 +57,7 @@ func (o *GetIdentityIDReader) ReadResponse(response runtime.ClientResponse, cons
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /identity/{id}] GetIdentityID", response, response.Code())
 	}
 }
 
@@ -98,6 +98,11 @@ func (o *GetIdentityIDOK) IsServerError() bool {
 // IsCode returns true when this get identity Id o k response a status code equal to that given
 func (o *GetIdentityIDOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get identity Id o k response
+func (o *GetIdentityIDOK) Code() int {
+	return 200
 }
 
 func (o *GetIdentityIDOK) Error() string {
@@ -162,6 +167,11 @@ func (o *GetIdentityIDBadRequest) IsCode(code int) bool {
 	return code == 400
 }
 
+// Code gets the status code for the get identity Id bad request response
+func (o *GetIdentityIDBadRequest) Code() int {
+	return 400
+}
+
 func (o *GetIdentityIDBadRequest) Error() string {
 	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdBadRequest ", 400)
 }
@@ -211,6 +221,11 @@ func (o *GetIdentityIDNotFound) IsServerError() bool {
 // IsCode returns true when this get identity Id not found response a status code equal to that given
 func (o *GetIdentityIDNotFound) IsCode(code int) bool {
 	return code == 404
+}
+
+// Code gets the status code for the get identity Id not found response
+func (o *GetIdentityIDNotFound) Code() int {
+	return 404
 }
 
 func (o *GetIdentityIDNotFound) Error() string {
@@ -263,6 +278,11 @@ func (o *GetIdentityIDUnreachable) IsServerError() bool {
 // IsCode returns true when this get identity Id unreachable response a status code equal to that given
 func (o *GetIdentityIDUnreachable) IsCode(code int) bool {
 	return code == 520
+}
+
+// Code gets the status code for the get identity Id unreachable response
+func (o *GetIdentityIDUnreachable) Code() int {
+	return 520
 }
 
 func (o *GetIdentityIDUnreachable) Error() string {
@@ -324,6 +344,11 @@ func (o *GetIdentityIDInvalidStorageFormat) IsServerError() bool {
 // IsCode returns true when this get identity Id invalid storage format response a status code equal to that given
 func (o *GetIdentityIDInvalidStorageFormat) IsCode(code int) bool {
 	return code == 521
+}
+
+// Code gets the status code for the get identity Id invalid storage format response
+func (o *GetIdentityIDInvalidStorageFormat) Code() int {
+	return 521
 }
 
 func (o *GetIdentityIDInvalidStorageFormat) Error() string {
