@@ -4,6 +4,7 @@
 package watchers
 
 import (
+	"context"
 	"sort"
 	"testing"
 
@@ -14,8 +15,10 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -2595,4 +2598,43 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	c.Assert(upsert3rd, checker.DeepEquals, upsert3rdWanted)
 	c.Assert(del1st, checker.DeepEquals, del1stWanted)
 	c.Assert(del2nd, checker.DeepEquals, del2ndWanted)
+}
+
+func (s *K8sWatcherSuite) Test_No_Resources_InitK8sSubsystem(c *C) {
+	fakeClientSet, _ := client.NewFakeClientset()
+
+	w := NewK8sWatcher(
+		fakeClientSet,
+		&synced.Resources{},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
+		testipcache.NewMockIPCache(),
+		nil,
+		emptyResources,
+		nil,
+		nil,
+	)
+
+	// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	deadline, _ := c.Deadline()
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
+	cachesSynced := make(chan struct{})
+	w.InitK8sSubsystem(ctx, []string{}, []string{}, cachesSynced)
+	// Expect channel to be closed.
+	select {
+	case <-ctx.Done():
+		c.Fail()
+	case _, ok := <-cachesSynced:
+		c.Assert(ok, Equals, false)
+	}
 }
