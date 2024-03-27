@@ -114,6 +114,15 @@ func extractFlowKey(f *flowpb.Flow) (
 	} else if udp := f.GetL4().GetUDP(); udp != nil {
 		proto = u8proto.UDP
 		dport = uint16(udp.GetDestinationPort())
+	} else if icmpv4 := f.GetL4().GetICMPv4(); icmpv4 != nil {
+		proto = u8proto.ICMP
+		dport = uint16(icmpv4.Type)
+	} else if icmpv6 := f.GetL4().GetICMPv6(); icmpv6 != nil {
+		proto = u8proto.ICMPv6
+		dport = uint16(icmpv6.Type)
+	} else if sctp := f.GetL4().GetSCTP(); sctp != nil {
+		proto = u8proto.SCTP
+		dport = uint16(sctp.GetDestinationPort())
 	} else {
 		proto = u8proto.ANY
 		dport = 0
