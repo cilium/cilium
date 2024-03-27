@@ -80,4 +80,10 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type SharedConfig struct {
 	// IdentityAllocationMode specifies what mode to use for identity allocation
 	IdentityAllocationMode string
+
+	// EnableOperatorManageCIDs enables operator to manage Cilium Identities by
+	// running a Cilium Identity controller. If enabled, Identity GC cell is
+	// then disabled because Cilium Identity controller takes care of Cilium
+	// Identity garbage collection.
+	EnableOperatorManageCIDs bool
 }

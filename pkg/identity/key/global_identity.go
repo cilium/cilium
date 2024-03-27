@@ -16,6 +16,10 @@ const (
 	MetadataKeyBackendKey = iota
 )
 
+var (
+	KeyFunc = (&GlobalIdentity{}).PutKeyFromMap
+)
+
 // GlobalIdentity is the structure used to store an identity
 type GlobalIdentity struct {
 	labels.LabelArray

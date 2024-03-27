@@ -256,6 +256,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
 
+	flags.Bool(option.OperatorManagesGlobalIdentities, false, "Denotes whether cilium-operator is responsible for creating global security identities in the form of Cilium Identity custom resource")
+	option.BindEnv(vp, option.OperatorManagesGlobalIdentities)
+
 	flags.String(operatorOption.CiliumK8sNamespace, "", fmt.Sprintf("Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in %s", option.K8sNamespaceName))
 	option.BindEnv(vp, operatorOption.CiliumK8sNamespace)
 
