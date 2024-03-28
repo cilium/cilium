@@ -25975,6 +25975,97 @@ func awsEc2query_deserializeOpErrorDescribeLockedSnapshots(response *smithyhttp.
 	}
 }
 
+type awsEc2query_deserializeOpDescribeMacHosts struct {
+}
+
+func (*awsEc2query_deserializeOpDescribeMacHosts) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpDescribeMacHosts) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorDescribeMacHosts(response, &metadata)
+	}
+	output := &DescribeMacHostsOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentDescribeMacHostsOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorDescribeMacHosts(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpDescribeManagedPrefixLists struct {
 }
 
@@ -99198,6 +99289,209 @@ func awsEc2query_deserializeDocumentLockedSnapshotsInfoListUnwrapped(v *[]types.
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentMacHost(v **types.MacHost, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.MacHost
+	if *v == nil {
+		sv = &types.MacHost{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("hostId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.HostId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("macOSLatestSupportedVersionSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentMacOSVersionStringList(&sv.MacOSLatestSupportedVersions, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentMacHostList(v *[]types.MacHost, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.MacHost
+	if *v == nil {
+		sv = make([]types.MacHost, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.MacHost
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentMacHost(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentMacHostListUnwrapped(v *[]types.MacHost, decoder smithyxml.NodeDecoder) error {
+	var sv []types.MacHost
+	if *v == nil {
+		sv = make([]types.MacHost, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.MacHost
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentMacHost(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentMacOSVersionStringList(v *[]string, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []string
+	if *v == nil {
+		sv = make([]string, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		memberDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		decoder = memberDecoder
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col string
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				col = xtv
+			}
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentMacOSVersionStringListUnwrapped(v *[]string, decoder smithyxml.NodeDecoder) error {
+	var sv []string
+	if *v == nil {
+		sv = make([]string, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv string
+		t := decoder.StartEl
+		_ = t
+		val, err := decoder.Value()
+		if err != nil {
+			return err
+		}
+		if val == nil {
+			break
+		}
+		{
+			xtv := string(val)
+			mv = xtv
+		}
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentMaintenanceDetails(v **types.MaintenanceDetails, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -152801,6 +153095,61 @@ func awsEc2query_deserializeOpDocumentDescribeLockedSnapshotsOutput(v **Describe
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentLockedSnapshotsInfoList(&sv.Snapshots, nodeDecoder); err != nil {
 				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentDescribeMacHostsOutput(v **DescribeMacHostsOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *DescribeMacHostsOutput
+	if *v == nil {
+		sv = &DescribeMacHostsOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("macHostSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentMacHostList(&sv.MacHosts, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("nextToken", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NextToken = ptr.String(xtv)
 			}
 
 		default:

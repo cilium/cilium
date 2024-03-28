@@ -10,11 +10,11 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.9.23
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.695
-	github.com/aws/aws-sdk-go-v2 v1.25.3
-	github.com/aws/aws-sdk-go-v2/config v1.27.7
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.3
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.151.0
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.699
+	github.com/aws/aws-sdk-go-v2 v1.26.0
+	github.com/aws/aws-sdk-go-v2/config v1.27.9
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.152.0
 	github.com/aws/smithy-go v1.20.1
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bombsimon/logrusr/v4 v4.1.0
@@ -24,7 +24,7 @@ require (
 	github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
 	github.com/cilium/ebpf v0.13.2
 	github.com/cilium/fake v0.6.1
-	github.com/cilium/linters v0.0.0-20240312194838-dd5dd9ef338b
+	github.com/cilium/linters v0.0.0-20240319061346-451fe926d81e
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018
 	github.com/cilium/stream v0.0.0-20240226091623-f979d32855f8
@@ -32,7 +32,7 @@ require (
 	github.com/containernetworking/cni v1.1.2
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/docker v25.0.5+incompatible
+	github.com/docker/docker v26.0.0+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
@@ -140,15 +140,15 @@ require (
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.3 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.20.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.28.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.20.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.28.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -221,6 +221,7 @@ require (
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect

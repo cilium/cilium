@@ -10034,6 +10034,19 @@ type LockedSnapshotsInfo struct {
 	noSmithyDocumentSerde
 }
 
+// Information about the EC2 Mac Dedicated Host.
+type MacHost struct {
+
+	// The EC2 Mac Dedicated Host ID.
+	HostId *string
+
+	// The latest macOS versions that the EC2 Mac Dedicated Host can launch without
+	// being upgraded.
+	MacOSLatestSupportedVersions []string
+
+	noSmithyDocumentSerde
+}
+
 // Details for Site-to-Site VPN tunnel endpoint maintenance events.
 type MaintenanceDetails struct {
 

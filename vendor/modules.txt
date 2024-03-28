@@ -49,7 +49,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/alecthomas/participle/v2 v2.1.0
 ## explicit; go 1.18
 github.com/alecthomas/participle/v2/lexer
-# github.com/aliyun/alibaba-cloud-sdk-go v1.62.695
+# github.com/aliyun/alibaba-cloud-sdk-go v1.62.699
 ## explicit; go 1.13
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
@@ -72,7 +72,7 @@ github.com/armon/go-metrics
 # github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 ## explicit; go 1.13
 github.com/asaskevich/govalidator
-# github.com/aws/aws-sdk-go-v2 v1.25.3
+# github.com/aws/aws-sdk-go-v2 v1.26.0
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/defaults
@@ -98,10 +98,10 @@ github.com/aws/aws-sdk-go-v2/internal/shareddefaults
 github.com/aws/aws-sdk-go-v2/internal/strings
 github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
 github.com/aws/aws-sdk-go-v2/internal/timeconv
-# github.com/aws/aws-sdk-go-v2/config v1.27.7
+# github.com/aws/aws-sdk-go-v2/config v1.27.9
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/config
-# github.com/aws/aws-sdk-go-v2/credentials v1.17.7
+# github.com/aws/aws-sdk-go-v2/credentials v1.17.9
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/credentials
 github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
@@ -110,20 +110,20 @@ github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client
 github.com/aws/aws-sdk-go-v2/credentials/processcreds
 github.com/aws/aws-sdk-go-v2/credentials/ssocreds
 github.com/aws/aws-sdk-go-v2/credentials/stscreds
-# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.3
+# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.0
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.3
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.4
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.3
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.4
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.151.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.152.0
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
@@ -131,20 +131,20 @@ github.com/aws/aws-sdk-go-v2/service/ec2/types
 # github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.1
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
-# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.5
+# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.6
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
-# github.com/aws/aws-sdk-go-v2/service/sso v1.20.2
+# github.com/aws/aws-sdk-go-v2/service/sso v1.20.3
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/service/sso
 github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sso/types
-# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.2
+# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.3
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/service/ssooidc
 github.com/aws/aws-sdk-go-v2/service/ssooidc/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ssooidc/types
-# github.com/aws/aws-sdk-go-v2/service/sts v1.28.4
+# github.com/aws/aws-sdk-go-v2/service/sts v1.28.5
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
@@ -222,7 +222,7 @@ github.com/cilium/ebpf/rlimit
 # github.com/cilium/fake v0.6.1
 ## explicit; go 1.20
 github.com/cilium/fake
-# github.com/cilium/linters v0.0.0-20240312194838-dd5dd9ef338b
+# github.com/cilium/linters v0.0.0-20240319061346-451fe926d81e
 ## explicit; go 1.20
 github.com/cilium/linters
 github.com/cilium/linters/ioreadall
@@ -532,7 +532,7 @@ github.com/dimchansky/utfbom
 # github.com/distribution/reference v0.5.0
 ## explicit; go 1.20
 github.com/distribution/reference
-# github.com/docker/docker v25.0.5+incompatible
+# github.com/docker/docker v26.0.0+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -554,7 +554,6 @@ github.com/docker/docker/api/types/versions
 github.com/docker/docker/api/types/volume
 github.com/docker/docker/client
 github.com/docker/docker/errdefs
-github.com/docker/docker/image/spec/specs-go/v1
 github.com/docker/docker/internal/multierror
 github.com/docker/docker/pkg/homedir
 github.com/docker/docker/pkg/ioutils
@@ -943,6 +942,9 @@ github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.5.0
 ## explicit; go 1.14
 github.com/mitchellh/mapstructure
+# github.com/moby/docker-image-spec v1.3.1
+## explicit; go 1.18
+github.com/moby/docker-image-spec/specs-go/v1
 # github.com/moby/spdystream v0.2.0
 ## explicit; go 1.13
 github.com/moby/spdystream

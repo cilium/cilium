@@ -304,6 +304,7 @@
         "api_op_DescribeLocalGatewayVirtualInterfaces.go",
         "api_op_DescribeLocalGateways.go",
         "api_op_DescribeLockedSnapshots.go",
+        "api_op_DescribeMacHosts.go",
         "api_op_DescribeManagedPrefixLists.go",
         "api_op_DescribeMovingAddresses.go",
         "api_op_DescribeNatGateways.go",
