@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -79,7 +78,7 @@ func (l *loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
-func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string, devices []string) error {
+func writePreFilterHeader(preFilter datapath.PreFilter, dir string, devices []string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
@@ -412,18 +411,10 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	if option.Config.EnableXDPPrefilter {
 		scopedLog := log.WithField(logfields.Devices, devices)
 
-		preFilter, err := prefilter.NewPreFilter()
-		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to init prefilter")
-			return err
-		}
-
-		if err := writePreFilterHeader(preFilter, "./", devices); err != nil {
+		if err := writePreFilterHeader(l.prefilter, "./", devices); err != nil {
 			scopedLog.WithError(err).Warn("Unable to write prefilter header")
 			return err
 		}
-
-		o.SetPrefilter(preFilter)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)

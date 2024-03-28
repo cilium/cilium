@@ -9,9 +9,13 @@ import (
 	"net"
 	"path"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type preFilterMapType int
@@ -38,6 +42,8 @@ type PreFilter struct {
 	maps     preFilterMaps
 	revision int64
 	mutex    lock.RWMutex
+
+	enabled bool
 }
 
 // WriteConfig dumps the configuration for the corresponding header file
@@ -66,8 +72,16 @@ func (p *PreFilter) dumpOneMap(which preFilterMapType, to []string) []string {
 	return p.maps[which].CIDRDump(to)
 }
 
+func (p *PreFilter) Enabled() bool {
+	return p.enabled
+}
+
 // Dump dumps revision and CIDRs as string slice of all participating maps
 func (p *PreFilter) Dump(to []string) ([]string, int64) {
+	if !p.enabled {
+		return to, 0
+	}
+
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	for i := prefixesV4Dyn; i < mapCount; i++ {
@@ -94,6 +108,10 @@ func (p *PreFilter) selectMap(ones, bits int) preFilterMapType {
 
 // Insert inserts slice of CIDRs (doh!) for the latest revision
 func (p *PreFilter) Insert(revision int64, cidrs []net.IPNet) error {
+	if !p.enabled {
+		return fmt.Errorf("Prefilter is not enabled")
+	}
+
 	var undoQueue []net.IPNet
 	var ret error
 
@@ -131,6 +149,10 @@ func (p *PreFilter) Insert(revision int64, cidrs []net.IPNet) error {
 
 // Delete deletes slice of CIDRs (doh!) for the latest revision
 func (p *PreFilter) Delete(revision int64, cidrs []net.IPNet) error {
+	if !p.enabled {
+		return fmt.Errorf("Prefilter is not enabled")
+	}
+
 	var undoQueue []net.IPNet
 	var ret error
 
@@ -210,22 +232,32 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 	return nil
 }
 
-func (p *PreFilter) init() (*PreFilter, error) {
+func (p *PreFilter) init() error {
 	for i := prefixesV4Dyn; i < mapCount; i++ {
 		if err := p.initOneMap(i); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return p, nil
+	return nil
 }
 
 // NewPreFilter returns prefilter handle
-func NewPreFilter() (*PreFilter, error) {
+func NewPreFilter(config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
 	p := &PreFilter{
 		revision: 1,
+		enabled:  config.EnableXDPPrefilter,
 	}
-	// Only needed here given we access pinned maps.
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	return p.init()
+
+	if config.EnableXDPPrefilter {
+		lifecycle.Append(cell.Hook{
+			OnStart: func(hc cell.HookContext) error {
+				// Only needed here given we access pinned maps.
+				p.mutex.Lock()
+				defer p.mutex.Unlock()
+				return p.init()
+			},
+		})
+	}
+
+	return p
 }

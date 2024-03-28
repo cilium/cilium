@@ -88,6 +88,7 @@ type loader struct {
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
 	devices   statedb.Table[*tables.Device]
+	prefilter datapath.PreFilter
 }
 
 type Params struct {
@@ -98,6 +99,7 @@ type Params struct {
 	NodeAddrs statedb.Table[tables.NodeAddress]
 	Sysctl    sysctl.Sysctl
 	Devices   statedb.Table[*tables.Device]
+	Prefilter datapath.PreFilter
 }
 
 // newLoader returns a new loader.
@@ -109,6 +111,7 @@ func newLoader(p Params) *loader {
 		sysctl:            p.Sysctl,
 		devices:           p.Devices,
 		hostDpInitialized: make(chan struct{}),
+		prefilter:         p.Prefilter,
 	}
 }
 
