@@ -7,8 +7,10 @@ package ipam
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
@@ -511,40 +513,60 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 // attendance is defined by the number of IPs needed to reach the configured
 // watermarks. Any updates to the node resource are synchronized to the
 // Kubernetes apiserver.
-func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
+func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	n.metricsAPI.IncResyncCount()
 
+	var errs error
 	stats := resyncStats{}
 	sem := semaphore.NewWeighted(n.parallelWorkers)
-
+	wg := &sync.WaitGroup{}
+	allNodesResynced := true
 	for _, node := range n.GetNodesByIPWatermarkLocked() {
 		err := sem.Acquire(ctx, 1)
 		if err != nil {
-			continue
+			// In this case, the operation has been cancelled, we still want to wait for nodes to finish however
+			// any remaining nodnes will be skipped.
+			// Otherwise, we still try the remaining nodes.
+			// Any skipped nodes will prevent metrics being updated.
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				log.WithError(err).Info("ipam node manager resync stopped before resyncing all nodes, metrics update will be skipped")
+				errs = errors.Join(errs, err)
+				break
+			} else {
+				log.WithError(err).Error("BUG: unexpected error while acquiring semaphore for azure node resync, metrics update will be skipped")
+				errs = errors.Join(errs, err)
+				continue
+			}
 		}
+		wg.Add(1)
 		go func(node *Node, stats *resyncStats) {
+			defer wg.Done()
 			n.resyncNode(ctx, node, stats, syncTime)
 			sem.Release(1)
 		}(node, &stats)
 	}
 
-	// Acquire the full semaphore, this requires all goroutines to
-	// complete and thus blocks until all nodes are synced
-	sem.Acquire(ctx, n.parallelWorkers)
+	// Wait for all nodes to complete, it is possible that context has
+	// been cancelled already, however at this point all node resyncs
+	// have already been scheduled so we should wait for them to complete regardless.
+	wg.Wait()
 
-	n.metricsAPI.SetAllocatedIPs("used", stats.totalUsed)
-	n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)
-	n.metricsAPI.SetAllocatedIPs("needed", stats.totalNeeded)
-	n.metricsAPI.SetAvailableInterfaces(stats.remainingInterfaces)
-	n.metricsAPI.SetInterfaceCandidates(stats.interfaceCandidates)
-	n.metricsAPI.SetEmptyInterfaceSlots(stats.emptyInterfaceSlots)
-	n.metricsAPI.SetNodes("total", stats.nodes)
-	n.metricsAPI.SetNodes("in-deficit", stats.nodesInDeficit)
-	n.metricsAPI.SetNodes("at-capacity", stats.nodesAtCapacity)
+	if allNodesResynced {
+		n.metricsAPI.SetAllocatedIPs("used", stats.totalUsed)
+		n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)
+		n.metricsAPI.SetAllocatedIPs("needed", stats.totalNeeded)
+		n.metricsAPI.SetAvailableInterfaces(stats.remainingInterfaces)
+		n.metricsAPI.SetInterfaceCandidates(stats.interfaceCandidates)
+		n.metricsAPI.SetEmptyInterfaceSlots(stats.emptyInterfaceSlots)
+		n.metricsAPI.SetNodes("total", stats.nodes)
+		n.metricsAPI.SetNodes("in-deficit", stats.nodesInDeficit)
+		n.metricsAPI.SetNodes("at-capacity", stats.nodesAtCapacity)
 
-	for poolID, quota := range n.instancesAPI.GetPoolQuota() {
-		n.metricsAPI.SetAvailableIPsPerSubnet(string(poolID), quota.AvailabilityZone, quota.AvailableIPs)
+		for poolID, quota := range n.instancesAPI.GetPoolQuota() {
+			n.metricsAPI.SetAvailableIPsPerSubnet(string(poolID), quota.AvailabilityZone, quota.AvailableIPs)
+		}
 	}
+	return nil
 }
