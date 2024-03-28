@@ -361,6 +361,11 @@ all
     The all entity represents the combination of all known clusters as well
     world and whitelists all communication.
 
+There are also optional ``fromNodes`` and ``toNodes`` fields that can be used to
+allow/block access only from specific nodes (``remote-node``).
+This requires you to configure cilium with ``enable-node-selector-labels=true``
+flag or the equivalent Helm value ``nodeSelectorLabels: true``.
+
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -388,8 +393,8 @@ serving the particular endpoint.
 
 .. _policy-remote-node:
 
-Access to/from all nodes in the cluster
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Access to/from all nodes in the cluster (or clustermesh)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Allow all endpoints with the label ``env=dev`` to receive traffic from any host
 in the cluster that Cilium is running on.
@@ -427,6 +432,41 @@ endpoints that have the label ``role=public``.
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l3/entities/world.json
+
+Access to/from specific nodes in the cluster (or clustermesh)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note:: Example below with FromNodes/ToNodes fields will only take effect when
+     ``enable-node-selector-labels`` flag is set to true (or equivalent Helm value
+     ``nodeSelectorLabels: true``.
+
+When ``--enable-node-selector-labels=true`` is specified, every cilium-agent
+allocates a different local :ref:`security identity <arch_id_security>` for all
+other nodes. But instead of using :ref:`local scoped identity <local_scoped_identity>`
+it uses :ref:`remote-node scoped identity<remote_node_scoped_identity>` identity range.
+
+By default all labels that ``Node`` object has attached are taken into account,
+which might result in allocation of **unique** identity for each remote-node.
+For these cases it is also possible to filter only
+:ref:`security relevant labels <security relevant labels>` with ``--node-labels`` flag.
+
+This example shows how to allow all endpoints with the label ``env=prod`` to receive
+traffic **only** from control plane (labeled
+``node-role.kubernetes.io/control-plane=""``) nodes in the cluster (or clustermesh).
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.json
 
 .. _policy_cidr:
 .. _CIDR based:
