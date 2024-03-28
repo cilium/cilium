@@ -1,0 +1,13 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-ingress-egress
+spec:
+  endpointSelector:
+    matchExpressions:
+    - key: ingress
+      operator: Exists
+  egress:
+  - toEntities:
+    - cluster
