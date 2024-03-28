@@ -66,7 +66,7 @@ func (b *BGPResourceManager) upsertNodeConfig(ctx context.Context, config *v2alp
 	var overrideInstances []v2alpha1.CiliumBGPNodeConfigInstanceOverride
 	overrides := b.nodeConfigOverrideStore.List()
 	for _, override := range overrides {
-		if override.Spec.NodeRef == nodeName {
+		if override.Name == nodeName {
 			overrideInstances = override.Spec.BGPInstances
 			break
 		}

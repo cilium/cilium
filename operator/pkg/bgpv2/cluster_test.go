@@ -51,7 +51,6 @@ var (
 	}
 
 	nodeOverride1 = cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideSpec{
-		NodeRef: "node-1",
 		BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeConfigInstanceOverride{
 			{
 				Name:      "cluster-1-instance-65001",
@@ -385,7 +384,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			nodeOverrides: []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
-						Name: "node-1-override",
+						Name: "node-1",
 					},
 
 					Spec: nodeOverride1,
