@@ -62,6 +62,49 @@ Below example will expose remote endpoint without sharing local endpoints.
      selector:
        name: rebel-base
 
+Synchronizing Kubernetes EndpointSlice (Beta)
+#############################################
+
+.. include:: ../../beta.rst
+
+By default Kubernetes EndpointSlice synchronization is disabled on Global services.
+To have Cilium discover remote clusters endpoints of a Global Service
+from DNS or any third party controllers, enable synchronization by adding
+the annotation ``service.cilium.io/global-sync-endpoint-slices: "true"``.
+
+Note that this feature does not complement/is not required by any other Cilium features
+and is only required if you need to discover EndpointSlice from remote cluster on
+third party controllers. For instance, the Cilium ingress controller works in a Cluster Mesh
+without enabling this feature, although if you use any other ingress controller
+you may need to enable this.
+
+This feature is currently disabled by default via a feature flag.
+To install Cilium with EndpointSlice Cluster Mesh synchronization, run:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set clustermesh.enableEndpointSliceSynchronization=true
+
+To enable EndpointSlice Cluster Mesh synchronization on an existing Cilium installation, run:
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --reuse-values \\
+     --set clustermesh.enableEndpointSliceSynchronization=true
+   kubectl -n kube-system rollout restart deployment/cilium-operator
+
+Known Limitations
+-----------------
+
+- This is a beta feature, you may experience bugs or shortcomings.
+- Hostnames synchronization is currently not supported. This means that you will not be able to
+  reach pods in a StatefulSet with the format ``${podName}.${svcName}.${namespace}.svc.cluster.local``
+  from remote clusters.
+
 
 Deploying a Simple Example Service
 ==================================

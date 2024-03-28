@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -186,6 +187,7 @@ var (
 			nodeipam.Cell,
 			auth.Cell,
 			store.Cell,
+			endpointslicesync.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
