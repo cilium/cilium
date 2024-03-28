@@ -262,7 +262,8 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 	return nil
 }
 
-// DetachXDP removes an XDP program from a network interface.
+// DetachXDP removes an XDP program from a network interface. On kernels before
+// 4.15, always removes the XDP program regardless of progName.
 //
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
@@ -272,10 +273,38 @@ func (l *loader) DetachXDP(iface netlink.Link, bpffsBase, progName string) error
 	if err == nil {
 		return nil
 	}
-
 	if !errors.Is(err, os.ErrNotExist) {
 		// The pinned link exists, something went wrong unpinning it.
 		return fmt.Errorf("unpinning XDP program using bpf_link: %w", err)
+	}
+
+	// Refresh the link info since the caller may have constructed iface manually.
+	iface, err = netlink.LinkByName(iface.Attrs().Name)
+	if err != nil {
+		return fmt.Errorf("getting link '%s' by name: %w", iface.Attrs().Name, err)
+	}
+
+	xdp := iface.Attrs().Xdp
+	if xdp == nil || !xdp.Attached {
+		return nil
+	}
+
+	// Inspect the attached program to only remove the intended XDP program.
+	id := xdp.ProgId
+	prog, err := ebpf.NewProgramFromID(ebpf.ProgramID(id))
+	if err != nil {
+		return fmt.Errorf("opening XDP program id %d: %w", id, err)
+	}
+	info, err := prog.Info()
+	if err != nil {
+		return fmt.Errorf("getting XDP program info %d: %w", id, err)
+	}
+	// The program name returned by BPF_PROG_INFO is limited to 20 characters.
+	// Treat the kernel-provided program name as a prefix that needs to match
+	// against progName. Empty program names (on kernels before 4.15) will always
+	// match and be removed.
+	if !strings.HasPrefix(progName, info.Name) {
+		return nil
 	}
 
 	// Pin doesn't exist, fall through to detaching using netlink.
