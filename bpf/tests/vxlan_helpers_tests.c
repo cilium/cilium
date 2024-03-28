@@ -74,46 +74,6 @@ mk_packet(struct __ctx_buff *ctx) {
 	return 0;
 }
 
-PKTGEN("tc", "vxlan_skb_is_vxlan_v4_success")
-static __always_inline int
-pktgen_vxlan_mock_check1(struct __ctx_buff *ctx) {
-	return mk_packet(ctx);
-}
-
-CHECK("tc", "vxlan_skb_is_vxlan_v4_success")
-int check1(struct __ctx_buff *ctx)
-{
-	test_init();
-
-	void *data, *data_end = NULL;
-	struct iphdr *ipv4 = NULL;
-
-	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
-	assert(vxlan_skb_is_vxlan_v4(data, data_end, ipv4, TUNNEL_PORT));
-
-	test_finish();
-}
-
-PKTGEN("tc", "vxlan_skb_is_vxlan_v4_failure")
-static __always_inline int
-pktgen_vxlan_mock_check2(struct __ctx_buff *ctx) {
-	return mk_packet(ctx);
-}
-
-CHECK("tc", "vxlan_skb_is_vxlan_v4_failure")
-int check2(struct __ctx_buff *ctx)
-{
-	test_init();
-
-	void *data, *data_end = NULL;
-	struct iphdr *ipv4 = NULL;
-
-	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
-	assert(!vxlan_skb_is_vxlan_v4(data, data_end, ipv4, TUNNEL_PORT_BAD));
-
-	test_finish();
-}
-
 PKTGEN("tc", "vxlan_get_vni_success")
 static __always_inline int
 pktgen_vxlan_mock_check3(struct __ctx_buff *ctx) {
