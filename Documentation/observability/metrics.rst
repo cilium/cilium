@@ -155,6 +155,20 @@ have it scrape all Hubble metrics from the endpoints automatically:
 
 .. _hubble_open_metrics:
 
+Excluding Namespaces/Pods from Hubble Metrics
+--------------------------------------------
+
+By default, Hubble metrics are collected for all pods in the cluster. If you
+want to exclude certain namespaces or pods from Hubble metrics, you can use the 
+label ``hubble.cilium.io/no-metrics: "true"`` on the namespace or pod. This label
+will prevent Hubble from collecting metrics for all pods in the namespace or the 
+specific pod.
+
+.. parsed-literal::
+
+   kubectl label namespace <namespace> hubble.cilium.io/no-metrics=true
+   kubectl label pod <pod> hubble.cilium.io/no-metrics=true
+
 OpenMetrics
 -----------
 

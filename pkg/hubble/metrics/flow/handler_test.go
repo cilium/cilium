@@ -127,6 +127,46 @@ func TestFlowHandler(t *testing.T) {
 
 		assert.Equal(t, "verdict", *metric.Label[5].Name)
 		assert.Equal(t, "DROPPED", *metric.Label[5].Value)
+
+		flow4 := &pb.Flow{
+			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
+			L7: &pb.Layer7{
+				Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
+			},
+			Source: &pb.Endpoint{
+				Namespace: "foo",
+				Labels:    []string{"k8s:hubble.cilium.io/no-metrics=true"},
+			},
+			Destination: &pb.Endpoint{Namespace: "bar"},
+			Verdict:     pb.Verdict_FORWARDED,
+		}
+		h.ProcessFlow(context.TODO(), flow4)
+
+		metricFamilies, err = registry.Gather()
+		require.NoError(t, err)
+		require.Len(t, metricFamilies, 1)
+
+		assert.Equal(t, "hubble_flows_processed_total", *metricFamilies[0].Name)
+		require.Len(t, metricFamilies[0].Metric, 4)
+		metric = metricFamilies[0].Metric[2]
+
+		assert.Equal(t, "destination", *metric.Label[0].Name)
+		assert.Equal(t, "bar", *metric.Label[0].Value)
+
+		assert.Equal(t, "protocol", *metric.Label[1].Name)
+		assert.Equal(t, "HTTP", *metric.Label[1].Value)
+
+		assert.Equal(t, "source", *metric.Label[2].Name)
+		assert.Equal(t, "", *metric.Label[2].Value)
+
+		assert.Equal(t, "subtype", *metric.Label[3].Name)
+		assert.Equal(t, "HTTP", *metric.Label[3].Value)
+
+		assert.Equal(t, "type", *metric.Label[4].Name)
+		assert.Equal(t, "L7", *metric.Label[4].Value)
+
+		assert.Equal(t, "verdict", *metric.Label[5].Name)
+		assert.Equal(t, "FORWARDED", *metric.Label[5].Value)
 	})
 
 }

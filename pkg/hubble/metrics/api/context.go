@@ -295,6 +295,11 @@ func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *p
 		source, destination = flow.GetDestination(), flow.GetSource()
 		sourceIp, destinationIp = flow.GetIP().GetDestination(), flow.GetIP().GetSource()
 	}
+
+	// Check if source and destination endpoints or their namespaces
+	// have hubble no metrics label applied.
+	allowSourceLabels, allowDestinationLabels := allowEndPointMetrics(source), allowEndPointMetrics(destination)
+
 	// Iterate over contextLabelsList so that the label order is stable,
 	// otherwise GetLabelNames and GetLabelValues might be mismatched
 	for _, label := range contextLabelsList {
@@ -304,35 +309,55 @@ func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *p
 			case "source_ip":
 				labelValue = sourceIp
 			case "source_pod":
-				labelValue = source.GetPodName()
+				if allowSourceLabels {
+					labelValue = source.GetPodName()
+				}
 			case "source_namespace":
-				labelValue = source.GetNamespace()
+				if allowSourceLabels {
+					labelValue = source.GetNamespace()
+				}
 			case "source_workload":
-				if workloads := source.GetWorkloads(); len(workloads) != 0 {
-					labelValue = workloads[0].Name
+				if allowSourceLabels {
+					if workloads := source.GetWorkloads(); len(workloads) != 0 {
+						labelValue = workloads[0].Name
+					}
 				}
 			case "source_workload_kind":
-				if workloads := source.GetWorkloads(); len(workloads) != 0 {
-					labelValue = workloads[0].Kind
+				if allowSourceLabels {
+					if workloads := source.GetWorkloads(); len(workloads) != 0 {
+						labelValue = workloads[0].Kind
+					}
 				}
 			case "source_app":
-				labelValue = getK8sAppFromLabels(source.GetLabels())
+				if allowSourceLabels {
+					labelValue = getK8sAppFromLabels(source.GetLabels())
+				}
 			case "destination_ip":
 				labelValue = destinationIp
 			case "destination_pod":
-				labelValue = destination.GetPodName()
+				if allowDestinationLabels {
+					labelValue = destination.GetPodName()
+				}
 			case "destination_namespace":
-				labelValue = destination.GetNamespace()
+				if allowDestinationLabels {
+					labelValue = destination.GetNamespace()
+				}
 			case "destination_workload":
-				if workloads := destination.GetWorkloads(); len(workloads) != 0 {
-					labelValue = workloads[0].Name
+				if allowDestinationLabels {
+					if workloads := destination.GetWorkloads(); len(workloads) != 0 {
+						labelValue = workloads[0].Name
+					}
 				}
 			case "destination_workload_kind":
-				if workloads := destination.GetWorkloads(); len(workloads) != 0 {
-					labelValue = workloads[0].Kind
+				if allowDestinationLabels {
+					if workloads := destination.GetWorkloads(); len(workloads) != 0 {
+						labelValue = workloads[0].Kind
+					}
 				}
 			case "destination_app":
-				labelValue = getK8sAppFromLabels(destination.GetLabels())
+				if allowDestinationLabels {
+					labelValue = getK8sAppFromLabels(destination.GetLabels())
+				}
 			case "traffic_direction":
 				direction := flow.GetTrafficDirection()
 				if direction == pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN {
@@ -457,7 +482,13 @@ func getContextIDLabelValue(contextID ContextIdentifier, flow *pb.Flow, source b
 	} else {
 		ep = flow.GetDestination()
 	}
+
+	// Check if the endpoint or its namespace have hubble no metrics label applied.
+	if !allowEndPointMetrics(ep) {
+		return ""
+	}
 	var labelValue string
+
 	switch contextID {
 	case ContextNamespace:
 		labelValue = ep.GetNamespace()
