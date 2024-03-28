@@ -429,7 +429,7 @@ func basicHostPortHTTPListenersCiliumEnvoyConfig(address string, port uint32, no
 }
 
 // basicTLSListeners is the internal model representation of the simple TLS listeners
-var basicTLSListeners = []model.TLSListener{
+var basicTLSListeners = []model.TLSPassthroughListener{
 	{
 		Name: "prod-web-gw",
 		Sources: []model.FullyQualifiedResource{
@@ -444,7 +444,7 @@ var basicTLSListeners = []model.TLSListener{
 		Address:  "",
 		Port:     443,
 		Hostname: "*",
-		Routes: []model.TLSRoute{
+		Routes: []model.TLSPassthroughRoute{
 			{
 				Hostnames: []string{"foo.com"},
 				Backends: []model.Backend{

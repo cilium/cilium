@@ -95,7 +95,7 @@ func WithHostNetworkPort(m *model.Model, ipv4Enabled bool, ipv6Enabled bool) Lis
 	for _, hl := range m.HTTP {
 		ports = append(ports, hl.GetPort())
 	}
-	for _, hl := range m.TLS {
+	for _, hl := range m.TLSPassthrough {
 		ports = append(ports, hl.GetPort())
 	}
 

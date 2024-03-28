@@ -46,7 +46,7 @@ func Test_translator_Translate(t *testing.T) {
 			name: "Basic TLS SNI Listener",
 			args: args{
 				m: &model.Model{
-					TLS: basicTLSListeners,
+					TLSPassthrough: basicTLSListeners,
 				},
 			},
 			want: basicTLSListenersCiliumEnvoyConfig,
