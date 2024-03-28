@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CncryptCmd represents the encrypt command
-var CncryptCmd = &cobra.Command{
+// EncryptCmd represents the encrypt command
+var EncryptCmd = &cobra.Command{
 	Use:   "encrypt",
 	Short: "Manage transparent encryption",
 }
 
 func init() {
-	RootCmd.AddCommand(CncryptCmd)
+	RootCmd.AddCommand(EncryptCmd)
 }
