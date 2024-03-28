@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ !github.event.merge_group }}
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 51ce0d7242af906a7c7fc71da63be59302686072
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
   TIMEOUT: 2m

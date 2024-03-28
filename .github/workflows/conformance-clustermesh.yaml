@@ -55,7 +55,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 51ce0d7242af906a7c7fc71da63be59302686072
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
   contextName1: kind-cluster1-${{ github.run_id }}
@@ -266,7 +266,7 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
             --flow-validation=disabled \
             --multi-cluster=${{ env.contextName2 }} \
-            --external-target=google.com \
+            --external-target=google.com. \
             --include-unsafe-tests \
             --collect-sysdump-on-failure"
 
@@ -483,7 +483,7 @@ jobs:
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
       - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
+        if: ${{ always() && steps.install-cilium-cluster1.outcome != 'skipped' }}
         run: |
           cilium --context ${{ env.contextName1 }} status
           cilium --context ${{ env.contextName1 }} clustermesh status
@@ -511,7 +511,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdumps-${{ matrix.name }}
