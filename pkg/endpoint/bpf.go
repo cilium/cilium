@@ -1167,8 +1167,18 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 		return err
 	}
 
-	// Ignoring the revertFunc; keep all successful changes even if some fail.
-	err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+	// Only update Envoy if there are envoy redirects.
+	// This is safe to do here, since a PolicyMapChange cannot
+	// cause an envoy redirect to appear or disappear. It only allows for
+	// incremental updates. Thus, we don't need to worry about stale
+	// policy not being cleaned up.
+	if e.desiredPolicy.L4Policy.HasEnvoyRedirect() || e.isIngress {
+		// Ignoring the revertFunc; keep all successful changes even if some fail.
+		e.getLogger().Debug("Endpoint has envoy redirects, applying changes to Envoy")
+		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+	} else {
+		e.getLogger().Debug("Endpoint has no envoy redirects, skipping Envoy update")
+	}
 
 	return err
 }
