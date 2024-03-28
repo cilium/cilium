@@ -170,9 +170,12 @@ func cleanIngressQdisc(devices []string) error {
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
 func (l *loader) reinitializeIPSec(ctx context.Context) error {
-	// If devices are specified, then we are relying on autodetection and don't
-	// need the code below, specific to EncryptInterface.
-	if !option.Config.EnableIPSec || len(option.Config.GetDevices()) > 0 {
+	// We need to take care not to load bpf_network and bpf_host onto the same
+	// device. If devices are required, we load bpf_host and hence don't need
+	// the code below, specific to EncryptInterface. Specifically, we will load
+	// bpf_host code in reloadHostDatapath onto the physical devices as selected
+	// by configuration.
+	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired() {
 		return nil
 	}
 
