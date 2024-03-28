@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -31,9 +32,9 @@ func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
 	if option.Config.TunnelingEnabled() {
 		return n.datapathConfig.TunnelDevice
 	}
-	devices := option.Config.GetDevices()
+	devices, _ := tables.SelectedDevices(n.devices, n.db.ReadTxn())
 	if len(devices) > 0 {
-		return devices[0]
+		return devices[0].Name
 	}
 	if len(option.Config.EncryptInterface) > 0 {
 		return option.Config.EncryptInterface[0]
