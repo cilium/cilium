@@ -147,8 +147,6 @@ jobs:
           #   give enough time to the clustermesh-apiserver to restart after
           #   the upgrade/downgrade before that agents regenerate the endpoints.
           CILIUM_INSTALL_DEFAULTS=" \
-            --set=debug.enabled=true \
-            --set=bpf.monitorAggregation=none \
             --set=hubble.enabled=false \
             --set=routingMode=tunnel \
             --set=tunnelProtocol=vxlan \
@@ -342,15 +340,14 @@ jobs:
         id: downgrade-vars
         run: |
           SHA="$(cd untrusted/cilium-downgrade && git rev-parse HEAD)"
-          CILIUM_IMAGE_SETTINGS=" \
-            --chart-directory=./untrusted/cilium-downgrade/install/kubernetes/cilium \
-            --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
-            --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${SHA} \
-            --set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
-            --set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHA} \
-          "
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
-          echo "cilium_image_settings=${CILIUM_IMAGE_SETTINGS}" >> $GITHUB_OUTPUT
+
+      - name: Get Cilium's default values
+        id: downgrade-default-vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ outputs.downgrade-vars.outputs.sha }}
+          chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
 
       - name: Wait for images to be available (newest)
         timeout-minutes: 10
@@ -375,7 +372,7 @@ jobs:
           KVSTORE_ID: 1
         run: |
           cilium --context ${{ env.contextName1 }} install \
-            ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
+            ${{ steps.downgrade-default-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
@@ -545,7 +542,7 @@ jobs:
           KVSTORE_ID: 1
         run: |
           cilium --context ${{ env.contextName1 }} upgrade --reset-values \
-            ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
+            ${{ steps.downgrade-default-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
