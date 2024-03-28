@@ -354,7 +354,7 @@ The following deprecated metrics were removed:
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
-* TBD
+* The ``cilium_api_limiter_processed_requests_total`` has now label ``return_code`` to specify the http code of the request.
 
 .. _1.15_upgrade_notes:
 

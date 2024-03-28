@@ -63,6 +63,7 @@ func (m *mockMetrics) ProcessedRequest(name string, v MetricsValues) {
 	me.Burst = v.Burst
 	me.CurrentRequestsInFlight = v.CurrentRequestsInFlight
 	me.AdjustmentFactor = v.AdjustmentFactor
+	me.ReturnCode = v.ReturnCode
 }
 
 func TestNewAPILimiter(t *testing.T) {
@@ -498,7 +499,7 @@ func TestAPILimiterMetrics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, req3)
 	time.Sleep(5 * time.Millisecond)
-	req3.Error(fmt.Errorf("error"))
+	req3.Error(fmt.Errorf("error"), 500)
 	req3.Done()
 
 	a := l.Limiter("foo")
