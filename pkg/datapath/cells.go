@@ -197,7 +197,7 @@ type datapathParams struct {
 	// Some of the entries in this slice may be nil.
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 
-	NodeMap nodemap.Map
+	NodeMap nodemap.MapV2
 
 	NodeAddressing types.NodeAddressing
 

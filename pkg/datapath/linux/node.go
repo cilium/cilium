@@ -70,7 +70,7 @@ type linuxNodeHandler struct {
 	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 
-	nodeMap nodemap.Map
+	nodeMap nodemap.MapV2
 	// Pool of available IDs for nodes.
 	nodeIDs *idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
@@ -97,7 +97,7 @@ var (
 func NewNodeHandler(
 	datapathConfig DatapathConfiguration,
 	nodeAddressing datapath.NodeAddressing,
-	nodeMap nodemap.Map,
+	nodeMap nodemap.MapV2,
 	mtu datapath.MTUConfiguration,
 	nbq datapath.NodeNeighborEnqueuer,
 ) *linuxNodeHandler {
@@ -944,7 +944,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldKey, newKey                           uint8
 		isLocalNode                              = false
 	)
-	remoteNodeID, err := n.allocateIDForNode(newNode)
+	remoteNodeID, err := n.allocateIDForNode(oldNode, newNode)
 	if err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to allocate ID for node %s: %w", newNode.Name, err))
 	}

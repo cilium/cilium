@@ -10,9 +10,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 )
 
-// Cell provides the nodemap.Map which contains information about node IDs and their IP addresses.
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "NodeMap")
+
+// Cell provides the nodemap.MapV2 which contains information about node IDs, SPIs, and their IP addresses.
 var Cell = cell.Module(
 	"node-map",
 	"eBPF map which contains information about node IDs and their IP addresses",
@@ -34,21 +39,26 @@ var defaultConfig = Config{
 	NodeMapMax: DefaultMaxEntries,
 }
 
-func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[Map], error) {
+func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[MapV2], error) {
 	if conf.NodeMapMax < DefaultMaxEntries {
-		return bpf.MapOut[Map]{}, fmt.Errorf("creating node map: bpf-node-map-max cannot be less than %d (%d)",
+		return bpf.MapOut[MapV2]{}, fmt.Errorf("creating node map: bpf-node-map-max cannot be less than %d (%d)",
 			DefaultMaxEntries, conf.NodeMapMax)
 	}
-	nodeMap := newMap(MapName, conf)
+	nodeMap := newMapV2(MapNameV2, conf)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
-			return nodeMap.init()
+			if err := nodeMap.init(); err != nil {
+				return err
+			}
+
+			// do v1 to v2 map migration if necessary
+			return nodeMap.migrateV1(MapName, encrypt.MapName)
 		},
 		OnStop: func(context cell.HookContext) error {
 			return nodeMap.close()
 		},
 	})
 
-	return bpf.NewMapOut(Map(nodeMap)), nil
+	return bpf.NewMapOut(MapV2(nodeMap)), nil
 }

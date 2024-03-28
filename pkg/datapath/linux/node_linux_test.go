@@ -212,7 +212,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4: s.enableIPv4,
@@ -348,7 +348,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(c *check.C,
 	externalNodeIP2 := net.ParseIP("8.8.8.8")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	linuxNodeHandler.OverrideEnableEncapsulation(override)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
@@ -615,7 +615,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(c *check.C) {
 	nodeIP2 := net.ParseIP("8.8.8.8")
 	nodeIP3 := net.ParseIP("1.1.1.1")
 
-	nodeMap := nodemapfake.NewFakeNodeMap()
+	nodeMap := nodemapfake.NewFakeNodeMapV2()
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodeMap, &s.mtuConfig, new(mockEnqueuer))
@@ -657,7 +657,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(c *check.C) {
 	c.Assert(err, check.IsNil)
 	nodeID2, err := nodeMap.Lookup(nodeIP2)
 	c.Assert(err, check.IsNil)
-	c.Assert(nodeID2, check.Equals, nodeID1)
+	c.Assert(*nodeID2, check.Equals, *nodeID1)
 
 	// When the node is updated, the old IPs are unmapped from the node ID.
 	node1v3 := nodeTypes.Node{
@@ -673,7 +673,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(c *check.C) {
 	c.Assert(err, check.ErrorMatches, "IP not found in node ID map")
 	nodeID3, err := nodeMap.Lookup(nodeIP2)
 	c.Assert(err, check.IsNil)
-	c.Assert(nodeID3, check.Equals, nodeID2)
+	c.Assert(*nodeID3, check.Equals, *nodeID2)
 
 	// If a second node is created, it receives a different node ID.
 	node2 := nodeTypes.Node{
@@ -711,7 +711,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(c *check.C) {
 	c.Assert(err, check.IsNil)
 	nodeID6, err := nodeMap.Lookup(nodeIP3)
 	c.Assert(err, check.IsNil)
-	c.Assert(nodeID5, check.Equals, nodeID6)
+	c.Assert(*nodeID5, check.Equals, *nodeID6)
 }
 
 // Tests that we don't leak XFRM policies and states as nodes come and go.
@@ -768,7 +768,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(c *check
 	c.Assert(err, check.IsNil)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
@@ -859,7 +859,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	defer removeDevice(externalNode2Device)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4:              s.enableIPv4,
@@ -1075,7 +1075,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 	underlayIP := net.ParseIP("4.4.4.4")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4:          s.enableIPv4,
@@ -1185,7 +1185,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(c *check.
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
@@ -1357,7 +1357,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
 
 	mq := new(mockEnqueuer)
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, mq)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
 	mq.nh = linuxNodeHandler
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
@@ -2298,7 +2298,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
 
 	mq := new(mockEnqueuer)
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, mq)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
 	mq.nh = linuxNodeHandler
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
@@ -2607,7 +2607,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
 
 	mq := new(mockEnqueuer)
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, mq)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
 	mq.nh = linuxNodeHandler
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
@@ -3550,7 +3550,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
 
 	mq := new(mockEnqueuer)
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, mq)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
 	mq.nh = linuxNodeHandler
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
@@ -3771,7 +3771,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config da
 	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
@@ -3868,7 +3868,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(c *check.C, config
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
@@ -3937,7 +3937,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(c *ch
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, new(mockEnqueuer))
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)

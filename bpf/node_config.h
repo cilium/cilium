@@ -154,7 +154,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define AUTH_MAP test_cilium_auth
 #define CONFIG_MAP test_cilium_runtime_config
 #define IPCACHE_MAP test_cilium_ipcache
-#define NODE_MAP test_cilium_node_map
+#define NODE_MAP_V2 test_cilium_node_map
 #define ENCRYPT_MAP test_cilium_encrypt_state
 #define L2_RESPONDER_MAP4 test_cilium_l2_responder_v4
 #define RATELIMIT_MAP test_cilium_ratelimit

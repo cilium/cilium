@@ -37,7 +37,7 @@ type DatapathParams struct {
 	ConfigWriter   datapath.ConfigWriter
 	RuleManager    datapath.IptablesManager
 	WGAgent        datapath.WireguardAgent
-	NodeMap        nodemap.Map
+	NodeMap        nodemap.MapV2
 	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
