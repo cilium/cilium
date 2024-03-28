@@ -7,6 +7,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -16,11 +18,12 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 var (
-	K8sSvcCache k8s.ServiceCache // = k8s.NewServiceCache(nil)
+	K8sSvcCache = NewServiceCache(nil)
 
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
@@ -29,56 +32,54 @@ var (
 )
 
 func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool) {
-	// FIXME rewrite this
-	/*
-		serviceHandler := func(event k8s.ServiceEvent) {
-			defer event.SWG.Done()
+	serviceHandler := func(event ServiceEvent) {
+		defer event.SWG.Done()
 
-			svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
-			svc.Cluster = cinfo.Name
-			svc.ClusterID = cinfo.ID
+		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+		svc.Cluster = cinfo.Name
+		svc.ClusterID = cinfo.ID
 
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.K8sSvcName:   event.ID.Name,
-				logfields.K8sNamespace: event.ID.Namespace,
-				"action":               event.Action.String(),
-				"service":              event.Service.String(),
-				"endpoints":            event.Endpoints.String(),
-				"shared":               event.Service.Shared,
-			})
-			scopedLog.Debug("Kubernetes service definition changed")
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.K8sSvcName:   event.ID.Name,
+			logfields.K8sNamespace: event.ID.Namespace,
+			"action":               event.Action.String(),
+			"service":              event.Service.String(),
+			"endpoints":            event.Endpoints.String(),
+			"shared":               event.Service.Shared,
+		})
+		scopedLog.Debug("Kubernetes service definition changed")
 
-			if shared && !event.Service.Shared {
-				// The annotation may have been added, delete an eventual existing service
-				kvs.DeleteKey(ctx, &svc)
-				return
-			}
-
-			switch event.Action {
-			case k8s.UpdateService:
-				if err := kvs.UpsertKey(ctx, &svc); err != nil {
-					// An error is triggered only in case it concerns service marshaling,
-					// as kvstore operations are automatically re-tried in case of error.
-					scopedLog.WithError(err).Warning("Failed synchronizing service")
-				}
-
-			case k8s.DeleteService:
-				kvs.DeleteKey(ctx, &svc)
-			}
+		if shared && !event.Service.Shared {
+			// The annotation may have been added, delete an eventual existing service
+			kvs.DeleteKey(ctx, &svc)
+			return
 		}
-		for {
-			select {
-			case event, ok := <-K8sSvcCache.Events:
-				if !ok {
-					return
-				}
 
-				serviceHandler(event)
+		switch event.Action {
+		case UpdateService:
+			if err := kvs.UpsertKey(ctx, &svc); err != nil {
+				// An error is triggered only in case it concerns service marshaling,
+				// as kvstore operations are automatically re-tried in case of error.
+				scopedLog.WithError(err).Warning("Failed synchronizing service")
+			}
 
-			case <-ctx.Done():
+		case DeleteService:
+			kvs.DeleteKey(ctx, &svc)
+		}
+	}
+	for {
+		select {
+		case event, ok := <-K8sSvcCache.Events:
+			if !ok {
 				return
 			}
-		}*/
+
+			serviceHandler(event)
+
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 type ServiceSyncParameters struct {
@@ -212,7 +213,7 @@ type ServiceGetter struct {
 }
 
 // NewServiceGetter returns a new ServiceGetter holding 2 k8sCaches
-func NewServiceGetter(sc *k8s.ServiceCache) *ServiceGetter {
+func NewServiceGetter(sc *ServiceCache) *ServiceGetter {
 	return &ServiceGetter{
 		shortCutK8sCache: sc,
 		k8sCache:         K8sSvcCache,

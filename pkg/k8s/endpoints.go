@@ -118,8 +118,8 @@ func (e *Endpoints) String() string {
 	return strings.Join(backends, ",")
 }
 
-// newEndpoints returns a new Endpoints
-func newEndpoints() *Endpoints {
+// NewEndpoints returns a new Endpoints
+func NewEndpoints() *Endpoints {
 	return &Endpoints{
 		Backends: map[cmtypes.AddrCluster]*Backend{},
 	}
@@ -148,7 +148,7 @@ func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
 
 // ParseEndpoints parses a Kubernetes Endpoints resource
 func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
-	endpoints := newEndpoints()
+	endpoints := NewEndpoints()
 	endpoints.ObjectMeta = ep.ObjectMeta
 
 	for _, sub := range ep.Subsets {
@@ -201,7 +201,7 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
 func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoints {
-	endpoints := newEndpoints()
+	endpoints := NewEndpoints()
 	endpoints.ObjectMeta = ep.ObjectMeta
 	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
@@ -297,7 +297,7 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
 func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
-	endpoints := newEndpoints()
+	endpoints := NewEndpoints()
 	endpoints.ObjectMeta = ep.ObjectMeta
 	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
@@ -427,11 +427,15 @@ type EndpointSlices struct {
 	epSlices map[string]*Endpoints
 }
 
-// newEndpointsSlices returns a new EndpointSlices
-func newEndpointsSlices() *EndpointSlices {
+// NewEndpointsSlices returns a new EndpointSlices
+func NewEndpointsSlices() *EndpointSlices {
 	return &EndpointSlices{
 		epSlices: map[string]*Endpoints{},
 	}
+}
+
+func (es *EndpointSlices) EpSlices() map[string]*Endpoints {
+	return es.epSlices
 }
 
 // GetEndpoints returns a read only a single *Endpoints structure with all
@@ -440,7 +444,7 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 	if es == nil || len(es.epSlices) == 0 {
 		return nil
 	}
-	allEps := newEndpoints()
+	allEps := NewEndpoints()
 	for _, eps := range es.epSlices {
 		for backend, ep := range eps.Backends {
 			// EndpointSlices may have duplicate addresses on different slices.

@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	"github.com/cilium/cilium/operator/watchers"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -600,7 +601,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 							// Create another service cache that contains the
 							// k8s service for etcd. As soon the k8s caches are
 							// synced, this hijack will stop happening.
-							sc := k8s.NewServiceCache(nil)
+							sc := watchers.NewServiceCache(nil)
 							slimSvcObj, err := k8s.TransformToK8sService(k8sSvc)
 							if err != nil {
 								scopedLog.WithFields(logrus.Fields{

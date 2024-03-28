@@ -32,8 +32,6 @@ type ServiceCache interface {
 
 	LocalServices() sets.Set[ServiceID]
 
-	UniqueServiceFrontends() FrontendList
-
 	GetNodeAddressing() types.NodeAddressing
 
 	ForEachService(yield func(svcID ServiceID, svc *Service, eps *Endpoints) bool)

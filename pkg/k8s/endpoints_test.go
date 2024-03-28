@@ -267,7 +267,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 		EndpointSliceName: "foo",
 	}
 	newEmptyEndpoints := func() *Endpoints {
-		eps := newEndpoints()
+		eps := NewEndpoints()
 		eps.ObjectMeta = meta
 		eps.EndpointSliceID = sliceID
 		return eps
@@ -580,7 +580,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 	}
 
 	newEmptyEndpoints := func() *Endpoints {
-		eps := newEndpoints()
+		eps := NewEndpoints()
 		eps.ObjectMeta = meta
 		eps.EndpointSliceID = sliceID
 		return eps
@@ -1244,7 +1244,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 	}
 
 	newEmptyEndpoints := func() *Endpoints {
-		eps := newEndpoints()
+		eps := NewEndpoints()
 		eps.ObjectMeta = meta
 		eps.EndpointSliceID = sliceID
 		return eps

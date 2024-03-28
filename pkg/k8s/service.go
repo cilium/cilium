@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	serviceAffinityNone   = ""
-	serviceAffinityLocal  = "local"
-	serviceAffinityRemote = "remote"
+	ServiceAffinityNone   = ""
+	ServiceAffinityLocal  = "local"
+	ServiceAffinityRemote = "remote"
 )
 
 func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
@@ -58,14 +58,14 @@ func getAnnotationShared(svc *slim_corev1.Service) bool {
 func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	// The ServiceAffinity annotation is ignored if the service is not declared as global.
 	if !getAnnotationIncludeExternal(svc) {
-		return serviceAffinityNone
+		return ServiceAffinityNone
 	}
 
 	if value, ok := annotation.Get(svc, annotation.ServiceAffinity, annotation.ServiceAffinityAlias); ok {
 		return strings.ToLower(value)
 	}
 
-	return serviceAffinityNone
+	return ServiceAffinityNone
 }
 
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
@@ -77,9 +77,9 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	return !(value == "" || value == "disabled" || value == "Disabled")
 }
 
-// isValidServiceFrontendIP returns true if the provided service frontend IP address type
+// IsValidServiceFrontendIP returns true if the provided service frontend IP address type
 // is supported in cilium configuration.
-func isValidServiceFrontendIP(netIP net.IP) bool {
+func IsValidServiceFrontendIP(netIP net.IP) bool {
 	if (option.Config.EnableIPv4 && ip.IsIPv4(netIP)) || (option.Config.EnableIPv6 && ip.IsIPv6(netIP)) {
 		return true
 	}
