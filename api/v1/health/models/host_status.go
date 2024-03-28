@@ -114,6 +114,11 @@ func (m *HostStatus) ContextValidate(ctx context.Context, formats strfmt.Registr
 func (m *HostStatus) contextValidatePrimaryAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.PrimaryAddress != nil {
+
+		if swag.IsZero(m.PrimaryAddress) { // not required
+			return nil
+		}
+
 		if err := m.PrimaryAddress.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
@@ -132,6 +137,11 @@ func (m *HostStatus) contextValidateSecondaryAddresses(ctx context.Context, form
 	for i := 0; i < len(m.SecondaryAddresses); i++ {
 
 		if m.SecondaryAddresses[i] != nil {
+
+			if swag.IsZero(m.SecondaryAddresses[i]) { // not required
+				return nil
+			}
+
 			if err := m.SecondaryAddresses[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))

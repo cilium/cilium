@@ -39,7 +39,7 @@ func (o *GetDebuginfoReader) ReadResponse(response runtime.ClientResponse, consu
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /debuginfo] GetDebuginfo", response, response.Code())
 	}
 }
 
@@ -80,6 +80,11 @@ func (o *GetDebuginfoOK) IsServerError() bool {
 // IsCode returns true when this get debuginfo o k response a status code equal to that given
 func (o *GetDebuginfoOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get debuginfo o k response
+func (o *GetDebuginfoOK) Code() int {
+	return 200
 }
 
 func (o *GetDebuginfoOK) Error() string {
@@ -143,6 +148,11 @@ func (o *GetDebuginfoFailure) IsServerError() bool {
 // IsCode returns true when this get debuginfo failure response a status code equal to that given
 func (o *GetDebuginfoFailure) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the get debuginfo failure response
+func (o *GetDebuginfoFailure) Code() int {
+	return 500
 }
 
 func (o *GetDebuginfoFailure) Error() string {
