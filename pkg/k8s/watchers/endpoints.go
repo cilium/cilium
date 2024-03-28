@@ -4,11 +4,13 @@
 package watchers
 
 import (
+	"context"
 	"net/netip"
 	"sync/atomic"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -33,38 +35,34 @@ func (k *K8sWatcher) endpointsInit() {
 	)
 	k.k8sAPIGroups.AddAPI(apiGroup)
 
-	synced.Store(true)
-	/*
-		ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
-		events := k.resources.Endpoints.Events(ctx)
-		go func() {
-			for {
-				select {
-				case <-k.stop:
-					cancel()
-				case event, ok := <-events:
-					if !ok {
-						return
-					}
-					switch event.Kind {
-					case resource.Sync:
-						synced.Store(true)
-					case resource.Upsert:
-						k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-						k.updateEndpoint(event.Object, swg)
-					case resource.Delete:
-						k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-						k.K8sSvcCache.DeleteEndpoints(event.Object.EndpointSliceID, swg)
-					}
-					event.Done(nil)
+	events := k.resources.Endpoints.Events(ctx)
+	go func() {
+		for {
+			select {
+			case <-k.stop:
+				cancel()
+			case event, ok := <-events:
+				if !ok {
+					return
 				}
+				switch event.Kind {
+				case resource.Sync:
+					synced.Store(true)
+				case resource.Upsert:
+					k.k8sResourceSynced.SetEventTimestamp(apiGroup)
+					k.updateEndpoint(event.Object, swg)
+				case resource.Delete:
+					k.k8sResourceSynced.SetEventTimestamp(apiGroup)
+				}
+				event.Done(nil)
 			}
-		}()*/
+		}
+	}()
 }
 
 func (k *K8sWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.StoppableWaitGroup) {
-	k.K8sSvcCache.UpdateEndpoints(eps, swgEps)
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpoints(eps)
 	}

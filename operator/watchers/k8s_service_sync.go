@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(nil)
+	K8sSvcCache k8s.ServiceCache // = k8s.NewServiceCache(nil)
 
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.

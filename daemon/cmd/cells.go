@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -215,9 +214,6 @@ var (
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
 
-		// ServiceCache holds the list of known services correlated with the matching endpoints.
-		k8s.ServiceCacheCell,
-
 		// K8s policy resource watcher cell. It depends on the daemon which we cast into
 		// the interface type here to avoid a circular package import
 		cell.Provide(func(p promise.Promise[*Daemon]) promise.Promise[policyK8s.PolicyManager] {
@@ -246,6 +242,9 @@ var (
 
 		// Control-plane tables
 		tables.Cell,
+
+		// ServiceCache holds the list of known services correlated with the matching endpoints.
+		tables.ServiceCacheCell,
 
 		// Table[Service] -> ServiceManager
 		controllers.ServiceControllerCell,

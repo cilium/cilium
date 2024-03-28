@@ -71,7 +71,7 @@ func demo(s *tables.Services) {
 	s.UpsertService(
 		txn,
 		name,
-		tables.ServiceParams{
+		&tables.ServiceParams{
 			L3n4Addr:        *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.MustParseAddrCluster("1.2.3.4"), 12345, loadbalancer.ScopeExternal),
 			Type:            loadbalancer.SVCTypeClusterIP,
 			Labels:          map[string]labels.Label{},
@@ -86,7 +86,7 @@ func demo(s *tables.Services) {
 	s.UpsertService(
 		txn,
 		name,
-		tables.ServiceParams{
+		&tables.ServiceParams{
 			L3n4Addr:        *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.MustParseAddrCluster("0.0.0.0"), 40404, loadbalancer.ScopeExternal),
 			Type:            loadbalancer.SVCTypeNodePort,
 			Labels:          map[string]labels.Label{},

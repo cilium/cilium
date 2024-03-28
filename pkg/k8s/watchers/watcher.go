@@ -186,7 +186,7 @@ type K8sWatcher struct {
 	k8sAPIGroups *synced.APIGroups
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
-	K8sSvcCache *k8s.ServiceCache
+	K8sSvcCache k8s.ServiceCache
 
 	endpointManager endpointManager
 
@@ -239,7 +239,7 @@ func NewK8sWatcher(
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
 	resources agentK8s.Resources,
-	serviceCache *k8s.ServiceCache,
+	serviceCache k8s.ServiceCache,
 	bandwidthManager datapath.BandwidthManager,
 ) *K8sWatcher {
 	return &K8sWatcher{

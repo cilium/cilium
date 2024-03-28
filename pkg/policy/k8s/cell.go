@@ -66,7 +66,7 @@ type PolicyWatcherParams struct {
 	K8sAPIGroups      *synced.APIGroups
 
 	PolicyManager promise.Promise[PolicyManager]
-	ServiceCache  *k8s.ServiceCache
+	ServiceCache  k8s.ServiceCache
 
 	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]

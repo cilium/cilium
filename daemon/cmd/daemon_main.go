@@ -1667,7 +1667,7 @@ type daemonParams struct {
 	CNIConfigManager     cni.CNIConfigManager
 	SwaggerSpec          *server.Spec
 	HealthAPISpec        *healthApi.Spec
-	ServiceCache         *k8s.ServiceCache
+	ServiceCache         k8s.ServiceCache
 	ClusterMesh          *clustermesh.ClusterMesh
 	MonitorAgent         monitorAgent.Agent
 	L2Announcer          *l2announcer.L2Announcer
