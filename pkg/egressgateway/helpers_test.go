@@ -104,7 +104,7 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 				},
 			},
 		},
-		policyGwConfig: &policyGatewayConfig{
+		policyGwConfig: policyGatewayConfig{
 			iface:    params.iface,
 			egressIP: addr,
 		},

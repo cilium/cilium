@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/spf13/pflag"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -178,14 +177,12 @@ func (k *EgressPolicyKey4) Match(sourceIP netip.Addr, destCIDR netip.Prefix) boo
 
 // GetSourceIP returns the egress policy key's source IP.
 func (k *EgressPolicyKey4) GetSourceIP() netip.Addr {
-	addr, _ := netipx.FromStdIP(k.SourceIP.IP())
-	return addr
+	return k.SourceIP.Addr()
 }
 
 // GetDestCIDR returns the egress policy key's destination CIDR.
 func (k *EgressPolicyKey4) GetDestCIDR() netip.Prefix {
-	addr, _ := netipx.FromStdIP(k.DestCIDR.IP())
-	return netip.PrefixFrom(addr, int(k.PrefixLen-PolicyStaticPrefixBits))
+	return netip.PrefixFrom(k.DestCIDR.Addr(), int(k.PrefixLen-PolicyStaticPrefixBits))
 }
 
 // New returns an egress policy value

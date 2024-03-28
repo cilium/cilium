@@ -54,9 +54,9 @@ type PolicyConfig struct {
 	dstCIDRs          []netip.Prefix
 	excludedCIDRs     []netip.Prefix
 
-	policyGwConfig *policyGatewayConfig
+	policyGwConfig policyGatewayConfig
 
-	matchedEndpoints map[endpointID]*endpointMetadata
+	matchedEndpoints map[endpointID]endpointMetadata
 	gatewayConfig    gatewayConfig
 }
 
@@ -76,11 +76,11 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 }
 
 // updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
-	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
+func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore []endpointMetadata) {
+	config.matchedEndpoints = make(map[endpointID]endpointMetadata)
 
 	for _, endpoint := range epDataStore {
-		if config.matchesEndpointLabels(endpoint) {
+		if config.matchesEndpointLabels(&endpoint) {
 			config.matchedEndpoints[endpoint.id] = endpoint
 		}
 	}
@@ -90,7 +90,7 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 	return config.nodeSelector.Matches(k8sLabels.Set(node.Labels))
 }
 
-func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
+func (config *PolicyConfig) regenerateGatewayConfig(nodes []nodeTypes.Node) {
 	gwc := gatewayConfig{
 		egressIP:  netip.IPv4Unspecified(),
 		gatewayIP: GatewayNotFoundIPv4,
@@ -98,7 +98,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 	policyGwc := config.policyGwConfig
 
-	for _, node := range manager.nodes {
+	for _, node := range nodes {
 		if !policyGwc.selectsNodeAsGateway(node) {
 			continue
 		}
@@ -110,7 +110,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 		gwc.gatewayIP = addr
 
 		if node.IsLocal() {
-			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
+			err := gwc.deriveFromPolicyGatewayConfig(&policyGwc)
 			if err != nil {
 				logger := log.WithFields(logrus.Fields{
 					logfields.CiliumEgressGatewayPolicyName: config.id,
@@ -167,28 +167,6 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 	return nil
 }
 
-// forEachEndpointAndCIDR iterates through each combination of endpoints and
-// destination/excluded CIDRs of the receiver policy, and for each of them it
-// calls the f callback function passing the given endpoint and CIDR, together
-// with a boolean value indicating if the CIDR belongs to the excluded ones and
-// the gatewayConfig of the receiver policy
-func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Prefix, bool, *gatewayConfig)) {
-
-	for _, endpoint := range config.matchedEndpoints {
-		for _, endpointIP := range endpoint.ips {
-			isExcludedCIDR := false
-			for _, dstCIDR := range config.dstCIDRs {
-				f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfig)
-			}
-
-			isExcludedCIDR = true
-			for _, excludedCIDR := range config.excludedCIDRs {
-				f(endpointIP, excludedCIDR, isExcludedCIDR, &config.gatewayConfig)
-			}
-		}
-	}
-}
-
 // ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress gateway policy
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
@@ -222,7 +200,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 
 	// EgressIP is not a required field, ignore the error if unable to parse.
 	addr, _ := netip.ParseAddr(egressGateway.EgressIP)
-	policyGwc := &policyGatewayConfig{
+	policyGwc := policyGatewayConfig{
 		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
 		iface:        egressGateway.Interface,
 		egressIP:     addr,
@@ -285,7 +263,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		endpointSelectors: endpointSelectorList,
 		dstCIDRs:          dstCidrList,
 		excludedCIDRs:     excludedCIDRs,
-		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
+		matchedEndpoints:  make(map[endpointID]endpointMetadata),
 		policyGwConfig:    policyGwc,
 		id: types.NamespacedName{
 			Name: name,
