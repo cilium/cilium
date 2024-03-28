@@ -33,14 +33,6 @@ func CheckRequirements() {
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
 
-		if probes.HaveDeadCodeElim() != nil {
-			log.Fatalf("Require support for dead code elimination (Linux 5.1 or newer)")
-		}
-
-		if probes.HaveLargeInstructionLimit() != nil {
-			log.Fatalf("Require support for large programs (Linux 5.2.0 or newer)")
-		}
-
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			errMsg := "BPF system config check: NOT OK."
 			// TODO(vincentmli): revisit log when GH#14314 has been resolved
