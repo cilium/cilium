@@ -118,7 +118,21 @@ func specHasCIDRGroupRef(spec *api.Rule, cidrGroup string) bool {
 			}
 		}
 	}
+	for _, ingress := range spec.IngressDeny {
+		for _, rule := range ingress.FromCIDRSet {
+			if string(rule.CIDRGroupRef) == cidrGroup {
+				return true
+			}
+		}
+	}
 	for _, egress := range spec.Egress {
+		for _, rule := range egress.ToCIDRSet {
+			if string(rule.CIDRGroupRef) == cidrGroup {
+				return true
+			}
+		}
+	}
+	for _, egress := range spec.EgressDeny {
 		for _, rule := range egress.ToCIDRSet {
 			if string(rule.CIDRGroupRef) == cidrGroup {
 				return true
@@ -150,11 +164,22 @@ func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
 				}
 			}
 		}
+		for _, ingress := range spec.IngressDeny {
+			for _, rule := range ingress.FromCIDRSet {
+				if len(rule.Cidr) == 0 {
+					cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
+				}
+			}
+		}
 		for _, egress := range spec.Egress {
 			for _, rule := range egress.ToCIDRSet {
-				// If CIDR is not set, then we assume CIDRGroupRef is set due
-				// to OneOf, even if CIDRGroupRef is empty, as that's still a
-				// valid reference (although useless from a user perspective).
+				if len(rule.Cidr) == 0 {
+					cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
+				}
+			}
+		}
+		for _, egress := range spec.EgressDeny {
+			for _, rule := range egress.ToCIDRSet {
 				if len(rule.Cidr) == 0 {
 					cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
 				}
@@ -197,63 +222,46 @@ func translateCIDRGroupRefs(cnp *types.SlimCNP, cidrsSets map[string][]api.CIDR)
 
 func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 	for i := range spec.Ingress {
-		var (
-			oldRules api.CIDRRuleSlice
-			refRules []api.CIDRRule
-		)
-
-		for _, rule := range spec.Ingress[i].FromCIDRSet {
-			if rule.CIDRGroupRef == "" {
-				// keep rules without a cidr group reference
-				oldRules = append(oldRules, rule)
-				continue
-			}
-			// collect all rules with references to a cidr group
-			refRules = append(refRules, rule)
-		}
-
-		// add rules for each cidr in the referenced cidr groups
-		var newRules api.CIDRRuleSlice
-		for _, refRule := range refRules {
-			cidrs, found := cidrsSets[string(refRule.CIDRGroupRef)]
-			if !found || len(cidrs) == 0 {
-				continue
-			}
-			for _, cidr := range cidrs {
-				newRules = append(newRules, api.CIDRRule{Cidr: cidr, ExceptCIDRs: refRule.ExceptCIDRs})
-			}
-		}
-
-		spec.Ingress[i].FromCIDRSet = append(oldRules, newRules...)
+		spec.Ingress[i].FromCIDRSet = translateCIDRRuleSlice(spec.Ingress[i].FromCIDRSet, cidrsSets)
+	}
+	for i := range spec.IngressDeny {
+		spec.IngressDeny[i].FromCIDRSet = translateCIDRRuleSlice(spec.IngressDeny[i].FromCIDRSet, cidrsSets)
 	}
 	for i := range spec.Egress {
-		var (
-			oldRules api.CIDRRuleSlice
-			refRules []api.CIDRRule
-		)
-
-		for _, rule := range spec.Egress[i].ToCIDRSet {
-			if rule.CIDRGroupRef == "" {
-				// keep rules without a cidr group reference
-				oldRules = append(oldRules, rule)
-				continue
-			}
-			// collect all rules with references to a cidr group
-			refRules = append(refRules, rule)
-		}
-
-		// add rules for each cidr in the referenced cidr groups
-		var newRules api.CIDRRuleSlice
-		for _, refRule := range refRules {
-			cidrs, found := cidrsSets[string(refRule.CIDRGroupRef)]
-			if !found || len(cidrs) == 0 {
-				continue
-			}
-			for _, cidr := range cidrs {
-				newRules = append(newRules, api.CIDRRule{Cidr: cidr, ExceptCIDRs: refRule.ExceptCIDRs})
-			}
-		}
-
-		spec.Egress[i].ToCIDRSet = append(oldRules, newRules...)
+		spec.Egress[i].ToCIDRSet = translateCIDRRuleSlice(spec.Egress[i].ToCIDRSet, cidrsSets)
 	}
+	for i := range spec.EgressDeny {
+		spec.EgressDeny[i].ToCIDRSet = translateCIDRRuleSlice(spec.EgressDeny[i].ToCIDRSet, cidrsSets)
+	}
+}
+
+func translateCIDRRuleSlice(cidrRules api.CIDRRuleSlice, cidrsSets map[string][]api.CIDR) api.CIDRRuleSlice {
+	var (
+		oldRules api.CIDRRuleSlice
+		refRules []api.CIDRRule
+	)
+
+	for _, rule := range cidrRules {
+		if rule.CIDRGroupRef == "" {
+			// keep rules without a cidr group reference
+			oldRules = append(oldRules, rule)
+			continue
+		}
+		// collect all rules with references to a cidr group
+		refRules = append(refRules, rule)
+	}
+
+	// add rules for each cidr in the referenced cidr groups
+	var newRules api.CIDRRuleSlice
+	for _, refRule := range refRules {
+		cidrs, found := cidrsSets[string(refRule.CIDRGroupRef)]
+		if !found || len(cidrs) == 0 {
+			continue
+		}
+		for _, cidr := range cidrs {
+			newRules = append(newRules, api.CIDRRule{Cidr: cidr, ExceptCIDRs: refRule.ExceptCIDRs})
+		}
+	}
+
+	return append(oldRules, newRules...)
 }
