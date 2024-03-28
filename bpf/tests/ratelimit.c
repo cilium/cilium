@@ -23,7 +23,12 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
 	struct ratelimit_key key = {
-		.netdev_idx = 1,
+		.usage = RATELIMIT_USAGE_ICMPV6,
+		.key = {
+			.icmpv6 = {
+				.netdev_idx = 1,
+			},
+		},
 	};
 	struct ratelimit_value *value;
 

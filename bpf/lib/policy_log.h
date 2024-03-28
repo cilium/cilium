@@ -14,6 +14,7 @@
 #define __LIB_POLICY_LOG__
 
 #include "common.h"
+#include "ratelimit.h"
 
 #ifdef POLICY_VERDICT_NOTIFY
 
@@ -55,6 +56,12 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_EVENTS_MAP,
+	};
+	struct ratelimit_settings settings = {
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
 	struct policy_verdict_notify msg;
 
 	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
@@ -62,6 +69,13 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 
 	if (verdict == 0)
 		verdict = (int)proxy_port;
+
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+		if (!ratelimit_check_and_take(&rkey, &settings))
+			return;
+	}
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
