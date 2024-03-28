@@ -5,8 +5,21 @@
     ":gitSignOff",
     "helpers:pinGitHubActionDigests"
   ],
+  // self-hosted configuration
+  "username": "cilium-renovate[bot]",
+  "repositories": ["cilium/cilium"],
+  // renovate first reads this configuration, then reads the repository
+  // configuration, since we don't split between the self-hosted and the
+  // repository configuration, this can lead to duplicate of some areas of the
+  // config, for example the regex. See:
+  // https://docs.renovatebot.com/self-hosted-configuration/#requireconfig
+  "requireConfig": "ignored",
+  "allowedPostUpgradeCommands": [
+    "^make -C install/kubernetes$",
+    "^go mod vendor$",
+  ],
   // This ensures that the gitAuthor and gitSignOff fields match
-  "gitAuthor": "renovate[bot] <bot@renovateapp.com>",
+  "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
     ".github/actions/kvstore/**",
     ".github/actions/ginkgo/**",
@@ -205,7 +218,27 @@
     {
       "groupName": "spire-images",
       "matchFiles": [
-        "install/kubernetes/cilium/values.yaml.tmpl"
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/spiffe/spire-agent",
+        "ghcr.io/spiffe/spire-server"
+      ],
+      "matchBaseBranches": [
+        "main"
+      ],
+      "allowedVersions": ">1.6",
+      // generate files for helm chart
+      "postUpgradeTasks": {
+        "commands": ["make -C install/kubernetes"],
+        "fileFilters": ["**/**"],
+        "executionMode": "branch"
+      }
+    },
+    {
+      "groupName": "spire-images",
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
       ],
       "matchPackageNames": [
         "ghcr.io/spiffe/spire-agent",
@@ -214,7 +247,13 @@
       "matchBaseBranches": [
         "v1.14"
       ],
-      "allowedVersions": "<1.7"
+      "allowedVersions": "<1.7",
+      // generate files for helm chart
+      "postUpgradeTasks": {
+        "commands": ["make -C install/kubernetes"],
+        "fileFilters": ["**/**"],
+        "executionMode": "branch"
+      }
     },
     {
       "matchPackageNames": [
