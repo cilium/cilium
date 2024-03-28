@@ -4,12 +4,9 @@
 package cmd
 
 import (
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -37,32 +34,23 @@ func init() {
 }
 
 func dumpSha(sha string) {
+	if command.OutputOption() {
+		headerPath := filepath.Join(templatesDir, sha, common.EndpointStateFileName)
+		state, err := os.ReadFile(headerPath)
+		if err != nil {
+			Fatalf("Failed to describe SHA: %s", err)
+		}
+
+		if err := command.PrintOutput(state); err != nil {
+			Fatalf("error printing output in %s: %s\n", command.OutputOptionString(), err)
+		}
+		return
+	}
+
 	headerPath := filepath.Join(templatesDir, sha, common.CHeaderFileName)
 	text, err := os.ReadFile(headerPath)
 	if err != nil {
 		Fatalf("Failed to describe SHA: %s", err)
-	}
-
-	if command.OutputOption() {
-		regex, err := regexp.Compile("// JSON_OUTPUT: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)")
-		if err != nil {
-			Fatalf("Error preparing regex for parsing JSON: %s\n", err)
-		}
-
-		jsonEncStr := regex.FindString(string(text))
-		if jsonEncStr == "" {
-			Fatalf("No JSON embedded in the file.")
-		}
-
-		jsonStr, err := base64.StdEncoding.DecodeString(strings.Replace(jsonEncStr, "// JSON_OUTPUT: ", "", -1))
-		if err != nil {
-			Fatalf("Error while decoding JSON encoded as base64 string: %s", err)
-		}
-
-		if err := command.PrintOutput(jsonStr); err != nil {
-			Fatalf("error printing output in %s: %s\n", command.OutputOptionString(), err)
-		}
-		return
 	}
 
 	fmt.Printf("%s", text)

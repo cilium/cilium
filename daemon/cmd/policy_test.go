@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
@@ -199,7 +201,8 @@ func prepareEndpointDirs() (cleanup func(), err error) {
 	}
 	return func() {
 		for _, testEPDir := range testDirs {
-			os.RemoveAll(fmt.Sprintf("%s/ep_config.h", testEPDir))
+			os.RemoveAll(filepath.Join(testEPDir, common.CHeaderFileName))
+			os.RemoveAll(filepath.Join(testEPDir, common.EndpointStateFileName))
 			time.Sleep(1 * time.Second)
 			os.RemoveAll(testEPDir)
 			os.RemoveAll(fmt.Sprintf("%s_backup", testEPDir))
