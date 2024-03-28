@@ -59,7 +59,7 @@ spec:
         {{- end }}
         # These need to match the equivalent arguments to etcd in the main container.
         - --etcd-cluster-name=clustermesh-apiserver
-        - --etcd-initial-cluster-token=clustermesh-apiserver
+        - --etcd-initial-cluster-token=$(INITIAL_CLUSTER_TOKEN)
         - --etcd-data-dir=/var/run/etcd
         {{- with .Values.clustermesh.apiserver.etcd.init.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
@@ -76,6 +76,10 @@ spec:
             configMapKeyRef:
               name: cilium-config
               key: cluster-name
+        - name: INITIAL_CLUSTER_TOKEN
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
         {{- with .Values.clustermesh.apiserver.etcd.init.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
@@ -108,7 +112,7 @@ spec:
         # uses net.SplitHostPort() internally and it accepts the that format.
         - --listen-client-urls=https://127.0.0.1:2379,https://[$(HOSTNAME_IP)]:2379
         - --advertise-client-urls=https://[$(HOSTNAME_IP)]:2379
-        - --initial-cluster-token=clustermesh-apiserver
+        - --initial-cluster-token=$(INITIAL_CLUSTER_TOKEN)
         - --auto-compaction-retention=1
         {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
         - --listen-metrics-urls=http://[$(HOSTNAME_IP)]:{{ .Values.clustermesh.apiserver.metrics.etcd.port }}
@@ -121,6 +125,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: INITIAL_CLUSTER_TOKEN
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
         ports:
         - name: etcd
           containerPort: 2379
