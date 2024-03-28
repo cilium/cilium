@@ -303,7 +303,7 @@ We host a weekly community `YouTube livestream called eCHO <https://www.youtube.
 Governance
 ----------
 The Cilium project is governed by a group of `Maintainers and Committers <https://raw.githubusercontent.com/cilium/cilium/main/MAINTAINERS.md>`__.
-How they are selected and govern is outlined in our `governance document <https://docs.cilium.io/en/latest/community/governance/commit_access/>`__.
+How they are selected and govern is outlined in our `governance document <https://github.com/cilium/community/blob/main/GOVERNANCE.md>`__.
 
 Adopters
 --------

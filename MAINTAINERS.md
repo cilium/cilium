@@ -1,6 +1,6 @@
 # Maintainers
 
-See [Governance](Documentation/community/governance/commit_access.rst) for
+See [Governance](https://github.com/cilium/community/blob/main/GOVERNANCE.md) for
 governance, commit, and vote guidelines as well as committer responsibilities.
 Everybody listed is a committer as per governance definition. See the 
 [Contributor Ladder](https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md)
