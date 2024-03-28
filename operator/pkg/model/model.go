@@ -13,8 +13,8 @@ import (
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
 type Model struct {
-	HTTP []HTTPListener `json:"http,omitempty"`
-	TLS  []TLSListener  `json:"tls,omitempty"`
+	HTTP           []HTTPListener           `json:"http,omitempty"`
+	TLSPassthrough []TLSPassthroughListener `json:"tlspassthrough,omitempty"`
 }
 
 func (m *Model) GetListeners() []Listener {
@@ -24,8 +24,8 @@ func (m *Model) GetListeners() []Listener {
 		listeners = append(listeners, &m.HTTP[i])
 	}
 
-	for i := range m.TLS {
-		listeners = append(listeners, &m.TLS[i])
+	for i := range m.TLSPassthrough {
+		listeners = append(listeners, &m.TLSPassthrough[i])
 	}
 
 	return listeners
@@ -100,13 +100,13 @@ func (l HTTPListener) GetLabels() map[string]string {
 	return nil
 }
 
-// TLSListener holds configuration for any listener that proxies TLS
+// TLSPassthroughListener holds configuration for any listener that proxies TLS
 // based on the SNI value.
 // Each holds the configuration info for one distinct TLS listener, by
 //   - Hostname
 //   - Address
 //   - Port
-type TLSListener struct {
+type TLSPassthroughListener struct {
 	// Name of the TLSListener
 	Name string `json:"name,omitempty"`
 	// Sources is a slice of fully qualified resources this TLSListener is sourced
@@ -123,32 +123,32 @@ type TLSListener struct {
 	Hostname string `json:"hostname,omitempty"`
 	// Routes associated with traffic to the service.
 	// An empty list means that traffic will not be routed.
-	Routes []TLSRoute `json:"routes,omitempty"`
+	Routes []TLSPassthroughRoute `json:"routes,omitempty"`
 	// Service configuration
 	Service *Service `json:"service,omitempty"`
 	// Infrastructure configuration
 	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
 }
 
-func (l TLSListener) GetAnnotations() map[string]string {
+func (l TLSPassthroughListener) GetAnnotations() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Annotations
 	}
 	return nil
 }
 
-func (l TLSListener) GetLabels() map[string]string {
+func (l TLSPassthroughListener) GetLabels() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Labels
 	}
 	return nil
 }
 
-func (l TLSListener) GetSources() []FullyQualifiedResource {
+func (l TLSPassthroughListener) GetSources() []FullyQualifiedResource {
 	return l.Sources
 }
 
-func (l TLSListener) GetPort() uint32 {
+func (l TLSPassthroughListener) GetPort() uint32 {
 	return l.Port
 }
 
@@ -355,8 +355,8 @@ func (r *HTTPRoute) GetMatchKey() string {
 	return sb.String()
 }
 
-// TLSRoute holds all the details needed to route TLS traffic to a backend.
-type TLSRoute struct {
+// TLSPassthroughRoute holds all the details needed to route TLS traffic to a backend.
+type TLSPassthroughRoute struct {
 	Name string `json:"name,omitempty"`
 	// Hostnames that the route should match
 	Hostnames []string `json:"hostnames,omitempty"`

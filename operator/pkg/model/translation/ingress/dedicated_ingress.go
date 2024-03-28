@@ -37,7 +37,7 @@ func NewDedicatedIngressTranslator(cecTranslator translation.CECTranslator, host
 }
 
 func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
-	if m == nil || (len(m.HTTP) == 0 && len(m.TLS) == 0) {
+	if m == nil || (len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0) {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
@@ -48,11 +48,11 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	var cecName string
 
 	if len(m.HTTP) == 0 {
-		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLS[0].Sources[0].Name)
-		namespace = m.TLS[0].Sources[0].Namespace
-		sourceResource = m.TLS[0].Sources[0]
-		modelService = m.TLS[0].Service
-		cecName = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.TLS[0].Sources[0].Name)
+		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLSPassthrough[0].Sources[0].Name)
+		namespace = m.TLSPassthrough[0].Sources[0].Namespace
+		sourceResource = m.TLSPassthrough[0].Sources[0]
+		modelService = m.TLSPassthrough[0].Service
+		cecName = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.TLSPassthrough[0].Sources[0].Name)
 	} else {
 		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name)
 		namespace = m.HTTP[0].Sources[0].Namespace
