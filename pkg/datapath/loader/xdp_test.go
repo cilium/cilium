@@ -46,7 +46,7 @@ func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 		err = h.LinkAdd(veth1)
 		require.NoError(t, err)
 
-		prog := mustXDPProgram(t)
+		prog := mustXDPProgram(t, symbolFromHostNetdevXDP)
 		basePath := testutils.TempBPFFS(t)
 		veth0LinkPath := bpffsDeviceLinksDir(basePath, veth0)
 		require.NoError(t, bpf.MkdirBPF(veth0LinkPath))
@@ -101,7 +101,7 @@ func TestAttachXDP(t *testing.T) {
 		err := netlink.LinkAdd(veth)
 		require.NoError(t, err)
 
-		prog := mustXDPProgram(t)
+		prog := mustXDPProgram(t, "test")
 		basePath := testutils.TempBPFFS(t)
 
 		err = attachXDPProgram(veth, prog, "test", basePath, link.XDPGenericMode)
@@ -128,7 +128,7 @@ func TestAttachXDPWithPreviousAttach(t *testing.T) {
 		err := netlink.LinkAdd(veth)
 		require.NoError(t, err)
 
-		prog := mustXDPProgram(t)
+		prog := mustXDPProgram(t, "test")
 		basePath := testutils.TempBPFFS(t)
 
 		err = netlink.LinkSetXdpFdWithFlags(veth, prog.FD(), int(link.XDPGenericMode))
@@ -158,7 +158,7 @@ func TestAttachXDPWithExistingLink(t *testing.T) {
 		err := netlink.LinkAdd(veth)
 		require.NoError(t, err)
 
-		prog := mustXDPProgram(t)
+		prog := mustXDPProgram(t, "test")
 
 		// Probe XDP bpf_link support by manually attaching a Program and
 		// immediately closing the link when it succeeds.
@@ -202,27 +202,41 @@ func TestDetachXDPWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)
-
 	ns.Do(func() error {
-		veth := &netlink.Veth{
+		var veth netlink.Link = &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
 			PeerName:  "veth1",
 		}
 		err := netlink.LinkAdd(veth)
 		require.NoError(t, err)
 
-		prog := mustXDPProgram(t)
+		prog := mustXDPProgram(t, "test")
 		basePath := testutils.TempBPFFS(t)
 
 		err = netlink.LinkSetXdpFdWithFlags(veth, prog.FD(), int(link.XDPGenericMode))
 		require.NoError(t, err)
+		require.True(t, getLink(t, veth).Attrs().Xdp.Attached)
+
+		// Detach with the wrong name, leaving the program attached.
+		err = NewLoaderForTest(t).DetachXDP(veth, basePath, "foo")
+		require.NoError(t, err)
+		require.True(t, getLink(t, veth).Attrs().Xdp.Attached)
 
 		err = NewLoaderForTest(t).DetachXDP(veth, basePath, "test")
 		require.NoError(t, err)
+		require.False(t, getLink(t, veth).Attrs().Xdp.Attached)
 
-		err = netlink.LinkDel(veth)
-		require.NoError(t, err)
+		require.NoError(t, netlink.LinkDel(veth))
 
 		return nil
 	})
+}
+
+func getLink(tb testing.TB, link netlink.Link) netlink.Link {
+	tb.Helper()
+
+	req, err := netlink.LinkByIndex(link.Attrs().Index)
+	require.NoError(tb, err)
+
+	return req
 }
