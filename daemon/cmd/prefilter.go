@@ -17,7 +17,7 @@ import (
 func getPrefilterHandler(d *Daemon, params GetPrefilterParams) middleware.Responder {
 	var list []string
 	var revision int64
-	if d.preFilter == nil {
+	if !d.preFilter.Enabled() {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(GetPrefilterFailureCode, msg)
 	}
@@ -36,7 +36,7 @@ func getPrefilterHandler(d *Daemon, params GetPrefilterParams) middleware.Respon
 }
 
 func patchPrefilterHandler(d *Daemon, params PatchPrefilterParams) middleware.Responder {
-	if d.preFilter == nil {
+	if !d.preFilter.Enabled() {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(PatchPrefilterFailureCode, msg)
 	}
@@ -59,7 +59,7 @@ func patchPrefilterHandler(d *Daemon, params PatchPrefilterParams) middleware.Re
 }
 
 func deletePrefilterHandler(d *Daemon, params DeletePrefilterParams) middleware.Responder {
-	if d.preFilter == nil {
+	if !d.preFilter.Enabled() {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(DeletePrefilterFailureCode, msg)
 	}

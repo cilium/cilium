@@ -1646,6 +1646,7 @@ type daemonParams struct {
 	SyncHostIPs         *syncHostIPs
 	LRPManager          *redirectpolicy.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
+	Prefilter           datapath.PreFilter
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

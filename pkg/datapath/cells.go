@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
+	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -127,6 +128,9 @@ var Cell = cell.Module(
 
 	// Provides the loader, which compiles and loads the datapath programs.
 	loader.Cell,
+
+	// Provides prefilter, a means of configuring XDP pre-filters for DDoS-mitigation.
+	prefilter.Cell,
 )
 
 func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {

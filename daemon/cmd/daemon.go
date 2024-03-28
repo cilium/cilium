@@ -447,6 +447,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		tunnelConfig:         params.TunnelConfig,
 		bwManager:            params.BandwidthManager,
 		lrpManager:           params.LRPManager,
+		preFilter:            params.Prefilter,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
