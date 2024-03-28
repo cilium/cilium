@@ -132,6 +132,7 @@ jobs:
             egress-gateway: 'true'
             host-fw: 'true'
             lb-acceleration: 'testing-only'
+            ingress-controller: 'true'
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -144,6 +145,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
+            ingress-controller: 'true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -193,6 +195,7 @@ jobs:
             encryption-node: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -206,6 +209,7 @@ jobs:
             encryption-node: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -234,6 +238,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             misc: 'encryption.wireguard.encapsulate=true'
+            ingress-controller: 'true'
 
     timeout-minutes: 60
     steps:
@@ -273,6 +278,7 @@ jobs:
           encryption-node: ${{ matrix.encryption-node }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
+          ingress-controller: ${{ matrix.ingress-controller }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@de740a64da1b12dc8488cf3af2474c60d52c349e # v0.16.3
