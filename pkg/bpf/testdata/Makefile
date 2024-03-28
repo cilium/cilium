@@ -1,9 +1,27 @@
 include ../../../Makefile.defs
 
-.PHONY: build
+CLANG := clang
+STRIP := llvm-objcopy
+CFLAGS := -O2 -g -Wall -Werror -I -I/usr/include -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include $(CFLAGS)
 
-CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
+TESTDATA_DIR := $(ROOT_DIR)/pkg/bpf/testdata
+UIDGID := $(shell stat -c '%u:%g' ${ROOT_DIR})
 
-##@ Default
-build:
-	docker run --rm -v $(ROOT_DIR):/cilium $(CILIUM_BUILDER_IMAGE) clang -target bpf -Wall -O2 -g -I -I/usr/include -I/cilium/bpf -I/cilium/bpf/include -c /cilium/pkg/bpf/testdata/unreachable-tailcall.c -o /cilium/pkg/bpf/testdata/unreachable-tailcall.o
+TARGETS := \
+	unreachable-tailcall
+
+.PHONY: docker build clean
+
+.DEFAULT_GOAL: docker
+docker: ## Build the testdata binaries using the cilium-builder Docker image.
+	docker run --rm -u "$(UIDGID)" -v "$(ROOT_DIR):/cilium" $(CILIUM_BUILDER_IMAGE) make -C /cilium/pkg/bpf/testdata clean build
+
+clean: ## Remove testdata artifacts.
+	find "$(TESTDATA_DIR)" -name "*.o" -delete
+
+## Build the testdata binaries using the host's toolchain.
+build: $(addsuffix .o,$(TARGETS))
+
+%.o: %.c
+	$(CLANG) $(CFLAGS) -target bpfel -c $< -o $@
+	$(STRIP) -g $@
