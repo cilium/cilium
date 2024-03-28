@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,60 +56,33 @@ type Scope interface {
 	scope() *subReporter
 }
 
-// GetSubScope creates a new reporter scope under the given parent scope.
-// This creates a new node in the structured health reporter tree, and any calls
-// to GetSubScope or GetHealthReporter from the returned scope will return a child node
-// of this reporter tree.
-//
-// GetSubScope can be chained together to create various levels of sub reporters.
-//
-// Example:
-//
-// 1. Init root scope (note: this is provided to modules automatically).
-// root := rootScope(hr)
-//
-//	root
-//
-// 2. Create endpoint-manager subscope, and reporter under that scope (with ok!)
-//
-// endpointManagerScope := GetSubScope(root, "endpoint-manager")
-// GetHealthReporter(endpointManagerScope, "endpoint-000").OK("it works!")
-//
-//	 root(OK)
-//		└── scope(endpoint-manager, OK)
-//			└── reporter(endpoint-000, OK)
-//
-// 3. Create another reporter under that scope with degraded
-// GetHealthReporter(endpointManagerScope, "endpoint-000").Degraded("oh no!")
-//
-//	 root(Degraded)
-//		└── scope(endpoint-manager, Degraded)
-//			└── reporter(endpoint-000, OK)
-//			└── reporter(endpoint-000, Degraded)
-//
-// 4. Close the endpoint-manager scope
-// s.Close()
-//
-//	root(OK) 	// status has been reported, but we no longer have any degraded status
-//				// default to ok status.
 func GetSubScope(parent Scope, name string) Scope {
 	if parent == nil {
-		return nil
+		return &wipHealthV2Shim{noOpReporter{}}
 	}
-	return createSubScope(parent, name)
+	shim := parent.(*wipHealthV2Shim)
+	rs := shim.NewScope(name)
+	return &wipHealthV2Shim{rs}
 }
 
 // GetHealthReporter creates a new reporter under the given parent scope.
 func GetHealthReporter(parent Scope, name string) HealthReporter {
 	if parent == nil {
-		return &noopReporter{}
+		return &noOpReporter{}
 	}
-	return getSubReporter(parent, name, true)
+	shim := parent.(*wipHealthV2Shim)
+	if shim.Health == nil {
+		return &noOpReporter{}
+	}
+	rs := shim.NewScope(name)
+	return &wipHealthV2Shim{rs}
 }
 
 // TestScope exposes creating a root scope for testing purposes only.
+// Deprecated/TODO: This will be replaced by cilium/hive "simple" health implementation
+// following switching to external library.
 func TestScope() Scope {
-	return TestScopeFromProvider(FullModuleID{"test"}, NewHealthProvider())
+	return &wipHealthV2Shim{}
 }
 
 // TestScope exposes creating a root scope from a health provider for testing purposes only.
@@ -186,29 +158,6 @@ func (r *scope) start() {
 	r.closeReconciler = cancel
 }
 
-// Flushes out any remaining unprocessed updates and closes the reporter tree.
-// Used to finalize any remaining status updates before the module is stopped.
-// This will allow for collecting of health status during shutdown.
-func flushAndClose(rs Scope, reason string) {
-	rs.scope().base.Lock()
-	defer rs.scope().base.Unlock()
-
-	// Stop reconciler loop, flush any pending updates synchronously.
-	rs.scope().closeReconciler()
-
-	// Realize and flush the final status.
-	rs.scope().realizeSync()
-
-	// Mark the module as stopped, and emit a stopped status.
-	rs.scope().base.stopped = true
-	rs.scope().base.hr.setStatus(&StatusNode{
-		ID:        rs.scope().base.rootID,
-		LastLevel: StatusStopped,
-		Message:   reason,
-	})
-	rs.scope().base.removeTreeLocked(rs.scope().id)
-}
-
 type scope struct {
 	*subReporter
 }
@@ -227,96 +176,12 @@ func (s *scope) Realize() {
 	s.base.Unlock()
 }
 
-// A scope can be removed if it has no references and all child scopes can be removed.
-// Reporter leaf nodes are always immediately removed when Stopped. Thus if the condition
-// holds that all subtrees of the scope can be removed, then the scope can be removed.
-func (s *subreporterBase) canRemoveTreeLocked(id string) bool {
-	if _, ok := s.nodes[id]; ok {
-		node := s.nodes[id]
-		if (node.isReporter) || s.nodes[id].refs > 0 {
-			return false
-		}
-		for child := range s.idToChildren[id] {
-			if !s.canRemoveTreeLocked(child) {
-				return false
-			}
-		}
-	}
-	// If it does not exist, we assume it's ok to remove (noop).
-	return true
-}
-
 func (s *scope) scope() *subReporter {
 	return s.subReporter
 }
 
 func (s *scope) Name() string {
 	return s.name
-}
-
-// When a scope is orphaned and garbage collected, we want to remove it from the tree if
-// the following condition is met:
-//  1. All scopes under this scope also have no references.
-//  2. There are no reporters under this scope (reporters are always removed immediately
-//     after they are stopped).
-//
-// This means that scopes are only kept in the tree if they either have referenced subscopes,
-// or if they have reporters under them.
-// If a scope is orphaned, and all it's children are orphaned, and it has no reporter children
-// then it is impossible for any new reporters to be created under this scope.
-//
-// Because reporters are only removed when they are explicitly stopped, this means that if a
-// reporter node emits a ok/degraded status and then is orphaned.
-// This is ok, because we're primarily interested in ensure that ephemerally created scopes that
-// are never reported upon and then lost do not grow the tree indefinitely.
-func createSubScope(parent Scope, name string) *scope {
-	s := &scope{
-		subReporter: getSubReporter(parent, name, false),
-	}
-	runtime.SetFinalizer(s, func(s *scope) {
-		s.base.Lock()
-		s.base.removeRefLocked(s.id)
-		if s.base.canRemoveTreeLocked(s.id) {
-			s.base.removeTreeLocked(s.id)
-		}
-		s.base.Unlock()
-		runtime.SetFinalizer(s, nil)
-	})
-	return s
-}
-
-func getSubReporter(parent Scope, name string, isReporter bool) *subReporter {
-	return scopeFromParent(parent, name, isReporter)
-}
-
-func scopeFromParent(parent Scope, name string, isReporter bool) *subReporter {
-	r := parent.scope()
-	r.base.Lock()
-	defer r.base.Unlock()
-
-	// If such a reporter already exists at this scope, we just return the same reporter
-	// by recreating the subreporter.
-	for cid := range r.base.idToChildren[r.id] {
-		child := r.base.nodes[cid]
-		if child.name == name {
-			r.base.addRefLocked(cid)
-			return &subReporter{
-				base:            r.base,
-				id:              cid,
-				scheduleRealize: r.scheduleRealize,
-				name:            name,
-			}
-		}
-	}
-
-	id := r.base.addChild(r.id, name, isReporter)
-
-	return &subReporter{
-		base:            r.base,
-		id:              id,
-		scheduleRealize: r.scheduleRealize,
-		name:            name,
-	}
 }
 
 // subreporterBase is the base implementation of a structured health reporter.
@@ -546,12 +411,6 @@ func (b *subreporterBase) removeRefLocked(id string) {
 	}
 }
 
-func (b *subreporterBase) addRefLocked(id string) {
-	if _, ok := b.nodes[id]; ok {
-		b.nodes[id].refs++
-	}
-}
-
 // subReporter represents both reporter "leaf" nodes and intermediate
 // "scope" nodes.
 // subReporter only has a pointer to the base, thus copying a subReporter
@@ -605,9 +464,3 @@ func (s *subReporter) Stopped(message string) {
 	s.base.Unlock()
 	s.scheduleRealize()
 }
-
-type noopReporter struct{}
-
-func (s *noopReporter) OK(message string)                  {}
-func (s *noopReporter) Degraded(message string, err error) {}
-func (s *noopReporter) Stopped(message string)             {}

@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	healthTypes "github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
@@ -1618,6 +1619,7 @@ type daemonParams struct {
 	AuthManager          *auth.AuthManager
 	Settings             cellSettings
 	HealthProvider       cell.Health
+	HealthV2Provider     healthTypes.Provider
 	HealthScope          cell.Scope
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
 	Devices              statedb.Table[*datapathTables.Device]

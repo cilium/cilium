@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/dig"
 
+	healthv2Types "github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -82,24 +83,48 @@ func (m *module) fullModuleID(parent FullModuleID) FullModuleID {
 	return parent.append(m.moduleID())
 }
 
-type reporterHooks struct {
-	rootScope *scope
+type wipHealthV2Shim struct {
+	healthv2Types.Health
 }
 
-func (r *reporterHooks) Start(ctx HookContext) error {
-	r.rootScope.start()
-	return nil
+func (h *wipHealthV2Shim) Name() string {
+	return ""
 }
 
-func (r *reporterHooks) Stop(ctx HookContext) error {
-	flushAndClose(r.rootScope, "Hive shutting down")
-	return nil
+func (h *wipHealthV2Shim) Close() {
+	if h.Health == nil {
+		return
+	}
+	h.Health.Close()
 }
 
-func createStructedScope(id FullModuleID, p Health, lc Lifecycle) Scope {
-	rs := rootScope(id, p.forModule(id))
-	lc.Append(&reporterHooks{rootScope: rs})
-	return rs
+func (h *wipHealthV2Shim) Realize() {}
+
+func (h *wipHealthV2Shim) scope() *subReporter { return nil }
+
+type noOpReporter struct{}
+
+func (n noOpReporter) OK(_ string)                            {}
+func (n noOpReporter) Close()                                 {}
+func (n noOpReporter) Stopped(_ string)                       {}
+func (n noOpReporter) Degraded(_ string, _ error)             {}
+func (n noOpReporter) NewScope(_ string) healthv2Types.Health { return noOpReporter{} }
+
+var _ HealthReporter = &wipHealthV2Shim{}
+
+type ScopeParams struct {
+	In
+	Provider healthv2Types.Provider `optional:"true"`
+}
+
+// This is a temporary solution, eventually this will be replaced by the external hive module hooks
+// to avoid internal coupling...
+func createStructedScope(id FullModuleID, params ScopeParams, lc Lifecycle) (healthv2Types.Health, Scope) {
+	if params.Provider == nil {
+		return nil, &wipHealthV2Shim{}
+	}
+	rs := params.Provider.ForModule(healthv2Types.FullModuleID(id))
+	return rs, &wipHealthV2Shim{rs}
 }
 
 func (m *module) lifecycle(lc Lifecycle, fullID FullModuleID) Lifecycle {
