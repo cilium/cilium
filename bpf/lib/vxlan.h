@@ -11,37 +11,6 @@
 #include "lib/csum.h"
 
 /*
- * Returns true if the skb associated with data pointers is a vxlan encapsulated
- * packet.
- *
- * The determination is made by comparing the UDP destination port with
- * the tunnel_port provided to the function.
- */
-static __always_inline bool
-vxlan_skb_is_vxlan_v4(const void *data, const void *data_end,
-		      const struct iphdr *ipv4, const __u16 tunnel_port)
-{
-	struct udphdr *udp = NULL;
-	__u32 l3_size = 0;
-
-	if (ipv4->protocol != IPPROTO_UDP)
-		return false;
-
-	l3_size = ipv4->ihl * 4;
-
-	if (data + sizeof(struct ethhdr) + l3_size + sizeof(struct udphdr)
-	    + sizeof(struct vxlanhdr) > data_end)
-		return false;
-
-	udp = (struct udphdr *)(data + sizeof(struct ethhdr) + l3_size);
-
-	if (udp->dest == bpf_htons(tunnel_port))
-		return true;
-
-	return false;
-}
-
-/*
  * Returns the VNI in the native host's endian format of a xvlan encap'd packet.
  *
  * The caller must ensure the skb associated with these data buffers are infact
