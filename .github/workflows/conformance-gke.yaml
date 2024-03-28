@@ -54,7 +54,7 @@ concurrency:
 
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: b5b35301391d9e4a66df2b34165f7e86ea7d2947
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
 jobs:
