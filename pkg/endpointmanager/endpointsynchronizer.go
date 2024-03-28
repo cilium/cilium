@@ -461,8 +461,26 @@ func deleteCEP(ctx context.Context, scopedLog *logrus.Entry, ciliumClient v2.Cil
 		return nil
 	}
 
+	// An endpoint syhcnronizer should on only delete an endpoint if the endpoint is still
+	// being managed by it. In the case of container creation failures, retries to create
+	// the container may result in multiple synchrnoizers, contending for a single endpoint
+	// object.
+	cepNamespace := cepOwner.GetNamespace()
+	fetchedEndpoint, err := ciliumClient.CiliumEndpoints(cepNamespace).Get(ctx, cepName, meta_v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		scopedLog.Info("Skipping CiliumEndpoint deletion because it was not found; may have already been deleted")
+	}
+	if err != nil {
+		scopedLog.WithError(err).Warn("Unable to fetch CEP to delete.")
+		return nil
+	}
+	if e.GetContainerID() != fetchedEndpoint.Status.ExternalIdentifiers.ContainerID {
+		scopedLog.Info("Skipping CiliumEndpoint deletion because it has a different Container ID.")
+		return nil
+	}
+
 	scopedLog.WithField(logfields.CEPUID, cepUID).Debug("deleting CEP with UID")
-	if err := ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Delete(ctx, cepName, meta_v1.DeleteOptions{
+	if err := ciliumClient.CiliumEndpoints(cepNamespace).Delete(ctx, cepName, meta_v1.DeleteOptions{
 		Preconditions: &meta_v1.Preconditions{
 			UID: &cepUID,
 		},

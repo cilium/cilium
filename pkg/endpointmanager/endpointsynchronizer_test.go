@@ -4,18 +4,23 @@
 package endpointmanager
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -26,12 +31,6 @@ func Test_updateCEPUID(t *testing.T) {
 				HostIP: hostIP,
 			},
 		}
-	}
-	epWithUID := func(uid string, pod *slim_corev1.Pod) *endpoint.Endpoint {
-		ep := &endpoint.Endpoint{}
-		ep.SetPod(pod)
-		ep.SetCiliumEndpointUID(types.UID(uid))
-		return ep
 	}
 	testIP := "1.2.3.4"
 	someUID := func(s string) *types.UID {
@@ -132,4 +131,165 @@ func Test_updateCEPUID(t *testing.T) {
 		})
 
 	}
+}
+
+func Test_deleteCEP(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.StandardLogger().WithFields(logrus.Fields{})
+	uidString := "111"
+	uid := types.UID(uidString)
+
+	pod := &slim_corev1.Pod{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "pod",
+			Namespace: v1.NamespaceDefault,
+		},
+	}
+
+	for _, tc := range []struct {
+		name string
+		desc string
+		cep  *v2.CiliumEndpoint
+		ep   *endpoint.Endpoint
+	}{
+		{
+			name: "delete",
+			desc: "When the cep and endpoint container IDs match, the object should be deleted from the API server",
+			cep: &v2.CiliumEndpoint{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      pod.GetName(),
+					Namespace: pod.GetNamespace(),
+					UID:       uid,
+				},
+				Status: v2.EndpointStatus{
+					ExternalIdentifiers: &models.EndpointIdentifiers{},
+				},
+			},
+			ep: epWithUID(uidString, pod),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert := assert.New(t)
+			ciliumClient := fake.NewSimpleClientset(tc.cep)
+
+			// This always return nil.
+			if err := deleteCEP(ctx, logger, ciliumClient.CiliumV2(), tc.ep); err != nil {
+				assert.NoError(err)
+			}
+
+			fetchedEndpoint, err := ciliumClient.CiliumV2().CiliumEndpoints(pod.GetNamespace()).Get(ctx, pod.GetName(), v1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return
+			}
+			assert.NoError(err)
+			t.Errorf("CEP not deleted: %#v", fetchedEndpoint)
+		})
+	}
+}
+
+func Test_deleteCEP_Skip(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.StandardLogger().WithFields(logrus.Fields{})
+	uid := types.UID("111")
+
+	pod := &slim_corev1.Pod{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "pod",
+			Namespace: v1.NamespaceDefault,
+		},
+	}
+
+	for _, tc := range []struct {
+		name string
+		desc string
+		cep  *v2.CiliumEndpoint
+		ep   *endpoint.Endpoint
+	}{
+		{
+			name: "no_name",
+			desc: "When the cep name is missing, deletion should be skipped",
+			cep: &v2.CiliumEndpoint{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      pod.GetName(),
+					Namespace: pod.GetNamespace(),
+					UID:       uid,
+				},
+				Status: v2.EndpointStatus{
+					ExternalIdentifiers: &models.EndpointIdentifiers{},
+				},
+			},
+			ep: &endpoint.Endpoint{},
+		},
+		{
+			name: "no_owner",
+			desc: "When the cep owner is missing, deletion should be skipped",
+			cep: &v2.CiliumEndpoint{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      pod.GetName(),
+					Namespace: pod.GetNamespace(),
+					UID:       uid,
+				},
+				Status: v2.EndpointStatus{
+					ExternalIdentifiers: &models.EndpointIdentifiers{},
+				},
+			},
+			ep: &endpoint.Endpoint{
+				K8sPodName: pod.GetName(),
+			},
+		},
+		{
+			name: "no_uid",
+			desc: "When the cep UID is missing, deletion should be skipped",
+			cep: &v2.CiliumEndpoint{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      pod.GetName(),
+					Namespace: pod.GetNamespace(),
+					UID:       uid,
+				},
+				Status: v2.EndpointStatus{
+					ExternalIdentifiers: &models.EndpointIdentifiers{},
+				},
+			},
+			ep: epWithUID("", pod),
+		},
+		{
+			name: "container_id_mismatch",
+			desc: "When the cep and endpoint container IDs do not match, the object should not be deleted from the API server",
+			cep: &v2.CiliumEndpoint{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      pod.GetName(),
+					Namespace: pod.GetNamespace(),
+					UID:       uid,
+				},
+				Status: v2.EndpointStatus{
+					ExternalIdentifiers: &models.EndpointIdentifiers{
+						ContainerID: "xyz",
+					},
+				},
+			},
+			ep: epWithUID("abc", pod),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert := assert.New(t)
+			ciliumClient := fake.NewSimpleClientset(tc.cep)
+
+			// This always return nil.
+			if err := deleteCEP(ctx, logger, ciliumClient.CiliumV2(), tc.ep); err != nil {
+				assert.NoError(err)
+			}
+
+			_, err := ciliumClient.CiliumV2().CiliumEndpoints(pod.GetNamespace()).Get(ctx, pod.GetName(), v1.GetOptions{})
+			assert.NoError(err, tc.desc)
+		})
+	}
+}
+
+func epWithUID(uid string, pod *slim_corev1.Pod) *endpoint.Endpoint {
+	ep := &endpoint.Endpoint{}
+	ep.K8sNamespace = pod.GetNamespace()
+	ep.K8sPodName = pod.GetName()
+	ep.SetPod(pod)
+	ep.SetCiliumEndpointUID(types.UID(uid))
+	return ep
 }
