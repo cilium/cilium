@@ -8,12 +8,12 @@ import (
 	"testing"
 )
 
-var testTLSListener = TLSListener{
+var testTLSListener = TLSPassthroughListener{
 	Name: "test-tls-listener",
 	Port: 443,
 }
 
-var testTLSListener2 = TLSListener{
+var testTLSListener2 = TLSPassthroughListener{
 	Name: "test-tls-listener2",
 	Port: 443,
 }
@@ -31,7 +31,7 @@ var testHTTPListener2 = HTTPListener{
 func TestModel_GetListeners(t *testing.T) {
 	type fields struct {
 		HTTP []HTTPListener
-		TLS  []TLSListener
+		TLS  []TLSPassthroughListener
 	}
 	tests := []struct {
 		name   string
@@ -42,7 +42,7 @@ func TestModel_GetListeners(t *testing.T) {
 			name: "Combine HTTP and TLS listeners",
 			fields: fields{
 				HTTP: []HTTPListener{testHTTPListener, testHTTPListener2},
-				TLS:  []TLSListener{testTLSListener, testTLSListener2},
+				TLS:  []TLSPassthroughListener{testTLSListener, testTLSListener2},
 			},
 			want: []Listener{&testHTTPListener, &testHTTPListener2, &testTLSListener, &testTLSListener2},
 		},
@@ -56,7 +56,7 @@ func TestModel_GetListeners(t *testing.T) {
 		{
 			name: "Only TLS listeners",
 			fields: fields{
-				TLS: []TLSListener{testTLSListener, testTLSListener2},
+				TLS: []TLSPassthroughListener{testTLSListener, testTLSListener2},
 			},
 			want: []Listener{&testTLSListener, &testTLSListener2},
 		},
@@ -69,8 +69,8 @@ func TestModel_GetListeners(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Model{
-				HTTP: tt.fields.HTTP,
-				TLS:  tt.fields.TLS,
+				HTTP:           tt.fields.HTTP,
+				TLSPassthrough: tt.fields.TLS,
 			}
 			if got := m.GetListeners(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Model.GetListeners() = %v, want %v", got, tt.want)

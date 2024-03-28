@@ -125,6 +125,7 @@ var basicHTTP = Input{
 		},
 	},
 }
+
 var basicHTTPListeners = []model.HTTPListener{
 	{
 		Name: "prod-web-gw",
@@ -256,7 +257,7 @@ var basicTLS = Input{
 	},
 }
 
-var simpleSameNamespaceTLSListeners = []model.TLSListener{
+var simpleSameNamespaceTLSListeners = []model.TLSPassthroughListener{
 	{
 		Name: "https",
 		Sources: []model.FullyQualifiedResource{
@@ -271,7 +272,7 @@ var simpleSameNamespaceTLSListeners = []model.TLSListener{
 		Address:  "",
 		Port:     443,
 		Hostname: "*",
-		Routes: []model.TLSRoute{
+		Routes: []model.TLSPassthroughRoute{
 			{
 				Hostnames: []string{
 					"abc.example.com",
@@ -290,7 +291,7 @@ var simpleSameNamespaceTLSListeners = []model.TLSListener{
 	},
 }
 
-var basicTLSListeners = []model.TLSListener{
+var basicTLSListeners = []model.TLSPassthroughListener{
 	{
 		Name: "prod-web-gw",
 		Sources: []model.FullyQualifiedResource{
@@ -305,7 +306,7 @@ var basicTLSListeners = []model.TLSListener{
 		Address:  "",
 		Port:     443,
 		Hostname: "*",
-		Routes: []model.TLSRoute{
+		Routes: []model.TLSPassthroughRoute{
 			{
 				Hostnames: []string{
 					"example.com",
@@ -348,6 +349,7 @@ var crossNamespaceHTTPInput = Input{
 	},
 	Services: allServices,
 }
+
 var crossNamespaceHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -383,6 +385,7 @@ var exactPathMatchingHTTPInput = Input{
 	},
 	Services: allServices,
 }
+
 var exactPathMatchingHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -431,6 +434,7 @@ var headerMatchingHTTPInput = Input{
 	},
 	Services: allServices,
 }
+
 var headerMatchingHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -575,6 +579,7 @@ var hostnameIntersectionHTTPInput = Input{
 	HTTPRoutes:   hostnameIntersectionHTTPRoutes,
 	Services:     allServices,
 }
+
 var hostnameIntersectionHTTPListeners = []model.HTTPListener{
 	{
 		Name:     "listener-1",
@@ -670,6 +675,7 @@ var listenerHostnameMatchingHTTPInput = Input{
 	HTTPRoutes:   listenerHostnameMatchingHTTPRoutes,
 	Services:     allServices,
 }
+
 var listenerHostnameMatchingHTTPListeners = []model.HTTPListener{
 	{
 		Name: "listener-1",
@@ -726,7 +732,8 @@ var listenerHostnameMatchingHTTPListeners = []model.HTTPListener{
 		Sources: []model.FullyQualifiedResource{
 			{
 				Name:      "httproute-listener-hostname-matching",
-				Namespace: "gateway-conformance-infra"},
+				Namespace: "gateway-conformance-infra",
+			},
 		},
 		Port:     80,
 		Hostname: "*.bar.com",
@@ -778,6 +785,7 @@ var matchingAcrossHTTPInput = Input{
 	HTTPRoutes:   matchingAcrossHTTPRoutes,
 	Services:     allServices,
 }
+
 var matchingAcrossHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -833,6 +841,7 @@ var matchingHTTPInput = Input{
 	HTTPRoutes:   matchingHTTPRoutes,
 	Services:     allServices,
 }
+
 var matchingHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -890,6 +899,7 @@ var queryParamMatchingHTTPInput = Input{
 	HTTPRoutes:   queryParamMatchingHTTPRoutes,
 	Services:     allServices,
 }
+
 var queryParamMatchingHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -984,12 +994,14 @@ var requestHeaderModifierHTTPInput = Input{
 	HTTPRoutes:   requestHeaderModifierHTTPRoutes,
 	Services:     allServices,
 }
+
 var backendRefsRequestHeaderModifierHTTPInput = Input{
 	GatewayClass: gatewayv1.GatewayClass{},
 	Gateway:      sameNamespaceGateway,
 	HTTPRoutes:   backendRefsRequestHeaderModifierHTTPRoutes,
 	Services:     allServices,
 }
+
 var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -1303,6 +1315,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var simpleSameNamespaceHTTPInput = Input{
 	GatewayClass: gatewayv1.GatewayClass{},
 	Gateway:      sameNamespaceGateway,
@@ -1390,6 +1403,7 @@ var requestRedirectHTTPInput = Input{
 	HTTPRoutes:   requestRedirectHTTPRoutes,
 	Services:     allServices,
 }
+
 var requestRedirectHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -1456,6 +1470,7 @@ var responseHeaderModifierHTTPInput = Input{
 	HTTPRoutes:   responseHeaderModifierHTTPRoutes,
 	Services:     allServices,
 }
+
 var responseHeaderModifierHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -1612,12 +1627,14 @@ var responseHeaderModifierHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var backendRefsResponseHeaderModifierHTTPInput = Input{
 	GatewayClass: gatewayv1.GatewayClass{},
 	Gateway:      sameNamespaceGateway,
 	HTTPRoutes:   backendRefsResponseHeaderModifierHTTPRoutes,
 	Services:     allServices,
 }
+
 var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -2323,7 +2340,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 func TestTLSGatewayAPI(t *testing.T) {
 	tests := map[string]struct {
 		input Input
-		want  []model.TLSListener
+		want  []model.TLSPassthroughListener
 	}{
 		"basic http": {
 			input: basicTLS,

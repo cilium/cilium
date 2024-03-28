@@ -150,7 +150,7 @@ func tlsSecretsToHostnames(httpListeners []model.HTTPListener) map[model.TLSSecr
 	return tlsSecretsToHostnames
 }
 
-func tlsPassthroughBackendsToHostnames(tlsListeners []model.TLSListener) map[string][]string {
+func tlsPassthroughBackendsToHostnames(tlsListeners []model.TLSPassthroughListener) map[string][]string {
 	tlsPassthroughBackendsToHostnames := make(map[string][]string)
 	for _, h := range tlsListeners {
 		for _, route := range h.Routes {
@@ -169,7 +169,7 @@ func tlsPassthroughBackendsToHostnames(tlsListeners []model.TLSListener) map[str
 // - HTTP TLS filters
 // - TLS passthrough filters
 func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
-	if len(m.HTTP) == 0 && len(m.TLS) == 0 {
+	if len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 {
 		return nil
 	}
 
@@ -186,7 +186,7 @@ func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
 	}
 
-	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLS), mutatorFuncs...)
+	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLSPassthrough), mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
@@ -390,7 +390,7 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
-	for _, l := range m.TLS {
+	for _, l := range m.TLSPassthrough {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
@@ -421,7 +421,7 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 // The ports are sorted and unique.
 func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
-	for _, l := range m.TLS {
+	for _, l := range m.TLSPassthrough {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
