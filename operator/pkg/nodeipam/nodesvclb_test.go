@@ -4,8 +4,10 @@
 package nodeipam
 
 import (
+	"bytes"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +45,61 @@ var (
 				},
 			},
 		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-3",
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000::3"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.3"},
+				},
+			},
+		},
+
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "node-4-excluded",
+				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				Finalizers:        []string{"myfinalizer"},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000:4"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.4"},
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-5-excluded",
+				Labels: map[string]string{
+					corev1.LabelNodeExcludeBalancers: "",
+				},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000:5"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.5"},
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-6-excluded",
+			},
+			Spec: corev1.NodeSpec{
+				Taints: []corev1.Taint{
+					{Key: toBeDeletedTaint},
+				},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeExternalIP, Address: "2001:0000:6"},
+					{Type: corev1.NodeExternalIP, Address: "42.0.0.6"},
+				},
+			},
+		},
 
 		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
@@ -61,9 +118,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -84,9 +142,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -106,9 +165,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -129,9 +189,10 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 		},
 
@@ -153,9 +214,23 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				Type:              corev1.ServiceTypeLoadBalancer,
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
+			},
+		},
+
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "etp-cluster",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Type:                  corev1.ServiceTypeLoadBalancer,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyCluster,
 			},
 		},
 
@@ -201,12 +276,60 @@ var (
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
-				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
-				LoadBalancerClass: &nodeSvcLBClass,
+				IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+				LoadBalancerClass:     &nodeSvcLBClass,
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 			},
 			Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: []corev1.LoadBalancerIngress{{IP: "100.100.100.100"}},
 			}},
+		},
+	}
+
+	nodeSvcLabelFixtures = []client.Object{
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "node-1",
+				Labels: map[string]string{"ingress-ready": "true", "all": "true", "group": "first"},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "node-2",
+				Labels: map[string]string{"all": "true", "group": "notfirst", "test/label": "is-good"},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "node-3",
+				Labels: map[string]string{"all": "true", "group": "notfirst"},
+			},
+			Status: corev1.NodeStatus{
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeInternalIP, Address: "10.0.0.3"},
+				},
+			},
+		},
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svclabels",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Type:              corev1.ServiceTypeLoadBalancer,
+				IPFamilies:        []corev1.IPFamily{corev1.IPv4Protocol},
+				LoadBalancerClass: &nodeSvcLBClass,
+			},
 		},
 	}
 )
@@ -297,5 +420,136 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
 		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "2001:0000::1")
 		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.2")
+	})
+
+	//
+	t.Run("external traffic policy cluster", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "etp-cluster",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		svc := &corev1.Service{}
+		err = c.Get(context.Background(), key, svc)
+
+		require.NoError(t, err)
+		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
+		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
+		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
+	})
+}
+
+func Test_CiliumResources_Reconcile(t *testing.T) {
+	c := fake.NewClientBuilder().
+		WithObjects(nodeSvcLabelFixtures...).
+		WithStatusSubresource(&corev1.Service{}).
+		Build()
+	r := &nodeSvcLBReconciler{Client: c, Logger: logging.DefaultLogger}
+
+	key := types.NamespacedName{
+		Name:      "svclabels",
+		Namespace: "default",
+	}
+
+	t.Run("Managed Resource", func(t *testing.T) {
+		ctx := context.Background()
+		result, err := r.Reconcile(ctx, ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		svc := &corev1.Service{}
+		err = c.Get(ctx, key, svc)
+
+		require.NoError(t, err)
+		require.Len(t, svc.Status.LoadBalancer.Ingress, 3)
+		var ips []string
+		for _, v := range svc.Status.LoadBalancer.Ingress {
+			ips = append(ips, v.IP)
+		}
+		require.Equal(t, ips, []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"})
+	})
+
+	t.Run("Node Label Filter", func(t *testing.T) {
+		ctx := context.Background()
+
+		for _, param := range []struct {
+			labelFilter string
+			results     []string
+		}{
+			{labelFilter: "all=true", results: []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}},
+			{labelFilter: "ingress-ready=true", results: []string{"10.0.0.1"}},
+			{labelFilter: "group=notfirst", results: []string{"10.0.0.2", "10.0.0.3"}},
+			{labelFilter: "group notin (first),test/label=is-good", results: []string{"10.0.0.2"}},
+		} {
+			svc := &corev1.Service{}
+			_ = c.Get(ctx, key, svc)
+			// Add the label to the service which should return on the first node
+			svc.Annotations = map[string]string{nodeSvcLBMatchLabelsAnnotation: param.labelFilter}
+			_ = c.Update(ctx, svc)
+			result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: key})
+
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+			svc = &corev1.Service{}
+			err = c.Get(ctx, key, svc)
+
+			require.NoError(t, err)
+			require.NotNil(t, svc.Annotations[nodeSvcLBMatchLabelsAnnotation])
+			require.Len(t, svc.Status.LoadBalancer.Ingress, len(param.results))
+
+			var ips []string
+			for _, v := range svc.Status.LoadBalancer.Ingress {
+				ips = append(ips, v.IP)
+			}
+			require.Equal(t, ips, param.results)
+		}
+	})
+
+	t.Run("Bad Node Label Filter", func(t *testing.T) {
+		ctx := context.Background()
+		svc := &corev1.Service{}
+		_ = c.Get(ctx, key, svc)
+		// Add the label to the service which should return on the first node
+		svc.Annotations = map[string]string{nodeSvcLBMatchLabelsAnnotation: "this is completely/bad=!;lf"}
+		_ = c.Update(ctx, svc)
+		result, err := r.Reconcile(ctx, ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.Error(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+	})
+
+	t.Run("Ensure Warning raised if no Nodes found using configured label selector", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := logging.DefaultLogger
+		logger.SetOutput(&buf)
+
+		r.Logger = logger
+
+		ctx := context.Background()
+		svc := &corev1.Service{}
+		_ = c.Get(ctx, key, svc)
+		// Add the label to the service which should return on the first node
+		svc.Annotations = map[string]string{nodeSvcLBMatchLabelsAnnotation: "foo=bar"}
+		_ = c.Update(ctx, svc)
+		result, err := r.Reconcile(ctx, ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+		require.Contains(t, buf.String(), "level=warning msg=\"No Nodes found with configured label selector\"")
 	})
 }
