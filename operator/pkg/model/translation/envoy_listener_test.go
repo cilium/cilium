@@ -21,9 +21,22 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
-func TestNewHTTPListener(t *testing.T) {
+func TestNewListener(t *testing.T) {
+	t.Run("Empty", func(t *testing.T) {
+		res, err := newListener("dummy-name", "dummy-secret-namespace", false, nil, nil)
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+
+		require.Equal(t, "dummy-name", listener.Name)
+		require.Len(t, listener.GetListenerFilters(), 1)
+		require.Empty(t, listener.GetFilterChains())
+	})
+
 	t.Run("without TLS", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil)
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -36,7 +49,7 @@ func TestNewHTTPListener(t *testing.T) {
 	})
 
 	t.Run("with default XffNumTrustedHops", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil)
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -52,7 +65,7 @@ func TestNewHTTPListener(t *testing.T) {
 	})
 
 	t.Run("without TLS with Proxy Protocol", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, WithProxyProtocol())
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -70,15 +83,15 @@ func TestNewHTTPListener(t *testing.T) {
 		require.Len(t, listener.GetFilterChains(), 1)
 	})
 
-	t.Run("TLS filterchain order", func(t *testing.T) {
-		res1, err1 := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
+	t.Run("stable filterchain sort-order with TLS", func(t *testing.T) {
+		res1, err1 := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-		})
-		res2, err2 := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
+		}, nil)
+		res2, err2 := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
-		})
+		}, nil)
 
 		require.NoError(t, err1)
 		require.NoError(t, err2)
@@ -89,11 +102,11 @@ func TestNewHTTPListener(t *testing.T) {
 		}
 	})
 
-	t.Run("TLS", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
+	t.Run("with TLS (termination)", func(t *testing.T) {
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-		})
+		}, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -134,11 +147,12 @@ func TestNewHTTPListener(t *testing.T) {
 		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-1", secretNames[0])
 		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-2", secretNames[1])
 	})
-}
 
-func TestNewSNIListener(t *testing.T) {
-	t.Run("normal SNI listener", func(t *testing.T) {
-		res, err := NewSNIListener("dummy-name",
+	t.Run("with TLS (passthrough)", func(t *testing.T) {
+		res, err := newListener("dummy-name",
+			"",
+			false,
+			nil,
 			map[string][]string{
 				"foo-namespace/dummy-service:443": {
 					"foo.bar",
@@ -162,8 +176,11 @@ func TestNewSNIListener(t *testing.T) {
 		require.Equal(t, []string{"foo.bar"}, listener.GetFilterChains()[1].FilterChainMatch.ServerNames)
 	})
 
-	t.Run("SNI listener with stable filterchain sort-order", func(t *testing.T) {
-		res1, err1 := NewSNIListener("dummy-name",
+	t.Run("stable filterchain sort-order for TLS passthrough", func(t *testing.T) {
+		res1, err1 := newListener("dummy-name",
+			"",
+			false,
+			nil,
 			map[string][]string{
 				"dummy-namespace/dummy-service:443": {
 					"example.org",
@@ -174,7 +191,10 @@ func TestNewSNIListener(t *testing.T) {
 				},
 			},
 		)
-		res2, err2 := NewSNIListener("dummy-name",
+		res2, err2 := newListener("dummy-name",
+			"",
+			false,
+			nil,
 			map[string][]string{
 				"foo-namespace/dummy-service:443": {
 					"foo.bar",
@@ -194,8 +214,8 @@ func TestNewSNIListener(t *testing.T) {
 		}
 	})
 
-	t.Run("normal SNI listener with Proxy Protocol", func(t *testing.T) {
-		res, err := NewSNIListener("dummy-name", map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
+	t.Run("TLS passthrough with Proxy Protocol", func(t *testing.T) {
+		res, err := newListener("dummy-name", "", false, nil, map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -211,6 +231,48 @@ func TestNewSNIListener(t *testing.T) {
 		require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
+	})
+
+	t.Run("Combined (non-TLS, TLS & TLS passthrough)", func(t *testing.T) {
+		res, err := newListener("dummy-name",
+			"dummy-namespace",
+			true,
+			map[model.TLSSecret][]string{
+				{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
+				{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
+				{Name: "dummy-secret-3", Namespace: "dummy-namespace"}: {"foo.acme.com", "bar.acme.com"},
+			},
+			map[string][]string{
+				"foo-namespace/dummy-service:443": {
+					"foo.bar",
+				},
+				"dummy-namespace/dummy-service:443": {
+					"example.org",
+					"example.com",
+				},
+			},
+		)
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+
+		require.Equal(t, "dummy-name", listener.Name)
+		require.Len(t, listener.GetListenerFilters(), 1)
+		require.Len(t, listener.GetFilterChains(), 6)
+		require.Equal(t, "raw_buffer", listener.GetFilterChains()[0].FilterChainMatch.TransportProtocol)
+		require.Equal(t, "tls", listener.GetFilterChains()[1].FilterChainMatch.TransportProtocol)
+		require.Equal(t, "tls", listener.GetFilterChains()[2].FilterChainMatch.TransportProtocol)
+		require.Equal(t, "tls", listener.GetFilterChains()[3].FilterChainMatch.TransportProtocol)
+		require.Equal(t, "tls", listener.GetFilterChains()[4].FilterChainMatch.TransportProtocol)
+		require.Equal(t, "tls", listener.GetFilterChains()[5].FilterChainMatch.TransportProtocol)
+		require.Empty(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames)
+		require.Equal(t, []string{"dummy.server.com"}, listener.GetFilterChains()[1].FilterChainMatch.ServerNames)
+		require.Equal(t, []string{"dummy.anotherserver.com"}, listener.GetFilterChains()[2].FilterChainMatch.ServerNames)
+		require.Equal(t, []string{"bar.acme.com", "foo.acme.com"}, listener.GetFilterChains()[3].FilterChainMatch.ServerNames)
+		require.Equal(t, []string{"example.com", "example.org"}, listener.GetFilterChains()[4].FilterChainMatch.ServerNames)
+		require.Equal(t, []string{"foo.bar"}, listener.GetFilterChains()[5].FilterChainMatch.ServerNames)
 	})
 }
 
@@ -438,8 +500,8 @@ func TestGetHostNetworkListenerAddresses(t *testing.T) {
 }
 
 func TestWithHostNetworkPortSorted(t *testing.T) {
-	modifiedEnvoyListener1 := WithHostNetworkPort([]model.Listener{&model.HTTPListener{Port: 80}, &model.HTTPListener{Port: 443}}, true, true)(&envoy_config_listener.Listener{})
-	modifiedEnvoyListener2 := WithHostNetworkPort([]model.Listener{&model.HTTPListener{Port: 443}, &model.HTTPListener{Port: 80}}, true, true)(&envoy_config_listener.Listener{})
+	modifiedEnvoyListener1 := WithHostNetworkPort(&model.Model{HTTP: []model.HTTPListener{{Port: 80}, {Port: 443}}}, true, true)(&envoy_config_listener.Listener{})
+	modifiedEnvoyListener2 := WithHostNetworkPort(&model.Model{HTTP: []model.HTTPListener{{Port: 443}, {Port: 80}}}, true, true)(&envoy_config_listener.Listener{})
 
 	diffOutput := cmp.Diff(modifiedEnvoyListener1, modifiedEnvoyListener2, protocmp.Transform())
 	if len(diffOutput) != 0 {

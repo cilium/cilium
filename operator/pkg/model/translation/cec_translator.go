@@ -132,26 +132,45 @@ func (i *cecTranslator) getServices(namespace string, name string) []*ciliumv2.S
 func (i *cecTranslator) getResources(m *model.Model) []ciliumv2.XDSResource {
 	var res []ciliumv2.XDSResource
 
-	res = append(res, i.getHTTPRouteListener(m)...)
-	res = append(res, i.getTLSRouteListener(m)...)
+	res = append(res, i.getListener(m)...)
 	res = append(res, i.getEnvoyHTTPRouteConfiguration(m)...)
 	res = append(res, i.getClusters(m)...)
 
 	return res
 }
 
-// getHTTPRouteListener returns the listener for the given model with HTTPRoute.
-// TLS and non-TLS filters for HTTP traffic are applied by default.
-// Only one single listener is returned for shared LB mode.
-func (i *cecTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResource {
-	if len(m.HTTP) == 0 {
-		return nil
-	}
-	tlsMap := make(map[model.TLSSecret][]string)
-	for _, h := range m.HTTP {
+func tlsSecretsToHostnames(httpListeners []model.HTTPListener) map[model.TLSSecret][]string {
+	tlsSecretsToHostnames := make(map[model.TLSSecret][]string)
+	for _, h := range httpListeners {
 		for _, s := range h.TLS {
-			tlsMap[s] = append(tlsMap[s], h.Hostname)
+			tlsSecretsToHostnames[s] = append(tlsSecretsToHostnames[s], h.Hostname)
 		}
+	}
+
+	return tlsSecretsToHostnames
+}
+
+func tlsPassthroughBackendsToHostnames(tlsListeners []model.TLSPassthroughListener) map[string][]string {
+	tlsPassthroughBackendsToHostnames := make(map[string][]string)
+	for _, h := range tlsListeners {
+		for _, route := range h.Routes {
+			for _, backend := range route.Backends {
+				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
+				tlsPassthroughBackendsToHostnames[key] = append(tlsPassthroughBackendsToHostnames[key], route.Hostnames...)
+			}
+		}
+	}
+
+	return tlsPassthroughBackendsToHostnames
+}
+
+// getListener returns the listener for the given model.
+// - HTTP non-TLS filters
+// - HTTP TLS filters
+// - TLS passthrough filters
+func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
+	if len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 {
+		return nil
 	}
 
 	mutatorFuncs := []ListenerMutator{}
@@ -160,47 +179,14 @@ func (i *cecTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResou
 	}
 
 	if i.hostNetworkEnabled {
-		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m.HTTP, i.ipv4Enabled, i.ipv6Enabled))
+		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m, i.ipv4Enabled, i.ipv6Enabled))
 	}
 
 	if i.xffNumTrustedHops > 0 {
 		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
 	}
 
-	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap, mutatorFuncs...)
-	return []ciliumv2.XDSResource{l}
-}
-
-// getTLSRouteListener returns the listener for the given model with TLSRoute.
-// it will set up filters for SNI matching by default.
-func (i *cecTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSResource {
-	if len(m.TLS) == 0 {
-		return nil
-	}
-	backendsMap := make(map[string][]string)
-	for _, h := range m.TLS {
-		for _, route := range h.Routes {
-			for _, backend := range route.Backends {
-				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				backendsMap[key] = append(backendsMap[key], route.Hostnames...)
-			}
-		}
-	}
-
-	if len(backendsMap) == 0 {
-		return nil
-	}
-
-	mutatorFuncs := []ListenerMutator{}
-	if i.useProxyProtocol {
-		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
-	}
-
-	if i.hostNetworkEnabled {
-		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m.TLS, i.ipv4Enabled, i.ipv6Enabled))
-	}
-
-	l, _ := NewSNIListenerWithDefaults("listener", backendsMap, mutatorFuncs...)
+	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLSPassthrough), mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
@@ -404,7 +390,7 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
-	for _, l := range m.TLS {
+	for _, l := range m.TLSPassthrough {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
@@ -435,7 +421,7 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 // The ports are sorted and unique.
 func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
-	for _, l := range m.TLS {
+	for _, l := range m.TLSPassthrough {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}

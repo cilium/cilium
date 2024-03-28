@@ -1797,7 +1797,7 @@ var sslPassthruSources = []model.FullyQualifiedResource{
 	},
 }
 
-var emptyTLSListeners = []model.TLSListener{}
+var emptyTLSListeners = []model.TLSPassthroughListener{}
 
 // sslPassthru tests basic SSL Passthrough
 var sslPassthru = networkingv1.Ingress{
@@ -1836,14 +1836,17 @@ var sslPassthru = networkingv1.Ingress{
 	},
 }
 
-var sslPassthruTLSListeners = []model.TLSListener{
+var sslPassthruTLSListeners = []model.TLSPassthroughListener{
 	{
 		Name:     "ing-sslpassthru-ingress-dummy-namespace-sslpassthru.example.com",
 		Sources:  sslPassthruSources,
 		Port:     443,
 		Hostname: "sslpassthru.example.com",
-		Routes: []model.TLSRoute{
+		Routes: []model.TLSPassthroughRoute{
 			{
+				Hostnames: []string{
+					"sslpassthru.example.com",
+				},
 				Backends: []model.Backend{
 					{
 						Name:      "dummy-backend",
@@ -1991,14 +1994,17 @@ var sslPassthruNodePort = networkingv1.Ingress{
 	},
 }
 
-var sslPassthruTLSListenersNodePort = []model.TLSListener{
+var sslPassthruTLSListenersNodePort = []model.TLSPassthroughListener{
 	{
 		Name:     "ing-sslpassthru-ingress-dummy-namespace-sslpassthru.example.com",
 		Sources:  sslPassthruSources,
 		Port:     443,
 		Hostname: "sslpassthru.example.com",
-		Routes: []model.TLSRoute{
+		Routes: []model.TLSPassthroughRoute{
 			{
+				Hostnames: []string{
+					"sslpassthru.example.com",
+				},
 				Backends: []model.Backend{
 					{
 						Name:      "dummy-backend",
@@ -2067,14 +2073,17 @@ var sslPassthruMultiplePaths = networkingv1.Ingress{
 	},
 }
 
-var sslPassthruMultiplePathsTLSListeners = []model.TLSListener{
+var sslPassthruMultiplePathsTLSListeners = []model.TLSPassthroughListener{
 	{
 		Name:     "ing-sslpassthru-ingress-dummy-namespace-sslpassthru.example.com",
 		Sources:  sslPassthruSources,
 		Port:     443,
 		Hostname: "sslpassthru.example.com",
-		Routes: []model.TLSRoute{
+		Routes: []model.TLSPassthroughRoute{
 			{
+				Hostnames: []string{
+					"sslpassthru.example.com",
+				},
 				Backends: []model.Backend{
 					{
 						Name:      "dummy-backend",
@@ -2114,7 +2123,7 @@ var sslPassthruDefaultBackend = networkingv1.Ingress{
 
 type passthruTestcase struct {
 	ingress networkingv1.Ingress
-	want    []model.TLSListener
+	want    []model.TLSPassthroughListener
 }
 
 func TestIngressPassthrough(t *testing.T) {

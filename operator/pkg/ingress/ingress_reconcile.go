@@ -229,7 +229,7 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 			continue
 		}
 		if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
-			m.TLS = append(m.TLS, ingestion.IngressPassthrough(item, passthroughPort)...)
+			m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(item, passthroughPort)...)
 		} else {
 			m.HTTP = append(m.HTTP, ingestion.Ingress(item, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort)...)
 		}
@@ -244,15 +244,13 @@ func (r *ingressReconciler) getSharedListenerPorts() (uint32, uint32, uint32) {
 	}
 
 	passthroughListenerPort := defaultPassthroughPort
-	if r.hostNetworkSharedTLSPassthroughPort > 0 {
-		passthroughListenerPort = r.hostNetworkSharedTLSPassthroughPort
-	}
-
 	insecureHTTPListenerPort := defaultInsecureHTTPPort
 	secureHTTPListenerPort := defaultSecureHTTPPort
-	if r.hostNetworkSharedHTTPPort > 0 {
-		insecureHTTPListenerPort = r.hostNetworkSharedHTTPPort
-		secureHTTPListenerPort = r.hostNetworkSharedHTTPPort
+
+	if r.hostNetworkSharedPort > 0 {
+		passthroughListenerPort = r.hostNetworkSharedPort
+		insecureHTTPListenerPort = r.hostNetworkSharedPort
+		secureHTTPListenerPort = r.hostNetworkSharedPort
 	}
 
 	return passthroughListenerPort, insecureHTTPListenerPort, secureHTTPListenerPort
@@ -264,7 +262,7 @@ func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress
 	m := &model.Model{}
 
 	if annotations.GetAnnotationTLSPassthroughEnabled(ingress) {
-		m.TLS = append(m.TLS, ingestion.IngressPassthrough(*ingress, passthroughPort)...)
+		m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(*ingress, passthroughPort)...)
 	} else {
 		m.HTTP = append(m.HTTP, ingestion.Ingress(*ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort)...)
 	}
@@ -293,23 +291,15 @@ func (r *ingressReconciler) getDedicatedListenerPorts(ingress *networkingv1.Ingr
 	insecureHTTPListenerPort := defaultInsecureHTTPPort
 	secureHTTPListenerPort := defaultSecureHTTPPort
 
-	tlsPort, err := annotations.GetAnnotationTLSHostPort(ingress)
+	port, err := annotations.GetAnnotationHostPort(ingress)
 	if err != nil {
-		r.logger.WithError(err).Warnf("Failed to parse TLS host port - using default listener port")
-	} else if tlsPort == nil || *tlsPort == 0 {
-		r.logger.Warnf("No TLS host port defined in annotation - using default listener port")
+		r.logger.WithError(err).Warnf("Failed to parse host port - using default listener port")
+	} else if port == nil || *port == 0 {
+		r.logger.Warnf("No host port defined in annotation - using default listener port")
 	} else {
-		passthroughListenerPort = *tlsPort
-	}
-
-	httpPort, err := annotations.GetAnnotationHTTPHostPort(ingress)
-	if err != nil {
-		r.logger.WithError(err).Warnf("Failed to parse HTTP host port - using default listener port")
-	} else if httpPort == nil || *httpPort == 0 {
-		r.logger.Warnf("No HTTP host port defined in annotation - using default listener port")
-	} else {
-		insecureHTTPListenerPort = *httpPort
-		secureHTTPListenerPort = *httpPort
+		passthroughListenerPort = *port
+		insecureHTTPListenerPort = *port
+		secureHTTPListenerPort = *port
 	}
 
 	return passthroughListenerPort, insecureHTTPListenerPort, secureHTTPListenerPort

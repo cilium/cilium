@@ -429,7 +429,7 @@ func basicHostPortHTTPListenersCiliumEnvoyConfig(address string, port uint32, no
 }
 
 // basicTLSListeners is the internal model representation of the simple TLS listeners
-var basicTLSListeners = []model.TLSListener{
+var basicTLSListeners = []model.TLSPassthroughListener{
 	{
 		Name: "prod-web-gw",
 		Sources: []model.FullyQualifiedResource{
@@ -444,7 +444,7 @@ var basicTLSListeners = []model.TLSListener{
 		Address:  "",
 		Port:     443,
 		Hostname: "*",
-		Routes: []model.TLSRoute{
+		Routes: []model.TLSPassthroughRoute{
 			{
 				Hostnames: []string{"foo.com"},
 				Backends: []model.Backend{
@@ -495,25 +495,27 @@ var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			{
 				Any: toAny(&envoy_config_listener.Listener{
 					Name: "listener",
-					FilterChains: []*envoy_config_listener.FilterChain{{
-						FilterChainMatch: &envoy_config_listener.FilterChainMatch{
-							ServerNames:       []string{"foo.com"},
-							TransportProtocol: "tls",
-						},
-						Filters: []*envoy_config_listener.Filter{
-							{
-								Name: "envoy.filters.network.tcp_proxy",
-								ConfigType: &envoy_config_listener.Filter_TypedConfig{
-									TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
-										StatPrefix: "default:my-service:8080",
-										ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
-											Cluster: "default:my-service:8080",
-										},
-									}),
+					FilterChains: []*envoy_config_listener.FilterChain{
+						{
+							FilterChainMatch: &envoy_config_listener.FilterChainMatch{
+								ServerNames:       []string{"foo.com"},
+								TransportProtocol: "tls",
+							},
+							Filters: []*envoy_config_listener.Filter{
+								{
+									Name: "envoy.filters.network.tcp_proxy",
+									ConfigType: &envoy_config_listener.Filter_TypedConfig{
+										TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
+											StatPrefix: "default:my-service:8080",
+											ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
+												Cluster: "default:my-service:8080",
+											},
+										}),
+									},
 								},
 							},
 						},
-					}},
+					},
 					ListenerFilters: []*envoy_config_listener.ListenerFilter{
 						{
 							Name: "envoy.filters.listener.tls_inspector",
@@ -4162,6 +4164,7 @@ var requestRedirectWithMultiHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var requestRedirectWithMultiHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
