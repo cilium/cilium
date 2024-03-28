@@ -338,7 +338,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 		scopedLog.WithFields(logrus.Fields{
 			"error":       err,
 			"next-try-in": duration,
-		}).Warning("Failed to create gRPC client")
+		}).Info("Failed to create gRPC client, retrying...")
 		return
 	}
 	p.nextConnAttempt = time.Time{}
