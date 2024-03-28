@@ -90,9 +90,7 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
 			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", k8sConst.EnvNodeNameSpec)
 		}
-		if option.MightAutoDetectDevices() {
-			log.Info("K8s node name is empty. BPF NodePort might not be able to auto detect all devices")
-		}
+		log.Info("K8s node name is empty. BPF NodePort might not be able to auto detect all devices")
 		return nil
 	}
 
@@ -104,7 +102,7 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 	// happen, as initKubeProxyReplacementOptions() might disable BPF NodePort.
 	// Anyway, to be on the safe side, don't give up waiting for a (Cilium)Node
 	// self object.
-	isNodeInformationOptional := (!requireIPv4CIDR && !requireIPv6CIDR && !option.MightAutoDetectDevices())
+	isNodeInformationOptional := (!requireIPv4CIDR && !requireIPv6CIDR)
 	// If node information is optional, let's wait 10 seconds only.
 	// It node information is required, wait indefinitely.
 	if isNodeInformationOptional {
