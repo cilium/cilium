@@ -3302,6 +3302,12 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 	res := kub.ExecContextShort(ctx, fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
+	ginkgoext.GinkgoPrint("Fetching log output from all containers in pods %s", pods)
+	for _, pod := range pods {
+		res := kub.ExecContextShort(ctx, fmt.Sprintf("%s logs %s --all-containers=true", KubectlCmd, pod))
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+	}
+
 	results := make([]*CmdRes, 0, len(pods)*len(commands))
 	ginkgoext.GinkgoPrint("Fetching command output from pods %s", pods)
 	for _, pod := range pods {
