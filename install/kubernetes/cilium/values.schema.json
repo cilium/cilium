@@ -1043,6 +1043,11 @@
               "type": "object"
             },
             "podSecurityContext": {
+              "properties": {
+                "fsGroup": {
+                  "type": "integer"
+                }
+              },
               "type": "object"
             },
             "priorityClassName": {

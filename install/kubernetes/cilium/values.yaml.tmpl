@@ -2990,7 +2990,8 @@ clustermesh:
     # -- Security context to be added to clustermesh-apiserver containers
     securityContext: {}
     # -- Security context to be added to clustermesh-apiserver pods
-    podSecurityContext: {}
+    podSecurityContext:
+      fsGroup: 65532
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
     # -- Labels to be added to clustermesh-apiserver pods
