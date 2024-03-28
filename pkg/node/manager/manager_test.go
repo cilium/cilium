@@ -20,6 +20,9 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/healthv2"
+	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -31,6 +34,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/statedb"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
@@ -826,43 +830,88 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	assert := assert.New(t)
 
 	baseBackgroundSyncInterval = 1 * time.Millisecond
-	hp := cell.NewHealthProvider()
-	m, err := New(&option.DaemonConfig{}, newIPcacheMock(), newIPSetMock(), nil, NewNodeMetrics(), cell.TestScopeFromProvider(cell.FullModuleID{"test"}, hp))
+	fn := func(m *manager, sh hive.Shutdowner, statusTable statedb.Table[types.Status], db *statedb.DB) {
+		defer sh.Shutdown()
+		m.nodes[nodeTypes.Identity{
+			Name:    "node1",
+			Cluster: "c1",
+		}] = &nodeEntry{node: nodeTypes.Node{Name: "node1", Cluster: "c1"}}
+		m.nodeHandlers = make(map[datapath.NodeHandler]struct{})
+		nh1 := newSignalNodeHandler()
+		nh1.EnableNodeValidateImplementationEvent = true
+		// By default this is a buffered channel, by making it a non-buffered
+		// channel we can sync up iterations of background sync.
+		nh1.NodeValidateImplementationEvent = make(chan nodeTypes.Node)
+		nh1.NodeValidateImplementationEventError = fmt.Errorf("test error")
+		m.nodeHandlers[nh1] = struct{}{}
+
+		done := make(chan struct{})
+		reattempt := make(chan struct{})
+		checkStatus := func() ([]types.Status, <-chan struct{}) {
+			tx := db.ReadTxn()
+			iter, watch := statusTable.All(tx)
+			var ss []types.Status
+			for {
+				s, _, ok := iter.Next()
+				if !ok {
+					break
+				}
+				ss = append(ss, s)
+			}
+
+			return ss, watch
+		}
+		go func() {
+			ss, watch := checkStatus()
+			assert.Len(ss, 0)
+			<-watch
+			ss, watch = checkStatus()
+			assert.Len(ss, 1)
+			assert.Equal(types.LevelDegraded, string(ss[0].Level))
+			close(reattempt)
+			<-watch
+			ss, _ = checkStatus()
+			assert.Len(ss, 1)
+			assert.Equal(types.LevelOK, string(ss[0].Level))
+		}()
+		go func() {
+			<-nh1.NodeValidateImplementationEvent
+			<-reattempt
+			nh1.NodeValidateImplementationEventError = nil
+			<-nh1.NodeValidateImplementationEvent
+			close(done)
+		}()
+		// Start the manager
+		assert.NoError(m.Start(context.Background()))
+		<-done
+	}
+	ipcacheMock := newIPcacheMock()
+	config := &option.DaemonConfig{}
+	err := hive.New(
+		statedb.Cell,
+		healthv2.Cell,
+		cell.Provide(func() testParams {
+			return testParams{
+				Config:        config,
+				IPCache:       ipcacheMock,
+				IPSet:         newIPSetMock(),
+				NodeMetrics:   NewNodeMetrics(),
+				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
+			}
+		}),
+		cell.Module("node_manager", "Node Manager", cell.Provide(New)),
+		cell.Invoke(fn),
+	).Run()
 	assert.NoError(err)
+}
 
-	m.nodes[nodeTypes.Identity{
-		Name:    "node1",
-		Cluster: "c1",
-	}] = &nodeEntry{node: nodeTypes.Node{Name: "node1", Cluster: "c1"}}
-	m.nodeHandlers = make(map[datapath.NodeHandler]struct{})
-	nh1 := newSignalNodeHandler()
-	nh1.EnableNodeValidateImplementationEvent = true
-	// By default this is a buffered channel, by making it a non-buffered
-	// channel we can sync up iterations of background sync.
-	nh1.NodeValidateImplementationEvent = make(chan nodeTypes.Node)
-	nh1.NodeValidateImplementationEventError = fmt.Errorf("test error")
-	m.nodeHandlers[nh1] = struct{}{}
-
-	update := make(chan cell.Update)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	hp.Subscribe(ctx, func(u cell.Update) {
-		update <- u
-	}, func(err error) {})
-	done := make(chan struct{})
-	go func() {
-		<-nh1.NodeValidateImplementationEvent
-		u := <-update
-		assert.Equal(u.Level(), cell.StatusDegraded)
-		nh1.NodeValidateImplementationEventError = nil
-		<-nh1.NodeValidateImplementationEvent
-		u = <-update
-		assert.Equal(u.Level(), cell.StatusOK)
-		close(done)
-	}()
-	// Start the manager
-	assert.NoError(m.Start(context.Background()))
-	<-done
+type testParams struct {
+	cell.Out
+	Config        *option.DaemonConfig
+	IPCache       IPCache
+	IPSet         ipset.Manager
+	NodeMetrics   *nodeMetrics
+	IPSetFilterFn IPSetFilterFn
 }
 
 type mockUpdater struct{}
