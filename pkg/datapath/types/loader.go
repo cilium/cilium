@@ -36,11 +36,11 @@ type BaseProgramOwner interface {
 	GetCompilationLock() *lock.RWMutex
 	Datapath() Datapath
 	LocalConfig() *LocalNodeConfiguration
-	SetPrefilter(pf PreFilter)
 }
 
 // PreFilter an interface for an XDP pre-filter.
 type PreFilter interface {
+	Enabled() bool
 	WriteConfig(fw io.Writer)
 	Dump(to []string) ([]string, int64)
 	Insert(revision int64, cidrs []net.IPNet) error

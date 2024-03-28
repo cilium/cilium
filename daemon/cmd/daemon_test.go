@@ -19,6 +19,7 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -153,6 +154,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			func() ctmapgc.Enabler { return ctmapgc.NewFake() },
 		),
 		fakeDatapath.Cell,
+		prefilter.Cell,
 		monitorAgent.Cell,
 		ControlPlane,
 		statedb.Cell,
