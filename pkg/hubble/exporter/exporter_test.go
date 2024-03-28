@@ -119,8 +119,8 @@ func TestExporterWithFilters(t *testing.T) {
 
 	opts := exporteroption.Default
 	for _, opt := range []exporteroption.Option{
-		exporteroption.WithAllowList([]*flowpb.FlowFilter{allowFilter}),
-		exporteroption.WithDenyList([]*flowpb.FlowFilter{denyFilter}),
+		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{allowFilter}),
+		exporteroption.WithDenyList(log, []*flowpb.FlowFilter{denyFilter}),
 	} {
 		err := opt(&opts)
 		assert.NoError(t, err)
@@ -336,11 +336,11 @@ func BenchmarkExporter(b *testing.B) {
 	opts := exporteroption.Default
 	for _, opt := range []exporteroption.Option{
 		exporteroption.WithFieldMask([]string{"time", "node_name", "source"}),
-		exporteroption.WithAllowList([]*flowpb.FlowFilter{
+		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{
 			{SourcePod: []string{"no-matches-for-this-one"}},
 			{SourcePod: []string{allowNS + "/"}},
 		}),
-		exporteroption.WithDenyList([]*flowpb.FlowFilter{
+		exporteroption.WithDenyList(log, []*flowpb.FlowFilter{
 			{DestinationPod: []string{"no-matches-for-this-one"}},
 			{DestinationPod: []string{denyNS + "/"}},
 		}),

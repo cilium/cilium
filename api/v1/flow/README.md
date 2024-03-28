@@ -16,6 +16,7 @@
     - [EventTypeFilter](#flow-EventTypeFilter)
     - [Flow](#flow-Flow)
     - [FlowFilter](#flow-FlowFilter)
+    - [FlowFilter.Experimental](#flow-FlowFilter-Experimental)
     - [HTTP](#flow-HTTP)
     - [HTTPHeader](#flow-HTTPHeader)
     - [ICMPv4](#flow-ICMPv4)
@@ -346,6 +347,23 @@ multiple fields are set, then all fields must match for the filter to match.
 | node_name | [string](#string) | repeated | node_name is a list of patterns to filter on the node name, e.g. &#34;k8s*&#34;, &#34;test-cluster/*.domain.com&#34;, &#34;cluster-name/&#34; etc. |
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
 | trace_id | [string](#string) | repeated | trace_id filters flows by trace ID |
+| experimental | [FlowFilter.Experimental](#flow-FlowFilter-Experimental) |  | experimental contains filters that are not stable yet. Support for experimental features is always optional and subject to change. |
+
+
+
+
+
+
+<a name="flow-FlowFilter-Experimental"></a>
+
+### FlowFilter.Experimental
+Experimental contains filters that are not stable yet. Support for
+experimental features is always optional and subject to change.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cel_expression | [string](#string) | repeated | cel_expression takes a common expression language (CEL) expression returning a boolean to determine if the filter matched or not. You can use the `_flow` variable to access fields on the flow using the flow.Flow protobuf field names. See https://github.com/google/cel-spec/blob/v0.14.0/doc/intro.md#introduction for more details on CEL and accessing the protobuf fields in CEL. Using CEL has performance cost compared to other filters, so prefer using non-CEL filters when possible, and try to specify CEL filters last in the list of FlowFilters. |
 
 
 

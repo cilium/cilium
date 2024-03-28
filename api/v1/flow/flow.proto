@@ -556,6 +556,24 @@ message FlowFilter {
 
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
+
+    // Experimental contains filters that are not stable yet. Support for
+    // experimental features is always optional and subject to change.
+    message Experimental {
+      // cel_expression takes a common expression language (CEL) expression
+      // returning a boolean to determine if the filter matched or not.
+      // You can use the `_flow` variable to access fields on the flow using
+      // the flow.Flow protobuf field names.
+      // See https://github.com/google/cel-spec/blob/v0.14.0/doc/intro.md#introduction
+      // for more details on CEL and accessing the protobuf fields in CEL.
+      // Using CEL has performance cost compared to other filters, so prefer
+      // using non-CEL filters when possible, and try to specify CEL filters
+      // last in the list of FlowFilters.
+      repeated string cel_expression = 33;
+    }
+    // experimental contains filters that are not stable yet. Support for
+    // experimental features is always optional and subject to change.
+    Experimental experimental = 999;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
@@ -596,7 +614,7 @@ message HTTPHeader {
     string value = 2;
 }
 
-// L7 information for HTTP flows. It corresponds to Cilium's [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type. 
+// L7 information for HTTP flows. It corresponds to Cilium's [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
 message HTTP {
     uint32 code = 1;
     string method = 2;
