@@ -77,6 +77,8 @@ message Flow {
 
     // Only applicable to cilium trace notifications, blank for other types.
     TraceObservationPoint trace_observation_point = 24;
+    // Cilium datapath trace reason info.
+    TraceReason trace_reason = 36;
 
     // only applicable to Verdict = DROPPED.
     DropReason drop_reason_desc = 25;
@@ -181,6 +183,18 @@ enum TraceObservationPoint {
     // TO_NETWORK indicates network packets are transmitted towards native
     // devices.
     TO_NETWORK = 11;
+}
+
+enum TraceReason {
+	NEW = 0;
+	ESTABLISHED = 1;
+	REPLY = 2;
+	RELATED = 3;
+	REOPENED = 4;
+	TRACE_REASON_UNKNOWN = 5;
+	SRV6_ENCAP = 6;
+	SRV6_DECAP = 7;
+	ENCRYPT_OVERLAY = 8;
 }
 
 message Layer4 {

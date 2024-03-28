@@ -25,8 +25,6 @@ const (
 	traceNotifyV0Len = 32
 	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1.
 	traceNotifyV1Len = 48
-	// TraceReasonEncryptMask is the bit used to indicate encryption or not
-	TraceReasonEncryptMask uint8 = 0x80
 )
 
 const (
@@ -86,6 +84,50 @@ func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
 	return nil
 }
 
+// IsEncrypted returns true when the notification has the encrypt flag set,
+// false otherwise.
+func (n *TraceNotifyV0) IsEncrypted() bool {
+	return (n.Reason & TraceReasonEncryptMask) != 0
+}
+
+// TraceReason returns the trace reason for this notification, see the
+// TraceReason* constants.
+func (n *TraceNotifyV0) TraceReason() uint8 {
+	return n.Reason & ^TraceReasonEncryptMask
+}
+
+// TraceReasonIsKnown returns false when the trace reason is unknown, true
+// otherwise.
+func (n *TraceNotifyV0) TraceReasonIsKnown() bool {
+	return n.TraceReason() != TraceReasonUnknown
+}
+
+// TraceReasonIsReply returns true when the trace reason is TraceReasonCtReply,
+// false otherwise.
+func (n *TraceNotifyV0) TraceReasonIsReply() bool {
+	return n.TraceReason() == TraceReasonCtReply
+}
+
+// TraceReasonIsEncap returns true when the trace reason is encapsulation
+// related, false otherwise.
+func (n *TraceNotifyV0) TraceReasonIsEncap() bool {
+	switch n.TraceReason() {
+	case TraceReasonSRv6Encap, TraceReasonEncryptOverlay:
+		return true
+	}
+	return false
+}
+
+// TraceReasonIsDecap returns true when the trace reason is decapsulation
+// related, false otherwise.
+func (n *TraceNotifyV0) TraceReasonIsDecap() bool {
+	switch n.TraceReason() {
+	case TraceReasonSRv6Decap:
+		return true
+	}
+	return false
+}
+
 // TraceNotifyV1 is the version 1 message format. This struct needs to be kept
 // in sync with the decodeTraceNotifyVersion1 func.
 type TraceNotifyV1 struct {
@@ -120,7 +162,7 @@ var (
 	}
 )
 
-// Reasons for forwarding a packet.
+/* Reasons for forwarding a packet, keep in sync with api/v1/flow/flow.proto */
 const (
 	TraceReasonPolicy = iota
 	TraceReasonCtEstablished
@@ -131,8 +173,11 @@ const (
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
 	TraceReasonEncryptOverlay
+	// TraceReasonEncryptMask is the bit used to indicate encryption or not.
+	TraceReasonEncryptMask = uint8(0x80)
 )
 
+/* keep in sync with api/v1/flow/flow.proto */
 var traceReasons = map[uint8]string{
 	TraceReasonPolicy:         "new",
 	TraceReasonCtEstablished:  "established",
@@ -143,41 +188,6 @@ var traceReasons = map[uint8]string{
 	TraceReasonSRv6Encap:      "srv6-encap",
 	TraceReasonSRv6Decap:      "srv6-decap",
 	TraceReasonEncryptOverlay: "encrypt-overlay",
-}
-
-func connState(reason uint8) string {
-	r := reason & ^TraceReasonEncryptMask
-	if str, ok := traceReasons[r]; ok {
-		return str
-	}
-	return fmt.Sprintf("%d", reason)
-}
-
-func TraceReasonIsKnown(reason uint8) bool {
-	switch reason & ^TraceReasonEncryptMask {
-	case TraceReasonUnknown:
-		return false
-	default:
-		return true
-	}
-}
-
-func TraceReasonIsEncap(reason uint8) bool {
-	switch reason & ^TraceReasonEncryptMask {
-	case TraceReasonSRv6Encap, TraceReasonEncryptOverlay:
-		return true
-	default:
-		return false
-	}
-}
-
-func TraceReasonIsDecap(reason uint8) bool {
-	switch reason & ^TraceReasonEncryptMask {
-	case TraceReasonSRv6Decap:
-		return true
-	default:
-		return false
-	}
 }
 
 // DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
@@ -209,15 +219,20 @@ func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 	}
 }
 
-func (n *TraceNotify) encryptReason() string {
-	if (n.Reason & TraceReasonEncryptMask) != 0 {
+func (n *TraceNotify) encryptReasonString() string {
+	if n.IsEncrypted() {
 		return "encrypted "
 	}
 	return ""
 }
 
-func (n *TraceNotify) traceReason() string {
-	return connState(n.Reason)
+func (n *TraceNotify) traceReasonString() string {
+	if str, ok := traceReasons[n.TraceReason()]; ok {
+		return str
+	}
+	// NOTE: show the underlying datapath trace reason without excluding the
+	// encrypt mask.
+	return fmt.Sprintf("%d", n.Reason)
 }
 
 func (n *TraceNotify) traceSummary() string {
@@ -276,15 +291,15 @@ func (n *TraceNotify) DataOffset() uint {
 func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
 	hdrLen := n.DataOffset()
-	if n.encryptReason() != "" {
+	if enc := n.encryptReasonString(); enc != "" {
 		fmt.Fprintf(buf, "%s %s flow %#x ",
-			n.traceSummary(), n.encryptReason(), n.Hash)
+			n.traceSummary(), enc, n.Hash)
 	} else {
 		fmt.Fprintf(buf, "%s flow %#x ", n.traceSummary(), n.Hash)
 	}
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
-	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReason(),
+	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
 		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	buf.Flush()
 }
@@ -293,7 +308,7 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
-		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, connState(n.Reason))
+		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())
 
 	if n.Ifindex != 0 {
 		ifname := linkMonitor.Name(n.Ifindex)
@@ -370,7 +385,7 @@ func TraceNotifyToVerbose(n *TraceNotify, linkMonitor getters.LinkGetter) TraceN
 		Type:             "trace",
 		Mark:             fmt.Sprintf("%#x", n.Hash),
 		Ifindex:          ifname,
-		State:            connState(n.Reason),
+		State:            n.traceReasonString(),
 		ObservationPoint: api.TraceObservationPoint(n.ObsPoint),
 		TraceSummary:     n.traceSummary(),
 		Source:           n.Source,

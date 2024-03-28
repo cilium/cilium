@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
@@ -121,6 +122,228 @@ func (s *MonitorSuite) TestDecodeTraceNotifyErrors(c *C) {
 	err = DecodeTraceNotify(ev, &tn)
 	c.Assert(err, NotNil)
 	c.Assert(err.Error(), Equals, "Unrecognized trace event (version 255)")
+}
+
+func TestIsEncrypted(t *testing.T) {
+	tt := []struct {
+		name      string
+		reason    uint8
+		encrypted bool
+	}{
+		{
+			name:      "unknown",
+			reason:    TraceReasonUnknown,
+			encrypted: false,
+		},
+		{
+			name:      "unknown encrypted",
+			reason:    TraceReasonUnknown | TraceReasonEncryptMask,
+			encrypted: true,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := &TraceNotifyV0{
+				Reason: tc.reason,
+			}
+			require.Equal(t, tc.encrypted, tn.IsEncrypted())
+		})
+	}
+}
+
+func TestTraceReason(t *testing.T) {
+	tt := []struct {
+		name   string
+		reason uint8
+		want   uint8
+	}{
+		{
+			name:   "unknown",
+			reason: TraceReasonUnknown,
+			want:   TraceReasonUnknown,
+		},
+		{
+			name:   "unknown encrypted",
+			reason: TraceReasonUnknown | TraceReasonEncryptMask,
+			want:   TraceReasonUnknown,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := &TraceNotifyV0{
+				Reason: tc.reason,
+			}
+			require.Equal(t, tc.want, tn.TraceReason())
+		})
+	}
+}
+
+func TestTraceReasonIsKnown(t *testing.T) {
+	tt := []struct {
+		name   string
+		reason uint8
+		known  bool
+	}{
+		{
+			name:   "unknown",
+			reason: TraceReasonUnknown,
+			known:  false,
+		},
+		{
+			name:   "unknown encrypted",
+			reason: TraceReasonUnknown | TraceReasonEncryptMask,
+			known:  false,
+		},
+		{
+			name:   "established",
+			reason: TraceReasonCtEstablished,
+			known:  true,
+		},
+		{
+			name:   "established encrypted",
+			reason: TraceReasonCtEstablished | TraceReasonEncryptMask,
+			known:  true,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := &TraceNotifyV0{
+				Reason: tc.reason,
+			}
+			require.Equal(t, tc.known, tn.TraceReasonIsKnown())
+		})
+	}
+}
+
+func TestTraceReasonIsReply(t *testing.T) {
+	tt := []struct {
+		name   string
+		reason uint8
+		reply  bool
+	}{
+		{
+			name:   "unknown",
+			reason: TraceReasonUnknown,
+			reply:  false,
+		},
+		{
+			name:   "unknown encrypted",
+			reason: TraceReasonUnknown | TraceReasonEncryptMask,
+			reply:  false,
+		},
+		{
+			name:   "reply",
+			reason: TraceReasonCtReply,
+			reply:  true,
+		},
+		{
+			name:   "reply encrypted",
+			reason: TraceReasonCtReply | TraceReasonEncryptMask,
+			reply:  true,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := &TraceNotifyV0{
+				Reason: tc.reason,
+			}
+			require.Equal(t, tc.reply, tn.TraceReasonIsReply())
+		})
+	}
+}
+
+func TestTraceReasonIsEncap(t *testing.T) {
+	tt := []struct {
+		name   string
+		reason uint8
+		encap  bool
+	}{
+		{
+			name:   "unknown",
+			reason: TraceReasonUnknown,
+			encap:  false,
+		},
+		{
+			name:   "unknown encrypted",
+			reason: TraceReasonUnknown | TraceReasonEncryptMask,
+			encap:  false,
+		},
+		{
+			name:   "srv6-encap",
+			reason: TraceReasonSRv6Encap,
+			encap:  true,
+		},
+		{
+			name:   "srv6-encap encrypted",
+			reason: TraceReasonSRv6Encap | TraceReasonEncryptMask,
+			encap:  true,
+		},
+		{
+			name:   "srv6-decap",
+			reason: TraceReasonSRv6Decap,
+			encap:  false,
+		},
+		{
+			name:   "srv6-decap encrypted",
+			reason: TraceReasonSRv6Decap | TraceReasonEncryptMask,
+			encap:  false,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := &TraceNotifyV0{
+				Reason: tc.reason,
+			}
+			require.Equal(t, tc.encap, tn.TraceReasonIsEncap())
+		})
+	}
+}
+
+func TestTraceReasonIsDecap(t *testing.T) {
+	tt := []struct {
+		name   string
+		reason uint8
+		decap  bool
+	}{
+		{
+			name:   "unknown",
+			reason: TraceReasonUnknown,
+			decap:  false,
+		},
+		{
+			name:   "unknown encrypted",
+			reason: TraceReasonUnknown | TraceReasonEncryptMask,
+			decap:  false,
+		},
+		{
+			name:   "srv6-encap",
+			reason: TraceReasonSRv6Encap,
+			decap:  false,
+		},
+		{
+			name:   "srv6-encap encrypted",
+			reason: TraceReasonSRv6Encap | TraceReasonEncryptMask,
+			decap:  false,
+		},
+		{
+			name:   "srv6-decap",
+			reason: TraceReasonSRv6Decap,
+			decap:  true,
+		},
+		{
+			name:   "srv6-decap encrypted",
+			reason: TraceReasonSRv6Decap | TraceReasonEncryptMask,
+			decap:  true,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := &TraceNotifyV0{
+				Reason: tc.reason,
+			}
+			require.Equal(t, tc.decap, tn.TraceReasonIsDecap())
+		})
+	}
 }
 
 func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
