@@ -215,10 +215,11 @@ jobs:
         run: |
           # For private repositories requiring authentication, check that we
           # can no longer fetch from the repository.
-          if ! curl -sL \
+          if ! curl -L \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${{ github.repository }}" | \
+            tee /dev/stderr | \
             jq --exit-status '.private == false'; then
             echo 'Checking whether "git fetch" succeeds'
             if git fetch origin HEAD; then
