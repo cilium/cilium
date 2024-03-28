@@ -114,7 +114,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	httpListeners, tlsListeners := ingestion.GatewayAPI(ingestion.Input{
+	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
 		GatewayClass:    *gwc,
 		Gateway:         *gw,
 		HTTPRoutes:      r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
@@ -133,7 +133,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled")
 
 	// Step 3: Translate the listeners into Cilium model
-	cec, svc, ep, err := r.translator.Translate(&model.Model{HTTP: httpListeners, TLS: tlsListeners})
+	cec, svc, ep, err := r.translator.Translate(&model.Model{HTTP: httpListeners, TLSPassthrough: tlsPassthroughListeners})
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to translate resources")
 		setGatewayAccepted(gw, false, "Unable to translate resources")

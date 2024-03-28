@@ -36,9 +36,9 @@ type Input struct {
 
 // GatewayAPI translates Gateway API resources into a model.
 // TODO(tam): Support GatewayClass
-func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
+func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListener) {
 	var resHTTP []model.HTTPListener
-	var resTLS []model.TLSListener
+	var resTLSPassthrough []model.TLSPassthroughListener
 
 	var labels, annotations map[string]string
 	if input.Gateway.Spec.Infrastructure != nil {
@@ -83,7 +83,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			Infrastructure: infra,
 		})
 
-		resTLS = append(resTLS, model.TLSListener{
+		resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
 			Name: string(l.Name),
 			Sources: []model.FullyQualifiedResource{
 				{
@@ -102,7 +102,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 		})
 	}
 
-	return resHTTP, resTLS
+	return resHTTP, resTLSPassthrough
 }
 
 func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
@@ -408,8 +408,8 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPC
 	return grpcRoutes
 }
 
-func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.TLSRoute {
-	var tlsRoutes []model.TLSRoute
+func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.TLSPassthroughRoute {
+	var tlsRoutes []model.TLSPassthroughRoute
 	for _, r := range input {
 		isListener := false
 		for _, parent := range r.Spec.ParentRefs {
@@ -455,7 +455,7 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRo
 				}
 			}
 
-			tlsRoutes = append(tlsRoutes, model.TLSRoute{
+			tlsRoutes = append(tlsRoutes, model.TLSPassthroughRoute{
 				Hostnames: computedHost,
 				Backends:  bes,
 			})
@@ -609,7 +609,7 @@ func toGRPCPathMatch(match gatewayv1alpha2.GRPCRouteMatch) model.StringMatch {
 		return model.StringMatch{}
 	}
 
-	var t = gatewayv1alpha2.GRPCMethodMatchExact
+	t := gatewayv1alpha2.GRPCMethodMatchExact
 	if match.Method.Type != nil {
 		t = *match.Method.Type
 	}
