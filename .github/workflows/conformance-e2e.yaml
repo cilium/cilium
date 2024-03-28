@@ -110,8 +110,8 @@ jobs:
             secondary-network: 'true'
             tunnel: 'vxlan'
             lb-mode: 'snat'
-            endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -122,9 +122,9 @@ jobs:
             secondary-network: 'true'
             tunnel: 'disabled'
             lb-mode: 'dsr'
-            endpoint-routes: 'true'
             egress-gateway: 'true'
             host-fw: 'true'
+            ingress-controller: 'true'
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -171,8 +171,8 @@ jobs:
             encryption: 'wireguard'
             encryption-node: 'false'
             lb-mode: 'snat'
-            endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -185,8 +185,8 @@ jobs:
             encryption: 'wireguard'
             encryption-node: 'false'
             lb-mode: 'dsr'
-            endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
