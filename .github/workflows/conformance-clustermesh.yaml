@@ -55,7 +55,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 51c4c83e6f864ea39b8c5871ba5c9cdbe59d1eec
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
   contextName1: kind-cluster1-${{ github.run_id }}
@@ -213,6 +213,7 @@ jobs:
             --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
             --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
+            --helm-set=clustermesh.enableEndpointSliceSynchronization=true \
             "
 
           CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
