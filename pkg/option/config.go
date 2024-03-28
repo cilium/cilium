@@ -2486,6 +2486,16 @@ func (c *DaemonConfig) AreDevicesRequired() bool {
 		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired
 }
 
+// When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
+// to a remote node running a selected service endpoint must be encrypted.
+// To make the NodePort's rev-{S,D}NAT translations to happen for a reply
+// from the remote node, we need to attach bpf_host to the Cilium's WG
+// netdev (otherwise, the WG netdev after decrypting the reply will pass
+// it to the stack which drops the packet).
+func (c *DaemonConfig) NeedBPFHostOnWireGuardDevice() bool {
+	return c.EnableNodePort && c.EnableWireguard && c.EncryptNode
+}
+
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
 func (c *DaemonConfig) MasqueradingEnabled() bool {
 	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade

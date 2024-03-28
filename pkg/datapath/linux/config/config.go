@@ -1047,6 +1047,11 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e datapath.EndpointC
 		deviceNames = tables.DeviceNames(nativeDevices)
 	}
 
+	// Add cilium_wg0 if necessary.
+	if option.Config.NeedBPFHostOnWireGuardDevice() {
+		deviceNames = append(deviceNames, wgtypes.IfaceName)
+	}
+
 	writeIncludes(w)
 	h.writeStaticData(deviceNames, fw, e)
 

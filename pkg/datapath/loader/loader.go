@@ -536,6 +536,10 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
 		devices := tables.DeviceNames(nativeDevices)
 
+		if option.Config.NeedBPFHostOnWireGuardDevice() {
+			devices = append(devices, wgTypes.IfaceName)
+		}
+
 		objPath = path.Join(dirs.Output, hostEndpointObj)
 		if err := l.reloadHostDatapath(ctx, ep, objPath, devices); err != nil {
 			return err
