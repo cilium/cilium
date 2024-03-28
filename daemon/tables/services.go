@@ -2,7 +2,6 @@ package tables
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -15,6 +14,10 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
+
+// TODO: Consider keeping Service and ServiceParams struct private and instead
+// just expose a "Service" interface. This would make it safer to interact with
+// as accidental mutation is harder. The boilerplate might be worth it.
 
 type ServiceParams struct {
 	L3n4Addr loadbalancer.L3n4Addr
@@ -35,7 +38,7 @@ type ServiceParams struct {
 type Service struct {
 	Name loadbalancer.ServiceName
 
-	ServiceParams
+	*ServiceParams
 
 	// BackendRevision is the backends table revision of the latest updated backend
 	// that references this service. In other words, this field is updated every time
@@ -113,8 +116,6 @@ var (
 		FromKey: index.Stringer[loadbalancer.ServiceName],
 		Unique:  false,
 	}
-
-	ServiceStatusIndex = reconciler.NewStatusIndex[*Service]((*Service).GetBPFStatus)
 )
 
 const (
@@ -126,7 +127,6 @@ func NewServicesTable(db *statedb.DB) (statedb.RWTable[*Service], error) {
 		ServicesTableName,
 		ServiceL3n4AddrIndex,
 		ServiceNameIndex,
-		ServiceStatusIndex,
 	)
 	if err != nil {
 		return nil, err
@@ -182,14 +182,13 @@ func (s *Services) WriteTxn(extraTables ...statedb.TableMeta) ServiceWriteTxn {
 	}
 }
 
-func (s *Services) UpsertService(txn ServiceWriteTxn, name loadbalancer.ServiceName, params ServiceParams) error {
+func (s *Services) UpsertService(txn ServiceWriteTxn, name loadbalancer.ServiceName, params *ServiceParams) error {
 	var svc Service
 
 	existing, _, found := s.svcs.First(txn, ServiceL3n4AddrIndex.Query(params.L3n4Addr))
 	if found {
 		// Do not allow services with same address but different names to override each other.
 		if !existing.Name.Equal(name) {
-			fmt.Printf(">>> conflict: %q vs %q\n", existing.Name, name)
 			return ErrServiceConflict
 		}
 

@@ -57,7 +57,7 @@ func BenchmarkUpsertService(b *testing.B) {
 		p.Services.UpsertService(
 			wtxn,
 			name,
-			ServiceParams{
+			&ServiceParams{
 				L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 				Type:     loadbalancer.SVCTypeClusterIP,
 				Labels:   nil,
@@ -108,7 +108,7 @@ func BenchmarkUpsertBackend(b *testing.B) {
 	p.Services.UpsertService(
 		wtxn,
 		name,
-		ServiceParams{
+		&ServiceParams{
 			L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Labels:   nil,
@@ -179,17 +179,19 @@ func BenchmarkControlPlane(b *testing.B) {
 
 	batchSize := 100
 
+	var lastName loadbalancer.ServiceName
 	for i := 0; i < b.N; i += batchSize {
 		wtxn := p.Services.WriteTxn()
 		for j := 0; j < batchSize; j++ {
 			name := loadbalancer.ServiceName{Namespace: "test", Name: fmt.Sprintf("svc-%d", i+j)}
+			lastName = name
 			var addr1 [4]byte
 			binary.BigEndian.PutUint32(addr1[:], 0x01000000+uint32(i+j))
 			addrCluster1, _ := types.AddrClusterFromIP(addr1[:])
 			p.Services.UpsertService(
 				wtxn,
 				name,
-				ServiceParams{
+				&ServiceParams{
 					L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 					Type:     loadbalancer.SVCTypeClusterIP,
 					Labels:   nil,
@@ -213,19 +215,21 @@ func BenchmarkControlPlane(b *testing.B) {
 		wtxn.Commit()
 	}
 
-	// Wait until all services have been reconciled.
-	reconciler.WaitForReconciliation(
-		context.TODO(),
-		p.DB,
-		p.ServiceTable,
-		ServiceStatusIndex,
-	)
+	for {
+		svc, _, watch, ok := p.ServiceTable.FirstWatch(p.DB.ReadTxn(), ServiceNameIndex.Query(lastName))
+		if !ok {
+			b.Fatalf("%s not found", lastName)
+		}
+		if svc.BPFStatus.Kind == reconciler.StatusKindDone {
+			break
+		}
+		<-watch
+	}
 
 	b.StopTimer()
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "objects/sec")
 
 	require.NoError(b, h.Stop(context.TODO()))
-
 }
 
 func BenchmarkInsertBackend(b *testing.B) {
@@ -264,7 +268,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 	p.Services.UpsertService(
 		wtxn,
 		name,
-		ServiceParams{
+		&ServiceParams{
 			L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Labels:   nil,

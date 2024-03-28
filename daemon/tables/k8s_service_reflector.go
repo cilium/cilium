@@ -284,7 +284,7 @@ func startK8sReflector_EventObservable(ctx context.Context, c client.Clientset, 
 
 }
 
-func toServiceParams(svc *slim_corev1.Service) (out []ServiceParams) {
+func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
 	// Set the common properties.
 	params := ServiceParams{
 		Labels: labels.Map2Labels(svc.Labels, labels.LabelSourceK8s),
@@ -314,7 +314,7 @@ func toServiceParams(svc *slim_corev1.Service) (out []ServiceParams) {
 			}
 			params.L3n4Addr.L4Addr = *p
 			params.PortName = loadbalancer.FEPortName(port.Name)
-			out = append(out, params)
+			out = append(out, &params)
 		}
 	}
 
@@ -363,7 +363,7 @@ func toServiceParams(svc *slim_corev1.Service) (out []ServiceParams) {
 					}
 					params.L3n4Addr.L4Addr = *p
 					params.PortName = loadbalancer.FEPortName(port.Name)
-					out = append(out, params)
+					out = append(out, &params)
 				}
 			}
 		}
