@@ -875,7 +875,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.HubbleFlowlogsConfigFilePath, "", "Filepath with configuration of hubble flowlogs")
 	option.BindEnv(vp, option.HubbleFlowlogsConfigFilePath)
 
-	flags.String(option.HubbleExportFilePath, exporteroption.Default.Path, "Filepath to write Hubble events to.")
+	flags.String(option.HubbleExportFilePath, exporteroption.Default.Path, "Filepath to write Hubble events to. By specifying `stdout` the flows are logged instead of written to a rotated file.")
 	option.BindEnv(vp, option.HubbleExportFilePath)
 
 	flags.Int(option.HubbleExportFileMaxSizeMB, exporteroption.Default.MaxSizeMB, "Size in MB at which to rotate Hubble export file.")
