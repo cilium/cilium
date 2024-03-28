@@ -208,7 +208,7 @@ jobs:
             --cluster-ipv4-cidr="/21" \
             --services-ipv4-cidr="/24" \
             --image-type COS_CONTAINERD \
-            --num-nodes 2 \
+            --num-nodes ${{ matrix.config.nodes || 2 }} \
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 20GB \
