@@ -497,15 +497,11 @@ const (
 	// traffic will be encapsulated to carry security identities.
 	EnableHighScaleIPcache = false
 
-	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
-	// for the support of Leases in Kubernetes when there is an error in discovering
-	// API groups using Discovery API.
-	K8sEnableLeasesFallbackDiscovery = false
-
 	// KubeProxyReplacementHealthzBindAddr is the default kubeproxyReplacement healthz server bind addr
 	KubeProxyReplacementHealthzBindAddr = ""
 
-	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
+	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip
+	// netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = false
 
 	// WireguardSubnetV4 is a default WireGuard tunnel subnet
