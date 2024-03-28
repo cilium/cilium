@@ -155,6 +155,11 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
 }
 
+static __always_inline void ctx_set_overlay_mark(struct xdp_md *ctx __maybe_unused)
+{
+	/* Only used in SKB context. */
+}
+
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
