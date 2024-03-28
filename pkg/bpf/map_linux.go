@@ -1030,16 +1030,15 @@ func (m *Map) DeleteAll() error {
 
 // GetModel returns a BPF map in the representation served via the API
 func (m *Map) GetModel() *models.BPFMap {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
 
 	mapModel := &models.BPFMap{
 		Path: m.path,
 	}
 
+	mapModel.Cache = make([]*models.BPFMapEntry, 0, len(m.cache))
 	if m.withValueCache {
-		mapModel.Cache = make([]*models.BPFMapEntry, len(m.cache))
-		i := 0
+		m.lock.RLock()
+		defer m.lock.RUnlock()
 		for k, entry := range m.cache {
 			model := &models.BPFMapEntry{
 				Key:           k,
@@ -1053,11 +1052,20 @@ func (m *Map) GetModel() *models.BPFMap {
 			if entry.Value != nil {
 				model.Value = entry.Value.String()
 			}
-			mapModel.Cache[i] = model
-			i++
+			mapModel.Cache = append(mapModel.Cache, model)
 		}
+		return mapModel
 	}
 
+	stats := NewDumpStats(m)
+	filterCallback := func(key MapKey, value MapValue) {
+		mapModel.Cache = append(mapModel.Cache, &models.BPFMapEntry{
+			Key:   key.String(),
+			Value: value.String(),
+		})
+	}
+
+	m.DumpReliablyWithCallback(filterCallback, stats)
 	return mapModel
 }
 
