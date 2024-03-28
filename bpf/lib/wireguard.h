@@ -72,6 +72,9 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		 *
 		 * This also handles IPv6, as IPv6 pkts are encapsulated w/
 		 * IPv4 tunneling.
+		 *
+		 * TODO: in v1.17, we can trust that to-overlay will mark all
+		 * traffic. Then replace this with ctx_is_overlay().
 		 */
 		if (ip4->protocol == IPPROTO_UDP) {
 			int l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
