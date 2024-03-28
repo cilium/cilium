@@ -47,7 +47,7 @@ func (m *MockIPCache) UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src 
 func (m *MockIPCache) RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcacheTypes.ResourceID) {
 }
 
-func (m *MockIPCache) DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool) {
+func (m *MockIPCache) DeleteOnMetadataMatch(IP string, source source.Source, namespace, name, uid string) (namedPortsChanged bool) {
 	return false
 }
 

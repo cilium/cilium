@@ -78,6 +78,7 @@ func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse
 		Addressing:             &models.AddressPair{},
 		K8sPodName:             string(c.CniArgs.K8S_POD_NAME),
 		K8sNamespace:           string(c.CniArgs.K8S_POD_NAMESPACE),
+		K8sUID:                 string(c.CniArgs.K8S_POD_UID),
 		ContainerInterfaceName: c.Args.IfName,
 		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
 	}

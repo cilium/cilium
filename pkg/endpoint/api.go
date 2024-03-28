@@ -76,6 +76,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 	ep.dockerEndpointID = base.DockerEndpointID
 	ep.K8sPodName = base.K8sPodName
 	ep.K8sNamespace = base.K8sNamespace
+	ep.K8sUID = base.K8sUID
 	ep.disableLegacyIdentifiers = base.DisableLegacyIdentifiers
 
 	if base.Mac != "" {

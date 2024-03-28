@@ -16,6 +16,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -175,20 +176,25 @@ func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Resp
 // endpoint metadata. It implements endpoint.MetadataResolverCB.
 // The returned pod is deepcopied which means the its fields can be written
 // into.
-func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName string) (*slim_corev1.Pod, []slim_corev1.ContainerPort, labels.Labels, labels.Labels, map[string]string, error) {
+func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 	ns, p, err := d.endpointMetadataFetcher.Fetch(nsName, podName)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	containerPorts, lbls, annotations, err := k8s.GetPodMetadata(ns, p)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return p, containerPorts, identityLabels, infoLabels, annotations, nil
+	return p, &endpoint.K8sMetadata{
+		ContainerPorts: containerPorts,
+		IdentityLabels: identityLabels,
+		InfoLabels:     infoLabels,
+		Annotations:    annotations,
+	}, nil
 }
 
 type cachedEndpointMetadataFetcher struct {
@@ -372,6 +378,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		"datapathConfiguration":      epTemplate.DatapathConfiguration,
 		logfields.Interface:          epTemplate.InterfaceName,
 		logfields.K8sPodName:         epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+		logfields.K8sUID:             epTemplate.K8sUID,
 		logfields.Labels:             epTemplate.Labels,
 		"sync-build":                 epTemplate.SyncBuildEndpoint,
 	}).Info("Create endpoint request")
@@ -445,29 +452,36 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	identityLbls := maps.Clone(apiLabels)
 
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
-		pod, cp, k8sIdentityLbls, k8sInfoLbls, annotations, err := d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+		pod, k8sMetadata, err := d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
+		} else if types.UID(ep.K8sUID) != pod.GetUID() {
+			log.WithFields(logrus.Fields{
+				logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
+				logfields.K8sUID:     ep.K8sUID,
+			}).Warn("Detected outdated Pod UID during Endpoint creation. " +
+				"The Endpoint may be created with outdated identity due to delay in Kubernetes event updates, i.e. until Pod event is processed by Cilium. " +
+				"If the Endpoint persists with an outdated identity for an extended period of time, please report an issue.")
 		} else {
 			ep.SetPod(pod)
-			ep.SetK8sMetadata(cp)
-			identityLbls.MergeLabels(k8sIdentityLbls)
-			infoLabels.MergeLabels(k8sInfoLbls)
-			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {
+			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
+			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
+			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
+			if _, ok := k8sMetadata.Annotations[bandwidth.IngressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(annotations),
+					logfields.Annotations: logfields.Repr(k8sMetadata.Annotations),
 				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
 					bandwidth.IngressBandwidth)
 			}
-			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
+			if _, ok := k8sMetadata.Annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(annotations),
+					logfields.Annotations: logfields.Repr(k8sMetadata.Annotations),
 				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					bandwidth.EgressBandwidth)
 			}
-			if hwAddr, ok := annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
+			if hwAddr, ok := k8sMetadata.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
 				m, err := mac.ParseMAC(hwAddr)
 				if err != nil {
 					log.WithField(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName).

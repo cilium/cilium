@@ -165,7 +165,7 @@ type ipcacheManager interface {
 
 	UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
 	RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcacheTypes.ResourceID)
-	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
+	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name, uid string) (namedPortsChanged bool)
 }
 
 type K8sWatcher struct {
@@ -208,6 +208,10 @@ type K8sWatcher struct {
 	// variable is written for the first time.
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
+
+	// hostPortCache maintains a mapping of all pod UIDs to host port services.
+	// See comment on insertion into hostPortCache.
+	hostPortCache hostPortCache
 
 	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
@@ -256,6 +260,7 @@ func NewK8sWatcher(
 		bgpSpeakerManager:     bgpSpeakerManager,
 		cgroupManager:         cgroupManager,
 		bandwidthManager:      bandwidthManager,
+		hostPortCache:         make(hostPortCache),
 		cfg:                   cfg,
 		resources:             resources,
 	}
@@ -580,7 +585,7 @@ func (k *K8sWatcher) StopK8sServiceHandler() {
 	close(k.stop)
 }
 
-func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
+func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, _ *k8s.Endpoints) error {
 	// Headless services do not need any datapath implementation
 	if svcInfo.IsHeadless {
 		return nil

@@ -355,12 +355,17 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(strippedNewLabels, labels.LabelSourceK8s))
 	newPodLabels := newK8sPodLabels.K8sStringMap()
 	labelsChanged := !maps.Equal(oldPodLabels, newPodLabels)
+	uidChanged := oldK8sPod.UID != newK8sPod.UID
 
 	lrpNeedsReassign := false
 	// The relevant updates are : podIPs and label updates.
 	oldPodIPLen := len(oldK8sPod.Status.PodIP)
 	newPodIPLen := len(newK8sPod.Status.PodIP)
 	switch {
+	case uidChanged:
+		// Consider a UID change the same as a label change in case the pod's
+		// identity needs to be updated, see GH-30409.
+		fallthrough
 	case oldPodIPLen == 0 && newPodIPLen > 0:
 		// PodIPs assigned update
 		fallthrough
@@ -400,7 +405,9 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	}
 
 	for _, podEP := range podEPs {
-		if labelsChanged {
+		if labelsChanged || uidChanged {
+			// Consider a UID change the same as a label change in case the pod's
+			// identity needs to be updated, see GH-30409.
 			err := podEP.UpdateLabelsFrom(oldPodLabels, newPodLabels, labels.LabelSourceK8s)
 			if err != nil {
 				log.WithFields(logrus.Fields{
@@ -532,14 +539,29 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		logfields.K8sUID:       pod.ObjectMeta.UID,
 		"podIP":                pod.Status.PodIP,
 		"podIPs":               pod.Status.PodIPs,
 		"hostIP":               pod.Status.HostIP,
 	})
 
+	// Due to the undefined ordering of pod events (add, delete, update) and
+	// CNI ADD/DELETE's, it's necessary to check whether this pod event is
+	// outdated. StatefulSets do not have a unique namespace/name, so therefore
+	// we rely on UIDs instead for the check.
+	//
+	// Ensure that any downstream subscriber disambiguates pods as
+	// namespace/name as an index is not sufficient.
+	//
+	// This specific scenario is to guard against a delayed delete event. See
+	// GH-30409.
+
 	if option.Config.EnableLocalRedirectPolicy {
 		k.redirectPolicyManager.OnDeletePod(pod)
 	}
+	// TODO: Does this really need to get fixed? Even if we triggered a pod
+	// deletion "erroneously" here, Hubble (likely?) recreates the metric based
+	// on new flows from the pod.
 	hubblemetrics.ProcessPodDeletion(pod)
 
 	k.cgroupManager.OnDeletePod(pod)
@@ -709,13 +731,27 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   newPod.ObjectMeta.Name,
 		logfields.K8sNamespace: newPod.ObjectMeta.Namespace,
+		logfields.K8sUID:       newPod.ObjectMeta.UID,
 		"podIPs":               newPodIPs,
 		"hostIP":               newPod.Status.HostIP,
 	})
 
 	svcs := k.genServiceMappings(newPod, newPodIPs, logger)
 
+	// Cache the new pod UID for host port services in the case of
+	// StatefulSets, where the namespace/name of a pod is not unique, so we
+	// must index on the UID. This is done to ensure proper handling of
+	// StatefulSets, see GH-30409.
+	k.hostPortCache[newPod.GetUID()] = struct{}{}
+
 	if oldPod != nil {
+		if k8sUtils.GetObjNamespaceName(oldPod) == k8sUtils.GetObjNamespaceName(newPod) && oldPod.GetUID() != newPod.GetUID() {
+			// Remove the old pod UID from the cache as the new pod UID should take
+			// over. See deletePodHostData() for more details on why this delete is
+			// done here.
+			delete(k.hostPortCache, oldPod.GetUID())
+		}
+
 		for _, dpSvc := range svcs {
 			svcsAdded = append(svcsAdded, dpSvc.Frontend.L3n4Addr)
 		}
@@ -780,12 +816,24 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		return nil
 	}
 
+	uid := pod.ObjectMeta.UID
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		logfields.K8sUID:       uid,
 		"podIPs":               podIPs,
 		"hostIP":               pod.Status.HostIP,
 	})
+
+	if _, ok := k.hostPortCache[uid]; !ok {
+		// Preemptively exit here because if the UID did not exist in the
+		// cache, then this is a delayed delete event that was received for the
+		// old instance of StatefulSet pod. The cache should be updated in the
+		// upsertHostPortMapping() case with the new pod UID.
+		return nil
+	} else {
+		delete(k.hostPortCache, uid)
+	}
 
 	svcs := k.genServiceMappings(pod, podIPs, logger)
 	if len(svcs) == 0 {
@@ -812,6 +860,8 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 
 	return nil
 }
+
+type hostPortCache map[types.UID]struct{}
 
 func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
 	logger := log.WithFields(logrus.Fields{
@@ -883,6 +933,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
 		PodName:   newPod.Name,
+		UID:       string(newPod.UID),
 	}
 
 	// Store Named ports, if any.
@@ -980,7 +1031,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 			continue
 		}
 
-		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
+		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name, string(pod.UID))
 	}
 
 	if len(errs) != 0 {
