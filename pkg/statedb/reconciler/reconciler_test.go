@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -19,6 +18,8 @@ import (
 	"go.uber.org/goleak"
 	"golang.org/x/exp/slices"
 
+	"github.com/cilium/cilium/pkg/healthv2"
+	"github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -54,12 +55,12 @@ func testReconciler(t *testing.T, batchOps bool) {
 	)
 
 	var (
-		mt       = &mockOps{}
-		db       *statedb.DB
-		registry *metricsPkg.Registry
-		r        reconciler.Reconciler[*testObject]
-		health   cell.Health
-		scope    cell.Scope
+		mt          = &mockOps{}
+		db          *statedb.DB
+		registry    *metricsPkg.Registry
+		r           reconciler.Reconciler[*testObject]
+		statusTable statedb.Table[types.Status]
+		scope       cell.Scope
 	)
 
 	testObjects, err := statedb.NewTable[*testObject]("test-objects", idIndex, statusIndex)
@@ -67,6 +68,7 @@ func testReconciler(t *testing.T, batchOps bool) {
 
 	hive := hive.New(
 		statedb.Cell,
+		healthv2.Cell,
 		job.Cell,
 		reconciler.Cell,
 
@@ -108,10 +110,10 @@ func testReconciler(t *testing.T, batchOps bool) {
 			}),
 			cell.Provide(reconciler.New[*testObject]),
 
-			cell.Invoke(func(r_ reconciler.Reconciler[*testObject], m *reconciler.Metrics, h cell.Health, s cell.Scope) {
+			cell.Invoke(func(r_ reconciler.Reconciler[*testObject], m *reconciler.Metrics, st statedb.Table[types.Status], s cell.Scope) {
 				r = r_
-				health = h
 				scope = s
+				statusTable = st
 
 				// Enable all metrics for the test
 				m.IncrementalReconciliationCount.SetEnabled(true)
@@ -129,13 +131,13 @@ func testReconciler(t *testing.T, batchOps bool) {
 	require.NoError(t, hive.Start(context.TODO()), "Start")
 
 	h := testHelper{
-		t:      t,
-		db:     db,
-		tbl:    testObjects,
-		ops:    mt,
-		r:      r,
-		health: health,
-		scope:  scope,
+		t:           t,
+		db:          db,
+		tbl:         testObjects,
+		ops:         mt,
+		r:           r,
+		statusTable: statusTable,
+		scope:       scope,
 	}
 
 	numIterations := 3
@@ -452,13 +454,13 @@ var _ reconciler.BatchOperations[*testObject] = &mockOps{}
 
 // testHelper defines a sort of mini-language for writing the test steps.
 type testHelper struct {
-	t      testing.TB
-	db     *statedb.DB
-	tbl    statedb.RWTable[*testObject]
-	ops    *mockOps
-	r      reconciler.Reconciler[*testObject]
-	health cell.Health
-	scope  cell.Scope
+	t           testing.TB
+	db          *statedb.DB
+	tbl         statedb.RWTable[*testObject]
+	ops         *mockOps
+	r           reconciler.Reconciler[*testObject]
+	statusTable statedb.Table[types.Status]
+	scope       cell.Scope
 }
 
 const (
@@ -547,18 +549,44 @@ func (h testHelper) expectRetried(id uint64) {
 
 func (h testHelper) expectHealthLevel(level cell.Level) {
 	cond := func() bool {
-		h.scope.Realize()
-		status, err := h.health.Get([]string{"test"})
-		return err == nil && level == status.Level()
+		tx := h.db.ReadTxn()
+		iter, _ := h.statusTable.LowerBound(tx,
+			healthv2.PrimaryIndex.QueryFromObject(types.Status{
+				ID: types.Identifier{Module: types.FullModuleID{"test"}},
+			}))
+
+		ss := []types.Status{}
+		for {
+			e, _, ok := iter.Next()
+			if !ok {
+				break
+			}
+			ss = append(ss, e)
+		}
+		return len(ss) == 1 && string(level) == string(ss[0].Level)
 	}
 	if !assert.Eventually(h.t, cond, time.Second, time.Millisecond) {
-		status, _ := h.health.Get([]string{"test"})
-		// Since the current health provider API doesn't provide access to the sub-reporter
-		// status, just dump the full JSON out. Please refactor this to validate the actual
-		// contents (e.g. degraded error and so on) once it is possible.
-		bs, _ := status.JSON()
-		os.Stdout.Write(bs)
-		require.Failf(h.t, "health mismatch", "expected health level %q, got: %q (%s)", level, status.Level(), status.String())
+		tx := h.db.ReadTxn()
+		iter, _ := h.statusTable.LowerBound(tx,
+			healthv2.PrimaryIndex.QueryFromObject(types.Status{
+				ID: types.Identifier{Module: types.FullModuleID{"test"}},
+			}))
+
+		ss := []types.Status{}
+		for {
+			e, _, ok := iter.Next()
+			if !ok {
+				break
+			}
+			ss = append(ss, e)
+		}
+
+		if len(ss) == 1 {
+			require.Failf(h.t, "health mismatch", "expected health level %q, got: %q (%s)", level, ss[0].Level, ss[0].String)
+		} else {
+			require.Failf(h.t, "health mismatch", "unexpected health status reported %v, got: %d (q)",
+				ss, len(ss), 1)
+		}
 	}
 }
 
