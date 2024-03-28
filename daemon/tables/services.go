@@ -258,8 +258,6 @@ func (s *Services) UpsertBackends(txn ServiceWriteTxn, serviceName loadbalancer.
 	// that's a safe design.
 	//
 
-	fmt.Printf("UpsertBackends(%s): %v\n", serviceName, bes)
-
 	if err := s.updateBackends(txn, serviceName, bes); err != nil {
 		return err
 	}
