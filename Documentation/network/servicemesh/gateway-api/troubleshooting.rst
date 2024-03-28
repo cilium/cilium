@@ -126,6 +126,21 @@ Checking resources
   
   If any of these are set to false, you can get more information by looking at the ``Message`` and ``Reason`` fields.
 
+#. Check Cilium Operator logs
+
+  The Cilium Operator logs may contain further debugging information. For example, if the required Custom Resource Definitions (CRDs) are not installed, an error will be logged:
+
+  .. code-block:: shell-session
+    
+    $ kubectl logs -n kube-system deployments/cilium-operator | grep gateway
+    level=error msg="Required GatewayAPI resources are not found, please
+    refer to docs for installation instructions" error="customresourcedefinitions.apiextensions.k8s.io \"gatewayclasses.gateway.networking.k8s.io\" not found
+    customresourcedefinitions.apiextensions.k8s.io \"gateways.gateway.networking.k8s.io\" not found
+    customresourcedefinitions.apiextensions.k8s.io \"httproutes.gateway.networking.k8s.io\" not found
+    customresourcedefinitions.apiextensions.k8s.io \"referencegrants.gateway.networking.k8s.io\" not found
+    customresourcedefinitions.apiextensions.k8s.io \"grpcroutes.gateway.networking.k8s.io\" not found
+    customresourcedefinitions.apiextensions.k8s.io \"tlsroutes.gateway.networking.k8s.io\" not found" subsys=gateway-api
+
 Common mistakes
 ---------------
 
