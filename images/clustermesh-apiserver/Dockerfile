@@ -56,7 +56,7 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as gops
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
-    ./build-gops.sh
+    ./build-gops.sh && mkdir --parent --mode 1777 /out/gops/config
 
 FROM --platform=${TARGETARCH} ${ETCD_SERVER_IMAGE} as etcd
 
@@ -67,13 +67,21 @@ ARG TARGETOS
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+# gops needs to write data (e.g., the PID file) to the file-system. Make sure
+# that this directory exists, and is writable by anyone, to avoid issues when
+# the container is run with a non-root user. We need to copy a parent directory
+# here (/gops), because permissions appear to be preserved only for child ones.
 COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
+COPY --from=gops /out/gops /gops
+ENV GOPS_CONFIG_DIR=/gops/config
+
 # While the etcd image uses /usr/local/bin, we're moving it to /usr/bin to keep consistency with the rest of our images.
 # We also don't grab the etcdctl or etcdutl binaries, as we don't need them for our application.
 COPY --from=etcd /usr/local/bin/etcd /usr/bin/etcd
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml /var/lib/cilium/etcd-config.yaml
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/clustermesh-apiserver /usr/bin/clustermesh-apiserver
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
+
 WORKDIR /
-ENV GOPS_CONFIG_DIR=/
 ENTRYPOINT ["/usr/bin/clustermesh-apiserver"]
