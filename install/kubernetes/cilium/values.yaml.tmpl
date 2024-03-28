@@ -2889,7 +2889,11 @@ clustermesh:
       #     memory: 256Mi
 
       # -- Security context to be added to clustermesh-apiserver etcd containers
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
       # -- lifecycle setting for the etcd container
       lifecycle: {}
       init:
@@ -2984,9 +2988,17 @@ clustermesh:
     # -- Additional clustermesh-apiserver volumeMounts.
     extraVolumeMounts: []
     # -- Security context to be added to clustermesh-apiserver containers
-    securityContext: {}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
     # -- Security context to be added to clustermesh-apiserver pods
-    podSecurityContext: {}
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65535
+      runAsGroup: 65535
+      fsGroup: 65535
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
     # -- Labels to be added to clustermesh-apiserver pods
