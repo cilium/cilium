@@ -1,6 +1,7 @@
 package tables
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/cilium/cilium/pkg/container"
@@ -13,11 +14,6 @@ import (
 type BackendParams struct {
 	loadbalancer.L3n4Addr
 
-	// TODO this is the name of the EndpointSlice. This is used to clean up
-	// backends removed from an EndpointSlice. Need to rethink the naming for
-	// the fields though. Perhaps just have one string field?
-	// FIXME how to deal with backends that are owned by many?
-	Owner  string
 	Source source.Source
 
 	NodeName      string
@@ -31,6 +27,14 @@ type Backend struct {
 	BackendParams
 
 	ReferencedBy container.ImmSet[loadbalancer.ServiceName]
+}
+
+func (be *Backend) String() string {
+	return fmt.Sprintf(
+		"%s (source: %s, state: %v)",
+		be.L3n4Addr.StringID(), be.Source, be.State,
+	)
+
 }
 
 func (be *Backend) ToLoadBalancerBackend() *loadbalancer.Backend {
@@ -61,6 +65,7 @@ func l3n4AddrKey(addr loadbalancer.L3n4Addr) index.Key {
 		index.Uint16(addr.Port),
 		index.String(addr.Protocol),
 		index.Uint32(addr.AddrCluster.ClusterID()),
+		[]byte{addr.Scope},
 	)
 }
 
@@ -82,15 +87,6 @@ var (
 		FromKey: index.Stringer[loadbalancer.ServiceName],
 		Unique:  false,
 	}
-
-	BackendOwnerIndex = statedb.Index[*Backend, string]{
-		Name: "owner",
-		FromObject: func(obj *Backend) index.KeySet {
-			return index.NewKeySet(index.String(obj.Owner))
-		},
-		FromKey: index.String,
-		Unique:  false,
-	}
 )
 
 func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
@@ -98,7 +94,6 @@ func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
 		BackendsTableName,
 		BackendAddrIndex,
 		BackendServiceIndex,
-		BackendOwnerIndex,
 	)
 	if err != nil {
 		return nil, err

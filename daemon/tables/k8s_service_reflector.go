@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 
@@ -53,6 +55,9 @@ func registerK8sReflector(p reflectorParams) error {
 func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_corev1.Service], epR resource.Resource[*k8s.Endpoints], svcs *Services) {
 	svcEvents := svcR.Events(ctx)
 	epEvents := epR.Events(ctx)
+
+	// Keep track of currently existing backends by endpoint slice.
+	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
 
 	for svcEvents != nil || epEvents != nil {
 		select {
@@ -108,11 +113,24 @@ func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_core
 				name, backends := endpointsToBackendParams(obj)
 				fmt.Printf("endpoint slice updated for %q: %v\n", name, backends)
 
+				old := currentBackends[obj.EndpointSliceName]
+
 				err := svcs.UpsertBackends(
 					txn,
-					obj.EndpointSliceName,
 					name,
 					backends...)
+
+				if err == nil {
+					// Delete orphaned backends
+					newAddrs := sets.New[loadbalancer.L3n4Addr]()
+					for _, be := range backends {
+						newAddrs.Insert(be.L3n4Addr)
+					}
+					for orphan := range old.Difference(newAddrs) {
+						svcs.DeleteBackend(txn, name, orphan)
+					}
+					currentBackends[obj.EndpointSliceName] = newAddrs
+				}
 
 				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
 			case resource.Delete:
@@ -220,16 +238,18 @@ func startK8sReflector_EventObservable(ctx context.Context, c client.Clientset, 
 				name, backends := endpointSliceToBackendParams(eps)
 				fmt.Printf("endpoint slice updated for %q: %v\n", name, backends)
 
+				// FIXME need to keep track of the backends here
+				// so we know when to delete them when the EndpointSlice doesn't
+				// refer to them anymore.
+
 				err := s.UpsertBackends(
 					txn,
-					eps.Namespace+"/"+eps.Name,
 					name,
 					backends...)
 				if err != nil {
 					panic(err)
 				}
 			case reflector.CacheStoreDelete:
-				// FIXME delete by owner
 				eps := ev.Obj.(*slim_discovery_v1.EndpointSlice)
 				name, backends := endpointSliceToBackendParams(eps)
 				for _, p := range backends {
@@ -249,7 +269,6 @@ func startK8sReflector_EventObservable(ctx context.Context, c client.Clientset, 
 					name, backends := endpointSliceToBackendParams(eps)
 					err := s.UpsertBackends(
 						txn,
-						eps.Namespace+"/"+eps.Name,
 						name,
 						backends...)
 					if err != nil {
@@ -270,7 +289,7 @@ func toServiceParams(svc *slim_corev1.Service) (out []ServiceParams) {
 	params := ServiceParams{
 		Labels: labels.Map2Labels(svc.Labels, labels.LabelSourceK8s),
 		Source: source.Kubernetes,
-		//ExtTrafficPolicy, IntTrafficPolicy, HealthCheckNodePort, SessionAffinity, SourceRanges
+		// TODO: HealthCheckNodePort, SessionAffinity, SourceRanges
 	}
 
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
@@ -286,6 +305,7 @@ func toServiceParams(svc *slim_corev1.Service) (out []ServiceParams) {
 			continue
 		}
 		params.L3n4Addr.AddrCluster = addr
+		params.L3n4Addr.Scope = loadbalancer.ScopeExternal
 
 		for _, port := range svc.Spec.Ports {
 			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
@@ -302,29 +322,49 @@ func toServiceParams(svc *slim_corev1.Service) (out []ServiceParams) {
 	zeroV4 := cmtypes.MustParseAddrCluster("0.0.0.0")
 	zeroV6 := cmtypes.MustParseAddrCluster("::")
 
+	switch svc.Spec.ExternalTrafficPolicy {
+	case slim_corev1.ServiceExternalTrafficPolicyLocal:
+		params.ExtPolicy = loadbalancer.SVCTrafficPolicyLocal
+	default:
+		params.ExtPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
+		params.IntPolicy = loadbalancer.SVCTrafficPolicyLocal
+	} else {
+		params.IntPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+
 	// NodePort
 	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort {
-		for _, family := range svc.Spec.IPFamilies {
-			switch family {
-			case slim_corev1.IPv4Protocol:
-				params.L3n4Addr.AddrCluster = zeroV4
-			case slim_corev1.IPv6Protocol:
-				params.L3n4Addr.AddrCluster = zeroV6
-			default:
-				continue
-			}
-			params.Type = loadbalancer.SVCTypeNodePort
-			for _, port := range svc.Spec.Ports {
+		scopes := []uint8{loadbalancer.ScopeExternal}
+		twoScopes := (params.ExtPolicy == loadbalancer.SVCTrafficPolicyLocal) != (params.IntPolicy == loadbalancer.SVCTrafficPolicyLocal)
+		if twoScopes {
+			scopes = append(scopes, loadbalancer.ScopeInternal)
+		}
 
-				// FIXME proper zero value ipv4/ipv6
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
-				if p == nil {
+		for _, scope := range scopes {
+			for _, family := range svc.Spec.IPFamilies {
+				switch family {
+				case slim_corev1.IPv4Protocol:
+					params.L3n4Addr.AddrCluster = zeroV4
+				case slim_corev1.IPv6Protocol:
+					params.L3n4Addr.AddrCluster = zeroV6
+				default:
 					continue
 				}
-				params.L3n4Addr.L4Addr = *p
+				params.L3n4Addr.Scope = scope
+				params.Type = loadbalancer.SVCTypeNodePort
+				for _, port := range svc.Spec.Ports {
 
-				params.PortName = loadbalancer.FEPortName(port.Name)
-				out = append(out, params)
+					// FIXME proper zero value ipv4/ipv6
+					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
+					if p == nil {
+						continue
+					}
+					params.L3n4Addr.L4Addr = *p
+					params.PortName = loadbalancer.FEPortName(port.Name)
+					out = append(out, params)
+				}
 			}
 		}
 	}
@@ -342,18 +382,20 @@ func endpointsToBackendParams(ep *k8s.Endpoints) (name loadbalancer.ServiceName,
 	}
 	for addrCluster, be := range ep.Backends {
 		for portName, l4Addr := range be.Ports {
-			l3n4Addr := loadbalancer.L3n4Addr{addrCluster, *l4Addr, loadbalancer.ScopeExternal}
+			l3n4Addr := loadbalancer.L3n4Addr{
+				AddrCluster: addrCluster,
+				L4Addr:      *l4Addr,
+			}
 			state := loadbalancer.BackendStateActive
 			if be.Terminating {
 				state = loadbalancer.BackendStateTerminating
 			}
 			params := BackendParams{
 				L3n4Addr:      l3n4Addr,
-				Owner:         ep.EndpointSliceName,
 				Source:        source.Kubernetes,
 				NodeName:      be.NodeName,
 				PortName:      portName,
-				Weight:        0,
+				Weight:        loadbalancer.DefaultBackendWeight,
 				State:         state,
 				HintsForZones: be.HintsForZones,
 			}

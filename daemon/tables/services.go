@@ -252,13 +252,15 @@ func (s *Services) DeleteServicesBySource(txn ServiceWriteTxn, source source.Sou
 	return nil
 }
 
-func (s *Services) UpsertBackends(txn ServiceWriteTxn, owner string, serviceName loadbalancer.ServiceName, bes ...BackendParams) error {
+func (s *Services) UpsertBackends(txn ServiceWriteTxn, serviceName loadbalancer.ServiceName, bes ...BackendParams) error {
 	// TODO: Do we want the ability to do a "sub-transaction" that can be aborted? Here we may do partial
 	// updates and return an error and are assuming the caller will abort the transaction, but not sure if
 	// that's a safe design.
 	//
 
-	if err := s.updateBackends(txn, owner, serviceName, bes); err != nil {
+	fmt.Printf("UpsertBackends(%s): %v\n", serviceName, bes)
+
+	if err := s.updateBackends(txn, serviceName, bes); err != nil {
 		return err
 	}
 
@@ -283,19 +285,12 @@ func newServiceNameSet(names ...loadbalancer.ServiceName) container.ImmSet[loadb
 	)
 }
 
-func (s *Services) updateBackends(txn ServiceWriteTxn, owner string, serviceName loadbalancer.ServiceName, bes []BackendParams) error {
-	// Find all owned backends
-	iter, _ := s.bes.Get(txn, BackendOwnerIndex.Query(owner))
-	owned := map[loadbalancer.L3n4Addr]*Backend{}
-	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
-		owned[be.L3n4Addr] = be
-	}
-
+func (s *Services) updateBackends(txn ServiceWriteTxn, serviceName loadbalancer.ServiceName, bes []BackendParams) error {
 	// TODO: validate first, and only then insert.
 	for _, bep := range bes {
 		var be Backend
 
-		if old, ok := owned[bep.L3n4Addr]; ok {
+		if old, _, ok := s.bes.First(txn, BackendAddrIndex.Query(bep.L3n4Addr)); ok {
 			if old.Source != bep.Source {
 				// FIXME likely want to be able to have many sources for
 				// a backend? How to merge e.g. State?
@@ -304,23 +299,14 @@ func (s *Services) updateBackends(txn ServiceWriteTxn, owner string, serviceName
 			be = *old
 			// FIXME how to merge the other fields?
 			be.ReferencedBy = be.ReferencedBy.Insert(serviceName)
-
-			// Drop it from owned so we'll only have the orphan backends left.
-			delete(owned, bep.L3n4Addr)
 		} else {
 			be.ReferencedBy = newServiceNameSet(serviceName)
 		}
-		bep.Owner = owner // FIXME
 		be.BackendParams = bep
 
 		if _, _, err := s.bes.Insert(txn, &be); err != nil {
 			return err
 		}
-	}
-
-	// Remove orphans
-	for _, be := range owned {
-		s.bes.Delete(txn, be)
 	}
 
 	return nil
