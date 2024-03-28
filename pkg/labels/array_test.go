@@ -4,10 +4,13 @@
 package labels
 
 import (
+	"net/netip"
 	"sort"
+	"strings"
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 )
@@ -292,4 +295,94 @@ func BenchmarkLabelArray_String(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = l.String()
 	}
+}
+
+// LabelArray.Has() is a specific interface
+// that is required for kubernetes selectors to work
+func TestLabelArray_Has(t *testing.T) {
+	lbls := LabelArray{
+		NewLabel("foo", "bar", "k8s"),
+		NewLabel("foo1", "bar1", "any"), // not valid, but good to capture
+		NewLabel("kube-apiserver", "", "reserved"),
+	}
+	lbls = append(lbls, GetCIDRLabels(netip.MustParsePrefix("10.1.2.0/24")).LabelArray()...)
+	lbls = append(lbls, GetCIDRLabels(netip.MustParsePrefix("2001:db8:cafe::/54")).LabelArray()...)
+	lbls.Sort()
+
+	for key, expected := range map[string]bool{
+		"any.foo":                 true,
+		"k8s.foo":                 true,
+		"k8s.foo1":                false,
+		"reserved.kube-apiserver": true,
+
+		"cidr.10.1.2.0/24": true,  // exact match
+		"cidr.10.1.0.0/22": true,  // larger cidr: OK
+		"cidr.10.1.2.0/25": false, // smaller cidr: no
+
+		"cidr.2001-db8-cafe--0/54": true,  // exact
+		"cidr.2001-db8-cafe--0/53": true,  // larger
+		"cidr.2001-db8-cafe--0/55": false, // smaller
+	} {
+		assert.Equal(t, expected, lbls.Has(key), key)
+	}
+}
+
+func TestLabelArray_Intersects(t *testing.T) {
+	for _, tc := range []struct {
+		a    string
+		b    string
+		want bool
+	}{
+		{
+			"k8s:foo=bar",
+			"k8s:foo=bar",
+			true,
+		},
+		{
+			"",
+			"k8s:foo=bar",
+			false,
+		},
+		{
+			"k8s:foo=bar",
+			"",
+			false,
+		},
+		{
+			"k8s:foo=bar",
+			"k8s:foo=baz",
+			false,
+		},
+		{
+			"k8s:foo=bar",
+			"any:foo=baz",
+			false,
+		},
+		{
+			"k8s:a=b k8s:a1=b1 k8s:c=d",
+			"k8s:a2=b2 k8s:c=d k8s:e=f",
+			true,
+		},
+		{
+			"k8s:foo=bar",
+			"any:foo=bar",
+			true,
+		},
+		{
+			"any:foo=bar",
+			"k8s:foo=bar",
+			false,
+		},
+	} {
+		la := ParseLabelArray(strings.Split(tc.a, " ")...)
+		lb := ParseLabelArray(strings.Split(tc.b, " ")...)
+		assert.Equal(t, tc.want, la.Intersects(lb), "[%s].Intersects([%s])", tc.a, tc.b)
+
+	}
+
+	// Test a careful CIDR case that catches naive sorting
+	la := GetCIDRLabels(netip.MustParsePrefix("11.11.11.11/32")).LabelArray()
+	lb := ParseLabelArray("cidr:110.0.0.0/8", "cidr:8.0.0.0/5")
+	assert.True(t, la.Intersects(lb))
+
 }

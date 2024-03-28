@@ -6,6 +6,7 @@ package labels
 import (
 	"encoding/json"
 	"fmt"
+	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
@@ -364,10 +365,19 @@ func TestLabels_Has(t *testing.T) {
 		{
 			name: "has label",
 			l: Labels{
-				"foo":   NewLabel("foo", "bar", "any"),
+				"foo":   NewLabel("foo", "bar", "k8s"),
 				"other": NewLabel("other", "bar", ""),
 			},
-			in:   NewLabel("foo", "bar", "my-source"),
+			in:   NewLabel("foo", "bar", "k8s"),
+			want: true,
+		},
+		{
+			name: "has label, any source",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "k8s"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			in:   NewLabel("foo", "bar", "any"),
 			want: true,
 		},
 		{
@@ -480,4 +490,59 @@ func TestLabel_String(t *testing.T) {
 	// without value
 	l = NewLabel("io.kubernetes.pod.namespace", "", LabelSourceK8s)
 	assert.Equal(t, "k8s:io.kubernetes.pod.namespace", l.String())
+}
+
+// test that the .cidr field is correctly populated
+func TestNewLabelCIDR(t *testing.T) {
+	for _, labelSpec := range []string{
+		"cidr:0--0/0",
+		"cidr:0--0/1", "cidr:0--0/2", "cidr:2000--0/3", "cidr:2000--0/4",
+		"cidr:2000--0/5", "cidr:2000--0/6", "cidr:2000--0/7", "cidr:2000--0/8",
+		"cidr:2000--0/9", "cidr:2000--0/10", "cidr:2000--0/11", "cidr:2000--0/12",
+		"cidr:2000--0/13", "cidr:2000--0/14", "cidr:2000--0/15", "cidr:2001--0/16",
+		"cidr:2001--0/17", "cidr:2001--0/18", "cidr:2001--0/19", "cidr:2001--0/20",
+		"cidr:2001-800--0/21", "cidr:2001-c00--0/22", "cidr:2001-c00--0/23", "cidr:2001-d00--0/24",
+		"cidr:2001-d80--0/25", "cidr:2001-d80--0/26", "cidr:2001-da0--0/27", "cidr:2001-db0--0/28",
+		"cidr:2001-db8--0/29", "cidr:2001-db8--0/30", "cidr:2001-db8--0/31", "cidr:2001-db8--0/32",
+		"cidr:2001-db8--0/33", "cidr:2001-db8--0/34", "cidr:2001-db8--0/35", "cidr:2001-db8--0/36",
+		"cidr:2001-db8--0/37", "cidr:2001-db8--0/38", "cidr:2001-db8--0/39", "cidr:2001-db8--0/40",
+		"cidr:2001-db8--0/41", "cidr:2001-db8--0/42", "cidr:2001-db8--0/43", "cidr:2001-db8--0/44",
+		"cidr:2001-db8--0/45", "cidr:2001-db8--0/46", "cidr:2001-db8--0/47", "cidr:2001-db8--0/48",
+		"cidr:2001-db8--0/49", "cidr:2001-db8--0/50", "cidr:2001-db8--0/51", "cidr:2001-db8--0/52",
+		"cidr:2001-db8--0/53", "cidr:2001-db8--0/54", "cidr:2001-db8--0/55", "cidr:2001-db8--0/56",
+		"cidr:2001-db8--0/57", "cidr:2001-db8--0/58", "cidr:2001-db8--0/59", "cidr:2001-db8--0/60",
+		"cidr:2001-db8--0/61", "cidr:2001-db8--0/62", "cidr:2001-db8--0/63", "cidr:2001-db8--0/64",
+		"cidr:2001-db8--0/65", "cidr:2001-db8--0/66", "cidr:2001-db8--0/67", "cidr:2001-db8--0/68",
+		"cidr:2001-db8--0/69", "cidr:2001-db8--0/70", "cidr:2001-db8--0/71", "cidr:2001-db8--0/72",
+		"cidr:2001-db8--0/73", "cidr:2001-db8--0/74", "cidr:2001-db8--0/75", "cidr:2001-db8--0/76",
+		"cidr:2001-db8--0/77", "cidr:2001-db8--0/78", "cidr:2001-db8--0/79", "cidr:2001-db8--0/80",
+		"cidr:2001-db8--0/81", "cidr:2001-db8--0/82", "cidr:2001-db8--0/83", "cidr:2001-db8--0/84",
+		"cidr:2001-db8--0/85", "cidr:2001-db8--0/86", "cidr:2001-db8--0/87", "cidr:2001-db8--0/88",
+		"cidr:2001-db8--0/89", "cidr:2001-db8--0/90", "cidr:2001-db8--0/91", "cidr:2001-db8--0/92",
+		"cidr:2001-db8--0/93", "cidr:2001-db8--0/94", "cidr:2001-db8--0/95", "cidr:2001-db8--0/96",
+		"cidr:2001-db8--0/97", "cidr:2001-db8--0/98", "cidr:2001-db8--0/99", "cidr:2001-db8--0/100",
+		"cidr:2001-db8--0/101", "cidr:2001-db8--0/102", "cidr:2001-db8--0/103", "cidr:2001-db8--0/104",
+		"cidr:2001-db8--0/105", "cidr:2001-db8--0/106", "cidr:2001-db8--0/107", "cidr:2001-db8--0/108",
+		"cidr:2001-db8--0/109", "cidr:2001-db8--0/110", "cidr:2001-db8--0/111", "cidr:2001-db8--0/112",
+		"cidr:2001-db8--0/113", "cidr:2001-db8--0/114", "cidr:2001-db8--0/115", "cidr:2001-db8--0/116",
+		"cidr:2001-db8--0/117", "cidr:2001-db8--0/118", "cidr:2001-db8--0/119", "cidr:2001-db8--0/120",
+		"cidr:2001-db8--0/121", "cidr:2001-db8--0/122", "cidr:2001-db8--0/123", "cidr:2001-db8--0/124",
+		"cidr:2001-db8--0/125", "cidr:2001-db8--0/126", "cidr:2001-db8--0/127", "cidr:2001-db8--1/128",
+		"cidr:1.1.1.1/32",
+	} {
+		lbl := ParseLabel(labelSpec)
+		assert.Equal(t, LabelSourceCIDR, lbl.Source)
+		assert.NotNil(t, lbl.cidr)
+		ll := strings.SplitN(labelSpec, ":", 2)
+		prefixString := strings.Replace(ll[1], "-", ":", -1)
+		assert.Equal(t, netip.MustParsePrefix(prefixString).String(), lbl.cidr.String())
+	}
+
+	for _, labelSpec := range []string{
+		"reserved:world", "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=foo",
+	} {
+		lbl := ParseLabel(labelSpec)
+		assert.NotEqual(t, LabelSourceCIDR, lbl.Source)
+		assert.Nil(t, lbl.cidr)
+	}
 }
