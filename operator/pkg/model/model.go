@@ -411,7 +411,8 @@ type Backend struct {
 	Namespace string `json:"namespace,omitempty"`
 	// Port contains the details of the port on the Service to connect to
 	// If unset, the same port as the top-level Listener will be used.
-	Port *BackendPort `json:"port,omitempty"`
+	Port        *BackendPort `json:"port,omitempty"`
+	AppProtocol *string      `json:"app_protocol,omitempty"`
 
 	// Weight specifies the percentage of traffic to send to this backend.
 	// This is computed as weight/(sum of all weights in backends) * 100.
