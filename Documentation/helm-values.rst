@@ -655,7 +655,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.podSecurityContext`
      - Security context to be added to clustermesh-apiserver pods
      - object
-     - ``{}``
+     - ``{"fsGroup":65532}``
    * - :spelling:ignore:`clustermesh.apiserver.priorityClassName`
      - The priority class to use for clustermesh-apiserver
      - string
