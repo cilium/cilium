@@ -109,8 +109,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 		return nil
 	}
 
-	d.params.Config.SetDevices(devices)
-
 	daemon, err := d.params.Daemon.Await(ctx)
 	if err != nil {
 		return err
