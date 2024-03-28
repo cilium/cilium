@@ -137,8 +137,8 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
 	mngr.Upsert(updateCiliumNode(cn, 8, 7))
@@ -146,8 +146,8 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 15)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 7)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 15)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 7)
 }
 
 // TestNodeManagerPrefixDelegation tests allocation with default parameters
@@ -180,8 +180,8 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 16)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 16)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 12 out of 16 IPs
 	mngr.Upsert(updateCiliumNode(cn, 16, 12))
@@ -189,8 +189,8 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 32)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 12)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 32)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 12)
 
 	node.Ops().PopulateStatusFields(cn)
 
@@ -214,8 +214,8 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
 	// Should allocate only 1 additional IP after fallback, not an entire /28 prefix
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 33)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 25)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 33)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 25)
 }
 
 // TestNodeManagerENIWithSGTags tests ENI allocation + association with a SG based on tags
@@ -251,8 +251,8 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
 	mngr.Upsert(updateCiliumNode(cn, 8, 7))
@@ -260,8 +260,8 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 15)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 7)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 15)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 7)
 
 	// At this point we have 2 enis, make a local copy
 	// and remove eth0 from the map
@@ -305,16 +305,16 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 	node := mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	mngr.Upsert(updateCiliumNode(cn, 10, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 8)
 
 	// Change MinAllocate to 20
 	withIPAMPreAllocate(0)(cn)
@@ -326,8 +326,8 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 20)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 20)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 8)
 }
 
 // TestNodeManagerMinAllocateAndPreallocate tests MinAllocate in combination with PreAllocate
@@ -360,16 +360,16 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 
 	node := mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 9 out of 10 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 10, 9))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 9)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 9)
 
 	// Use 10 out of 10 IPs, PreAllocate 1 must kick in and allocate an additional IP
 	mngr.Upsert(updateCiliumNode(cn, 10, 10))
@@ -378,16 +378,16 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 11)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 11)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 10)
 
 	// Release some IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 10, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 11)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 11)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 8)
 }
 
 // TestNodeManagerReleaseAddress tests PreAllocate, MinAllocate and MaxAboveWatermark
@@ -425,16 +425,16 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	// available as 13 < 14 (interface limit)
 	node := mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 13)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 13)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 11 out of 13 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 13, 11))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 13)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 11)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 13)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 11)
 
 	// Use 13 out of 13 IPs, PreAllocate 2 + MaxAboveWatermark 3 must kick in
 	// and allocate 5 additional IPs
@@ -442,8 +442,8 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 18)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 13)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 18)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 13)
 
 	// Reduce used IPs to 10, this leads to 8 excess IPs but release
 	// occurs at interval based resync, so expect timeout at first
@@ -451,8 +451,8 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second), check.Not(check.IsNil))
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 18)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 18)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 10)
 
 	// Trigger resync manually, excess IPs should be released
 	// 10 used + 2 pre-allocate + 3 max-above-watermark => 15
@@ -488,8 +488,8 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 13)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 13)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 10)
 }
 
 // TestNodeManagerENIExcludeInterfaceTags tests ENI allocation with interface exclusion
@@ -528,8 +528,8 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Checks that we have created a new interface, and not allocated any IPs
 	// to the existing one
@@ -548,8 +548,8 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 15)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 7)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 15)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 7)
 
 	// Unmanaged ENI remains unmanaged
 	eniNode.mutex.RLock()
@@ -589,8 +589,8 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 
 	node := mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 20)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 20)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 40 out of 42 available IPs, we should reach 0 address needed once we
 	// assigned the remaining 3 that the t2.xlarge instance type supports
@@ -602,8 +602,8 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 42)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 40)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 42)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 40)
 }
 
 // TestInterfaceCreatedInInitialSubnet tests that additional ENIs are allocated in the same subnet
@@ -645,8 +645,8 @@ func (e *ENISuite) TestInterfaceCreatedInInitialSubnet(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 16)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 16)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Checks that we have created a new interface and that we did so in the same subnet.
 	eniNode, castOK := node.Ops().(*Node)
@@ -713,11 +713,11 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 
 		node := mngr.Get(s.name)
 		c.Assert(node, check.Not(check.IsNil))
-		if node.Stats().AvailableIPs < minAllocate {
-			c.Errorf("Node %s allocation shortage. expected at least: %d, allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
+		if node.Stats().IPv4.AvailableIPs < minAllocate {
+			c.Errorf("Node %s allocation shortage. expected at least: %d, allocated: %d", s.name, minAllocate, node.Stats().IPv4.AvailableIPs)
 			c.Fail()
 		}
-		c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+		c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 	}
 
 	// The above check returns as soon as the address requirements are met.
@@ -785,8 +785,8 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 0)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 }
 
 // TestInstanceBeenDeleted verifies that instance deletion is correctly detected
@@ -819,8 +819,8 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Delete all enis attached to instance, this mocks the operation of
 	// deleting the instance. The deletion should be detected.
@@ -838,10 +838,10 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	mngr.Upsert(updateCiliumNode(cn, 9, 2))
 
 	// Instance deletion detected, no allocation happened despite of the IP deficit.
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
-	c.Assert(node.Stats().NeededIPs, check.Equals, 0)
-	c.Assert(node.Stats().ExcessIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.NeededIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.ExcessIPs, check.Equals, 0)
 }
 
 func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLimit float64, burst int) {
