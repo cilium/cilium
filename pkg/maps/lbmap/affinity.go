@@ -67,7 +67,7 @@ func initAffinity(params InitParams) {
 
 type AffinityMatchKey struct {
 	BackendID loadbalancer.BackendID `align:"backend_id"`
-	RevNATID  uint16                 `align:"rev_nat_id"`
+	ServiceID uint16                 `align:"svc_id"`
 	Pad       uint16                 `align:"pad"`
 }
 
@@ -76,17 +76,17 @@ type AffinityMatchValue struct {
 }
 
 // NewAffinityMatchKey creates the AffinityMatch key
-func NewAffinityMatchKey(revNATID uint16, backendID loadbalancer.BackendID) *AffinityMatchKey {
+func NewAffinityMatchKey(ServiceID uint16, backendID loadbalancer.BackendID) *AffinityMatchKey {
 	return &AffinityMatchKey{
 		BackendID: backendID,
-		RevNATID:  revNATID,
+		ServiceID: ServiceID,
 	}
 }
 
 // String converts the key into a human readable string format
 func (k *AffinityMatchKey) String() string {
 	kHost := k.ToHost()
-	return fmt.Sprintf("%d %d", kHost.BackendID, kHost.RevNATID)
+	return fmt.Sprintf("%d %d", kHost.BackendID, kHost.ServiceID)
 }
 
 func (k *AffinityMatchKey) New() bpf.MapKey { return &AffinityMatchKey{} }
@@ -98,23 +98,23 @@ func (v *AffinityMatchValue) New() bpf.MapValue { return &AffinityMatchValue{} }
 // ToNetwork returns the key in the network byte order
 func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
 	n := *k
-	// For some reasons rev_nat_index is stored in network byte order in
+	// For some reasons svc_id is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNATID = byteorder.HostToNetwork16(n.RevNATID)
+	n.ServiceID = byteorder.HostToNetwork16(n.ServiceID)
 	return &n
 }
 
 // ToHost returns the key in the host byte order
 func (k *AffinityMatchKey) ToHost() *AffinityMatchKey {
 	h := *k
-	h.RevNATID = byteorder.NetworkToHost16(h.RevNATID)
+	h.ServiceID = byteorder.NetworkToHost16(h.ServiceID)
 	return &h
 }
 
 // Affinity4Key is the Go representation of lb4_affinity_key
 type Affinity4Key struct {
 	ClientID    uint64 `align:"client_id"`
-	RevNATID    uint16 `align:"rev_nat_id"`
+	ServiceID   uint16 `align:"svc_id"`
 	NetNSCookie uint8  `align:"netns_cookie"`
 	Pad1        uint8  `align:"pad1"`
 	Pad2        uint32 `align:"pad2"`
@@ -123,7 +123,7 @@ type Affinity4Key struct {
 // Affinity6Key is the Go representation of lb6_affinity_key
 type Affinity6Key struct {
 	ClientID    types.IPv6 `align:"client_id"`
-	RevNATID    uint16     `align:"rev_nat_id"`
+	ServiceID   uint16     `align:"svc_id"`
 	NetNSCookie uint8      `align:"netns_cookie"`
 	Pad1        uint8      `align:"pad1"`
 	Pad2        uint32     `align:"pad2"`
@@ -138,14 +138,14 @@ type AffinityValue struct {
 
 // String converts the key into a human readable string format.
 func (k *Affinity4Key) String() string {
-	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.RevNATID)
+	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.ServiceID)
 }
 
 func (k *Affinity4Key) New() bpf.MapKey { return &Affinity4Key{} }
 
 // String converts the key into a human readable string format.
 func (k *Affinity6Key) String() string {
-	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.RevNATID)
+	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.ServiceID)
 }
 
 func (k *Affinity6Key) New() bpf.MapKey { return &Affinity6Key{} }

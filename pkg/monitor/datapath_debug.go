@@ -394,7 +394,7 @@ func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 	case DbgIPIDMapSucceed6:
 		return fmt.Sprintf("Successfully mapped addr.p4=[::%s] to identity=%d", ip6Str(n.Arg1), n.Arg2)
 	case DbgLbStaleCT:
-		return fmt.Sprintf("Stale CT entry found stale_ct.rev_nat_id=%d, svc.rev_nat_id=%d", n.Arg2, n.Arg1)
+		return fmt.Sprintf("Stale CT entry found stale_ct.svc_id=%d, svc.svc_id=%d", n.Arg2, n.Arg1)
 	case DbgInheritIdentity:
 		return fmt.Sprintf("Inheriting identity=%d from stack", n.Arg1)
 	case DbgSkLookup4:

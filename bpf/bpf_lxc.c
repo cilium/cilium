@@ -150,7 +150,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	/*
 	 * Check if the destination address is among the address that should
 	 * be load balanced. This operation is performed before we go through
-	 * the connection tracker to allow storing the reverse nat index in
+	 * the connection tracker to allow storing the Service ID in
 	 * the CT entry for destination endpoints where we can't encode the
 	 * state in the address.
 	 */
@@ -509,7 +509,7 @@ skip_policy_enforcement:
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate6:
-		/* New connection implies that rev_nat_index remains untouched
+		/* New connection implies that svc_id remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
@@ -528,7 +528,7 @@ ct_recreate6:
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
-		if (unlikely(ct_state->rev_nat_index != ct_state_new.rev_nat_index))
+		if (unlikely(ct_state->svc_id != ct_state_new.svc_id))
 			goto ct_recreate6;
 		break;
 
@@ -953,7 +953,7 @@ skip_policy_enforcement:
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate4:
-		/* New connection implies that rev_nat_index remains untouched
+		/* New connection implies that svc_id remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
@@ -983,7 +983,7 @@ ct_recreate4:
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
-		if (unlikely(ct_state->rev_nat_index != ct_state_new.rev_nat_index))
+		if (unlikely(ct_state->svc_id != ct_state_new.svc_id))
 			goto ct_recreate4;
 		break;
 
@@ -1018,9 +1018,9 @@ ct_recreate4:
 #endif /* ENABLE_NODEPORT */
 
 		/* RevNAT for replies on a loopback connection: */
-		if (ct_state->rev_nat_index && ct_state->loopback) {
+		if (ct_state->svc_id && ct_state->loopback) {
 			ret = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
-					  ct_state->rev_nat_index,
+					  ct_state->svc_id,
 					  true, tuple, has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
@@ -1551,11 +1551,11 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 		}
 
 		/* Reverse NAT applies to return traffic only. */
-		if (unlikely(ct_state->rev_nat_index)) {
+		if (unlikely(ct_state->svc_id)) {
 			int ret2;
 
 			ret2 = lb6_rev_nat(ctx, l4_off,
-					   ct_state->rev_nat_index, tuple);
+					   ct_state->svc_id, tuple);
 			if (IS_ERR(ret2))
 				return ret2;
 		}
@@ -1883,14 +1883,14 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 		}
 
 		/* Reverse NAT applies to return traffic only. */
-		if (unlikely(ct_state->rev_nat_index && !ct_state->loopback)) {
+		if (unlikely(ct_state->svc_id && !ct_state->loopback)) {
 			bool has_l4_header = false;
 			int ret2;
 
 			has_l4_header = ipv4_has_l4_header(ip4);
 
 			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
-					   ct_state->rev_nat_index, false,
+					   ct_state->svc_id, false,
 					   tuple, has_l4_header);
 			if (IS_ERR(ret2))
 				return ret2;
@@ -1913,11 +1913,11 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 	 * If ip4.saddr is IPV4_LOOPBACK, this is almost certainly a loopback
 	 * connection. Populate
 	 * - .loopback, so that policy enforcement is bypassed, and
-	 * - .rev_nat_index, so that replies can be RevNATed.
+	 * - .svc_id, so that replies can be RevNATed.
 	 */
 	if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
 	    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple,
-					  &ct_state_new.rev_nat_index)) {
+					  &ct_state_new.svc_id)) {
 		ct_state_new.loopback = true;
 		goto skip_policy_enforcement;
 	}

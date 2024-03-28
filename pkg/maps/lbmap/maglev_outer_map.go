@@ -20,21 +20,21 @@ type MaglevOuterMap struct {
 // UpdateService sets the given inner map to be the Maglev lookup table for
 // the service with the given id.
 func (m *MaglevOuterMap) UpdateService(id uint16, inner *MaglevInnerMap) error {
-	key := MaglevOuterKey{RevNatID: id}.toNetwork()
+	key := MaglevOuterKey{ServiceID: id}.toNetwork()
 	val := MaglevOuterVal{FD: uint32(inner.FD())}
 	return m.Map.Update(key, val, 0)
 }
 
 // MaglevOuterKey is the key of a maglev outer map.
 type MaglevOuterKey struct {
-	RevNatID uint16
+	ServiceID uint16
 }
 
 // toNetwork converts a maglev outer map's key to network byte order.
 // The key is in network byte order in the eBPF maps.
 func (k MaglevOuterKey) toNetwork() MaglevOuterKey {
 	return MaglevOuterKey{
-		RevNatID: byteorder.HostToNetwork16(k.RevNatID),
+		ServiceID: byteorder.HostToNetwork16(k.ServiceID),
 	}
 }
 
@@ -102,7 +102,7 @@ func (m *MaglevOuterMap) TableSize() (uint32, error) {
 
 // GetService gets the maglev backend lookup table for the given service id.
 func (m *MaglevOuterMap) GetService(id uint16) (*MaglevInnerMap, error) {
-	key := MaglevOuterKey{RevNatID: id}.toNetwork()
+	key := MaglevOuterKey{ServiceID: id}.toNetwork()
 	var val MaglevOuterVal
 
 	err := m.Lookup(key, &val)
@@ -148,9 +148,9 @@ func (m *MaglevOuterMap) DumpBackends(ipv6 bool) (map[string][]string, error) {
 
 		// The service ID is read from the map in network byte order,
 		// convert to host byte order before displaying to the user.
-		key.RevNatID = byteorder.NetworkToHost16(key.RevNatID)
+		key.ServiceID = byteorder.NetworkToHost16(key.ServiceID)
 
-		out[fmt.Sprintf("[%d]/%s", key.RevNatID, which)] = []string{backends}
+		out[fmt.Sprintf("[%d]/%s", key.ServiceID, which)] = []string{backends}
 	}
 
 	return out, nil

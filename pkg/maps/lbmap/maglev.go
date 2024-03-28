@@ -104,7 +104,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 
 // updateMaglevTable creates a new inner Maglev map containing the given backend IDs
 // and sets it as the active lookup table for the given service ID.
-func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []loadbalancer.BackendID) error {
+func updateMaglevTable(ipv6 bool, ServiceID uint16, backendIDs []loadbalancer.BackendID) error {
 	outer := maglevOuter4Map
 	if ipv6 {
 		outer = maglevOuter6Map
@@ -124,7 +124,7 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []loadbalancer.Bac
 		return fmt.Errorf("updating backends: %w", err)
 	}
 
-	if err := outer.UpdateService(revNATID, inner); err != nil {
+	if err := outer.UpdateService(ServiceID, inner); err != nil {
 		return fmt.Errorf("updating service: %w", err)
 	}
 
@@ -132,13 +132,13 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []loadbalancer.Bac
 }
 
 // deleteMaglevTable deletes the inner Maglev lookup table for the given service ID.
-func deleteMaglevTable(ipv6 bool, revNATID uint16) error {
+func deleteMaglevTable(ipv6 bool, ServiceID uint16) error {
 	outerMap := maglevOuter4Map
 	if ipv6 {
 		outerMap = maglevOuter6Map
 	}
 
-	outerKey := MaglevOuterKey{RevNatID: revNATID}
+	outerKey := MaglevOuterKey{ServiceID: ServiceID}
 	if err := outerMap.Delete(outerKey.toNetwork()); err != nil {
 		return err
 	}

@@ -3,7 +3,7 @@
 
 #ifdef ENABLE_IPV4
 static __always_inline void
-lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_index)
+lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 svc_id)
 {
 	struct lb4_key svc_key = {
 		.address = addr,
@@ -13,7 +13,7 @@ lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_i
 	struct lb4_service svc_value = {
 		.count = backend_count,
 		.flags = SVC_FLAG_ROUTABLE,
-		.rev_nat_index = rev_nat_index,
+		.svc_id = svc_id,
 	};
 	map_update_elem(&LB4_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
 	/* Register with both scopes: */
@@ -25,7 +25,7 @@ lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_i
 		.address = addr,
 		.port = port,
 	};
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &rev_nat_index, &revnat_value, BPF_ANY);
+	map_update_elem(&LB4_REVERSE_NAT_MAP, &svc_id, &revnat_value, BPF_ANY);
 }
 
 static __always_inline void
@@ -61,7 +61,7 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 #ifdef ENABLE_IPV6
 static __always_inline void
 lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count,
-		  __u16 rev_nat_index)
+		  __u16 svc_id)
 {
 	struct lb6_key svc_key = {
 		.dport = port,
@@ -70,7 +70,7 @@ lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count,
 	struct lb6_service svc_value = {
 		.count = backend_count,
 		.flags = SVC_FLAG_ROUTABLE,
-		.rev_nat_index = rev_nat_index,
+		.svc_id = svc_id,
 	};
 
 	memcpy(&svc_key.address, addr, sizeof(*addr));
@@ -84,7 +84,7 @@ lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count,
 	};
 
 	memcpy(&revnat_value.address, addr, sizeof(*addr));
-	map_update_elem(&LB6_REVERSE_NAT_MAP, &rev_nat_index, &revnat_value, BPF_ANY);
+	map_update_elem(&LB6_REVERSE_NAT_MAP, &svc_id, &revnat_value, BPF_ANY);
 }
 
 static __always_inline void

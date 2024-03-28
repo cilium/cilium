@@ -18,13 +18,13 @@ import (
 const (
 	SourceRange4MapName = "cilium_lb4_source_range"
 	SourceRange6MapName = "cilium_lb6_source_range"
-	lpmPrefixLen4       = 16 + 16 // sizeof(SourceRangeKey4.RevNATID)+sizeof(SourceRangeKey4.Pad)
-	lpmPrefixLen6       = 16 + 16 // sizeof(SourceRangeKey6.RevNATID)+sizeof(SourceRangeKey6.Pad)
+	lpmPrefixLen4       = 16 + 16 // sizeof(SourceRangeKey4.ServiceID)+sizeof(SourceRangeKey4.Pad)
+	lpmPrefixLen6       = 16 + 16 // sizeof(SourceRangeKey6.ServiceID)+sizeof(SourceRangeKey6.Pad)
 )
 
 type SourceRangeKey interface {
 	GetCIDR() *cidr.CIDR
-	GetRevNATID() uint16
+	GetServiceID() uint16
 
 	// Convert fields to network byte order.
 	ToNetwork() SourceRangeKey
@@ -39,30 +39,30 @@ var _ SourceRangeKey = (*SourceRangeKey6)(nil)
 
 type SourceRangeKey4 struct {
 	PrefixLen uint32     `align:"lpm_key"`
-	RevNATID  uint16     `align:"rev_nat_id"`
+	ServiceID uint16     `align:"svc_id"`
 	Pad       uint16     `align:"pad"`
 	Address   types.IPv4 `align:"addr"`
 }
 
 func (k *SourceRangeKey4) String() string {
 	kHost := k.ToHost().(*SourceRangeKey4)
-	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetServiceID())
 }
 
 func (k *SourceRangeKey4) New() bpf.MapKey { return &SourceRangeKey4{} }
 
 func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
-	// For some reasons rev_nat_index is stored in network byte order in
+	// For some reasons svc_id is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNATID = byteorder.HostToNetwork16(n.RevNATID)
+	n.ServiceID = byteorder.HostToNetwork16(n.ServiceID)
 	return &n
 }
 
 // ToHost returns the key in the host byte order
 func (k *SourceRangeKey4) ToHost() SourceRangeKey {
 	h := *k
-	h.RevNATID = byteorder.NetworkToHost16(h.RevNATID)
+	h.ServiceID = byteorder.NetworkToHost16(h.ServiceID)
 	return &h
 }
 
@@ -76,36 +76,36 @@ func (k *SourceRangeKey4) GetCIDR() *cidr.CIDR {
 	c.IP = ip.IP()
 	return cidr.NewCIDR(&c)
 }
-func (k *SourceRangeKey4) GetRevNATID() uint16 {
-	return k.RevNATID
+func (k *SourceRangeKey4) GetServiceID() uint16 {
+	return k.ServiceID
 }
 
 type SourceRangeKey6 struct {
 	PrefixLen uint32     `align:"lpm_key"`
-	RevNATID  uint16     `align:"rev_nat_id"`
+	ServiceID uint16     `align:"svc_id"`
 	Pad       uint16     `align:"pad"`
 	Address   types.IPv6 `align:"addr"`
 }
 
 func (k *SourceRangeKey6) String() string {
 	kHost := k.ToHost().(*SourceRangeKey6)
-	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetServiceID())
 }
 
 func (k *SourceRangeKey6) New() bpf.MapKey { return &SourceRangeKey6{} }
 
 func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
-	// For some reasons rev_nat_index is stored in network byte order in
+	// For some reasons svc_id is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNATID = byteorder.HostToNetwork16(n.RevNATID)
+	n.ServiceID = byteorder.HostToNetwork16(n.ServiceID)
 	return &n
 }
 
 // ToHost returns the key in the host byte order
 func (k *SourceRangeKey6) ToHost() SourceRangeKey {
 	h := *k
-	h.RevNATID = byteorder.NetworkToHost16(h.RevNATID)
+	h.ServiceID = byteorder.NetworkToHost16(h.ServiceID)
 	return &h
 }
 
@@ -119,8 +119,8 @@ func (k *SourceRangeKey6) GetCIDR() *cidr.CIDR {
 	c.IP = ip.IP()
 	return cidr.NewCIDR(&c)
 }
-func (k *SourceRangeKey6) GetRevNATID() uint16 {
-	return k.RevNATID
+func (k *SourceRangeKey6) GetServiceID() uint16 {
+	return k.ServiceID
 }
 
 type SourceRangeValue struct {
@@ -169,15 +169,15 @@ func initSourceRange(params InitParams) {
 	}
 }
 
-func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpf.MapKey {
+func srcRangeKey(cidr *cidr.CIDR, ServiceID uint16, ipv6 bool) bpf.MapKey {
 	ones, _ := cidr.Mask.Size()
-	id := byteorder.HostToNetwork16(revNATID)
+	id := byteorder.HostToNetwork16(ServiceID)
 	if ipv6 {
-		key := &SourceRangeKey6{PrefixLen: uint32(ones) + lpmPrefixLen6, RevNATID: id}
+		key := &SourceRangeKey6{PrefixLen: uint32(ones) + lpmPrefixLen6, ServiceID: id}
 		copy(key.Address[:], cidr.IP.To16())
 		return key
 	} else {
-		key := &SourceRangeKey4{PrefixLen: uint32(ones) + lpmPrefixLen4, RevNATID: id}
+		key := &SourceRangeKey4{PrefixLen: uint32(ones) + lpmPrefixLen4, ServiceID: id}
 		copy(key.Address[:], cidr.IP.To4())
 		return key
 	}

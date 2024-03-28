@@ -293,7 +293,7 @@ func (k *Service4Key) ToHost() ServiceKey {
 type Service4Value struct {
 	BackendID uint32    `align:"$union0"`
 	Count     uint16    `align:"count"`
-	RevNat    uint16    `align:"rev_nat_index"`
+	SvcID     uint16    `align:"svc_id"`
 	Flags     uint8     `align:"flags"`
 	Flags2    uint8     `align:"flags2"`
 	Pad       pad2uint8 `align:"pad"`
@@ -303,14 +303,14 @@ func (s *Service4Value) New() bpf.MapValue { return &Service4Value{} }
 
 func (s *Service4Value) String() string {
 	sHost := s.ToHost().(*Service4Value)
-	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.RevNat, sHost.Flags, sHost.Flags2)
+	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.SvcID, sHost.Flags, sHost.Flags2)
 }
 
 func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int        { return int(s.Count) }
-func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
-func (s *Service4Value) GetRevNat() int       { return int(s.RevNat) }
-func (s *Service4Value) RevNatKey() RevNatKey { return &RevNat4Key{s.RevNat} }
+func (s *Service4Value) SetSvcID(id int)      { s.SvcID = uint16(id) }
+func (s *Service4Value) GetSvcID() int        { return int(s.SvcID) }
+func (s *Service4Value) RevNatKey() RevNatKey { return &RevNat4Key{s.SvcID} }
 func (s *Service4Value) SetFlags(flags uint16) {
 	s.Flags = uint8(flags & 0xff)
 	s.Flags2 = uint8(flags >> 8)
@@ -341,14 +341,14 @@ func (s *Service4Value) GetBackendID() loadbalancer.BackendID {
 
 func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
+	n.SvcID = byteorder.HostToNetwork16(n.SvcID)
 	return &n
 }
 
 // ToHost converts Service4Value to host byte order.
 func (s *Service4Value) ToHost() ServiceValue {
 	h := *s
-	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
+	h.SvcID = byteorder.NetworkToHost16(h.SvcID)
 	return &h
 }
 
@@ -554,9 +554,9 @@ type SockRevNat4Key struct {
 
 // SockRevNat4Value is an entry in the reverse NAT sock map.
 type SockRevNat4Value struct {
-	Address     types.IPv4 `align:"address"`
-	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
+	Address   types.IPv4 `align:"address"`
+	Port      int16      `align:"port"`
+	ServiceID uint16     `align:"svc_id"`
 }
 
 func (k *SockRevNat4Key) Map() *bpf.Map { return SockRevNat4Map }
@@ -579,7 +579,7 @@ func (k *SockRevNat4Key) New() bpf.MapKey { return &SockRevNat4Key{} }
 
 // String converts the value into a human readable string format.
 func (v *SockRevNat4Value) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.RevNatIndex)
+	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.ServiceID)
 }
 
 func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }

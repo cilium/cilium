@@ -192,7 +192,7 @@ static __always_inline void
 ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		     enum ct_dir dir, bool syn)
 {
-	state->rev_nat_index = entry->rev_nat_index;
+	state->svc_id = entry->svc_id;
 	if (dir == CT_SERVICE) {
 		state->backend_id = entry->backend_id;
 		state->syn = syn;
@@ -253,17 +253,17 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 
 	/* Only match CT entries that were created for the expected service: */
 	if ((ct_entry_types & CT_ENTRY_SVC) &&
-	    entry->rev_nat_index == state->rev_nat_index)
+	    entry->svc_id == state->svc_id)
 		return true;
 
 #ifdef ENABLE_NODEPORT
 	if ((ct_entry_types & CT_ENTRY_NODEPORT) &&
-	    entry->node_port && entry->rev_nat_index) {
-		if (!state || !state->rev_nat_index)
+	    entry->node_port && entry->svc_id) {
+		if (!state || !state->svc_id)
 			return true;
 
 		/* Only match CT entries that were created for the expected service: */
-		if (entry->rev_nat_index == state->rev_nat_index)
+		if (entry->svc_id == state->svc_id)
 			return true;
 	}
 
@@ -291,7 +291,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (!ct_entry_matches_types(entry, ct_entry_types, ct_state))
 			goto ct_new;
 
-		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
+		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->svc_id);
 		if (dir == CT_SERVICE && syn &&
 		    ct_entry_closing(entry) &&
 		    ct_entry_expired_rebalance(entry))
@@ -303,8 +303,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		/* For backward-compatibility we need to update reverse NAT
 		 * index in the CT_SERVICE entry for old connections.
 		 */
-		if (dir == CT_SERVICE && entry->rev_nat_index == 0)
-			entry->rev_nat_index = ct_state->rev_nat_index;
+		if (dir == CT_SERVICE && entry->svc_id == 0)
+			entry->svc_id = ct_state->svc_id;
 
 		if (ct_state)
 			ct_lookup_fill_state(ct_state, entry, dir, syn);
@@ -599,7 +599,7 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret,
-		   ct_state ? ct_state->rev_nat_index : 0);
+		   ct_state ? ct_state->svc_id : 0);
 	return ret;
 }
 
@@ -848,7 +848,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret,
-		   ct_state ? ct_state->rev_nat_index : 0);
+		   ct_state ? ct_state->svc_id : 0);
 	return ret;
 }
 
@@ -912,7 +912,7 @@ static __always_inline void
 ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 		     enum ct_dir dir)
 {
-	entry->rev_nat_index = state->rev_nat_index;
+	entry->svc_id = state->svc_id;
 	entry->src_sec_id = state->src_sec_id;
 
 	if (dir == CT_SERVICE) {
@@ -957,7 +957,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	entry.packets = 1;
 	entry.bytes = ctx_full_len(ctx);
 #endif
-	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
+	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.svc_id,
 		    entry.src_sec_id, 0);
 
 	err = map_update_elem(map_main, tuple, &entry, 0);
@@ -1012,7 +1012,7 @@ static __always_inline int ct_create4(const void *map_main,
 	entry.packets = 1;
 	entry.bytes = ctx_full_len(ctx);
 #endif
-	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
+	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.svc_id,
 		    entry.src_sec_id, 0);
 
 	err = map_update_elem(map_main, tuple, &entry, 0);
@@ -1050,7 +1050,7 @@ err_ct_fill_up:
 #ifndef DISABLE_LOOPBACK_LB
 static __always_inline bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
-			      __u16 *rev_nat_index)
+			      __u16 *svc_id)
 {
 	__u8 flags = tuple->flags;
 	struct ct_entry *entry;
@@ -1060,7 +1060,7 @@ ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 	tuple->flags = flags;
 
 	if (entry && entry->lb_loopback) {
-		*rev_nat_index = entry->rev_nat_index;
+		*svc_id = entry->svc_id;
 		return true;
 	}
 
@@ -1070,11 +1070,11 @@ ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 
 static __always_inline bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
-			       __u16 *rev_nat_index, bool check_dsr)
+			       __u16 *svc_id, bool check_dsr)
 {
 	if (entry->node_port) {
-		if (rev_nat_index)
-			*rev_nat_index = entry->rev_nat_index;
+		if (svc_id)
+			*svc_id = entry->svc_id;
 		return true;
 	}
 
@@ -1093,7 +1093,7 @@ __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 static __always_inline bool
 ct_has_nodeport_egress_entry4(const void *map,
 			      struct ipv4_ct_tuple *ingress_tuple,
-			      __u16 *rev_nat_index, bool check_dsr)
+			      __u16 *svc_id, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1105,7 +1105,7 @@ ct_has_nodeport_egress_entry4(const void *map,
 	if (!entry)
 		return false;
 
-	return __ct_has_nodeport_egress_entry(entry, rev_nat_index, check_dsr);
+	return __ct_has_nodeport_egress_entry(entry, svc_id, check_dsr);
 }
 
 static __always_inline bool
@@ -1127,7 +1127,7 @@ ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 static __always_inline bool
 ct_has_nodeport_egress_entry6(const void *map,
 			      struct ipv6_ct_tuple *ingress_tuple,
-			      __u16 *rev_nat_index, bool check_dsr)
+			      __u16 *svc_id, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1139,7 +1139,7 @@ ct_has_nodeport_egress_entry6(const void *map,
 	if (!entry)
 		return false;
 
-	return __ct_has_nodeport_egress_entry(entry, rev_nat_index, check_dsr);
+	return __ct_has_nodeport_egress_entry(entry, svc_id, check_dsr);
 }
 
 static __always_inline bool
@@ -1160,7 +1160,7 @@ ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 
 static __always_inline void
 ct_update_svc_entry(const void *map, const void *tuple,
-		    __u32 backend_id, __u16 rev_nat_index)
+		    __u32 backend_id, __u16 svc_id)
 {
 	struct ct_entry *entry;
 
@@ -1169,7 +1169,7 @@ ct_update_svc_entry(const void *map, const void *tuple,
 		return;
 
 	entry->backend_id = backend_id;
-	entry->rev_nat_index = rev_nat_index;
+	entry->svc_id = svc_id;
 }
 
 static __always_inline void

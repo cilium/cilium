@@ -46,7 +46,7 @@ struct {
 #define BACKEND_IP2 IPV4(10, 0, 3, 1)
 #define FRONTEND_PORT bpf_htons(80)
 #define BACKEND_PORT bpf_htons(8080)
-#define REV_NAT_INDEX 123
+#define SERVICE_ID 123
 #define BACKEND_ID1 7
 #define BACKEND_ID2 42
 
@@ -98,7 +98,7 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 		.value = {						\
 			.flags = SVC_FLAG_ROUTABLE | SVC_FLAG_AFFINITY, \
 			.count = 2,					\
-			.rev_nat_index = REV_NAT_INDEX,			\
+			.svc_id = SERVICE_ID,			\
 			.backend_id = (_beid)				\
 		}							\
 	}
@@ -133,7 +133,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	};
 	struct lb4_affinity_key aff_key = {
 		.client_id = {.client_ip = CLIENT_IP},
-		.rev_nat_id = REV_NAT_INDEX,
+		.svc_id = SERVICE_ID,
 		.netns_cookie = 0x0,
 	};
 	struct lb_affinity_val aff_value = {
@@ -142,7 +142,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	};
 	struct lb_affinity_match match_key = {
 		.backend_id = BACKEND_ID2,
-		.rev_nat_id = REV_NAT_INDEX,
+		.svc_id = SERVICE_ID,
 	};
 	int ret;
 	int zero = 0;

@@ -62,7 +62,7 @@ enum {
 				 * arg2: direction
 				 * arg3: scope
 				 */
-	DBG_CT_CREATED4,        /* arg1: (unused << 16) | rev_nat_index
+	DBG_CT_CREATED4,        /* arg1: (unused << 16) | svc_id
 				 * arg2: src sec-id
 				 * arg3: unused
 				 */
@@ -74,7 +74,7 @@ enum {
 				 * arg2: direction
 				 * arg3: scope
 				 */
-	DBG_CT_CREATED6,        /* arg1: (unused << 16) | rev_nat_index
+	DBG_CT_CREATED6,        /* arg1: (unused << 16) | svc_id
 				 * arg2: src sec-id
 				 * arg3: unused
 				 */
@@ -101,8 +101,8 @@ enum {
 				 * arg2: identity
 				 * arg3: unused
 				 */
-	DBG_LB_STALE_CT,	/* arg1: svc rev_nat_id
-				 * arg2: stale CT rev_nat_id
+	DBG_LB_STALE_CT,	/* arg1: svc svc_id
+				 * arg2: stale CT svc_id
 				 * arg3: unused
 				 */
 	DBG_INHERIT_IDENTITY,	/* arg1: ctx->mark

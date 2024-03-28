@@ -479,10 +479,10 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
 	return map_lookup_elem(&LB6_REVERSE_NAT_MAP, &index);
 }
 
-/** Perform IPv6 reverse NAT based on reverse NAT index
+/** Perform IPv6 reverse NAT based on Service ID
  * @arg ctx		packet
  * @arg l4_off		offset to L4
- * @arg index		reverse NAT index
+ * @arg index		Service ID
  * @arg tuple		tuple
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
@@ -572,7 +572,7 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 
 	key = (typeof(key)) {
 		.lpm_key = { SRC_RANGE_STATIC_PREFIX(key), {} },
-		.rev_nat_id = svc->rev_nat_index,
+		.svc_id = svc->svc_id,
 		.addr = *saddr,
 	};
 
@@ -678,7 +678,7 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		      const struct ipv6_ct_tuple *tuple,
 		      const struct lb6_service *svc)
 {
-	__u32 zero = 0, index = svc->rev_nat_index;
+	__u32 zero = 0, index = svc->svc_id;
 	__u32 *backend_ids;
 	void *maglev_lut;
 
@@ -745,7 +745,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			  union lb6_affinity_client_id *id)
 {
 	struct lb6_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
+		.svc_id	= svc->svc_id,
 		.netns_cookie	= netns_cookie,
 	};
 	struct lb_affinity_val *val;
@@ -759,7 +759,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 	if (val != NULL) {
 		__u32 now = bpf_mono_now();
 		struct lb_affinity_match match = {
-			.rev_nat_id	= svc->rev_nat_index,
+			.svc_id	= svc->svc_id,
 			.backend_id	= val->backend_id,
 		};
 
@@ -794,7 +794,7 @@ __lb6_update_affinity(const struct lb6_service *svc, bool netns_cookie,
 {
 	__u32 now = bpf_mono_now();
 	struct lb6_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
+		.svc_id	= svc->svc_id,
 		.netns_cookie	= netns_cookie,
 	};
 	struct lb_affinity_val val = {
@@ -877,7 +877,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (unlikely(svc->count == 0))
 		return DROP_NO_SERVICE;
 
-	state->rev_nat_index = svc->rev_nat_index;
+	state->svc_id = svc->svc_id;
 
 	/* See lb4_local comments re svc endpoint lookup process */
 	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, CT_SERVICE,
@@ -936,8 +936,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
-			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
+			state->svc_id = svc->svc_id;
+			ct_update_svc_entry(map, tuple, backend_id, svc->svc_id);
 		}
 
 		break;
@@ -984,7 +984,7 @@ static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
 					       __u16 proxy_port)
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->svc_id);
 }
 
 /* lb6_ctx_restore_state() restores per packet load balancing state from the
@@ -996,7 +996,7 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 						  struct ct_state *state,
 						 __u16 *proxy_port)
 {
-	state->rev_nat_index = (__u16)ctx_load_and_clear_meta(ctx, CB_CT_STATE);
+	state->svc_id = (__u16)ctx_load_and_clear_meta(ctx, CB_CT_STATE);
 
 	/* No loopback support for IPv6, see lb6_local() above. */
 
@@ -1110,11 +1110,11 @@ lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
 	return map_lookup_elem(&LB4_REVERSE_NAT_MAP, &index);
 }
 
-/** Perform IPv4 reverse NAT based on reverse NAT index
+/** Perform IPv4 reverse NAT based on Service ID
  * @arg ctx		packet
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
- * @arg index		reverse NAT index
+ * @arg index		Service ID
  * @arg loopback	loopback connection
  * @arg tuple		tuple
  */
@@ -1197,7 +1197,7 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 
 	key = (typeof(key)) {
 		.lpm_key = { SRC_RANGE_STATIC_PREFIX(key), {} },
-		.rev_nat_id = svc->rev_nat_index,
+		.svc_id = svc->svc_id,
 		.addr = saddr,
 	};
 
@@ -1303,7 +1303,7 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		      const struct ipv4_ct_tuple *tuple,
 		      const struct lb4_service *svc)
 {
-	__u32 zero = 0, index = svc->rev_nat_index;
+	__u32 zero = 0, index = svc->svc_id;
 	__u32 *backend_ids;
 	void *maglev_lut;
 
@@ -1390,7 +1390,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			  const union lb4_affinity_client_id *id)
 {
 	struct lb4_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
+		.svc_id	= svc->svc_id,
 		.netns_cookie	= netns_cookie,
 		.client_id	= *id,
 	};
@@ -1400,7 +1400,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 	if (val != NULL) {
 		__u32 now = bpf_mono_now();
 		struct lb_affinity_match match = {
-			.rev_nat_id	= svc->rev_nat_index,
+			.svc_id	= svc->svc_id,
 			.backend_id	= val->backend_id,
 		};
 
@@ -1441,7 +1441,7 @@ __lb4_update_affinity(const struct lb4_service *svc, bool netns_cookie,
 {
 	__u32 now = bpf_mono_now();
 	struct lb4_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
+		.svc_id	= svc->svc_id,
 		.netns_cookie	= netns_cookie,
 		.client_id	= *id,
 	};
@@ -1525,7 +1525,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (unlikely(svc->count == 0))
 		return DROP_NO_SERVICE;
 
-	state->rev_nat_index = svc->rev_nat_index;
+	state->svc_id = svc->svc_id;
 
 	ret = ct_lazy_lookup4(map, tuple, ctx, is_fragment, l4_off, has_l4_header,
 			      CT_SERVICE, SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
@@ -1584,8 +1584,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
-			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
+			state->svc_id = svc->svc_id;
+			ct_update_svc_entry(map, tuple, backend_id, svc->svc_id);
 		}
 
 		break;
@@ -1652,7 +1652,7 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 					       __u16 proxy_port, __u32 cluster_id)
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->svc_id << 16 |
 #ifndef DISABLE_LOOPBACK_LB
 		       state->loopback);
 #else
@@ -1675,7 +1675,7 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 	if (meta & 1)
 		state->loopback = 1;
 #endif
-	state->rev_nat_index = meta >> 16;
+	state->svc_id = meta >> 16;
 
 	*proxy_port = ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16;
 
