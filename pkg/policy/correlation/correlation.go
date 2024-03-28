@@ -4,8 +4,6 @@
 package correlation
 
 import (
-	"net/netip"
-
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -28,23 +26,33 @@ var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-flow-p
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
 func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
-	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) ||
-		f.GetVerdict() != flowpb.Verdict_FORWARDED {
-		// we are only interested in policy verdict notifications for forwarded flows
+	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
+		// If it's not a policy verdict, we don't care.
+		return
+	}
+
+	// We are only interested in flows which are either allowed (i.e. the verdict is either
+	// FORWARDED or REDIRECTED) or explicitly denied (i.e. DROPPED, and matched by a deny policy),
+	// since we cannot usefully annotate the verdict otherwise. (Put differently, which policy
+	// should be listed in {in|e}gress_denied_by for an unmatched flow?)
+	verdict := f.GetVerdict()
+	allowed := verdict == flowpb.Verdict_FORWARDED || verdict == flowpb.Verdict_REDIRECTED
+	denied := verdict == flowpb.Verdict_DROPPED && f.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
+	if !(allowed || denied) {
 		return
 	}
 
 	// extract fields relevant for looking up the policy
-	direction, endpointIP, remoteIdentity, proto, dport := extractFlowKey(f)
+	direction, endpointID, remoteIdentity, proto, dport := extractFlowKey(f)
 	if dport == 0 || proto == 0 {
-		logger.WithField(logfields.IPAddr, endpointIP).Debug("failed to extract flow key")
+		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to extract flow key")
 		return
 	}
 
 	// obtain reference to endpoint on which the policy verdict was taken
-	epInfo, ok := endpointGetter.GetEndpointInfo(endpointIP)
+	epInfo, ok := endpointGetter.GetEndpointInfoByID(endpointID)
 	if !ok {
-		logger.WithField(logfields.IPAddr, endpointIP).Debug("failed to lookup endpoint")
+		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to lookup endpoint")
 		return
 	}
 
@@ -53,7 +61,7 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 		DestPort:         dport,
 		Nexthdr:          uint8(proto),
 		TrafficDirection: uint8(direction),
-	})
+	}, f.GetPolicyMatchType())
 	if !ok {
 		logger.WithFields(logrus.Fields{
 			logfields.Identity:         remoteIdentity,
@@ -64,18 +72,22 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 		return
 	}
 
-	allowedBy := toProto(derivedFrom, rev)
-	switch direction {
-	case trafficdirection.Egress:
-		f.EgressAllowedBy = allowedBy
-	case trafficdirection.Ingress:
-		f.IngressAllowedBy = allowedBy
+	rules := toProto(derivedFrom, rev)
+	switch {
+	case direction == trafficdirection.Egress && allowed:
+		f.EgressAllowedBy = rules
+	case direction == trafficdirection.Egress && denied:
+		f.EgressDeniedBy = rules
+	case direction == trafficdirection.Ingress && allowed:
+		f.IngressAllowedBy = rules
+	case direction == trafficdirection.Ingress && denied:
+		f.IngressDeniedBy = rules
 	}
 }
 
 func extractFlowKey(f *flowpb.Flow) (
 	direction trafficdirection.TrafficDirection,
-	endpointIP netip.Addr,
+	endpointID uint16,
 	remoteIdentity identity.NumericIdentity,
 	proto u8proto.U8proto,
 	dport uint16) {
@@ -83,15 +95,16 @@ func extractFlowKey(f *flowpb.Flow) (
 	switch f.GetTrafficDirection() {
 	case flowpb.TrafficDirection_EGRESS:
 		direction = trafficdirection.Egress
-		endpointIP, _ = netip.ParseAddr(f.GetIP().GetSource())
+		// We only get a uint32 because proto has no 16-bit types.
+		endpointID = uint16(f.GetSource().GetID())
 		remoteIdentity = identity.NumericIdentity(f.GetDestination().GetIdentity())
 	case flowpb.TrafficDirection_INGRESS:
 		direction = trafficdirection.Ingress
-		endpointIP, _ = netip.ParseAddr(f.GetIP().GetDestination())
+		endpointID = uint16(f.GetDestination().GetID())
 		remoteIdentity = identity.NumericIdentity(f.GetSource().GetIdentity())
 	default:
 		direction = trafficdirection.Invalid
-		endpointIP = netip.IPv4Unspecified()
+		endpointID = 0
 		remoteIdentity = identity.IdentityUnknown
 	}
 
@@ -101,6 +114,15 @@ func extractFlowKey(f *flowpb.Flow) (
 	} else if udp := f.GetL4().GetUDP(); udp != nil {
 		proto = u8proto.UDP
 		dport = uint16(udp.GetDestinationPort())
+	} else if icmpv4 := f.GetL4().GetICMPv4(); icmpv4 != nil {
+		proto = u8proto.ICMP
+		dport = uint16(icmpv4.Type)
+	} else if icmpv6 := f.GetL4().GetICMPv6(); icmpv6 != nil {
+		proto = u8proto.ICMPv6
+		dport = uint16(icmpv6.Type)
+	} else if sctp := f.GetL4().GetSCTP(); sctp != nil {
+		proto = u8proto.SCTP
+		dport = uint16(sctp.GetDestinationPort())
 	} else {
 		proto = u8proto.ANY
 		dport = 0
@@ -109,12 +131,12 @@ func extractFlowKey(f *flowpb.Flow) (
 	return
 }
 
-func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
-	// Check for L4 policy rules
-	derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
-
-	// TODO: We should inspect f.GetPolicyMatchType() to reduce the number of lookups here
-	if !ok {
+func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
+	switch matchType {
+	case monitorAPI.PolicyMatchL3L4, monitorAPI.PolicyMatchL4Only:
+		// Check for L4 policy rules
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
+	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         key.Identity,
@@ -122,9 +144,7 @@ func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key) (derivedFrom labels.
 			Nexthdr:          0,
 			TrafficDirection: key.TrafficDirection,
 		})
-	}
-
-	if !ok {
+	case monitorAPI.PolicyMatchAll:
 		// Check for allow-all policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         0,
