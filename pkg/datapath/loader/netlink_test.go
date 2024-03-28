@@ -437,7 +437,8 @@ func TestAttachRemoveTCProgram(t *testing.T) {
 
 		prog := mustTCProgram(t)
 
-		err = attachTCProgram(dummy, prog, "test", directionToParent(dirEgress))
+		bpffs := testutils.TempBPFFS(t)
+		err = attachTCProgram(dummy, prog, "test", bpffsDeviceLinksDir(bpffs, dummy), directionToParent(dirEgress))
 		require.NoError(t, err)
 
 		filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))

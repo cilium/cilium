@@ -301,11 +301,23 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	// missing all tail calls.
 
 	// Replace programs on cilium_host.
+	host, err := netlink.LinkByName(ep.InterfaceName())
+	if err != nil {
+		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
+	}
+
 	progs := []progDefinition{
 		{progName: symbolToHostEp, direction: dirIngress},
 		{progName: symbolFromHostEp, direction: dirEgress},
 	}
-	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
+	finalize, err := replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   ep.InterfaceName(),
+			elf:      objPath,
+			programs: progs,
+			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), host),
+		},
+	)
 	if err != nil {
 		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
@@ -323,7 +335,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	defer finalize()
 
 	// Replace program on cilium_net.
-	if _, err := netlink.LinkByName(defaults.SecondHostDevice); err != nil {
+	net, err := netlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
 		log.WithError(err).WithField("device", defaults.SecondHostDevice).Error("Link does not exist")
 		return fmt.Errorf("device '%s' not found: %w", defaults.SecondHostDevice, err)
 	}
@@ -337,7 +350,14 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		{progName: symbolToHostEp, direction: dirIngress},
 	}
 
-	finalize, err = replaceDatapath(ctx, defaults.SecondHostDevice, secondDevObjPath, progs, "")
+	finalize, err = replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   defaults.SecondHostDevice,
+			elf:      secondDevObjPath,
+			programs: progs,
+			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), net),
+		},
+	)
 	if err != nil {
 		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
@@ -352,7 +372,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	// Replace programs on physical devices.
 	for _, device := range option.Config.GetDevices() {
-		if _, err := netlink.LinkByName(device); err != nil {
+		iface, err := netlink.LinkByName(device)
+		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")
 			continue
 		}
@@ -383,7 +404,14 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			}
 		}
 
-		finalize, err := replaceDatapath(ctx, device, netdevObjPath, progs, "")
+		finalize, err := replaceDatapath(ctx,
+			replaceDatapathOptions{
+				device:   device,
+				elf:      netdevObjPath,
+				programs: progs,
+				linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), iface),
+			},
+		)
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
@@ -432,7 +460,14 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			}
 		}
 
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
+		finalize, err := replaceDatapath(ctx,
+			replaceDatapathOptions{
+				device:   ep.InterfaceName(),
+				elf:      objPath,
+				programs: progs,
+				linkDir:  bpffsEndpointLinksDir(bpf.CiliumPath(), ep),
+			},
+		)
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
@@ -468,26 +503,14 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	return nil
 }
 
-func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) (err error) {
-	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
-	for _, iface := range option.Config.EncryptInterface {
-		finalize, replaceErr := replaceDatapath(ctx, iface, networkObj, progs, "")
-		if replaceErr != nil {
-			log.WithField(logfields.Interface, iface).WithError(replaceErr).Error("Load encryption network failed")
-			// Return the error to the caller, but keep trying replacing other interfaces.
-			err = replaceErr
-		} else {
-			log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
-			// Defer map removal until all interfaces' progs have been replaced.
-			defer finalize()
-		}
-	}
-	return
-}
-
 func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {
 	if err := compileOverlay(ctx, cArgs); err != nil {
 		log.WithError(err).Fatal("failed to compile overlay programs")
+	}
+
+	device, err := netlink.LinkByName(iface)
+	if err != nil {
+		return fmt.Errorf("retrieving device %s: %w", iface, err)
 	}
 
 	progs := []progDefinition{
@@ -495,7 +518,14 @@ func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 		{progName: symbolToOverlay, direction: dirEgress},
 	}
 
-	finalize, err := replaceDatapath(ctx, iface, overlayObj, progs, "")
+	finalize, err := replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   iface,
+			elf:      overlayObj,
+			programs: progs,
+			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), device),
+		},
+	)
 	if err != nil {
 		log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load overlay network failed")
 	}
@@ -625,6 +655,15 @@ func (l *Loader) Unload(ep datapath.Endpoint) {
 		if ip := ep.IPv6Address(); ip.IsValid() {
 			removeEndpointRoute(ep, *iputil.AddrToIPNet(ip))
 		}
+	}
+
+	// If Cilium and the kernel support tcx to attach TC programs to the
+	// endpoint's veth device, its bpf_link object is pinned to a per-endpoint
+	// bpffs directory. When the endpoint gets deleted, removing the whole
+	// directory cleans up any pinned maps and links.
+	bpffsPath := bpffsEndpointDir(bpf.CiliumPath(), ep)
+	if err := bpf.Remove(bpffsPath); err != nil {
+		log.WithError(err).WithField(logfields.EndpointID, ep.StringID())
 	}
 }
 
