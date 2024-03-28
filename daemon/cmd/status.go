@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -787,6 +788,41 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 				}
 			},
 		},
+		{
+			Name: "config-settings",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if !d.clientset.IsEnabled() || option.Config == nil {
+					return nil, fmt.Errorf("preconditions failed: no clientset or settings")
+				}
+				return newSettingsDelta(ctx, d)
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err != nil {
+					d.statusResponse.ConfigSettings = &models.ConfigSettings{
+						Message: status.Err.Error(),
+					}
+					return
+				}
+				sd, ok := status.Data.(settingsDelta)
+				if !ok {
+					log.Errorf("settings status update failed. expecting settingsDelta but got %T", status.Data)
+					return
+				}
+				if sd.hasDeltas() {
+					d.statusResponse.ConfigSettings = &models.ConfigSettings{
+						Deltas:  sd.deltas,
+						Message: "Agent configuration state differ from desired state. Agent needs restart",
+					}
+				} else {
+					d.statusResponse.ConfigSettings = &models.ConfigSettings{Message: "Ok"}
+				}
+				metrics.ConfigSettingsMismatch.WithLabelValues(sd.md5).Set(float64(sd.deltaCount()))
+			},
+		},
+
 		{
 			Name: "kubernetes",
 			Interval: func(failures int) time.Duration {
