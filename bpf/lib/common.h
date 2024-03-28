@@ -64,7 +64,7 @@
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
-	XFER_UNUSED		= (1 << 1),
+	XFER_UNUSED2		= (1 << 1),
 	XFER_PKT_SNAT_DONE	= (1 << 2),  /* SNAT is done */
 };
 
