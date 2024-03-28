@@ -595,7 +595,7 @@ func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middlewar
 		return api.Error(code, err)
 	}
 
-	ep.Logger(daemonSubsys).Info("Successful endpoint creation")
+	ep.Logger(daemonSubsys).Infof("Successful endpoint creation. UUID: %s", r.uuid)
 
 	return NewPutEndpointIDCreated().WithPayload(ep.GetModel())
 }
