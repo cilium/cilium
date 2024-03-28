@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -179,21 +180,34 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	}
 
 	var (
+		m            policy.L4PolicyMap
 		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
 		updatedStats []*models.ProxyStatistics
 	)
 
-	changes := policy.ChangeState{
-		Adds: make(policy.Keys),
-		Old:  make(policy.MapState),
+	if ingress {
+		m = e.desiredPolicy.L4Policy.Ingress
+	} else {
+		m = e.desiredPolicy.L4Policy.Egress
 	}
+	mapState := e.desiredPolicy.PolicyMapState
 
-	e.desiredPolicy.UpdateRedirects(ingress,
-		func(l4 *policy.L4Filter) (uint16, bool) {
+	insertedDesiredMapState := make(map[policy.Key]struct{})
+	updatedDesiredMapState := make(policy.MapState)
+
+	for _, l4 := range m {
+		// Deny policies do not support redirects
+		if l4.IsRedirect() {
+
+			// Check if we are allowing this specific L4 first
+			if !mapState.AllowsL4(e, l4) {
+				continue
+			}
+
 			var redirectPort uint16
 			// Only create a redirect if the proxy is NOT running in a sidecar container
-			// or the parser is not HTTP. If running in a sidecar container and the parser
+			// and the parser is HTTP. If running in a sidecar container and the parser
 			// is HTTP, just allow traffic to the port at L4 by setting the proxy port
 			// to 0.
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
@@ -208,7 +222,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					// with different port values. The redirect will be created
 					// when the mapping is available or when the port name
 					// conflicts have been resolved in POD specs.
-					return 0, false
+					continue
 				}
 
 				var err error
@@ -221,7 +235,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					// Policy is regenerated when listeners are added or removed
 					// to fix this condition when the listener is available.
 					e.getLogger().WithField(logfields.Listener, l4.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
-					return 0, false
+					continue
 				}
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
@@ -251,10 +265,36 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 			if e.desiredPolicy == e.realizedPolicy {
 				// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
-				return 0, false
+				continue
 			}
-			return redirectPort, true
-		}, changes)
+
+			// Set the proxy port in the policy map.
+			var direction trafficdirection.TrafficDirection
+			if l4.Ingress {
+				direction = trafficdirection.Ingress
+			} else {
+				direction = trafficdirection.Egress
+			}
+
+			keysFromFilter := l4.ToMapState(e, direction)
+
+			for keyFromFilter, entry := range keysFromFilter {
+				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
+					// Keep the original old entry for revert if there are duplicate keys,
+					// which are possible due to named ports resolving to the same number.
+					if _, isDup := updatedDesiredMapState[keyFromFilter]; !isDup {
+						updatedDesiredMapState[keyFromFilter] = oldEntry
+					}
+				} else {
+					insertedDesiredMapState[keyFromFilter] = struct{}{}
+				}
+				if entry.IsRedirectEntry() {
+					entry.ProxyPort = redirectPort
+				}
+				e.desiredPolicy.PolicyMapState[keyFromFilter] = entry
+			}
+		}
+	}
 
 	revertStack.Push(func() error {
 		// Restore the proxy stats.
@@ -264,7 +304,13 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		}
 		e.proxyStatisticsMutex.Unlock()
 
-		e.desiredPolicy.PolicyMapState.RevertChanges(changes)
+		// Restore the desired policy map state.
+		for key := range insertedDesiredMapState {
+			delete(e.desiredPolicy.PolicyMapState, key)
+		}
+		for key, entry := range updatedDesiredMapState {
+			e.desiredPolicy.PolicyMapState[key] = entry
+		}
 		return nil
 	})
 
@@ -276,10 +322,8 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		visPolicy    policy.DirectionalVisibilityPolicy
 		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
-		changes      = policy.ChangeState{
-			Adds: make(policy.Keys),
-			Old:  make(policy.MapState),
-		}
+		adds         = make(policy.Keys)
+		oldValues    = make(policy.MapState)
 	)
 
 	if e.visibilityPolicy == nil || e.IsProxyDisabled() {
@@ -344,7 +388,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 		updatedStats = append(updatedStats, proxyStats)
 
-		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, oldValues)
 	}
 
 	revertStack.Push(func() error {
@@ -356,7 +400,12 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		e.proxyStatisticsMutex.Unlock()
 
 		// Restore the desired policy map state.
-		e.desiredPolicy.PolicyMapState.RevertChanges(changes)
+		for k := range adds {
+			delete(e.desiredPolicy.PolicyMapState, k)
+		}
+		for k, v := range oldValues {
+			e.desiredPolicy.PolicyMapState[k] = v
+		}
 		return nil
 	})
 
@@ -1159,20 +1208,19 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
-	changes := policy.ChangeState{Adds: adds}
 
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
 		for _, visMeta := range e.visibilityPolicy.Ingress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
 			}
 		}
 		for _, visMeta := range e.visibilityPolicy.Egress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
 			}
 		}
 	}

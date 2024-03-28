@@ -443,18 +443,18 @@ var ExpectedPerPortPoliciesWildcard = []*cilium.PortNetworkPolicy{
 }
 
 var L4Policy1 = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap1},
-	Egress:  policy.L4DirectionPolicy{PortRules: L4PolicyMap2},
+	Ingress: L4PolicyMap1,
+	Egress:  L4PolicyMap2,
 }
 
 var L4Policy1RequiresV2 = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap1RequiresV2},
-	Egress:  policy.L4DirectionPolicy{PortRules: L4PolicyMap2},
+	Ingress: L4PolicyMap1RequiresV2,
+	Egress:  L4PolicyMap2,
 }
 
 var L4Policy2 = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap3},
-	Egress:  policy.L4DirectionPolicy{PortRules: L4PolicyMap2},
+	Ingress: L4PolicyMap3,
+	Egress:  L4PolicyMap2,
 }
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
@@ -588,7 +588,7 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 }
 
 var L4PolicyL7 = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Ingress: map[string]*policy.L4Filter{
 		"9090/TCP": {
 			Port: 9090, Protocol: api.ProtoTCP,
 			L7Parser: "tester",
@@ -607,7 +607,7 @@ var L4PolicyL7 = &policy.L4Policy{
 			},
 			Ingress: true,
 		},
-	}},
+	},
 }
 
 var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
@@ -645,7 +645,7 @@ func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
 }
 
 var L4PolicyKafka = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Ingress: map[string]*policy.L4Filter{
 		"9090/TCP": {
 			Port: 9092, Protocol: api.ProtoTCP,
 			L7Parser: "kafka",
@@ -659,7 +659,7 @@ var L4PolicyKafka = &policy.L4Policy{
 			},
 			Ingress: true,
 		},
-	}},
+	},
 }
 
 var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
@@ -700,7 +700,7 @@ func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
 }
 
 var L4PolicyMySQL = &policy.L4Policy{
-	Egress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Egress: map[string]*policy.L4Filter{
 		"3306/TCP": {
 			Port: 3306, Protocol: api.ProtoTCP,
 			L7Parser: "envoy.filters.network.mysql_proxy",
@@ -716,7 +716,7 @@ var L4PolicyMySQL = &policy.L4Policy{
 			},
 			Ingress: false,
 		},
-	}},
+	},
 }
 
 var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
@@ -770,6 +770,8 @@ func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
 	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
+var emptyL4Policy = &policy.L4Policy{}
+
 var kafkaIngressVisibilityPolicy = &policy.VisibilityPolicy{
 	Ingress: policy.DirectionalVisibilityPolicy{
 		"9092/TCP": &policy.VisibilityMetadata{ //"<Ingress/9092/TCP/Kafka>"
@@ -784,8 +786,7 @@ var kafkaIngressVisibilityPolicy = &policy.VisibilityPolicy{
 
 func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 	// No visibility gets allow-all policies
-	// Allow-all policies are generated also when l4 filter is nil when policy is not enforced.
-	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, nil, false, false)
+	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, emptyL4Policy, false, false)
 
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -797,7 +798,7 @@ func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 
 	c.Assert(obtained, checker.ExportedEquals, expected)
 
-	obtained = getNetworkPolicy(ep, kafkaIngressVisibilityPolicy, []string{IPv4Addr}, nil, false, false)
+	obtained = getNetworkPolicy(ep, kafkaIngressVisibilityPolicy, []string{IPv4Addr}, emptyL4Policy, false, false)
 
 	// Visibility policies still contain the allow-all policies, when policy is not enforced
 	expected = &cilium.NetworkPolicy{
@@ -823,7 +824,7 @@ func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 }
 
 var L4PolicyTLSEgress = &policy.L4Policy{
-	Egress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Egress: map[string]*policy.L4Filter{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
 			L7Parser: "tls",
@@ -835,7 +836,7 @@ var L4PolicyTLSEgress = &policy.L4Policy{
 				},
 			},
 		},
-	}},
+	},
 }
 
 var ExpectedPerPortPoliciesTLSEgress = []*cilium.PortNetworkPolicy{
@@ -862,7 +863,7 @@ func (s *ServerSuite) TestGetNetworkPolicyTLSEgress(c *C) {
 }
 
 var L4PolicyTLSIngress = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Ingress: map[string]*policy.L4Filter{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
 			L7Parser: "tls",
@@ -876,7 +877,7 @@ var L4PolicyTLSIngress = &policy.L4Policy{
 			},
 			Ingress: true,
 		},
-	}},
+	},
 }
 
 var ExpectedPerPortPoliciesTLSIngress = []*cilium.PortNetworkPolicy{

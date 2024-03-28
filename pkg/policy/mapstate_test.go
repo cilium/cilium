@@ -5,96 +5,14 @@ package policy
 
 import (
 	"fmt"
-	"testing"
 
 	check "github.com/cilium/checkmate"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-func Test_IsSuperSetOf(t *testing.T) {
-	tests := []struct {
-		superSet Key
-		subSet   Key
-		res      int
-	}{
-		{Key{}, Key{}, 0},
-		{Key{0, 0, 0, 0}, Key{42, 0, 6, 0}, 1},
-		{Key{0, 0, 0, 0}, Key{42, 80, 6, 0}, 1},
-		{Key{0, 0, 0, 0}, Key{42, 0, 0, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 0, 6, 0}, 2},
-		{Key{0, 0, 6, 0}, Key{42, 80, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{42, 80, 6, 0}, 3},
-		{Key{0, 80, 6, 0}, Key{42, 80, 17, 0}, 0},  // proto is different
-		{Key{2, 80, 6, 0}, Key{42, 80, 6, 0}, 0},   // id is different
-		{Key{0, 8080, 6, 0}, Key{42, 80, 6, 0}, 0}, // port is different
-		{Key{42, 0, 0, 0}, Key{42, 0, 0, 0}, 0},    // same key
-		{Key{42, 0, 0, 0}, Key{42, 0, 6, 0}, 4},
-		{Key{42, 0, 0, 0}, Key{42, 80, 6, 0}, 4},
-		{Key{42, 0, 0, 0}, Key{42, 0, 17, 0}, 4},
-		{Key{42, 0, 0, 0}, Key{42, 80, 17, 0}, 4},
-		{Key{42, 0, 6, 0}, Key{42, 0, 6, 0}, 0}, // same key
-		{Key{42, 0, 6, 0}, Key{42, 80, 6, 0}, 5},
-		{Key{42, 0, 6, 0}, Key{42, 8080, 6, 0}, 5},
-		{Key{42, 80, 6, 0}, Key{42, 80, 6, 0}, 0},    // same key
-		{Key{42, 80, 6, 0}, Key{42, 8080, 6, 0}, 0},  // different port
-		{Key{42, 80, 6, 0}, Key{42, 80, 17, 0}, 0},   // different proto
-		{Key{42, 80, 6, 0}, Key{42, 8080, 17, 0}, 0}, // different port and proto
-
-		// increasing specificity for a L3/L4 key
-		{Key{0, 0, 0, 0}, Key{42, 80, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 80, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{42, 80, 6, 0}, 3},
-		{Key{42, 0, 0, 0}, Key{42, 80, 6, 0}, 4},
-		{Key{42, 0, 6, 0}, Key{42, 80, 6, 0}, 5},
-		{Key{42, 80, 6, 0}, Key{42, 80, 6, 0}, 0}, // same key
-
-		// increasing specificity for a L3-only key
-		{Key{0, 0, 0, 0}, Key{42, 0, 0, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 0, 0, 0}, 0},   // not a superset
-		{Key{0, 80, 6, 0}, Key{42, 0, 0, 0}, 0},  // not a superset
-		{Key{42, 0, 0, 0}, Key{42, 0, 0, 0}, 0},  // same key
-		{Key{42, 0, 6, 0}, Key{42, 0, 0, 0}, 0},  // not a superset
-		{Key{42, 80, 6, 0}, Key{42, 0, 0, 0}, 0}, // not a superset
-
-		// increasing specificity for a L3/proto key
-		{Key{0, 0, 0, 0}, Key{42, 0, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 0, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{42, 0, 6, 0}, 0}, // not a superset
-		{Key{42, 0, 0, 0}, Key{42, 0, 6, 0}, 4},
-		{Key{42, 0, 6, 0}, Key{42, 0, 6, 0}, 0},  // same key
-		{Key{42, 80, 6, 0}, Key{42, 0, 6, 0}, 0}, // not a superset
-
-		// increasing specificity for a proto-only key
-		{Key{0, 0, 0, 0}, Key{0, 0, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{0, 0, 6, 0}, 0},   // same key
-		{Key{0, 80, 6, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
-		{Key{42, 0, 0, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
-		{Key{42, 0, 6, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
-		{Key{42, 80, 6, 0}, Key{0, 0, 6, 0}, 0}, // not a superset
-
-		// increasing specificity for a L4-only key
-		{Key{0, 0, 0, 0}, Key{0, 80, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{0, 80, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{0, 80, 6, 0}, 0},  // same key
-		{Key{42, 0, 0, 0}, Key{0, 80, 6, 0}, 0},  // not a superset
-		{Key{42, 0, 6, 0}, Key{0, 80, 6, 0}, 0},  // not a superset
-		{Key{42, 80, 6, 0}, Key{0, 80, 6, 0}, 0}, // not a superset
-
-	}
-	for i, tt := range tests {
-		assert.Equal(t, tt.res, tt.superSet.IsSuperSetOf(tt.subSet), fmt.Sprintf("IsSuperSetOf failed on round %d", i+1))
-		if tt.res != 0 {
-			assert.Equal(t, 0, tt.subSet.IsSuperSetOf(tt.superSet), fmt.Sprintf("Reverse IsSuperSetOf succeeded on round %d", i+1))
-		}
-	}
-}
 
 // WithOwners replaces owners of 'e' with 'owners'.
 // No owners is represented with a 'nil' map.
@@ -108,7 +26,6 @@ func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
 
 // WithAuthType sets auth type field as indicated.
 func (e MapStateEntry) WithAuthType(authType AuthType) MapStateEntry {
-	e.hasAuthType = ExplicitAuthType
 	e.AuthType = authType
 	return e
 }
@@ -151,17 +68,15 @@ func (m MapState) validatePortProto(c *check.C) {
 	}
 }
 
-func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.C) {
+func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 	type args struct {
 		key   Key
 		entry MapStateEntry
 	}
 	tests := []struct {
-		name                  string
-		keys, want            MapState
-		wantAdds, wantDeletes Keys
-		wantOldValues         MapState
-		args                  args
+		name       string
+		keys, want MapState
+		args       args
 	}{
 		{
 			name: "test-1 - no KV added, map should remain the same",
@@ -193,9 +108,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           false,
 				},
 			},
-			wantAdds:      Keys{},
-			wantDeletes:   Keys{},
-			wantOldValues: MapState{},
 		},
 		{
 			name: "test-2 - L3 allow KV should not overwrite deny entry",
@@ -246,16 +158,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           true,
 				},
 			},
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes:   Keys{},
-			wantOldValues: MapState{},
 		},
 		{
 			name: "test-3 - L3-L4 allow KV should not overwrite deny entry",
@@ -296,9 +198,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           true,
 				},
 			},
-			wantAdds:      Keys{},
-			wantDeletes:   Keys{},
-			wantOldValues: MapState{},
 		},
 		{
 			name: "test-4 - L3-L4 deny KV should overwrite allow entry",
@@ -337,27 +236,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					ProxyPort:        0,
 					DerivedFromRules: nil,
 					IsDeny:           true,
-				},
-			},
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes: Keys{},
-			wantOldValues: MapState{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           false,
 				},
 			},
 		},
@@ -443,44 +321,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					Identity:         2,
 					DestPort:         0,
 					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
-			},
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantOldValues: MapState{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: MapStateEntry{
 					ProxyPort:        0,
@@ -598,16 +438,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           false,
 				},
 			},
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Egress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes:   Keys{},
-			wantOldValues: MapState{},
 		},
 		{
 			name: "test-7 - L3 ingress deny KV should not be overwritten by a L3-L4 ingress allow",
@@ -648,9 +478,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           true,
 				},
 			},
-			wantAdds:      Keys{},
-			wantDeletes:   Keys{},
-			wantOldValues: MapState{},
 		},
 		{
 			name: "test-8 - L3 ingress deny KV should not be overwritten by a L3-L4-L7 ingress allow",
@@ -691,12 +518,9 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           true,
 				},
 			},
-			wantAdds:      Keys{},
-			wantDeletes:   Keys{},
-			wantOldValues: MapState{},
 		},
 		{
-			name: "test-9 - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow",
+			name: "test-9 - L3 ingress deny KV should overwrite by a L3-L4-L7 ingress allow",
 			keys: MapState{
 				Key{
 					Identity:         1,
@@ -734,37 +558,9 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           true,
 				},
 			},
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantOldValues: MapState{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        8080,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
-			},
 		},
 		{
-			name: "test-10 - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow and a L3-L4 deny",
+			name: "test-10 - L3 ingress deny KV should overwrite by a L3-L4-L7 ingress allow and a L3-L4 deny",
 			keys: MapState{
 				Key{
 					Identity:         1,
@@ -805,50 +601,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					Identity:         1,
 					DestPort:         0,
 					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           true,
-				},
-			},
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantOldValues: MapState{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        8080,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: MapStateEntry{
 					ProxyPort:        0,
@@ -916,9 +668,6 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           true,
 				},
 			},
-			wantAdds:      Keys{},
-			wantDeletes:   Keys{},
-			wantOldValues: MapState{},
 		}, {
 			name: "test-12 - inserting a L3 'all' deny should delete all entries for that direction",
 			keys: MapState{
@@ -988,73 +737,11 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					IsDeny:           true,
 				},
 			},
-			wantAdds: Keys{
-				Key{
-					Identity:         0,
-					DestPort:         0,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-				Key{
-					Identity:         1,
-					DestPort:         5,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantOldValues: MapState{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        8080,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
-				Key{
-					Identity:         1,
-					DestPort:         5,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: MapStateEntry{
-					ProxyPort:        8080,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
-			},
 		},
 	}
 	for _, tt := range tests {
-		changes := ChangeState{
-			Adds:    make(Keys),
-			Deletes: make(Keys),
-			Old:     make(MapState),
-		}
-		// copy the starging point
-		keys := make(MapState, len(tt.keys))
-		for k, v := range tt.keys {
-			keys[k] = v
-		}
-		keys.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, nil, denyRules, changes)
-		keys.validatePortProto(c)
-		c.Assert(keys, checker.DeepEquals, tt.want, check.Commentf("%s: MapState mismatch", tt.name))
-		c.Assert(changes.Adds, checker.DeepEquals, tt.wantAdds, check.Commentf("%s: Adds mismatch", tt.name))
-		c.Assert(changes.Deletes, checker.DeepEquals, tt.wantDeletes, check.Commentf("%s: Deletes mismatch", tt.name))
-		c.Assert(changes.Old, checker.DeepEquals, tt.wantOldValues, check.Commentf("%s: OldValues mismatch", tt.name))
-
-		// Revert changes and check that we get the original mapstate
-		keys.RevertChanges(changes)
-		c.Assert(keys, checker.DeepEquals, tt.keys, check.Commentf("%s: Revert mismatch", tt.name))
+		tt.keys.DenyPreferredInsert(tt.args.key, tt.args.entry)
+		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
 	}
 }
 
@@ -1461,10 +1148,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeDisabled, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
-		policyMapState.validatePortProto(c)
+		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
@@ -1484,7 +1170,6 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		ingress  bool
 		redirect bool
 		deny     bool
-		hasAuth  HasAuthType
 		authType AuthType
 	}
 	tests := []struct {
@@ -1678,10 +1363,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.hasAuth, x.authType, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.authType, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
-		policyMapState.validatePortProto(c)
+		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
@@ -1738,7 +1422,7 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			want: MapState{
-				HttpIngressKey(0): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}, nil),
+				HttpIngressKey(0): allowEntryD(12345, labels.LabelArrayList{testLabels, visibilityDerivedFromLabels}),
 			},
 		},
 		{
@@ -1751,7 +1435,7 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			want: MapState{
-				HttpIngressKey(123): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}, csBar),
+				HttpIngressKey(123): allowEntryD(12345, labels.LabelArrayList{testLabels, visibilityDerivedFromLabels}, csBar),
 			},
 		},
 		{
@@ -1845,41 +1529,37 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		},
 	}
 	for _, tt := range tests {
-		old := ChangeState{
-			Old: make(MapState, len(tt.keys)),
-		}
+		old := make(MapState, len(tt.keys))
 		for k, v := range tt.keys {
-			old.insertOldIfNotExists(k, v)
+			old[k] = v
 		}
-		changes := ChangeState{
-			Adds: make(Keys),
-			Old:  make(MapState),
-		}
-		tt.keys.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, changes)
+		adds := make(Keys)
+		visOld := make(MapState)
+		tt.keys.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, adds, visOld)
 		tt.keys.validatePortProto(c)
 		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
 		// Find new and updated entries
 		wantAdds := make(Keys)
 		wantOld := make(MapState)
-		for k, v := range old.Old {
+		for k, v := range old {
 			if _, ok := tt.keys[k]; !ok {
 				wantOld[k] = v
 			}
 		}
 		for k, v := range tt.keys {
-			if v2, ok := old.Old[k]; ok {
+			if v2, ok := old[k]; ok {
 				if equals, _ := checker.DeepEqual(v2, v); !equals {
-					if !v.DatapathEqual(&v2) {
-						wantAdds[k] = struct{}{}
-					}
+					wantAdds[k] = struct{}{}
 					wantOld[k] = v2
 				}
 			} else {
 				wantAdds[k] = struct{}{}
 			}
 		}
-		c.Assert(changes.Adds, checker.DeepEquals, wantAdds, check.Commentf(tt.name))
-		c.Assert(changes.Old, checker.DeepEquals, wantOld, check.Commentf(tt.name))
+		fmt.Printf("Adds: %v\n", adds)
+		fmt.Printf("wantAdds: %v\n", wantAdds)
+		c.Assert(adds, checker.DeepEquals, wantAdds, check.Commentf(tt.name))
+		c.Assert(visOld, checker.DeepEquals, wantOld, check.Commentf(tt.name))
 	}
 }
 
@@ -1923,8 +1603,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		visAdds: Keys{
-			HttpIngressKey(0):   {},
-			HttpIngressKey(234): {},
+			HttpIngressKey(0):         {},
+			testIngressKey(234, 0, 0): {}, // dependents changed
+			HttpIngressKey(234):       {},
 		},
 		visOld: MapState{
 			testIngressKey(234, 0, 0): denyEntry(0, csFoo),
@@ -2131,7 +1812,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			// Entry added solely due to visibility annotation has a 'nil' owner
 			HttpIngressKey(0): allowEntryD(12345, visibilityDerivedFrom).WithOwners(nil),
 			// Entries modified due to visibility annotation keep their existing owners (here none)
-			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom, nil),
+			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom),
 			DNSUDPEgressKey(42): allowEntryD(12347, visibilityDerivedFrom, csBar),
 			DNSTCPEgressKey(42): allowEntry(0, csBar),
 		},
@@ -2139,7 +1820,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			DNSUDPEgressKey(42): {},
 			DNSTCPEgressKey(42): {},
 		},
-		deletes: Keys{},
+		deletes: Keys{
+			// AddVisibilityKeys() returns overwritten entries in 'deletes'
+			DNSUDPEgressKey(42): {},
+		},
 	}, {
 		continued: true,
 		name:      "test-3b - egress HTTP proxy (incremental update)",
@@ -2164,7 +1848,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			AnyIngressKey():     allowEntry(0),
 			HostIngressKey():    allowEntry(0),
 			HttpIngressKey(0):   allowEntryD(12345, visibilityDerivedFrom).WithOwners(nil),
-			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom, nil),
+			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom),
 			DNSUDPEgressKey(42): allowEntryD(12347, visibilityDerivedFrom, csBar),
 			DNSTCPEgressKey(42): allowEntry(0, csBar),
 			// Redirect entries are not modified by visibility annotations
@@ -2216,17 +1900,17 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				policyMapState = MapState{}
 			}
 		}
-		changes := ChangeState{
-			Adds:    make(Keys),
-			Deletes: make(Keys),
-			Old:     make(MapState),
-		}
+		adds := make(Keys)
+		deletes := make(Keys)
+		visOld := make(MapState)
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, visOld)
 		}
-		c.Assert(changes.Adds, checker.DeepEquals, tt.visAdds, check.Commentf(tt.name+" (visAdds)"))
-		c.Assert(changes.Old, checker.DeepEquals, tt.visOld, check.Commentf(tt.name+" (visOld)"))
-
+		c.Assert(adds, checker.DeepEquals, tt.visAdds, check.Commentf(tt.name+" (visAdds)"))
+		c.Assert(visOld, checker.DeepEquals, tt.visOld, check.Commentf(tt.name+" (visOld)"))
+		for k := range visOld {
+			deletes[k] = struct{}{}
+		}
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
 			if x.ingress {
@@ -2238,155 +1922,20 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeDisabled, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
-		changes = ChangeState{
-			Adds:    adds,
-			Deletes: deletes,
-			Old:     make(MapState),
-		}
-
+		adds, deletes = policyMaps.consumeMapChanges(policyMapState)
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
+		visOld = make(MapState)
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, visOld)
 		}
-		for k := range changes.Old {
-			changes.Deletes[k] = struct{}{}
+		for k := range visOld {
+			deletes[k] = struct{}{}
 		}
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
-		c.Assert(changes.Adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
-		c.Assert(changes.Deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
-	}
-}
-
-func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithSubnets(c *check.C) {
-	identityCache := cache.IdentityCache{
-		identity.ReservedIdentityWorld: labels.LabelWorld.LabelArray(),
-		worldIPIdentity:                lblWorldIP,                  // "192.0.2.3/32"
-		worldSubnetIdentity:            lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
-	}
-
-	reservedWorldID := identity.ReservedIdentityWorld.Uint32()
-	worldIPID := worldIPIdentity.Uint32()
-	worldSubnetID := worldSubnetIdentity.Uint32()
-	selectorCache := testNewSelectorCache(identityCache)
-	type action uint16
-	const (
-		noAction = action(iota)
-		insertA  = action(1 << iota)
-		insertB
-		insertAWithBProto
-		insertBWithAProto
-
-		insertBoth            = insertA | insertB
-		canDeleteAInsertsBoth = insertBoth
-		canDeleteBInsertsBoth = insertBoth
-	)
-	// these tests are based on the sheet https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536
-	tests := []struct {
-		name                 string
-		aIdentity, bIdentity uint32
-		aIsDeny, bIsDeny     bool
-		aPort                uint16
-		aProto               uint8
-		bPort                uint16
-		bProto               uint8
-		outcome              action
-	}{
-		// deny-allow insertions
-		{"deny-allow: a superset a|b L3-only", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 0, insertA},
-		{"deny-allow: b superset a|b L3-only", worldIPID, worldSubnetID, true, false, 0, 0, 0, 0, insertBoth},
-		{"deny-allow: a superset a L3-only, b L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 6, insertA},
-		{"deny-allow: b superset a L3-only, b L4", worldIPID, worldSubnetID, true, false, 0, 0, 0, 6, insertBoth | insertAWithBProto},
-		{"deny-allow: a superset a L3-only, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 80, 6, insertA},
-		{"deny-allow: b superset a L3-only, b L3L4", worldIPID, worldSubnetID, true, false, 0, 0, 80, 6, insertBoth | insertAWithBProto},
-		{"deny-allow: a superset a L4, b L3-only", reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: b superset a L4, b L3-only", worldIPID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L4, b L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 6, insertA},
-		{"deny-allow: b superset a L4, b L4", worldIPID, worldSubnetID, true, false, 0, 6, 0, 6, insertBoth},
-		{"deny-allow: a superset a L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 80, 6, insertA},
-		{"deny-allow: b superset a L4, b L3L4", worldIPID, worldSubnetID, true, false, 0, 6, 80, 6, insertBoth | insertAWithBProto},
-		{"deny-allow: a superset a L3L4, b L3-only", reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth},
-		{"deny-allow: b superset a L3L4, b L3-only", worldIPID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L3L4, b L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: b superset a L3L4, b L4", worldIPID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: a superset a L3L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 80, 6, insertA},
-		{"deny-allow: b superset a L3L4, b L3L4", worldIPID, worldSubnetID, true, false, 80, 6, 80, 6, insertBoth},
-
-		// deny-deny insertions: Note: We do not delete all redundant deny-deny insertions that we could.
-		// We only delete entries redundant to L3-only port protocols, all other port-protocol supersets
-		// *do not* have this effect.
-		{"deny-deny: a superset a|b L3-only", worldSubnetID, worldIPID, true, true, 0, 0, 0, 0, insertA},
-		{"deny-deny: b superset a|b L3-only", worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 0, insertB},
-		{"deny-deny: a superset a L3-only, b L4", worldSubnetID, worldIPID, true, true, 0, 0, 0, 6, insertA},
-		{"deny-deny: b superset a L3-only, b L4", worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 6, insertBoth},
-		{"deny-deny: a superset a L3-only, b L3L4", worldSubnetID, worldIPID, true, true, 0, 0, 80, 6, insertA},
-		{"deny-deny: b superset a L3-only, b L3L4", worldSubnetID, reservedWorldID, true, true, 0, 0, 80, 6, insertBoth},
-		{"deny-deny: a superset a L4, b L3-only", worldSubnetID, worldIPID, true, true, 0, 6, 0, 0, insertBoth},
-		{"deny-deny: b superset a L4, b L3-only", worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 0, insertB},
-		{"deny-deny: a superset a L4, b L4", worldSubnetID, worldIPID, true, true, 0, 6, 0, 6, canDeleteBInsertsBoth},
-		{"deny-deny: b superset a L4, b L4", worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 6, canDeleteAInsertsBoth},
-		{"deny-deny: a superset a L4, b L3L4", worldSubnetID, worldIPID, true, true, 0, 6, 80, 6, canDeleteBInsertsBoth},
-		{"deny-deny: b superset a L4, b L3L4", worldSubnetID, reservedWorldID, true, true, 0, 6, 80, 6, insertBoth},
-		{"deny-deny: a superset a L3L4, b L3-only", worldSubnetID, worldIPID, true, true, 80, 6, 0, 0, insertBoth},
-		{"deny-deny: b superset a L3L4, b L3-only", worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 0, insertB},
-		{"deny-deny: a superset a L3L4, b L4", worldSubnetID, worldIPID, true, true, 80, 6, 0, 6, insertBoth},
-		{"deny-deny: b superset a L3L4, b L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 6, canDeleteAInsertsBoth},
-		{"deny-deny: a superset a L3L4, b L3L4", worldSubnetID, worldIPID, true, true, 80, 6, 80, 6, canDeleteBInsertsBoth},
-		{"deny-deny: b superset a L3L4, b L3L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 80, 6, canDeleteAInsertsBoth},
-		// allow-allow insertions do not need to be tests as they will all be inserted
-	}
-	for _, tt := range tests {
-		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
-		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
-		bKey := Key{Identity: tt.bIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto}
-		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
-		expectedKeys := MapState{}
-		if tt.outcome&insertA > 0 {
-			expectedKeys[aKey] = aEntry
-		}
-		if tt.outcome&insertB > 0 {
-			expectedKeys[bKey] = bEntry
-		}
-		if tt.outcome&insertAWithBProto > 0 {
-			aKeyWithBProto := Key{Identity: tt.aIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto}
-			aEntryCpy := MapStateEntry{IsDeny: tt.aIsDeny}
-			aEntryCpy.owners = map[MapStateOwner]struct{}{aKey: {}}
-			aEntry.AddDependent(aKeyWithBProto)
-			expectedKeys[aKey] = aEntry
-			expectedKeys[aKeyWithBProto] = aEntryCpy
-		}
-		if tt.outcome&insertBWithAProto > 0 {
-			bKeyWithBProto := Key{Identity: tt.bIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
-			bEntryCpy := MapStateEntry{IsDeny: tt.bIsDeny}
-			bEntryCpy.owners = map[MapStateOwner]struct{}{bKey: {}}
-			bEntry.AddDependent(bKeyWithBProto)
-			expectedKeys[bKey] = bEntry
-			expectedKeys[bKeyWithBProto] = bEntryCpy
-		}
-		outcomeKeys := MapState{}
-		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
-		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
-		outcomeKeys.validatePortProto(c)
-		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf(tt.name))
-	}
-	// Now test all cases with different traffic directions.
-	// This should result in both entries being inserted with
-	// no changes, as they do not affect one another anymore.
-	for _, tt := range tests {
-		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
-		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
-		bKey := Key{Identity: tt.bIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto, TrafficDirection: 1}
-		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
-		expectedKeys := MapState{}
-		expectedKeys[aKey] = aEntry
-		expectedKeys[bKey] = bEntry
-		outcomeKeys := MapState{}
-		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
-		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
-		outcomeKeys.validatePortProto(c)
-		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
+		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
+		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
 	}
 }
