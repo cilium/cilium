@@ -209,7 +209,7 @@ func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context, helmValues map[s
 
 		// Use HelmOpts to set auto kube-proxy installation
 		setIfUnset("kubeProxyReplacement", func() string {
-			if !versioncheck.MustCompile(">=1.14.0")(k.chartVersion) {
+			if versioncheck.MustCompile(">=1.14.0")(k.chartVersion) {
 				return "true"
 			}
 			return "strict"
