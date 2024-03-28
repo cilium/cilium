@@ -193,8 +193,8 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, preAllocate)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, preAllocate)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
 	mngr.Upsert(updateCiliumNode(k8sapi.getLatestNode("node1"), toUse))
@@ -204,8 +204,8 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, toUse+preAllocate)
-	c.Assert(node.Stats().UsedIPs, check.Equals, toUse)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, toUse+preAllocate)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, toUse)
 }
 
 // TestIpamMinAllocate10 tests IPAM with pre-allocation=8, min-allocate=10
@@ -255,8 +255,8 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, minAllocate)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, minAllocate)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 10 IPs
 	mngr.Upsert(updateCiliumNode(k8sapi.getLatestNode("node1"), toUse))
@@ -266,8 +266,8 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, toUse+preAllocate)
-	c.Assert(node.Stats().UsedIPs, check.Equals, toUse)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, toUse+preAllocate)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, toUse)
 
 	quota := instances.GetPoolQuota()
 	c.Assert(len(quota), check.Equals, 1)
@@ -327,11 +327,11 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 
 		node := mngr.Get(s.name)
 		c.Assert(node, check.Not(check.IsNil))
-		if node.Stats().AvailableIPs != minAllocate {
-			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
+		if node.Stats().IPv4.AvailableIPs != minAllocate {
+			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().IPv4.AvailableIPs)
 			c.Fail()
 		}
-		c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+		c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 	}
 
 	// The above check returns as soon as the address requirements are met.
