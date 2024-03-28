@@ -11,6 +11,13 @@ nodes:
         nodeRegistration:
           taints: []
   - role: worker
+  # Two extra nodes without Cilium to use for --external-ip and --external-other-ip.
+  - role: worker
+    labels:
+      cilium.io/no-schedule: "true"
+  - role: worker
+    labels:
+      cilium.io/no-schedule: "true"
 networking:
   disableDefaultCNI: true
   podSubnet: "10.244.0.0/16"

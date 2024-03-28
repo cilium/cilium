@@ -1,0 +1,42 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+ name: ca-cert
+spec:
+ secretName: ca
+ isCA: true
+ issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+ commonName: "cilium.io"
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: external-target-cert
+spec:
+  secretName: external-target-cert
+  dnsNames:
+  - "chart-testing-worker2"
+  - "chart-testing-worker3"
+  ipAddresses:
+  - "${worker2_ip}"
+  - "${worker3_ip}"
+  issuerRef:
+    name: ca-cert-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ca-cert-issuer
+spec:
+ ca:
+   secretName: ca

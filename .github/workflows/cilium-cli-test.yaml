@@ -1,0 +1,160 @@
+name: Run cilium connectivity test against the latest Cilium release
+
+on:
+  pull_request: {}
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  KIND_CONFIG: .github/kind-config.yaml
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-22.04
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Check code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: tested-tree
+        with:
+          filters: |
+            src:
+              - 'pkg/cilium-cli/**'
+
+  cilium-connectivity-test:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.tested == 'true' }}
+    runs-on: ubuntu-latest
+    name: Run cilium connectivity test against the latest Cilium release.
+    steps:
+      - name: Checkout target branch to access local actions
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.base_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Create kind cluster
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@de740a64da1b12dc8488cf3af2474c60d52c349e # v0.16.3
+        with:
+          go-mod-directory: '.'
+
+      - name: Install Cilium
+        run: |
+          cilium install \
+            --nodes-without-cilium \
+            --wait=false \
+            --set bpf.monitorAggregation=none \
+            --set cni.chainingMode=portmap \
+            --set hubble.relay.enabled=true \
+            --set loadBalancer.l7.backend=envoy \
+            --set tls.secretsBackend=k8s \
+            --set prometheus.enabled=true \
+            ${{ env.CILIUM_INSTALL_EXTRA_FLAGS }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl -n kube-system get pods
+
+      - name: Port forward Relay
+        run: |
+          cilium hubble port-forward&
+          sleep 10s
+          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
+
+      - name: Set up external targets
+        id: external_targets
+        run: |
+          export worker2_ip=$(kubectl get nodes chart-testing-worker2 -o=jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+          export worker3_ip=$(kubectl get nodes chart-testing-worker3 -o=jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+          echo "worker2_ip=${worker2_ip}" >> $GITHUB_OUTPUT
+          echo "worker3_ip=${worker3_ip}" >> $GITHUB_OUTPUT
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.12.0/cert-manager.yaml
+          kubectl rollout status -n cert-manager deployment.apps/cert-manager
+          kubectl rollout status -n cert-manager deployment.apps/cert-manager-webhook
+          kubectl create ns external-targets
+          cat .github/external-targets/certs.yaml | envsubst | kubectl apply -n external-targets -f -
+          until kubectl get secret -n external-targets external-target-cert &> /dev/null; do sleep 1s; done
+          kubectl apply -n external-targets -f .github/external-targets/nginx.yaml
+          kubectl rollout status -n external-targets ds/nginx
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junit
+
+      - name: Connectivity Test
+        run: |
+          # Setup the connectivity disruption tests. We don't really care about the result
+          # here (in the sense that we don't perform any operation which might cause a
+          # disruption), but we want to make sure that the command works as expected.
+          #
+          # Dispatch interval is set to 100ms, b/c otherwise (default is 0), the flow validation might time out.
+          cilium connectivity test --debug --test-namespace test-namespace \
+            --conn-disrupt-dispatch-interval 100ms \
+            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            ${{ env.DISRUPTION_TEST_EXTRA_FLAGS }}
+
+          # Run the connectivity test in non-default namespace (i.e. not cilium-test)
+          cilium connectivity test --debug --all-flows --test-namespace test-namespace \
+            --include-unsafe-tests --include-conn-disrupt-test \
+            --collect-sysdump-on-failure --junit-file cilium-junit/cilium-junit.xml \
+            --junit-property type=no-tunnel \
+            --curl-insecure \
+            --external-target chart-testing-worker2 \
+            --external-target-ca-namespace=external-targets \
+            --external-target-ca-name=ca \
+            --external-cidr 172.18.0.0/16 \
+            --external-ip ${{ steps.external_targets.outputs.worker2_ip }} \
+            --external-other-ip ${{ steps.external_targets.outputs.worker3_ip }} \
+            ${{ env.CONNECTIVITY_TEST_EXTRA_FLAGS }}
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cilium status
+          kubectl get pods --all-namespaces -o wide
+          cilium sysdump --output-filename cilium-sysdump-final --hubble-flows-count 10000
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload JUnit
+        if: ${{ always() }}
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: cilium-junit
+          path: cilium-junit/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump
+          path: cilium-sysdump-*.zip
