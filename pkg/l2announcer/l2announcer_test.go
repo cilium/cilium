@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/healthv2"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -54,6 +55,7 @@ func newFixture() *fixture {
 
 	hive.New(
 		statedb.Cell,
+		healthv2.Cell,
 		job.Cell,
 		cell.Provide(tables.NewL2AnnounceTable),
 		cell.Module("test", "test", cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], s cell.Scope, j job.Registry) {
@@ -1175,6 +1177,7 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 
 	h := hive.New(
 		statedb.Cell,
+		healthv2.Cell,
 		job.Cell,
 		Cell,
 		cell.Provide(tables.NewL2AnnounceTable),
