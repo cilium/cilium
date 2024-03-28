@@ -23,10 +23,10 @@ import (
 
 // bpfEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
 type bpfEgressGatewayPolicyEntry struct {
-	SourceIP  string
-	DestCIDR  string
-	EgressIP  string
-	GatewayIP string
+	SourceIP  string `json:"sourceIP"`
+	DestCIDR  string `json:"destCIDR"`
+	EgressIP  string `json:"egressIP"`
+	GatewayIP string `json:"gatewayIP"`
 }
 
 // matches is an helper used to compare the receiver bpfEgressGatewayPolicyEntry with another entry
