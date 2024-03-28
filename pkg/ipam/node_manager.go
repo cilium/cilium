@@ -165,15 +165,16 @@ type nodeMap map[string]*Node
 
 // NodeManager manages all nodes with ENIs
 type NodeManager struct {
-	mutex              lock.RWMutex
-	nodes              nodeMap
-	instancesAPI       AllocationImplementation
-	k8sAPI             CiliumNodeGetterUpdater
-	metricsAPI         MetricsAPI
-	parallelWorkers    int64
-	releaseExcessIPs   bool
-	stableInstancesAPI bool
-	prefixDelegation   bool
+	mutex                lock.RWMutex
+	nodes                nodeMap
+	instancesAPI         AllocationImplementation
+	k8sAPI               CiliumNodeGetterUpdater
+	metricsAPI           MetricsAPI
+	parallelWorkers      int64
+	releaseExcessIPs     bool
+	stableInstancesAPI   bool
+	prefixDelegation     bool
+	ipv6PrefixDelegation bool
 }
 
 func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
@@ -186,19 +187,20 @@ func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) t
 
 // NewNodeManager returns a new NodeManager
 func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
-	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool) (*NodeManager, error) {
+	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation, ipv6prefixDelegation bool) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
 
 	mngr := &NodeManager{
-		nodes:            nodeMap{},
-		instancesAPI:     instancesAPI,
-		k8sAPI:           k8sAPI,
-		metricsAPI:       metrics,
-		parallelWorkers:  parallelWorkers,
-		releaseExcessIPs: releaseExcessIPs,
-		prefixDelegation: prefixDelegation,
+		nodes:                nodeMap{},
+		instancesAPI:         instancesAPI,
+		k8sAPI:               k8sAPI,
+		metricsAPI:           metrics,
+		parallelWorkers:      parallelWorkers,
+		releaseExcessIPs:     releaseExcessIPs,
+		prefixDelegation:     prefixDelegation,
+		ipv6PrefixDelegation: ipv6prefixDelegation,
 	}
 
 	// Assume readiness, the initial blocking resync in Start() will update
@@ -281,11 +283,20 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 	node, ok := n.nodes[resource.Name]
 	if !ok {
 		node = &Node{
-			name:                resource.Name,
-			manager:             n,
-			ipsMarkedForRelease: make(map[string]time.Time),
-			ipReleaseStatus:     make(map[string]string),
-			logLimiter:          logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+			name:       resource.Name,
+			manager:    n,
+			logLimiter: logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+			ipv4Alloc: ipAllocAttrs{
+				ipsMarkedForRelease: make(map[string]time.Time),
+				ipReleaseStatus:     make(map[string]string),
+			},
+		}
+
+		if n.ipv6PrefixDelegation {
+			node.ipv6Alloc = ipAllocAttrs{
+				ipsMarkedForRelease: make(map[string]time.Time),
+				ipReleaseStatus:     make(map[string]string),
+			}
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -421,7 +432,7 @@ func (n *NodeManager) Get(nodeName string) *Node {
 	return node
 }
 
-// GetNodesByIPWatermarkLocked returns all nodes that require addresses to be
+// GetNodesByIPWatermarkLocked returns all nodes that require IPv4 addresses to be
 // allocated or released, sorted by the number of addresses needed to be operated
 // in descending order. Number of addresses to be released is negative value
 // so that nodes with IP deficit are resolved first
@@ -450,12 +461,16 @@ func (n *NodeManager) GetNodesByIPWatermarkLocked() []*Node {
 
 type resyncStats struct {
 	mutex               lock.Mutex
+	ipv4                ipResyncStats
+	emptyInterfaceSlots int
+}
+
+type ipResyncStats struct {
 	totalUsed           int
 	totalAvailable      int
 	totalNeeded         int
 	remainingInterfaces int
 	interfaceCandidates int
-	emptyInterfaceSlots int
 	nodes               int
 	nodesAtCapacity     int
 	nodesInDeficit      int
@@ -475,31 +490,31 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	nodeStats := node.Stats()
 
 	stats.mutex.Lock()
-	stats.totalUsed += nodeStats.UsedIPs
+	stats.ipv4.totalUsed += nodeStats.IPv4.UsedIPs
 	// availableOnNode is the number of available IPs on the node at this
 	// current moment. It does not take into account the number of IPs that
 	// can be allocated in the future.
-	availableOnNode := nodeStats.AvailableIPs - nodeStats.UsedIPs
-	stats.totalAvailable += availableOnNode
-	stats.totalNeeded += nodeStats.NeededIPs
-	stats.remainingInterfaces += nodeStats.RemainingInterfaces
-	stats.interfaceCandidates += nodeStats.InterfaceCandidates
+	availableOnNode := nodeStats.IPv4.AvailableIPs - nodeStats.IPv4.UsedIPs
+	stats.ipv4.totalAvailable += availableOnNode
+	stats.ipv4.totalNeeded += nodeStats.IPv4.NeededIPs
+	stats.ipv4.remainingInterfaces += nodeStats.IPv4.RemainingInterfaces
+	stats.ipv4.interfaceCandidates += nodeStats.IPv4.InterfaceCandidates
 	stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
-	stats.nodes++
+	stats.ipv4.nodes++
 
-	stats.nodeCapacity = nodeStats.Capacity
+	stats.ipv4.nodeCapacity = nodeStats.IPv4.Capacity
 
 	// Set per Node metrics.
-	n.metricsAPI.SetIPAvailable(node.name, stats.nodeCapacity)
-	n.metricsAPI.SetIPUsed(node.name, nodeStats.UsedIPs)
-	n.metricsAPI.SetIPNeeded(node.name, nodeStats.NeededIPs)
+	n.metricsAPI.SetIPAvailable(node.name, nodeStats.IPv4.Capacity)
+	n.metricsAPI.SetIPUsed(node.name, nodeStats.IPv4.UsedIPs)
+	n.metricsAPI.SetIPNeeded(node.name, nodeStats.IPv4.NeededIPs)
 
 	if allocationNeeded {
-		stats.nodesInDeficit++
+		stats.ipv4.nodesInDeficit++
 	}
 
-	if nodeStats.RemainingInterfaces == 0 && availableOnNode == 0 {
-		stats.nodesAtCapacity++
+	if nodeStats.IPv4.RemainingInterfaces == 0 && availableOnNode == 0 {
+		stats.ipv4.nodesAtCapacity++
 	}
 
 	stats.mutex.Unlock()
@@ -534,15 +549,15 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	// complete and thus blocks until all nodes are synced
 	sem.Acquire(ctx, n.parallelWorkers)
 
-	n.metricsAPI.SetAllocatedIPs("used", stats.totalUsed)
-	n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)
-	n.metricsAPI.SetAllocatedIPs("needed", stats.totalNeeded)
-	n.metricsAPI.SetAvailableInterfaces(stats.remainingInterfaces)
-	n.metricsAPI.SetInterfaceCandidates(stats.interfaceCandidates)
+	n.metricsAPI.SetAllocatedIPs("used", stats.ipv4.totalUsed)
+	n.metricsAPI.SetAllocatedIPs("available", stats.ipv4.totalAvailable)
+	n.metricsAPI.SetAllocatedIPs("needed", stats.ipv4.totalNeeded)
+	n.metricsAPI.SetAvailableInterfaces(stats.ipv4.remainingInterfaces)
+	n.metricsAPI.SetInterfaceCandidates(stats.ipv4.interfaceCandidates)
 	n.metricsAPI.SetEmptyInterfaceSlots(stats.emptyInterfaceSlots)
-	n.metricsAPI.SetNodes("total", stats.nodes)
-	n.metricsAPI.SetNodes("in-deficit", stats.nodesInDeficit)
-	n.metricsAPI.SetNodes("at-capacity", stats.nodesAtCapacity)
+	n.metricsAPI.SetNodes("total", stats.ipv4.nodes)
+	n.metricsAPI.SetNodes("in-deficit", stats.ipv4.nodesInDeficit)
+	n.metricsAPI.SetNodes("at-capacity", stats.ipv4.nodesAtCapacity)
 
 	for poolID, quota := range n.instancesAPI.GetPoolQuota() {
 		n.metricsAPI.SetAvailableIPsPerSubnet(string(poolID), quota.AvailabilityZone, quota.AvailableIPs)
