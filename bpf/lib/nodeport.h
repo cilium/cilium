@@ -1298,7 +1298,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	lb6_fill_key(&key, &tuple);
 
-	svc = lb6_lookup_service(&key, false, false);
+	svc = lb6_lookup_service(&key, false);
 	if (svc) {
 		const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
@@ -2804,7 +2804,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	lb4_fill_key(&key, &tuple);
 
-	svc = lb4_lookup_service(&key, false, false);
+	svc = lb4_lookup_service(&key, false);
 	if (svc) {
 		const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
