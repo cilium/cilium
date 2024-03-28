@@ -4,6 +4,7 @@
 package synced
 
 import (
+	"context"
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
@@ -114,7 +115,7 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 
 // WaitForCacheSync waits for all K8s resources represented by
 // resourceNames to have their K8s caches synchronized.
-func (r *Resources) WaitForCacheSync(resourceNames ...string) {
+func (r *Resources) WaitForCacheSync(ctx context.Context, resourceNames ...string) {
 	for _, resourceName := range resourceNames {
 		r.RLock()
 		c, ok := r.resources[resourceName]
@@ -131,6 +132,10 @@ func (r *Resources) WaitForCacheSync(resourceNames ...string) {
 			if stopWait {
 				scopedLog.Debug("stopped waiting for caches to be synced")
 				break
+			}
+			if err := ctx.Err(); err != nil {
+				scopedLog.WithError(err).Debug("original cache sync operation was aborted")
+				return
 			}
 			scopedLog.Debug("original cache sync operation was aborted, waiting for caches to be synced with a new channel...")
 			time.Sleep(syncedPollPeriod)
@@ -150,7 +155,7 @@ const syncedPollPeriod = 100 * time.Millisecond
 // WaitForCacheSyncWithTimeout waits for K8s resources represented by resourceNames to be synced.
 // For every resource type, if an event happens after starting the wait, the timeout will be pushed out
 // to be the time of the last event plus the timeout duration.
-func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceNames ...string) error {
+func (r *Resources) WaitForCacheSyncWithTimeout(ctx context.Context, timeout time.Duration, resourceNames ...string) error {
 	// Upon completion, release event map to reduce unnecessary memory usage.
 	// SetEventTimestamp calls to nil event time map are no-op.
 	// Running BlockWaitGroupToSyncResources will reinitialize the event map.
@@ -164,7 +169,7 @@ func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceN
 	for _, resource := range resourceNames {
 		done := make(chan struct{})
 		go func(resource string) {
-			r.WaitForCacheSync(resource)
+			r.WaitForCacheSync(ctx, resource)
 			close(done)
 		}(resource)
 

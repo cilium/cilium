@@ -1540,6 +1540,7 @@ func (d *Daemon) initKVStore() {
 		// to the service IP as well perform the service -> backend IPs for
 		// that service IP.
 		d.k8sWatcher.WaitForCacheSync(
+			d.ctx,
 			resources.K8sAPIGroupServiceV1Core,
 			resources.K8sAPIGroupEndpointSliceOrEndpoint,
 		)
@@ -1705,7 +1706,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
-		<-params.CacheStatus
+		select {
+		case <-params.CacheStatus:
+		case <-d.ctx.Done():
+			return d.ctx.Err()
+		}
 	}
 	bootstrapStats.k8sInit.End(true)
 	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
