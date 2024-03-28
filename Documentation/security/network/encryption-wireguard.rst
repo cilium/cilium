@@ -295,6 +295,45 @@ options:
   - LoadBalancer & NodePort XDP Acceleration
   - Direct Server Return (DSR)
 
+Which traffic encrypted
+=======================
+
+The following table denotes which packets are encrypted with WireGuard depending
+on the mode:
+
++------------------------------------+--------------------+-------------------------+
+| Traffic                            | default mode       | node-to-node encryption |
+|                                    |                    | mode                    |
++------------------------------------+--------------------+-------------------------+
+| Pod to remote Pod                  | Y                  | Y                       |
++------------------------------------+--------------------+-------------------------+
+| Pod to remote Pod via L7 proxy or  | Y                  | Y                       |
+| L7 ingress service                 |                    |                         |
++------------------------------------+--------------------+-------------------------+
+| Pod to remote Pod via Service with | Y                  | Y                       |
+| kube-proxy-replacement             |                    |                         |
++------------------------------------+--------------------+-------------------------+
+| Pod to Egress Gateway node         | Y                  | Y                       |
++------------------------------------+--------------------+-------------------------+
+| Client outside cluster to Pod via  | Y                  | Y                       |
+| ServiceService with tunneling and  |                    |                         |
+| kube-proxy-replacement             |                    |                         |
++------------------------------------+--------------------+-------------------------+
+| Client outside cluster to Pod via  | N                  | Y                       |
+| Service with native routing        |                    |                         |
++------------------------------------+--------------------+-------------------------+
+| Pod to remote Node with tunneling  | ?                  | Y                       |
++------------------------------------+--------------------+-------------------------+
+| Pod to remote Node with native     | N                  | Y                       |
++------------------------------------+--------------------+-------------------------+
+| Node to remote Pod with tunneling  | ?                  | Y                       |
++------------------------------------+--------------------+-------------------------+
+| Node to remote Pod with native     | N                  | Y                       |
+| routing                            |                    |                         |
++------------------------------------+--------------------+-------------------------+
+| Node to Node                       | N                  | Y                       |
++------------------------------------+--------------------+-------------------------+
+
 Legal
 =====
 
