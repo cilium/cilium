@@ -156,10 +156,12 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 }
 
 static __always_inline bool
-sock4_skip_xlate(struct lb4_service *svc, __be32 address)
+sock4_skip_xlate(struct lb4_service *svc, __be32 address __maybe_unused)
 {
 	if (lb4_to_lb6_service(svc))
 		return true;
+
+#ifndef DISABLE_EXTERNAL_IP_MITIGATION
 	if (lb4_svc_is_external_ip(svc) ||
 	    (lb4_svc_is_hostport(svc) && !is_v4_loopback(address))) {
 		struct remote_endpoint_info *info;
@@ -168,6 +170,7 @@ sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 		if (!info || info->sec_identity != HOST_ID)
 			return true;
 	}
+#endif
 
 	return false;
 }
