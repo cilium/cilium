@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -127,7 +126,7 @@ type manager struct {
 	ipcache IPCache
 
 	// ipsetMgr is the ipset cluster nodes configuration manager
-	ipsetMgr    ipset.Manager
+	ipsetMgr    datapath.IPSetManager
 	ipsetFilter IPSetFilterFn
 
 	// controllerManager manages the controllers that are launched within the
@@ -261,7 +260,7 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetFilter IPSetFilterFn, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr datapath.IPSetManager, ipsetFilter IPSetFilterFn, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
 	if ipsetFilter == nil {
 		ipsetFilter = func(*nodeTypes.Node) bool { return false }
 	}
@@ -559,8 +558,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			v4Addrs = append(v4Addrs, addr)
 		}
 	}
-	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
-	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
+	m.ipsetMgr.AddToIPSet(datapath.CiliumNodeIPSetV4, datapath.INetFamily, v4Addrs...)
+	m.ipsetMgr.AddToIPSet(datapath.CiliumNodeIPSetV6, datapath.INet6Family, v6Addrs...)
 
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
 		healthIP := ip.IPToNetPrefix(address)
@@ -723,8 +722,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		}
 	}
 
-	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
-	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
+	m.ipsetMgr.RemoveFromIPSet(datapath.CiliumNodeIPSetV4, v4Addrs...)
+	m.ipsetMgr.RemoveFromIPSet(datapath.CiliumNodeIPSetV6, v6Addrs...)
 
 	// Delete the old health IP addresses if they have changed in this node.
 	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {

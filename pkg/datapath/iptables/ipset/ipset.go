@@ -14,28 +14,11 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
-
-const (
-	CiliumNodeIPSetV4 = "cilium_node_set_v4"
-	CiliumNodeIPSetV6 = "cilium_node_set_v6"
-)
-
-type Family string
-
-const (
-	INetFamily  Family = "inet"
-	INet6Family Family = "inet6"
-)
-
-// Manager handles the kernel IP sets configuration
-type Manager interface {
-	AddToIPSet(name string, family Family, addrs ...netip.Addr)
-	RemoveFromIPSet(name string, addrs ...netip.Addr)
-}
 
 type manager struct {
 	logger  logrus.FieldLogger
@@ -50,7 +33,7 @@ type manager struct {
 // AddToIPSet adds the addresses to the ipset with given name and family.
 // It creates the ipset if it doesn't already exist and doesn't error out
 // if either the ipset or the IP already exist.
-func (m *manager) AddToIPSet(name string, family Family, addrs ...netip.Addr) {
+func (m *manager) AddToIPSet(name string, family types.IPSetFamily, addrs ...netip.Addr) {
 	if !m.enabled || len(addrs) == 0 {
 		return
 	}
@@ -98,25 +81,33 @@ func (m *manager) RemoveFromIPSet(name string, addrs ...netip.Addr) {
 	txn.Commit()
 }
 
+type params struct {
+	cell.In
+
+	Logger    logrus.FieldLogger
+	Lifecycle cell.Lifecycle
+
+	DB    *statedb.DB
+	Table statedb.RWTable[*tables.IPSet]
+
+	Cfg Config
+}
+
 func newIPSetManager(
-	lc cell.Lifecycle,
-	logger logrus.FieldLogger,
-	db *statedb.DB,
-	table statedb.RWTable[*tables.IPSet],
-	cfg config,
+	p params,
 	ipset *ipset,
 	_ reconciler.Reconciler[*tables.IPSet], // needed to enforce the correct hive ordering
-) Manager {
-	db.RegisterTable(table)
+) types.IPSetManager {
+	p.DB.RegisterTable(p.Table)
 	mgr := &manager{
-		logger:  logger,
-		enabled: cfg.NodeIPSetNeeded,
-		db:      db,
-		table:   table,
+		logger:  p.Logger,
+		enabled: p.Cfg.NodeIPSetNeeded,
+		db:      p.DB,
+		table:   p.Table,
 		ipset:   ipset,
 	}
 
-	lc.Append(cell.Hook{OnStart: mgr.onStart})
+	p.Lifecycle.Append(cell.Hook{OnStart: mgr.onStart})
 
 	return mgr
 }
@@ -124,7 +115,7 @@ func newIPSetManager(
 func (m *manager) onStart(ctx cell.HookContext) error {
 	if !m.enabled {
 		// If node ipsets are not needed, clear the Cilium managed ones to remove possible stale entries.
-		for _, ciliumNodeIPSet := range []string{CiliumNodeIPSetV4, CiliumNodeIPSetV6} {
+		for _, ciliumNodeIPSet := range []string{types.CiliumNodeIPSetV4, types.CiliumNodeIPSetV6} {
 			if err := m.ipset.remove(ctx, ciliumNodeIPSet); err != nil {
 				m.logger.WithError(err).Infof("Unable to remove stale ipset %s. This is usually due to a stale iptables rule referring to it. "+
 					"The set will not be removed. This is harmless and it will be removed at the next Cilium restart, when the stale iptables rule has been removed.", ciliumNodeIPSet)
@@ -139,24 +130,24 @@ func (m *manager) onStart(ctx cell.HookContext) error {
 	txn := m.db.WriteTxn(m.table)
 	defer txn.Abort()
 
-	if _, _, found := m.table.First(txn, tables.IPSetNameIndex.Query(CiliumNodeIPSetV4)); !found {
+	if _, _, found := m.table.First(txn, tables.IPSetNameIndex.Query(types.CiliumNodeIPSetV4)); !found {
 		if _, _, err := m.table.Insert(txn, &tables.IPSet{
-			Name:   CiliumNodeIPSetV4,
-			Family: string(INetFamily),
+			Name:   types.CiliumNodeIPSetV4,
+			Family: string(types.INetFamily),
 			Addrs:  tables.NewAddrSet(),
 			Status: reconciler.StatusPending(),
 		}); err != nil {
-			return fmt.Errorf("error while inserting ipset %s entry in stateDB table", CiliumNodeIPSetV4)
+			return fmt.Errorf("error while inserting ipset %s entry in stateDB table", types.CiliumNodeIPSetV4)
 		}
 	}
-	if _, _, found := m.table.First(txn, tables.IPSetNameIndex.Query(CiliumNodeIPSetV6)); !found {
+	if _, _, found := m.table.First(txn, tables.IPSetNameIndex.Query(types.CiliumNodeIPSetV6)); !found {
 		if _, _, err := m.table.Insert(txn, &tables.IPSet{
-			Name:   CiliumNodeIPSetV6,
-			Family: string(INet6Family),
+			Name:   types.CiliumNodeIPSetV6,
+			Family: string(types.INet6Family),
 			Addrs:  tables.NewAddrSet(),
 			Status: reconciler.StatusPending(),
 		}); err != nil {
-			return fmt.Errorf("error while inserting ipset %s entry in stateDB table", CiliumNodeIPSetV6)
+			return fmt.Errorf("error while inserting ipset %s entry in stateDB table", types.CiliumNodeIPSetV6)
 		}
 	}
 	txn.Commit()

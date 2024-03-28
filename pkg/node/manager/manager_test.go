@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -120,11 +119,11 @@ func newIPSetMock() *ipsetMock {
 	}
 }
 
-func (i *ipsetMock) AddToIPSet(name string, family ipset.Family, addrs ...netip.Addr) {
+func (i *ipsetMock) AddToIPSet(name string, family datapath.IPSetFamily, addrs ...netip.Addr) {
 	for _, addr := range addrs {
-		if name == ipset.CiliumNodeIPSetV4 && family == ipset.INetFamily {
+		if name == datapath.CiliumNodeIPSetV4 && family == datapath.INetFamily {
 			i.v4[addr.String()] = struct{}{}
-		} else if name == ipset.CiliumNodeIPSetV6 && family == ipset.INet6Family {
+		} else if name == datapath.CiliumNodeIPSetV6 && family == datapath.INet6Family {
 			i.v6[addr.String()] = struct{}{}
 		}
 	}
@@ -132,9 +131,9 @@ func (i *ipsetMock) AddToIPSet(name string, family ipset.Family, addrs ...netip.
 
 func (i *ipsetMock) RemoveFromIPSet(name string, addrs ...netip.Addr) {
 	for _, addr := range addrs {
-		if name == ipset.CiliumNodeIPSetV4 {
+		if name == datapath.CiliumNodeIPSetV4 {
 			delete(i.v4, addr.String())
-		} else if name == ipset.CiliumNodeIPSetV6 {
+		} else if name == datapath.CiliumNodeIPSetV6 {
 			delete(i.v6, addr.String())
 		}
 	}
@@ -142,10 +141,10 @@ func (i *ipsetMock) RemoveFromIPSet(name string, addrs ...netip.Addr) {
 
 func ipsetContains(ipsetMgr *ipsetMock, setName string, addr string) (bool, error) {
 	switch setName {
-	case ipset.CiliumNodeIPSetV4:
+	case datapath.CiliumNodeIPSetV4:
 		_, found := ipsetMgr.v4[addr]
 		return found, nil
-	case ipset.CiliumNodeIPSetV6:
+	case datapath.CiliumNodeIPSetV6:
 		_, found := ipsetMgr.v6[addr]
 		return found, nil
 	default:
@@ -964,9 +963,9 @@ func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
 // It is inspired from TestNode() in manager_test.go.
 func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 	ipsetExpect := func(ipsetMgr *ipsetMock, ip string, expected bool) {
-		setName := ipset.CiliumNodeIPSetV6
+		setName := datapath.CiliumNodeIPSetV6
 		if v4 := net.ParseIP(ip).To4(); v4 != nil {
-			setName = ipset.CiliumNodeIPSetV4
+			setName = datapath.CiliumNodeIPSetV4
 		}
 
 		found, err := ipsetContains(ipsetMgr, setName, strings.ToLower(ip))

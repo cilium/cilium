@@ -14,16 +14,24 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
-func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) reconciler.Operations[*tables.IPSet] {
+func newOps(
+	logger logrus.FieldLogger,
+	ipset *ipset,
+	cfg Config,
+	nodesSynced nodesSyncedFunc,
+) reconciler.Operations[*tables.IPSet] {
 	return &ops{
-		enabled: cfg.NodeIPSetNeeded,
-		ipset:   ipset,
+		enabled:     cfg.NodeIPSetNeeded,
+		ipset:       ipset,
+		nodesSynced: nodesSynced,
 	}
 }
 
 type ops struct {
 	enabled bool
 	ipset   *ipset
+
+	nodesSynced nodesSyncedFunc
 }
 
 func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, s *tables.IPSet, changed *bool) error {
@@ -52,10 +60,13 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, s *tables.IPSet, 
 			return err
 		}
 	}
-	toDel := cur.Difference(s.Addrs).AsSlice()
-	for _, addr := range toDel {
-		if err := ops.ipset.del(ctx, s.Name, addr); err != nil {
-			return err
+	// do not perform any deletion until all nodes have been synced (see https://github.com/cilium/cilium/issues/31537)
+	if ops.nodesSynced() {
+		toDel := cur.Difference(s.Addrs).AsSlice()
+		for _, addr := range toDel {
+			if err := ops.ipset.del(ctx, s.Name, addr); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -67,6 +78,10 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, s *tables.IPSet, 
 }
 
 func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, s *tables.IPSet) error {
+	// do not perform any deletion until all nodes have been synced (see https://github.com/cilium/cilium/issues/31537)
+	if !ops.nodesSynced() {
+		return nil
+	}
 	return ops.ipset.remove(ctx, s.Name)
 }
 

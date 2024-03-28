@@ -1570,6 +1570,7 @@ var daemonCell = cell.Module(
 	cell.Provide(
 		newDaemonPromise,
 		newRestorerPromise,
+		newNodesSyncerPromise,
 		func() k8s.CacheStatus { return make(k8s.CacheStatus) },
 		newSyncHostIPs,
 	),
@@ -1863,6 +1864,22 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[endpointstate.Restorer] {
 	resolver, promise := promise.New[endpointstate.Restorer]()
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			daemon, err := daemonPromise.Await(context.Background())
+			if err != nil {
+				resolver.Reject(err)
+				return err
+			}
+			resolver.Resolve(daemon)
+			return nil
+		},
+	})
+	return promise
+}
+
+func newNodesSyncerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[nodediscovery.Syncer] {
+	resolver, promise := promise.New[nodediscovery.Syncer]()
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			daemon, err := daemonPromise.Await(context.Background())
