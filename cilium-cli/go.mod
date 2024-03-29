@@ -22,7 +22,7 @@ require (
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/google/gops v0.3.28
-	github.com/osrg/gobgp/v3 v3.24.0
+	github.com/osrg/gobgp/v3 v3.23.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace

@@ -126,6 +126,10 @@
 	// This package is not versioned leading to "empty" updates every week.
 	// Update it manually once newly introduces tetragon CRDs are required.
 	"github.com/cilium/tetragon/pkg/k8s",
+        // Do not update GoBGP until https://github.com/osrg/gobgp/issues/2777
+        // is resolved and a new version is released.
+        // Ref: https://github.com/cilium/cilium/pull/31123
+        "github.com/osrg/gobgp/v3",
       ],
       "matchPackagePatterns": [
         // k8s dependencies will be updated manually in lockstep.
