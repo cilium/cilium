@@ -726,6 +726,9 @@ data:
 {{- if hasKey .Values.nodePort "range" }}
   node-port-range: {{ get .Values.nodePort "range" | quote }}
 {{- end }}
+{{- if hasKey .Values.nodePort "addresses" }}
+  nodeport-addresses: {{ get .Values.nodePort "addresses" | join "," | quote }}
+{{- end }}
 {{- if hasKey .Values.nodePort "directRoutingDevice" }}
   direct-routing-device: {{ .Values.nodePort.directRoutingDevice | quote }}
 {{- end }}

@@ -3790,6 +3790,13 @@
     },
     "nodePort": {
       "properties": {
+        "addresses": {
+          "type": [
+            "null",
+            "string",
+            "array"
+          ]
+        },
         "autoProtectPortRange": {
           "type": "boolean"
         },
