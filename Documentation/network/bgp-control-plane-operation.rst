@@ -27,6 +27,34 @@ Metrics
 
 Metrics exposed by BGP Control Plane are listed in the :ref:`metrics document
 <metrics_bgp_control_plane>`.
+
+.. _bgp_control_plane_agent_restart:
+
+Restarting an Agent
+===================
+
+When you restart the Cilium agent, the BGP session will be lost because the BGP
+speaker is integrated within the Cilium agent. The BGP session will be restored
+once the Cilium agent is restarted. However, while the Cilium agent is down,
+the advertised routes will be removed from the BGP peer. As a result, you may
+temporarily lose connectivity to the Pods or Services. You can enable the
+:ref:`Graceful Restart <bgp_control_plane_graceful_restart>` to continue
+forwarding traffic to the Pods or Services during the agent restart.
+
+Upgrading or Downgrading Cilium
+===============================
+
+When you upgrade or downgrade Cilium, you must restart the Cilium agent. For
+more details about the agent restart, see
+:ref:`bgp_control_plane_agent_restart` section.
+
+Note that with BGP Control Plane, it's especially important to pre-pull the
+agent image by following the :ref:`preflight process <pre_flight>` before
+upgrading Cilium. Image pull is time-consuming and error-prone because it
+involves network communication. If the image pull takes longer, it may exceed
+the Graceful Restart time (``restartTimeSeconds``) and cause the BGP peer to
+withdraw routes.
+
 .. _bgp_control_plane_node_shutdown:
 
 Shutting Down a Node
