@@ -5,91 +5,65 @@ package tables
 
 import (
 	"net/netip"
-	"strings"
 
-	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
-const IPSetTableName = "ipset"
+const IPSetsTableName = "ipsets"
 
-type AddrSet = container.ImmSet[netip.Addr]
-
-func NewAddrSet(addrs ...netip.Addr) AddrSet {
-	return container.NewImmSetFunc(
-		netip.Addr.Compare,
-		addrs...,
-	)
+type IPSetEntryKey struct {
+	Name string
+	Addr netip.Addr
 }
 
-var (
-	IPSetNameIndex = statedb.Index[*IPSet, string]{
-		Name: "name",
-		FromObject: func(s *IPSet) index.KeySet {
-			return index.NewKeySet(index.String(s.Name))
-		},
-		FromKey: index.String,
-		Unique:  true,
-	}
-)
+func (k IPSetEntryKey) Key() index.Key {
+	return append(index.NetIPAddr(k.Addr), []byte(k.Name)...)
+}
 
-func NewIPSetTable(db *statedb.DB) (statedb.RWTable[*IPSet], error) {
+var IPSetEntryIndex = statedb.Index[*IPSetEntry, IPSetEntryKey]{
+	Name: IPSetsTableName,
+	FromObject: func(s *IPSetEntry) index.KeySet {
+		return index.NewKeySet(IPSetEntryKey{s.Name, s.Addr}.Key())
+	},
+	FromKey: IPSetEntryKey.Key,
+	Unique:  true,
+}
+
+func NewIPSetTable(db *statedb.DB) (statedb.RWTable[*IPSetEntry], error) {
 	tbl, err := statedb.NewTable(
-		IPSetTableName,
-		IPSetNameIndex,
+		IPSetsTableName,
+		IPSetEntryIndex,
 	)
 	return tbl, err
 }
 
-func (s *IPSet) TableHeader() []string {
-	return []string{"Name", "Family", "Addrs", "Status"}
+func (s *IPSetEntry) TableHeader() []string {
+	return []string{"Name", "Family", "Addr", "Status"}
 }
 
-func (s *IPSet) TableRow() []string {
-	ss := make([]string, 0, s.Addrs.Len())
-	for _, addr := range s.Addrs.AsSlice() {
-		ss = append(ss, addr.String())
-	}
-	return []string{s.Name, s.Family, strings.Join(ss, ","), s.Status.String()}
+func (s *IPSetEntry) TableRow() []string {
+	return []string{s.Name, s.Family, s.Addr.String(), s.Status.String()}
 }
 
-type IPSet struct {
+type IPSetEntry struct {
 	Name   string
 	Family string
-	Addrs  AddrSet
+	Addr   netip.Addr
 
 	Status reconciler.Status
 }
 
-func (s *IPSet) GetStatus() reconciler.Status {
+func (s *IPSetEntry) GetStatus() reconciler.Status {
 	return s.Status
 }
 
-func (s *IPSet) WithStatus(newStatus reconciler.Status) *IPSet {
-	return &IPSet{
+func (s *IPSetEntry) WithStatus(newStatus reconciler.Status) *IPSetEntry {
+	return &IPSetEntry{
 		Name:   s.Name,
 		Family: s.Family,
-		Addrs:  s.Addrs,
+		Addr:   s.Addr,
 		Status: newStatus,
-	}
-}
-
-func (s *IPSet) WithAddrs(addrs ...netip.Addr) *IPSet {
-	return &IPSet{
-		Name:   s.Name,
-		Family: s.Family,
-		Addrs:  s.Addrs.Insert(addrs...),
-		Status: s.Status,
-	}
-}
-
-func (s *IPSet) WithoutAddrs(addrs ...netip.Addr) *IPSet {
-	return &IPSet{
-		Name:   s.Name,
-		Family: s.Family,
-		Addrs:  s.Addrs.Delete(addrs...),
-		Status: s.Status,
 	}
 }

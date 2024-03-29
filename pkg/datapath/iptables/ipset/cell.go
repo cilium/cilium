@@ -35,7 +35,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		tables.NewIPSetTable,
 
-		reconciler.New[*tables.IPSet],
+		reconciler.New[*tables.IPSetEntry],
 		newReconcilerConfig,
 		newOps,
 	),
@@ -57,15 +57,15 @@ type config struct {
 }
 
 func newReconcilerConfig(
-	ops reconciler.Operations[*tables.IPSet],
-) reconciler.Config[*tables.IPSet] {
-	return reconciler.Config[*tables.IPSet]{
+	ops reconciler.Operations[*tables.IPSetEntry],
+) reconciler.Config[*tables.IPSetEntry] {
+	return reconciler.Config[*tables.IPSetEntry]{
 		FullReconcilationInterval: 10 * time.Second,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   5 * time.Second,
 		IncrementalRoundSize:      100,
-		GetObjectStatus:           (*tables.IPSet).GetStatus,
-		WithObjectStatus:          (*tables.IPSet).WithStatus,
+		GetObjectStatus:           (*tables.IPSetEntry).GetStatus,
+		WithObjectStatus:          (*tables.IPSetEntry).WithStatus,
 		Operations:                ops,
 	}
 }
