@@ -47,6 +47,7 @@ var (
 		" code coverage instrumentation, needed if code coverage breaks the verifier")
 
 	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
+	pinBPF  = flag.Bool("pin-bpf", false, "If set, the program will pause right before the clean-up process until the user hits 'Enter'.")
 )
 
 func TestBPF(t *testing.T) {
@@ -78,24 +79,7 @@ func TestBPF(t *testing.T) {
 
 	mergedProfiles := make([]*cover.Profile, 0)
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		if !strings.HasSuffix(entry.Name(), ".o") {
-			continue
-		}
-
-		t.Run(entry.Name(), func(t *testing.T) {
-			profiles := loadAndRunSpec(t, entry, instrLog)
-			for _, profile := range profiles {
-				if len(profile.Blocks) > 0 {
-					mergedProfiles = addProfile(mergedProfiles, profile)
-				}
-			}
-		})
-	}
+	runBPFTests(t, entries, instrLog, mergedProfiles)
 
 	if *testCoverageReport != "" {
 		coverReport, err := os.Create(*testCoverageReport)
@@ -117,7 +101,56 @@ func TestBPF(t *testing.T) {
 	}
 }
 
-func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cover.Profile {
+func runBPFTests(t *testing.T, entries []fs.DirEntry, instrLog io.Writer, mergedProfiles []*cover.Profile) {
+	collections := make(chan *ebpf.Collection, len(entries))
+	defer func(collections chan *ebpf.Collection) {
+		close(collections)
+		for coll := range collections {
+			coll.Close()
+		}
+	}(collections)
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		if !strings.HasSuffix(entry.Name(), ".o") {
+			continue
+		}
+
+		t.Run(entry.Name(), func(t *testing.T) {
+			profiles := loadAndRunSpec(t, entry, instrLog, collections)
+			for _, profile := range profiles {
+				if len(profile.Blocks) > 0 {
+					mergedProfiles = addProfile(mergedProfiles, profile)
+				}
+			}
+		})
+	}
+
+	if *pinBPF {
+		t.Log("Paused. Press 'Enter' to continue...")
+
+		tmpStdin, err := os.Open("/dev/tty")
+		if err != nil {
+			t.Fatalf("Error opening /dev/tty: %s", err.Error())
+		}
+		defer func() {
+			if err := tmpStdin.Close(); err != nil {
+				t.Fatalf("Unable to close tmp stdin: %s", err)
+			}
+		}()
+
+		originalStdin := os.Stdin
+		os.Stdin = tmpStdin
+		defer func() { os.Stdin = originalStdin }()
+
+		bufio.NewReader(os.Stdin).ReadBytes('\n')
+	}
+}
+
+func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, collections chan *ebpf.Collection) []*cover.Profile {
 	elfPath := path.Join(*testPath, entry.Name())
 
 	if instrLog != nil {
@@ -171,7 +204,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	if err != nil {
 		t.Fatal("loading collection:", err)
 	}
-	defer coll.Close()
+	collections <- coll
 
 	testNameToPrograms := make(map[string]programSet)
 
