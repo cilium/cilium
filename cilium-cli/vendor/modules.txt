@@ -932,7 +932,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/osrg/gobgp/v3 v3.24.0
+# github.com/osrg/gobgp/v3 v3.23.0
 ## explicit; go 1.20
 github.com/osrg/gobgp/v3/pkg/packet/bgp
 # github.com/pelletier/go-toml v1.9.5
