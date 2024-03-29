@@ -74,6 +74,14 @@ var (
 					},
 				)
 			},
+			func(lc cell.Lifecycle, cs client.Clientset) (LocalCiliumBGPNodeConfigResource, error) {
+				return k8s.CiliumBGPNodeConfigResource(
+					lc, cs,
+					func(opts *metav1.ListOptions) {
+						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
+					},
+				)
+			},
 			func(lc cell.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
 				return k8s.PodResource(
 					lc, cs,
@@ -138,6 +146,10 @@ type LocalNodeResource resource.Resource[*slim_corev1.Node]
 // CiliumNode object associated with the node we are currently running on.
 type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 
+// LocalCiliumBGPNodeConfigResource is a resource.Resource[*cilium_api_v2alpha1.CiliumBGPBNodeConfig] but one which will only
+// stream updates for the CiliumBGPNodeConfig object associated with the node we are currently running on.
+type LocalCiliumBGPNodeConfigResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
+
 // LocalPodResource is a resource.Resource[*slim_corev1.Pod] but one which will only stream updates for pod
 // objects scheduled on the node we are currently running on.
 type LocalPodResource resource.Resource[*slim_corev1.Pod]
@@ -158,6 +170,7 @@ type Resources struct {
 	Endpoints                        EndpointsNonHeadless
 	LocalNode                        LocalNodeResource
 	LocalCiliumNode                  LocalCiliumNodeResource
+	LocalCiliumBGPNodeConfig         LocalCiliumBGPNodeConfigResource
 	LocalPods                        LocalPodResource
 	Namespaces                       resource.Resource[*slim_corev1.Namespace]
 	NetworkPolicies                  resource.Resource[*slim_networkingv1.NetworkPolicy]

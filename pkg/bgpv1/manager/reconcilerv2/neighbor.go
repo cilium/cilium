@@ -181,8 +181,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			ok  bool
 		)
 
-		config, err := r.getPeerConfig(n.PeerConfigRef.Name)
-		if err != nil {
+		var err error
+		config := new(v2alpha1.CiliumBGPPeerConfigSpec)
+		if n.PeerConfigRef == nil {
+			config.SetDefaults()
+		} else if config, err = r.getPeerConfig(n.PeerConfigRef.Name); err != nil {
 			return err
 		}
 

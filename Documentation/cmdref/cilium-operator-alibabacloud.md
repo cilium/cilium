@@ -15,7 +15,6 @@ cilium-operator-alibabacloud [flags]
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
       --bgp-announce-lb-ip                                   Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                               Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
-      --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
       --ces-dynamic-rate-limit-nodes strings                 List of nodes used for the dynamic rate limit steps
       --ces-dynamic-rate-limit-qps-burst strings             List of qps burst used for the dynamic rate limit steps
       --ces-dynamic-rate-limit-qps-limit strings             List of qps limits used for the dynamic rate limit steps

@@ -215,6 +215,18 @@ func CiliumBGPNodeConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ..
 	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfig](lc, lw, resource.WithMetric("CiliumBGPNodeConfig")), nil
 }
 
+func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideList](cs.CiliumV2alpha1().CiliumBGPNodeConfigOverrides()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride](lc, lw, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
+}
+
 func CiliumBGPAdvertisementResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPAdvertisement], error) {
 	if !cs.IsEnabled() {
 		return nil, nil

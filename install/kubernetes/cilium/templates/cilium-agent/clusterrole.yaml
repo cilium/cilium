@@ -96,6 +96,7 @@ rules:
   - ciliumloadbalancerippools
   - ciliumbgppeeringpolicies
   - ciliumbgpnodeconfigs
+  - ciliumbgpnodeconfigoverrides
   - ciliumbgpadvertisements
   - ciliumbgppeerconfigs
   - ciliumclusterwideenvoyconfigs

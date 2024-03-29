@@ -18,7 +18,6 @@ cilium-operator-azure [flags]
       --azure-user-assigned-identity-id string               ID of the user assigned identity used to auth with the Azure API
       --bgp-announce-lb-ip                                   Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                               Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
-      --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
       --ces-dynamic-rate-limit-nodes strings                 List of nodes used for the dynamic rate limit steps
       --ces-dynamic-rate-limit-qps-burst strings             List of qps burst used for the dynamic rate limit steps
       --ces-dynamic-rate-limit-qps-limit strings             List of qps limits used for the dynamic rate limit steps

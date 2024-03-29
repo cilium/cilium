@@ -39,7 +39,7 @@ var (
 			k8s.CiliumBGPAdvertisementResource,
 			k8s.CiliumBGPPeerConfigResource,
 			k8s.CiliumBGPNodeConfigResource,
-			CiliumBGPNodeConfigOverrideResource,
+			k8s.CiliumBGPNodeConfigOverrideResource,
 			CiliumEndpointResource,
 			CiliumEndpointSliceResource,
 			CiliumNodeResource,

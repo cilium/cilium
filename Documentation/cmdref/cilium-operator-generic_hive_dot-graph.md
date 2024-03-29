@@ -17,7 +17,6 @@ cilium-operator-generic hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
-      --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
       --ces-dynamic-rate-limit-nodes strings                 List of nodes used for the dynamic rate limit steps
       --ces-dynamic-rate-limit-qps-burst strings             List of qps burst used for the dynamic rate limit steps
       --ces-dynamic-rate-limit-qps-limit strings             List of qps limits used for the dynamic rate limit steps

@@ -269,11 +269,11 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane`
-     - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
+     - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy or v2 CRDs.
      - object
      - ``{"enabled":false,"secretsNamespace":{"create":false,"name":"kube-system"},"v2Enabled":false}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
-     - Enables the BGP control plane.
+     - Enables the BGP control plane with CiliumBGPPeeringPolicy.
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.secretsNamespace`

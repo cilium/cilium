@@ -398,9 +398,9 @@ bgp:
     # -- Enable announcement of node pod CIDR
     podCIDR: false
 # -- This feature set enables virtual BGP routers to be created via
-# CiliumBGPPeeringPolicy CRDs.
+# CiliumBGPPeeringPolicy or v2 CRDs.
 bgpControlPlane:
-  # -- Enables the BGP control plane.
+  # -- Enables the BGP control plane with CiliumBGPPeeringPolicy.
   enabled: false
   # -- Enable the BGPv2 APIs.
   v2Enabled: false

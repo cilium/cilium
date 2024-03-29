@@ -34,6 +34,7 @@ type ConfigReconciler interface {
 var ConfigReconcilers = cell.ProvidePrivate(
 	NewPreflightReconciler,
 	NewNeighborReconciler,
+	NewCiliumPeerAdvertisement,
 	NewPodCIDRReconciler,
 	NewPodIPPoolReconciler,
 	NewServiceReconciler,

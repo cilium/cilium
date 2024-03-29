@@ -9,13 +9,17 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"k8s.io/utils/pointer"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
 var (
@@ -64,7 +68,7 @@ func TestGetRoutes(t *testing.T) {
 			name:               "single IPv4 prefix - retrieve IPv4",
 			advertisedPrefixes: testSingleIPv4Prefix,
 			expectedPrefixes:   testSingleIPv4Prefix,
-			routerASN:          pointer.Int64(int64(testRouterASN)),
+			routerASN:          ptr.To(int64(testRouterASN)),
 			tableType:          tableTypeLocRib,
 			afi:                afiIPv4,
 			safi:               safiUnicast,
@@ -75,7 +79,7 @@ func TestGetRoutes(t *testing.T) {
 			name:               "single IPv4 prefix - retrieve IPv6",
 			advertisedPrefixes: testSingleIPv4Prefix,
 			expectedPrefixes:   nil,
-			routerASN:          pointer.Int64(int64(testRouterASN)),
+			routerASN:          ptr.To(int64(testRouterASN)),
 			tableType:          tableTypeLocRib,
 			afi:                afiIPv6,
 			safi:               safiUnicast,
@@ -108,7 +112,7 @@ func TestGetRoutes(t *testing.T) {
 			name:               "incorrect ASN",
 			advertisedPrefixes: testSingleIPv4Prefix,
 			expectedPrefixes:   nil,
-			routerASN:          pointer.Int64(int64(testInvalidRouterASN)),
+			routerASN:          ptr.To(int64(testInvalidRouterASN)),
 			tableType:          tableTypeLocRib,
 			afi:                afiIPv4,
 			safi:               safiUnicast,
@@ -134,7 +138,7 @@ func TestGetRoutes(t *testing.T) {
 			tableType:          tableTypeLocAdjRibOut,
 			afi:                afiIPv4,
 			safi:               safiUnicast,
-			neighbor:           pointer.String(testNeighborIP),
+			neighbor:           ptr.To(testNeighborIP),
 			expectedErr:        nil,
 		},
 		{
@@ -145,7 +149,7 @@ func TestGetRoutes(t *testing.T) {
 			tableType:          tableTypeLocAdjRibOut,
 			afi:                afiIPv4,
 			safi:               safiUnicast,
-			neighbor:           pointer.String(testInvalidNeighborIP),
+			neighbor:           ptr.To(testInvalidNeighborIP),
 			expectedErr:        fmt.Errorf(""),
 		},
 	}
@@ -213,6 +217,143 @@ func TestGetRoutes(t *testing.T) {
 				retrievedPrefixes = append(retrievedPrefixes, netip.MustParsePrefix(r.Prefix))
 			}
 			require.EqualValues(t, tt.expectedPrefixes, retrievedPrefixes)
+		})
+	}
+}
+
+func TestReconcileInstances(t *testing.T) {
+	ctx := context.Background()
+
+	// Mock dependencies and initial state
+	mockedLogger := logrus.New()
+	mockedCiliumNode := &v2api.CiliumNode{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "node1",
+		},
+		Spec: v2api.NodeSpec{
+			Addresses: []v2api.NodeAddress{
+				{
+					Type: addressing.NodeCiliumInternalIP,
+					IP:   "1.1.1.1",
+				},
+			},
+		},
+	}
+
+	var tests = []struct {
+		name        string
+		nodeObj     *v2alpha1api.CiliumBGPNodeConfig
+		ciliumNode  *v2api.CiliumNode
+		expectedErr error
+		prepare     func(manager *BGPRouterManager)
+		verify      func(t *testing.T, manager *BGPRouterManager, nodeObj *v2alpha1api.CiliumBGPNodeConfig)
+	}{
+		{
+			name:        "A nil nodeObj withdrawals all BGP instances",
+			nodeObj:     nil,
+			ciliumNode:  mockedCiliumNode,
+			expectedErr: nil,
+			prepare: func(manager *BGPRouterManager) {
+				// simulate existing BGPInstances that would be withdrawn
+				manager.BGPInstances = make(LocalInstanceMap)
+				manager.BGPInstances["router1"] = &instance.BGPInstance{
+					Config: &v2alpha1api.CiliumBGPNodeInstance{
+						Name: "router1",
+					},
+					Router: types.NewFakeRouter(),
+				}
+			},
+			verify: func(t *testing.T, manager *BGPRouterManager, nodeObj *v2alpha1api.CiliumBGPNodeConfig) {
+				require.Empty(t, manager.BGPInstances, "Expected all BGP instances to be withdrawn")
+			},
+		},
+		{
+			name: "Valid nodeObj triggers BGP instances reconciliation",
+			nodeObj: &v2alpha1api.CiliumBGPNodeConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "node1",
+				},
+				Spec: v2alpha1api.CiliumBGPNodeSpec{
+					BGPInstances: []v2alpha1api.CiliumBGPNodeInstance{
+						{
+							Name:      "router1",
+							LocalASN:  ptr.To(int64(65000)),
+							RouterID:  ptr.To("1.1.1.1"),
+							LocalPort: ptr.To(int32(179)),
+							Peers: []v2alpha1api.CiliumBGPNodePeer{
+								{
+									Name:         "peer1",
+									PeerAddress:  ptr.To("1.1.1.2"),
+									PeerASN:      ptr.To(int64(65001)),
+									LocalAddress: ptr.To("1.1.1.1"),
+								},
+							},
+						},
+					},
+				},
+			},
+			ciliumNode:  mockedCiliumNode,
+			expectedErr: nil,
+			prepare: func(manager *BGPRouterManager) {
+				// simulate existing BGPInstances that would be created
+				manager.BGPInstances = make(LocalInstanceMap)
+				manager.BGPInstances["router1"] = &instance.BGPInstance{
+					Config: &v2alpha1api.CiliumBGPNodeInstance{
+						Name:      "router1",
+						LocalASN:  ptr.To(int64(65000)),
+						RouterID:  ptr.To("1.1.1.1"),
+						LocalPort: ptr.To(int32(179)),
+						Peers: []v2alpha1api.CiliumBGPNodePeer{
+							{
+								Name:         "peer1",
+								PeerAddress:  ptr.To("1.1.1.2"),
+								PeerASN:      ptr.To(int64(65001)),
+								LocalAddress: ptr.To("1.1.1.1"),
+							},
+						},
+					},
+					Router: types.NewFakeRouter(),
+				}
+			},
+			verify: func(t *testing.T, manager *BGPRouterManager, nodeObj *v2alpha1api.CiliumBGPNodeConfig) {
+				// Verify that new BGP instances specified in nodeObj are created
+				for _, instance := range nodeObj.Spec.BGPInstances {
+					instance, exists := manager.BGPInstances[instance.Name]
+					require.True(t, exists, "Expected BGP instance with Name %s to be created", instance.Config.Name)
+
+					// TODO: Add additional checks to verify specific configuration details of the instance
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Initialize BGPRouterManager
+			manager := &BGPRouterManager{
+				Logger: mockedLogger,
+			}
+
+			// Prepare the test scenario
+			if tt.prepare != nil {
+				tt.prepare(manager)
+			}
+
+			// Call ReconcileInstances
+			err := manager.ReconcileInstances(ctx, tt.nodeObj, tt.ciliumNode)
+
+			// Verify error response
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+				require.Equal(t, tt.expectedErr, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			// Verify the outcome
+			if tt.verify != nil {
+				tt.verify(t, manager, tt.nodeObj)
+			}
 		})
 	}
 }

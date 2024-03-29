@@ -46,7 +46,6 @@ var Cell = cell.Module(
 		// Provides the module with a stream of events for the CiliumPodIPPool resource.
 		newCiliumPodIPPoolResource,
 		// BGPv2 resources
-		newBGPNodeConfigResource,
 		newBGPPeerConfigResource,
 		newBGPAdvertisementResource,
 	),
@@ -68,7 +67,6 @@ var Cell = cell.Module(
 		// BGPv2 stores
 		store.NewBGPCPResourceStore[*v2alpha1api.CiliumBGPPeerConfig],
 		store.NewBGPCPResourceStore[*v2alpha1api.CiliumBGPAdvertisement],
-		store.NewBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig],
 	),
 	// BGP Rest API handlers
 	cell.Provide(
@@ -77,12 +75,7 @@ var Cell = cell.Module(
 		api.NewGetRoutePoliciesHandler,
 	),
 
-	// provide privates for reconciler v2
-	cell.ProvidePrivate(
-		reconcilerv2.NewCiliumPeerAdvertisement,
-	),
-
-	// Provides the reconcilers used by the route manager to update the config
+	// Provides the v1 reconcilers used by the route manager to update the config
 	reconciler.ConfigReconcilers,
 
 	// BGP v2 reconcilers
@@ -97,12 +90,10 @@ var Cell = cell.Module(
 )
 
 func newBGPPeeringPolicyResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {
-	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
-		return nil
-	}
-
-	if !c.IsEnabled() {
+	// Do not create this resource if:
+	//   1. The BGP Control Plane v1 is disabled.
+	//   2. Kubernetes support is disabled and the clientset cannot be used.
+	if !dc.BGPOnlyV1Enabled() || !c.IsEnabled() {
 		return nil
 	}
 
@@ -113,12 +104,13 @@ func newBGPPeeringPolicyResource(lc cell.Lifecycle, c client.Clientset, dc *opti
 }
 
 func newLoadBalancerIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumLoadBalancerIPPool] {
-	if !dc.BGPControlPlaneEnabled() {
+	// Do not create this resource if:
+	//   1. The BGP Control Plane is disabled.
+	//   2. Kubernetes support is disabled and the clientset cannot be used.
+	if !dc.BGPEnabled() || !c.IsEnabled() {
 		return nil
 	}
-	if !c.IsEnabled() {
-		return nil
-	}
+
 	return resource.New[*v2alpha1api.CiliumLoadBalancerIPPool](
 		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumLoadBalancerIPPoolList](
 			c.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
@@ -130,7 +122,7 @@ func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *optio
 	//   1. The BGP Control Plane is disabled.
 	//   2. Kubernetes support is disabled and the clientset cannot be used.
 	//   3. Multi-pool IPAM is disabled.
-	if !dc.BGPControlPlaneEnabled() || !c.IsEnabled() || dc.IPAM != ipam_option.IPAMMultiPool {
+	if !dc.BGPEnabled() || !c.IsEnabled() || dc.IPAM != ipam_option.IPAMMultiPool {
 		return nil
 	}
 
@@ -141,12 +133,10 @@ func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *optio
 }
 
 func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
-	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
-		return nil
-	}
-
-	if !c.IsEnabled() {
+	// Do not create this resource if:
+	//   1. The BGP Control Plane is disabled.
+	//   2. Kubernetes support is disabled and the clientset cannot be used.
+	if !dc.BGPEnabled() || !c.IsEnabled() {
 		return nil
 	}
 
@@ -162,29 +152,11 @@ func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonC
 		))
 }
 
-func newBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPNodeConfig] {
-	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
-		return nil
-	}
-
-	if !c.IsEnabled() {
-		return nil
-	}
-
-	return resource.New[*v2alpha1api.CiliumBGPNodeConfig](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumBGPNodeConfigList](
-			c.CiliumV2alpha1().CiliumBGPNodeConfigs(),
-		), resource.WithMetric("CiliumBGPNodeConfig"))
-}
-
 func newBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeerConfig] {
-	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
-		return nil
-	}
-
-	if !c.IsEnabled() {
+	// Do not create this resource if:
+	//   1. The BGP Control Plane v2 is disabled.
+	//   2. Kubernetes support is disabled and the clientset cannot be used.
+	if !dc.BGPControlPlaneV2Enabled() || !c.IsEnabled() {
 		return nil
 	}
 
@@ -195,12 +167,10 @@ func newBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.
 }
 
 func newBGPAdvertisementResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPAdvertisement] {
-	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
-		return nil
-	}
-
-	if !c.IsEnabled() {
+	// Do not create this resource if:
+	//   1. The BGP Control Plane v2 is disabled.
+	//   2. Kubernetes support is disabled and the clientset cannot be used.
+	if !dc.BGPControlPlaneV2Enabled() || !c.IsEnabled() {
 		return nil
 	}
 

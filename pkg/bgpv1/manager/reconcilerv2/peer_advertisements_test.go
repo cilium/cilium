@@ -290,6 +290,24 @@ func Test_GetAdvertisements(t *testing.T) {
 			expectedAdverts: map[string]PeerFamilyAdvertisements{},
 		},
 		{
+			name:       "Peer config reference does not exist for peer in BGPNodeInstance",
+			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{},
+			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+				redAdvert,
+			},
+			reqBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers: []v2alpha1.CiliumBGPNodePeer{
+					{
+						Name: "red-peer-65001",
+					},
+				},
+			},
+			reqAdvertTypes:  []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
+			expectedAdverts: map[string]PeerFamilyAdvertisements{},
+		},
+		{
 			name: "Expecting PodCIDR advertisement for single peer",
 			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
 				redPeerConfig,

@@ -1160,8 +1160,11 @@ const (
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority = "bpf-filter-priority"
 
-	// Flag to enable BGP control plane features
+	// Flag to enable BGPv1 control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
+
+	// Flag to enable BGPv2 control plane features
+	EnableBGPV2ControlPlane = "enable-bgp-v2-control-plane"
 
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
@@ -2332,6 +2335,9 @@ type DaemonConfig struct {
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
 
+	// Enables BGP v2 control plane features.
+	EnableBGPV2ControlPlane bool
+
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
 	BPFMapEventBuffers          map[string]string
@@ -2422,12 +2428,13 @@ var (
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
-		ExternalClusterIP:      defaults.ExternalClusterIP,
-		EnableVTEP:             defaults.EnableVTEP,
-		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
-		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
-		PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
-		MaxConnectedClusters:   defaults.MaxConnectedClusters,
+		ExternalClusterIP:       defaults.ExternalClusterIP,
+		EnableVTEP:              defaults.EnableVTEP,
+		EnableBGPControlPlane:   defaults.EnableBGPControlPlane,
+		EnableBGPV2ControlPlane: defaults.EnableBGPV2ControlPlane,
+		EnableK8sNetworkPolicy:  defaults.EnableK8sNetworkPolicy,
+		PolicyCIDRMatchMode:     defaults.PolicyCIDRMatchMode,
+		MaxConnectedClusters:    defaults.MaxConnectedClusters,
 
 		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
@@ -3488,6 +3495,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
+	c.EnableBGPV2ControlPlane = vp.GetBool(EnableBGPV2ControlPlane)
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
@@ -3969,6 +3977,22 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 
 func (c *DaemonConfig) BGPControlPlaneEnabled() bool {
 	return c.EnableBGPControlPlane
+}
+
+func (c *DaemonConfig) BGPControlPlaneV2Enabled() bool {
+	return c.EnableBGPV2ControlPlane
+}
+
+func (c *DaemonConfig) BGPEnabled() bool {
+	return c.EnableBGPControlPlane || c.EnableBGPV2ControlPlane
+}
+
+func (c *DaemonConfig) BGPOnlyV1Enabled() bool {
+	return c.EnableBGPControlPlane && !c.EnableBGPV2ControlPlane
+}
+
+func (c *DaemonConfig) BGPOnlyV2Enabled() bool {
+	return !c.EnableBGPControlPlane && c.EnableBGPV2ControlPlane
 }
 
 func (c *DaemonConfig) IsDualStack() bool {

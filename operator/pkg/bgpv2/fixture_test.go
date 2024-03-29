@@ -125,8 +125,9 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
-				EnableBGPControlPlane: true,
-				Debug:                 true,
+				EnableBGPControlPlane:   true,
+				EnableBGPV2ControlPlane: true,
+				Debug:                   true,
 			}
 		}),
 
@@ -136,9 +137,6 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 
 		Cell,
 	)
-
-	// enable BGPv2
-	hive.AddConfigOverride(f.hive, func(cfg *Config) { cfg.BGPv2Enabled = true })
 
 	return f, watchersReadyFn
 }

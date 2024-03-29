@@ -10,10 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -159,8 +158,8 @@ func TestControllerSanity(t *testing.T) {
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
 								// KeepAliveTimeSeconds larger than HoldTimeSeconds = error
-								KeepAliveTimeSeconds: pointer.Int32(10),
-								HoldTimeSeconds:      pointer.Int32(5),
+								KeepAliveTimeSeconds: ptr.To(int32(10)),
+								HoldTimeSeconds:      ptr.To(int32(5)),
 							},
 						},
 					},
@@ -195,11 +194,36 @@ func TestControllerSanity(t *testing.T) {
 				},
 			}
 
+			// create test bgp node config
+			nodeCfg := &v2alpha1api.CiliumBGPNodeConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "Test Node",
+				},
+				Spec: v2alpha1api.CiliumBGPNodeSpec{
+					BGPInstances: []v2alpha1api.CiliumBGPNodeInstance{
+						{
+							Name:      "router1",
+							LocalASN:  ptr.To(int64(65000)),
+							RouterID:  ptr.To("1.1.1.1"),
+							LocalPort: ptr.To(int32(179)),
+							Peers: []v2alpha1api.CiliumBGPNodePeer{
+								{
+									Name:         "peer1",
+									PeerAddress:  ptr.To("1.1.1.2"),
+									PeerASN:      ptr.To(int64(65001)),
+									LocalAddress: ptr.To("1.1.1.1"),
+								},
+							},
+						},
+					},
+				},
+			}
+
 			c := agent.Controller{
-				PolicyLister:       policyLister,
-				BGPMgr:             rtmgr,
-				LocalCiliumNode:    node,
-				BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig](),
+				PolicyLister:             policyLister,
+				BGPMgr:                   rtmgr,
+				LocalCiliumNode:          node,
+				LocalCiliumBGPNodeConfig: nodeCfg,
 			}
 
 			err := c.Reconcile(context.Background())
@@ -261,10 +285,9 @@ func TestDeselection(t *testing.T) {
 	}
 
 	c := agent.Controller{
-		PolicyLister:       policyLister,
-		BGPMgr:             rtmgr,
-		LocalCiliumNode:    node,
-		BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig](),
+		PolicyLister:    policyLister,
+		BGPMgr:          rtmgr,
+		LocalCiliumNode: node,
 	}
 
 	// First, reconcile with the policy selected
@@ -707,11 +730,6 @@ func TestBGPModeSelection(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig]()
-			if tt.bgpNodeConfig != nil {
-				mockStore.Upsert(tt.bgpNodeConfig)
-			}
-
 			policyLister := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 				if tt.policy == nil {
 					return []*v2alpha1api.CiliumBGPPeeringPolicy{}, nil
@@ -731,9 +749,9 @@ func TestBGPModeSelection(t *testing.T) {
 						return nil
 					},
 				},
-				LocalCiliumNode:    tt.ciliumNode,
-				BGPNodeConfigStore: mockStore,
-				Mode:               tt.initialMode,
+				LocalCiliumNode:          tt.ciliumNode,
+				LocalCiliumBGPNodeConfig: tt.bgpNodeConfig,
+				Mode:                     tt.initialMode,
 			}
 
 			err := c.Reconcile(context.Background())

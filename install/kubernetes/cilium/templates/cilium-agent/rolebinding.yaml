@@ -90,7 +90,7 @@ subjects:
   namespace: {{ .Release.Namespace }}
 {{- end}}
 
-{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.bgpControlPlane.enabled .Values.bgpControlPlane.secretsNamespace.name}}
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create (or .Values.bgpControlPlane.enabled .Values.bgpControlPlane.v2Enabled) .Values.bgpControlPlane.secretsNamespace.name}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
