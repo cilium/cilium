@@ -342,6 +342,15 @@ advertising the same ingress IPs from multiple nodes.
          peerASN: 64512
 
 
+.. warning::
+
+   Many routers have a limit on the number of ECMP paths they can hold in their
+   routing table (`Juniper
+   <https://www.juniper.net/documentation/us/en/software/junos/cli-reference/topics/ref/statement/maximum-ecmp-edit-chassis.html>`__).
+   When advertising the Service VIPs from many nodes, you may exceed this
+   limit. We recommend checking the limit with your network administrator
+   before using this feature.
+
 Advertising ExternalIP Services
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
