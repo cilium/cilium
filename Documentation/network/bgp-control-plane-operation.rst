@@ -11,6 +11,22 @@ BGP Control Plane Operation Guide
 
 This document provides guidance on how to operate the BGP Control Plane.
 
+Logs
+====
+
+BGP Control Plane logs can be found in the Cilium agent logs. The logs
+are tagged with ``subsys=bgp-control-plane``. You can use this tag to filter
+the logs as in the following example:
+
+.. code-block:: shell-session
+
+   kubectl -n kube-system logs <cilium agent pod name> | grep "subsys=bgp-control-plane"
+
+Metrics
+=======
+
+Metrics exposed by BGP Control Plane are listed in the :ref:`metrics document
+<metrics_bgp_control_plane>`.
 .. _bgp_control_plane_node_shutdown:
 
 Shutting Down a Node
