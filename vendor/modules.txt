@@ -562,8 +562,8 @@ github.com/docker/docker/pkg/plugingetter
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
 github.com/docker/docker/pkg/rootless
-# github.com/docker/go-connections v0.4.0
-## explicit
+# github.com/docker/go-connections v0.5.0
+## explicit; go 1.18
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
