@@ -88,7 +88,11 @@ func WithIdleTimeout(seconds int) ClusterMutator {
 
 func WithProtocol(protocolVersion HTTPVersionType) ClusterMutator {
 	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		a := cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType]
 		options := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+		if err := a.UnmarshalTo(options); err != nil {
+			return cluster
+		}
 		switch protocolVersion {
 		// Default protocol version in Envoy is HTTP1.1.
 		case HTTPVersion1, HTTPVersionAuto:
