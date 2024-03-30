@@ -39,7 +39,7 @@ func (s *LoggingSuite) TestGetLogFormat(c *C) {
 	c.Assert(opts.GetLogFormat(), Equals, LogFormatJSON)
 
 	opts[FormatOpt] = "Invalid"
-	c.Assert(opts.GetLogFormat(), Equals, DefaultLogFormat)
+	c.Assert(opts.GetLogFormat(), Equals, DefaultLogFormatTimestamp)
 }
 
 func (s *LoggingSuite) TestSetLogLevel(c *C) {
