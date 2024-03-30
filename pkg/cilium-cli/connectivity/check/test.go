@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium-cli/defaults"
@@ -31,6 +30,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 

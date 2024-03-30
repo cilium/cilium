@@ -11,7 +11,8 @@ import (
 	"os"
 	"path"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // LatencyMetric captures latency metrics of network performance test

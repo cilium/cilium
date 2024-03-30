@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/utils/features"
@@ -29,6 +28,7 @@ import (
 	"github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

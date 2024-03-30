@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func CiliumHealth() check.Scenario {
