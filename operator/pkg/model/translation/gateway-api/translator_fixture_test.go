@@ -29,6 +29,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -46,6 +47,10 @@ var (
 var (
 	backendV3XDSResource = toAny(toEnvoyCluster("gateway-conformance-infra", "infra-backend-v3", "8080"))
 	routeActionBackendV3 = toRouteAction("gateway-conformance-infra", "infra-backend-v3", "8080")
+)
+
+var (
+	backendProtocolH2CAppProtocol = translation.AppProtocolH2C
 )
 
 var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
@@ -630,6 +635,124 @@ var simpleSameNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCon
 				}),
 			},
 			{Any: backendV1XDSResource},
+		},
+	},
+}
+
+// backendProtocolDisabledH2CHTTPListeners is the internal model representation of Conformance/HTTPRouteBackendProtocolH2C
+var backendProtocolDisabledH2CHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+						AppProtocol: &backendProtocolH2CAppProtocol,
+					},
+				},
+			},
+		},
+	},
+}
+
+// backendProtocolEnabledH2CHTTPListeners is the internal model representation of Conformance/HTTPRouteBackendProtocolH2C
+var backendProtocolEnabledH2CHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "backend-protocol-h2c",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+						AppProtocol: &backendProtocolH2CAppProtocol,
+					},
+				},
+			},
+		},
+	},
+}
+
+var backendProtocolEnabledH2CHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		Labels: map[string]string{
+			"cilium.io/use-original-source-address": "false",
+		},
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "backend-protocol-h2c",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: toRouteAction("gateway-conformance-infra", "backend-protocol-h2c", "8080"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyClusterHTTP2("gateway-conformance-infra", "backend-protocol-h2c", "8080"))},
 		},
 	},
 }
@@ -5257,6 +5380,35 @@ func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Clust
 				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
 					UseDownstreamProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{
 						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
+					},
+				},
+			}),
+		},
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_EDS,
+		},
+		ConnectTimeout: &durationpb.Duration{Seconds: int64(5)},
+		LbPolicy:       envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
+		OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
+			SplitExternalLocalOriginErrors: true,
+		},
+	}
+}
+
+func toEnvoyClusterHTTP2(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
+	return &envoy_config_cluster_v3.Cluster{
+		Name: fmt.Sprintf("%s:%s:%s", namespace, name, port),
+		EdsClusterConfig: &envoy_config_cluster_v3.Cluster_EdsClusterConfig{
+			ServiceName: fmt.Sprintf("%s/%s:%s", namespace, name, port),
+		},
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_upstreams_http_v3.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{Seconds: int64(60)},
+				},
+				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+					ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+						ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
 					},
 				},
 			}),
