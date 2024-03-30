@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/filters"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -67,7 +68,7 @@ type Action struct {
 	expIngress Result
 
 	// flowsMu protects flows.
-	flowsMu sync.Mutex
+	flowsMu lock.Mutex
 	// flows is a map of all flow logs generated during the Action.
 	flows flowsSet
 
