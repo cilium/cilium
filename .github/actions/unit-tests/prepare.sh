@@ -45,4 +45,6 @@ install_clang
 
 export PATH="/usr/local/clang/bin:$PATH"
 
-go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
+# renovate: datasource=github-release-attachments depName=mfridman/tparse
+tparse_version="v0.13.2"
+go install github.com/mfridman/tparse@${tparse_version}

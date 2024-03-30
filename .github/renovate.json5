@@ -450,7 +450,8 @@
     {
       "fileMatch": [
         "^\\.github/workflows/[^/]+\\.ya?ml$",
-        "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$"
+        "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$",
+        ".github/actions/unit-tests/prepare.sh"
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
