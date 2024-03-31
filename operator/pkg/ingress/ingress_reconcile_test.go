@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -37,6 +38,7 @@ const (
 	testDefaultSecretNamespace          = ""
 	testDefaultSecretName               = ""
 	testDefaultTimeout                  = 60
+	testIngressDefaultRequestTimeout    = time.Duration(0)
 )
 
 func TestReconcile(t *testing.T) {
@@ -63,7 +65,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -119,7 +121,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -175,7 +177,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -219,7 +221,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -289,7 +291,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -356,7 +358,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -410,7 +412,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -492,7 +494,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -564,7 +566,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -620,7 +622,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -660,7 +662,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -701,7 +703,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{"test.acme.io/"}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{"test.acme.io/"}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -786,7 +788,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -851,7 +853,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -893,7 +895,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -951,7 +953,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, false, testDefaultTimeout, false, nil, false, false, 0)
 		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, false)
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, false, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -993,7 +995,7 @@ func TestReconcile(t *testing.T) {
 
 		cecTranslator := &fakeCECTranslator{}
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, nil, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, true, 55555)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, nil, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, true, 55555)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -1033,7 +1035,7 @@ func TestReconcile(t *testing.T) {
 		cecTranslator := &fakeCECTranslator{}
 		dedicatedIngressTranslator := &fakeDedicatedIngressTranslator{}
 
-		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, true, 0)
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, true, 0)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
