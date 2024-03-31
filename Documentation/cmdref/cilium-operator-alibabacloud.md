@@ -73,6 +73,7 @@ cilium-operator-alibabacloud [flags]
       --identity-gc-rate-limit int                           Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration                  Timeout after which identity expires on lack of heartbeat (default 30m0s)
       --ingress-default-lb-mode string                       Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
+      --ingress-default-request-timeout duration             Default request timeout for Ingress.
       --ingress-default-secret-name string                   Default secret name for Ingress.
       --ingress-default-secret-namespace string              Default secret namespace for Ingress.
       --ingress-default-xff-num-trusted-hops uint32          The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
