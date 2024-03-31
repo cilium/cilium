@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -44,7 +45,7 @@ func WaitForDeployment(ctx context.Context, log Logger, client *k8s.Client, name
 		log.Debugf("[%s] Deployment %s/%s is not yet ready: %s", client.ClusterName(), namespace, name, err)
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for deployment %s/%s to become ready (last error: %w)",
 				namespace, name, err)
@@ -67,7 +68,7 @@ func WaitForDaemonSet(ctx context.Context, log Logger, client *k8s.Client, names
 		log.Debugf("[%s] DaemonSet %s/%s is not yet ready: %s", client.ClusterName(), namespace, name, err)
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for DaemonSet %s/%s to become ready (last error: %w)",
 				namespace, name, err)
@@ -99,7 +100,7 @@ func WaitForPodDNS(ctx context.Context, log Logger, src, dst Pod) error {
 			src.K8sClient.ClusterName(), target, src.Name(), dst.Name(), err, stdout.String())
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to server on pod %s to succeed (last error: %w)",
 				target, src.Name(), dst.Name(), err,
@@ -127,7 +128,7 @@ func WaitForCoreDNS(ctx context.Context, log Logger, client Pod) error {
 			client.K8sClient.ClusterName(), target, client.Name(), err, stdout.String())
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to succeed (last error: %w)",
 				target, client.Name(), err)
@@ -150,7 +151,7 @@ func WaitForServiceRetrieval(ctx context.Context, log Logger, client *k8s.Client
 		log.Debugf("[%s] Failed to retrieve Service %s/%s: %s", client.ClusterName(), namespace, name, err)
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return Service{}, fmt.Errorf("timeout reached waiting for service %s/%s to be retrieved (last error: %w)",
 				namespace, name, err)
@@ -188,7 +189,7 @@ func WaitForService(ctx context.Context, log Logger, client Pod, service Service
 			client.K8sClient.ClusterName(), service.Name(), err, stdout.String())
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for service %s (last error: %w)", service.Name(), err)
 		}
@@ -214,7 +215,7 @@ func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service
 			agent.K8sClient.ClusterName(), service.Name(), agent.Name(), err)
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for service %s to appear in Cilium pod %s (last error: %w)",
 				service.Name(), agent.Name(), err)
@@ -294,7 +295,7 @@ func WaitForNodePorts(ctx context.Context, log Logger, client Pod, nodeIP string
 				client.K8sClient.ClusterName(), nodeIP, nodePort, service.Name(), err, stdout.String())
 
 			select {
-			case <-time.After(PollInterval):
+			case <-inctimer.After(PollInterval):
 			case <-ctx.Done():
 				return fmt.Errorf("timeout reached waiting for NodePort %s:%d (%s) (last error: %w)",
 					nodeIP, nodePort, service.Name(), err)
@@ -322,7 +323,7 @@ func WaitForIPCache(ctx context.Context, log Logger, agent Pod, pods []Pod) erro
 		log.Debugf("[%s] Error checking pod IPs in IPCache: %s", agent.K8sClient.ClusterName(), err)
 
 		select {
-		case <-time.After(PollInterval):
+		case <-inctimer.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for pod IPs to be in IPCache of Cilium pod %s (last error: %w)",
 				agent.Name(), err)
