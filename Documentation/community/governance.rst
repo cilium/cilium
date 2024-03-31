@@ -9,7 +9,4 @@
 Governance
 ----------
 
-.. toctree::
-   :maxdepth: 3
-
-   commit_access
+Governance documentation can be found in the `Cilium Community repository <https://github.com/cilium/community/blob/main/GOVERNANCE.md>`__.
