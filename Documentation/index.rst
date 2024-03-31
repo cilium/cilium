@@ -121,7 +121,7 @@ get started and experiment with Cilium.
    :maxdepth: 2
    :caption: Community
 
-   community/governance/index
+   community/governance
    community/community
    community/roadmap
 

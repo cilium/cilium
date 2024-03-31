@@ -308,8 +308,7 @@ Makefile* @cilium/build
 /Documentation/check-helmvalues.sh @cilium/docs-structure
 /Documentation/cmdref/
 /Documentation/community/community.rst @cilium/contributing
-/Documentation/community/governance/ @cilium/contributing
-/Documentation/community/governance/commit_access.rst @cilium/contributing @cilium/docs-structure
+/Documentation/community/governance.rst @cilium/contributing
 /Documentation/community/roadmap.rst @cilium/contributing @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
 /Documentation/conf.py @cilium/docs-structure
