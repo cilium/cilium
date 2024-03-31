@@ -4,7 +4,9 @@
 package annotations
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -21,6 +23,7 @@ const (
 	HostListenerPortAnnotation = annotation.IngressPrefix + "/host-listener-port"
 	TLSPassthroughAnnotation   = annotation.IngressPrefix + "/tls-passthrough"
 	ForceHTTPSAnnotation       = annotation.IngressPrefix + "/force-https"
+	RequestTimeoutAnnotation   = annotation.IngressPrefix + "/request-timeout"
 
 	LBModeAnnotationAlias           = annotation.Prefix + ".ingress" + "/loadbalancer-mode"
 	ServiceTypeAnnotationAlias      = annotation.Prefix + ".ingress" + "/service-type"
@@ -58,6 +61,21 @@ func GetAnnotationServiceType(ingress *networkingv1.Ingress) string {
 		return string(corev1.ServiceTypeLoadBalancer)
 	}
 	return val
+}
+
+// GetAnnotationRequestTimeout retrieves the RequestTimeout annotation's value.
+func GetAnnotationRequestTimeout(ingress *networkingv1.Ingress) (*time.Duration, error) {
+	val, exists := annotation.Get(ingress, RequestTimeoutAnnotation)
+	if !exists {
+		return nil, nil
+	}
+
+	d, err := time.ParseDuration(val)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse duration %q: %w", val, err)
+	}
+
+	return &d, nil
 }
 
 // GetAnnotationSecureNodePort returns the secure node port for the ingress if possible.

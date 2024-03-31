@@ -5,6 +5,7 @@ package ingestion
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -32,6 +33,11 @@ var defaultSecretName = "default-secret-name"
 // Add the ingress objects in
 // https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/features
 // as test fixtures
+
+// default timeout for the ingress conformance tests
+var listenerDefaultTimeout = model.Timeout{
+	Request: nil,
+}
 
 // Just a default backend should produce one simple listener.
 var defaultBackend = networkingv1.Ingress{
@@ -111,6 +117,38 @@ var defaultBackendListeners = []model.HTTPListener{
 							Port: 8080,
 						},
 					},
+				},
+				Timeout: listenerDefaultTimeout,
+			},
+		},
+	},
+}
+
+var defaultBackendListenersWithRequestTimeout = []model.HTTPListener{
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "load-balancing",
+				Namespace: "random-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Timeout: model.Timeout{
+					Request: model.AddressOf(time.Second * 10),
 				},
 			},
 		},
@@ -208,6 +246,7 @@ var hostRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -237,6 +276,7 @@ var hostRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -272,6 +312,7 @@ var hostRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -450,6 +491,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -479,6 +521,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -493,6 +536,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -522,6 +566,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -536,6 +581,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -550,6 +596,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -579,6 +626,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -593,6 +641,7 @@ var pathRulesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -693,6 +742,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -707,6 +757,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -721,6 +772,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -753,6 +805,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -767,6 +820,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -781,6 +835,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -813,6 +868,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -827,6 +883,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -841,6 +898,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -873,6 +931,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -887,6 +946,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -901,6 +961,7 @@ var complexIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -1002,6 +1063,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1016,6 +1078,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1030,6 +1093,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 		Service: &model.Service{
@@ -1067,6 +1131,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1081,6 +1146,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1095,6 +1161,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 		Service: &model.Service{
@@ -1132,6 +1199,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1146,6 +1214,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1160,6 +1229,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 		Service: &model.Service{
@@ -1197,6 +1267,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1211,6 +1282,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1225,6 +1297,7 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 		Service: &model.Service{
@@ -1325,6 +1398,7 @@ var multiplePathTypesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1339,6 +1413,7 @@ var multiplePathTypesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 			{
 				PathMatch: model.StringMatch{
@@ -1353,6 +1428,7 @@ var multiplePathTypesListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -1450,6 +1526,7 @@ var hostRulesForceHTTPSenabledListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -1479,6 +1556,7 @@ var hostRulesForceHTTPSenabledListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -1515,6 +1593,7 @@ var hostRulesForceHTTPSenabledListeners = []model.HTTPListener{
 						},
 					},
 				},
+				Timeout: listenerDefaultTimeout,
 			},
 		},
 	},
@@ -1585,6 +1664,108 @@ var hostRulesForceHTTPSdisabled = networkingv1.Ingress{
 	},
 }
 
+var requestTimeoutAnnotationIngress = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "load-balancing-request-timeout-annotation",
+		Namespace: "random-namespace",
+		Annotations: map[string]string{
+			"ingress.cilium.io/request-timeout": "10s",
+		},
+	},
+	Spec: networkingv1.IngressSpec{
+		IngressClassName: stringp("cilium"),
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
+	},
+}
+
+var requestTimeoutAnnotationListeners = []model.HTTPListener{
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "load-balancing-request-timeout-annotation",
+				Namespace: "random-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Timeout: model.Timeout{
+					Request: model.AddressOf(time.Second * 10),
+				},
+			},
+		},
+	},
+}
+
+var requestTimeoutInvalidIngress = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "load-balancing-request-timeout-invalid-annotation",
+		Namespace: "random-namespace",
+		Annotations: map[string]string{
+			"ingress.cilium.io/request-timeout": "invalid-duration",
+		},
+	},
+	Spec: networkingv1.IngressSpec{
+		IngressClassName: stringp("cilium"),
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
+	},
+}
+
+var requestTimeoutInvalidListeners = []model.HTTPListener{
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "load-balancing-request-timeout-invalid-annotation",
+				Namespace: "random-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Timeout: listenerDefaultTimeout,
+			},
+		},
+	},
+}
+
 func stringp(in string) *string {
 	return &in
 }
@@ -1640,10 +1821,11 @@ func removeIngressHTTPRuleValues(ing networkingv1.Ingress) networkingv1.Ingress 
 }
 
 type testcase struct {
-	ingress       networkingv1.Ingress
-	defaultSecret bool
-	enforceHTTPS  bool
-	want          []model.HTTPListener
+	ingress        networkingv1.Ingress
+	defaultSecret  bool
+	enforceHTTPS   bool
+	requestTimeout time.Duration
+	want           []model.HTTPListener
 }
 
 func TestIngress(t *testing.T) {
@@ -1769,15 +1951,28 @@ func TestIngress(t *testing.T) {
 			want:         hostRulesForceHTTPSenabledListeners,
 			enforceHTTPS: true,
 		},
+		"request-timeout flag present with no annotation": {
+			ingress:        defaultBackend,
+			want:           defaultBackendListenersWithRequestTimeout,
+			requestTimeout: time.Second * 10,
+		},
+		"request-timeout annotation present": {
+			ingress: requestTimeoutAnnotationIngress,
+			want:    requestTimeoutAnnotationListeners,
+		},
+		"request-timeout annotation present but invalid": {
+			ingress: requestTimeoutInvalidIngress,
+			want:    requestTimeoutInvalidListeners,
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			var listeners []model.HTTPListener
 			if tc.defaultSecret {
-				listeners = Ingress(tc.ingress, defaultSecretNamespace, defaultSecretName, tc.enforceHTTPS, 80, 443)
+				listeners = Ingress(tc.ingress, defaultSecretNamespace, defaultSecretName, tc.enforceHTTPS, 80, 443, tc.requestTimeout)
 			} else {
-				listeners = Ingress(tc.ingress, "", "", tc.enforceHTTPS, 80, 443)
+				listeners = Ingress(tc.ingress, "", "", tc.enforceHTTPS, 80, 443, tc.requestTimeout)
 			}
 
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")

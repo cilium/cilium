@@ -6,6 +6,7 @@ package annotations
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,6 +61,68 @@ func TestGetAnnotationServiceType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetAnnotationServiceType(tt.args.ingress); got != tt.want {
 				t.Errorf("GetAnnotationServiceType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetAnnotationRequestTimeout(t *testing.T) {
+	type args struct {
+		ingress *networkingv1.Ingress
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    *time.Duration
+		wantErr bool
+	}{
+		{
+			name: "no request timeout annotation",
+			args: args{
+				ingress: &networkingv1.Ingress{},
+			},
+			want: nil,
+		},
+		{
+			name: "request timeout annotation with valid value",
+			args: args{
+				ingress: &networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							RequestTimeoutAnnotation: "10s",
+						},
+					},
+				},
+			},
+			want: model.AddressOf(time.Second * 10),
+		},
+		{
+			name: "request timeout annotation with invalid value",
+			args: args{
+				ingress: &networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							RequestTimeoutAnnotation: "invalid",
+						},
+					},
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetAnnotationRequestTimeout(tt.args.ingress)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAnnotationRequestTimeout() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetAnnotationRequestTimeout() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

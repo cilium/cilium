@@ -5,6 +5,7 @@ package ingress
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
@@ -27,14 +28,15 @@ var Cell = cell.Module(
 	"Manages the Kubernetes Ingress controllers",
 
 	cell.Config(ingressConfig{
-		EnableIngressController:     false,
-		EnforceIngressHTTPS:         true,
-		EnableIngressProxyProtocol:  false,
-		EnableIngressSecretsSync:    true,
-		IngressSecretsNamespace:     "cilium-secrets",
-		IngressLBAnnotationPrefixes: []string{"lbipam.cilium.io", "service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"},
-		IngressSharedLBServiceName:  "cilium-ingress",
-		IngressDefaultLBMode:        "dedicated",
+		EnableIngressController:      false,
+		EnforceIngressHTTPS:          true,
+		EnableIngressProxyProtocol:   false,
+		EnableIngressSecretsSync:     true,
+		IngressSecretsNamespace:      "cilium-secrets",
+		IngressDefaultRequestTimeout: time.Duration(0),
+		IngressLBAnnotationPrefixes:  []string{"lbipam.cilium.io", "service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"},
+		IngressSharedLBServiceName:   "cilium-ingress",
+		IngressDefaultLBMode:         "dedicated",
 
 		IngressHostnetworkEnabled:            false,
 		IngressHostnetworkSharedListenerPort: 0,
@@ -57,6 +59,7 @@ type ingressConfig struct {
 	IngressDefaultLBMode                 string
 	IngressDefaultSecretNamespace        string
 	IngressDefaultSecretName             string
+	IngressDefaultRequestTimeout         time.Duration
 	IngressHostnetworkEnabled            bool
 	IngressHostnetworkSharedListenerPort uint32
 	IngressHostnetworkNodelabelselector  string
@@ -76,6 +79,7 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("ingress-default-lb-mode", r.IngressDefaultLBMode, "Default loadbalancer mode for Ingress. Applicable values: dedicated, shared")
 	flags.String("ingress-default-secret-namespace", r.IngressDefaultSecretNamespace, "Default secret namespace for Ingress.")
 	flags.String("ingress-default-secret-name", r.IngressDefaultSecretName, "Default secret name for Ingress.")
+	flags.Duration("ingress-default-request-timeout", r.IngressDefaultRequestTimeout, "Default request timeout for Ingress.")
 	flags.Bool("ingress-hostnetwork-enabled", r.IngressHostnetworkEnabled, "Exposes ingress listeners on the host network.")
 	flags.Uint32("ingress-hostnetwork-shared-listener-port", r.IngressHostnetworkSharedListenerPort, "Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)")
 	flags.String("ingress-hostnetwork-nodelabelselector", r.IngressHostnetworkNodelabelselector, "Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
@@ -132,6 +136,7 @@ func registerReconciler(params ingressParams) error {
 		params.IngressConfig.IngressDefaultSecretNamespace,
 		params.IngressConfig.IngressDefaultSecretName,
 		params.IngressConfig.EnforceIngressHTTPS,
+		params.IngressConfig.IngressDefaultRequestTimeout,
 
 		params.IngressConfig.IngressHostnetworkEnabled,
 		params.IngressConfig.IngressHostnetworkSharedListenerPort,
