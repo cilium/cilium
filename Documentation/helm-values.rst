@@ -1152,6 +1152,10 @@
      - Additional envoy hostPath mounts.
      - list
      - ``[]``
+   * - :spelling:ignore:`envoy.extraInitContainers`
+     - Additional initContainers added to the cilium Envoy DaemonSet.
+     - list
+     - ``[]``
    * - :spelling:ignore:`envoy.extraVolumeMounts`
      - Additional envoy volumeMounts.
      - list

@@ -1750,6 +1750,10 @@
           "items": {},
           "type": "array"
         },
+        "extraInitContainers": {
+          "items": {},
+          "type": "array"
+        },
         "extraVolumeMounts": {
           "items": {},
           "type": "array"

@@ -2036,6 +2036,8 @@ envoy:
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
+  # -- Additional initContainers added to the cilium Envoy DaemonSet.
+  extraInitContainers: []
   # -- Additional envoy container arguments.
   extraArgs: []
   # -- Additional envoy container environment variables.

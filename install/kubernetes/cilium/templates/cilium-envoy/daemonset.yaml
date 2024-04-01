@@ -60,6 +60,10 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.envoy.extraInitContainers }}
+      initContainers:
+      {{- toYaml .Values.envoy.extraInitContainers | nindent 6 }}
+      {{- end }}
       containers:
       - name: cilium-envoy
         image: {{ include "cilium.image" .Values.envoy.image | quote }}
