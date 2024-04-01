@@ -6,8 +6,11 @@
 package labels
 
 import (
+	"fmt"
 	"sort"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // Labels allows you to present labels independently from their storage.
@@ -129,4 +132,32 @@ func Equals(labels1, labels2 Set) bool {
 		}
 	}
 	return true
+}
+
+// ConvertSelectorToLabelsMap converts selector string to labels map
+// and validates keys and values
+func ConvertSelectorToLabelsMap(selector string, opts ...field.PathOption) (Set, error) {
+	labelsMap := Set{}
+
+	if len(selector) == 0 {
+		return labelsMap, nil
+	}
+
+	labels := strings.Split(selector, ",")
+	for _, label := range labels {
+		l := strings.Split(label, "=")
+		if len(l) != 2 {
+			return labelsMap, fmt.Errorf("invalid selector: %s", l)
+		}
+		key := strings.TrimSpace(l[0])
+		if err := validateLabelKey(key, field.ToPath(opts...)); err != nil {
+			return labelsMap, err
+		}
+		value := strings.TrimSpace(l[1])
+		if err := validateLabelValue(key, value, field.ToPath(opts...)); err != nil {
+			return labelsMap, err
+		}
+		labelsMap[key] = value
+	}
+	return labelsMap, nil
 }

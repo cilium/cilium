@@ -54,14 +54,14 @@ var (
 		Subsystem: WorkQueueSubsystem,
 		Name:      QueueLatencyKey,
 		Help:      "How long in seconds an item stays in workqueue before being requested",
-		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 10),
+		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 12),
 	}, []string{"name"})
 
 	workDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      WorkDurationKey,
 		Help:      "How long in seconds processing an item from workqueue takes.",
-		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 10),
+		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 12),
 	}, []string{"name"})
 
 	unfinished = prometheus.NewGaugeVec(prometheus.GaugeOpts{

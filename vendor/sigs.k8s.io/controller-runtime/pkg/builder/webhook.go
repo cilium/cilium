@@ -44,6 +44,7 @@ type WebhookBuilder struct {
 	config          *rest.Config
 	recoverPanic    bool
 	logConstructor  func(base logr.Logger, req *admission.Request) logr.Logger
+	err             error
 }
 
 // WebhookManagedBy returns a new webhook builder.
@@ -57,6 +58,9 @@ func WebhookManagedBy(m manager.Manager) *WebhookBuilder {
 // If the given object implements the admission.Defaulter interface, a MutatingWebhook will be wired for this type.
 // If the given object implements the admission.Validator interface, a ValidatingWebhook will be wired for this type.
 func (blder *WebhookBuilder) For(apiType runtime.Object) *WebhookBuilder {
+	if blder.apiType != nil {
+		blder.err = errors.New("For(...) should only be called once, could not assign multiple objects for webhook registration")
+	}
 	blder.apiType = apiType
 	return blder
 }
@@ -142,7 +146,7 @@ func (blder *WebhookBuilder) registerWebhooks() error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return blder.err
 }
 
 // registerDefaultingWebhook registers a defaulting webhook if necessary.

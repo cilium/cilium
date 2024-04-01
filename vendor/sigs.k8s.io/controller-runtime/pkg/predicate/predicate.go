@@ -17,7 +17,7 @@ limitations under the License.
 package predicate
 
 import (
-	"reflect"
+	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -198,7 +198,7 @@ func (AnnotationChangedPredicate) Update(e event.UpdateEvent) bool {
 		return false
 	}
 
-	return !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
+	return !maps.Equal(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
 }
 
 // LabelChangedPredicate implements a default update predicate function on label change.
@@ -229,7 +229,7 @@ func (LabelChangedPredicate) Update(e event.UpdateEvent) bool {
 		return false
 	}
 
-	return !reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels())
+	return !maps.Equal(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels())
 }
 
 // And returns a composite predicate that implements a logical AND of the predicates passed to it.

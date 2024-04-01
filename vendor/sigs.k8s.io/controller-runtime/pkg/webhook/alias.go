@@ -24,9 +24,11 @@ import (
 // define some aliases for common bits of the webhook functionality
 
 // Defaulter defines functions for setting defaults on resources.
+// Deprecated: Use CustomDefaulter instead.
 type Defaulter = admission.Defaulter
 
 // Validator defines functions for validating an operation.
+// Deprecated: Use CustomValidator instead.
 type Validator = admission.Validator
 
 // CustomDefaulter defines functions for setting defaults on resources.

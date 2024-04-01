@@ -52,6 +52,14 @@ func (dbt *delegatingByGVKCache) List(ctx context.Context, list client.ObjectLis
 	return cache.List(ctx, list, opts...)
 }
 
+func (dbt *delegatingByGVKCache) RemoveInformer(ctx context.Context, obj client.Object) error {
+	cache, err := dbt.cacheForObject(obj)
+	if err != nil {
+		return err
+	}
+	return cache.RemoveInformer(ctx, obj)
+}
+
 func (dbt *delegatingByGVKCache) GetInformer(ctx context.Context, obj client.Object, opts ...InformerGetOption) (Informer, error) {
 	cache, err := dbt.cacheForObject(obj)
 	if err != nil {

@@ -36,12 +36,12 @@ const (
 	defaultBufferSize = 1024
 )
 
-// Source is a source of events (eh.g. Create, Update, Delete operations on Kubernetes Objects, Webhook callbacks, etc)
+// Source is a source of events (e.g. Create, Update, Delete operations on Kubernetes Objects, Webhook callbacks, etc)
 // which should be processed by event.EventHandlers to enqueue reconcile.Requests.
 //
 // * Use Kind for events originating in the cluster (e.g. Pod Create, Pod Update, Deployment Update).
 //
-// * Use Channel for events originating outside the cluster (eh.g. GitHub Webhook callback, Polling external urls).
+// * Use Channel for events originating outside the cluster (e.g. GitHub Webhook callback, Polling external urls).
 //
 // Users may build their own Source implementations.
 type Source interface {
@@ -66,7 +66,7 @@ var _ Source = &Channel{}
 
 // Channel is used to provide a source of events originating outside the cluster
 // (e.g. GitHub Webhook callback).  Channel requires the user to wire the external
-// source (eh.g. http handler) to write GenericEvents to the underlying channel.
+// source (e.g. http handler) to write GenericEvents to the underlying channel.
 type Channel struct {
 	// once ensures the event distribution goroutine will be performed only once
 	once sync.Once

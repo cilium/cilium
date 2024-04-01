@@ -30,7 +30,6 @@ import (
 // CustomValidator defines functions for validating an operation.
 // The object to be validated is passed into methods as a parameter.
 type CustomValidator interface {
-
 	// ValidateCreate validates the object on creation.
 	// The optional warnings will be added to the response as warning messages.
 	// Return an error if the object is invalid.
@@ -57,7 +56,7 @@ func WithCustomValidator(scheme *runtime.Scheme, obj runtime.Object, validator C
 type validatorForType struct {
 	validator CustomValidator
 	object    runtime.Object
-	decoder   *Decoder
+	decoder   Decoder
 }
 
 // Handle handles admission requests.

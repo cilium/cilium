@@ -26,22 +26,35 @@ import (
 
 // Decoder knows how to decode the contents of an admission
 // request into a concrete object.
-type Decoder struct {
+type Decoder interface {
+	// Decode decodes the inlined object in the AdmissionRequest into the passed-in runtime.Object.
+	// If you want decode the OldObject in the AdmissionRequest, use DecodeRaw.
+	// It errors out if req.Object.Raw is empty i.e. containing 0 raw bytes.
+	Decode(req Request, into runtime.Object) error
+
+	// DecodeRaw decodes a RawExtension object into the passed-in runtime.Object.
+	// It errors out if rawObj is empty i.e. containing 0 raw bytes.
+	DecodeRaw(rawObj runtime.RawExtension, into runtime.Object) error
+}
+
+// decoder knows how to decode the contents of an admission
+// request into a concrete object.
+type decoder struct {
 	codecs serializer.CodecFactory
 }
 
-// NewDecoder creates a Decoder given the runtime.Scheme.
-func NewDecoder(scheme *runtime.Scheme) *Decoder {
+// NewDecoder creates a decoder given the runtime.Scheme.
+func NewDecoder(scheme *runtime.Scheme) Decoder {
 	if scheme == nil {
 		panic("scheme should never be nil")
 	}
-	return &Decoder{codecs: serializer.NewCodecFactory(scheme)}
+	return &decoder{codecs: serializer.NewCodecFactory(scheme)}
 }
 
 // Decode decodes the inlined object in the AdmissionRequest into the passed-in runtime.Object.
 // If you want decode the OldObject in the AdmissionRequest, use DecodeRaw.
 // It errors out if req.Object.Raw is empty i.e. containing 0 raw bytes.
-func (d *Decoder) Decode(req Request, into runtime.Object) error {
+func (d *decoder) Decode(req Request, into runtime.Object) error {
 	// we error out if rawObj is an empty object.
 	if len(req.Object.Raw) == 0 {
 		return fmt.Errorf("there is no content to decode")
@@ -51,7 +64,7 @@ func (d *Decoder) Decode(req Request, into runtime.Object) error {
 
 // DecodeRaw decodes a RawExtension object into the passed-in runtime.Object.
 // It errors out if rawObj is empty i.e. containing 0 raw bytes.
-func (d *Decoder) DecodeRaw(rawObj runtime.RawExtension, into runtime.Object) error {
+func (d *decoder) DecodeRaw(rawObj runtime.RawExtension, into runtime.Object) error {
 	// NB(directxman12): there's a bug/weird interaction between decoders and
 	// the API server where the API server doesn't send a GVK on the embedded
 	// objects, which means the unstructured decoder refuses to decode.  It

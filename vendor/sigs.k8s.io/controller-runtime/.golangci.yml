@@ -59,9 +59,9 @@ linters-settings:
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
   staticcheck:
-    go: "1.20"
+    go: "1.22"
   stylecheck:
-    go: "1.20"
+    go: "1.22"
   revive:
     rules:
       # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration

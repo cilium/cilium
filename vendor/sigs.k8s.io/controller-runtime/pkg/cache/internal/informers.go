@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/internal/syncs"
 )
 
 // InformersOpts configures an InformerMap.
@@ -49,6 +50,7 @@ type InformersOpts struct {
 	Selector              Selector
 	Transform             cache.TransformFunc
 	UnsafeDisableDeepCopy bool
+	WatchErrorHandler     cache.WatchErrorHandler
 }
 
 // NewInformers creates a new InformersMap that can create informers under the hood.
@@ -76,6 +78,7 @@ func NewInformers(config *rest.Config, options *InformersOpts) *Informers {
 		transform:             options.Transform,
 		unsafeDisableDeepCopy: options.UnsafeDisableDeepCopy,
 		newInformer:           newInformer,
+		watchErrorHandler:     options.WatchErrorHandler,
 	}
 }
 
@@ -86,6 +89,20 @@ type Cache struct {
 
 	// CacheReader wraps Informer and implements the CacheReader interface for a single type
 	Reader CacheReader
+
+	// Stop can be used to stop this individual informer.
+	stop chan struct{}
+}
+
+// Start starts the informer managed by a MapEntry.
+// Blocks until the informer stops. The informer can be stopped
+// either individually (via the entry's stop channel) or globally
+// via the provided stop argument.
+func (c *Cache) Start(stop <-chan struct{}) {
+	// Stop on either the whole map stopping or just this informer being removed.
+	internalStop, cancel := syncs.MergeChans(stop, c.stop)
+	defer cancel()
+	c.Informer.Run(internalStop)
 }
 
 type tracker struct {
@@ -159,6 +176,11 @@ type Informers struct {
 
 	// NewInformer allows overriding of the shared index informer constructor for testing.
 	newInformer func(cache.ListerWatcher, runtime.Object, time.Duration, cache.Indexers) cache.SharedIndexInformer
+
+	// WatchErrorHandler allows the shared index informer's
+	// watchErrorHandler to be set by overriding the options
+	// or to use the default watchErrorHandler
+	watchErrorHandler cache.WatchErrorHandler
 }
 
 // Start calls Run on each of the informers and sets started to true. Blocks on the context.
@@ -173,13 +195,13 @@ func (ip *Informers) Start(ctx context.Context) error {
 
 		// Start each informer
 		for _, i := range ip.tracker.Structured {
-			ip.startInformerLocked(i.Informer)
+			ip.startInformerLocked(i)
 		}
 		for _, i := range ip.tracker.Unstructured {
-			ip.startInformerLocked(i.Informer)
+			ip.startInformerLocked(i)
 		}
 		for _, i := range ip.tracker.Metadata {
-			ip.startInformerLocked(i.Informer)
+			ip.startInformerLocked(i)
 		}
 
 		// Set started to true so we immediately start any informers added later.
@@ -194,7 +216,7 @@ func (ip *Informers) Start(ctx context.Context) error {
 	return nil
 }
 
-func (ip *Informers) startInformerLocked(informer cache.SharedIndexInformer) {
+func (ip *Informers) startInformerLocked(cacheEntry *Cache) {
 	// Don't start the informer in case we are already waiting for the items in
 	// the waitGroup to finish, since waitGroups don't support waiting and adding
 	// at the same time.
@@ -205,7 +227,7 @@ func (ip *Informers) startInformerLocked(informer cache.SharedIndexInformer) {
 	ip.waitGroup.Add(1)
 	go func() {
 		defer ip.waitGroup.Done()
-		informer.Run(ip.ctx.Done())
+		cacheEntry.Start(ip.ctx.Done())
 	}()
 }
 
@@ -281,6 +303,21 @@ func (ip *Informers) Get(ctx context.Context, gvk schema.GroupVersionKind, obj r
 	return started, i, nil
 }
 
+// Remove removes an informer entry and stops it if it was running.
+func (ip *Informers) Remove(gvk schema.GroupVersionKind, obj runtime.Object) {
+	ip.mu.Lock()
+	defer ip.mu.Unlock()
+
+	informerMap := ip.informersByType(obj)
+
+	entry, ok := informerMap[gvk]
+	if !ok {
+		return
+	}
+	close(entry.stop)
+	delete(informerMap, gvk)
+}
+
 func (ip *Informers) informersByType(obj runtime.Object) map[schema.GroupVersionKind]*Cache {
 	switch obj.(type) {
 	case runtime.Unstructured:
@@ -323,6 +360,13 @@ func (ip *Informers) addInformerToMap(gvk schema.GroupVersionKind, obj runtime.O
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	})
 
+	// Set WatchErrorHandler on SharedIndexInformer if set
+	if ip.watchErrorHandler != nil {
+		if err := sharedIndexInformer.SetWatchErrorHandler(ip.watchErrorHandler); err != nil {
+			return nil, false, err
+		}
+	}
+
 	// Check to see if there is a transformer for this gvk
 	if err := sharedIndexInformer.SetTransform(ip.transform); err != nil {
 		return nil, false, err
@@ -342,13 +386,14 @@ func (ip *Informers) addInformerToMap(gvk schema.GroupVersionKind, obj runtime.O
 			scopeName:        mapping.Scope.Name(),
 			disableDeepCopy:  ip.unsafeDisableDeepCopy,
 		},
+		stop: make(chan struct{}),
 	}
 	ip.informersByType(obj)[gvk] = i
 
 	// Start the informer in case the InformersMap has started, otherwise it will be
 	// started when the InformersMap starts.
 	if ip.started {
-		ip.startInformerLocked(i.Informer)
+		ip.startInformerLocked(i)
 	}
 	return i, ip.started, nil
 }
