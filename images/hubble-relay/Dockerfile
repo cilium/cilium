@@ -10,7 +10,7 @@
 # $ cosign verify --key cosign.pub $BASE_IMAGE
 # The key may be found at the following address:
 # https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
-ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:55c636171053dbc8ae07a280023bd787d2921f10e569f3e319f1539076dbba11
+ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:6732c3975d97fac664a5ed15a81a5915e023a7b5a7b58195e733c60b8dc7e684
 ARG GOLANG_IMAGE=docker.io/library/golang:1.21.8@sha256:856073656d1a517517792e6cdd2f7a5ef080d3ca2dff33e518c8412f140fdd2d
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:3371a65aea55999ee1de92672975c70562438f2b@sha256:4aa076f00f27302331955b9b983a2e3811bd2bba6e90eded2f0e3511c874bf80
 
