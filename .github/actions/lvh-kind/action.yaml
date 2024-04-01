@@ -5,6 +5,9 @@ inputs:
   kernel:
     required: true
     type: string
+  image:
+    required: false
+    default: 'kind'
   kind-params:
     required: true
     type: string
@@ -22,6 +25,7 @@ runs:
       uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
       with:
         test-name: ${{ inputs.test-name }}
+        image: ${{ inputs.image }}
         image-version: ${{ inputs.kernel }}
         host-mount: ./
         cpu: 4

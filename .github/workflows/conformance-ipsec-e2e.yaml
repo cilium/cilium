@@ -251,6 +251,7 @@ jobs:
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
+          image: "kind-ci"
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
