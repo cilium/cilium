@@ -25,12 +25,6 @@ aliases:
   - varshaprasad96
   - inteon
 
-  # folks to can approve things in the directly-ported
-  # testing_frameworks portions of the codebase
-  testing-integration-approvers:
-  - apelisse
-  - hoegaarden
-
   # folks who may have context on ancient history,
   # but are no longer directly involved
   controller-runtime-emeritus-maintainers:

@@ -18,9 +18,11 @@ import (
 // labels, which must be joined to produce the full set of endpoints.
 type EndpointSlice struct {
 	slim_metav1.TypeMeta `json:",inline"`
+
 	// Standard object's metadata.
 	// +optional
 	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
 	// addressType specifies the type of address carried by this EndpointSlice.
 	// All addresses in this slice must be the same type. This field is
 	// immutable after creation. The following address types are currently

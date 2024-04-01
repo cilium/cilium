@@ -419,7 +419,7 @@ type ListOptions struct {
 	LabelSelector labels.Selector
 	// FieldSelector filters results by a particular field.  In order
 	// to use this with cache-based implementations, restrict usage to
-	// a single field-value pair that's been added to the indexers.
+	// exact match field-value pair that's been added to the indexers.
 	FieldSelector fields.Selector
 
 	// Namespace represents the namespace to list for, or empty for
@@ -514,7 +514,8 @@ type MatchingLabels map[string]string
 func (m MatchingLabels) ApplyToList(opts *ListOptions) {
 	// TODO(directxman12): can we avoid reserializing this over and over?
 	if opts.LabelSelector == nil {
-		opts.LabelSelector = labels.NewSelector()
+		opts.LabelSelector = labels.SelectorFromValidatedSet(map[string]string(m))
+		return
 	}
 	// If there's already a selector, we need to AND the two together.
 	noValidSel := labels.SelectorFromValidatedSet(map[string]string(m))

@@ -31,11 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 )
 
 var (
@@ -58,25 +56,6 @@ func AddToProtobufScheme(addToScheme func(*runtime.Scheme) error) error {
 	protobufSchemeLock.Lock()
 	defer protobufSchemeLock.Unlock()
 	return addToScheme(protobufScheme)
-}
-
-// NewDiscoveryRESTMapper constructs a new RESTMapper based on discovery
-// information fetched by a new client with the given config.
-func NewDiscoveryRESTMapper(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
-	if httpClient == nil {
-		return nil, fmt.Errorf("httpClient must not be nil, consider using rest.HTTPClientFor(c) to create a client")
-	}
-
-	// Get a mapper
-	dc, err := discovery.NewDiscoveryClientForConfigAndClient(c, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	gr, err := restmapper.GetAPIGroupResources(dc)
-	if err != nil {
-		return nil, err
-	}
-	return restmapper.NewDiscoveryRESTMapper(gr), nil
 }
 
 // IsObjectNamespaced returns true if the object is namespace scoped.

@@ -21,8 +21,8 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CoreV1() corev1.CoreV1Interface
-	DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface
 	DiscoveryV1() discoveryv1.DiscoveryV1Interface
+	DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface
 	NetworkingV1() networkingv1.NetworkingV1Interface
 }
 
@@ -30,8 +30,8 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	coreV1           *corev1.CoreV1Client
-	discoveryV1beta1 *discoveryv1beta1.DiscoveryV1beta1Client
 	discoveryV1      *discoveryv1.DiscoveryV1Client
+	discoveryV1beta1 *discoveryv1beta1.DiscoveryV1beta1Client
 	networkingV1     *networkingv1.NetworkingV1Client
 }
 
@@ -40,14 +40,14 @@ func (c *Clientset) CoreV1() corev1.CoreV1Interface {
 	return c.coreV1
 }
 
-// DiscoveryV1beta1 retrieves the DiscoveryV1beta1Client
-func (c *Clientset) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
-	return c.discoveryV1beta1
-}
-
 // DiscoveryV1 retrieves the DiscoveryV1Client
 func (c *Clientset) DiscoveryV1() discoveryv1.DiscoveryV1Interface {
 	return c.discoveryV1
+}
+
+// DiscoveryV1beta1 retrieves the DiscoveryV1beta1Client
+func (c *Clientset) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
+	return c.discoveryV1beta1
 }
 
 // NetworkingV1 retrieves the NetworkingV1Client
@@ -103,11 +103,11 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.discoveryV1beta1, err = discoveryv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.discoveryV1, err = discoveryv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
-	cs.discoveryV1, err = discoveryv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.discoveryV1beta1, err = discoveryv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +137,8 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.coreV1 = corev1.New(c)
-	cs.discoveryV1beta1 = discoveryv1beta1.New(c)
 	cs.discoveryV1 = discoveryv1.New(c)
+	cs.discoveryV1beta1 = discoveryv1beta1.New(c)
 	cs.networkingV1 = networkingv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

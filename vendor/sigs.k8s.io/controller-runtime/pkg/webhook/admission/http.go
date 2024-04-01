@@ -34,6 +34,26 @@ import (
 var admissionScheme = runtime.NewScheme()
 var admissionCodecs = serializer.NewCodecFactory(admissionScheme)
 
+// adapted from https://github.com/kubernetes/kubernetes/blob/c28c2009181fcc44c5f6b47e10e62dacf53e4da0/staging/src/k8s.io/pod-security-admission/cmd/webhook/server/server.go
+//
+// From https://github.com/kubernetes/apiserver/blob/d6876a0600de06fef75968c4641c64d7da499f25/pkg/server/config.go#L433-L442C5:
+//
+//	     1.5MB is the recommended client request size in byte
+//		 the etcd server should accept. See
+//		 https://github.com/etcd-io/etcd/blob/release-3.4/embed/config.go#L56.
+//		 A request body might be encoded in json, and is converted to
+//		 proto when persisted in etcd, so we allow 2x as the largest request
+//		 body size to be accepted and decoded in a write request.
+//
+// For the admission request, we can infer that it contains at most two objects
+// (the old and new versions of the object being admitted), each of which can
+// be at most 3MB in size. For the rest of the request, we can assume that
+// it will be less than 1MB in size. Therefore, we can set the max request
+// size to 7MB.
+// If your use case requires larger max request sizes, please
+// open an issue (https://github.com/kubernetes-sigs/controller-runtime/issues/new).
+const maxRequestSize = int64(7 * 1024 * 1024)
+
 func init() {
 	utilruntime.Must(v1.AddToScheme(admissionScheme))
 	utilruntime.Must(v1beta1.AddToScheme(admissionScheme))
@@ -42,27 +62,30 @@ func init() {
 var _ http.Handler = &Webhook{}
 
 func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var body []byte
-	var err error
 	ctx := r.Context()
 	if wh.WithContextFunc != nil {
 		ctx = wh.WithContextFunc(ctx, r)
 	}
 
-	var reviewResponse Response
-	if r.Body == nil {
-		err = errors.New("request body is empty")
+	if r.Body == nil || r.Body == http.NoBody {
+		err := errors.New("request body is empty")
 		wh.getLogger(nil).Error(err, "bad request")
-		reviewResponse = Errored(http.StatusBadRequest, err)
-		wh.writeResponse(w, reviewResponse)
+		wh.writeResponse(w, Errored(http.StatusBadRequest, err))
 		return
 	}
 
 	defer r.Body.Close()
-	if body, err = io.ReadAll(r.Body); err != nil {
+	limitedReader := &io.LimitedReader{R: r.Body, N: maxRequestSize}
+	body, err := io.ReadAll(limitedReader)
+	if err != nil {
 		wh.getLogger(nil).Error(err, "unable to read the body from the incoming request")
-		reviewResponse = Errored(http.StatusBadRequest, err)
-		wh.writeResponse(w, reviewResponse)
+		wh.writeResponse(w, Errored(http.StatusBadRequest, err))
+		return
+	}
+	if limitedReader.N <= 0 {
+		err := fmt.Errorf("request entity is too large; limit is %d bytes", maxRequestSize)
+		wh.getLogger(nil).Error(err, "unable to read the body from the incoming request; limit reached")
+		wh.writeResponse(w, Errored(http.StatusRequestEntityTooLarge, err))
 		return
 	}
 
@@ -70,8 +93,7 @@ func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if contentType := r.Header.Get("Content-Type"); contentType != "application/json" {
 		err = fmt.Errorf("contentType=%s, expected application/json", contentType)
 		wh.getLogger(nil).Error(err, "unable to process a request with unknown content type")
-		reviewResponse = Errored(http.StatusBadRequest, err)
-		wh.writeResponse(w, reviewResponse)
+		wh.writeResponse(w, Errored(http.StatusBadRequest, err))
 		return
 	}
 
@@ -89,14 +111,12 @@ func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, actualAdmRevGVK, err := admissionCodecs.UniversalDeserializer().Decode(body, nil, &ar)
 	if err != nil {
 		wh.getLogger(nil).Error(err, "unable to decode the request")
-		reviewResponse = Errored(http.StatusBadRequest, err)
-		wh.writeResponse(w, reviewResponse)
+		wh.writeResponse(w, Errored(http.StatusBadRequest, err))
 		return
 	}
 	wh.getLogger(&req).V(5).Info("received request")
 
-	reviewResponse = wh.Handle(ctx, req)
-	wh.writeResponseTyped(w, reviewResponse, actualAdmRevGVK)
+	wh.writeResponseTyped(w, wh.Handle(ctx, req), actualAdmRevGVK)
 }
 
 // writeResponse writes response to w generically, i.e. without encoding GVK information.
