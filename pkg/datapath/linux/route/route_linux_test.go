@@ -124,6 +124,12 @@ func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
 
+	rule.Mask++
+	exists, err = lookupRule(rule, netlink.FAMILY_V4)
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, false)
+	rule.Mask--
+
 	err = DeleteRule(netlink.FAMILY_V4, rule)
 	c.Assert(err, IsNil)
 
