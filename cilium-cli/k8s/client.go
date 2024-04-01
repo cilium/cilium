@@ -46,8 +46,6 @@ import (
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	tetragonv1alpha1 "github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1"
-
 	"github.com/cilium/cilium-cli/defaults"
 )
 
@@ -67,7 +65,6 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error)
 	// Register the Cilium types in the default scheme.
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
 	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
-	_ = tetragonv1alpha1.AddToScheme(scheme.Scheme)
 
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &contextName,
