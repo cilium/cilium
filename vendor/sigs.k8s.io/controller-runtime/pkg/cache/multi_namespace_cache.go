@@ -109,6 +109,27 @@ func (c *multiNamespaceCache) GetInformer(ctx context.Context, obj client.Object
 	return &multiNamespaceInformer{namespaceToInformer: namespaceToInformer}, nil
 }
 
+func (c *multiNamespaceCache) RemoveInformer(ctx context.Context, obj client.Object) error {
+	// If the object is clusterscoped, get the informer from clusterCache,
+	// if not use the namespaced caches.
+	isNamespaced, err := apiutil.IsObjectNamespaced(obj, c.Scheme, c.RESTMapper)
+	if err != nil {
+		return err
+	}
+	if !isNamespaced {
+		return c.clusterCache.RemoveInformer(ctx, obj)
+	}
+
+	for _, cache := range c.namespaceToCache {
+		err := cache.RemoveInformer(ctx, obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *multiNamespaceCache) GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind, opts ...InformerGetOption) (Informer, error) {
 	// If the object is cluster scoped, get the informer from clusterCache,
 	// if not use the namespaced caches.
@@ -386,6 +407,16 @@ func (i *multiNamespaceInformer) AddIndexers(indexers toolscache.Indexers) error
 func (i *multiNamespaceInformer) HasSynced() bool {
 	for _, informer := range i.namespaceToInformer {
 		if !informer.HasSynced() {
+			return false
+		}
+	}
+	return true
+}
+
+// IsStopped checks if each namespaced informer has stopped, returns false if any are still running.
+func (i *multiNamespaceInformer) IsStopped() bool {
+	for _, informer := range i.namespaceToInformer {
+		if stopped := informer.IsStopped(); !stopped {
 			return false
 		}
 	}

@@ -6,5 +6,6 @@ approvers:
   - controller-runtime-approvers
 reviewers:
   - controller-runtime-admins
-  - controller-runtime-reviewers
+  - controller-runtime-maintainers
   - controller-runtime-approvers
+  - controller-runtime-reviewers

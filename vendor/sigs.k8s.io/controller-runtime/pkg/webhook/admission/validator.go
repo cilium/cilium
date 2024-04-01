@@ -33,6 +33,7 @@ type Warnings []string
 // Validator defines functions for validating an operation.
 // The custom resource kind which implements this interface can validate itself.
 // To validate the custom resource with another specific struct, use CustomValidator instead.
+// Deprecated: Use CustomValidator instead.
 type Validator interface {
 	runtime.Object
 
@@ -53,6 +54,7 @@ type Validator interface {
 }
 
 // ValidatingWebhookFor creates a new Webhook for validating the provided type.
+// Deprecated: Use WithCustomValidator instead.
 func ValidatingWebhookFor(scheme *runtime.Scheme, validator Validator) *Webhook {
 	return &Webhook{
 		Handler: &validatingHandler{validator: validator, decoder: NewDecoder(scheme)},
@@ -61,7 +63,7 @@ func ValidatingWebhookFor(scheme *runtime.Scheme, validator Validator) *Webhook 
 
 type validatingHandler struct {
 	validator Validator
-	decoder   *Decoder
+	decoder   Decoder
 }
 
 // Handle handles admission requests.

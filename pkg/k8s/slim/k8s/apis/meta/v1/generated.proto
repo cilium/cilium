@@ -96,6 +96,7 @@ message LabelSelector {
 
   // matchExpressions is a list of label selector requirements. The requirements are ANDed.
   // +kubebuilder:validation:Optional
+  // +listType=atomic
   repeated LabelSelectorRequirement matchExpressions = 2;
 }
 
@@ -115,8 +116,8 @@ message LabelSelectorRequirement {
   // the values array must be non-empty. If the operator is Exists or DoesNotExist,
   // the values array must be empty. This array is replaced during a strategic
   // merge patch.
-  //
   // +kubebuilder:validation:Optional
+  // +listType=atomic
   repeated string values = 3;
 }
 
@@ -263,6 +264,8 @@ message ObjectMeta {
   // +optional
   // +patchMergeKey=uid
   // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=uid
   repeated OwnerReference ownerReferences = 13;
 }
 

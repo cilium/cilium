@@ -22,14 +22,16 @@ import (
 )
 
 // RequiresExactMatch checks if the given field selector is of the form `k=v` or `k==v`.
-func RequiresExactMatch(sel fields.Selector) (field, val string, required bool) {
+func RequiresExactMatch(sel fields.Selector) bool {
 	reqs := sel.Requirements()
-	if len(reqs) != 1 {
-		return "", "", false
+	if len(reqs) == 0 {
+		return false
 	}
-	req := reqs[0]
-	if req.Operator != selection.Equals && req.Operator != selection.DoubleEquals {
-		return "", "", false
+
+	for _, req := range reqs {
+		if req.Operator != selection.Equals && req.Operator != selection.DoubleEquals {
+			return false
+		}
 	}
-	return req.Field, req.Value, true
+	return true
 }

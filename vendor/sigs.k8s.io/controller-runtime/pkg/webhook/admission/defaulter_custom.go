@@ -43,7 +43,7 @@ func WithCustomDefaulter(scheme *runtime.Scheme, obj runtime.Object, defaulter C
 type defaulterForType struct {
 	defaulter CustomDefaulter
 	object    runtime.Object
-	decoder   *Decoder
+	decoder   Decoder
 }
 
 // Handle handles admission requests.

@@ -4,13 +4,13 @@
 
 **A**: Each controller should only reconcile one object type.  Other
 affected objects should be mapped to a single type of root object, using
-the `EnqueueRequestForOwner` or `EnqueueRequestsFromMapFunc` event
+the `handler.EnqueueRequestForOwner` or `handler.EnqueueRequestsFromMapFunc` event
 handlers, and potentially indices. Then, your Reconcile method should
 attempt to reconcile *all* state for that given root objects.
 
 ### Q: How do I have different logic in my reconciler for different types of events (e.g. create, update, delete)?
 
-**A**: You should not.  Reconcile functions should be idempotent, and
+**A**: You should not. Reconcile functions should be idempotent, and
 should always reconcile state by reading all the state it needs, then
 writing updates.  This allows your reconciler to correctly respond to
 generic events, adjust to skipped or coalesced events, and easily deal

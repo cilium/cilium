@@ -42,7 +42,7 @@ import (
 // Unless you are implementing your own EventHandler, you can ignore the functions on the EventHandler interface.
 // Most users shouldn't need to implement their own EventHandler.
 type EventHandler interface {
-	// Create is called in response to an create event - e.g. Pod Creation.
+	// Create is called in response to a create event - e.g. Pod Creation.
 	Create(context.Context, event.CreateEvent, workqueue.RateLimitingInterface)
 
 	// Update is called in response to an update event -  e.g. Pod Updated.
