@@ -537,7 +537,7 @@ DNS policies are used to define Layer 3 policies to endpoints that are not
 managed by Cilium, but have DNS queryable domain names. The IP addresses
 provided in DNS responses are allowed by Cilium in a similar manner to IPs in
 `CIDR based`_ policies. They are an alternative when the remote IPs may change
-or are not know a priori, or when DNS is more convenient. To enforce policy on
+or are not know prior, or when DNS is more convenient. To enforce policy on
 DNS requests themselves, see `Layer 7 Examples`_.
 
 .. note::
