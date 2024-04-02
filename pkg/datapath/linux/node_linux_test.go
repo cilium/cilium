@@ -16,6 +16,9 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -28,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -191,7 +195,7 @@ func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv
 }
 
 func tearDownTest(tb testing.TB) {
-	ipsec.DeleteXfrm()
+	ipsec.DeleteXFRM()
 	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
@@ -824,6 +828,75 @@ func TestNodeChurnXFRMLeaks(t *testing.T) {
 	require.NotNil(t, ipv6PodSubnets)
 	config.IPv6PodSubnets = []*net.IPNet{ipv6PodSubnets}
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
+}
+
+func (s *linuxPrivilegedIPv4OnlyTestSuite) TestEncryptedOverlayXFRMLeaks(t *testing.T) {
+
+	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
+	config := datapath.LocalNodeConfiguration{
+		EnableIPv4:  s.enableIPv4,
+		EnableIPv6:  s.enableIPv6,
+		EnableIPSec: true,
+	}
+	s.testEncryptedOverlayXFRMLeaks(t, config)
+}
+
+// TestEncryptedOverlayXFRMLeaks tests that the XFRM policies and states are accurate when the encrypted overlay
+// feature is enabled and disabled.
+func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *testing.T, config datapath.LocalNodeConfiguration) {
+	keys := bytes.NewReader([]byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
+	_, _, err := ipsec.LoadIPSecKeys(keys)
+	require.NoError(t, err)
+
+	var linuxNodeHandler *linuxNodeHandler
+	h := hive.New(
+		DevicesControllerCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+			linuxNodeHandler = newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	require.Nil(t, h.Start(tlog, context.TODO()))
+	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
+	require.NotNil(t, linuxNodeHandler)
+
+	err = linuxNodeHandler.NodeConfigurationChanged(config)
+	require.NoError(t, err)
+
+	// Adding a node adds some XFRM states and policies.
+	node := nodeTypes.Node{
+		Name: "node",
+		IPAddresses: []nodeTypes.Address{
+			{IP: net.ParseIP("3.3.3.3"), Type: nodeaddressing.NodeInternalIP},
+			{IP: net.ParseIP("4.4.4.4"), Type: nodeaddressing.NodeCiliumInternalIP},
+		},
+		IPv4AllocCIDR: cidr.MustParseCIDR("4.4.4.0/24"),
+		BootID:        "test-boot-id",
+	}
+	err = linuxNodeHandler.NodeAdd(node)
+	require.NoError(t, err)
+
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(states))
+	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	require.NoError(t, err)
+	require.Equal(t, 2, countXFRMPolicies(policies))
+
+	// disable encrypted overlay feature
+	config.EnableIPSecEncryptedOverlay = false
+
+	err = linuxNodeHandler.NodeConfigurationChanged(config)
+	require.NoError(t, err)
+
+	states, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(states))
+	policies, err = netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	require.NoError(t, err)
+	require.Equal(t, 1, countXFRMPolicies(policies))
 }
 
 func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testing.T, config datapath.LocalNodeConfiguration) {
