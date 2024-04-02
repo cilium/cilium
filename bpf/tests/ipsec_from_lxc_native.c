@@ -3,9 +3,6 @@
 
 #define ENABLE_ROUTING
 
-#define EXPECTED_DEST_MAC ({ \
-	union macaddr expected_dest_mac = NODE_MAC; \
-	&expected_dest_mac.addr; \
-})
+#define EXPECTED_DEST_MAC (&((union macaddr)NODE_MAC).addr[0])
 
 #include "ipsec_from_lxc_generic.h"
