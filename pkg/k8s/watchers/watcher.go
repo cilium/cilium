@@ -118,6 +118,7 @@ type endpointManager interface {
 type nodeManager interface {
 	NodeDeleted(n nodeTypes.Node)
 	NodeUpdated(n nodeTypes.Node)
+	NodeSync()
 }
 
 type policyManager interface {
