@@ -97,6 +97,13 @@ Alternatively, you can select which tests to run:
     ...
     [=] Test [north-south-loadbalancing]
 
+Or, you can exclude specific test cases to run:
+
+.. code-block:: shell-session
+
+    $ cilium connectivity test --test '!pod-to-world'
+    ...
+
 Running tests in VM
 ^^^^^^^^^^^^^^^^^^^
 
@@ -211,6 +218,33 @@ has been resolved):
     # make modules_install
 
 Finally, you can use the instructions from :ref:`the previous chapter<test_cilium_on_lvh>` to run and to test Cilium.
+
+Network performance test
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Cilium also provides `cilium-cli connectivity perf <https://github.com/cilium/cilium-cli/blob/756ae5072a7281e2b6b33b10da3ab890cb2fa240/README.md#network-performance-test>`__ to test the network performance of pod-to-pod communication in the same node and different nodes.
+
+To run performance test:
+
+.. code-block:: shell-session
+
+    $ cilium connectivity perf
+    ...
+    [=] Test [network-perf] [1/1]
+    ...
+
+If you want to test the network performance between specific nodes, you can label the nodes to run test:
+
+.. code-block:: shell-session
+
+    $ kubectl label nodes worker1 perf-test=true
+    node/worker1 labeled
+    $ kubectl label nodes worker2 perf-test=true
+    node/worker2 labeled
+    $ cilium connectivity perf --node-selector perf-test=true
+    ...
+    [=] Test [network-perf] [1/1]
+    ...
 
 Cleaning up tests
 ^^^^^^^^^^^^^^^^^
