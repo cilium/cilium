@@ -38,6 +38,9 @@ var Cell = cell.Module(
 		reconciler.New[*tables.IPSetEntry],
 		newReconcilerConfig,
 		newOps,
+		func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
+			return ops
+		},
 	),
 	cell.ProvidePrivate(func(logger logrus.FieldLogger) *ipset {
 		return &ipset{
@@ -60,7 +63,7 @@ func newReconcilerConfig(
 	ops reconciler.Operations[*tables.IPSetEntry],
 ) reconciler.Config[*tables.IPSetEntry] {
 	return reconciler.Config[*tables.IPSetEntry]{
-		FullReconcilationInterval: 10 * time.Second,
+		FullReconcilationInterval: 30 * time.Minute,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   5 * time.Second,
 		IncrementalRoundSize:      100,

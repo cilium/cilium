@@ -11,6 +11,8 @@ import (
 	"net/netip"
 	"runtime/pprof"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -18,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
@@ -38,8 +41,23 @@ type AddrSet = sets.Set[netip.Addr]
 
 // Manager handles the kernel IP sets configuration
 type Manager interface {
+	NewInitializer() Initializer
 	AddToIPSet(name string, family Family, addrs ...netip.Addr)
 	RemoveFromIPSet(name string, addrs ...netip.Addr)
+}
+
+type Initializer interface {
+	InitDone()
+}
+
+type initializer struct {
+	once sync.Once
+	wg   *lock.StoppableWaitGroup
+}
+
+func (i *initializer) InitDone() {
+	// further calls to InitDone will be a no-op
+	i.once.Do(i.wg.Done)
 }
 
 type manager struct {
@@ -50,6 +68,20 @@ type manager struct {
 	table statedb.RWTable[*tables.IPSetEntry]
 
 	ipset *ipset
+
+	reconciler reconciler.Reconciler[*tables.IPSetEntry]
+	ops        *ops
+
+	started   atomic.Bool
+	startedWG *lock.StoppableWaitGroup
+}
+
+func (m *manager) NewInitializer() Initializer {
+	if m.started.Load() {
+		panic("an initializer to the ipset manager cannot be taken after the manager started")
+	}
+	m.startedWG.Add()
+	return &initializer{wg: m.startedWG}
 }
 
 // AddToIPSet adds the addresses to the ipset with given name and family.
@@ -115,15 +147,19 @@ func newIPSetManager(
 	table statedb.RWTable[*tables.IPSetEntry],
 	cfg config,
 	ipset *ipset,
-	_ reconciler.Reconciler[*tables.IPSetEntry], // needed to enforce the correct hive ordering
+	reconciler reconciler.Reconciler[*tables.IPSetEntry],
+	ops *ops,
 ) Manager {
 	db.RegisterTable(table)
 	mgr := &manager{
-		logger:  logger,
-		enabled: cfg.NodeIPSetNeeded,
-		db:      db,
-		table:   table,
-		ipset:   ipset,
+		logger:     logger,
+		enabled:    cfg.NodeIPSetNeeded,
+		db:         db,
+		table:      table,
+		ipset:      ipset,
+		reconciler: reconciler,
+		ops:        ops,
+		startedWG:  lock.NewStoppableWaitGroup(),
 	}
 
 	lc.Append(cell.Hook{
@@ -166,6 +202,21 @@ func (m *manager) init(ctx context.Context, _ cell.HealthReporter) error {
 		}
 		return nil
 	}
+
+	// no further initializers after manager started
+	m.started.Store(true)
+	m.startedWG.Stop()
+
+	// wait for all existing initializers to complete before finalizing manager
+	// initialization and allowing prune operations in the ipset reconciler
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-m.startedWG.WaitChannel():
+	}
+
+	m.ops.enablePrune()
+	m.reconciler.TriggerFullReconciliation()
 
 	return nil
 }

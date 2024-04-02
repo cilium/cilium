@@ -124,6 +124,15 @@ func newIPSetMock() *ipsetMock {
 	}
 }
 
+type ipsetInitializerMock struct{}
+
+func (i *ipsetInitializerMock) InitDone() {
+}
+
+func (i *ipsetMock) NewInitializer() ipset.Initializer {
+	return &ipsetInitializerMock{}
+}
+
 func (i *ipsetMock) AddToIPSet(name string, family ipset.Family, addrs ...netip.Addr) {
 	for _, addr := range addrs {
 		if name == ipset.CiliumNodeIPSetV4 && family == ipset.INetFamily {

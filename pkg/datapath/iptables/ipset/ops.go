@@ -8,16 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
-func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) reconciler.Operations[*tables.IPSetEntry] {
+func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) *ops {
 	return &ops{
 		enabled: cfg.NodeIPSetNeeded,
 		ipset:   ipset,
@@ -26,6 +26,7 @@ func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) reconciler.Oper
 
 type ops struct {
 	enabled bool
+	doPrune atomic.Bool
 	ipset   *ipset
 }
 
@@ -63,7 +64,7 @@ func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPS
 }
 
 func (ops *ops) Prune(ctx context.Context, _ statedb.ReadTxn, iter statedb.Iterator[*tables.IPSetEntry]) error {
-	if !ops.enabled {
+	if !ops.enabled || !ops.doPrune.Load() {
 		return nil
 	}
 
@@ -115,4 +116,8 @@ func reconcile(
 	}
 
 	return nil
+}
+
+func (ops *ops) enablePrune() {
+	ops.doPrune.Store(true)
 }
