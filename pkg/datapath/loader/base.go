@@ -143,7 +143,7 @@ func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
 		Mask:     linux_defaults.MaskMultinodeNodeport,
 		Table:    route.MainTable,
 	}
-	if err := route.DeleteRule(oldRule); err != nil {
+	if err := route.DeleteRule(netlink.FAMILY_V4, oldRule); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("unable to delete old ip rule for ENI multi-node NodePort: %w", err)
 		}
