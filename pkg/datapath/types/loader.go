@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Loader is an interface to abstract out loading of datapath programs.
@@ -32,7 +31,6 @@ type Loader interface {
 // BaseProgramOwner is any type for which a loader is building base programs.
 type BaseProgramOwner interface {
 	DeviceConfiguration
-	GetCompilationLock() *lock.RWMutex
 	Datapath() Datapath
 	LocalConfig() *LocalNodeConfiguration
 }
@@ -80,4 +78,18 @@ type IptablesManager interface {
 
 	// See comments for InstallNoTrackRules.
 	RemoveNoTrackRules(ip netip.Addr, port uint16)
+}
+
+// CompilationLock is a interface over a mutex, it is used by both the loader, deamon
+// and endpoint manager to lock the compilation process. This is a bit of a layer violation
+// since certain methods on the loader such as CompileAndLoad and CompileOrLoad expect the
+// lock to be taken before being called.
+//
+// Once we have moved header file generation from the endpoint manager into the loader, we can
+// remove this interface and have the loader manage the lock internally.
+type CompilationLock interface {
+	Lock()
+	Unlock()
+	RLock()
+	RUnlock()
 }

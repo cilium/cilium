@@ -313,8 +313,8 @@ func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
 	devices := tables.DeviceNames(nativeDevices)
 
-	o.GetCompilationLock().Lock()
-	defer o.GetCompilationLock().Unlock()
+	l.compilationLock.Lock()
+	defer l.compilationLock.Unlock()
 	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
 }
 
@@ -332,8 +332,8 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
-	o.GetCompilationLock().Lock()
-	defer o.GetCompilationLock().Unlock()
+	l.compilationLock.Lock()
+	defer l.compilationLock.Unlock()
 	defer func() { firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
