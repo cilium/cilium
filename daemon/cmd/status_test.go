@@ -13,6 +13,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/checker"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
@@ -43,7 +44,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New(fakeConfig, nil, nil, nil, manager.NewNodeMetrics(), cell.TestScope())
+	nm, err = manager.New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, manager.NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, IsNil)
 }
 

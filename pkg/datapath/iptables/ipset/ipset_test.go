@@ -71,6 +71,9 @@ func TestManager(t *testing.T) {
 				newReconcilerConfig,
 				newOps,
 			),
+			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
+				return ops
+			}),
 
 			cell.Provide(func(logger logrus.FieldLogger) *ipset {
 				return &ipset{
@@ -297,6 +300,9 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 				newReconcilerConfig,
 				newOps,
 			),
+			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
+				return ops
+			}),
 			cell.Provide(func(logger logrus.FieldLogger) *ipset {
 				return &ipset{
 					executable: funcExecutable(func(ctx context.Context, command string, arg ...string) ([]byte, error) {
