@@ -100,6 +100,7 @@ func initPodDeletionHandler() {
 				return
 			}
 			enabledMetrics.ProcessPodDeletion(pod.(*slim_corev1.Pod))
+			podDeletionHandler.queue.Done(pod)
 		}
 	}()
 }
