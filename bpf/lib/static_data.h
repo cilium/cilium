@@ -21,10 +21,9 @@
 	 */ \
 	__section(".rodata.config") \
 	/* Assign the config variable a BTF decl tag containing its description. This
-	 * allows including doc comments in code generated from BTF. Uncomment this
-	 * when upgrading to LLVM 14:
+	 * allows including doc comments in code generated from BTF.
 	 */ \
-	/* __attribute__((btf_decl_tag(description))) */ \
+	__attribute__((btf_decl_tag(description))) \
 	/* Declare a global variable of the given name and type. */ \
 	static const type __config_##name;
 
