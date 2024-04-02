@@ -25,6 +25,7 @@ var (
 		Mark:     int(linux_defaults.MagicMarkIsToProxy),
 		Mask:     linux_defaults.MagicMarkHostMask,
 		Table:    linux_defaults.RouteTableToProxy,
+		Protocol: linux_defaults.RTProto,
 	}
 
 	// Default IPv4 route for local delivery.
@@ -33,7 +34,8 @@ var (
 		Type:   route.RTN_LOCAL,
 		Local:  net.IPv4zero,
 		Device: "lo",
-		Proto:  linux_defaults.RTProto}
+		Proto:  linux_defaults.RTProto,
+	}
 
 	// Default IPv6 route for local delivery.
 	route6 = route.Route{
@@ -104,6 +106,7 @@ var (
 		Mark:     linux_defaults.MagicMarkIsProxy,
 		Mask:     linux_defaults.MagicMarkHostMask,
 		Table:    linux_defaults.RouteTableFromProxy,
+		Protocol: linux_defaults.RTProto,
 	}
 )
 
@@ -124,6 +127,7 @@ func installFromProxyRoutesIPv4(ipv4 net.IP, device string) error {
 		Table:   linux_defaults.RouteTableFromProxy,
 		Nexthop: &ipv4,
 		Device:  device,
+		Proto:   linux_defaults.RTProto,
 	}
 
 	if err := route.ReplaceRule(fromProxyRule); err != nil {
@@ -168,6 +172,7 @@ func installFromProxyRoutesIPv6(ipv6 net.IP, device string) error {
 		Table:   linux_defaults.RouteTableFromProxy,
 		Nexthop: &ipv6,
 		Device:  device,
+		Proto:   linux_defaults.RTProto,
 	}
 
 	if err := route.ReplaceRuleIPv6(fromProxyRule); err != nil {
