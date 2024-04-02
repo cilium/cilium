@@ -81,29 +81,6 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
 
-      - name: Set clang directory
-        id: set_clang_dir
-        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
-
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
-        with:
-          path: ${{ steps.set_clang_dir.outputs.clang_dir }}
-          key: llvm-10.0
-
-      - name: Install LLVM and Clang prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libtinfo5
-
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@dec985c8d7b46a2f363ea1a78f660c946a3349ea # v2.0.1
-        with:
-          version: "10.0"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-
       # Building Cilium as precondition to generate documentation artifacts.
       - name: Build Cilium
         run: |
