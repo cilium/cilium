@@ -149,7 +149,8 @@ var ServicesCell = cell.Module(
 		statedb.RWTable[*Service].ToTable,
 		statedb.RWTable[*Backend].ToTable,
 	),
-	cell.Invoke(reconciler.Register[*Service]),
+
+	//cell.Invoke(reconciler.Register[*Service]),
 )
 
 func NewServices(db *statedb.DB, svcs statedb.RWTable[*Service], bes statedb.RWTable[*Backend]) (*Services, error) {
