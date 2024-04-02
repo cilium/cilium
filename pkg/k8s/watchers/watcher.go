@@ -469,7 +469,6 @@ func (k *K8sWatcher) ResourceGroups() (resourceGroups, waitForCachesOnly []strin
 // already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, resources []string, cachesOnly []string, cachesSynced chan struct{}) {
 	log.Info("Enabling k8s event listener")
-	// resources, waitForCachesOnly := k.resourceGroups()
 	if err := k.enableK8sWatchers(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
