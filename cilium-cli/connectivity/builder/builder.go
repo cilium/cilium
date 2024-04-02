@@ -143,6 +143,8 @@ var (
 		outsideToIngressServiceDenyWorldIdentity{},
 		outsideToIngressServiceDenyCidr{},
 		outsideToIngressServiceDenyAllIngress{},
+		hostFirewallIngress{},
+		hostFirewallEgress{},
 		dnsOnly{},
 		toFqdns{},
 		podToControlplaneHost{},
