@@ -344,13 +344,13 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.EnableL7Proxy)
 
 	flags.Bool(option.BPFEventsDropEnabled, defaults.BPFEventsDropEnabled, "Expose 'drop' events for Cilium monitor and/or Hubble")
-	option.BindEnv(vp, option.BPFEventsDropEnabled)
+	option.BindEnv(Vp, option.BPFEventsDropEnabled)
 
 	flags.Bool(option.BPFEventsPolicyVerdictEnabled, defaults.BPFEventsPolicyVerdictEnabled, "Expose 'policy verdict' events for Cilium monitor and/or Hubble")
-	option.BindEnv(vp, option.BPFEventsPolicyVerdictEnabled)
+	option.BindEnv(Vp, option.BPFEventsPolicyVerdictEnabled)
 
 	flags.Bool(option.BPFEventsTraceEnabled, defaults.BPFEventsTraceEnabled, "Expose 'trace' events for Cilium monitor and/or Hubble")
-	option.BindEnv(vp, option.BPFEventsTraceEnabled)
+	option.BindEnv(Vp, option.BPFEventsTraceEnabled)
 
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(vp, option.EnableTracing)
