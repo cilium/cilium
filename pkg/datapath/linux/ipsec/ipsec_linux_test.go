@@ -26,7 +26,7 @@ func setupIPSecSuitePrivileged(tb testing.TB) {
 
 	tb.Cleanup(func() {
 		node.UnsetTestLocalNodeStore()
-		_ = DeleteXfrm()
+		_ = DeleteXFRM()
 	})
 }
 
@@ -39,7 +39,6 @@ var (
 
 func TestLoadKeysNoFile(t *testing.T) {
 	setupIPSecSuitePrivileged(t)
-
 	_, _, err := LoadIPSecKeysFile(path)
 	require.Equal(t, true, os.IsNotExist(err))
 }
@@ -56,7 +55,7 @@ func TestInvalidLoadKeys(t *testing.T) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	require.NoError(t, err)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.Error(t, err)
 }
 
@@ -132,7 +131,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	cleanIPSecStatesAndPolicies(t)
@@ -150,7 +149,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	cleanIPSecStatesAndPolicies(t)
@@ -181,7 +180,7 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	cleanIPSecStatesAndPolicies(t)
@@ -200,11 +199,11 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
 		Src: remote,
@@ -232,7 +231,7 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	require.NoError(t, err)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.ErrorContains(t, err, "unable to replace local state: IPSec key missing")
 
 	cleanIPSecStatesAndPolicies(t)
@@ -261,11 +260,11 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	// test updateExisting (xfrm delete + add)
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true, DefaultReqID)
 	require.NoError(t, err)
 
 	cleanIPSecStatesAndPolicies(t)
