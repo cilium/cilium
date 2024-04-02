@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -101,7 +100,7 @@ func (d *DummyOwner) QueueEndpointBuild(ctx context.Context, epID uint64) (func(
 }
 
 // GetCompilationLock does nothing.
-func (d *DummyOwner) GetCompilationLock() *lock.RWMutex {
+func (d *DummyOwner) GetCompilationLock() datapath.CompilationLock {
 	return nil
 }
 

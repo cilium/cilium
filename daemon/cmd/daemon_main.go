@@ -1647,6 +1647,7 @@ type daemonParams struct {
 	LRPManager          *redirectpolicy.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	Prefilter           datapath.PreFilter
+	CompilationLock     datapath.CompilationLock
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

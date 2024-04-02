@@ -130,7 +130,7 @@ type Daemon struct {
 
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
-	compilationMutex *lock.RWMutex
+	compilationLock datapath.CompilationLock
 
 	clustermesh *clustermesh.ClusterMesh
 
@@ -230,8 +230,8 @@ func (d *Daemon) GetOptions() *option.IntOptions {
 
 // GetCompilationLock returns the mutex responsible for synchronizing compilation
 // of BPF programs.
-func (d *Daemon) GetCompilationLock() *lock.RWMutex {
-	return d.compilationMutex
+func (d *Daemon) GetCompilationLock() datapath.CompilationLock {
+	return d.compilationLock
 }
 
 func (d *Daemon) init() error {
@@ -415,7 +415,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		clientset:         params.Clientset,
 		db:                params.DB,
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
-		compilationMutex:  new(lock.RWMutex),
+		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
 		deviceManager:     params.DeviceManager,

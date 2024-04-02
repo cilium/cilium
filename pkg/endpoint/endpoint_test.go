@@ -50,7 +50,7 @@ type EndpointSuite struct {
 	OnGetNamedPorts           func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
-	OnGetCompilationLock      func() *lock.RWMutex
+	OnGetCompilationLock      func() datapath.CompilationLock
 	OnSendNotification        func(msg monitorAPI.AgentNotifyMessage) error
 }
 
@@ -92,7 +92,7 @@ func (s *EndpointSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (fu
 	return nil, nil
 }
 
-func (s *EndpointSuite) GetCompilationLock() *lock.RWMutex {
+func (s *EndpointSuite) GetCompilationLock() datapath.CompilationLock {
 	return nil
 }
 

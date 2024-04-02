@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -71,7 +70,7 @@ func (s *EndpointManagerSuite) QueueEndpointBuild(ctx context.Context, epID uint
 	return nil, nil
 }
 
-func (s *EndpointManagerSuite) GetCompilationLock() *lock.RWMutex {
+func (s *EndpointManagerSuite) GetCompilationLock() datapath.CompilationLock {
 	return nil
 }
 

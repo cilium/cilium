@@ -22,6 +22,7 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -33,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/lock"
 	ctmapgc "github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -60,7 +60,7 @@ type DaemonSuite struct {
 	OnGetPolicyRepository  func() *policy.Repository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
-	OnGetCompilationLock   func() *lock.RWMutex
+	OnGetCompilationLock   func() datapath.CompilationLock
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
 }
@@ -156,6 +156,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
+		loader.Cell,
 		monitorAgent.Cell,
 		ControlPlane,
 		metrics.Cell,
@@ -283,7 +284,7 @@ func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (fun
 	return nil, nil
 }
 
-func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
+func (ds *DaemonSuite) GetCompilationLock() datapath.CompilationLock {
 	if ds.OnGetCompilationLock != nil {
 		return ds.OnGetCompilationLock()
 	}

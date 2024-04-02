@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -381,4 +383,12 @@ func compileOverlay(ctx context.Context, opts []string) error {
 		return err
 	}
 	return nil
+}
+
+type compilationLock struct {
+	lock.RWMutex
+}
+
+func newCompilationLock() types.CompilationLock {
+	return &compilationLock{}
 }

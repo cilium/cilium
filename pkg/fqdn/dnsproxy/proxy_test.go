@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -73,7 +72,7 @@ func (s *DNSProxyTestSuite) QueueEndpointBuild(ctx context.Context, epID uint64)
 	return nil, nil
 }
 
-func (s *DNSProxyTestSuite) GetCompilationLock() *lock.RWMutex {
+func (s *DNSProxyTestSuite) GetCompilationLock() datapath.CompilationLock {
 	return nil
 }
 

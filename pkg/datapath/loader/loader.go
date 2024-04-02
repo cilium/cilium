@@ -84,22 +84,24 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl    sysctl.Sysctl
-	db        *statedb.DB
-	nodeAddrs statedb.Table[tables.NodeAddress]
-	devices   statedb.Table[*tables.Device]
-	prefilter datapath.PreFilter
+	sysctl          sysctl.Sysctl
+	db              *statedb.DB
+	nodeAddrs       statedb.Table[tables.NodeAddress]
+	devices         statedb.Table[*tables.Device]
+	prefilter       datapath.PreFilter
+	compilationLock datapath.CompilationLock
 }
 
 type Params struct {
 	cell.In
 
-	Config    Config
-	DB        *statedb.DB
-	NodeAddrs statedb.Table[tables.NodeAddress]
-	Sysctl    sysctl.Sysctl
-	Devices   statedb.Table[*tables.Device]
-	Prefilter datapath.PreFilter
+	Config          Config
+	DB              *statedb.DB
+	NodeAddrs       statedb.Table[tables.NodeAddress]
+	Sysctl          sysctl.Sysctl
+	Devices         statedb.Table[*tables.Device]
+	Prefilter       datapath.PreFilter
+	CompilationLock datapath.CompilationLock
 }
 
 // newLoader returns a new loader.
@@ -112,6 +114,7 @@ func newLoader(p Params) *loader {
 		devices:           p.Devices,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
+		compilationLock:   p.CompilationLock,
 	}
 }
 
