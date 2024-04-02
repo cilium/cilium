@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"net/netip"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -13,6 +14,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
@@ -36,6 +38,28 @@ var (
 	}
 )
 
+type fakeIpset struct {
+}
+
+func newFakeIPSetMock() ipset.Manager {
+	return &fakeIpset{}
+}
+
+type fakeIpsetInitializer struct{}
+
+func (i *fakeIpsetInitializer) InitDone() {
+}
+
+func (i *fakeIpset) NewInitializer() ipset.Initializer {
+	return &fakeIpsetInitializer{}
+}
+
+func (i *fakeIpset) AddToIPSet(name string, family ipset.Family, addrs ...netip.Addr) {
+}
+
+func (i *fakeIpset) RemoveFromIPSet(name string, addrs ...netip.Addr) {
+}
+
 func (g *GetNodesSuite) SetUpTest(c *C) {
 	option.Config.IPv4ServiceRange = AutoCIDR
 	option.Config.IPv6ServiceRange = AutoCIDR
@@ -43,7 +67,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New(fakeConfig, nil, nil, nil, manager.NewNodeMetrics(), cell.TestScope())
+	nm, err = manager.New(fakeConfig, nil, newFakeIPSetMock(), nil, manager.NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, IsNil)
 }
 

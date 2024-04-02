@@ -11,6 +11,8 @@ import (
 	"net/netip"
 	"runtime/pprof"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -38,8 +40,21 @@ type AddrSet = sets.Set[netip.Addr]
 
 // Manager handles the kernel IP sets configuration
 type Manager interface {
+	NewInitializer() Initializer
 	AddToIPSet(name string, family Family, addrs ...netip.Addr)
 	RemoveFromIPSet(name string, addrs ...netip.Addr)
+}
+
+type Initializer interface {
+	InitDone()
+}
+
+type initializer struct {
+	wg *sync.WaitGroup
+}
+
+func (i *initializer) InitDone() {
+	i.wg.Done()
 }
 
 type manager struct {
@@ -50,6 +65,20 @@ type manager struct {
 	table statedb.RWTable[*tables.IPSetEntry]
 
 	ipset *ipset
+
+	started atomic.Bool
+	startWG sync.WaitGroup
+
+	reconciler reconciler.Reconciler[*tables.IPSetEntry]
+	ops        *ops
+}
+
+func (m *manager) NewInitializer() Initializer {
+	if m.started.Load() {
+		panic("an initializer to the ipset manager cannot be taken after the manager started")
+	}
+	m.startWG.Add(1)
+	return &initializer{&m.startWG}
 }
 
 // AddToIPSet adds the addresses to the ipset with given name and family.
@@ -115,15 +144,18 @@ func newIPSetManager(
 	table statedb.RWTable[*tables.IPSetEntry],
 	cfg config,
 	ipset *ipset,
-	_ reconciler.Reconciler[*tables.IPSetEntry], // needed to enforce the correct hive ordering
+	reconciler reconciler.Reconciler[*tables.IPSetEntry],
+	ops *ops,
 ) Manager {
 	db.RegisterTable(table)
 	mgr := &manager{
-		logger:  logger,
-		enabled: cfg.NodeIPSetNeeded,
-		db:      db,
-		table:   table,
-		ipset:   ipset,
+		logger:     logger,
+		enabled:    cfg.NodeIPSetNeeded,
+		db:         db,
+		table:      table,
+		ipset:      ipset,
+		reconciler: reconciler,
+		ops:        ops,
 	}
 
 	lc.Append(cell.Hook{
@@ -156,6 +188,11 @@ func newIPSetManager(
 }
 
 func (m *manager) init(ctx context.Context, _ cell.HealthReporter) error {
+	// wait for all initializers to complete before finalizing manager
+	// initialization and allowing prune operations in the ipset reconciler
+	m.started.Store(true)
+	m.startWG.Wait()
+
 	if !m.enabled {
 		// If node ipsets are not needed, clear the Cilium managed ones to remove possible stale entries.
 		for _, ciliumNodeIPSet := range []string{CiliumNodeIPSetV4, CiliumNodeIPSetV6} {
@@ -166,6 +203,9 @@ func (m *manager) init(ctx context.Context, _ cell.HealthReporter) error {
 		}
 		return nil
 	}
+
+	m.ops.enablePrune()
+	m.reconciler.TriggerFullReconciliation()
 
 	return nil
 }
