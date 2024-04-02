@@ -68,7 +68,7 @@ jobs:
             ${{ github.event.pull_request.commits_url }})
           PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
           PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "make build -j $(nproc)" $PR_PARENT_SHA
+          git rebase --exec "contrib/scripts/builder.sh make build -j $(nproc)" $PR_PARENT_SHA
 
       - name: Check bpf code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -88,7 +88,7 @@ jobs:
             ${{ github.event.pull_request.commits_url }})
           PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
           PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
+          git rebase --exec "contrib/scripts/builder.sh make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
 
       - name: Check test code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -109,7 +109,7 @@ jobs:
             ${{ github.event.pull_request.commits_url }})
           PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
           PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "make -C test build -j $(nproc) && make -C test build-darwin" $PR_PARENT_SHA
+          git rebase --exec "make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)" $PR_PARENT_SHA
 
       - name: Failed commit during the build
         if: ${{ failure() }}
