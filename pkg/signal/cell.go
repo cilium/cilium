@@ -19,8 +19,6 @@ var Cell = cell.Module(
 func provideSignalManager(lifecycle cell.Lifecycle, signalMap signalmap.Map) SignalManager {
 	sm := newSignalManager(signalMap)
 
-	log.Debugf("newSignalManager: %v", sm)
-
 	lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {
 			return sm.start()

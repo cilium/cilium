@@ -38,8 +38,6 @@ func newMap(log logrus.FieldLogger, lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 	possibleCPUs := common.GetNumPossibleCPUs(log)
 	signalmap := initMap(possibleCPUs)
 
-	log.Debugf("signalmap.newMap: %v", signalmap)
-
 	lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {
 			return signalmap.open()
