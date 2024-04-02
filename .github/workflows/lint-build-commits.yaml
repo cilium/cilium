@@ -124,7 +124,7 @@ jobs:
           fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
-            make build -j $(nproc) || exit 1
+            contrib/scripts/builder.sh make CLANG="${CLANG}" build -j $(nproc) || exit 1
           done
 
       - name: Check bpf code changes
@@ -158,7 +158,7 @@ jobs:
             # If these filters are modified, also modify the step above where we
             # run dorny/paths-filter.
             if ! git diff --quiet HEAD^ bpf/ ; then
-              make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
+              contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
             fi
           done
 
