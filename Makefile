@@ -941,14 +941,12 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api install licenses-all veryclean check-sources
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api install licenses-all veryclean check-sources run_bpf_tests run-builder
 force :;
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
-	docker run --rm --privileged \
-		-v $$(pwd):/src -w /src \
-		$(CILIUM_BUILDER_IMAGE) \
+	DOCKER_ARGS=--privileged contrib/scripts/builder.sh \
 		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "all" "run"
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
-	docker run -it --rm -v $$(pwd):/go/src/github.com/cilium/cilium $(CILIUM_BUILDER_IMAGE) bash
+	DOCKER_ARGS=-it contrib/scripts/builder.sh bash
