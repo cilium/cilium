@@ -64,42 +64,46 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 		var httpRoutes []model.HTTPRoute
 		httpRoutes = append(httpRoutes, toHTTPRoutes(l, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 		httpRoutes = append(httpRoutes, toGRPCRoutes(l, input.GRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
-		resHTTP = append(resHTTP, model.HTTPListener{
-			Name: string(l.Name),
-			Sources: []model.FullyQualifiedResource{
-				{
-					Name:      input.Gateway.GetName(),
-					Namespace: input.Gateway.GetNamespace(),
-					Group:     input.Gateway.GroupVersionKind().Group,
-					Version:   input.Gateway.GroupVersionKind().Version,
-					Kind:      input.Gateway.GroupVersionKind().Kind,
-					UID:       string(input.Gateway.GetUID()),
+		if len(httpRoutes) != 0 {
+			resHTTP = append(resHTTP, model.HTTPListener{
+				Name: string(l.Name),
+				Sources: []model.FullyQualifiedResource{
+					{
+						Name:      input.Gateway.GetName(),
+						Namespace: input.Gateway.GetNamespace(),
+						Group:     input.Gateway.GroupVersionKind().Group,
+						Version:   input.Gateway.GroupVersionKind().Version,
+						Kind:      input.Gateway.GroupVersionKind().Kind,
+						UID:       string(input.Gateway.GetUID()),
+					},
 				},
-			},
-			Port:           uint32(l.Port),
-			Hostname:       toHostname(l.Hostname),
-			TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
-			Routes:         httpRoutes,
-			Infrastructure: infra,
-		})
-
-		resTLS = append(resTLS, model.TLSListener{
-			Name: string(l.Name),
-			Sources: []model.FullyQualifiedResource{
-				{
-					Name:      input.Gateway.GetName(),
-					Namespace: input.Gateway.GetNamespace(),
-					Group:     input.Gateway.GroupVersionKind().Group,
-					Version:   input.Gateway.GroupVersionKind().Version,
-					Kind:      input.Gateway.GroupVersionKind().Kind,
-					UID:       string(input.Gateway.GetUID()),
+				Port:           uint32(l.Port),
+				Hostname:       toHostname(l.Hostname),
+				TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
+				Routes:         httpRoutes,
+				Infrastructure: infra,
+			})
+		}
+		tlsRoutes := toTLSRoutes(l, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)
+		if len(tlsRoutes) != 0 {
+			resTLS = append(resTLS, model.TLSListener{
+				Name: string(l.Name),
+				Sources: []model.FullyQualifiedResource{
+					{
+						Name:      input.Gateway.GetName(),
+						Namespace: input.Gateway.GetNamespace(),
+						Group:     input.Gateway.GroupVersionKind().Group,
+						Version:   input.Gateway.GroupVersionKind().Version,
+						Kind:      input.Gateway.GroupVersionKind().Kind,
+						UID:       string(input.Gateway.GetUID()),
+					},
 				},
-			},
-			Port:           uint32(l.Port),
-			Hostname:       toHostname(l.Hostname),
-			Routes:         toTLSRoutes(l, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
-			Infrastructure: infra,
-		})
+				Port:           uint32(l.Port),
+				Hostname:       toHostname(l.Hostname),
+				Routes:         tlsRoutes,
+				Infrastructure: infra,
+			})
+		}
 	}
 
 	return resHTTP, resTLS
