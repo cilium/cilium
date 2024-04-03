@@ -89,7 +89,7 @@ func (c *ConfigModifyEvent) configModify(params PatchConfigParams, resChan chan 
 	if changes > 0 {
 		// Only recompile if configuration has changed.
 		log.Debug("daemon configuration has changed; recompiling base programs")
-		if err := d.Datapath().Orchestrator().Reinitialize(d.ctx, d.tunnelConfig, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+		if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %w", err)
 			// Revert configuration changes
 			option.Config.ConfigPatchMutex.Lock()

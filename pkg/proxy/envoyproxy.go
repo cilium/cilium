@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -26,9 +26,9 @@ type envoyRedirect struct {
 }
 
 type envoyProxyIntegration struct {
-	adminClient *envoy.EnvoyAdminClient
-	xdsServer   envoy.XDSServer
-	datapath    datapath.Datapath
+	adminClient     *envoy.EnvoyAdminClient
+	xdsServer       envoy.XDSServer
+	iptablesManager *iptables.Manager
 }
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
@@ -54,7 +54,7 @@ func (p *envoyProxyIntegration) handleEnvoyRedirect(r *Redirect, wg *completion.
 		adminClient:  p.adminClient,
 	}
 
-	mayUseOriginalSourceAddr := p.datapath.SupportsOriginalSourceAddr()
+	mayUseOriginalSourceAddr := p.iptablesManager.SupportsOriginalSourceAddr()
 	// Only use original source address for egress
 	if l.ingress {
 		mayUseOriginalSourceAddr = false

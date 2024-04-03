@@ -172,6 +172,6 @@ func (f *FakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress 
 
 type FakeOrchestrator struct{}
 
-func (f *FakeOrchestrator) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
 	return nil
 }
