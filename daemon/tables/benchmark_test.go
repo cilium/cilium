@@ -38,7 +38,7 @@ func BenchmarkInsertService(b *testing.B) {
 		job.Cell,
 		statedb.Cell,
 		reconciler.Cell,
-		ServicesCell,
+		ServicesMockReconcilerCell,
 
 		cell.Invoke(func(p_ params) { p = p_ }),
 	)
@@ -116,7 +116,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 		job.Cell,
 		statedb.Cell,
 		reconciler.Cell,
-		ServicesCell,
+		ServicesMockReconcilerCell,
 
 		cell.Invoke(func(p_ params) { p = p_ }),
 	)
@@ -208,7 +208,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		job.Cell,
 		statedb.Cell,
 		reconciler.Cell,
-		ServicesCell,
+		ServicesMockReconcilerCell,
 
 		cell.Invoke(func(p_ params) { p = p_ }),
 	)
@@ -289,7 +289,7 @@ func BenchmarkReplaceService(b *testing.B) {
 		job.Cell,
 		statedb.Cell,
 		reconciler.Cell,
-		ServicesCell,
+		ServicesMockReconcilerCell,
 
 		cell.Invoke(func(p_ params) { p = p_ }),
 	)
@@ -357,7 +357,7 @@ func BenchmarkControlPlane(b *testing.B) {
 		job.Cell,
 		statedb.Cell,
 		reconciler.Cell,
-		ServicesReconcilerCell,
+		ServicesMockReconcilerCell,
 
 		cell.Invoke(func(p_ params) { p = p_ }),
 	)

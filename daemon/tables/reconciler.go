@@ -16,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
-func serviceReconcilerConfig(bes statedb.RWTable[*Backend]) reconciler.Config[*Service] {
-	ops := newServiceOps(bes)
+func serviceMockReconcilerConfig(bes statedb.RWTable[*Backend]) reconciler.Config[*Service] {
+	ops := newServiceMockOps(bes)
 	return reconciler.Config[*Service]{
 		FullReconcilationInterval: time.Minute,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
@@ -107,7 +107,7 @@ func (s *backendsState) getID(addr loadbalancer.L3n4Addr) (loadbalancer.BackendI
 	return 0, false
 }
 
-type serviceOps struct {
+type serviceMockOps struct {
 	backendsState *backendsState
 	backends      statedb.Table[*Backend]
 
@@ -115,8 +115,8 @@ type serviceOps struct {
 	allocator   *IDAllocator
 }
 
-func newServiceOps(bes statedb.Table[*Backend]) *serviceOps {
-	return &serviceOps{
+func newServiceMockOps(bes statedb.Table[*Backend]) *serviceMockOps {
+	return &serviceMockOps{
 		backendsState: &backendsState{
 			allocator:  NewIDAllocator(FirstFreeBackendID, MaxSetOfBackendID),
 			revisions:  map[loadbalancer.L3n4Addr]uint64{},
@@ -130,12 +130,12 @@ func newServiceOps(bes statedb.Table[*Backend]) *serviceOps {
 }
 
 // Delete implements reconciler.Operations.
-func (*serviceOps) Delete(context.Context, statedb.ReadTxn, *Service) error {
+func (*serviceMockOps) Delete(context.Context, statedb.ReadTxn, *Service) error {
 	panic("unimplemented")
 }
 
 // Prune implements reconciler.Operations.
-func (*serviceOps) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*Service]) error {
+func (*serviceMockOps) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*Service]) error {
 	// TODO: prune services by dumping the map and finding any services with a frontend
 	// address not found from services map.
 	//
@@ -180,7 +180,7 @@ func numActive(bes []*Backend) int {
 }
 
 // Update implements reconciler.Operations.
-func (ops *serviceOps) Update(ctx context.Context, txn statedb.ReadTxn, svc *Service, changed *bool) error {
+func (ops *serviceMockOps) Update(ctx context.Context, txn statedb.ReadTxn, svc *Service, changed *bool) error {
 	log.Infof("Update %s", svc.Name)
 
 	// Gather backends for the service
@@ -268,7 +268,7 @@ func (ops *serviceOps) Update(ctx context.Context, txn statedb.ReadTxn, svc *Ser
 	return nil
 }
 
-var _ reconciler.Operations[*Service] = &serviceOps{}
+var _ reconciler.Operations[*Service] = &serviceMockOps{}
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "services")
 

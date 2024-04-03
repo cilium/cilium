@@ -184,7 +184,7 @@ var ServicesCell = cell.Module(
 	cell.Invoke(reconciler.Register[*Service]),
 )
 
-var ServicesReconcilerCell = cell.Module(
+var ServicesMockReconcilerCell = cell.Module(
 	"services",
 	"Services with mock reconciler",
 
@@ -192,7 +192,7 @@ var ServicesReconcilerCell = cell.Module(
 		NewServicesTable,
 		NewBackendsTable,
 
-		serviceReconcilerConfig,
+		serviceMockReconcilerConfig,
 	),
 	cell.Provide(
 		NewServices,
