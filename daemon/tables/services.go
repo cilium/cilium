@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -209,6 +211,17 @@ func (s *Services) UpsertService(txn ServiceWriteTxn, name loadbalancer.ServiceN
 	return err
 }
 
+func (s *Services) DeleteService(txn ServiceWriteTxn, name loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) error {
+	svc, _, found := s.svcs.First(txn, ServiceL3n4AddrIndex.Query(addr))
+	if !found {
+		return nil
+	}
+	if !svc.Name.Equal(name) {
+		return ErrServiceConflict
+	}
+	return s.deleteService(txn, svc)
+}
+
 func (s *Services) DeleteServicesByName(txn ServiceWriteTxn, name loadbalancer.ServiceName, source source.Source) error {
 	svc, _, found := s.svcs.First(txn, ServiceNameIndex.Query(name))
 	if !found {
@@ -243,12 +256,16 @@ func (s *Services) deleteService(txn ServiceWriteTxn, svc *Service) error {
 }
 
 func (s *Services) DeleteServicesBySource(txn ServiceWriteTxn, source source.Source) error {
-	/*iter, _ := s.svcs.Get(txn, ServiceSourceIndex.Query(source))
+	// Iterating over all as this is a rare operation and it would be costly
+	// to always index by source.
+	iter, _ := s.svcs.All(txn)
 	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
-		if err := s.deleteService(txn, svc); err != nil {
-			return err
+		if svc.Source == source {
+			if err := s.deleteService(txn, svc); err != nil {
+				return err
+			}
 		}
-	}*/
+	}
 	return nil
 }
 
@@ -256,7 +273,7 @@ func (s *Services) UpsertBackends(txn ServiceWriteTxn, serviceName loadbalancer.
 	// TODO: Do we want the ability to do a "sub-transaction" that can be aborted? Here we may do partial
 	// updates and return an error and are assuming the caller will abort the transaction, but not sure if
 	// that's a safe design.
-	//
+	// Alternatively we could abort it here, but that would be surprising to the caller.
 
 	if err := s.updateBackends(txn, serviceName, bes); err != nil {
 		return err
@@ -311,7 +328,33 @@ func (s *Services) updateBackends(txn ServiceWriteTxn, serviceName loadbalancer.
 }
 
 func (s *Services) DeleteBackendsBySource(txn ServiceWriteTxn, source source.Source) error {
-	log.Errorf("TODO implement DeleteBackendsBySource")
+	// Iterating over all as this is a rare operation and it would be costly
+	// to always index by source.
+	names := sets.New[loadbalancer.ServiceName]()
+	iter, _ := s.bes.All(txn)
+	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
+		if be.Source == source {
+			names.Insert(be.ReferencedBy.AsSlice()...)
+			if _, _, err := s.bes.Delete(txn, be); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Bump the backend revision for each of the referenced services to force
+	// reconciliation.
+	revision := s.bes.Revision(txn)
+	for name := range names {
+		svc, _, found := s.svcs.First(txn, ServiceNameIndex.Query(name))
+		if found {
+			svc = svc.Clone()
+			svc.BackendRevision = revision
+			svc.BPFStatus = reconciler.StatusPending()
+			if _, _, err := s.svcs.Insert(txn, svc); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

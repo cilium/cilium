@@ -90,7 +90,14 @@ func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_core
 				}
 				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
 			case resource.Delete:
-				svcs.DeleteServicesByName(txn, loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}, source.Kubernetes)
+				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+				// FIXME: only need to parse out the addresses
+				for _, p := range toServiceParams(obj) {
+					err := svcs.DeleteService(txn, name, p.L3n4Addr)
+					if err != nil {
+						panic(err)
+					}
+				}
 			}
 			txn.Commit()
 
@@ -198,7 +205,14 @@ func startK8sReflector_EventObservable(ctx context.Context, c client.Clientset, 
 				}
 			case reflector.CacheStoreDelete:
 				svc := ev.Obj.(*slim_corev1.Service)
-				s.DeleteServicesByName(txn, loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}, source.Kubernetes)
+
+				name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
+				for _, p := range toServiceParams(svc) {
+					err := s.DeleteService(txn, name, p.L3n4Addr)
+					if err != nil {
+						panic(err)
+					}
+				}
 
 			case reflector.CacheStoreReplace:
 				// Out-of-sync with the API server, resync by deleting all services and inserting the initial
@@ -285,32 +299,53 @@ func startK8sReflector_EventObservable(ctx context.Context, c client.Clientset, 
 }
 
 func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
-	// Set the common properties.
-	params := ServiceParams{
-		Labels: labels.Map2Labels(svc.Labels, labels.LabelSourceK8s),
-		Source: source.Kubernetes,
-		// TODO: HealthCheckNodePort, SessionAffinity, SourceRanges
-	}
-
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		// Skip headless services (TODO do we need them anywhere? addK8sSVCs skips them)
 		return
 	}
 
+	// Set the common properties.
+	common := ServiceParams{
+		Labels: labels.Map2Labels(svc.Labels, labels.LabelSourceK8s),
+		Source: source.Kubernetes,
+		// TODO: HealthCheckNodePort, SessionAffinity, SourceRanges
+	}
+
+	switch svc.Spec.ExternalTrafficPolicy {
+	case slim_corev1.ServiceExternalTrafficPolicyLocal:
+		common.ExtPolicy = loadbalancer.SVCTrafficPolicyLocal
+	default:
+		common.ExtPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
+		common.IntPolicy = loadbalancer.SVCTrafficPolicyLocal
+	} else {
+		common.IntPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+
 	// ClusterIP
-	params.Type = loadbalancer.SVCTypeClusterIP
-	for _, ip := range svc.Spec.ClusterIPs {
+	clusterIPs := sets.New[string](svc.Spec.ClusterIPs...)
+	if svc.Spec.ClusterIP != "" {
+		clusterIPs.Insert(svc.Spec.ClusterIP)
+	}
+	for ip := range clusterIPs {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
-			continue
+			panic(err)
+			//continue
 		}
+
+		params := common
+		params.Type = loadbalancer.SVCTypeClusterIP
 		params.L3n4Addr.AddrCluster = addr
 		params.L3n4Addr.Scope = loadbalancer.ScopeExternal
 
 		for _, port := range svc.Spec.Ports {
+			params := params
 			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 			if p == nil {
-				continue
+				panic(fmt.Sprintf("L4Addr parse of %v failed", port))
+				//continue
 			}
 			params.L3n4Addr.L4Addr = *p
 			params.PortName = loadbalancer.FEPortName(port.Name)
@@ -322,28 +357,17 @@ func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
 	zeroV4 := cmtypes.MustParseAddrCluster("0.0.0.0")
 	zeroV6 := cmtypes.MustParseAddrCluster("::")
 
-	switch svc.Spec.ExternalTrafficPolicy {
-	case slim_corev1.ServiceExternalTrafficPolicyLocal:
-		params.ExtPolicy = loadbalancer.SVCTrafficPolicyLocal
-	default:
-		params.ExtPolicy = loadbalancer.SVCTrafficPolicyCluster
-	}
-	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
-		params.IntPolicy = loadbalancer.SVCTrafficPolicyLocal
-	} else {
-		params.IntPolicy = loadbalancer.SVCTrafficPolicyCluster
-	}
-
 	// NodePort
 	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort {
 		scopes := []uint8{loadbalancer.ScopeExternal}
-		twoScopes := (params.ExtPolicy == loadbalancer.SVCTrafficPolicyLocal) != (params.IntPolicy == loadbalancer.SVCTrafficPolicyLocal)
+		twoScopes := (common.ExtPolicy == loadbalancer.SVCTrafficPolicyLocal) != (common.IntPolicy == loadbalancer.SVCTrafficPolicyLocal)
 		if twoScopes {
 			scopes = append(scopes, loadbalancer.ScopeInternal)
 		}
 
 		for _, scope := range scopes {
 			for _, family := range svc.Spec.IPFamilies {
+				params := common
 				switch family {
 				case slim_corev1.IPv4Protocol:
 					params.L3n4Addr.AddrCluster = zeroV4
@@ -355,6 +379,7 @@ func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
 				params.L3n4Addr.Scope = scope
 				params.Type = loadbalancer.SVCTypeNodePort
 				for _, port := range svc.Spec.Ports {
+					params := params
 
 					// FIXME proper zero value ipv4/ipv6
 					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
