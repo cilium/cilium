@@ -152,9 +152,11 @@ func BenchmarkInsertBackend(b *testing.B) {
 			wtxn,
 			name,
 			BackendParams{
-				L3n4Addr: beAddr,
-				Source:   source.Kubernetes,
-				State:    loadbalancer.BackendStateActive,
+				Source: source.Kubernetes,
+				Backend: loadbalancer.Backend{
+					L3n4Addr: beAddr,
+					State:    loadbalancer.BackendStateActive,
+				},
 			},
 		)
 	}
@@ -170,9 +172,11 @@ func BenchmarkInsertBackend(b *testing.B) {
 				wtxn,
 				name,
 				BackendParams{
-					L3n4Addr: beAddr,
-					Source:   source.Kubernetes,
-					State:    loadbalancer.BackendStateActive,
+					Source: source.Kubernetes,
+					Backend: loadbalancer.Backend{
+						L3n4Addr: beAddr,
+						State:    loadbalancer.BackendStateActive,
+					},
 				},
 			)
 		}
@@ -234,9 +238,11 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		wtxn,
 		name,
 		BackendParams{
-			L3n4Addr: beAddr,
-			Source:   source.Kubernetes,
-			State:    loadbalancer.BackendStateActive,
+			Source: source.Kubernetes,
+			Backend: loadbalancer.Backend{
+				L3n4Addr: beAddr,
+				State:    loadbalancer.BackendStateActive,
+			},
 		},
 	)
 	wtxn.Commit()
@@ -248,9 +254,11 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			wtxn,
 			name,
 			BackendParams{
-				L3n4Addr: beAddr,
-				Source:   source.Kubernetes,
-				State:    loadbalancer.BackendStateActive,
+				Source: source.Kubernetes,
+				Backend: loadbalancer.Backend{
+					L3n4Addr: beAddr,
+					State:    loadbalancer.BackendStateActive,
+				},
 			},
 		)
 	}
@@ -387,9 +395,11 @@ func BenchmarkControlPlane(b *testing.B) {
 				wtxn,
 				name,
 				BackendParams{
-					L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, 12345, loadbalancer.ScopeExternal),
-					Source:   source.Kubernetes,
-					State:    loadbalancer.BackendStateActive,
+					Source: source.Kubernetes,
+					Backend: loadbalancer.Backend{
+						L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, 12345, loadbalancer.ScopeExternal),
+						State:    loadbalancer.BackendStateActive,
+					},
 				},
 			)
 		}

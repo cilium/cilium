@@ -134,13 +134,14 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *serviceStore.ClusterS
 		}
 		for portName, l4Addr := range ports {
 			params := BackendParams{
-				L3n4Addr:      loadbalancer.L3n4Addr{AddrCluster: addr, L4Addr: *l4Addr},
-				Source:        source.KVStore,
-				NodeName:      "",
-				PortName:      portName,
-				Weight:        loadbalancer.DefaultBackendWeight,
-				State:         loadbalancer.BackendStateActive,
-				HintsForZones: nil,
+				Source: source.KVStore,
+				Backend: loadbalancer.Backend{
+					L3n4Addr:   loadbalancer.L3n4Addr{AddrCluster: addr, L4Addr: *l4Addr},
+					NodeName:   "",
+					FEPortName: portName,
+					Weight:     loadbalancer.DefaultBackendWeight,
+					State:      loadbalancer.BackendStateActive,
+				},
 			}
 			backends = append(backends, params)
 		}
@@ -306,7 +307,7 @@ func (s *ServiceCache) GetEndpointsOfService(svcID k8s.ServiceID) *k8s.Endpoints
 			}
 			endpoints.Backends[be.L3n4Addr.AddrCluster] = be2
 		}
-		be2.Ports[be.PortName] = &be.L3n4Addr.L4Addr
+		be2.Ports[be.FEPortName] = &be.L3n4Addr.L4Addr
 	}
 	if len(endpoints.Backends) == 0 {
 		return nil

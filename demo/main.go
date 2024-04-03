@@ -103,12 +103,14 @@ func demo(s *tables.Services) {
 		txn,
 		name,
 		tables.BackendParams{
-			L3n4Addr: backend1,
-			Source:   source.Kubernetes,
-			PortName: "foo",
-			NodeName: "bar",
-			Weight:   123,
-			State:    loadbalancer.BackendStateActive,
+			Source: source.Kubernetes,
+			Backend: loadbalancer.Backend{
+				L3n4Addr:   backend1,
+				FEPortName: "foo",
+				NodeName:   "bar",
+				Weight:     123,
+				State:      loadbalancer.BackendStateActive,
+			},
 		},
 	)
 	backend2 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.MustParseAddrCluster("4.3.2.2"), 54322, loadbalancer.ScopeExternal)
@@ -116,12 +118,14 @@ func demo(s *tables.Services) {
 		txn,
 		name,
 		tables.BackendParams{
-			L3n4Addr: backend2,
-			Source:   source.Kubernetes,
-			PortName: "foo",
-			NodeName: "bar",
-			Weight:   123,
-			State:    loadbalancer.BackendStateTerminating,
+			Source: source.Kubernetes,
+			Backend: loadbalancer.Backend{
+				L3n4Addr:   backend2,
+				FEPortName: "foo",
+				NodeName:   "bar",
+				Weight:     123,
+				State:      loadbalancer.BackendStateTerminating,
+			},
 		},
 	)
 	txn.Commit()

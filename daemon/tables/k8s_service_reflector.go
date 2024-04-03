@@ -455,13 +455,15 @@ func endpointsToBackendParams(ep *k8s.Endpoints) (name loadbalancer.ServiceName,
 				state = loadbalancer.BackendStateTerminating
 			}
 			params := BackendParams{
-				L3n4Addr:      l3n4Addr,
 				Source:        source.Kubernetes,
-				NodeName:      be.NodeName,
-				PortName:      portName,
-				Weight:        loadbalancer.DefaultBackendWeight,
-				State:         state,
 				HintsForZones: be.HintsForZones,
+				Backend: loadbalancer.Backend{
+					L3n4Addr:   l3n4Addr,
+					NodeName:   be.NodeName,
+					FEPortName: portName,
+					Weight:     loadbalancer.DefaultBackendWeight,
+					State:      state,
+				},
 			}
 			out = append(out, params)
 		}
@@ -523,8 +525,8 @@ func endpointSliceToBackendParams(ep *slim_discovery_v1.EndpointSlice) (name loa
 
 			backend := BackendParams{
 				Source: source.Kubernetes,
-				State:  loadbalancer.BackendStateActive,
 			}
+			backend.State = loadbalancer.BackendStateActive
 			backend.L3n4Addr.AddrCluster = addrCluster
 
 			if sub.NodeName != nil {
@@ -552,7 +554,7 @@ func endpointSliceToBackendParams(ep *slim_discovery_v1.EndpointSlice) (name loa
 			for _, port := range ep.Ports {
 				name, lbPort := parseEndpointPortV1(port)
 				if lbPort != nil {
-					backend.PortName = name
+					backend.FEPortName = name
 					backend.L3n4Addr.L4Addr = *lbPort
 					out = append(out, backend)
 				}

@@ -12,14 +12,9 @@ import (
 )
 
 type BackendParams struct {
-	loadbalancer.L3n4Addr
+	loadbalancer.Backend
 
-	Source source.Source
-
-	NodeName      string
-	PortName      string
-	Weight        uint16
-	State         loadbalancer.BackendState
+	Source        source.Source
 	HintsForZones []string
 }
 
@@ -38,15 +33,7 @@ func (be *Backend) String() string {
 }
 
 func (be *Backend) ToLoadBalancerBackend() *loadbalancer.Backend {
-	return &loadbalancer.Backend{
-		FEPortName: be.PortName,
-		ID:         0,
-		Weight:     be.Weight,
-		NodeName:   be.NodeName,
-		L3n4Addr:   be.L3n4Addr,
-		State:      be.State,
-		Preferred:  false, // TODO Preferred unused?
-	}
+	return &be.Backend
 }
 
 func (be *Backend) removeRef(name loadbalancer.ServiceName) (*Backend, bool) {
