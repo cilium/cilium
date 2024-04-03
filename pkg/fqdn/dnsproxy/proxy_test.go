@@ -1371,14 +1371,12 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	}
 }
 
-//nolint:unused // Used in benchmark above, false-positive in golangci-lint v1.48.0.
 func getMemStats() runtime.MemStats {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	return m
 }
 
-//nolint:unused // Used in benchmark above, false-positive in golangci-lint v1.48.0.
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
