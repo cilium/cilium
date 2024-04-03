@@ -3,6 +3,7 @@ package tables
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -24,6 +25,36 @@ type Backend struct {
 	ReferencedBy container.ImmSet[loadbalancer.ServiceName]
 }
 
+func (be *Backend) TableHeader() []string {
+	return []string{
+		"Address",
+		"State",
+		"Source",
+		"ReferencedBy",
+	}
+}
+
+func toStrings[T fmt.Stringer](xs []T) []string {
+	out := make([]string, len(xs))
+	for i := range xs {
+		out[i] = xs[i].String()
+	}
+	return out
+}
+
+func (be *Backend) TableRow() []string {
+	state, err := be.State.String()
+	if err != nil {
+		state = err.Error()
+	}
+	return []string{
+		be.L3n4Addr.String(),
+		state,
+		be.Source.String(),
+		strings.Join(toStrings(be.ReferencedBy.AsSlice()), ", "),
+	}
+}
+
 func (be *Backend) String() string {
 	return fmt.Sprintf(
 		"%s (source: %s, state: %v)",
@@ -43,7 +74,7 @@ func (be *Backend) removeRef(name loadbalancer.ServiceName) (*Backend, bool) {
 }
 
 const (
-	BackendsTableName = "backends"
+	BackendTableName = "backends"
 )
 
 func l3n4AddrKey(addr loadbalancer.L3n4Addr) index.Key {
@@ -78,7 +109,7 @@ var (
 
 func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
 	tbl, err := statedb.NewTable(
-		BackendsTableName,
+		BackendTableName,
 		BackendAddrIndex,
 		BackendServiceIndex,
 	)

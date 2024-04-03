@@ -13,7 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/datapath/tables"
+	controlTables "github.com/cilium/cilium/daemon/tables"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
@@ -91,12 +92,14 @@ func init() {
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,
 
-		statedbTableCommand[*tables.Device]("devices"),
-		statedbTableCommand[*tables.Route]("routes"),
-		statedbTableCommand[*tables.L2AnnounceEntry]("l2-announce"),
-		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
-		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
-		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
+		statedbTableCommand[*datapathTables.Device]("devices"),
+		statedbTableCommand[*datapathTables.Route]("routes"),
+		statedbTableCommand[*datapathTables.L2AnnounceEntry]("l2-announce"),
+		statedbTableCommand[*datapathTables.BandwidthQDisc](datapathTables.BandwidthQDiscTableName),
+		statedbTableCommand[datapathTables.NodeAddress](datapathTables.NodeAddressTableName),
+		statedbTableCommand[*datapathTables.Sysctl](datapathTables.SysctlTableName),
+		statedbTableCommand[*controlTables.Service](controlTables.ServiceTableName),
+		statedbTableCommand[*controlTables.Backend](controlTables.BackendTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

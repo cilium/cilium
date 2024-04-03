@@ -76,6 +76,26 @@ type Service struct {
 	BPFStatus reconciler.Status
 }
 
+func (s *Service) TableHeader() []string {
+	return []string{
+		"Name",
+		"Address",
+		"Type",
+		"Source",
+		"Status",
+	}
+}
+
+func (s *Service) TableRow() []string {
+	return []string{
+		s.Name.String(),
+		s.L3n4Addr.String(),
+		string(s.Type),
+		s.Source.String(),
+		s.BPFStatus.String(),
+	}
+}
+
 // Clone returns a shallow copy of the service.
 func (s *Service) Clone() *Service {
 	s2 := *s
@@ -131,12 +151,12 @@ var (
 )
 
 const (
-	ServicesTableName = "services"
+	ServiceTableName = "services"
 )
 
 func NewServicesTable(db *statedb.DB) (statedb.RWTable[*Service], error) {
 	tbl, err := statedb.NewTable(
-		ServicesTableName,
+		ServiceTableName,
 		ServiceL3n4AddrIndex,
 		ServiceNameIndex,
 	)
