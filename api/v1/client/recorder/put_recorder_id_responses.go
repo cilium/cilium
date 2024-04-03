@@ -51,7 +51,7 @@ func (o *PutRecorderIDReader) ReadResponse(response runtime.ClientResponse, cons
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[PUT /recorder/{id}] PutRecorderID", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -91,11 +91,6 @@ func (o *PutRecorderIDOK) IsServerError() bool {
 // IsCode returns true when this put recorder Id o k response a status code equal to that given
 func (o *PutRecorderIDOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the put recorder Id o k response
-func (o *PutRecorderIDOK) Code() int {
-	return 200
 }
 
 func (o *PutRecorderIDOK) Error() string {
@@ -149,11 +144,6 @@ func (o *PutRecorderIDCreated) IsCode(code int) bool {
 	return code == 201
 }
 
-// Code gets the status code for the put recorder Id created response
-func (o *PutRecorderIDCreated) Code() int {
-	return 201
-}
-
 func (o *PutRecorderIDCreated) Error() string {
 	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdCreated ", 201)
 }
@@ -203,11 +193,6 @@ func (o *PutRecorderIDForbidden) IsServerError() bool {
 // IsCode returns true when this put recorder Id forbidden response a status code equal to that given
 func (o *PutRecorderIDForbidden) IsCode(code int) bool {
 	return code == 403
-}
-
-// Code gets the status code for the put recorder Id forbidden response
-func (o *PutRecorderIDForbidden) Code() int {
-	return 403
 }
 
 func (o *PutRecorderIDForbidden) Error() string {
@@ -260,11 +245,6 @@ func (o *PutRecorderIDFailure) IsServerError() bool {
 // IsCode returns true when this put recorder Id failure response a status code equal to that given
 func (o *PutRecorderIDFailure) IsCode(code int) bool {
 	return code == 500
-}
-
-// Code gets the status code for the put recorder Id failure response
-func (o *PutRecorderIDFailure) Code() int {
-	return 500
 }
 
 func (o *PutRecorderIDFailure) Error() string {

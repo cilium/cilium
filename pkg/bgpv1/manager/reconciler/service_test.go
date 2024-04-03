@@ -739,16 +739,15 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 	svc1NonClusterIP := svc1.DeepCopy()
 	svc1NonClusterIP.Spec.ClusterIP = "None"
 	svc1NonClusterIP.Spec.ClusterIPs = append(svc1NonClusterIP.Spec.ClusterIPs, "None")
-	svc1ITPLocal := svc1.DeepCopy()
-	internalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
-	svc1ITPLocal.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+	svc1ETPLocal := svc1.DeepCopy()
+	svc1ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
-	svc1ITPLocalTwoIngress := svc1TwoIngress.DeepCopy()
-	svc1ITPLocalTwoIngress.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+	svc1ETPLocalTwoIngress := svc1TwoIngress.DeepCopy()
+	svc1ETPLocalTwoIngress.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
-	svc1IPv6ITPLocal := svc1.DeepCopy()
-	svc1IPv6ITPLocal.Spec.ClusterIPs = append(svc1IPv6ITPLocal.Spec.ClusterIPs, clusterIPV6)
-	svc1IPv6ITPLocal.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+	svc1IPv6ETPLocal := svc1.DeepCopy()
+	svc1IPv6ETPLocal.Spec.ClusterIPs = append(svc1IPv6ETPLocal.Spec.ClusterIPs, clusterIPV6)
+	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
 	svc1LbClass := svc1.DeepCopy()
 	svc1LbClass.Spec.LoadBalancerClass = pointer.String(v2alpha1api.BGPLoadBalancerClass)
@@ -1097,17 +1096,17 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{},
 			updated:            map[resource.Key][]string{},
 		},
-		// internalTrafficPolicyLocal=Local && IPv4 && single slice && local endpoint
+		// externalTrafficPolicy=Local && IPv4 && single slice && local endpoint
 		{
-			name:               "itp-local-ipv4-single-slice-local",
+			name:               "etp-local-ipv4-single-slice-local",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
@@ -1115,23 +1114,23 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				},
 			},
 		},
-		// internalTrafficPolicyLocal=Local && IPv4 && single slice && remote endpoint
+		// externalTrafficPolicy=Local && IPv4 && single slice && remote endpoint
 		{
-			name:               "itp-local-ipv4-single-slice-remote",
+			name:               "etp-local-ipv4-single-slice-remote",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Remote},
 			updated:            map[resource.Key][]string{},
 		},
-		// internalTrafficPolicyLocal=Local && IPv4 && single slice && mixed endpoint
+		// externalTrafficPolicy=Local && IPv4 && single slice && mixed endpoint
 		{
-			name:               "itp-local-ipv4-single-slice-mixed",
+			name:               "etp-local-ipv4-single-slice-mixed",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Mixed},
 			updated: map[resource.Key][]string{
 				svc1Name: {
@@ -1139,13 +1138,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				},
 			},
 		},
-		// internalTrafficPolicyLocal=Local && IPv6 && single slice && local endpoint
+		// externalTrafficPolicy=Local && IPv6 && single slice && local endpoint
 		{
-			name:               "itp-local-ipv6-single-slice-local",
+			name:               "etp-local-ipv6-single-slice-local",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1IPv6ITPLocal},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
@@ -1154,23 +1153,23 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				},
 			},
 		},
-		// internalTrafficPolicyLocal=Local && IPv6 && single slice && remote endpoint
+		// externalTrafficPolicy=Local && IPv6 && single slice && remote endpoint
 		{
-			name:               "itp-local-ipv6-single-slice-remote",
+			name:               "etp-local-ipv6-single-slice-remote",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1IPv6ITPLocal},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Remote},
 			updated:            map[resource.Key][]string{},
 		},
-		// internalTrafficPolicyLocal=Local && IPv6 && single slice && mixed endpoint
+		// externalTrafficPolicy=Local && IPv6 && single slice && mixed endpoint
 		{
-			name:               "itp-local-ipv6-single-slice-mixed",
+			name:               "etp-local-ipv6-single-slice-mixed",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1IPv6ITPLocal},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Mixed},
 			updated: map[resource.Key][]string{
 				svc1Name: {
@@ -1179,13 +1178,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				},
 			},
 		},
-		// internalTrafficPolicyLocal=Local && Dual && two slices && local endpoint
+		// externalTrafficPolicy=Local && Dual && two slices && local endpoint
 		{
-			name:               "itp-local-dual-two-slices-local",
+			name:               "etp-local-dual-two-slices-local",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1ITPLocalTwoIngress},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
 			upsertedEndpoints: []*k8s.Endpoints{
 				eps1IPv4Local,
 				eps1IPv6Local,
@@ -1197,13 +1196,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				},
 			},
 		},
-		// internalTrafficPolicyLocal=Local && Dual && two slices && remote endpoint
+		// externalTrafficPolicy=Local && Dual && two slices && remote endpoint
 		{
-			name:               "itp-local-dual-two-slices-remote",
+			name:               "etp-local-dual-two-slices-remote",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1ITPLocalTwoIngress},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
 			upsertedEndpoints: []*k8s.Endpoints{
 				eps1IPv4Remote,
 				eps1IPv6Remote,
@@ -1212,13 +1211,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				svc1Name: {},
 			},
 		},
-		// internalTrafficPolicyLocal=Local && Dual && two slices && mixed endpoint
+		// externalTrafficPolicy=Local && Dual && two slices && mixed endpoint
 		{
-			name:               "itp-local-dual-two-slices-mixed",
+			name:               "etp-local-dual-two-slices-mixed",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices:   []*slim_corev1.Service{svc1ITPLocalTwoIngress},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
 			upsertedEndpoints: []*k8s.Endpoints{
 				eps1IPv4Mixed,
 				eps1IPv6Mixed,

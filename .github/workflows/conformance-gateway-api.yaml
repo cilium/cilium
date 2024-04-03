@@ -97,7 +97,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@a9579d1afc528b085930c5237a69ee77b2c2be76 # v0.16.4
+        uses: cilium/cilium-cli@ca0d5a23b842d78ce3b5c79a80d546867493daf7 # v0.16.0
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -122,9 +122,10 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=debug.verbose=envoy \
-            --helm-set=kubeProxyReplacement=true \
+            --helm-set kubeProxyReplacement=true \
             --helm-set=gatewayAPI.enabled=true \
-            --helm-set=l2announcements.enabled=true"
+            --helm-set=l2announcements.enabled=true \
+            --helm-set=devices='{eth0}'"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT

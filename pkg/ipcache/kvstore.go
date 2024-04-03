@@ -312,12 +312,13 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 	}
 
 	peerIdentity := ipIDPair.ID
-	if peerIdentity == identity.ReservedIdentityHost {
+	if option.Config.EnableRemoteNodeIdentity && peerIdentity == identity.ReservedIdentityHost {
 		// The only way we can discover IPs associated with the local host
 		// is directly via the NodeDiscovery package. If someone is informing
 		// this agent about IPs corresponding to the "host" via the kvstore,
 		// then they're sharing their own perspective on their own node IPs'
-		// identity. We should treat the peer as a "remote-node", not a "host".
+		// identity. However, this node has remote-node enabled, so we should
+		// treat the peer as a "remote-node", not a "host".
 		peerIdentity = identity.ReservedIdentityRemoteNode
 	}
 

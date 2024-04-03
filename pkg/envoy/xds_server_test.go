@@ -37,11 +37,14 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.Cached
 var (
 	_        = Suite(&ServerSuite{})
 	IPv4Addr = "10.1.1.1"
+	Identity = identity.NumericIdentity(123)
 
 	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
-		Id:   1000,
-		Ipv4: "10.0.0.1",
-		Ipv6: "f00d::1",
+		Id:       1000,
+		Ipv4:     "10.0.0.1",
+		Ipv6:     "f00d::1",
+		Labels:   []string{"id.foo", "id.bar"},
+		Identity: Identity,
 	}
 )
 

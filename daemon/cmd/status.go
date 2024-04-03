@@ -48,10 +48,10 @@ const (
 	// version is verified even if connectivity is given
 	k8sVersionCheckInterval = 15 * time.Minute
 
-	// k8sMinimumEventHeartbeat is the time interval in which any received
+	// k8sMinimumEventHearbeat is the time interval in which any received
 	// event will be considered proof that the apiserver connectivity is
-	// healthy
-	k8sMinimumEventHeartbeat = time.Minute
+	// healthty
+	k8sMinimumEventHearbeat = time.Minute
 )
 
 var randGen = rand.NewSafeRand(time.Now().UnixNano())
@@ -66,7 +66,7 @@ func (k *k8sVersion) cachedVersion() (string, bool) {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 
-	if time.Since(k8smetrics.LastSuccessInteraction.Time()) > k8sMinimumEventHeartbeat {
+	if time.Since(k8smetrics.LastInteraction.Time()) > k8sMinimumEventHearbeat {
 		return "", false
 	}
 
@@ -231,6 +231,12 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeTrue
 	case option.KubeProxyReplacementFalse:
 		mode = models.KubeProxyReplacementModeFalse
+	case option.KubeProxyReplacementStrict:
+		mode = models.KubeProxyReplacementModeStrict
+	case option.KubeProxyReplacementPartial:
+		mode = models.KubeProxyReplacementModePartial
+	case option.KubeProxyReplacementDisabled:
+		mode = models.KubeProxyReplacementModeDisabled
 	}
 
 	devices, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())

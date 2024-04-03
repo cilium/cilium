@@ -6,7 +6,7 @@ set -euo pipefail
 
 default_controlplanes=1
 default_workers=1
-default_cluster_name="kind"
+default_cluster_name=""
 default_image=""
 default_kubeproxy_mode="iptables"
 if [ "$(uname 2>/dev/null)" == "Linux" ] && [ "$(</proc/sys/net/ipv6/conf/all/disable_ipv6)" == 1 ] ; then
@@ -108,8 +108,9 @@ fi
 
 kind_cmd="kind create cluster"
 
-kind_cmd+=" --name ${cluster_name}"
-
+if [[ -n "${cluster_name}" ]]; then
+  kind_cmd+=" --name ${cluster_name}"
+fi
 if [[ -n "${image}" ]]; then
   kind_cmd+=" --image ${image}"
 fi
@@ -258,11 +259,6 @@ set +e
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 kubectl taint nodes --all node-role.kubernetes.io/master-
 set -e
-
-# Set start of unprivileged port range to 1024
-# Docker defaults to 0
-# https://github.com/moby/moby/pull/41030
-kind get nodes --name $cluster_name | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=1024
 
 echo
 if [[ -n "${kubeconfig}" ]]; then

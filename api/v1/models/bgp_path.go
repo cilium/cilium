@@ -152,11 +152,6 @@ func (m *BgpPath) ContextValidate(ctx context.Context, formats strfmt.Registry) 
 func (m *BgpPath) contextValidateFamily(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Family != nil {
-
-		if swag.IsZero(m.Family) { // not required
-			return nil
-		}
-
 		if err := m.Family.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("family")
@@ -173,11 +168,6 @@ func (m *BgpPath) contextValidateFamily(ctx context.Context, formats strfmt.Regi
 func (m *BgpPath) contextValidateNlri(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Nlri != nil {
-
-		if swag.IsZero(m.Nlri) { // not required
-			return nil
-		}
-
 		if err := m.Nlri.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nlri")
@@ -196,11 +186,6 @@ func (m *BgpPath) contextValidatePathAttributes(ctx context.Context, formats str
 	for i := 0; i < len(m.PathAttributes); i++ {
 
 		if m.PathAttributes[i] != nil {
-
-			if swag.IsZero(m.PathAttributes[i]) { // not required
-				return nil
-			}
-
 			if err := m.PathAttributes[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("path-attributes" + "." + strconv.Itoa(i))

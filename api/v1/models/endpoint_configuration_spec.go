@@ -105,11 +105,6 @@ func (m *EndpointConfigurationSpec) ContextValidate(ctx context.Context, formats
 func (m *EndpointConfigurationSpec) contextValidateLabelConfiguration(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.LabelConfiguration != nil {
-
-		if swag.IsZero(m.LabelConfiguration) { // not required
-			return nil
-		}
-
 		if err := m.LabelConfiguration.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("label-configuration")
@@ -124,10 +119,6 @@ func (m *EndpointConfigurationSpec) contextValidateLabelConfiguration(ctx contex
 }
 
 func (m *EndpointConfigurationSpec) contextValidateOptions(ctx context.Context, formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Options) { // not required
-		return nil
-	}
 
 	if err := m.Options.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {

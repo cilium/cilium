@@ -88,14 +88,18 @@ func (p *testPolicyContextType) IsDeny() bool {
 }
 
 var (
-	testPolicyContext = &testPolicyContextType{}
+	testPolicyContext               = &testPolicyContextType{}
+	cachedRemoteNodeIdentitySetting bool
 )
 
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
+	cachedRemoteNodeIdentitySetting = option.Config.EnableRemoteNodeIdentity
+	option.Config.EnableRemoteNodeIdentity = true
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
+	option.Config.EnableRemoteNodeIdentity = cachedRemoteNodeIdentitySetting
 }
 
 // Tests in this file:

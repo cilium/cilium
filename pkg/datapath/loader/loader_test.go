@@ -184,18 +184,11 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 		{progName: symbolFromEndpoint, direction: dirIngress},
 		{progName: symbolToEndpoint, direction: dirEgress},
 	}
-	opts := replaceDatapathOptions{
-		device:   ep.InterfaceName(),
-		elf:      objPath,
-		programs: progs,
-		linkDir:  testutils.TempBPFFS(c),
-	}
-	finalize, err := replaceDatapath(ctx, opts)
+	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
 	c.Assert(err, IsNil)
 	finalize()
 
-	finalize, err = replaceDatapath(ctx, opts)
-
+	finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
 	c.Assert(err, IsNil)
 	finalize()
 }
@@ -337,18 +330,10 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	}
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	linkDir := testutils.TempBPFFS(b)
 	progs := []progDefinition{{progName: symbolFromEndpoint, direction: dirIngress}}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		finalize, err := replaceDatapath(ctx,
-			replaceDatapathOptions{
-				device:   ep.InterfaceName(),
-				elf:      objPath,
-				programs: progs,
-				linkDir:  linkDir,
-			},
-		)
+		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
 		if err != nil {
 			b.Fatal(err)
 		}

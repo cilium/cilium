@@ -981,7 +981,12 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of services events labeled by action type",
 		}, []string{LabelAction}),
 
-		ErrorsWarnings: newErrorsWarningsMetric(),
+		ErrorsWarnings: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: Namespace + "_errors_warnings_total",
+			Namespace:  Namespace,
+			Name:       "errors_warnings_total",
+			Help:       "Number of total errors in cilium-agent instances",
+		}, []string{"level", "subsystem"}),
 
 		ControllerRuns: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_controllers_runs_total",
@@ -1270,7 +1275,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Subsystem:  SubsystemAPILimiter,
 			Name:       "processed_requests_total",
 			Help:       "Total number of API requests processed",
-		}, []string{"api_call", LabelOutcome, LabelAPIReturnCode}),
+		}, []string{"api_call", LabelOutcome}),
 
 		EndpointPropagationDelay: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_endpoint_propagation_delay_seconds",
@@ -1406,20 +1411,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APILimiterProcessedRequests = lm.APILimiterProcessedRequests
 
 	return lm
-}
-
-// InitOperatorMetrics is used to init legacy metrics necessary during operator init.
-func InitOperatorMetrics() {
-	ErrorsWarnings = newErrorsWarningsMetric()
-}
-
-func newErrorsWarningsMetric() metric.Vec[metric.Counter] {
-	return metric.NewCounterVec(metric.CounterOpts{
-		ConfigName: Namespace + "_errors_warnings_total",
-		Namespace:  Namespace,
-		Name:       "errors_warnings_total",
-		Help:       "Number of total errors in cilium-agent instances",
-	}, []string{"level", "subsystem"})
 }
 
 // GaugeWithThreshold is a prometheus gauge that registers itself with
@@ -1581,14 +1572,6 @@ func Error2Outcome(err error) string {
 	}
 
 	return LabelValueOutcomeSuccess
-}
-
-// LabelOutcome2Code converts a label outcome to a code
-func LabelOutcome2Code(outcome string) int {
-	if outcome == LabelValueOutcomeSuccess {
-		return 200
-	}
-	return 500
 }
 
 func BoolToFloat64(v bool) float64 {

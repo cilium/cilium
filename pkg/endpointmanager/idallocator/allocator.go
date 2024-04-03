@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package endpointmanager
+package idallocator
 
 import (
 	"fmt"
@@ -14,19 +14,21 @@ const (
 	maxID = idpool.ID(4095)
 )
 
-type epIDAllocator struct {
-	pool *idpool.IDPool
-}
+var (
+	pool = idpool.NewIDPool(minID, maxID)
+)
 
-func newEPIDAllocator() *epIDAllocator {
-	return &epIDAllocator{
-		pool: idpool.NewIDPool(minID, maxID),
+// ReallocatePool starts over with a new pool. This function is only used for
+// tests and its implementation is not optimized for production.
+func ReallocatePool() {
+	for i := uint16(minID); i <= uint16(maxID); i++ {
+		Release(i)
 	}
 }
 
-// allocate returns a new random ID from the pool
-func (a *epIDAllocator) allocate() uint16 {
-	id := a.pool.AllocateID()
+// Allocate returns a new random ID from the pool
+func Allocate() uint16 {
+	id := pool.AllocateID()
 
 	// Out of endpoint IDs
 	if id == idpool.NoID {
@@ -36,9 +38,9 @@ func (a *epIDAllocator) allocate() uint16 {
 	return uint16(id)
 }
 
-// reuse grabs a specific endpoint ID for reuse. This can be used when
+// Reuse grabs a specific endpoint ID for reuse. This can be used when
 // restoring endpoints.
-func (a *epIDAllocator) reuse(id uint16) error {
+func Reuse(id uint16) error {
 	if idpool.ID(id) < minID {
 		return fmt.Errorf("unable to reuse endpoint: %d < %d", id, minID)
 	}
@@ -50,16 +52,16 @@ func (a *epIDAllocator) reuse(id uint16) error {
 		return nil
 	}
 
-	if !a.pool.Remove(idpool.ID(id)) {
+	if !pool.Remove(idpool.ID(id)) {
 		return fmt.Errorf("endpoint ID %d is already in use", id)
 	}
 
 	return nil
 }
 
-// release releases an endpoint ID that was previously allocated or reused
-func (a *epIDAllocator) release(id uint16) error {
-	if !a.pool.Insert(idpool.ID(id)) {
+// Release releases an endpoint ID that was previously allocated or reused
+func Release(id uint16) error {
+	if !pool.Insert(idpool.ID(id)) {
 		return fmt.Errorf("Unable to release endpoint ID %d", id)
 	}
 

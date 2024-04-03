@@ -130,7 +130,7 @@ func (s EntitySlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 }
 
 // InitEntities is called to initialize the policy API layer
-func InitEntities(clusterName string) {
+func InitEntities(clusterName string, treatRemoteNodeAsHost bool) {
 	EntitySelectorMapping[EntityCluster] = EndpointSelectorSlice{
 		endpointSelectorHost,
 		endpointSelectorRemoteNode,
@@ -141,4 +141,11 @@ func InitEntities(clusterName string) {
 		endpointSelectorKubeAPIServer,
 		NewESFromLabels(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s)),
 	}
+
+	hostSelectors := make(EndpointSelectorSlice, 0, 2)
+	hostSelectors = append(hostSelectors, endpointSelectorHost)
+	if treatRemoteNodeAsHost {
+		hostSelectors = append(hostSelectors, endpointSelectorRemoteNode)
+	}
+	EntitySelectorMapping[EntityHost] = hostSelectors
 }

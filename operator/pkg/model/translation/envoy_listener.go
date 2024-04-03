@@ -4,9 +4,7 @@
 package translation
 
 import (
-	"cmp"
 	"fmt"
-	goslices "slices"
 	"syscall"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -16,7 +14,6 @@ import (
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -98,7 +95,7 @@ func WithHostNetworkPort[T model.Listener](listeners []T, ipv4Enabled bool, ipv6
 			ports = append(ports, hl.GetPort())
 		}
 
-		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(slices.SortedUnique(ports), ipv4Enabled, ipv6Enabled)
+		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(slices.Unique(ports), ipv4Enabled, ipv6Enabled)
 
 		return listener
 	}
@@ -187,11 +184,7 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 		},
 	})
 
-	orderedSecrets := maps.Keys(tls)
-	goslices.SortStableFunc(orderedSecrets, func(a, b model.TLSSecret) int { return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name) })
-
-	for _, secret := range orderedSecrets {
-		hostNames := tls[secret]
+	for secret, hostNames := range tls {
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := NewHTTPConnectionManager(
 			secureHttpConnectionManagerName,
@@ -309,11 +302,7 @@ func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string
 func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedBackends := maps.Keys(backendsForHost)
-	goslices.Sort(orderedBackends)
-
-	for _, backend := range orderedBackends {
-		hostNames := backendsForHost[backend]
+	for backend, hostNames := range backendsForHost {
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{

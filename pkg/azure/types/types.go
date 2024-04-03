@@ -126,10 +126,6 @@ type AzureInterface struct {
 	resourceGroup string `json:"-"`
 }
 
-func (a *AzureInterface) DeepCopyInterface() types.Interface {
-	return a.DeepCopy()
-}
-
 // SetID sets the Azure interface ID, as well as extracting other fields from
 // the ID itself.
 func (a *AzureInterface) SetID(id string) {

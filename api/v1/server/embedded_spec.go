@@ -3949,6 +3949,10 @@ func init() {
         "mode": {
           "type": "string",
           "enum": [
+            "Disabled",
+            "Strict",
+            "Probe",
+            "Partial",
             "True",
             "False"
           ]
@@ -9844,6 +9848,10 @@ func init() {
         "mode": {
           "type": "string",
           "enum": [
+            "Disabled",
+            "Strict",
+            "Probe",
+            "Partial",
             "True",
             "False"
           ]

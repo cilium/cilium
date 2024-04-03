@@ -56,7 +56,6 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 			fooIngressDenyRule1Label,
 		},
 	}
-	fooIngressDenyRule1.Sanitize()
 
 	fooIngressDenyRule2 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -73,7 +72,6 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 			fooIngressDenyRule2Label,
 		},
 	}
-	fooIngressDenyRule2.Sanitize()
 
 	fooEgressDenyRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -90,7 +88,6 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 			fooEgressDenyRule1Label,
 		},
 	}
-	fooEgressDenyRule1.Sanitize()
 
 	fooEgressDenyRule2 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -107,7 +104,6 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 			fooEgressDenyRule2Label,
 		},
 	}
-	fooEgressDenyRule2.Sanitize()
 
 	combinedRule := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -133,7 +129,6 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 			combinedLabel,
 		},
 	}
-	combinedRule.Sanitize()
 
 	genCommentf := func(ingress, accept bool) CommentInterface {
 		direction := "egress"

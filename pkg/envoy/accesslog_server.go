@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/time"
@@ -27,15 +28,13 @@ import (
 
 type AccessLogServer struct {
 	socketPath         string
-	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
 	stopCh             chan struct{}
 }
 
-func newAccessLogServer(envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore) *AccessLogServer {
+func newAccessLogServer(envoySocketDir string, localEndpointStore *LocalEndpointStore) *AccessLogServer {
 	return &AccessLogServer{
 		socketPath:         getAccessLogSocketPath(envoySocketDir),
-		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
 	}
 }
@@ -93,13 +92,14 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 	}
 	accessLogListener.SetUnlinkOnClose(true)
 
-	// Make the socket accessible by owner and group only.
+	// Make the socket accessible by owner and group only. Group access is needed for Istio
+	// sidecar proxies.
 	if err = os.Chmod(s.socketPath, 0660); err != nil {
 		return nil, fmt.Errorf("failed to change mode of access log listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(s.socketPath, -1, int(s.proxyGID)); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s", s.socketPath)
+	if err = os.Chown(s.socketPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s, sidecar proxies may not work", s.socketPath)
 	}
 	return accessLogListener, nil
 }

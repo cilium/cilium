@@ -76,9 +76,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	/* Lookup the source in the ipcache. Before decryption this will be the
-	 * outer source IP to get the source node ID. After decryption this
-	 * will be the inner source IP to get the source security identity.
+	/* Lookup the source in the ipcache. After decryption this will be the
+	 * inner source IP to get the source security identity.
 	 */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 
@@ -104,8 +103,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
-		__u16 node_id;
-
 		/* IPSec is not currently enforce (feature coming soon)
 		 * so for now just handle normally
 		 */
@@ -115,10 +112,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			goto not_esp;
 		}
 
-		node_id = lookup_ip6_node_id((union v6addr *)&ip6->saddr);
-		if (!node_id)
-			return DROP_NO_NODE_ID;
-		set_ipsec_decrypt_mark(ctx, node_id);
+		/* Decrypt "key" is determined by SPI */
+		ctx->mark = MARK_MAGIC_DECRYPT;
 
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
@@ -323,9 +318,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	/* Lookup the source in the ipcache. Before decryption this will be the
-	 * outer source IP to get the source node ID. After decryption this
-	 * will be the inner source IP to get the source security identity.
+	/* Lookup the source in the ipcache. After decryption this will be the
+	 * inner source IP to get the source security identity.
 	 */
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 
@@ -384,8 +378,6 @@ skip_vtep:
 
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
-		__u16 node_id;
-
 		/* IPSec is not currently enforce (feature coming soon)
 		 * so for now just handle normally
 		 */
@@ -395,10 +387,7 @@ skip_vtep:
 			goto not_esp;
 		}
 
-		node_id = lookup_ip4_node_id(ip4->saddr);
-		if (!node_id)
-			return DROP_NO_NODE_ID;
-		set_ipsec_decrypt_mark(ctx, node_id);
+		ctx->mark = MARK_MAGIC_DECRYPT;
 
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled

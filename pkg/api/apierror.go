@@ -30,11 +30,6 @@ func New(code int, msg string, args ...interface{}) *APIError {
 	return &APIError{code: code, msg: msg}
 }
 
-// GetCode returns the code for the API Error.
-func (a *APIError) GetCode() int {
-	return a.code
-}
-
 // Error creates a new API error from the code and error.
 func Error(code int, err error) *APIError {
 	if err == nil {

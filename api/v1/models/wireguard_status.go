@@ -90,11 +90,6 @@ func (m *WireguardStatus) contextValidateInterfaces(ctx context.Context, formats
 	for i := 0; i < len(m.Interfaces); i++ {
 
 		if m.Interfaces[i] != nil {
-
-			if swag.IsZero(m.Interfaces[i]) { // not required
-				return nil
-			}
-
 			if err := m.Interfaces[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("interfaces" + "." + strconv.Itoa(i))

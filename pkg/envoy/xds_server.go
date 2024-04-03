@@ -136,8 +136,6 @@ type xdsServer struct {
 	// accessLogPath is the path to the L7 access logs
 	accessLogPath string
 
-	config xdsServerConfig
-
 	// mutex protects accesses to the configuration resources below.
 	mutex lock.RWMutex
 
@@ -200,27 +198,14 @@ func toAny(pb proto.Message) *anypb.Any {
 	return a
 }
 
-type xdsServerConfig struct {
-	envoySocketDir     string
-	proxyGID           int
-	httpRequestTimeout int
-	httpIdleTimeout    int
-	httpMaxGRPCTimeout int
-	httpRetryCount     int
-	httpRetryTimeout   int
-	httpNormalizePath  bool
-}
-
 // newXDSServer creates a new xDS GRPC server.
-func newXDSServer(ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig) (*xdsServer, error) {
+func newXDSServer(envoySocketDir string, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore) (*xdsServer, error) {
 	return &xdsServer{
-		listeners:          make(map[string]*Listener),
+		socketPath:         getXDSSocketPath(envoySocketDir),
+		accessLogPath:      getAccessLogSocketPath(envoySocketDir),
 		ipCache:            ipCache,
+		listeners:          make(map[string]*Listener),
 		localEndpointStore: localEndpointStore,
-
-		socketPath:    getXDSSocketPath(config.envoySocketDir),
-		accessLogPath: getAccessLogSocketPath(config.envoySocketDir),
-		config:        config,
 	}, nil
 }
 
@@ -316,13 +301,14 @@ func (s *xdsServer) newSocketListener() (*net.UnixListener, error) {
 		return nil, fmt.Errorf("failed to open xDS listen socket at %s: %w", s.socketPath, err)
 	}
 
-	// Make the socket accessible by owner and group only.
+	// Make the socket accessible by owner and group only. Group access is needed for Istio
+	// sidecar proxies.
 	if err = os.Chmod(s.socketPath, 0660); err != nil {
 		return nil, fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(s.socketPath, -1, s.config.proxyGID); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s", s.socketPath)
+	if err = os.Chown(s.socketPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", s.socketPath)
 	}
 	return socketListener, nil
 }
@@ -349,11 +335,11 @@ func GetCiliumHttpFilter() *envoy_config_http.HttpFilter {
 }
 
 func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy_config_listener.FilterChain {
-	requestTimeout := int64(s.config.httpRequestTimeout) // seconds
-	idleTimeout := int64(s.config.httpIdleTimeout)       // seconds
-	maxGRPCTimeout := int64(s.config.httpMaxGRPCTimeout) // seconds
-	numRetries := uint32(s.config.httpRetryCount)
-	retryTimeout := int64(s.config.httpRetryTimeout) // seconds
+	requestTimeout := int64(option.Config.HTTPRequestTimeout) // seconds
+	idleTimeout := int64(option.Config.HTTPIdleTimeout)       // seconds
+	maxGRPCTimeout := int64(option.Config.HTTPMaxGRPCTimeout) // seconds
+	numRetries := uint32(option.Config.HTTPRetryCount)
+	retryTimeout := int64(option.Config.HTTPRetryTimeout) // seconds
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
 		StatPrefix:       "proxy",
@@ -419,7 +405,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		},
 	}
 
-	if s.config.httpNormalizePath {
+	if option.Config.HTTPNormalizePath {
 		hcmConfig.NormalizePath = &wrapperspb.BoolValue{Value: true}
 		hcmConfig.MergeSlashes = true
 		hcmConfig.PathWithEscapedSlashesAction = envoy_config_http.HttpConnectionManager_UNESCAPE_AND_REDIRECT
@@ -1695,6 +1681,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// Put IPv4 last for compatibility with sidecar containers
 	var ips []string
 	if ipv6 := ep.GetIPv6Address(); ipv6 != "" {
 		ips = append(ips, ipv6)
@@ -1788,7 +1775,7 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	ip = ep.GetIPv4Address()
 	if ip != "" {
 		s.localEndpointStore.removeLocalEndpoint(ip)
-		// Delete node resources held in the cache for the endpoint
+		// Delete node resources held in the cache for the endpoint (e.g., sidecar)
 		s.NetworkPolicyMutator.DeleteNode(ip)
 	}
 }

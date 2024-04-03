@@ -22,7 +22,6 @@
     "test/packet/scripts/install.sh",
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
-    "install/kubernetes/Makefile.values",
   ],
   "schedule": [
     "on monday"
@@ -60,7 +59,8 @@
     "main",
     "v1.15",
     "v1.14",
-    "v1.13"
+    "v1.13",
+    "v1.12"
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -97,6 +97,15 @@
       ],
     },
     {
+      "matchPaths": [
+        ".github/workflows/integration-test.yaml"
+      ],
+      matchPackageNames: [
+        "ubuntu"
+      ],
+      "allowedVersions": "20.04"
+    },
+    {
       "groupName": "all go dependencies main",
       "groupSlug": "all-go-deps-main",
       "matchFiles": [
@@ -130,7 +139,8 @@
         "main",
         "v1.15",
         "v1.14",
-        "v1.13"
+        "v1.13",
+        "v1.12"
       ]
     },
     {
@@ -145,7 +155,8 @@
       matchBaseBranches: [
         "v1.15",
         "v1.14",
-        "v1.13"
+        "v1.13",
+        "v1.12"
       ]
     },
     {
@@ -221,6 +232,15 @@
     },
     {
       "matchPackageNames": [
+        "docker.io/library/ubuntu"
+      ],
+      "allowedVersions": "20.04",
+      "matchBaseBranches": [
+        "v1.12"
+      ],
+    },
+    {
+      "matchPackageNames": [
         "docker.io/library/golang",
         "go"
       ],
@@ -237,7 +257,8 @@
       "allowedVersions": "<1.22",
       "matchBaseBranches": [
         "v1.14",
-        "v1.13"
+        "v1.13",
+        "v1.12"
       ]
     },
     {
@@ -265,6 +286,15 @@
       "allowedVersions": "<3.18",
       "matchBaseBranches": [
         "v1.13"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.17",
+      "matchBaseBranches": [
+        "v1.12"
       ]
     },
     {
@@ -309,7 +339,8 @@
         "minor"
       ],
       "matchBaseBranches": [
-        "v1.13"
+        "v1.13",
+        "v1.12",
       ]
     },
     {
@@ -344,7 +375,8 @@
       "matchBaseBranches": [
         "v1.15",
         "v1.14",
-        "v1.13"
+        "v1.13",
+        "v1.12"
       ]
     },
     {
@@ -366,7 +398,8 @@
       "matchBaseBranches": [
         "v1.15",
         "v1.14",
-        "v1.13"
+        "v1.13",
+        "v1.12",
       ],
     },
     {
@@ -493,14 +526,6 @@
         "default: (?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>.*?)\\s"
       ],
       "datasourceTemplate": "docker"
-    },
-    {
-      "fileMatch": [
-        "^install/kubernetes/Makefile.values$"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION:=(?<currentValue>.*)\\s+.+_DIGEST:=(?<currentDigest>sha256:[a-f0-9]+)"
-      ]
-    },
+    }
   ]
 }

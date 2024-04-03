@@ -14,15 +14,19 @@ import (
 
 	apiv1 "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/revert"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -34,15 +38,6 @@ func (mgr *endpointManager) waitEndpointRemoved(ep *endpoint.Endpoint, conf endp
 	mgr.unexpose(ep)
 	ep.Stop()
 	return nil
-}
-
-// RemoveAll removes all endpoints from the global maps.
-func (mgr *endpointManager) RemoveAll(t testing.TB) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
-	mgr.epIDAllocator.reallocatePool(t)
-	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
-	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }
 
 // WaitEndpointRemoved waits until all operations associated with Remove of
@@ -66,6 +61,21 @@ func (s *EndpointManagerSuite) SetUpSuite(c *C) {
 func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
+
+func (s *EndpointManagerSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+	return 0, nil, nil, nil
+}
+
+func (s *EndpointManagerSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	return nil, nil, nil
+}
+
+func (s *EndpointManagerSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
+	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	return nil, nil
+}
+
+func (s *EndpointManagerSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
 
 func (s *EndpointManagerSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	return nil, nil
@@ -121,7 +131,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		name      string
 		setupArgs func() args
 		setupWant func() want
-		cm        *apiv1.EndpointChangeRequest
+		cm        apiv1.EndpointChangeRequest
 	}{
 		{
 			name: "endpoint does not exist",
@@ -140,7 +150,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by cilium local ID",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				ID: 1234,
 			},
 			setupArgs: func() args {
@@ -158,7 +168,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by cilium global ID",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				ID: 1234,
 			},
 			setupArgs: func() args {
@@ -175,7 +185,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by CNI attachment ID",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				ContainerID:            "1234",
 				ContainerInterfaceName: "eth0",
 			},
@@ -194,7 +204,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by CNI attachment ID without interface",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				ContainerID: "1234",
 			},
 			setupArgs: func() args {
@@ -212,7 +222,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by container ID (deprecated)",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				ContainerID: "1234",
 			},
 			setupArgs: func() args {
@@ -230,7 +240,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by docker endpoint ID",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				DockerEndpointID: "1234",
 			},
 			setupArgs: func() args {
@@ -248,7 +258,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by container name (deprecated)",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				ContainerName: "foo",
 			},
 			setupArgs: func() args {
@@ -266,7 +276,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by pod name",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				K8sNamespace: "default",
 				K8sPodName:   "foo",
 			},
@@ -285,7 +295,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by cep name",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				K8sNamespace: "default",
 				K8sPodName:   "foo",
 			},
@@ -304,7 +314,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by cep name with interface",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				K8sNamespace:           "default",
 				K8sPodName:             "foo",
 				ContainerInterfaceName: "net1",
@@ -324,7 +334,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by cep name with interface and disabled legacy identifers",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				K8sNamespace:             "default",
 				K8sPodName:               "foo",
 				ContainerInterfaceName:   "net1",
@@ -345,7 +355,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "endpoint by ipv4",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				Addressing: &apiv1.AddressPair{
 					IPV4: "127.0.0.1",
 				},
@@ -393,7 +403,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 		{
 			name: "invalid lookup with container id with disabled legacy identifiers",
-			cm: &apiv1.EndpointChangeRequest{
+			cm: apiv1.EndpointChangeRequest{
 				ContainerID:              "1234",
 				DisableLegacyIdentifiers: true,
 			},
@@ -412,15 +422,12 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		var ep *endpoint.Endpoint
-		var err error
+		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), &tt.cm)
+		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
 		mgr := New(&dummyEpSyncher{}, nil, nil)
-		if tt.cm != nil {
-			ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), tt.cm)
-			c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
-			err = mgr.expose(ep)
-			c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
-		}
+
+		err = mgr.expose(ep)
+		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
 
 		args := tt.setupArgs()
 		want := tt.setupWant()
@@ -431,6 +438,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		} else {
 			c.Assert(got, IsNil, Commentf("Test Name: %s", tt.name))
 		}
+		idallocator.ReallocatePool()
 	}
 }
 
@@ -454,7 +462,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 			name: "existing cilium ID",
 			preTestRun: func() {
 				ep.ID = 1
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -508,7 +516,7 @@ func (s *EndpointManagerSuite) TestLookupCNIAttachmentID(c *C) {
 		ContainerInterfaceName: "bar",
 	})
 	c.Assert(err, IsNil)
-	c.Assert(mgr.expose(ep), IsNil)
+	mgr.expose(ep)
 
 	good := mgr.LookupCNIAttachmentID("foo:bar")
 	c.Assert(good, checker.DeepEquals, ep)
@@ -540,7 +548,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 			name: "existing LookupIPv4",
 			preTestRun: func() {
 				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -608,7 +616,7 @@ func (s *EndpointManagerSuite) TestLookupCEPName(c *C) {
 				K8sPodName:   "foo",
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -633,7 +641,7 @@ func (s *EndpointManagerSuite) TestLookupCEPName(c *C) {
 				DisableLegacyIdentifiers: true,
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -743,8 +751,10 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 func (s *EndpointManagerSuite) TestRemove(c *C) {
 	mgr := New(&dummyEpSyncher{}, nil, nil)
 	ep := endpoint.NewTestEndpointWithState(c, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 7, endpoint.StateReady)
-	type args struct{}
-	type want struct{}
+	type args struct {
+	}
+	type want struct {
+	}
 	tests := []struct {
 		name        string
 		setupArgs   func() args
@@ -756,7 +766,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 			name: "Updating all references",
 			preTestRun: func() {
 				ep.ID = 1
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{}
@@ -771,7 +781,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 	for _, tt := range tests {
 		tt.preTestRun()
 
-		mgr.RemoveAll(c)
+		mgr.RemoveAll()
 		c.Assert(len(mgr.endpoints), Equals, 0, Commentf("Test Name: %s", tt.name))
 		c.Assert(len(mgr.endpointsAux), Equals, 0, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
@@ -795,7 +805,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupWant: func() want {
 				return want{
@@ -815,7 +825,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
 				ep.Options.SetIfUnset(option.ConntrackLocal, option.OptionEnabled)
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupWant: func() want {
 				return want{
@@ -863,7 +873,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -887,7 +897,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 0)
@@ -913,7 +923,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(4)
-				c.Assert(mgr.expose(ep), IsNil)
+				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)

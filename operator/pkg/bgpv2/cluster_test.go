@@ -252,13 +252,16 @@ func Test_NodeLabels(t *testing.T) {
 		t.Run(tt.description, func(t *testing.T) {
 			req := require.New(t)
 
-			f, watcherReady := newFixture(ctx, req)
+			f := newFixture()
 
 			f.hive.Start(ctx)
 			defer f.hive.Stop(ctx)
 
-			// blocking till all watchers are ready
-			watcherReady()
+			select {
+			case <-f.watching:
+			case <-ctx.Done():
+				req.Fail("timed out waiting for informers to sync")
+			}
 
 			// setup node
 			upsertNode(req, ctx, f, tt.node)
@@ -267,7 +270,7 @@ func Test_NodeLabels(t *testing.T) {
 			upsertBGPCC(req, ctx, f, tt.clusterConfig)
 
 			// validate node configs
-			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				nodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
 				if err != nil {
 					assert.NoError(c, err)
@@ -511,15 +514,18 @@ func Test_ClusterConfigSteps(t *testing.T) {
 		},
 	}
 
+	f := newFixture()
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-
-	f, watchersReady := newFixture(ctx, require.New(t))
 
 	f.hive.Start(ctx)
 	defer f.hive.Stop(ctx)
 
-	watchersReady()
+	select {
+	case <-f.watching:
+	case <-ctx.Done():
+		require.Fail(t, "timed out waiting for informers to sync")
+	}
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
@@ -565,16 +571,19 @@ func Test_ClusterConfigSteps(t *testing.T) {
 
 func Test_Cleanup(t *testing.T) {
 	// initialization
+	req := require.New(t)
+	f := newFixture()
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-
-	req := require.New(t)
-	f, watcherReady := newFixture(ctx, req)
 
 	f.hive.Start(ctx)
 	defer f.hive.Stop(ctx)
 
-	watcherReady()
+	select {
+	case <-f.watching:
+	case <-ctx.Done():
+		req.Fail("timed out waiting for informers to sync")
+	}
 
 	// create new resource
 	upsertNode(req, ctx, f, &cilium_api_v2.CiliumNode{

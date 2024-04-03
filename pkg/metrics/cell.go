@@ -13,6 +13,9 @@ var Cell = cell.Module("metrics", "Metrics",
 	cell.Invoke(func(_ *Registry) {
 		// This is a hack to ensure that errors/warnings collected in the pre hive initialization
 		// phase are emitted as metrics.
-		FlushLoggingMetrics()
+		if metricsInitialized != nil {
+			close(metricsInitialized)
+			metricsInitialized = nil
+		}
 	}),
 )

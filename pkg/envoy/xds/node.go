@@ -10,20 +10,21 @@ import (
 	"strings"
 )
 
-// EnvoyNodeIdToIP extracts the IP address from an Envoy node identifier.
+// IstioNodeToIP extract the IP address from an Envoy node identifier
+// configured by Istio's pilot-agent.
 //
-// The NodeID is structured as the concatenation of the
+// Istio's pilot-agent structures the nodeId as the concatenation of the
 // following parts separated by ~:
 //
-// - node type
+// - node type: one of "sidecar", "ingress", or "router"
 // - node IP address
-// - node ID
+// - node ID: the unique platform-specific sidecar proxy ID
 // - node domain: the DNS domain suffix for short hostnames, e.g. "default.svc.cluster.local"
 //
 // For instance:
 //
-//	"host~127.0.0.1~no-id~localdomain"
-func EnvoyNodeIdToIP(nodeId string) (string, error) {
+//	"sidecar~10.1.1.0~v0.default~default.svc.cluster.local"
+func IstioNodeToIP(nodeId string) (string, error) {
 	if nodeId == "" {
 		return "", errors.New("nodeId is empty")
 	}

@@ -183,33 +183,21 @@ func (m GroupV4OuterMap) Delete(group netip.Addr) error {
 
 func (m GroupV4OuterMap) List() ([]netip.Addr, error) {
 	var (
-		keys = make([]GroupV4Key, MaxGroups)
-		vals = make([]GroupV4Val, MaxGroups)
-		out  = make([]netip.Addr, 0, MaxGroups)
+		key GroupV4Key
+		val GroupV4Val
+		out = make([]netip.Addr, 0, MaxGroups)
 	)
 
-	var cursor ciliumebpf.MapBatchCursor
-	count := 0
-	for {
-		c, batchErr := m.BatchLookup(&cursor, keys, vals, nil)
-		count += c
-		if batchErr != nil {
-			if errors.Is(batchErr, ebpf.ErrKeyNotExist) {
-				break
-			}
-			return nil, batchErr
-		}
-	}
-
-	for i := 0; i < len(keys) && i < count; i++ {
-		group, ok := keys[i].ToNetIPAddr()
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		ip, ok := key.ToNetIPAddr()
 		if !ok {
-			return nil, fmt.Errorf("failed to convert GroupV4Key.Group to netip.Addr")
+			return out, fmt.Errorf("failed to convert key to netip.Addr")
 		}
-		out = append(out, group)
+		out = append(out, ip)
 	}
 
-	return out, nil
+	return out, iter.Err()
 }
 
 // GroupV4Key is the key for a GroupV4OuterMap
@@ -420,31 +408,18 @@ func (m SubscriberV4InnerMap) Delete(Src netip.Addr) error {
 
 func (m SubscriberV4InnerMap) List() ([]*SubscriberV4, error) {
 	var (
-		keys = make([]SubscriberV4Key, MaxSubscribers)
-		vals = make([]SubscriberV4Val, MaxSubscribers)
-		out  = make([]*SubscriberV4, 0, MaxSubscribers)
+		key SubscriberV4Key
+		val SubscriberV4Val
+		out = make([]*SubscriberV4, 0, MaxSubscribers)
 	)
 
-	var cursor ciliumebpf.MapBatchCursor
-	count := 0
-	for {
-		c, batchErr := m.BatchLookup(&cursor, keys, vals, nil)
-		count += c
-		if batchErr != nil {
-			if errors.Is(batchErr, ebpf.ErrKeyNotExist) {
-				break
-			}
-			return nil, batchErr
-		}
-	}
-
-	for i := 0; i < len(vals) && i < count; i++ {
-		sub, err := vals[i].ToSubsciberV4()
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		sub, err := val.ToSubsciberV4()
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, sub)
 	}
-
 	return out, nil
 }

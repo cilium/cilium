@@ -682,17 +682,6 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
-	// TRACE_FROM_LXC unknown (encrypted)
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
-	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
-
 	// TRACE_TO_STACK SRV6 decap Ingress
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
@@ -791,17 +780,7 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.Nil(t, f.GetIsReply())
 	assert.Equal(t, false, f.GetReply())
 
-	// TRACE_FROM_LXC encrypted
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
-
-	// TRACE_TO_STACK srv6-decap
+	// TRACE_TO_STACK SRV6 decap
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   hostEP,
@@ -812,45 +791,12 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.Nil(t, f.GetIsReply())
 	assert.Equal(t, false, f.GetReply())
 
-	// TRACE_TO_STACK srv6-decap (encrypted)
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Decap | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, remoteIP, localIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
-
-	// TRACE_TO_STACK srv6-encap
+	// TRACE_TO_STACK SRV6 encap
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
 		ObsPoint: monitorAPI.TraceToStack,
 		Reason:   monitor.TraceReasonSRv6Encap,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
-
-	// TRACE_TO_STACK srv6-encap (encrypted)
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Encap | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
-
-	// TRACE_TO_STACK Encrypted Overlay
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonEncryptOverlay,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())

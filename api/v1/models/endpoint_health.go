@@ -133,10 +133,6 @@ func (m *EndpointHealth) ContextValidate(ctx context.Context, formats strfmt.Reg
 
 func (m *EndpointHealth) contextValidateBpf(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Bpf) { // not required
-		return nil
-	}
-
 	if err := m.Bpf.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("bpf")
@@ -151,10 +147,6 @@ func (m *EndpointHealth) contextValidateBpf(ctx context.Context, formats strfmt.
 
 func (m *EndpointHealth) contextValidateOverallHealth(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.OverallHealth) { // not required
-		return nil
-	}
-
 	if err := m.OverallHealth.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("overallHealth")
@@ -168,10 +160,6 @@ func (m *EndpointHealth) contextValidateOverallHealth(ctx context.Context, forma
 }
 
 func (m *EndpointHealth) contextValidatePolicy(ctx context.Context, formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Policy) { // not required
-		return nil
-	}
 
 	if err := m.Policy.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {

@@ -18,8 +18,6 @@
 #include "config.h"
 #include "tunnel.h"
 
-#include "source_info.h"
-
 #ifndef AF_INET
 #define AF_INET 2
 #endif
@@ -435,9 +433,7 @@ struct metrics_key {
 	__u8      reason;	/* 0: forwarded, >0 dropped */
 	__u8      dir:2,	/* 1: ingress 2: egress */
 		  pad:6;
-	__u16	  line;		/* __MAGIC_LINE__ */
-	__u8	  file;		/* __MAGIC_FILE__, needs to fit __source_file_name_to_id */
-	__u8	  reserved[3];	/* reserved for future extension */
+	__u16     reserved[3];	/* reserved for future extension */
 };
 
 
@@ -498,21 +494,6 @@ struct vtep_key {
 struct vtep_value {
 	__u64 vtep_mac;
 	__u32 tunnel_endpoint;
-};
-
-struct node_key {
-	__u16 pad1;
-	__u8 pad2;
-	__u8 family;
-	union {
-		struct {
-			__u32 ip4;
-			__u32 pad4;
-			__u32 pad5;
-			__u32 pad6;
-		};
-		union v6addr ip6;
-	};
 };
 
 enum {

@@ -6,7 +6,6 @@ package metrics
 import (
 	"fmt"
 	"reflect"
-	"sync"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -14,22 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var (
-	metricsInitialized chan struct{} = make(chan struct{})
-	flushMetrics                     = sync.Once{}
-)
-
-// FlushLoggingMetrics will cause all logging hook metrics accumulated prior
-// to the errors_warnings metrics being registered with the Prometheus collector
-// to be incremented to their respective errors_warnings metrics tuple.
-func FlushLoggingMetrics() {
-	flushMetrics.Do(func() {
-		if metricsInitialized != nil {
-			close(metricsInitialized)
-			metricsInitialized = nil
-		}
-	})
-}
+var metricsInitialized chan struct{} = make(chan struct{})
 
 // LoggingHook is a hook for logrus which counts error and warning messages as a
 // Prometheus metric.

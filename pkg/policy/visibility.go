@@ -212,11 +212,6 @@ func (v *VisibilityMetadata) GetPort() uint16 {
 	return v.Port
 }
 
-// GetProtocol returns the protocol where the VisibilityMetadata applies.
-func (v *VisibilityMetadata) GetProtocol() uint8 {
-	return uint8(v.Proto)
-}
-
 // GetListener returns the optional listener name.
 func (l4 *VisibilityMetadata) GetListener() string {
 	return ""

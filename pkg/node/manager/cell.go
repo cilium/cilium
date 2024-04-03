@@ -4,7 +4,9 @@
 package manager
 
 import (
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"net"
+
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -19,6 +21,9 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
+	cell.ProvidePrivate(func(iptMgr *iptables.Manager) ipsetManager {
+		return iptMgr
+	}),
 	cell.Metric(NewNodeMetrics),
 )
 
@@ -70,19 +75,22 @@ type NodeManager interface {
 	StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors)
 }
 
-func newAllNodeManager(in struct {
-	cell.In
-	Lifecycle   cell.Lifecycle
-	IPCache     *ipcache.IPCache
-	IPSetMgr    ipset.Manager
-	IPSetFilter IPSetFilterFn `optional:"true"`
-	NodeMetrics *nodeMetrics
-	HealthScope cell.Scope
-}) (NodeManager, error) {
-	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.HealthScope)
+type ipsetManager interface {
+	AddToNodeIpset(nodeIP net.IP)
+	RemoveFromNodeIpset(nodeIP net.IP)
+}
+
+func newAllNodeManager(
+	lc cell.Lifecycle,
+	ipCache *ipcache.IPCache,
+	ipsetMgr ipsetManager,
+	nodeMetrics *nodeMetrics,
+	healthScope cell.Scope,
+) (NodeManager, error) {
+	mngr, err := New(option.Config, ipCache, ipsetMgr, nodeMetrics, healthScope)
 	if err != nil {
 		return nil, err
 	}
-	in.Lifecycle.Append(mngr)
+	lc.Append(mngr)
 	return mngr, nil
 }

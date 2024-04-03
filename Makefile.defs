@@ -61,16 +61,10 @@ ETCD_IMAGE=gcr.io/etcd-development/etcd:v3.5.11@sha256:8eff25cf636711fb48426005b
 
 CONSUL_IMAGE=consul:1.7.2
 
-CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
-
 export CILIUM_CLI ?= cilium
 export KUBECTL ?= kubectl
 
-# Till the self-hosted renovate PR #30185 is merged, we might need to run the below
-# command locally for any version update.
-# make generate-api generate-health-api generate-hubble-api generate-operator-api
-# renovate: datasource=docker depName=quay.io/goswagger/swagger
-SWAGGER_VERSION := v0.30.5
+SWAGGER_VERSION := v0.30.3
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 # go build/test/clean flags
@@ -100,8 +94,8 @@ endif
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v1.57.2
-GOLANGCILINT_IMAGE_SHA = sha256:8f3a60a00a83bb7d599d2e028ac0c3573dc2b9ec0842590f1c2e59781c821da7
+GOLANGCILINT_WANT_VERSION = v1.56.2
+GOLANGCILINT_IMAGE_SHA = sha256:04c2e881e069d6827ddca7d9c4fcf4de46eda0c10e58692609a047f8a09a0274
 GOLANGCILINT_VERSION = $(shell golangci-lint version --format short 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
@@ -198,8 +192,8 @@ GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
 GO_VET = $(GO) vet
 GO_LIST = $(GO) list
 
-HELM_TOOLBOX_VERSION ?= "v1.1.0"
-HELM_TOOLBOX_SHA ?= "961693f182b9b456ed90e5274ac5df81e4af4343104e252666959cdf9570ce9e"
+HELM_TOOLBOX_VERSION ?= "v1.0.2"
+HELM_TOOLBOX_SHA ?= "c5a728e61e1f04580c1a0074f9bf3ab96f7beca687385878b403bb0e52163d34"
 HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha256:$(HELM_TOOLBOX_SHA)"
 
 YQ_VERSION ?= "4.40.5"

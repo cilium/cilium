@@ -66,8 +66,8 @@
   {{- $stringValueKPR = "" -}}
 {{- end}}
 {{- $kubeProxyReplacement := (coalesce $stringValueKPR $defaultKubeProxyReplacement) -}}
-{{- if and (ne $kubeProxyReplacement "true") (ne $kubeProxyReplacement "false") }}
-  {{ fail "kubeProxyReplacement must be explicitly set to a valid value (true or false) to continue." }}
+{{- if and (ne $kubeProxyReplacement "disabled") (ne $kubeProxyReplacement "partial") (ne $kubeProxyReplacement "strict") (ne $kubeProxyReplacement "true") (ne $kubeProxyReplacement "false") }}
+  {{ fail "kubeProxyReplacement must be explicitly set to a valid value (true, false, disabled (deprecated), partial (deprecated), or strict (deprecated)) to continue." }}
 {{- end }}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
 {{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
@@ -375,11 +375,6 @@ data:
   enable-host-legacy-routing: "true"
 {{- end }}
 
-{{- if .Values.bpf.nodeMapMax }}
-  # node-map-max specifies the maximum number of entries for the node map.
-  bpf-node-map-max: {{ .Values.bpf.nodeMapMax | quote }}
-{{- end }}
-
 {{- if .Values.bpf.authMapMax }}
   # bpf-auth-map-max specifies the maximum number of entries in the auth map
   bpf-auth-map-max: {{ .Values.bpf.authMapMax | quote }}
@@ -607,7 +602,6 @@ data:
     {{- if .Values.encryption.ipsec.keyRotationDuration }}
   ipsec-key-rotation-duration: {{ include "validateDuration" .Values.encryption.ipsec.keyRotationDuration | quote }}
     {{- end }}
-  enable-ipsec-encrypted-overlay: {{ .Values.encryption.ipsec.encryptedOverlay | quote }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
     {{- if .Values.encryption.wireguard.userspaceFallback }}
@@ -852,6 +846,7 @@ data:
 {{- else }}
   enable-well-known-identities: "false"
 {{- end }}
+  enable-remote-node-identity: {{ .Values.remoteNodeIdentity | quote }}
   enable-node-selector-labels: {{ .Values.nodeSelectorLabels | quote }}
 
 {{- if hasKey .Values "synchronizeK8sNodes" }}
@@ -1242,7 +1237,6 @@ data:
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
 
   external-envoy-proxy: {{ .Values.envoy.enabled | quote }}
-  envoy-base-id: {{ .Values.envoy.baseID | quote }}
 
 {{- if .Values.envoy.log.path }}
   envoy-log: {{ .Values.envoy.log.path | quote }}

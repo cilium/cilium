@@ -46,7 +46,7 @@ func (o *GetStatedbQueryTableReader) ReadResponse(response runtime.ClientRespons
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /statedb/query/{table}] GetStatedbQueryTable", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -90,11 +90,6 @@ func (o *GetStatedbQueryTableOK) IsServerError() bool {
 // IsCode returns true when this get statedb query table o k response a status code equal to that given
 func (o *GetStatedbQueryTableOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get statedb query table o k response
-func (o *GetStatedbQueryTableOK) Code() int {
-	return 200
 }
 
 func (o *GetStatedbQueryTableOK) Error() string {
@@ -158,11 +153,6 @@ func (o *GetStatedbQueryTableBadRequest) IsCode(code int) bool {
 	return code == 400
 }
 
-// Code gets the status code for the get statedb query table bad request response
-func (o *GetStatedbQueryTableBadRequest) Code() int {
-	return 400
-}
-
 func (o *GetStatedbQueryTableBadRequest) Error() string {
 	return fmt.Sprintf("[GET /statedb/query/{table}][%d] getStatedbQueryTableBadRequest  %+v", 400, o.Payload)
 }
@@ -221,11 +211,6 @@ func (o *GetStatedbQueryTableNotFound) IsServerError() bool {
 // IsCode returns true when this get statedb query table not found response a status code equal to that given
 func (o *GetStatedbQueryTableNotFound) IsCode(code int) bool {
 	return code == 404
-}
-
-// Code gets the status code for the get statedb query table not found response
-func (o *GetStatedbQueryTableNotFound) Code() int {
-	return 404
 }
 
 func (o *GetStatedbQueryTableNotFound) Error() string {

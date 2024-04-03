@@ -5,7 +5,6 @@ package proxy
 
 import (
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -34,7 +33,7 @@ type Redirect struct {
 	// is safe to read these fields without locking the mutex
 	name           string
 	listener       *ProxyPort
-	dstPortProto   restore.PortProto
+	dstPort        uint16
 	endpointID     uint64
 	localEndpoint  endpoint.EndpointUpdater
 	implementation RedirectImplementation
@@ -45,11 +44,11 @@ type Redirect struct {
 	rules policy.L7DataMap
 }
 
-func newRedirect(localEndpoint endpoint.EndpointUpdater, name string, listener *ProxyPort, port uint16, proto uint8) *Redirect {
+func newRedirect(localEndpoint endpoint.EndpointUpdater, name string, listener *ProxyPort, dstPort uint16) *Redirect {
 	return &Redirect{
 		name:          name,
 		listener:      listener,
-		dstPortProto:  restore.MakeV2PortProto(port, proto),
+		dstPort:       dstPort,
 		endpointID:    localEndpoint.GetID(),
 		localEndpoint: localEndpoint,
 	}

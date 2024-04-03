@@ -87,7 +87,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
@@ -283,6 +282,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	option.BindEnv(vp, option.IPv6MCastDevice)
 
+	flags.Bool(option.EnableRemoteNodeIdentity, defaults.EnableRemoteNodeIdentity, "Enable use of remote node identity")
+	flags.MarkDeprecated(option.EnableRemoteNodeIdentity, "Remote Node Identity is needed for various other features to work or work fully, including EgressGateway and Policies. There is no benefit to having it turned off. It will be removed in v1.16.")
+	option.BindEnv(vp, option.EnableRemoteNodeIdentity)
+
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(vp, option.EncryptInterface)
 
@@ -362,6 +365,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	option.BindEnv(vp, option.EnableWellKnownIdentities)
 
+	flags.String(option.EnvoyLog, "", "Path to a separate Envoy log file, if any")
+	option.BindEnv(vp, option.EnvoyLog)
+
 	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPSec support")
 	option.BindEnv(vp, option.EnableIPSecName)
 
@@ -373,9 +379,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableIPsecKeyWatcher, defaults.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	option.BindEnv(vp, option.EnableIPsecKeyWatcher)
-
-	flags.Bool(option.EnableIPSecEncryptedOverlay, defaults.EnableIPSecEncryptedOverlay, "Enable IPSec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host.")
-	option.BindEnv(vp, option.EnableIPSecEncryptedOverlay)
 
 	flags.Bool(option.EnableWireguard, false, "Enable WireGuard")
 	option.BindEnv(vp, option.EnableWireguard)
@@ -409,6 +412,51 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EncryptionStrictModeAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
 	option.BindEnv(vp, option.EncryptionStrictModeAllowRemoteNodeIdentities)
+
+	flags.Bool(option.HTTPNormalizePath, true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
+	option.BindEnv(vp, option.HTTPNormalizePath)
+
+	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
+	flags.MarkHidden(option.HTTP403Message)
+	option.BindEnv(vp, option.HTTP403Message)
+
+	flags.Uint(option.HTTPRequestTimeout, 60*60, "Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited")
+	option.BindEnv(vp, option.HTTPRequestTimeout)
+
+	flags.Uint(option.HTTPIdleTimeout, 0, "Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
+	option.BindEnv(vp, option.HTTPIdleTimeout)
+
+	flags.Uint(option.HTTPMaxGRPCTimeout, 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
+	option.BindEnv(vp, option.HTTPMaxGRPCTimeout)
+
+	flags.Uint(option.HTTPRetryCount, 3, "Number of retries performed after a forwarded request attempt fails")
+	option.BindEnv(vp, option.HTTPRetryCount)
+
+	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
+	option.BindEnv(vp, option.HTTPRetryTimeout)
+
+	flags.Uint(option.ProxyConnectTimeout, 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
+	option.BindEnv(vp, option.ProxyConnectTimeout)
+
+	flags.Uint(option.ProxyGID, 1337, "Group ID for proxy control plane sockets.")
+	option.BindEnv(vp, option.ProxyGID)
+
+	flags.Int(option.ProxyPrometheusPort, 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
+	option.BindEnv(vp, option.ProxyPrometheusPort)
+
+	flags.Int(option.ProxyMaxRequestsPerConnection, 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
+	option.BindEnv(vp, option.ProxyMaxRequestsPerConnection)
+
+	flags.Int64(option.ProxyMaxConnectionDuration, 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
+	option.BindEnv(vp, option.ProxyMaxConnectionDuration)
+
+	flags.Int64(option.ProxyIdleTimeout, 60, "Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s")
+	option.BindEnv(vp, option.ProxyIdleTimeout)
+
+	flags.Bool(option.DisableEnvoyVersionCheck, false, "Do not perform Envoy binary version check on startup")
+	flags.MarkHidden(option.DisableEnvoyVersionCheck)
+	// Disable version check if Envoy build is disabled
+	option.BindEnvWithLegacyEnvFallback(vp, option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
 
 	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns")
@@ -481,6 +529,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
 	option.BindEnv(vp, option.KVstoreConnectivityTimeout)
+
+	flags.Duration(option.IPAllocationTimeout, defaults.IPAllocationTimeout, "Time after which an incomplete CIDR allocation is considered failed")
+	option.BindEnv(vp, option.IPAllocationTimeout)
 
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
@@ -1349,16 +1400,11 @@ func initEnv(vp *viper.Viper) {
 		}
 	}
 
-	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
-		log.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
-	}
-
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if option.Config.EnableIPSec &&
 		!option.Config.TunnelingEnabled() &&
 		len(option.Config.EncryptInterface) == 0 &&
-		len(option.Config.GetDevices()) == 0 &&
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
@@ -1383,6 +1429,17 @@ func initEnv(vp *viper.Viper) {
 		if option.Config.EnableIPSec {
 			log.Fatal("IPSec cannot be used with the host firewall.")
 		}
+		if option.Config.EnableEndpointRoutes && !option.Config.EnableRemoteNodeIdentity {
+			log.Fatalf("The host firewall requires remote-node identities (%s) when running with %s",
+				option.EnableRemoteNodeIdentity, option.EnableEndpointRoutes)
+		}
+	}
+
+	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade && option.Config.EnableHostFirewall {
+		// We should be able to support this, but we first need to
+		// check how this plays in the datapath if BPF-masquerading is
+		// enabled for IPv4 only or IPv6 only.
+		log.Fatal("IPv6 BPF masquerade is not supported along with the host firewall.")
 	}
 
 	if option.Config.EnableHighScaleIPcache {
@@ -1636,7 +1693,6 @@ type daemonParams struct {
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
 	LRPManager          *redirectpolicy.Manager
-	NodeDiscovery       *nodediscovery.NodeDiscovery
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1813,7 +1869,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
-		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
+		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
 			d.startKubeProxyHealthzHTTPService(option.Config.KubeProxyReplacementHealthzBindAddr)
 		}
 	}

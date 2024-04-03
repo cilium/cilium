@@ -390,11 +390,6 @@ func (m *EndpointStatus) contextValidateControllers(ctx context.Context, formats
 func (m *EndpointStatus) contextValidateExternalIdentifiers(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.ExternalIdentifiers != nil {
-
-		if swag.IsZero(m.ExternalIdentifiers) { // not required
-			return nil
-		}
-
 		if err := m.ExternalIdentifiers.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("external-identifiers")
@@ -411,11 +406,6 @@ func (m *EndpointStatus) contextValidateExternalIdentifiers(ctx context.Context,
 func (m *EndpointStatus) contextValidateHealth(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Health != nil {
-
-		if swag.IsZero(m.Health) { // not required
-			return nil
-		}
-
 		if err := m.Health.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health")
@@ -432,11 +422,6 @@ func (m *EndpointStatus) contextValidateHealth(ctx context.Context, formats strf
 func (m *EndpointStatus) contextValidateIdentity(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Identity != nil {
-
-		if swag.IsZero(m.Identity) { // not required
-			return nil
-		}
-
 		if err := m.Identity.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity")
@@ -453,11 +438,6 @@ func (m *EndpointStatus) contextValidateIdentity(ctx context.Context, formats st
 func (m *EndpointStatus) contextValidateLabels(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Labels != nil {
-
-		if swag.IsZero(m.Labels) { // not required
-			return nil
-		}
-
 		if err := m.Labels.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("labels")
@@ -502,11 +482,6 @@ func (m *EndpointStatus) contextValidateNamedPorts(ctx context.Context, formats 
 func (m *EndpointStatus) contextValidateNetworking(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Networking != nil {
-
-		if swag.IsZero(m.Networking) { // not required
-			return nil
-		}
-
 		if err := m.Networking.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("networking")
@@ -523,11 +498,6 @@ func (m *EndpointStatus) contextValidateNetworking(ctx context.Context, formats 
 func (m *EndpointStatus) contextValidatePolicy(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Policy != nil {
-
-		if swag.IsZero(m.Policy) { // not required
-			return nil
-		}
-
 		if err := m.Policy.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
@@ -544,11 +514,6 @@ func (m *EndpointStatus) contextValidatePolicy(ctx context.Context, formats strf
 func (m *EndpointStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Realized != nil {
-
-		if swag.IsZero(m.Realized) { // not required
-			return nil
-		}
-
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
@@ -565,7 +530,6 @@ func (m *EndpointStatus) contextValidateRealized(ctx context.Context, formats st
 func (m *EndpointStatus) contextValidateState(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.State != nil {
-
 		if err := m.State.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("state")

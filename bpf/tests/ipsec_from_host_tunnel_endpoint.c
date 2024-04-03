@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #define TUNNEL_MODE
+#define HAVE_ENCAP
 #define ENABLE_ENDPOINT_ROUTES 1
 
 #define EXPECTED_STATUS_CODE CTX_ACT_REDIRECT

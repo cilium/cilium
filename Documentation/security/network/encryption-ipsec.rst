@@ -45,7 +45,7 @@ following command:
 .. code-block:: shell-session
 
     $ kubectl create -n kube-system secret generic cilium-ipsec-keys \
-        --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+        --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
 The secret can be seen with ``kubectl -n kube-system get secrets`` and will be
 listed as ``cilium-ipsec-keys``.
@@ -162,19 +162,13 @@ commands:
 Key Rotation
 ============
 
-.. attention::
-
-   Key rotations should not be performed during upgrades and downgrades. That
-   is, all nodes in the cluster (or clustermesh) should be on the same Cilium
-   version before rotating keys.
-
 To replace cilium-ipsec-keys secret with a new key:
 
 .. code-block:: shell-session
 
-    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
+    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -d' ' -f1)
     if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
-    data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
+    data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
 
 During transition the new and old keys will be in use. The Cilium agent keeps
@@ -212,30 +206,22 @@ Troubleshooting
        $ cilium-dbg encrypt status
        Encryption: IPsec
        Decryption interface(s): eth0, eth1, eth2
-       Keys in use: 4
+       Keys in use: 1
        Max Seq. Number: 0x1e3/0xffffffff
        Errors: 0
 
    If the error counter is non-zero, additional information will be displayed
    with the specific errors the kernel encountered. If the sequence number
-   reaches its maximum value, it will also result in errors.
-
-   The number of keys in use should be 2 per remote node per enabled IP family.
-   During a key rotation, it can double to 4 per remote node per IP family. For
-   example, in a 3-nodes cluster, if both IPv4 and IPv6 are enabled and no key
-   rotation is ongoing, there should be 8 keys in use on each node.
-
-   The list of decryption interfaces should have all native devices that may
+   reaches its maximum value, it will also result in errors. The number of
+   keys in use should be 2 during a key rotation and always 1 otherwise. The
+   list of decryption interfaces should have all native devices that may
    receive pod traffic (for example, ENI interfaces).
 
-All XFRM errors correspond to a packet drop in the kernel. The following
-details operational mistakes and expected behaviors that can cause those
-errors.
-
- * When a node reboots, the key used to communicate with it is expected to
-   change on other nodes. You may notice the ``XfrmInNoStates`` and
-   ``XfrmOutNoStates`` counters increase while the new node key is being
-   deployed.
+ * All XFRM errors correspond to a packet drop in the kernel. Except for
+   ``XfrmFwdHdrError``, ``XfrmInError``, and ``XfrmInStateInvalid``, all XFRM
+   errors indicate a bug in Cilium or an operational mistake.
+   ``XfrmOutStateSeqError``, ``XfrmInStateProtoError``, and ``XfrmInNoStates``
+   may be caused by operational mistakes, as detailed in the following points.
 
  * If the sequence number reaches its maximum value for any XFRM OUT state, it
    will result in packet drops and XFRM errors of type
@@ -298,12 +284,12 @@ errors.
  * In addition to the above XFRM errors, packet drops of type ``No node ID
    found`` (code 197) may also occur under normal operations. These drops can
    happen if a pod attempts to send traffic to a pod on a new node for which
-   the Cilium agent didn't yet receive the CiliumNode object or to a pod on a
-   node that was recently deleted. It can also happen if the IP address of the
-   destination node changed and the agent didn't receive the updated CiliumNode
-   object yet. In both cases, the IPsec configuration in the kernel isn't ready
-   yet, so Cilium drops the packets at the source. These drops will stop once
-   the CiliumNode information is propagated across the cluster.
+   the Cilium agent didn't yet receive the CiliumNode object. It can also
+   happen if the IP address of the destination node changed and the agent
+   didn't receive the updated CiliumNode object yet. In both cases, the IPsec
+   configuration in the kernel isn't ready yet, so Cilium drops the packets at
+   the source. These drops will stop once the CiliumNode information is
+   propagated across the cluster.
 
 Disabling Encryption
 ====================
@@ -314,10 +300,6 @@ To disable the encryption, regenerate the YAML with the option
 Limitations
 ===========
 
-    * For clusters running in native routing mode, IPsec encryption is not applied to
-      connections which are selected by an L7 Egress Network Policy or a DNS Policy.
-      For more information see `GHSA-j89h-qrvr-xc36
-      <https://github.com/cilium/cilium/security/advisories/GHSA-j89h-qrvr-xc36>`__.
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.

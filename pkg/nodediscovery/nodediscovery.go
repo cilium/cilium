@@ -17,12 +17,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
 
-	"github.com/cilium/cilium/daemon/cmd/cni"
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	alibabaCloudMetadata "github.com/cilium/cilium/pkg/alibabacloud/metadata"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
@@ -39,6 +40,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
+	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
 const (
@@ -70,28 +72,61 @@ type NodeDiscovery struct {
 	Registrar             nodestore.NodeRegistrar
 	Registered            chan struct{}
 	localStateInitialized chan struct{}
-	cniConfigManager      cni.CNIConfigManager
+	NetConf               *cnitypes.NetConf
 	k8sGetters            k8sGetters
 	localNodeStore        *node.LocalNodeStore
 	clientset             client.Clientset
 	ctrlmgr               *controller.Manager
 }
 
+func enableLocalNodeRoute() bool {
+	return option.Config.EnableLocalNodeRoute &&
+		option.Config.IPAM != ipamOption.IPAMENI &&
+		option.Config.IPAM != ipamOption.IPAMAzure &&
+		option.Config.IPAM != ipamOption.IPAMAlibabaCloud
+}
+
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(
-	manager nodemanager.NodeManager,
-	clientset client.Clientset,
-	lns *node.LocalNodeStore,
-	localConfig datapath.LocalNodeConfiguration,
-	cniConfigManager cni.CNIConfigManager,
-) *NodeDiscovery {
+func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientset, lns *node.LocalNodeStore, mtu mtu.MTU, netConf *cnitypes.NetConf) *NodeDiscovery {
+	auxPrefixes := []*cidr.CIDR{}
+
+	if option.Config.IPv4ServiceRange != AutoCIDR {
+		serviceCIDR, err := cidr.ParseCIDR(option.Config.IPv4ServiceRange)
+		if err != nil {
+			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4ServiceRange).Fatal("Invalid IPv4 service prefix")
+		}
+
+		auxPrefixes = append(auxPrefixes, serviceCIDR)
+	}
+
+	if option.Config.IPv6ServiceRange != AutoCIDR {
+		serviceCIDR, err := cidr.ParseCIDR(option.Config.IPv6ServiceRange)
+		if err != nil {
+			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6ServiceRange).Fatal("Invalid IPv6 service prefix")
+		}
+
+		auxPrefixes = append(auxPrefixes, serviceCIDR)
+	}
+
 	return &NodeDiscovery{
-		Manager:               manager,
-		LocalConfig:           localConfig,
+		Manager: manager,
+		LocalConfig: datapath.LocalNodeConfiguration{
+			MtuConfig:               mtu,
+			EnableIPv4:              option.Config.EnableIPv4,
+			EnableIPv6:              option.Config.EnableIPv6,
+			EnableEncapsulation:     option.Config.TunnelingEnabled(),
+			EnableAutoDirectRouting: option.Config.EnableAutoDirectRouting,
+			EnableLocalNodeRoute:    enableLocalNodeRoute(),
+			AuxiliaryPrefixes:       auxPrefixes,
+			EnableIPSec:             option.Config.EnableIPSec,
+			EncryptNode:             option.Config.EncryptNode,
+			IPv4PodSubnets:          option.Config.IPv4PodSubnets,
+			IPv6PodSubnets:          option.Config.IPv6PodSubnets,
+		},
 		localNodeStore:        lns,
 		Registered:            make(chan struct{}),
 		localStateInitialized: make(chan struct{}),
-		cniConfigManager:      cniConfigManager,
+		NetConf:               netConf,
 		clientset:             clientset,
 		ctrlmgr:               controller.NewManager(),
 	}
@@ -206,6 +241,18 @@ func (n *NodeDiscovery) StartDiscovery() {
 // and https://github.com/cilium/cilium/pull/14670.
 func (n *NodeDiscovery) WaitForLocalNodeInit() {
 	<-n.localStateInitialized
+}
+
+func (n *NodeDiscovery) NodeDeleted(node nodeTypes.Node) {
+	n.Manager.NodeDeleted(node)
+}
+
+func (n *NodeDiscovery) NodeUpdated(node nodeTypes.Node) {
+	n.Manager.NodeUpdated(node)
+}
+
+func (n *NodeDiscovery) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
+	return n.Manager.ClusterSizeDependantInterval(baseInterval)
 }
 
 func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
@@ -403,8 +450,6 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
 	}
 
-	nodeResource.Spec.BootID = ln.BootID
-
 	switch option.Config.IPAM {
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
@@ -430,7 +475,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		nodeResource.Spec.ENI.UsePrimaryAddress = getBool(defaults.UseENIPrimaryAddress)
 		nodeResource.Spec.ENI.DisablePrefixDelegation = getBool(defaults.ENIDisableNodeLevelPD)
 
-		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
+		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
 			}
@@ -497,7 +542,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		// consistent results.
 		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.ProviderID, azureTypes.ProviderPrefix))
 
-		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
+		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
 			}
@@ -543,7 +588,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		nodeResource.Spec.AlibabaCloud.CIDRBlock = vpcCidrBlock
 		nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
 
-		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
+		if c := n.NetConf; c != nil {
 			if c.AlibabaCloud.VPCID != "" {
 				nodeResource.Spec.AlibabaCloud.VPCID = c.AlibabaCloud.VPCID
 			}

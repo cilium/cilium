@@ -54,7 +54,6 @@ enum trace_reason {
 	TRACE_REASON_UNKNOWN,
 	TRACE_REASON_SRV6_ENCAP,
 	TRACE_REASON_SRV6_DECAP,
-	TRACE_REASON_ENCRYPT_OVERLAY,
 	/* Note: TRACE_REASON_ENCRYPTED is used as a mask. Beware if you add
 	 * new values below it, they would match with that mask.
 	 */
@@ -80,25 +79,23 @@ enum {
  *
  * Update metrics based on a trace event
  */
-#define update_trace_metrics(ctx, obs_point, reason) \
-	_update_trace_metrics(ctx, obs_point, reason, __MAGIC_LINE__, __MAGIC_FILE__)
 static __always_inline void
-_update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
-		      enum trace_reason reason, __u16 line, __u8 file)
+update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
+		     enum trace_reason reason)
 {
 	__u8 encrypted;
 
 	switch (obs_point) {
 	case TRACE_TO_LXC:
-		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-				REASON_FORWARDED, line, file);
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+			       REASON_FORWARDED);
 		break;
 	case TRACE_TO_HOST:
 	case TRACE_TO_STACK:
 	case TRACE_TO_OVERLAY:
 	case TRACE_TO_NETWORK:
-		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-				REASON_FORWARDED, line, file);
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       REASON_FORWARDED);
 		break;
 	case TRACE_FROM_HOST:
 	case TRACE_FROM_STACK:
@@ -106,11 +103,11 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_NETWORK:
 		encrypted = reason & TRACE_REASON_ENCRYPTED;
 		if (!encrypted)
-			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-					REASON_PLAINTEXT, line, file);
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_PLAINTEXT);
 		else
-			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-					REASON_DECRYPT, line, file);
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_DECRYPT);
 		break;
 	/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery is handled
 	 * separately in ipv*_local_delivery() where we can bump an egress
@@ -186,20 +183,17 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 	return true;
 }
 
-#define send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor) \
-		_send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, \
-		__MAGIC_LINE__, __MAGIC_FILE__)
 static __always_inline void
-_send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
-		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
-		   enum trace_reason reason, __u32 monitor, __u16 line, __u8 file)
+send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
+		  __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
+		  enum trace_reason reason, __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
 	struct trace_notify msg __align_stack_8;
 
-	_update_trace_metrics(ctx, obs_point, reason, line, file);
+	update_trace_metrics(ctx, obs_point, reason);
 
 	if (!emit_trace_notify(obs_point, monitor))
 		return;

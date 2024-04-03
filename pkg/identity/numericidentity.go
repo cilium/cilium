@@ -132,10 +132,6 @@ const (
 	// ReservedIdentityWorldIPv6 represents any endpoint outside of the cluster
 	// for IPv6 address only.
 	ReservedIdentityWorldIPv6
-
-	// ReservedEncryptedOverlay represents overlay traffic which must be IPSec
-	// encrypted before it leaves the host
-	ReservedEncryptedOverlay
 )
 
 // Special identities for well-known cluster components
@@ -423,17 +419,16 @@ func GetMaximumAllocationIdentity() NumericIdentity {
 
 var (
 	reservedIdentities = map[string]NumericIdentity{
-		labels.IDNameHost:             ReservedIdentityHost,
-		labels.IDNameWorld:            ReservedIdentityWorld,
-		labels.IDNameWorldIPv4:        ReservedIdentityWorldIPv4,
-		labels.IDNameWorldIPv6:        ReservedIdentityWorldIPv6,
-		labels.IDNameUnmanaged:        ReservedIdentityUnmanaged,
-		labels.IDNameHealth:           ReservedIdentityHealth,
-		labels.IDNameInit:             ReservedIdentityInit,
-		labels.IDNameRemoteNode:       ReservedIdentityRemoteNode,
-		labels.IDNameKubeAPIServer:    ReservedIdentityKubeAPIServer,
-		labels.IDNameIngress:          ReservedIdentityIngress,
-		labels.IDNameEncryptedOverlay: ReservedEncryptedOverlay,
+		labels.IDNameHost:          ReservedIdentityHost,
+		labels.IDNameWorld:         ReservedIdentityWorld,
+		labels.IDNameWorldIPv4:     ReservedIdentityWorldIPv4,
+		labels.IDNameWorldIPv6:     ReservedIdentityWorldIPv6,
+		labels.IDNameUnmanaged:     ReservedIdentityUnmanaged,
+		labels.IDNameHealth:        ReservedIdentityHealth,
+		labels.IDNameInit:          ReservedIdentityInit,
+		labels.IDNameRemoteNode:    ReservedIdentityRemoteNode,
+		labels.IDNameKubeAPIServer: ReservedIdentityKubeAPIServer,
+		labels.IDNameIngress:       ReservedIdentityIngress,
 	}
 	reservedIdentityNames = map[NumericIdentity]string{
 		IdentityUnknown:               "unknown",

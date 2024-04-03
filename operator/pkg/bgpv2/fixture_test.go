@@ -4,10 +4,8 @@
 package bgpv2
 
 import (
-	"context"
 	"sync"
 
-	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
@@ -30,6 +28,7 @@ var (
 )
 
 type fixture struct {
+	watching      chan struct{}
 	hive          *hive.Hive
 	fakeClientSet *k8s_client.FakeClientset
 	bgpcClient    cilium_client_v2alpha1.CiliumBGPClusterConfigInterface
@@ -40,16 +39,16 @@ type fixture struct {
 	bgpnClient cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
 }
 
-func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func()) {
-	var (
-		onceCN, onceBGPCC   sync.Once
-		cnWatch, bgpccWatch = make(chan struct{}), make(chan struct{})
-	)
+func newFixture() *fixture {
+	f := &fixture{
+		watching: make(chan struct{}),
+	}
 
-	f := &fixture{}
 	f.fakeClientSet, _ = k8s_client.NewFakeClientset()
 
-	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+	// make sure cilium node watcher is initialized before the test starts
+	var once sync.Once
+	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("ciliumnodes", func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		w := action.(k8sTesting.WatchAction)
 		gvr := w.GetResource()
 		ns := w.GetNamespace()
@@ -57,40 +56,14 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 		if err != nil {
 			return false, nil, err
 		}
-
-		switch w.GetResource().Resource {
-		case "ciliumnodes":
-			onceCN.Do(func() { close(cnWatch) })
-		case "ciliumbgpclusterconfigs":
-			onceBGPCC.Do(func() { close(bgpccWatch) })
-		default:
-			return false, watch, nil
-		}
-
+		once.Do(func() { close(f.watching) })
 		return true, watch, nil
-	}
-
-	// make sure watchers are initialized before the test starts
-	watchersReadyFn := func() {
-		select {
-		case <-cnWatch:
-		case <-ctx.Done():
-			req.Fail("cilium node watcher is not initialized")
-		}
-
-		select {
-		case <-bgpccWatch:
-		case <-ctx.Done():
-			req.Fail("cilium bgp cluster config watcher is not initialized")
-		}
-	}
+	})
 
 	f.bgpcClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPClusterConfigs()
 	f.nodeClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumNodes()
 	f.bgpnClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPNodeConfigs()
 	f.bgpncoClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPNodeConfigOverrides()
-
-	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
 
 	f.hive = hive.New(
 		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig] {
@@ -142,5 +115,5 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	// enable BGPv2
 	hive.AddConfigOverride(f.hive, func(cfg *Config) { cfg.BGPv2Enabled = true })
 
-	return f, watchersReadyFn
+	return f
 }

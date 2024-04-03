@@ -183,11 +183,6 @@ func (m *NodeElement) ContextValidate(ctx context.Context, formats strfmt.Regist
 func (m *NodeElement) contextValidateHealthEndpointAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HealthEndpointAddress != nil {
-
-		if swag.IsZero(m.HealthEndpointAddress) { // not required
-			return nil
-		}
-
 		if err := m.HealthEndpointAddress.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health-endpoint-address")
@@ -204,11 +199,6 @@ func (m *NodeElement) contextValidateHealthEndpointAddress(ctx context.Context, 
 func (m *NodeElement) contextValidateIngressAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IngressAddress != nil {
-
-		if swag.IsZero(m.IngressAddress) { // not required
-			return nil
-		}
-
 		if err := m.IngressAddress.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ingress-address")
@@ -225,11 +215,6 @@ func (m *NodeElement) contextValidateIngressAddress(ctx context.Context, formats
 func (m *NodeElement) contextValidatePrimaryAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.PrimaryAddress != nil {
-
-		if swag.IsZero(m.PrimaryAddress) { // not required
-			return nil
-		}
-
 		if err := m.PrimaryAddress.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
@@ -248,11 +233,6 @@ func (m *NodeElement) contextValidateSecondaryAddresses(ctx context.Context, for
 	for i := 0; i < len(m.SecondaryAddresses); i++ {
 
 		if m.SecondaryAddresses[i] != nil {
-
-			if swag.IsZero(m.SecondaryAddresses[i]) { // not required
-				return nil
-			}
-
 			if err := m.SecondaryAddresses[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))

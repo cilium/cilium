@@ -259,6 +259,7 @@ static __always_inline bool
 sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
 			       const struct lb4_backend *backend __maybe_unused)
 {
+#ifdef HAVE_SOCKET_LOOKUP
 	struct bpf_sock_tuple tuple = {
 		.ipv4.daddr = backend->address,
 		.ipv4.dport = backend->port,
@@ -280,6 +281,7 @@ sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
 		sk_release(sk);
 		return true;
 	}
+#endif /* HAVE_SOCKET_LOOKUP */
 	return false;
 }
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */

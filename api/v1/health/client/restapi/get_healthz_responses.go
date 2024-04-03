@@ -39,7 +39,7 @@ func (o *GetHealthzReader) ReadResponse(response runtime.ClientResponse, consume
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /healthz] GetHealthz", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -80,11 +80,6 @@ func (o *GetHealthzOK) IsServerError() bool {
 // IsCode returns true when this get healthz o k response a status code equal to that given
 func (o *GetHealthzOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get healthz o k response
-func (o *GetHealthzOK) Code() int {
-	return 200
 }
 
 func (o *GetHealthzOK) Error() string {
@@ -148,11 +143,6 @@ func (o *GetHealthzFailed) IsServerError() bool {
 // IsCode returns true when this get healthz failed response a status code equal to that given
 func (o *GetHealthzFailed) IsCode(code int) bool {
 	return code == 500
-}
-
-// Code gets the status code for the get healthz failed response
-func (o *GetHealthzFailed) Code() int {
-	return 500
 }
 
 func (o *GetHealthzFailed) Error() string {

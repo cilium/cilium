@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -124,6 +125,11 @@ type IPCache struct {
 	// metadata is the ipcache identity metadata map, which maps IPs to labels.
 	metadata *metadata
 
+	// deferredPrefixRelease is a queue for garbage collecting old
+	// references to identities and removing the corresponding IPCache
+	// entries if unused.
+	deferredPrefixRelease *asyncPrefixReleaser
+
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
 	prefixLengths *counter.PrefixLengthCounter
@@ -148,11 +154,13 @@ func NewIPCache(c *Configuration) *IPCache {
 		prefixLengths:     counter.DefaultPrefixLengthCounter(),
 		Configuration:     c,
 	}
+	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(c.Context, ipc, 1*time.Millisecond)
 	return ipc
 }
 
 // Shutdown cleans up asynchronous routines associated with the IPCache.
 func (ipc *IPCache) Shutdown() error {
+	ipc.deferredPrefixRelease.Shutdown()
 	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
 }
 

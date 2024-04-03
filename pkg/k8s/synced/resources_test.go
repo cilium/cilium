@@ -115,8 +115,9 @@ func TestWaitForCacheSyncWithTimeout(t *testing.T) {
 				// Schedule resource events to happen after specified duration.
 				for resourceName, waitForEvent := range test.resourceNamesToEvent {
 					// schedule an event.
+					rname := resourceName
 					time.AfterFunc(waitForEvent, func() {
-						r.SetEventTimestamp(resourceName)
+						r.SetEventTimestamp(rname)
 					})
 				}
 

@@ -40,7 +40,7 @@ func (s *LoggingSuite) TestGetLogFormat(c *C) {
 	c.Assert(opts.GetLogFormat(), Equals, LogFormatJSON)
 
 	opts[FormatOpt] = "Invalid"
-	c.Assert(opts.GetLogFormat(), Equals, DefaultLogFormatTimestamp)
+	c.Assert(opts.GetLogFormat(), Equals, DefaultLogFormat)
 
 	opts[FormatOpt] = "JSON-TS"
 	c.Assert(opts.GetLogFormat(), Equals, LogFormatJSONTimestamp)

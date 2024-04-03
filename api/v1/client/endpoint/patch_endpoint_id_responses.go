@@ -63,7 +63,7 @@ func (o *PatchEndpointIDReader) ReadResponse(response runtime.ClientResponse, co
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[PATCH /endpoint/{id}] PatchEndpointID", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -103,11 +103,6 @@ func (o *PatchEndpointIDOK) IsServerError() bool {
 // IsCode returns true when this patch endpoint Id o k response a status code equal to that given
 func (o *PatchEndpointIDOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the patch endpoint Id o k response
-func (o *PatchEndpointIDOK) Code() int {
-	return 200
 }
 
 func (o *PatchEndpointIDOK) Error() string {
@@ -160,11 +155,6 @@ func (o *PatchEndpointIDInvalid) IsServerError() bool {
 // IsCode returns true when this patch endpoint Id invalid response a status code equal to that given
 func (o *PatchEndpointIDInvalid) IsCode(code int) bool {
 	return code == 400
-}
-
-// Code gets the status code for the patch endpoint Id invalid response
-func (o *PatchEndpointIDInvalid) Code() int {
-	return 400
 }
 
 func (o *PatchEndpointIDInvalid) Error() string {
@@ -227,11 +217,6 @@ func (o *PatchEndpointIDForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
-// Code gets the status code for the patch endpoint Id forbidden response
-func (o *PatchEndpointIDForbidden) Code() int {
-	return 403
-}
-
 func (o *PatchEndpointIDForbidden) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdForbidden ", 403)
 }
@@ -281,11 +266,6 @@ func (o *PatchEndpointIDNotFound) IsServerError() bool {
 // IsCode returns true when this patch endpoint Id not found response a status code equal to that given
 func (o *PatchEndpointIDNotFound) IsCode(code int) bool {
 	return code == 404
-}
-
-// Code gets the status code for the patch endpoint Id not found response
-func (o *PatchEndpointIDNotFound) Code() int {
-	return 404
 }
 
 func (o *PatchEndpointIDNotFound) Error() string {
@@ -339,11 +319,6 @@ func (o *PatchEndpointIDTooManyRequests) IsCode(code int) bool {
 	return code == 429
 }
 
-// Code gets the status code for the patch endpoint Id too many requests response
-func (o *PatchEndpointIDTooManyRequests) Code() int {
-	return 429
-}
-
 func (o *PatchEndpointIDTooManyRequests) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdTooManyRequests ", 429)
 }
@@ -394,11 +369,6 @@ func (o *PatchEndpointIDFailed) IsServerError() bool {
 // IsCode returns true when this patch endpoint Id failed response a status code equal to that given
 func (o *PatchEndpointIDFailed) IsCode(code int) bool {
 	return code == 500
-}
-
-// Code gets the status code for the patch endpoint Id failed response
-func (o *PatchEndpointIDFailed) Code() int {
-	return 500
 }
 
 func (o *PatchEndpointIDFailed) Error() string {

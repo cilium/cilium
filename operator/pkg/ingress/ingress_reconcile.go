@@ -4,10 +4,8 @@
 package ingress
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -219,12 +217,7 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 	passthroughPort, insecureHTTPPort, secureHTTPPort := r.getSharedListenerPorts()
 
 	m := &model.Model{}
-	allSharedIngresses := ingressList.Items
-	slices.SortStableFunc(allSharedIngresses, func(a, b networkingv1.Ingress) int {
-		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
-	})
-
-	for _, item := range allSharedIngresses {
+	for _, item := range ingressList.Items {
 		if !isCiliumManagedIngress(ctx, r.client, r.logger, item) || r.isEffectiveLoadbalancerModeDedicated(&item) || item.GetDeletionTimestamp() != nil {
 			continue
 		}

@@ -488,13 +488,14 @@ func (m *migrator) copyRoutes(routes []netlink.Route, from, to int) (revert.Reve
 	// gateway." with an errno of ENETUNREACH.
 	for _, r := range routes {
 		if r.Scope == netlink.SCOPE_LINK {
-			r.Table = to
-			if err := m.rpdb.RouteReplace(&r); err != nil {
+			route := r
+			route.Table = to
+			if err := m.rpdb.RouteReplace(&route); err != nil {
 				return revertStack, fmt.Errorf("unable to replace link scoped route under table ID: %w", err)
 			}
 
 			revertStack.Push(func() error {
-				if err := m.rpdb.RouteDel(&r); err != nil {
+				if err := m.rpdb.RouteDel(&route); err != nil {
 					return fmt.Errorf("failed to revert route upsert: %w", err)
 				}
 				return nil
@@ -508,13 +509,14 @@ func (m *migrator) copyRoutes(routes []netlink.Route, from, to int) (revert.Reve
 			continue
 		}
 
-		r.Table = to
-		if err := m.rpdb.RouteReplace(&r); err != nil {
+		route := r
+		route.Table = to
+		if err := m.rpdb.RouteReplace(&route); err != nil {
 			return revertStack, fmt.Errorf("unable to replace route under table ID: %w", err)
 		}
 
 		revertStack.Push(func() error {
-			if err := m.rpdb.RouteDel(&r); err != nil {
+			if err := m.rpdb.RouteDel(&route); err != nil {
 				return fmt.Errorf("failed to revert route upsert: %w", err)
 			}
 			return nil

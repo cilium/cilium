@@ -53,9 +53,6 @@ const (
 	// Labels are any label, they may not be relevant to the security identity.
 	Labels = "labels"
 
-	// Label is a singular label, where relevant
-	Label = "label"
-
 	// SourceFilter is the label or node information source
 	SourceFilter = "sourceFilter"
 
@@ -760,15 +757,4 @@ const (
 
 	// EtcdQPSLimit is the QPS limit for an etcd client.
 	EtcdQPSLimit = "etcdQPSLimit"
-
-	// LeaseID identifies a KVStore lease
-	LeaseID = "leaseID"
-
-	// EventType identifies the type of KVStore events
-	EventType = "eventType"
-
-	// Entries specifies the number of KVStore entries
-	Entries = "entries"
-	// Action is the summarized action from a reconciliation.
-	Action = "action"
 )

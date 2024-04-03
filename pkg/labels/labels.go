@@ -11,10 +11,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-
-	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -54,16 +50,6 @@ const (
 	// is part of the reserved identity 7 and it is also used in conjunction
 	// with IDNameHost if the kube-apiserver is running on the local host.
 	IDNameKubeAPIServer = "kube-apiserver"
-
-	// IDNameEncryptedOverlay is the label used to identify encrypted overlay
-	// traffic.
-	//
-	// It is part of the reserved identity 11 and signals that overlay traffic
-	// with this identity must be IPSec encrypted before leaving the host.
-	//
-	// This identity should never be seen on the wire and is used only on the
-	// local host.
-	IDNameEncryptedOverlay = "overlay-to-encrypt"
 
 	// IDNameIngress is the label used to identify Ingress proxies. It is part
 	// of the reserved identity 8.
@@ -157,31 +143,31 @@ type Label struct {
 	//
 	// +kubebuilder:validation:Optional
 	Source string `json:"source"`
-
-	// optimization for CIDR prefixes
-	// +deepequal-gen=false
-	cidr *netip.Prefix `json:"-"`
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]Label
 
 // GetPrintableModel turns the Labels into a sorted list of strings
-// representing the labels.
+// representing the labels, with CIDRs deduplicated (ie, only provide the most
+// specific CIDRs).
 func (l Labels) GetPrintableModel() (res []string) {
-	res = make([]string, 0, len(l))
+	// Aggregate list of "leaf" CIDRs
+	leafCIDRs := leafCIDRList[*Label]{}
 	for _, v := range l {
+		// If this is a CIDR label, filter out non-leaf CIDRs for human consumption
 		if v.Source == LabelSourceCIDR {
-			prefix, err := LabelToPrefix(v.Key)
-			if err != nil {
-				res = append(res, v.String())
-			} else {
-				res = append(res, LabelSourceCIDR+":"+prefix.String())
-			}
+			v := v
+			prefixStr := strings.Replace(v.Key, "-", ":", -1)
+			prefix, _ := netip.ParsePrefix(prefixStr)
+			leafCIDRs.insert(prefix, &v)
 		} else {
 			// not a CIDR label, no magic needed
 			res = append(res, v.String())
 		}
+	}
+	for _, val := range leafCIDRs {
+		res = append(res, strings.Replace(val.String(), "-", ":", -1))
 	}
 
 	sort.Strings(res)
@@ -241,21 +227,11 @@ func NewLabel(key string, value string, source string) Label {
 		value = ""
 	}
 
-	l := Label{
+	return Label{
 		Key:    key,
 		Value:  value,
 		Source: source,
 	}
-	if l.Source == LabelSourceCIDR {
-		c, err := LabelToPrefix(l.Key)
-		if err != nil {
-			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
-		} else {
-			l.cidr = &c
-		}
-	}
-
-	return l
 }
 
 // Equals returns true if source, Key and Value are equal and false otherwise.
@@ -276,48 +252,9 @@ func (l *Label) IsReservedSource() bool {
 	return l.Source == LabelSourceReserved
 }
 
-// Has returns true label L contains target.
-// target may be "looser" w.r.t source or cidr, i.e.
-// "k8s:foo=bar".Has("any:foo=bar") is true
-// "any:foo=bar".Has("k8s:foo=bar") is false
-// "cidr:10.0.0.1/32".Has("cidr:10.0.0.0/24") is true
-func (l *Label) Has(target *Label) bool {
-	return l.HasKey(target) && l.Value == target.Value
-}
-
-// HasKey returns true if l has target's key.
-// target may be "looser" w.r.t source or cidr, i.e.
-// "k8s:foo=bar".HasKey("any:foo") is true
-// "any:foo=bar".HasKey("k8s:foo") is false
-// "cidr:10.0.0.1/32".HasKey("cidr:10.0.0.0/24") is true
-// "cidr:10.0.0.0/24".HasKey("cidr:10.0.0.1/32") is false
-func (l *Label) HasKey(target *Label) bool {
-	if !target.IsAnySource() && l.Source != target.Source {
-		return false
-	}
-
-	// Do cidr-aware matching if both sources are "cidr".
-	if target.Source == LabelSourceCIDR && l.Source == LabelSourceCIDR {
-		tc := target.cidr
-		if tc == nil {
-			v, err := LabelToPrefix(target.Key)
-			if err != nil {
-				tc = &v
-			}
-		}
-		lc := l.cidr
-		if lc == nil {
-			v, err := LabelToPrefix(l.Key)
-			if err != nil {
-				lc = &v
-			}
-		}
-		if tc != nil && lc != nil && tc.Bits() <= lc.Bits() && tc.Contains(lc.Addr()) {
-			return true
-		}
-	}
-
-	return l.Key == target.Key
+// matches returns true if l matches the target
+func (l *Label) matches(target *Label) bool {
+	return l.Equals(target)
 }
 
 // String returns the string representation of Label in the for of Source:Key=Value or
@@ -375,15 +312,6 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		l.Source = aux.Source
 		l.Key = aux.Key
 		l.Value = aux.Value
-	}
-
-	if l.Source == LabelSourceCIDR {
-		c, err := LabelToPrefix(l.Key)
-		if err == nil {
-			l.cidr = &c
-		} else {
-			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
-		}
 	}
 
 	return nil
@@ -652,7 +580,7 @@ func (l Labels) IsReserved() bool {
 // Has returns true if l contains the given label.
 func (l Labels) Has(label Label) bool {
 	for _, lbl := range l {
-		if lbl.Has(&label) {
+		if lbl.matches(&label) {
 			return true
 		}
 	}
@@ -713,18 +641,6 @@ func parseLabel(str string, delim byte) (lbl Label) {
 		} else {
 			lbl.Key = next[:i]
 			lbl.Value = next[i+1:]
-		}
-	}
-
-	if lbl.Source == LabelSourceCIDR {
-		if lbl.Value != "" {
-			logrus.WithField(logfields.Label, lbl.String()).Error("Invalid CIDR label: labels with source cidr cannot have values.")
-		}
-		c, err := LabelToPrefix(lbl.Key)
-		if err != nil {
-			logrus.WithField(logfields.Label, str).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
-		} else {
-			lbl.cidr = &c
 		}
 	}
 	return lbl

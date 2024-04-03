@@ -151,11 +151,6 @@ func (m *ProxyStatus) contextValidateRedirects(ctx context.Context, formats strf
 	for i := 0; i < len(m.Redirects); i++ {
 
 		if m.Redirects[i] != nil {
-
-			if swag.IsZero(m.Redirects[i]) { // not required
-				return nil
-			}
-
 			if err := m.Redirects[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("redirects" + "." + strconv.Itoa(i))

@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/metrics"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -68,12 +67,8 @@ var Cell = cell.Module(
 	// Provides the reconcilers used by the route manager to update the config
 	reconciler.ConfigReconcilers,
 
-	cell.Invoke(
-		// Invoke bgp controller to trigger the constructor.
-		func(*agent.Controller) {},
-		// Register the metrics collector
-		metrics.RegisterCollector,
-	),
+	// Invoke bgp controller to trigger the constructor.
+	cell.Invoke(func(*agent.Controller) {}),
 )
 
 func newBGPPeeringPolicyResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {

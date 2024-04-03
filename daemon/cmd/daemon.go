@@ -342,17 +342,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
-	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
-	// it only supports VXLAN right now.
-	if option.Config.EncryptionEnabled() && option.Config.EnableIPSecEncryptedOverlay {
-		if !option.Config.TunnelingEnabled() {
-			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
-		}
-		if params.TunnelConfig.Protocol() != tunnel.VXLAN {
-			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling protocol")
-		}
-	}
-
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
 	if !option.Config.DryMode {
@@ -414,6 +403,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 	})
 
+	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, params.LocalNodeStore, params.MTU, params.CNIConfigManager.GetCustomNetConf())
+
 	d := Daemon{
 		ctx:               ctx,
 		clientset:         params.Clientset,
@@ -424,7 +415,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		datapath:          params.Datapath,
 		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
-		nodeDiscovery:     params.NodeDiscovery,
+		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
 		apiLimiterSet:     params.APILimiterSet,
@@ -502,7 +493,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		d.endpointManager,
-		params.NodeManager,
+		d.nodeDiscovery,
 		&d,
 		d.policy,
 		d.svc,
@@ -516,7 +507,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		params.ServiceCache,
 		d.bwManager,
 	)
-	params.NodeDiscovery.RegisterK8sGetters(d.k8sWatcher)
+	nd.RegisterK8sGetters(d.k8sWatcher)
 
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		switch option.Config.IPAMMode() {
@@ -651,7 +642,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		})
 	}
 
-	policyAPI.InitEntities(params.ClusterInfo.Name)
+	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
+	policyAPI.InitEntities(params.ClusterInfo.Name, treatRemoteNodeAsHost)
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
@@ -758,6 +750,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		case !option.Config.EnableNodePort:
 			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
 				option.EnableNodePort)
+		case !option.Config.EnableRemoteNodeIdentity:
+			err = fmt.Errorf("BPF masquerade requires remote node identities (--%s=\"true\")",
+				option.EnableRemoteNodeIdentity)
 		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)

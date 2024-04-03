@@ -319,7 +319,7 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	svcList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, svcList, client.MatchingLabels{
 		owningGatewayLabel: model.Shorten(gw.GetName()),
-	}, client.InNamespace(gw.GetNamespace())); err != nil {
+	}); err != nil {
 		return err
 	}
 

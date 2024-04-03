@@ -123,7 +123,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 		} else {
 			for _, v := range e.SecurityIdentity.Labels {
-				fmt.Fprintf(fw, " * - %s\n", v.String())
+				fmt.Fprintf(fw, " * - %s\n", v)
 			}
 		}
 	}
@@ -150,13 +150,13 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	}
 	defer f.Cleanup()
 
-	if e.DNSRulesV2 != nil {
-		// Note: e.DNSRulesV2 is updated by syncEndpointHeaderFile and regenerateBPF
+	if e.DNSRules != nil {
+		// Note: e.DNSRules is updated by syncEndpointHeaderFile and regenerateBPF
 		// before they call into writeHeaderfile, because GetDNSRules must not be
 		// called with endpoint.mutex held.
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: headerPath,
-			"DNSRulesV2":   e.DNSRulesV2,
+			"DNSRules":     e.DNSRules,
 		}).Debug("writing header file with DNSRules")
 	}
 
@@ -176,25 +176,19 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 // instead of returning a 0 port number.
 type proxyPolicy struct {
 	*policy.L4Filter
-	ps       *policy.PerSelectorPolicy
-	port     uint16
-	protocol uint8
+	ps   *policy.PerSelectorPolicy
+	port uint16
 }
 
 // newProxyPolicy returns a new instance of proxyPolicy by value
-func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, ps *policy.PerSelectorPolicy, port uint16, proto uint8) proxyPolicy {
-	return proxyPolicy{L4Filter: l4, ps: ps, port: port, protocol: proto}
+func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, ps *policy.PerSelectorPolicy, port uint16) proxyPolicy {
+	return proxyPolicy{L4Filter: l4, ps: ps, port: port}
 }
 
 // GetPort returns the destination port number on which the proxy policy applies
 // This version properly returns the port resolved from a named port, if any.
 func (p *proxyPolicy) GetPort() uint16 {
 	return p.port
-}
-
-// GetProtocol returns the destination protocol number on which the proxy policy applies
-func (p *proxyPolicy) GetProtocol() uint8 {
-	return p.protocol
 }
 
 // GetListener returns the listener name referenced by the policy, if any
@@ -232,7 +226,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				}
 				// proxyID() returns also the destination port for the policy,
 				// which may be resolved from a named port
-				proxyID, dstPort, dstProto := e.proxyID(l4, v.Listener)
+				proxyID, dstPort := e.proxyID(l4, v.Listener)
 				if proxyID == "" {
 					// Skip redirects for which a proxyID cannot be created.
 					// This may happen due to the named port mapping not
@@ -250,7 +244,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 				var redirectPort uint16
 
-				pp := e.newProxyPolicy(l4, v, dstPort, dstProto)
+				pp := e.newProxyPolicy(l4, v, dstPort)
 				proxyPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
 				if err != nil {
 					// Skip redirects that can not be created or updated.  This
@@ -591,7 +585,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("error while configuring proxy redirects: %w", err)
+		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
 	stats.waitingForLock.Start()
@@ -1162,31 +1156,20 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
 
-	changed, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
 
-	// Only update Envoy if there are envoy redirects and there were queued incremental changes.
-	// This is safe to do here, since a PolicyMapChange cannot
-	// cause an envoy redirect to appear or disappear. It only allows for
-	// incremental updates. Thus, we don't need to worry about stale
-	// policy not being cleaned up.
-	if changed && (e.desiredPolicy.L4Policy.HasEnvoyRedirect() || e.isIngress) {
-		// Ignoring the revertFunc; keep all successful changes even if some fail.
-		e.getLogger().Debug("Endpoint has envoy redirects, applying changes to Envoy")
-		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
-	} else {
-		e.getLogger().Debug("Endpoint has no envoy redirects, skipping Envoy update")
-	}
+	// Ignoring the revertFunc; keep all successful changes even if some fail.
+	err, _ = e.updateNetworkPolicy(proxyWaitGroup)
 
 	return err
 }
 
 // applyPolicyMapChanges applies any incremental policy map changes
 // collected on the desired policy.
-// Returns true if any changes were applied
-func (e *Endpoint) applyPolicyMapChanges() (bool, error) {
+func (e *Endpoint) applyPolicyMapChanges() error {
 	errors := 0
 
 	e.PolicyDebug(nil, "applyPolicyMapChanges")
@@ -1247,17 +1230,16 @@ func (e *Endpoint) applyPolicyMapChanges() (bool, error) {
 	}
 
 	if errors > 0 {
-		return true, fmt.Errorf("updating desired PolicyMap state failed")
+		return fmt.Errorf("updating desired PolicyMap state failed")
 	}
 	if len(adds)+len(deletes) > 0 {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.AddedPolicyID:   adds,
 			logfields.DeletedPolicyID: deletes,
 		}).Debug("Applied policy map updates due identity changes")
-		return true, nil
 	}
 
-	return false, nil
+	return nil
 }
 
 // syncPolicyMap updates the bpf policy map state based on the
@@ -1266,7 +1248,7 @@ func (e *Endpoint) applyPolicyMapChanges() (bool, error) {
 func (e *Endpoint) syncPolicyMap() error {
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	_, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
@@ -1374,7 +1356,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	_, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}

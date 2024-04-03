@@ -41,7 +41,7 @@ type KubeProxyReplacement struct {
 	Features *KubeProxyReplacementFeatures `json:"features,omitempty"`
 
 	// mode
-	// Enum: [True False]
+	// Enum: [Disabled Strict Probe Partial True False]
 	Mode string `json:"mode,omitempty"`
 }
 
@@ -116,7 +116,7 @@ var kubeProxyReplacementTypeModePropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["True","False"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["Disabled","Strict","Probe","Partial","True","False"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -125,6 +125,18 @@ func init() {
 }
 
 const (
+
+	// KubeProxyReplacementModeDisabled captures enum value "Disabled"
+	KubeProxyReplacementModeDisabled string = "Disabled"
+
+	// KubeProxyReplacementModeStrict captures enum value "Strict"
+	KubeProxyReplacementModeStrict string = "Strict"
+
+	// KubeProxyReplacementModeProbe captures enum value "Probe"
+	KubeProxyReplacementModeProbe string = "Probe"
+
+	// KubeProxyReplacementModePartial captures enum value "Partial"
+	KubeProxyReplacementModePartial string = "Partial"
 
 	// KubeProxyReplacementModeTrue captures enum value "True"
 	KubeProxyReplacementModeTrue string = "True"
@@ -177,11 +189,6 @@ func (m *KubeProxyReplacement) contextValidateDeviceList(ctx context.Context, fo
 	for i := 0; i < len(m.DeviceList); i++ {
 
 		if m.DeviceList[i] != nil {
-
-			if swag.IsZero(m.DeviceList[i]) { // not required
-				return nil
-			}
-
 			if err := m.DeviceList[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("deviceList" + "." + strconv.Itoa(i))
@@ -200,11 +207,6 @@ func (m *KubeProxyReplacement) contextValidateDeviceList(ctx context.Context, fo
 func (m *KubeProxyReplacement) contextValidateFeatures(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Features != nil {
-
-		if swag.IsZero(m.Features) { // not required
-			return nil
-		}
-
 		if err := m.Features.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features")
@@ -584,11 +586,6 @@ func (m *KubeProxyReplacementFeatures) ContextValidate(ctx context.Context, form
 func (m *KubeProxyReplacementFeatures) contextValidateExternalIPs(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.ExternalIPs != nil {
-
-		if swag.IsZero(m.ExternalIPs) { // not required
-			return nil
-		}
-
 		if err := m.ExternalIPs.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "externalIPs")
@@ -605,11 +602,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateExternalIPs(ctx context.Co
 func (m *KubeProxyReplacementFeatures) contextValidateGracefulTermination(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.GracefulTermination != nil {
-
-		if swag.IsZero(m.GracefulTermination) { // not required
-			return nil
-		}
-
 		if err := m.GracefulTermination.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "gracefulTermination")
@@ -626,11 +618,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateGracefulTermination(ctx co
 func (m *KubeProxyReplacementFeatures) contextValidateHostPort(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HostPort != nil {
-
-		if swag.IsZero(m.HostPort) { // not required
-			return nil
-		}
-
 		if err := m.HostPort.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "hostPort")
@@ -647,11 +634,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateHostPort(ctx context.Conte
 func (m *KubeProxyReplacementFeatures) contextValidateHostReachableServices(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HostReachableServices != nil {
-
-		if swag.IsZero(m.HostReachableServices) { // not required
-			return nil
-		}
-
 		if err := m.HostReachableServices.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "hostReachableServices")
@@ -668,11 +650,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateHostReachableServices(ctx 
 func (m *KubeProxyReplacementFeatures) contextValidateNat46X64(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Nat46X64 != nil {
-
-		if swag.IsZero(m.Nat46X64) { // not required
-			return nil
-		}
-
 		if err := m.Nat46X64.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "nat46X64")
@@ -689,11 +666,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateNat46X64(ctx context.Conte
 func (m *KubeProxyReplacementFeatures) contextValidateNodePort(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.NodePort != nil {
-
-		if swag.IsZero(m.NodePort) { // not required
-			return nil
-		}
-
 		if err := m.NodePort.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "nodePort")
@@ -710,11 +682,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateNodePort(ctx context.Conte
 func (m *KubeProxyReplacementFeatures) contextValidateSessionAffinity(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.SessionAffinity != nil {
-
-		if swag.IsZero(m.SessionAffinity) { // not required
-			return nil
-		}
-
 		if err := m.SessionAffinity.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "sessionAffinity")
@@ -731,11 +698,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateSessionAffinity(ctx contex
 func (m *KubeProxyReplacementFeatures) contextValidateSocketLB(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.SocketLB != nil {
-
-		if swag.IsZero(m.SocketLB) { // not required
-			return nil
-		}
-
 		if err := m.SocketLB.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "socketLB")
@@ -752,11 +714,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateSocketLB(ctx context.Conte
 func (m *KubeProxyReplacementFeatures) contextValidateSocketLBTracing(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.SocketLBTracing != nil {
-
-		if swag.IsZero(m.SocketLBTracing) { // not required
-			return nil
-		}
-
 		if err := m.SocketLBTracing.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "socketLBTracing")
@@ -1041,11 +998,6 @@ func (m *KubeProxyReplacementFeaturesNat46X64) ContextValidate(ctx context.Conte
 func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateGateway(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Gateway != nil {
-
-		if swag.IsZero(m.Gateway) { // not required
-			return nil
-		}
-
 		if err := m.Gateway.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
@@ -1062,11 +1014,6 @@ func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateGateway(ctx contex
 func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateService(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Service != nil {
-
-		if swag.IsZero(m.Service) { // not required
-			return nil
-		}
-
 		if err := m.Service.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "nat46X64" + "." + "service")

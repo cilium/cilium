@@ -62,11 +62,11 @@ func printEndpointLabels(lbls *labels.OpLabels) {
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
 	for _, v := range lbls.IdentityLabels() {
-		fmt.Fprintf(w, "%s\t%s\n", v.String(), "Enabled")
+		fmt.Fprintf(w, "%s\t%s\n", v, "Enabled")
 	}
 
 	for _, v := range lbls.Disabled {
-		fmt.Fprintf(w, "%s\t%s\n", v.String(), "Disabled")
+		fmt.Fprintf(w, "%s\t%s\n", v, "Disabled")
 	}
 	w.Flush()
 }

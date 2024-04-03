@@ -170,9 +170,7 @@ func cleanIngressQdisc() error {
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
 func (l *loader) reinitializeIPSec(ctx context.Context) error {
-	// If devices are specified, then we are relying on autodetection and don't
-	// need the code below, specific to EncryptInterface.
-	if !option.Config.EnableIPSec || len(option.Config.GetDevices()) > 0 {
+	if !option.Config.EnableIPSec {
 		return nil
 	}
 
@@ -209,19 +207,7 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 
-		device, err := netlink.LinkByName(iface)
-		if err != nil {
-			return fmt.Errorf("retrieving device %s: %w", iface, err)
-		}
-
-		finalize, err := replaceDatapath(ctx,
-			replaceDatapathOptions{
-				device:   iface,
-				elf:      networkObj,
-				programs: progs,
-				linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), device),
-			},
-		)
+		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, "")
 		if err != nil {
 			log.WithField(logfields.Interface, iface).WithError(err).Error("Load encryption network failed")
 			// collect errors, but keep trying replacing other interfaces.

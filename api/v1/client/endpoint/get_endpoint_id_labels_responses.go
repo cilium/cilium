@@ -45,7 +45,7 @@ func (o *GetEndpointIDLabelsReader) ReadResponse(response runtime.ClientResponse
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /endpoint/{id}/labels] GetEndpointIDLabels", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -86,11 +86,6 @@ func (o *GetEndpointIDLabelsOK) IsServerError() bool {
 // IsCode returns true when this get endpoint Id labels o k response a status code equal to that given
 func (o *GetEndpointIDLabelsOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get endpoint Id labels o k response
-func (o *GetEndpointIDLabelsOK) Code() int {
-	return 200
 }
 
 func (o *GetEndpointIDLabelsOK) Error() string {
@@ -155,11 +150,6 @@ func (o *GetEndpointIDLabelsNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
-// Code gets the status code for the get endpoint Id labels not found response
-func (o *GetEndpointIDLabelsNotFound) Code() int {
-	return 404
-}
-
 func (o *GetEndpointIDLabelsNotFound) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsNotFound ", 404)
 }
@@ -209,11 +199,6 @@ func (o *GetEndpointIDLabelsTooManyRequests) IsServerError() bool {
 // IsCode returns true when this get endpoint Id labels too many requests response a status code equal to that given
 func (o *GetEndpointIDLabelsTooManyRequests) IsCode(code int) bool {
 	return code == 429
-}
-
-// Code gets the status code for the get endpoint Id labels too many requests response
-func (o *GetEndpointIDLabelsTooManyRequests) Code() int {
-	return 429
 }
 
 func (o *GetEndpointIDLabelsTooManyRequests) Error() string {

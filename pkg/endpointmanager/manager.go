@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -87,9 +88,6 @@ type endpointManager struct {
 	// locaNodeStore allows to retrieve information and observe changes about
 	// the local node.
 	localNodeStore *node.LocalNodeStore
-
-	// Allocator for local endpoint identifiers.
-	epIDAllocator *epIDAllocator
 }
 
 // endpointDeleteFunc is used to abstract away concrete Endpoint Delete
@@ -107,7 +105,6 @@ func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, 
 		subscribers:                  make(map[Subscriber]struct{}),
 		controllers:                  controller.NewManager(),
 		localNodeStore:               lns,
-		epIDAllocator:                newEPIDAllocator(),
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 	mgr.policyMapPressure = newPolicyMapPressure()
@@ -133,7 +130,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	err := proxyWaitGroup.Context().Err()
 	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
+		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
 	}
 
 	start := time.Now()
@@ -215,12 +212,12 @@ func (mgr *endpointManager) InitMetrics(registry *metrics.Registry) {
 func (mgr *endpointManager) allocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
-		if err := mgr.epIDAllocator.reuse(currID); err != nil {
+		if err := idallocator.Reuse(currID); err != nil {
 			return 0, fmt.Errorf("unable to reuse endpoint ID: %s", err)
 		}
 		newID = currID
 	} else {
-		id := mgr.epIDAllocator.allocate()
+		id := idallocator.Allocate()
 		if id == uint16(0) {
 			return 0, fmt.Errorf("no more endpoint IDs available")
 		}
@@ -378,7 +375,7 @@ func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*end
 // ReleaseID releases the ID of the specified endpoint from the endpointManager.
 // Returns an error if the ID cannot be released.
 func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
-	return mgr.epIDAllocator.release(ep.ID)
+	return idallocator.Release(ep.ID)
 }
 
 // unexpose removes the endpoint from the endpointmanager, so subsequent
@@ -430,6 +427,15 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 // and prevents the endpoint from being globally acccessible via other packages.
 func (mgr *endpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	return mgr.deleteEndpoint(ep, conf)
+}
+
+// RemoveAll removes all endpoints from the global maps.
+func (mgr *endpointManager) RemoveAll() {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+	idallocator.ReallocatePool()
+	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
+	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }
 
 // lookupCiliumID looks up endpoint by endpoint ID
