@@ -118,7 +118,6 @@ func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_core
 				ev.Done(nil)
 			case resource.Upsert:
 				name, backends := endpointsToBackendParams(obj)
-				fmt.Printf("endpoint slice updated for %q: %v\n", name, backends)
 
 				old := currentBackends[obj.EndpointSliceName]
 

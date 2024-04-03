@@ -143,6 +143,21 @@ var ServicesCell = cell.Module(
 	cell.ProvidePrivate(
 		NewServicesTable,
 		NewBackendsTable,
+	),
+	cell.Provide(
+		NewServices,
+		statedb.RWTable[*Service].ToTable,
+		statedb.RWTable[*Backend].ToTable,
+	),
+)
+
+var ServicesReconcilerCell = cell.Module(
+	"services",
+	"Services with mock reconciler",
+
+	cell.ProvidePrivate(
+		NewServicesTable,
+		NewBackendsTable,
 
 		serviceReconcilerConfig,
 	),
@@ -152,7 +167,7 @@ var ServicesCell = cell.Module(
 		statedb.RWTable[*Backend].ToTable,
 	),
 
-	//cell.Invoke(reconciler.Register[*Service]),
+	cell.Invoke(reconciler.Register[*Service]),
 )
 
 func NewServices(db *statedb.DB, svcs statedb.RWTable[*Service], bes statedb.RWTable[*Backend]) (*Services, error) {
