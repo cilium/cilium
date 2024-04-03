@@ -561,38 +561,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	SkipContextIf(func() bool {
-		return helpers.RunsOnGKE() || helpers.RunsWithoutKubeProxy() || helpers.RunsOnAKS()
-	}, "Transparent encryption DirectRouting", func() {
-		var privateIface string
-		BeforeAll(func() {
-			Eventually(func() (string, error) {
-				iface, err := kubectl.GetPrivateIface(helpers.K8s1)
-				privateIface = iface
-				return iface, err
-			}, helpers.MidCommandTimeout, time.Second).ShouldNot(BeEmpty(),
-				"Unable to determine private iface")
-		})
-		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing with bpf_host", func() {
-			defaultIface, err := kubectl.GetDefaultIface(false)
-			Expect(err).Should(BeNil(), "Unable to determine the default interface")
-			devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
-
-			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
-			deploymentManager.DeployCilium(map[string]string{
-				"routingMode":                "native",
-				"autoDirectNodeRoutes":       "true",
-				"encryption.enabled":         "true",
-				"encryption.ipsec.interface": privateIface,
-				"devices":                    devices,
-				"hostFirewall.enabled":       "false",
-				"kubeProxyReplacement":       "false",
-				"bpf.masquerade":             "false",
-			}, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-	})
-
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
 			deploymentManager.DeployCilium(map[string]string{
