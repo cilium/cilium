@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#define NODE_ID 2333
+#define ENCRYPT_KEY 3
+#define ENABLE_IPV4
+#define ENABLE_IPV6
+#define ENABLE_IPSEC
+#define TUNNEL_MODE
+#define ENCAP_IFINDEX 4
+#define DEST_IFINDEX 5
+#define DEST_LXC_ID 200
+
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
@@ -9,17 +19,6 @@
 #include "config_replacement.h"
 #undef ROUTER_IP
 #undef SECLABEL
-
-#define NODE_ID 2333
-#define ENCRYPT_KEY 3
-#define ENABLE_IPV4
-#define ENABLE_IPV6
-#define ENABLE_IPSEC
-#define TUNNEL_MODE
-#define HAVE_ENCAP
-#define ENCAP_IFINDEX 4
-#define DEST_IFINDEX 5
-#define DEST_LXC_ID 200
 
 #define skb_change_type mock_skb_change_type
 int mock_skb_change_type(__maybe_unused struct __sk_buff *skb, __u32 type)
