@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 
 	"github.com/cilium/cilium/api/v1/client/statedb"
@@ -87,18 +89,21 @@ type remoteGetIterator[Obj any] struct {
 
 // responseObject is a typed counterpart of [queryResponseObject]
 type responseObject[Obj any] struct {
-	Revision uint64
-	Object   Obj
+	R uint64
+	O Obj
 }
 
 func (it *remoteGetIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
 	var resp responseObject[Obj]
 	err := it.decoder.Decode(&resp)
 	if err != nil {
-		return
+		if errors.Is(err, io.EOF) {
+			return
+		}
+		panic(err)
 	}
-	obj = resp.Object
-	revision = resp.Revision
+	obj = resp.O
+	revision = resp.R
 	ok = true
 	return
 }

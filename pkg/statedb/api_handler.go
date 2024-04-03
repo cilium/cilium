@@ -28,7 +28,10 @@ type dumpHandler struct {
 
 func (h *dumpHandler) Handle(params restapi.GetStatedbDumpParams) middleware.Responder {
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
-		h.db.ReadTxn().WriteJSON(w)
+		err := h.db.ReadTxn().WriteJSON(w)
+		if err != nil {
+			panic(err)
+		}
 	})
 }
 
@@ -43,8 +46,8 @@ type queryHandler struct {
 }
 
 type queryResponseObject struct {
-	Revision uint64
-	Object   any
+	R uint64
+	O any
 }
 
 // /statedb/query
@@ -65,8 +68,8 @@ func (h *queryHandler) Handle(params restapi.GetStatedbQueryTableParams) middlew
 		enc := json.NewEncoder(w)
 		onObject := func(obj object) error {
 			return enc.Encode(queryResponseObject{
-				Revision: obj.revision,
-				Object:   obj.data,
+				R: obj.revision,
+				O: obj.data,
 			})
 		}
 		runQuery(indexTxn, params.Lowerbound, queryKey, onObject)
@@ -97,7 +100,7 @@ func runQuery(indexTxn indexTxn, lowerbound bool, queryKey []byte, onObject func
 			continue
 		}
 		if err := onObject(obj); err != nil {
-			return
+			panic(err)
 		}
 	}
 }
