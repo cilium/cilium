@@ -97,19 +97,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		goto out;
 	}
 
-	/* Redirect to the WireGuard tunnel device if the encryption is
-	 * required.
-	 *
-	 * After the packet has been encrypted, the WG tunnel device
-	 * will set the MARK_MAGIC_WG_ENCRYPTED skb mark. So, to avoid
-	 * looping forever (e.g., bpf_host@eth0 => cilium_wg0 =>
-	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
-	 * encrypted WireGuard UDP packets), we check whether the mark
-	 * is set before the redirect.
-	 */
-	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED)
-		goto out;
-
 #if defined(TUNNEL_MODE)
 	if (from_tunnel)
 		goto encrypt;

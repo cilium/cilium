@@ -1428,13 +1428,24 @@ skip_host_firewall:
 	 * Once the assumption is no longer true, we will need to recirculate
 	 * the packet back to the "to-netdev" section for the SNAT instead of
 	 * returning TC_ACT_REDIRECT.
+	 *
+	 * Skip redirect to the WireGuard tunnel device if the pkt has been
+	 * already encrypted.
+	 * After the packet has been encrypted, the WG tunnel device
+	 * will set the MARK_MAGIC_WG_ENCRYPTED skb mark. So, to avoid
+	 * looping forever (e.g., bpf_host@eth0 => cilium_wg0 =>
+	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
+	 * encrypted WireGuard UDP packets), we check whether the mark
+	 * is set before the redirect.
 	 */
-	ret = wg_maybe_redirect_to_encrypt(ctx);
-	if (ret == CTX_ACT_REDIRECT)
-		return ret;
-	else if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_sec_identity, ret,
-					      CTX_ACT_DROP, METRIC_EGRESS);
+	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) != MARK_MAGIC_WG_ENCRYPTED) {
+		ret = wg_maybe_redirect_to_encrypt(ctx);
+		if (ret == CTX_ACT_REDIRECT)
+			return ret;
+		else if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, src_sec_identity, ret,
+						      CTX_ACT_DROP, METRIC_EGRESS);
+	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
 	if (!strict_allow(ctx))
