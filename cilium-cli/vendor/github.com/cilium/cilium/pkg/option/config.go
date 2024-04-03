@@ -127,9 +127,6 @@ const (
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"
 
-	// DisableEnvoyVersionCheck do not perform Envoy binary version check on startup
-	DisableEnvoyVersionCheck = "disable-envoy-version-check"
-
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
 
@@ -142,6 +139,9 @@ const (
 	// EnableTracing enables tracing mode in the agent.
 	EnableTracing = "enable-tracing"
 
+	// EnableIPIPTermination is the name of the option to enable IPIP termination
+	EnableIPIPTermination = "enable-ipip-termination"
+
 	// Add unreachable routes on pod deletion
 	EnableUnreachableRoutes = "enable-unreachable-routes"
 
@@ -151,24 +151,8 @@ const (
 	// EncryptNode enables node IP encryption
 	EncryptNode = "encrypt-node"
 
-	// EnvoyLog sets the path to a separate Envoy log file, if any
-	EnvoyLog = "envoy-log"
-
 	// GopsPort is the TCP port for the gops server.
 	GopsPort = "gops-port"
-
-	// ProxyPrometheusPort specifies the port to serve Cilium host proxy metrics on.
-	ProxyPrometheusPort = "proxy-prometheus-port"
-
-	// ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy
-	ProxyMaxRequestsPerConnection = "proxy-max-requests-per-connection"
-
-	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy in seconds
-	ProxyMaxConnectionDuration = "proxy-max-connection-duration-seconds"
-
-	// ProxyIdleTimeout specifies the idle_timeout setting (in seconds), which applies
-	// for the connection from proxy to upstream cluster
-	ProxyIdleTimeout = "proxy-idle-timeout-seconds"
 
 	// FixedIdentityMapping is the key-value for the fixed identity mapping
 	// which allows to use reserved label for fixed identities
@@ -358,9 +342,6 @@ const (
 	// EnableMasqueradeRouteSource masquerades to the source route IP address instead of the interface one
 	EnableMasqueradeRouteSource = "enable-masquerade-to-route-source"
 
-	// DeriveMasqIPAddrFromDevice is device name which IP addr is used for BPF masquerades
-	DeriveMasqIPAddrFromDevice = "derive-masquerade-ip-addr-from-device"
-
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
 
@@ -375,9 +356,6 @@ const (
 
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
-
-	// EnvoyConfigTimeout determines how long to wait Envoy to N/ACK resources
-	EnvoyConfigTimeout = "envoy-config-timeout"
 
 	// IPMasqAgentConfigPath is the configuration file path
 	IPMasqAgentConfigPath = "ip-masq-agent-config-path"
@@ -733,6 +711,12 @@ const (
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
+	// EnableIPSecEncrytpedOverlay is the name of the option which enables
+	// the EncryptedOverlay feature.
+	//
+	// This feature will encrypt overlay traffic before it leaves the cluster.
+	EnableIPSecEncryptedOverlay = "enable-ipsec-encrypted-overlay"
+
 	// EnableWireguard is the name of the option to enable WireGuard
 	EnableWireguard = "enable-wireguard"
 
@@ -781,9 +765,6 @@ const (
 
 	// KVstoreConnectivityTimeout is the timeout when performing kvstore operations
 	KVstoreConnectivityTimeout = "kvstore-connectivity-timeout"
-
-	// IPAllocationTimeout is the timeout when allocating CIDRs
-	IPAllocationTimeout = "ip-allocation-timeout"
 
 	// IdentityChangeGracePeriod is the name of the
 	// IdentityChangeGracePeriod option
@@ -920,9 +901,6 @@ const (
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities = "enable-well-known-identities"
-
-	// EnableRemoteNodeIdentity enables use of the remote-node identity
-	EnableRemoteNodeIdentity = "enable-remote-node-identity"
 
 	// PolicyAuditModeArg argument enables policy audit mode.
 	PolicyAuditModeArg = "policy-audit-mode"
@@ -1181,6 +1159,15 @@ const (
 	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
 	// EnableNodeSelectorLabels)
 	NodeLabels = "node-labels"
+
+	// BPFEventsDropEnabled defines the DropNotification setting for any endpoint
+	BPFEventsDropEnabled = "bpf-events-drop-enabled"
+
+	// BPFEventsPolicyVerdictEnabled defines the PolicyVerdictNotification setting for any endpoint
+	BPFEventsPolicyVerdictEnabled = "bpf-events-policy-verdict-enabled"
+
+	// BPFEventsTraceEnabled defines the TraceNotification setting for any endpoint
+	BPFEventsTraceEnabled = "bpf-events-trace-enabled"
 )
 
 // Default string arguments
@@ -1201,42 +1188,9 @@ const (
 	RoutingModeTunnel = "tunnel"
 )
 
-// Envoy option names
 const (
-	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
-	// includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and
-	// redirecting for paths that contain escaped slashes. These are necessary to keep path based
-	// access control functional, and should not interfere with normal operation. Set this to
-	// false only with caution.
-	HTTPNormalizePath = "http-normalize-path"
-
 	// HTTP403Message specifies the response body for 403 responses, defaults to "Access denied"
 	HTTP403Message = "http-403-msg"
-
-	// HTTPRequestTimeout specifies the time in seconds after which forwarded requests time out
-	HTTPRequestTimeout = "http-request-timeout"
-
-	// HTTPIdleTimeout spcifies the time in seconds if http stream being idle after which the
-	// request times out
-	HTTPIdleTimeout = "http-idle-timeout"
-
-	// HTTPMaxGRPCTimeout specifies the maximum time in seconds that limits the values of
-	// "grpc-timeout" headers being honored.
-	HTTPMaxGRPCTimeout = "http-max-grpc-timeout"
-
-	// HTTPRetryCount specifies the number of retries performed after a forwarded request fails
-	HTTPRetryCount = "http-retry-count"
-
-	// HTTPRetryTimeout is the time in seconds before an uncompleted request is retried.
-	HTTPRetryTimeout = "http-retry-timeout"
-
-	// ProxyConnectTimeout specifies the time in seconds after which a TCP connection attempt
-	// is considered timed out
-	ProxyConnectTimeout = "proxy-connect-timeout"
-
-	// ProxyGID specifies the group ID that has access to unix domain sockets opened by Cilium
-	// agent for proxy configuration and access logging.
-	ProxyGID = "proxy-gid"
 
 	// ReadCNIConfiguration reads the CNI configuration file and extracts
 	// Cilium relevant information. This can be used to pass per node
@@ -1315,22 +1269,12 @@ const (
 	// NodePortAccelerationBestEffort means we accelerate NodePort via native XDP in the driver (preferred), but will skip devices without driver support
 	NodePortAccelerationBestEffort = XDPModeBestEffort
 
-	// KubeProxyReplacementPartial specifies to enable only selected kube-proxy
-	// replacement features (might panic)
-	KubeProxyReplacementPartial = "partial"
-
-	// KubeProxyReplacementStrict specifies to enable all kube-proxy replacement
-	// features (might panic)
-	KubeProxyReplacementStrict = "strict"
-
-	// KubeProxyReplacementDisabled specified to completely disable kube-proxy
-	// replacement
-	KubeProxyReplacementDisabled = "disabled"
-
-	// KubeProxyReplacementTrue has the same meaning as previous "strict".
+	// KubeProxyReplacementTrue specifies to enable all kube-proxy replacement
+	// features (might panic).
 	KubeProxyReplacementTrue = "true"
 
-	// KubeProxyReplacementTrue has the same meaning as previous "partial".
+	// KubeProxyReplacementFalse specifies to enable only selected kube-proxy
+	// replacement features (might panic).
 	KubeProxyReplacementFalse = "false"
 
 	// KubeProxyReplacement healthz server bind address
@@ -1560,62 +1504,9 @@ type DaemonConfig struct {
 	// RunInterval. Zero means unlimited.
 	MaxControllerInterval int
 
-	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
-	// includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and
-	// redirecting for paths that contain escaped slashes. These are necessary to keep path based
-	// access control functional, and should not interfere with normal operation. Set this to
-	// false only with caution.
-	HTTPNormalizePath bool
-
 	// HTTP403Message is the error message to return when a HTTP 403 is returned
 	// by the proxy, if L7 policy is configured.
 	HTTP403Message string
-
-	// HTTPRequestTimeout is the time in seconds after which Envoy responds with an
-	// error code on a request that has not yet completed. This needs to be longer
-	// than the HTTPIdleTimeout
-	HTTPRequestTimeout int
-
-	// HTTPIdleTimeout is the time in seconds of a HTTP stream having no traffic after
-	// which Envoy responds with an error code. This needs to be shorter than the
-	// HTTPRequestTimeout
-	HTTPIdleTimeout int
-
-	// HTTPMaxGRPCTimeout is the upper limit to which "grpc-timeout" headers in GRPC
-	// requests are honored by Envoy. If 0 there is no limit. GRPC requests are not
-	// bound by the HTTPRequestTimeout, but ARE affected by the idle timeout!
-	HTTPMaxGRPCTimeout int
-
-	// HTTPRetryCount is the upper limit on how many times Envoy retries failed requests.
-	HTTPRetryCount int
-
-	// HTTPRetryTimeout is the time in seconds before an uncompleted request is retried.
-	HTTPRetryTimeout int
-
-	// ProxyConnectTimeout is the time in seconds after which Envoy considers a TCP
-	// connection attempt to have timed out.
-	ProxyConnectTimeout int
-
-	// ProxyGID specifies the group ID that has access to unix domain sockets opened by Cilium
-	// agent for proxy configuration and access logging.
-	ProxyGID int
-
-	// ProxyPrometheusPort specifies the port to serve Envoy metrics on.
-	ProxyPrometheusPort int
-
-	// ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy
-	ProxyMaxRequestsPerConnection int
-
-	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy
-	ProxyMaxConnectionDuration time.Duration
-
-	// ProxyIdleTimeout specifies the idle_timeout setting (in seconds), which applies
-	// for the connection from proxy to upstream cluster
-	ProxyIdleTimeout time.Duration
-
-	// EnvoyLogPath specifies where to store the Envoy proxy logs when Envoy
-	// runs in the same container as Cilium.
-	EnvoyLogPath string
 
 	ProcFs string
 
@@ -1674,6 +1565,9 @@ type DaemonConfig struct {
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher bool
 
+	// EnableIPSecEncryptedOverlay enables IPSec encryption for overlay traffic.
+	EnableIPSecEncryptedOverlay bool
+
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
 
@@ -1730,9 +1624,8 @@ type DaemonConfig struct {
 	EnableSocketLBPeer            bool
 	EnablePolicy                  string
 	EnableTracing                 bool
+	EnableIPIPTermination         bool
 	EnableUnreachableRoutes       bool
-	EnvoyLog                      string
-	DisableEnvoyVersionCheck      bool
 	FixedIdentityMapping          map[string]string
 	FixedIdentityMappingValidator func(val string) (string, error) `json:"-"`
 	IPv4Range                     string
@@ -1758,7 +1651,6 @@ type DaemonConfig struct {
 	EnableBPFMasquerade         bool
 	EnableMasqueradeRouteSource bool
 	EnableIPMasqAgent           bool
-	DeriveMasqIPAddrFromDevice  string
 	IPMasqAgentConfigPath       string
 
 	EnableBPFClockProbe     bool
@@ -1766,13 +1658,11 @@ type DaemonConfig struct {
 	EnableEnvoyConfig       bool
 	EnableIngressController bool
 	EnableGatewayAPI        bool
-	EnvoyConfigTimeout      time.Duration
 	InstallIptRules         bool
 	MonitorAggregation      string
 	PreAllocateMaps         bool
 	IPv6NodeAddr            string
 	IPv4NodeAddr            string
-	SidecarIstioProxyImage  string
 	SocketPath              string
 	TracePayloadlen         int
 	Version                 string
@@ -1895,9 +1785,6 @@ type DaemonConfig struct {
 
 	// KVstoreConnectivityTimeout is the timeout when performing kvstore operations
 	KVstoreConnectivityTimeout time.Duration
-
-	// IPAllocationTimeout is the timeout when allocating CIDRs
-	IPAllocationTimeout time.Duration
 
 	// IdentityChangeGracePeriod is the grace period that needs to pass
 	// before an endpoint that has changed its identity will start using
@@ -2120,9 +2007,6 @@ type DaemonConfig struct {
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
 
-	// EnableRemoteNodeIdentity enables use of the remote-node identity
-	EnableRemoteNodeIdentity bool
-
 	// Azure options
 
 	// PolicyAuditMode enables non-drop mode for installed policies. In
@@ -2339,6 +2223,7 @@ type DaemonConfig struct {
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
+
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
 	EnableCiliumEndpointSlice bool
 
@@ -2388,14 +2273,20 @@ type DaemonConfig struct {
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
 
-	// EnvoySecretNamespaces for TLS secrets. Used by CiliumEnvoyConfig via SDS.
-	EnvoySecretNamespaces []string
-
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
 	BPFMapEventBuffers          map[string]string
 	BPFMapEventBuffersValidator func(val string) (string, error) `json:"-"`
 	bpfMapEventConfigs          BPFEventBufferConfigs
+
+	// BPFEventsDropEnabled controls whether the Cilium datapath exposes "drop" events to Cilium monitor and Hubble.
+	BPFEventsDropEnabled bool
+
+	// BPFEventsPolicyVerdictEnabled controls whether the Cilium datapath exposes "policy verdict" events to Cilium monitor and Hubble.
+	BPFEventsPolicyVerdictEnabled bool
+
+	// BPFEventsTraceEnabled  controls whether the Cilium datapath exposes "trace" events to Cilium monitor and Hubble.
+	BPFEventsTraceEnabled bool
 
 	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
@@ -2453,7 +2344,6 @@ var (
 		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
-		IPAllocationTimeout:             defaults.IPAllocationTimeout,
 		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
 		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
 		FixedIdentityMapping:            make(map[string]string),
@@ -2479,6 +2369,10 @@ var (
 		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
 		PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
 		MaxConnectedClusters:   defaults.MaxConnectedClusters,
+
+		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
+		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
+		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 	}
 )
 
@@ -2617,12 +2511,6 @@ func (c *DaemonConfig) IptablesMasqueradingEnabled() bool {
 // masquerading for traffic to cluster nodes.
 func (c *DaemonConfig) NodeIpsetNeeded() bool {
 	return !c.TunnelingEnabled() && c.IptablesMasqueradingEnabled()
-}
-
-// RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
-// is enabled
-func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
-	return c.EnableRemoteNodeIdentity
 }
 
 // NodeEncryptionEnabled returns true if node encryption is enabled
@@ -3017,7 +2905,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
-	c.EnableRemoteNodeIdentity = vp.GetBool(EnableRemoteNodeIdentity)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
@@ -3031,6 +2918,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
 	c.EnableTracing = vp.GetBool(EnableTracing)
+	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
 	c.EnableUnreachableRoutes = vp.GetBool(EnableUnreachableRoutes)
 	c.EnableNodePort = vp.GetBool(EnableNodePort)
 	c.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)
@@ -3049,13 +2937,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
-	c.EnvoyLogPath = vp.GetString(EnvoyLog)
-	c.HTTPNormalizePath = vp.GetBool(HTTPNormalizePath)
-	c.HTTPIdleTimeout = vp.GetInt(HTTPIdleTimeout)
-	c.HTTPMaxGRPCTimeout = vp.GetInt(HTTPMaxGRPCTimeout)
-	c.HTTPRequestTimeout = vp.GetInt(HTTPRequestTimeout)
-	c.HTTPRetryCount = vp.GetInt(HTTPRetryCount)
-	c.HTTPRetryTimeout = vp.GetInt(HTTPRetryTimeout)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)
 	c.IdentityRestoreGracePeriod = vp.GetDuration(IdentityRestoreGracePeriod)
 	c.IPAM = vp.GetString(IPAM)
@@ -3081,7 +2962,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KVstorePeriodicSync = vp.GetDuration(KVstorePeriodicSync)
 	c.KVstoreConnectivityTimeout = vp.GetDuration(KVstoreConnectivityTimeout)
 	c.KVstoreMaxConsecutiveQuorumErrors = vp.GetInt(KVstoreMaxConsecutiveQuorumErrorsName)
-	c.IPAllocationTimeout = vp.GetDuration(IPAllocationTimeout)
 	c.LabelPrefixFile = vp.GetString(LabelPrefixFile)
 	c.Labels = vp.GetStringSlice(Labels)
 	c.LibDir = vp.GetString(LibDir)
@@ -3097,7 +2977,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
-	c.EnvoyConfigTimeout = vp.GetDuration(EnvoyConfigTimeout)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
@@ -3108,12 +2987,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MTU = vp.GetInt(MTUName)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.ProcFs = vp.GetString(ProcFs)
-	c.ProxyConnectTimeout = vp.GetInt(ProxyConnectTimeout)
-	c.ProxyGID = vp.GetInt(ProxyGID)
-	c.ProxyPrometheusPort = vp.GetInt(ProxyPrometheusPort)
-	c.ProxyMaxRequestsPerConnection = vp.GetInt(ProxyMaxRequestsPerConnection)
-	c.ProxyMaxConnectionDuration = time.Duration(vp.GetInt64(ProxyMaxConnectionDuration))
-	c.ProxyIdleTimeout = time.Duration(vp.GetInt64(ProxyIdleTimeout))
 	c.RestoreState = vp.GetBool(Restore)
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
@@ -3151,10 +3024,13 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.EnableMasqueradeRouteSource = vp.GetBool(EnableMasqueradeRouteSource)
-	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
 	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)
+	c.BPFEventsDropEnabled = vp.GetBool(BPFEventsDropEnabled)
+	c.BPFEventsPolicyVerdictEnabled = vp.GetBool(BPFEventsPolicyVerdictEnabled)
+	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
+	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
@@ -3509,12 +3385,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.UseCiliumInternalIPForIPsec = vp.GetBool(UseCiliumInternalIPForIPsec)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
-
-	// Disable Envoy version check if L7 proxy is disabled.
-	c.DisableEnvoyVersionCheck = vp.GetBool(DisableEnvoyVersionCheck)
-	if !c.EnableL7Proxy {
-		c.DisableEnvoyVersionCheck = true
-	}
 
 	// VTEP integration enable option
 	c.EnableVTEP = vp.GetBool(EnableVTEP)
@@ -4221,7 +4091,7 @@ func getDefaultMonitorQueueSize(numCPU int) int {
 func MightAutoDetectDevices() bool {
 	devices := Config.GetDevices()
 	return ((Config.EnableHostFirewall || Config.EnableWireguard || Config.EnableHighScaleIPcache) && len(devices) == 0) ||
-		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
+		(Config.KubeProxyReplacement != KubeProxyReplacementFalse &&
 			(len(devices) == 0 || Config.DirectRoutingDevice == ""))
 }
 

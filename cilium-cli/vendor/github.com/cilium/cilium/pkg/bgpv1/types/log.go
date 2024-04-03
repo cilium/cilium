@@ -24,4 +24,16 @@ const (
 
 	// PeerLogField is used as key for BGP peer in the log field.
 	PeerLogField = "peer"
+
+	// FamilyLogField is used as key for BGP peer address family in the log field.
+	FamilyLogField = "family"
+
+	// PathLogField is used as key for BGP path in the log field.
+	PathLogField = "path"
+
+	// PrefixLogField is used as key for BGP prefix in the log field.
+	PrefixLogField = "prefix"
+
+	// AdvertTypeLogField is used as key for BGP advertisement type in the log field.
+	AdvertTypeLogField = "advertisement_type"
 )

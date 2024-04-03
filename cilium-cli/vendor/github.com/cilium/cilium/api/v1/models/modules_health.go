@@ -85,6 +85,11 @@ func (m *ModulesHealth) contextValidateModules(ctx context.Context, formats strf
 	for i := 0; i < len(m.Modules); i++ {
 
 		if m.Modules[i] != nil {
+
+			if swag.IsZero(m.Modules[i]) { // not required
+				return nil
+			}
+
 			if err := m.Modules[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("modules" + "." + strconv.Itoa(i))

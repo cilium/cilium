@@ -139,7 +139,7 @@ type Allocator struct {
 	initialListDone waitChan
 
 	// idPool maintains a pool of available ids for allocation.
-	idPool idpool.IDPool
+	idPool *idpool.IDPool
 
 	// enableMasterKeyProtection if true, causes master keys that are still in
 	// local use to be automatically re-created

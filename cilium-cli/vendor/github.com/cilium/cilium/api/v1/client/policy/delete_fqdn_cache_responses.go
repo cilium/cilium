@@ -45,7 +45,7 @@ func (o *DeleteFqdnCacheReader) ReadResponse(response runtime.ClientResponse, co
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[DELETE /fqdn/cache] DeleteFqdnCache", response, response.Code())
 	}
 }
 
@@ -85,6 +85,11 @@ func (o *DeleteFqdnCacheOK) IsServerError() bool {
 // IsCode returns true when this delete fqdn cache o k response a status code equal to that given
 func (o *DeleteFqdnCacheOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the delete fqdn cache o k response
+func (o *DeleteFqdnCacheOK) Code() int {
+	return 200
 }
 
 func (o *DeleteFqdnCacheOK) Error() string {
@@ -137,6 +142,11 @@ func (o *DeleteFqdnCacheBadRequest) IsServerError() bool {
 // IsCode returns true when this delete fqdn cache bad request response a status code equal to that given
 func (o *DeleteFqdnCacheBadRequest) IsCode(code int) bool {
 	return code == 400
+}
+
+// Code gets the status code for the delete fqdn cache bad request response
+func (o *DeleteFqdnCacheBadRequest) Code() int {
+	return 400
 }
 
 func (o *DeleteFqdnCacheBadRequest) Error() string {
@@ -197,6 +207,11 @@ func (o *DeleteFqdnCacheForbidden) IsServerError() bool {
 // IsCode returns true when this delete fqdn cache forbidden response a status code equal to that given
 func (o *DeleteFqdnCacheForbidden) IsCode(code int) bool {
 	return code == 403
+}
+
+// Code gets the status code for the delete fqdn cache forbidden response
+func (o *DeleteFqdnCacheForbidden) Code() int {
+	return 403
 }
 
 func (o *DeleteFqdnCacheForbidden) Error() string {

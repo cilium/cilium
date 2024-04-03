@@ -39,7 +39,7 @@ func (o *GetMapNameReader) ReadResponse(response runtime.ClientResponse, consume
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /map/{name}] GetMapName", response, response.Code())
 	}
 }
 
@@ -80,6 +80,11 @@ func (o *GetMapNameOK) IsServerError() bool {
 // IsCode returns true when this get map name o k response a status code equal to that given
 func (o *GetMapNameOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get map name o k response
+func (o *GetMapNameOK) Code() int {
+	return 200
 }
 
 func (o *GetMapNameOK) Error() string {
@@ -142,6 +147,11 @@ func (o *GetMapNameNotFound) IsServerError() bool {
 // IsCode returns true when this get map name not found response a status code equal to that given
 func (o *GetMapNameNotFound) IsCode(code int) bool {
 	return code == 404
+}
+
+// Code gets the status code for the get map name not found response
+func (o *GetMapNameNotFound) Code() int {
+	return 404
 }
 
 func (o *GetMapNameNotFound) Error() string {

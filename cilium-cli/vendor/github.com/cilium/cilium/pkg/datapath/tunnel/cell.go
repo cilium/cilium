@@ -33,7 +33,6 @@ var Cell = cell.Module(
 		func(dcfg *option.DaemonConfig) EnablerOut {
 			return NewEnabler(
 				(dcfg.EnableNodePort ||
-					dcfg.KubeProxyReplacement == option.KubeProxyReplacementStrict ||
 					dcfg.KubeProxyReplacement == option.KubeProxyReplacementTrue) &&
 					dcfg.LoadBalancerUsesDSR() &&
 					dcfg.LoadBalancerDSRDispatch == option.DSRDispatchGeneve,

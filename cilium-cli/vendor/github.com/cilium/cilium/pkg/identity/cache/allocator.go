@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 var (
@@ -96,9 +96,6 @@ type IdentityAllocator interface {
 	// Release is the reverse operation of AllocateIdentity() and releases the
 	// specified identity.
 	Release(context.Context, *identity.Identity, bool) (released bool, err error)
-
-	// ReleaseSlice is the slice variant of Release().
-	ReleaseSlice(context.Context, []*identity.Identity) error
 
 	// LookupIdentityByID returns the identity that corresponds to the given
 	// labels.
@@ -214,7 +211,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 const eventsQueueSize = 1024
 
-// InitIdentityAllocator creates the the identity allocator. Only the first
+// InitIdentityAllocator creates the identity allocator. Only the first
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
 // identity.InitWellKnownIdentities()).
@@ -455,27 +452,6 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// remote nodes, so we can't rely on the locally computed
 	// "lastUse".
 	return m.IdentityAllocator.Release(ctx, &key.GlobalIdentity{LabelArray: id.LabelArray})
-}
-
-// ReleaseSlice attempts to release a set of identities. It is a helper
-// function that may be useful for cleaning up multiple identities in paths
-// where several identities may be allocated and another error means that they
-// should all be released.
-func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
-	var err error
-	for _, id := range identities {
-		if id == nil {
-			continue
-		}
-		_, err2 := m.Release(ctx, id, false)
-		if err2 != nil {
-			log.WithError(err2).WithFields(logrus.Fields{
-				logfields.Identity: id,
-			}).Error("Failed to release identity")
-			err = err2
-		}
-	}
-	return err
 }
 
 // WatchRemoteIdentities returns a RemoteCache instance which can be later

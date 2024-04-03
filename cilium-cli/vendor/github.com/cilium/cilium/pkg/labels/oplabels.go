@@ -18,7 +18,7 @@ func (k keepMarks) set(key string) {
 	k[key] = struct{}{} // marked for keeping
 }
 
-// OpLabels represents the the possible types.
+// OpLabels represents the possible types.
 type OpLabels struct {
 	// Active labels that are enabled and disabled but not deleted
 	Custom Labels

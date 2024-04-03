@@ -24,7 +24,7 @@ import (
 )
 
 var defaultRegistryConfig = RegistryConfig{
-	PrometheusServeAddr: ":9962",
+	PrometheusServeAddr: "",
 }
 
 type RegistryConfig struct {

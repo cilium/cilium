@@ -51,6 +51,16 @@ const (
 	// with IDNameHost if the kube-apiserver is running on the local host.
 	IDNameKubeAPIServer = "kube-apiserver"
 
+	// IDNameEncryptedOverlay is the label used to identify encrypted overlay
+	// traffic.
+	//
+	// It is part of the reserved identity 11 and signals that overlay traffic
+	// with this identity must be IPSec encrypted before leaving the host.
+	//
+	// This identity should never be seen on the wire and is used only on the
+	// local host.
+	IDNameEncryptedOverlay = "overlay-to-encrypt"
+
 	// IDNameIngress is the label used to identify Ingress proxies. It is part
 	// of the reserved identity 8.
 	IDNameIngress = "ingress"
