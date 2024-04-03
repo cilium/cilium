@@ -5,7 +5,7 @@ package statedb
 
 import (
 	"encoding/base64"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -42,6 +42,11 @@ type queryHandler struct {
 	db *DB
 }
 
+type queryResponseObject struct {
+	Revision uint64
+	Object   any
+}
+
 // /statedb/query
 func (h *queryHandler) Handle(params restapi.GetStatedbQueryTableParams) middleware.Responder {
 	queryKey, err := base64.StdEncoding.DecodeString(params.Key)
@@ -57,12 +62,12 @@ func (h *queryHandler) Handle(params restapi.GetStatedbQueryTableParams) middlew
 
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
 		w.WriteHeader(restapi.GetStatedbDumpOKCode)
-		enc := gob.NewEncoder(w)
+		enc := json.NewEncoder(w)
 		onObject := func(obj object) error {
-			if err := enc.Encode(obj.revision); err != nil {
-				return err
-			}
-			return enc.Encode(obj.data)
+			return enc.Encode(queryResponseObject{
+				Revision: obj.revision,
+				Object:   obj.data,
+			})
 		}
 		runQuery(indexTxn, params.Lowerbound, queryKey, onObject)
 	})

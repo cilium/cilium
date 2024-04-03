@@ -6,7 +6,7 @@ package statedb
 import (
 	"context"
 	"encoding/base64"
-	"encoding/gob"
+	"encoding/json"
 	"os"
 
 	"github.com/cilium/cilium/api/v1/client/statedb"
@@ -71,7 +71,7 @@ func (t *RemoteTable[Obj]) query(ctx context.Context, lowerBound bool, q Query[O
 		errChan <- err
 	}()
 
-	return &remoteGetIterator[Obj]{gob.NewDecoder(r)}, errChan
+	return &remoteGetIterator[Obj]{json.NewDecoder(r)}, errChan
 }
 func (t *RemoteTable[Obj]) Get(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
 	return t.query(ctx, false, q)
@@ -82,18 +82,23 @@ func (t *RemoteTable[Obj]) LowerBound(ctx context.Context, q Query[Obj]) (Iterat
 }
 
 type remoteGetIterator[Obj any] struct {
-	decoder *gob.Decoder
+	decoder *json.Decoder
+}
+
+// responseObject is a typed counterpart of [queryResponseObject]
+type responseObject[Obj any] struct {
+	Revision uint64
+	Object   Obj
 }
 
 func (it *remoteGetIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
-	err := it.decoder.Decode(&revision)
+	var resp responseObject[Obj]
+	err := it.decoder.Decode(&resp)
 	if err != nil {
 		return
 	}
-	err = it.decoder.Decode(&obj)
-	if err != nil {
-		return
-	}
+	obj = resp.Object
+	revision = resp.Revision
 	ok = true
 	return
 }
