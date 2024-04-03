@@ -365,28 +365,26 @@ func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
 		clusterIPs.Insert(svc.Spec.ClusterIP)
 	}
 	for ip := range clusterIPs {
-		for _, scope := range scopes {
-			addr, err := cmtypes.ParseAddrCluster(ip)
-			if err != nil {
-				panic(err)
+		addr, err := cmtypes.ParseAddrCluster(ip)
+		if err != nil {
+			panic(err)
+			//continue
+		}
+
+		for _, port := range svc.Spec.Ports {
+			params := common
+			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+			if p == nil {
+				panic(fmt.Sprintf("L4Addr parse of %v failed", port))
 				//continue
 			}
 
-			for _, port := range svc.Spec.Ports {
-				params := common
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if p == nil {
-					panic(fmt.Sprintf("L4Addr parse of %v failed", port))
-					//continue
-				}
-
-				params.Type = loadbalancer.SVCTypeClusterIP
-				params.L3n4Addr.AddrCluster = addr
-				params.L3n4Addr.Scope = scope
-				params.L3n4Addr.L4Addr = *p
-				params.PortName = loadbalancer.FEPortName(port.Name)
-				out = append(out, &params)
-			}
+			params.Type = loadbalancer.SVCTypeClusterIP
+			params.L3n4Addr.AddrCluster = addr
+			params.L3n4Addr.Scope = loadbalancer.ScopeExternal
+			params.L3n4Addr.L4Addr = *p
+			params.PortName = loadbalancer.FEPortName(port.Name)
+			out = append(out, &params)
 		}
 	}
 
