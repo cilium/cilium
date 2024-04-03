@@ -1936,6 +1936,20 @@ envoy:
           labelSelector:
             matchLabels:
               k8s-app: cilium-envoy
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            k8s-app: cilium
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: cilium.io/no-schedule
+              operator: NotIn
+              values:
+              - "true"
   # -- Node selector for cilium-envoy.
   nodeSelector:
     kubernetes.io/os: linux
@@ -2672,7 +2686,7 @@ clustermesh:
 
       # -- Annotations for the clustermesh-apiserver
       # For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal"
-      # For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+      # For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: "true"
       annotations: {}
       # -- The externalTrafficPolicy of service used for apiserver access.
       externalTrafficPolicy:

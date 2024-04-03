@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package tables_test
+package tables
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
@@ -28,29 +27,29 @@ var (
 	v6Wild = net.ParseIP("::")
 )
 
-func setupNodeAddressing(t *testing.T, addrs []tables.DeviceAddress) (nodeAddressing types.NodeAddressing) {
+func setupNodeAddressing(t *testing.T, addrs []DeviceAddress) (nodeAddressing types.NodeAddressing) {
 	h := hive.New(
 		job.Cell,
 		statedb.Cell,
 
 		// Table[*Device] infrastructure, to be filled with some fakes below.
-		cell.Provide(tables.NewDeviceTable),
-		cell.Invoke(statedb.RegisterTable[*tables.Device]),
+		cell.Provide(NewDeviceTable),
+		cell.Invoke(statedb.RegisterTable[*Device]),
 
-		cell.Provide(func(db *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+		cell.Provide(func(db *statedb.DB, devices statedb.RWTable[*Device]) statedb.Table[*Device] {
 			// Simulate the DevicesController and populate the devices table.
 			txn := db.WriteTxn(devices)
-			devices.Insert(txn, &tables.Device{
+			devices.Insert(txn, &Device{
 				Index: 1,
 				Name:  "cilium_host",
 				Flags: net.FlagUp,
-				Addrs: []tables.DeviceAddress{
+				Addrs: []DeviceAddress{
 					{Addr: netip.MustParseAddr("9.9.9.9"), Scope: unix.RT_SCOPE_SITE},
 					{Addr: netip.MustParseAddr("9.9.9.8"), Scope: unix.RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})
-			devices.Insert(txn, &tables.Device{
+			devices.Insert(txn, &Device{
 				Index:    2,
 				Name:     "test",
 				Flags:    net.FlagUp,
@@ -62,7 +61,7 @@ func setupNodeAddressing(t *testing.T, addrs []tables.DeviceAddress) (nodeAddres
 		}),
 
 		// Table[NodeAddress] and controller that populates it from devices.
-		tables.NodeAddressCell,
+		NodeAddressCell,
 
 		// LocalNodeStore as required by Router(), PrimaryExternal(), etc.
 		node.LocalNodeStoreCell,
@@ -75,7 +74,7 @@ func setupNodeAddressing(t *testing.T, addrs []tables.DeviceAddress) (nodeAddres
 			}
 		}),
 
-		tables.NodeAddressingCell,
+		NodeAddressingCell,
 		cell.Invoke(func(nodeAddressing_ types.NodeAddressing) {
 			nodeAddressing = nodeAddressing_
 		}),
@@ -87,7 +86,7 @@ func setupNodeAddressing(t *testing.T, addrs []tables.DeviceAddress) (nodeAddres
 	return
 }
 
-// TestNodeAddressing is an integration test that checks that from a [tables.Device] the
+// TestNodeAddressing is an integration test that checks that from a [Device] the
 // correct [NodeAddress] is derived and [NodeAddressing] returns the correct results from
 // there.
 func TestNodeAddressing(t *testing.T) {
