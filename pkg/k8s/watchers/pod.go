@@ -401,13 +401,19 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	for _, podEP := range podEPs {
 		if labelsChanged {
-			err := updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
+			err := podEP.UpdateLabelsFrom(oldPodLabels, newPodLabels, labels.LabelSourceK8s)
 			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:   newK8sPod.ObjectMeta.Name,
+					logfields.K8sNamespace: newK8sPod.ObjectMeta.Namespace,
+					logfields.EndpointID:   podEP.GetID(),
+					logfields.Labels:       newPodLabels,
+				}).WithError(err).Warning("Unable to update endpoint labels on pod update")
 				return err
 			}
 
 			// Synchronize Pod labels with CiliumEndpoint labels if there is a change.
-			updateCiliumEndpointLabels(k.clientset, podEP, newPodLabels)
+			updateCiliumEndpointLabels(k.clientset, podEP, newK8sPod.Labels)
 		}
 
 		if annotationsChanged {
@@ -518,10 +524,6 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 				return nil
 			},
 		})
-}
-
-func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {
-	return ep.UpdateLabelsFrom(oldLbls, newLbls, labels.LabelSourceK8s)
 }
 
 func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {

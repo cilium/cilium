@@ -19,8 +19,8 @@ import (
 // Amazon EBS does not support asymmetric KMS keys. If you delete or disable the
 // customer managed KMS key that you specified for use with encryption by default,
 // your instances will fail to launch. For more information, see Amazon EBS
-// encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// encryption (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html)
+// in the Amazon EBS User Guide.
 func (c *Client) ModifyEbsDefaultKmsKeyId(ctx context.Context, params *ModifyEbsDefaultKmsKeyIdInput, optFns ...func(*Options)) (*ModifyEbsDefaultKmsKeyIdOutput, error) {
 	if params == nil {
 		params = &ModifyEbsDefaultKmsKeyIdInput{}

@@ -1894,8 +1894,7 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 		return fmt.Errorf("unable to validate cilium service by running '%s': %s", cmd, res.OutputPrettyPrint())
 	}
 
-	var lbMap map[string][]string
-	err = res.Unmarshal(&lbMap)
+	lbMap, err := parseLBList(res)
 	if err != nil {
 		return fmt.Errorf("unable to unmarshal cilium bpf lb list output: %s", err)
 	}
@@ -1992,7 +1991,6 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 
 	g, _ := errgroup.WithContext(context.TODO())
 	for _, ciliumPod := range ciliumPods {
-		ciliumPod := ciliumPod
 		g.Go(func() error {
 			var err error
 			// The plumbing of Kubernetes services typically lags
@@ -3393,7 +3391,7 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 			total++
 			status := strings.SplitN(data, "::", 2)
 			if len(status) != 2 {
-				// Just make sure that the the len of the output is 2 to not
+				// Just make sure that the len of the output is 2 to not
 				// fail on index error in the following lines.
 				continue
 			}
@@ -4014,14 +4012,40 @@ func (kub *Kubectl) fillServiceCache() error {
 			return err
 		}
 
-		err = ciliumLbRes.Unmarshal(&podCache.loadBalancers)
+		lbMap, err := parseLBList(ciliumLbRes)
 		if err != nil {
 			return fmt.Errorf("Unable to unmarshal Cilium bpf lb list: %s", err.Error())
 		}
+
+		podCache.loadBalancers = lbMap
 		cache.pods = append(cache.pods, podCache)
 	}
 	kub.serviceCache = &cache
 	return nil
+}
+
+func parseLBList(res *CmdRes) (map[string][]string, error) {
+	var resMap map[string][]string
+	err := res.Unmarshal(&resMap)
+	if err != nil {
+		return nil, err
+	}
+	// A service for example:
+	// 10.96.0.10:9153 (1)      10.0.1.251:9153 (7) (1)
+	// 172.18.0.4:32686/i (1)   10.0.0.179:69 (32) (1)
+	lbMap := make(map[string][]string)
+	for frontend, backends := range resMap {
+		// strip the space and parentheses
+		index := strings.Index(frontend, " ")
+		if index > 0 {
+			frontend = frontend[:index]
+		}
+		if len(backends) > 0 {
+			lbMap[frontend] = append(lbMap[frontend], backends...)
+		}
+	}
+
+	return lbMap, nil
 }
 
 // KubeDNSPreFlightCheck makes sure that kube-dns is plumbed into Cilium.

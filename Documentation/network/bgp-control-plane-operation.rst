@@ -11,6 +11,66 @@ BGP Control Plane Operation Guide
 
 This document provides guidance on how to operate the BGP Control Plane.
 
+.. _bgp_control_plane_node_shutdown:
+
+Shutting Down a Node
+====================
+
+When you need to shut down a node for maintenance, you can follow the steps
+below to avoid packet loss as much as possible.
+
+1. Drain the node to evict all workloads. This will remove all Pods on the node
+   from the Service endpoints and prevent Services with
+   ``externalTrafficPolicy=Cluster`` from redirecting traffic to the node.
+
+   .. code-block:: bash
+
+      kubectl drain <node-name> --ignore-daemonsets
+
+2. Deconfigure the BGP sessions by modifying or removing the
+   CiliumBGPPeeringPolicy node selector label on the Node object. This will
+   shut down all BGP sessions on the node.
+
+   .. code-block:: bash
+
+      # Assuming you select the node by the label enable-bgp=true
+      kubectl label node <node-name> --overwrite enable-bgp=false
+
+3. Wait for a while until the BGP peer removes routes towards the node. During
+   this period, the BGP peer may still send traffic to the node. If you shut
+   down the node without waiting for the BGP peer to remove routes, it will
+   break the ongoing traffic of ``externalTrafficPolicy=Cluster`` Services.
+
+4. Shut down the node.
+
+In step 3, you may not be able to check the peer status and may want to wait
+for a specific period of time without checking the actual peer status. In this
+case, you can roughly estimate the time like the following:
+
+* If you disable the BGP Graceful Restart feature, the BGP peer should withdraw
+  routes immediately after step 2.
+
+* If you enable the BGP Graceful Restart feature, there are two possible cases.
+
+  * If the BGP peer supports the Graceful Restart with Notification
+    (:rfc:`8538`), it will withdraw routes after the Stale Timer (defined in
+    the :rfc:`8538#section-4.1`) expires.
+
+  * If the BGP peer does not support the Graceful Restart with Notification, it
+    will withdraw routes immediately after step 2 because the BGP Control Plane
+    sends the BGP Notification to the peer when you unselect the node.
+
+The above estimation is a theoretical value, and the actual time always depends
+on the BGP peer's implementation. Ideally, you should check the peer router's
+actual behavior in advance with your network administrator.
+
+.. warning::
+
+   Even if you follow the above steps, some ongoing Service traffic originally
+   destined for the node may be reset because, after the route withdrawal and ECMP
+   rehashing, the traffic is redirected to a different node, and the new node may
+   select a different endpoint.
+
 Failure Scenarios
 =================
 
@@ -67,6 +127,40 @@ all ongoing connections with the endpoints on the failed node, and connections
 forwarded to a different node than before, will be reset.
 
 .. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/switches-interface-resilient-hashing.html
+
+Node Down
+---------
+
+If the node goes down, the BGP sessions from this node will be lost. The peer
+will withdraw the routes advertised by the node immediately or takes some time
+to stop forwarding traffic to the node depending on the Graceful Restart settings.
+The latter case is problematic when you advertise the route to a Service with
+``externalTrafficPolicy=Cluster`` because the peer will continue to forward traffic
+to the unavailable node until the restart timer (which is 120s by default) expires.
+
+Mitigation
+~~~~~~~~~~
+
+Involuntary Shutdown
+++++++++++++++++++++
+
+When a node is involuntarily shut down, there's no direct mitigation. You can
+choose to not use the BGP Graceful Restart feature, depending on the trade-off
+between the failure detection time vs stability provided by graceful restart in
+cases of Cilium pod restarts.
+
+Disabling the Graceful Restart allows the BGP peer to withdraw routes faster.
+Even if the node is shut down without BGP Notification or TCP connection close,
+the worst case time for peer to withdraw routes is the BGP hold time. When the
+Graceful Restart is enabled, the BGP peer may need hold time + restart time to
+withdraw routes received from the node.
+
+Voluntary Shutdown
+++++++++++++++++++
+
+When you voluntarily shut down a node, you can follow the steps described in the
+:ref:`bgp_control_plane_node_shutdown` section to avoid packet loss as much as
+possible.
 
 Peering Link Down
 -----------------

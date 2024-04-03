@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -165,7 +166,7 @@ func TestVerifier(t *testing.T) {
 					name := fmt.Sprintf("%s_%s", bpfProgram.name, configName)
 					cmd := exec.Command("make", "-C", "bpf", "clean", fmt.Sprintf("%s.o", bpfProgram.name))
 					cmd.Dir = *ciliumBasePath
-					cmd.Env = append(cmd.Env,
+					cmd.Env = append(os.Environ(),
 						fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
 						fmt.Sprintf("KERNEL=%s", kernelVersion),
 					)
@@ -248,7 +249,14 @@ func TestVerifier(t *testing.T) {
 
 					// Print verifier stats appearing on the last line of the log, e.g.
 					// 'processed 12248 insns (limit 1000000) ...'.
-					for n, p := range coll.Programs {
+					// Sort by program names for stable output.
+					names := make([]string, 0, len(coll.Programs))
+					for n := range coll.Programs {
+						names = append(names, n)
+					}
+					sort.Strings(names)
+					for _, n := range names {
+						p := coll.Programs[n]
 						p.VerifierLog = strings.TrimRight(p.VerifierLog, "\n")
 						// Offset points at the last newline, increment by 1 to skip it.
 						// Turn a -1 into a 0 if there are no newlines in the log.

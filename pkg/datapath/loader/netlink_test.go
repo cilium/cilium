@@ -42,9 +42,10 @@ func mustTCProgram(t *testing.T) *ebpf.Program {
 	return p
 }
 
-func mustXDPProgram(t *testing.T) *ebpf.Program {
+func mustXDPProgram(t *testing.T, name string) *ebpf.Program {
 	p, err := ebpf.NewProgram(&ebpf.ProgramSpec{
 		Type: ebpf.XDP,
+		Name: name,
 		Instructions: asm.Instructions{
 			asm.Mov.Imm(asm.R0, 0),
 			asm.Return(),
@@ -370,7 +371,8 @@ func TestAttachRemoveTCProgram(t *testing.T) {
 
 		prog := mustTCProgram(t)
 
-		err = attachTCProgram(dummy, prog, "test", directionToParent(dirEgress))
+		bpffs := testutils.TempBPFFS(t)
+		err = attachTCProgram(dummy, prog, "test", bpffsDeviceLinksDir(bpffs, dummy), directionToParent(dirEgress))
 		require.NoError(t, err)
 
 		filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))

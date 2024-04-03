@@ -347,6 +347,62 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 	}
 }
 
+func TestGetEnvoyHTTPRouteConfiguration_VirtualHostSorted(t *testing.T) {
+	defT := &cecTranslator{}
+
+	routes := []model.HTTPRoute{
+		{
+			Backends: []model.Backend{
+				{
+					Name:      "default-backend",
+					Namespace: "random-namespace",
+					Port: &model.BackendPort{
+						Port: 8080,
+					},
+				},
+			},
+		},
+	}
+
+	l1 := []model.HTTPListener{
+		{
+			Port:                     443,
+			Hostname:                 "foo.bar",
+			ForceHTTPtoHTTPSRedirect: true,
+			Routes:                   routes,
+		},
+		{
+			Port:     443,
+			Hostname: "bar.foo",
+			Routes:   routes,
+		},
+	}
+
+	l2 := []model.HTTPListener{
+		{
+			Port:     443,
+			Hostname: "bar.foo",
+			Routes:   routes,
+		},
+		{
+			Port:                     443,
+			Hostname:                 "foo.bar",
+			ForceHTTPtoHTTPSRedirect: true,
+			Routes:                   routes,
+		},
+	}
+
+	res1 := defT.getEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l1})
+	res2 := defT.getEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l2})
+
+	diffOutput := cmp.Diff(res1, res2, protocmp.Transform())
+	if len(diffOutput) != 0 {
+		t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
+	}
+
+	// assert.Equal(t, res1, res2)
+}
+
 func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 	type args struct {
 		m *model.Model

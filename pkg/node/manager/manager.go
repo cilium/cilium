@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -75,6 +76,11 @@ type IPCache interface {
 	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
 }
 
+// IPSetFilterFn is a function allowing to optionally filter out the insertion
+// of IPSet entries based on node characteristics. The insertion is performed
+// if the function returns false, and skipped otherwise.
+type IPSetFilterFn func(*nodeTypes.Node) bool
+
 var _ Notifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
@@ -121,7 +127,8 @@ type manager struct {
 	ipcache IPCache
 
 	// ipsetMgr is the ipset cluster nodes configuration manager
-	ipsetMgr ipsetManager
+	ipsetMgr    ipset.Manager
+	ipsetFilter IPSetFilterFn
 
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
@@ -254,7 +261,11 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetFilter IPSetFilterFn, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+	if ipsetFilter == nil {
+		ipsetFilter = func(*nodeTypes.Node) bool { return false }
+	}
+
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -262,6 +273,7 @@ func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipsetManager, nodeMet
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
 		ipsetMgr:          ipsetMgr,
+		ipsetFilter:       ipsetFilter,
 		metrics:           nodeMetrics,
 		healthScope:       healthScope,
 	}
@@ -381,26 +393,6 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 	}
 }
 
-// legacyNodeIpBehavior returns true if the agent is still running in legacy
-// mode regarding node IPs
-func (m *manager) legacyNodeIpBehavior() bool {
-	// Cilium < 1.7 only exposed the Cilium internalIP to the ipcache
-	// unless encryption was enabled. This meant that for the majority of
-	// node IPs, CIDR policy rules would apply. With the introduction of
-	// remote-node identities, all node IPs were suddenly added to the
-	// ipcache. This resulted in a behavioral change. New deployments will
-	// provide this behavior out of the gate, existing deployments will
-	// have to opt into this by enabling remote-node identities.
-	if m.conf.RemoteNodeIdentitiesEnabled() {
-		return false
-	}
-	// Needed to store the SPI for nodes in the ipcache.
-	if m.conf.NodeEncryptionEnabled() {
-		return false
-	}
-	return true
-}
-
 func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 	// If the host firewall is enabled, all traffic to remote nodes must go
 	// through the tunnel to preserve the source identity as part of the
@@ -438,43 +430,36 @@ func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptK
 	return ipcacheTypes.EncryptKey(n.EncryptionKey)
 }
 
-func (m *manager) nodeAddressSkipsIPCache(address nodeTypes.Address) bool {
-	return m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP
-}
-
 func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels, hasOverride bool) {
 	nodeLabels = labels.NewFrom(labels.LabelRemoteNode)
-	if m.conf.RemoteNodeIdentitiesEnabled() {
-		if n.IsLocal() {
-			nodeLabels = labels.NewFrom(labels.LabelHost)
-			if m.conf.PolicyCIDRMatchesNodes() {
-				for _, address := range n.IPAddresses {
-					addr, ok := ip.AddrFromIP(address.IP)
-					if ok {
-						bitLen := addr.BitLen()
-						if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
-							m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
-							prefix, err := addr.Prefix(bitLen)
-							if err == nil {
-								cidrLabels := labels.GetCIDRLabels(prefix)
-								nodeLabels.MergeLabels(cidrLabels)
-							}
+	if n.IsLocal() {
+		nodeLabels = labels.NewFrom(labels.LabelHost)
+		if m.conf.PolicyCIDRMatchesNodes() {
+			for _, address := range n.IPAddresses {
+				addr, ok := ip.AddrFromIP(address.IP)
+				if ok {
+					bitLen := addr.BitLen()
+					if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
+						m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
+						prefix, err := addr.Prefix(bitLen)
+						if err == nil {
+							cidrLabels := labels.GetCIDRLabels(prefix)
+							nodeLabels.MergeLabels(cidrLabels)
 						}
 					}
 				}
 			}
-		} else if !identity.NumericIdentity(n.NodeIdentity).IsReservedIdentity() {
-			// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
-			nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
-			hasOverride = true
-		} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
-			lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
-			filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
-			nodeLabels.MergeLabels(filteredLbls)
 		}
-	} else {
-		nodeLabels = labels.NewFrom(labels.LabelHost)
+	} else if !identity.NumericIdentity(n.NodeIdentity).IsReservedIdentity() {
+		// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
+		nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
+		hasOverride = true
+	} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
+		lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
+		filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
+		nodeLabels.MergeLabels(filteredLbls)
 	}
+
 	return nodeLabels, hasOverride
 }
 
@@ -513,13 +498,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	for _, address := range n.IPAddresses {
 		prefix := ip.IPToNetPrefix(address.IP)
 
-		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
-			m.ipsetMgr.AddToNodeIpset(address.IP)
+		if address.Type == addressing.NodeInternalIP && !m.ipsetFilter(&n) {
 			ipsetEntries = append(ipsetEntries, prefix)
-		}
-
-		if m.nodeAddressSkipsIPCache(address) {
-			continue
 		}
 
 		var tunnelIP netip.Addr
@@ -569,6 +549,18 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		}
 		nodeIPsAdded = append(nodeIPsAdded, prefix)
 	}
+
+	var v4Addrs, v6Addrs []netip.Addr
+	for _, prefix := range ipsetEntries {
+		addr := prefix.Addr()
+		if addr.Is6() {
+			v6Addrs = append(v6Addrs, addr)
+		} else {
+			v4Addrs = append(v4Addrs, addr)
+		}
+	}
+	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
+	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
 
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
 		healthIP := ip.IPToNetPrefix(address)
@@ -692,19 +684,24 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	oldNodeLabels, oldNodeIdentityOverride := m.nodeIdentityLabels(oldNode)
 
 	// Delete the old node IP addresses if they have changed in this node.
+	var v4Addrs, v6Addrs []netip.Addr
 	for _, address := range oldNode.IPAddresses {
 		oldPrefix := ip.IPToNetPrefix(address.IP)
 		if slices.Contains(nodeIPsAdded, oldPrefix) {
 			continue
 		}
 
-		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
-			!slices.Contains(ipsetEntries, oldPrefix) {
-			m.ipsetMgr.RemoveFromNodeIpset(address.IP)
-		}
-
-		if m.nodeAddressSkipsIPCache(address) {
-			continue
+		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefix) {
+			addr, ok := ip.AddrFromIP(address.IP)
+			if !ok {
+				log.WithField(logfields.IPAddr, address.IP).Error("unable to convert to netip.Addr")
+				continue
+			}
+			if addr.Is6() {
+				v6Addrs = append(v6Addrs, addr)
+			} else {
+				v4Addrs = append(v4Addrs, addr)
+			}
 		}
 
 		var oldTunnelIP netip.Addr
@@ -725,6 +722,9 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			m.ipcache.RemoveIdentityOverride(oldPrefix, oldNodeLabels, resource)
 		}
 	}
+
+	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
+	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
 
 	// Delete the old health IP addresses if they have changed in this node.
 	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {

@@ -15,10 +15,37 @@ to "advertise" the node's IPs directly inside a Service LoadBalancer. This featu
 is especially useful if you don't control the network you are running on and can't
 use either the L2 or BGP capabilities of Cilium.
 
-It works by getting the Node addresses of the selected pods and advertising them.
+It works by getting the Node addresses of the selected Nodes and advertising them.
 It will respect the ``.spec.ipFamilies`` to decide if IPv4 or IPv6 addresses
 shall be used and will use the ``ExternalIP`` addresses if any or the
 ``InternalIP`` addresses otherwise.
+
+If the Service has ``.spec.externalTrafficPolicy`` set to ``Cluster``, Node IPAM
+considers all nodes as candidates for selection. Otherwise, if
+``.spec.externalTrafficPolicy`` is set to ``Local``, then Node IPAM considers
+all the Pods selected by the Service (via their EndpointSlices) as candidates.
+
+.. warning::
+    Node IPAM does not work properly if ``.spec.externalTrafficPolicy`` is set
+    to ``Local`` but no EndpointSlice (or dummy EndpointSlice) is linked to
+    the corresponding Service.
+
+    As a result, you **cannot** set ``.spec.externalTrafficPolicy`` to ``Local``
+    with the Cilium implementations for GatewayAPI or Ingress, because Cilium
+    currently uses a dummy Endpoints for the Service LoadBalancer (see
+    <https://github.com/cilium/cilium/blob/495f228ad8791c89f0851e0abbad90f09b136f80/install/kubernetes/cilium/templates/cilium-ingress-service.yaml#L58>`_).
+    Only the Cilium implementation is known to be affected by this limitation.
+    Most other implementations are expected to work with this configuration.
+    If they don't, check if the matching EndpointSlices look correct and/or
+    try setting ``.spec.externalTrafficPolicy`` to ``Cluster``.
+
+To restrict the Nodes that should listen for incoming traffic, add annotation
+``io.cilium.nodeipam/match-node-labels`` to the Service. The value of the
+annotation is a
+`Label Selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`__.
+
+Enable and use Node IPAM
+------------------------
 
 To use this feature your service must be of type ``LoadBalancer`` and have the
 `loadBalancerClass <https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__
@@ -33,7 +60,7 @@ To install Cilium with the node IPAM, run:
      --namespace kube-system \\
      --set nodeIPAM.enabled=true
 
-To enable the node IPAM on an existing installation, run:
+To enable node IPAM on an existing installation, run:
 
 .. parsed-literal::
 

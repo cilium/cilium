@@ -171,7 +171,6 @@ static __always_inline __be32 compute_icmp6_csum(char data[80], __u16 payload_le
 	return sum;
 }
 
-#ifdef HAVE_CHANGE_TAIL
 static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 						      int nh_off)
 {
@@ -256,13 +255,11 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 
 	return icmp6_send_reply(ctx, nh_off);
 }
-#endif
 
 #ifndef SKIP_ICMPV6_HOPLIMIT_HANDLING
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
 int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
-# ifdef HAVE_CHANGE_TAIL
 	int ret, nh_off = ctx_load_and_clear_meta(ctx, 0);
 	enum metric_dir direction  = (enum metric_dir)ctx_load_meta(ctx, 1);
 
@@ -271,9 +268,6 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      direction);
 	return ret;
-# else
-	return 0;
-# endif
 }
 
 /*

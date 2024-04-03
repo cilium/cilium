@@ -292,6 +292,7 @@ func catCommands() []string {
 		"/var/log/daemon.log",
 		"/var/log/messages",
 		"/var/run/cilium/cilium-cni.log",
+		"/proc/sys/kernel/random/boot_id",
 	}
 	// Only print the files that do exist to reduce number of errors in
 	// archive
@@ -384,6 +385,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	ciliumCommands := []string{
 		fmt.Sprintf("cilium-dbg debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium-dbg metrics list",
+		"cilium-dbg bpf metrics list",
 		"cilium-dbg fqdn cache list",
 		"cilium-dbg config -a",
 		"cilium-dbg encrypt status",

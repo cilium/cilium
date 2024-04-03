@@ -30,10 +30,12 @@ DTrace
 Dangaard
 Datadog
 Dataplane
+Deconfigure
 Dinan
 Dockerfile
 Dockerfiles
 Donenfeld
+ECMP
 ENI
 Efx
 Engleder
@@ -136,6 +138,7 @@ Yunsong
 Zannoni
 Zhou
 aarch
+addr
 alibabacloud
 allocatable
 allocateLoadBalancerNodePorts
@@ -149,6 +152,7 @@ api
 apiKey
 apiKeys
 apiserver
+ariane
 arithmetics
 artii
 asm
@@ -380,6 +384,7 @@ impactful
 ingressing
 init
 initContainer
+initialDelaySeconds
 inlined
 inlines
 inlining
@@ -487,6 +492,7 @@ mainboard
 makefile
 mana
 masq
+matchExpressions
 matchLabels
 matchPattern
 maxUnavailable
@@ -507,6 +513,7 @@ mountPath
 mov
 mtk
 mul
+multicast
 multicore
 multihoming
 musl
@@ -731,6 +738,7 @@ unix
 unlabel
 unmanaged
 unmigrated
+unselect
 unsettable
 untriaged
 untrusted
@@ -782,4 +790,3 @@ xt
 xwing
 yaml
 zsh
-matchExpressions

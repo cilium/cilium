@@ -298,14 +298,25 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
+	li1 := identity.IdentityScopeLocal
+	li2 := li1 + 1
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
+
+		li1: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.1/32")).LabelArray(),
+		li2: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.0/8")).LabelArray(),
 	}, nil, wg)
 	wg.Wait()
 
-	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
-	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
+	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceAny))
+	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceAny))
+
+	// Test both exact and broader CIDR selectors
+	cidr32Selector := api.NewESFromLabels(labels.NewLabel("cidr:10.0.0.1/32", "", labels.LabelSourceCIDR))
+	cidr24Selector := api.NewESFromLabels(labels.NewLabel("cidr:10.0.0.0/24", "", labels.LabelSourceCIDR))
+	cidr8Selector := api.NewESFromLabels(labels.NewLabel("cidr:10.0.0.0/8", "", labels.LabelSourceCIDR))
+	cidr7Selector := api.NewESFromLabels(labels.NewLabel("cidr:10.0.0.0/7", "", labels.LabelSourceCIDR))
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddIdentitySelector(testSelector)
@@ -323,6 +334,18 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	selections2 := cached2.GetSelections()
 	c.Assert(len(selections2), Equals, 1)
 	c.Assert(selections2[0], Equals, identity.NumericIdentity(2345))
+
+	shouldSelect := func(sel api.EndpointSelector, wantIDs ...identity.NumericIdentity) {
+		csel := user1.AddIdentitySelector(sel)
+		selections := csel.GetSelections()
+		c.Assert(selections, checker.DeepEquals, identity.NumericIdentitySlice(wantIDs))
+		user1.RemoveSelector(csel)
+	}
+
+	shouldSelect(cidr32Selector, li1)
+	shouldSelect(cidr24Selector, li1)
+	shouldSelect(cidr8Selector, li1, li2)
+	shouldSelect(cidr7Selector, li1, li2)
 
 	user1.RemoveSelector(cached)
 	user1.RemoveSelector(cached2)
@@ -342,8 +365,8 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	}, nil, wg)
 	wg.Wait()
 
-	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
-	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
+	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceAny))
+	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceAny))
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddIdentitySelector(testSelector)

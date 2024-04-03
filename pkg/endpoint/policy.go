@@ -89,18 +89,25 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 }
 
 // proxyID returns a unique string to identify a proxy mapping,
-// and the resolved destination port number, if any.
+// and the resolved destination port and protocol numbers, if any.
 // Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16) {
+func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16, uint8) {
 	port := uint16(l4.Port)
+	protocol := uint8(l4.U8Proto)
+	// Calculate protocol if it is 0 (default) and
+	// is not "ANY" (that is, it was not calculated).
+	if protocol == 0 && !l4.Protocol.IsAny() {
+		proto, _ := u8proto.ParseProtocol(string(l4.Protocol))
+		protocol = uint8(proto)
+	}
 	if port == 0 && l4.PortName != "" {
-		port = e.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
+		port = e.GetNamedPort(l4.Ingress, l4.PortName, protocol)
 		if port == 0 {
-			return "", 0
+			return "", 0, 0
 		}
 	}
 
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port
+	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port, protocol
 }
 
 var unrealizedRedirect = errors.New("Proxy port for redirect not found")
@@ -122,10 +129,6 @@ func (e *Endpoint) LookupRedirectPort(ingress bool, protocol string, port uint16
 func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
 	// Skip updating the NetworkPolicy if no identity has been computed for this
 	// endpoint.
-	// This breaks a circular dependency between configuring NetworkPolicies in
-	// sidecar Envoy proxies and those proxies needing network connectivity
-	// to get their initial configuration, which is required for them to ACK
-	// the NetworkPolicies.
 	if e.SecurityIdentity == nil {
 		return nil, nil
 	}
@@ -698,7 +701,6 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	}
 
 	go func() {
-
 		// Free up resources with context.
 		defer cFunc()
 

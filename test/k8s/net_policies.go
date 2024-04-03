@@ -40,6 +40,8 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename       string
 		demoPath             string
 		l3Policy             string
+		l7Policy             string
+		l7PolicyDefAllow     string
 		connectivityCheckYml string
 
 		app1Service = "app1-service"
@@ -52,6 +54,8 @@ var _ = SkipDescribeIf(func() bool {
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
+		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
+		l7PolicyDefAllow = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-allow.yaml")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
@@ -335,6 +339,41 @@ var _ = SkipDescribeIf(func() bool {
 
 				By("Importing policy using named ports which selects app1; proxy-visibility annotation should remain")
 			})
+
+			It("Tests proxy visibility with L7 rules", func() {
+				By("Creating a l7 policy for the pod")
+				_, err := kubectl.CiliumPolicyAction(
+					namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(),
+					"policy %s cannot be applied in %q namespace", l3Policy, namespaceForTest)
+
+				By("Checking that traffic is proxied")
+				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
+
+				By("Checking that ping is blocked")
+				res := kubectl.ExecPodCmd(
+					namespaceForTest, appPods[helpers.App2],
+					helpers.Ping(app1PodIP))
+				res.ExpectFail("Ingrress ping connectivity should be denied for pod %q", helpers.App2)
+			})
+
+			It("Tests proxy visibility with L7 default-allow rules", func() {
+				By("Creating a l7 policy with default-allow for the pod")
+				_, err := kubectl.CiliumPolicyAction(
+					namespaceForTest, l7PolicyDefAllow, helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(),
+					"policy %s cannot be applied in %q namespace", l3Policy, namespaceForTest)
+
+				By("Checking that traffic is proxied")
+				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
+
+				By("Checking that ping is allowed")
+				res := kubectl.ExecPodCmd(
+					namespaceForTest, appPods[helpers.App2],
+					helpers.Ping(app1PodIP))
+				res.ExpectSuccess("Ingrress ping connectivity should be allowed for pod %q", helpers.App2)
+
+			})
 		})
 	})
 
@@ -387,17 +426,13 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			BeforeAll(func() {
-				opts := map[string]string{
-					"routingMode":          "native",
-					"autoDirectNodeRoutes": "true",
+				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+					map[string]string{
+						"routingMode":          "native",
+						"autoDirectNodeRoutes": "true",
 
-					"hostFirewall.enabled": "true",
-				}
-				if helpers.RunsWithKubeProxyReplacement() {
-					// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-					opts["enableIPv6Masquerade"] = "false"
-				}
-				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg, opts)
+						"hostFirewall.enabled": "true",
+					})
 
 				By("Retrieving backend pod and outside node IP addresses")
 				outsideNodeName, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
@@ -646,7 +681,6 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			var (
-				cnpFromEntitiesHost       string
 				cnpFromEntitiesRemoteNode string
 				cnpFromEntitiesCluster    string
 				cnpFromEntitiesAll        string
@@ -660,7 +694,6 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			BeforeAll(func() {
-				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
 				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
 				cnpFromEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-cluster.yaml")
 				cnpFromEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-all.yaml")
@@ -752,34 +785,11 @@ var _ = SkipDescribeIf(func() bool {
 				wg.Wait()
 			}
 
-			Context("with remote-node identity disabled", func() {
-				BeforeAll(func() {
-					By("Reconfiguring Cilium to disable remote-node identity")
-					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
-						map[string]string{
-							"remoteNodeIdentity":   "false",
-							"enableIPv4Masquerade": "false",
-							"enableIPv6Masquerade": "false",
-							"bpf.masquerade":       "false",
-						})
-				})
-
-				It("Allows from all hosts with cnp fromEntities host policy", func() {
-
-					By("Installing fromEntities host policy")
-					importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
-
-					By("Checking policy correctness")
-					validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
-				})
-			})
-
 			Context("with remote-node identity enabled", func() {
 				BeforeAll(func() {
 					By("Reconfiguring Cilium to enable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"remoteNodeIdentity":   "true",
 							"enableIPv4Masquerade": "false",
 							"enableIPv6Masquerade": "false",
 							"bpf.masquerade":       "false",
@@ -1074,6 +1084,9 @@ var _ = SkipDescribeIf(func() bool {
 			egressDenyAllPolicy  string
 			allowIngressPolicy   string
 			allowAllPolicy       string
+
+			// non-default-deny policies
+			egressAllowApiDefaultAllow string
 		)
 
 		BeforeAll(func() {
@@ -1084,6 +1097,7 @@ var _ = SkipDescribeIf(func() bool {
 			ingressDenyAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-ingress.yaml")
 			allowIngressPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-update-allow-ingress.yaml")
 			allowAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-update-allow-all.yaml")
+			egressAllowApiDefaultAllow = helpers.ManifestGet(kubectl.BasePath(), "ccnp-allow-apiserver-default-allow.yaml")
 
 			demoManifestNS1 = fmt.Sprintf("%s -n %s", demoPath, firstNS)
 			demoManifestNS2 = fmt.Sprintf("%s -n %s", demoPath, secondNS)
@@ -1293,6 +1307,88 @@ var _ = SkipDescribeIf(func() bool {
 				ingressDenyAllPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be deleted", ingressDenyAllPolicy)
+		})
+
+		It("Tests connectivity with default-allow policies", func() {
+
+			// Cases:
+			// 1: default-allow policy allows all traffic
+			// 2: creating a default-deny policy flips this
+			// 3: Without default deny, explicit Deny rules take precedence
+
+			// case 1: default-allow policy
+			By("Creating a default-allow policy that allows apiserver access")
+			_, err := kubectl.CiliumClusterwidePolicyAction(
+				egressAllowApiDefaultAllow, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be applied", egressDenyAllPolicy)
+
+			app2 := appPodsFirstNS[helpers.App2]
+			app1 := appPodsFirstNS[helpers.App1]
+
+			By("Testing that app2 can connect to the apiserver")
+			res := kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail("https://kubernetes.default.svc.cluster.local/healthz"))
+			res.ExpectSuccess("Connectivity should be allowed from %s to apiserver in %s", app2, firstNS)
+
+			By("Testing connectivity from %q to %q in %q namespace without explicit allow", app2, app1, firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectSuccess("Connectivity should be allowed from %s to %s in ns %s", app2, app1, firstNS)
+
+			// case 2: default-allow policy allows apiserver, default-deny policy allows nothing
+			// so only apiserver should be allowed
+			By("Creating a default-deny policy in namespace %s", firstNS)
+			denyEgress := helpers.ManifestGet(kubectl.BasePath(), "cnp-default-deny-egress.yaml")
+			_, err = kubectl.CiliumPolicyAction(
+				firstNS, denyEgress, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "%q Policy cannot be applied", firstNS)
+
+			By("Testing that %s can still connect to the apiserver", helpers.App2)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail("https://kubernetes.default.svc.cluster.local/healthz"))
+			res.ExpectSuccess("Connectivity should be allowed from %s to apiserver in %s", app2, firstNS)
+
+			By("Testing connectivity from %q to %q in %q namespace is blocked", helpers.App2, helpers.App1, firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectFail("Connectivity should be denied from %s to %s in ns %s", app2, app1, firstNS)
+
+			// Back to case 1 -- delete default-deny
+			By("Deleting the default-deny egress policy")
+			_, err = kubectl.CiliumPolicyAction(
+				firstNS, denyEgress, helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "%q Policy cannot be deleted", firstNS)
+
+			By("Testing connectivity again from %q to %q in %q namespace without explicit allow", app2, app1, firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectSuccess("Connectivity should be allowed from %s to %s in ns %s", app2, app1, firstNS)
+
+			// case 3: only default-allow policy, one has EgressDeny rule.
+			// ensure that all connectivity is allowed except the explicit deny
+			By("Creating a default-allow policy that denies access to app1")
+			denyApp1 := helpers.ManifestGet(kubectl.BasePath(), "cnp-deny-to-app1-default-allow.yaml")
+			_, err = kubectl.CiliumPolicyAction(
+				firstNS, denyApp1, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "%q Policy cannot be applied", firstNS)
+
+			By("Testing connectivity again from %q to %q in %q namespace with explicit deny", app2, app1, firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectFail("Connectivity should be denied from %s to %s in ns %s", app2, app1, firstNS)
+
+			By("Testing cross namespace connectivity from %q to %q namespace", firstNS, secondNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", secondNSclusterIP)))
+			res.ExpectSuccess("Connectivity should be allowed from %s to %s in ns %s", app2, secondNSclusterIP, firstNS)
 		})
 	})
 

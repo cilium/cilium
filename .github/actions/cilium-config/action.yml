@@ -31,6 +31,9 @@ inputs:
   encryption-node:
     description: 'Enable node-to-node encryption (WireGuard only)'
     default: false
+  encryption-overlay:
+    description: 'Encrypt the overlay itself (IPsec only)'
+    default: false
   egress-gateway:
     description: 'Enable egress gateway'
     default: false
@@ -68,7 +71,7 @@ runs:
             --helm-set=bpf.monitorAggregation=none \
             --helm-set=cluster.name=default \
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
-            --nodes-without-cilium=kind-worker3 \
+            --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
             --set='${{ inputs.misc }}'"
 
@@ -137,6 +140,9 @@ runs:
             ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ inputs.encryption }}"
             if [ "${{ inputs.encryption-node }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ inputs.encryption-node }}"
+            fi
+            if [ "${{ inputs.encryption-overlay }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.ipsec.encryptedOverlay=${{ inputs.encryption-overlay }}"
             fi
           fi
 

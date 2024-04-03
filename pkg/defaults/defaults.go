@@ -244,6 +244,11 @@ const (
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher = true
 
+	// Enable IPSec encrypted overlay
+	//
+	// This feature will encrypt overlay traffic before it leaves the cluster.
+	EnableIPSecEncryptedOverlay = false
+
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false
@@ -310,9 +315,6 @@ const (
 	// KVStoreStaleLockTimeout is the timeout for when a lock is held for
 	// a kvstore path for too long.
 	KVStoreStaleLockTimeout = 30 * time.Second
-
-	// IPAllocationTimeout is the timeout when allocating CIDRs
-	IPAllocationTimeout = 2 * time.Minute
 
 	// PolicyQueueSize is the default queue size for policy-related events.
 	PolicyQueueSize = 100
@@ -439,11 +441,11 @@ const (
 	// policy updates are invoked.
 	PolicyTriggerInterval = 1 * time.Second
 
-	// K8sClientQPSLimit is the default qps for the k8s client. It is set to 0 because the the k8s client
+	// K8sClientQPSLimit is the default qps for the k8s client. It is set to 0 because the k8s client
 	// has its own default.
 	K8sClientQPSLimit float32 = 0.0
 
-	// K8sClientBurst is the default burst for the k8s client. It is set to 0 because the the k8s client
+	// K8sClientBurst is the default burst for the k8s client. It is set to 0 because the k8s client
 	// has its own default.
 	K8sClientBurst = 0
 
@@ -469,9 +471,6 @@ const (
 	// CertsDirectory is the default directory used to find certificates
 	// specified in the L7 policies.
 	CertsDirectory = RuntimePath + "/certs"
-
-	// EnableRemoteNodeIdentity is the default value for option.EnableRemoteNodeIdentity
-	EnableRemoteNodeIdentity = true
 
 	// IPAMExpiration is the timeout after which an IP subject to expiratio
 	// is being released again if no endpoint is being created in time.

@@ -108,16 +108,18 @@ func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry) (*Allo
 	n.allocator.mutex.RLock()
 	defer n.allocator.mutex.RUnlock()
 	return &AllocationAction{
-		PoolID:                 testPoolID,
-		AvailableForAllocation: n.allocator.poolSize - n.allocator.allocatedIPs,
+		PoolID: testPoolID,
+		IPv4: IPAllocationAction{
+			AvailableForAllocation: n.allocator.poolSize - n.allocator.allocatedIPs,
+		},
 	}, nil
 }
 
 func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *AllocationAction) error {
 	n.mutex.Lock()
 	n.allocator.mutex.Lock()
-	n.allocator.allocatedIPs += allocation.AvailableForAllocation
-	for i := 0; i < allocation.AvailableForAllocation; i++ {
+	n.allocator.allocatedIPs += allocation.IPv4.AvailableForAllocation
+	for i := 0; i < allocation.IPv4.AvailableForAllocation; i++ {
 		n.allocator.ipGenerator++
 		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("%d", n.allocator.ipGenerator))
 	}
@@ -333,8 +335,8 @@ func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
 	mngr.Upsert(updateCiliumNode(cn, 7))
@@ -342,8 +344,8 @@ func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 
 	node = mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 15)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 7)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 15)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 7)
 }
 
 // TestNodeManagerMinAllocate20 tests MinAllocate without PreAllocate
@@ -364,8 +366,8 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 	node := mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// 10 available, 8 used
 	mngr.Upsert(updateCiliumNode(cn, 8))
@@ -373,8 +375,8 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 8)
 
 	// Change MinAllocate to 20
 	mngr.Upsert(newCiliumNode("node2", 0, 20, 8))
@@ -382,8 +384,8 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().UsedIPs, check.Equals, 8)
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 20)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 20)
 }
 
 // TestNodeManagerMinAllocateAndPreallocate tests MinAllocate in combination with PreAllocate
@@ -404,32 +406,32 @@ func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 
 	node := mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 9 out of 10 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 9))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 9)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 9)
 
 	// Use 10 out of 10 IPs, PreAllocate 1 must kick in and allocate an additional IP
 	mngr.Upsert(updateCiliumNode(cn, 10))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 11)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 11)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 10)
 
 	// Release some IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 11)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 8)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 11)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 8)
 }
 
 // TestNodeManagerReleaseAddress tests PreAllocate, MinAllocate and MaxAboveWatermark
@@ -454,32 +456,32 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 
 	node := mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 19)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 19)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 11 out of 19 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 11))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 19)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 11)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 19)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 11)
 
 	// Use 19 out of 19 IPs, PreAllocate 4 + MaxAboveWatermark must kick in and allocate 8 additional IPs
 	mngr.Upsert(updateCiliumNode(cn, 19))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 27)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 19)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 27)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 19)
 
 	// Free some IPs, 5 excess IPs appears but only be released at interval based resync, so expect timeout here
 	mngr.Upsert(updateCiliumNode(cn, 10))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second), check.Not(check.IsNil))
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 27)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 27)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 10)
 
 	// Trigger resync manually, excess IPs should be released down to 18
 	// (10 used + 4 prealloc + 4 max-above-watermark)
@@ -502,8 +504,8 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 19)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 19)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 10)
 }
 
 // TestNodeManagerAbortRelease tests aborting IP release handshake if a new allocation on the node results in excess
@@ -524,22 +526,22 @@ func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
 
 	node := mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 3)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 3)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 
 	// Use 3 out of 4 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 3))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 3)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 4)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 3)
 
 	mngr.Upsert(updateCiliumNode(node.resource, 2))
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 2)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 4)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 2)
 
 	// Trigger resync manually, excess IPs should be released down to 3
 	// Excess timestamps should be registered after this trigger
@@ -577,8 +579,8 @@ func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
 	wg.Wait()
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
-	c.Assert(node.Stats().UsedIPs, check.Equals, 3)
+	c.Assert(node.Stats().IPv4.AvailableIPs, check.Equals, 4)
+	c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 3)
 }
 
 type nodeState struct {
@@ -618,11 +620,11 @@ func (e *IPAMSuite) TestNodeManagerManyNodes(c *check.C) {
 
 		node := mngr.Get(s.name)
 		c.Assert(node, check.Not(check.IsNil))
-		if node.Stats().AvailableIPs != minAllocate {
-			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
+		if node.Stats().IPv4.AvailableIPs != minAllocate {
+			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().IPv4.AvailableIPs)
 			c.Fail()
 		}
-		c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+		c.Assert(node.Stats().IPv4.UsedIPs, check.Equals, 0)
 	}
 
 	// The above check returns as soon as the address requirements are met.

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -61,6 +62,14 @@ type progDefinition struct {
 	direction string
 }
 
+type replaceDatapathOptions struct {
+	device   string           // name of the netlink interface we attach to
+	elf      string           // path to object file
+	programs []progDefinition // programs that we want to attach/replace
+	xdpMode  string           // XDP driver mode, only applies when attaching XDP programs
+	linkDir  string           // path to bpffs dir holding bpf_links for the device/endpoint
+}
+
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
 //
 // When successful, returns a finalizer to allow the map cleanup operation to be
@@ -74,25 +83,29 @@ type progDefinition struct {
 // For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
-func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDefinition, xdpMode string) (_ func(), err error) {
+func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func(), err error) {
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	link, err := netlink.LinkByName(ifName)
-	if err != nil {
-		return nil, fmt.Errorf("getting interface %s by name: %w", ifName, err)
+	if opts.linkDir == "" {
+		return nil, errors.New("opts.linkDir not set in replaceDatapath")
 	}
 
-	l := log.WithField("device", ifName).WithField("objPath", objPath).
+	link, err := netlink.LinkByName(opts.device)
+	if err != nil {
+		return nil, fmt.Errorf("getting interface %s by name: %w", opts.device, err)
+	}
+
+	l := log.WithField("device", opts.device).WithField("objPath", opts.elf).
 		WithField("ifindex", link.Attrs().Index)
 
 	// Load the ELF from disk.
 	l.Debug("Loading CollectionSpec from ELF")
-	spec, err := bpf.LoadCollectionSpec(objPath)
+	spec, err := bpf.LoadCollectionSpec(opts.elf)
 	if err != nil {
-		return nil, fmt.Errorf("loading eBPF ELF: %w", err)
+		return nil, fmt.Errorf("loading eBPF ELF %s: %w", opts.elf, err)
 	}
 
 	revert := func() {
@@ -103,7 +116,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		}
 	}
 
-	for _, prog := range progs {
+	for _, prog := range opts.programs {
 		if spec.Programs[prog.progName] == nil {
 			return nil, fmt.Errorf("no program %s found in eBPF ELF", prog.progName)
 		}
@@ -154,14 +167,14 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	// bpffs in the process.
 	finalize := func() {}
 	pinPath := bpf.TCGlobalsPath()
-	opts := ebpf.CollectionOptions{
+	collOpts := ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{PinPath: pinPath},
 	}
 	if err := bpf.MkdirBPF(pinPath); err != nil {
 		return nil, fmt.Errorf("creating bpffs pin path: %w", err)
 	}
 	l.Debug("Loading Collection into kernel")
-	coll, err := bpf.LoadCollection(spec, opts)
+	coll, err := bpf.LoadCollection(spec, collOpts)
 	if errors.Is(err, ebpf.ErrMapIncompatible) {
 		// Temporarily rename bpffs pins of maps whose definitions have changed in
 		// a new version of a datapath ELF.
@@ -179,7 +192,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 		// Retry loading the Collection after starting map migration.
 		l.Debug("Retrying loading Collection into kernel after map migration")
-		coll, err = bpf.LoadCollection(spec, opts)
+		coll, err = bpf.LoadCollection(spec, collOpts)
 	}
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
@@ -221,19 +234,19 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 	// Finally, attach the endpoint's tc or xdp entry points to allow traffic to
 	// flow in.
-	for _, prog := range progs {
+	for _, prog := range opts.programs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
-		if xdpMode != "" {
-			linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
-			if err := bpf.MkdirBPF(linkDir); err != nil {
-				return nil, fmt.Errorf("creating bpffs link dir for device %s: %w", link.Attrs().Name, err)
-			}
 
+		if err := bpf.MkdirBPF(opts.linkDir); err != nil {
+			return nil, fmt.Errorf("creating bpffs link dir for device %s: %w", link.Attrs().Name, err)
+		}
+
+		if opts.xdpMode != "" {
 			scopedLog.Debug("Attaching XDP program to interface")
-			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, linkDir, xdpConfigModeToFlag(xdpMode))
+			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, xdpConfigModeToFlag(opts.xdpMode))
 		} else {
 			scopedLog.Debug("Attaching TC program to interface")
-			err = attachTCProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction))
+			err = attachTCProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, directionToParent(prog.direction))
 		}
 
 		if err != nil {
@@ -276,9 +289,22 @@ func resolveAndInsertCalls(coll *ebpf.Collection, mapName string, calls []ebpf.M
 }
 
 // attachTCProgram attaches the TC program 'prog' to link.
-func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName string, qdiscParent uint32) error {
+func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName, bpffsDir string, qdiscParent uint32) error {
 	if prog == nil {
 		return errors.New("cannot attach a nil program")
+	}
+
+	// Remove tcx bpf_links created by newer versions of Cilium. They cannot be
+	// overwritten by netlink-based tc attachments, as tcx is a separate hook
+	// altogether. Remove the tcx link first to avoid tc programs being run twice
+	// for every packet. This cannot be done seamlessly and will cause a small
+	// window of connection interruption.
+	pin := filepath.Join(bpffsDir, progName)
+	if err := os.Remove(pin); err == nil {
+		log.WithField("device", link.Attrs().Name).WithField("pinPath", pin).
+			Info("Removed tcx link before legacy tc downgrade, possible connectivity interruption")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 	}
 
 	if err := replaceQdisc(link); err != nil {
@@ -745,6 +771,9 @@ func ensureDevice(sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error
 	l, err := netlink.LinkByName(name)
 	if err != nil {
 		if err := netlink.LinkAdd(attrs); err != nil {
+			if errors.Is(err, unix.ENOTSUP) {
+				err = fmt.Errorf("%w, maybe kernel module for %s is not available?", err, attrs.Type())
+			}
 			return nil, fmt.Errorf("creating device %s: %w", name, err)
 		}
 

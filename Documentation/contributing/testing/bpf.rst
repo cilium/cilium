@@ -27,18 +27,11 @@ To run the tests in your local environment, execute the following command from t
 
 .. code-block:: shell-session
 
-    $ make -C test run_bpf_tests
-
-The output is verbose by default. Verbose mode can be disabled by setting the ``V`` option to ``0``:
-
-.. code-block:: shell-session
-
-    $ make -C test run_bpf_tests V=0
+    $ make run_bpf_tests
 
 .. note:: 
 
-    Running BPF tests only works on Linux machines and requires admin privileges.
-    The makefile uses sudo implicitly and may prompt you for credentials.
+    Running BPF tests requires Docker and is only expected to work on Linux.
 
 Writing tests
 =============
@@ -52,7 +45,7 @@ used for sharing code for example.
 Each ``.c`` file must at least have one ``CHECK`` program. The ``CHECK`` macro replaces the ``SEC`` which is
 typically used in BPF programs. The ``CHECK`` macro takes two arguments, the first being the program
 type (for example ``xdp`` or ``tc``. See `the list of recognized types in the Go library
-<https://github.com/cilium/ebpf/blob/49ebb13083886fc350167f2cde067e094a2b5037/elf_reader.go#L1074>`__),
+<https://github.com/cilium/ebpf/blob/v0.13.2/elf_sections.go#L9>`__),
 the second being the name of the test which will appear in the output. All macros are defined in 
 ``bpf/tests/common.h``, so all programs should start by including this file: ``#include "common.h"``.
 

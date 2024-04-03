@@ -122,7 +122,7 @@ type CachedSelectionUser interface {
 // identitySelector. Users of the SelectorCache take care of creating
 // identitySelectors as needed by identity policies. The set of
 // identitySelectors is read locked during an IdentityPolicy update so
-// that the the policy is always updated using a coherent set of
+// that the policy is always updated using a coherent set of
 // cached selections.
 //
 // identitySelector is used as a map key, so it must not be implemented by a
@@ -180,28 +180,8 @@ func (f *fqdnSelector) setSelectorIPs(ips []netip.Addr) {
 
 // matches returns true if the identity contains at least one label
 // that is in wantLabels.
-// This is reasonably efficient, as it relies on both arrays being sorted.
 func (f *fqdnSelector) matches(identity scIdentity) bool {
-	wantIdx := 0
-	checkIdx := 0
-
-	// Both arrays are sorted; walk through until we get a match
-	for wantIdx < len(f.wantLabels) && checkIdx < len(identity.lbls) {
-		want := f.wantLabels[wantIdx]
-		check := identity.lbls[checkIdx]
-		if want == check {
-			return true
-		}
-
-		// Not equal, bump
-		if check.Key < want.Key {
-			checkIdx++
-		} else {
-			wantIdx++
-		}
-	}
-
-	return false
+	return identity.lbls.Intersects(f.wantLabels)
 }
 
 type labelIdentitySelector struct {

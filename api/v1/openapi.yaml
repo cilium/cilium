@@ -2352,10 +2352,6 @@ definitions:
       mode:
         type: string
         enum:
-        - Disabled
-        - Strict
-        - Probe
-        - Partial
         - 'True'
         - 'False'
       devices:

@@ -57,5 +57,5 @@ func ExpectCiliumNotRunning(vm *helpers.SSHMeta) {
 func ExpectDockerContainersMatchCiliumEndpoints(vm *helpers.SSHMeta) {
 	ExpectWithOffset(1, vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 	ExpectWithOffset(1, vm.ValidateEndpointsAreCorrect(helpers.CiliumDockerNetwork)).To(BeNil(),
-		"Docker containers mistmach with Cilium Endpoints")
+		"Docker containers mismatch with Cilium Endpoints")
 }

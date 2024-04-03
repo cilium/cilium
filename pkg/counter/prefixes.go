@@ -135,7 +135,7 @@ func (p *PrefixLengthCounter) Add(prefixes []netip.Prefix) (bool, error) {
 	return newV4Prefixes || newV6Prefixes, nil
 }
 
-// Delete reduces references to prefix lengths in the the specified IPNets from
+// Delete reduces references to prefix lengths in the specified IPNets from
 // the counter. Returns true if removing references to these prefix lengths
 // would result in a decrese in the total number of unique prefix lengths in
 // the counter.

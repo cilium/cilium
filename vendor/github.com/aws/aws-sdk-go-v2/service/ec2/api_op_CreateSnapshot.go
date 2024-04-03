@@ -37,9 +37,9 @@ import (
 // snapshots always remain protected. You can tag your snapshots during creation.
 // For more information, see Tag your Amazon EC2 resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
 // in the Amazon Elastic Compute Cloud User Guide. For more information, see
-// Amazon Elastic Block Store (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AmazonEBS.html)
-// and Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// Amazon Elastic Block Store (https://docs.aws.amazon.com/ebs/latest/userguide/what-is-ebs.html)
+// and Amazon EBS encryption (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html)
+// in the Amazon EBS User Guide.
 func (c *Client) CreateSnapshot(ctx context.Context, params *CreateSnapshotInput, optFns ...func(*Options)) (*CreateSnapshotOutput, error) {
 	if params == nil {
 		params = &CreateSnapshotInput{}
@@ -81,8 +81,8 @@ type CreateSnapshotInput struct {
 	//   - To create a snapshot of a volume on an Outpost and store the snapshot on an
 	//   Outpost, specify the ARN of the destination Outpost. The snapshot must be
 	//   created on the same Outpost as the volume.
-	// For more information, see Create local snapshots from volumes on an Outpost (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#create-snapshot)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// For more information, see Create local snapshots from volumes on an Outpost (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#create-snapshot)
+	// in the Amazon EBS User Guide.
 	OutpostArn *string
 
 	// The tags to apply to the snapshot during creation.
@@ -113,8 +113,8 @@ type CreateSnapshotOutput struct {
 	KmsKeyId *string
 
 	// The ARN of the Outpost on which the snapshot is stored. For more information,
-	// see Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// see Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html)
+	// in the Amazon EBS User Guide.
 	OutpostArn *string
 
 	// The Amazon Web Services owner alias, from an Amazon-maintained list ( amazon ).

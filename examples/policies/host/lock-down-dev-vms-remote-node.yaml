@@ -3,7 +3,7 @@ kind: CiliumClusterwideNetworkPolicy
 metadata:
   name: "lock-down-dev-vms"
 spec:
-  description: "Lock down the development VMs when enable-remote-node-identity=true.
+  description: "Lock down the development VMs.
     USE ELSEWHERE AT YOUR OWN RISK."
   nodeSelector:
     {}

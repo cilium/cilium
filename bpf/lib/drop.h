@@ -117,7 +117,7 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	ctx_store_meta(ctx, 3, dst_id);
 	ctx_store_meta(ctx, 4, exitcode | file << 8 | line << 16);
 
-	update_metrics(ctx_full_len(ctx), direction, (__u8)reason);
+	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
 	ret = tail_call_internal(ctx, CILIUM_CALL_DROP_NOTIFY, NULL);
 	/* ignore the returned error, use caller-provided exitcode */
 
@@ -130,7 +130,7 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 		      __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
 		      __u32 reason, __u32 exitcode, enum metric_dir direction)
 {
-	update_metrics(ctx_full_len(ctx), direction, (__u8)reason);
+	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
 	return exitcode;
 }
 #endif /* DROP_NOTIFY */
@@ -163,24 +163,20 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	__DROP_REASON(err) | ((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
 })
 
-#include "../source_names_to_ids.h"
-
-#define __MAGIC_FILE__ (__u8)__source_file_name_to_id(__FILE_NAME__)
-
 #define send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __LINE__, ctx, src, dst, dst_id, \
+	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
 			  __DROP_REASON(reason), exitcode, direction)
 
 #define send_drop_notify_error(ctx, src, reason, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __LINE__, ctx, src, 0, 0, \
+	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON(reason), exitcode, direction)
 
 #define send_drop_notify_ext(ctx, src, dst, dst_id, reason, ext_err, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __LINE__, ctx, src, dst, dst_id, \
+	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
 			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
 
 #define send_drop_notify_error_ext(ctx, src, reason, ext_err, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __LINE__, ctx, src, 0, 0, \
+	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
 
 #endif /* __LIB_DROP__ */

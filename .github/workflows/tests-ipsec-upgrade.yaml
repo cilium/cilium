@@ -72,7 +72,7 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        config: ['5.4', '5.10', '6.1', 'bpf-next']
+        config: ['5.4', '5.10', '6.1', '5.15', 'bpf-next']
         mode: ['minor', 'patch']
         include:
           # Define three config sets
@@ -80,7 +80,7 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.4-20240305.092417'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
 
@@ -88,25 +88,35 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20240305.092417'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
             endpoint-routes: 'true'
+
+          - config: '5.15'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.15-20240305.092417'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-overlay: 'true'
+            endpoint-routes: 'false'
 
           - config: '6.1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '6.1-20240305.092417'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'vxlan'
             encryption: 'ipsec'
             endpoint-routes: 'false'
 
           - config: 'bpf-next'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240309.012251'
+            kernel: 'bpf-next-20240315.012542'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'vxlan'
             encryption: 'ipsec'
             endpoint-routes: 'true'
@@ -143,6 +153,14 @@ jobs:
           - config: 'bpf-next'
             mode: 'patch'
             name: '8'
+
+          - config: '5.15'
+            mode: 'minor'
+            name: '9'
+
+          - config: '5.15'
+            mode: 'patch'
+            name: '10'
 
     timeout-minutes: 70
     steps:
@@ -204,10 +222,11 @@ jobs:
         run: |
           # For private repositories requiring authentication, check that we
           # can no longer fetch from the repository.
-          if ! curl -sL \
+          if ! curl -L \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${{ github.repository }}" | \
+            tee /dev/stderr | \
             jq --exit-status '.private == false'; then
             echo 'Checking whether "git fetch" succeeds'
             if git fetch origin HEAD; then
@@ -231,6 +250,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -251,6 +271,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -258,7 +279,7 @@ jobs:
 
       - name: Install Cilium CLI
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium-cli@ca0d5a23b842d78ce3b5c79a80d546867493daf7 # v0.16.0
+        uses: cilium/cilium-cli@a9579d1afc528b085930c5237a69ee77b2c2be76 # v0.16.4
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}

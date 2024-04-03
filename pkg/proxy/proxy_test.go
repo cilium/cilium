@@ -12,10 +12,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	"github.com/cilium/cilium/pkg/proxy/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -26,7 +26,7 @@ var _ = Suite(&ProxySuite{})
 
 type MockDatapathUpdater struct{}
 
-func (m *MockDatapathUpdater) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *MockDatapathUpdater) InstallProxyRules(ctx context.Context, proxyPort uint16, localOnly bool, name string) error {
 	return nil
 }
 
@@ -42,7 +42,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := createProxy(10000, 20000, 0, mockDatapathUpdater, nil, nil)
+	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
 
 	port, err := p.AllocateProxyPort("listener1", false, true)
 	c.Assert(err, IsNil)
@@ -198,6 +198,10 @@ func (p *fakeProxyPolicy) GetPort() uint16 {
 	return uint16(80)
 }
 
+func (p *fakeProxyPolicy) GetProtocol() uint8 {
+	return uint8(u8proto.UDP)
+}
+
 func (p *fakeProxyPolicy) GetListener() string {
 	return "nonexisting-listener"
 }
@@ -210,14 +214,12 @@ func (s *ProxySuite) TestCreateOrUpdateRedirectMissingListener(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := createProxy(10000, 20000, 0, mockDatapathUpdater, nil, nil)
+	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
 
 	ep := &endpointtest.ProxyUpdaterMock{
-		Id:       1000,
-		Ipv4:     "10.0.0.1",
-		Ipv6:     "f00d::1",
-		Labels:   []string{"id.foo", "id.bar"},
-		Identity: identity.NumericIdentity(123),
+		Id:   1000,
+		Ipv4: "10.0.0.1",
+		Ipv6: "f00d::1",
 	}
 
 	l4 := &fakeProxyPolicy{}

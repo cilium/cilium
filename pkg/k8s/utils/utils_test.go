@@ -400,3 +400,106 @@ func TestSanitizePodLabels(t *testing.T) {
 		t.Errorf("Expected service account label to be deleted, got %s instead", sa)
 	}
 }
+
+func TestStripPodLabels(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   map[string]string
+	}{
+		{
+			name: "no stripped labels",
+			labels: map[string]string{
+				"app": "foo",
+			},
+			want: map[string]string{
+				"app": "foo",
+			},
+		},
+		{
+			name: "Cilium owned label",
+			labels: map[string]string{
+				"app":                            "foo",
+				"io.cilium.k8s.policy.namespace": "kube-system",
+				"io.cilium.k8s.something":        "cilium internal",
+				"io.cilium.k8s.namespace.labels.foo.bar/baz": "foobar",
+			},
+			want: map[string]string{
+				"app": "foo",
+			},
+		},
+		{
+			name: "K8s namespace label",
+			labels: map[string]string{
+				"app":                         "foo",
+				"io.kubernetes.pod.namespace": "default",
+			},
+			want: map[string]string{
+				"app": "foo",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := StripPodSpecialLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("StripPodSpecialLabels() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_filterPodLabels(t *testing.T) {
+	expectedLabels := map[string]string{
+		"app":                         "test",
+		"io.kubernetes.pod.namespace": "default",
+	}
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   map[string]string
+	}{
+		{
+			name: "normal scenario",
+			labels: map[string]string{
+				"app":                         "test",
+				"io.kubernetes.pod.namespace": "default",
+			},
+			want: expectedLabels,
+		},
+		{
+			name: "having cilium owned namespace labels",
+			labels: map[string]string{
+				"app":                         "test",
+				"io.kubernetes.pod.namespace": "default",
+				"io.cilium.k8s.namespace.labels.foo.bar/baz":                 "malicious-pod-level-override",
+				"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "kube-system",
+			},
+			want: expectedLabels,
+		},
+		{
+			name: "having cilium owned policy labels",
+			labels: map[string]string{
+				"app":                                 "test",
+				"io.kubernetes.pod.namespace":         "default",
+				"io.cilium.k8s.policy.name":           "admin",
+				"io.cilium.k8s.policy.cluster":        "admin-cluster",
+				"io.cilium.k8s.policy.derived-from":   "admin",
+				"io.cilium.k8s.policy.namespace":      "kube-system",
+				"io.cilium.k8s.policy.serviceaccount": "admin-serviceaccount",
+				"io.cilium.k8s.policy.uuid":           "6eadee3e-0121-11ed-b58d-fc3497a92ef6",
+			},
+			want: map[string]string{
+				"app":                         "test",
+				"io.kubernetes.pod.namespace": "default",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := filterPodLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("filterPodLabels() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

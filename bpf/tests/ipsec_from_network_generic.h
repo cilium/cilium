@@ -1,6 +1,16 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#define NODE_ID 2333
+#define ENCRYPT_KEY 3
+#define ENABLE_IPV4
+#define ENABLE_IPV6
+#define ENABLE_IPSEC
+#define TUNNEL_MODE
+#define ENCAP_IFINDEX 4
+#define DEST_IFINDEX 5
+#define DEST_LXC_ID 200
+
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
@@ -13,17 +23,6 @@
 #undef SECLABEL
 #undef SECLABEL_IPV4
 #undef SECLABEL_IPV6
-
-#define NODE_ID 2333
-#define ENCRYPT_KEY 3
-#define ENABLE_IPV4
-#define ENABLE_IPV6
-#define ENABLE_IPSEC
-#define TUNNEL_MODE
-#define HAVE_ENCAP
-#define ENCAP_IFINDEX 4
-#define DEST_IFINDEX 5
-#define DEST_LXC_ID 200
 
 #define ctx_redirect mock_ctx_redirect
 int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
@@ -103,6 +102,16 @@ int ipv4_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_not_decrypted_ipsec_from_network")
 int ipv4_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	/* We need to populate the node ID map because we'll lookup into it on
+	 * ingress to find the node ID to use to match against XFRM IN states.
+	 */
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_pod_one;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
 }
@@ -128,7 +137,7 @@ int ipv4_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == MARK_MAGIC_DECRYPT);
+	assert(ctx->mark == (MARK_MAGIC_DECRYPT | NODE_ID << 16));
 
 	l2 = data + sizeof(*status_code);
 
@@ -214,6 +223,25 @@ int ipv6_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_not_decrypted_ipsec_from_network")
 int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
+	/* To be able to use memcpy, we need to ensure that the memcpy'ed field is
+	 * 8B aligned on the stack. Given the existing node_ip struct, the only way
+	 * to achieve that is to align a parent tmp struct.
+	 * We can't simply use __bpf_memcpy_builtin because that causes a
+	 * relocation error in the lib.
+	 */
+	struct tmp {
+		__u32 _;
+		struct node_key k;
+	} node_ip __align_stack_8 = {};
+	__u32 node_id = NODE_ID;
+
+	/* We need to populate the node ID map because we'll lookup into it on
+	 * ingress to find the node ID to use to match against XFRM IN states.
+	 */
+	node_ip.k.family = ENDPOINT_KEY_IPV6;
+	memcpy((__u8 *)&node_ip.k.ip6, (__u8 *)v6_pod_one, 16);
+	map_update_elem(&NODE_MAP, &node_ip.k, &node_id, BPF_ANY);
+
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
 }
@@ -239,7 +267,7 @@ int ipv6_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == MARK_MAGIC_DECRYPT);
+	assert(ctx->mark == (MARK_MAGIC_DECRYPT | NODE_ID << 16));
 
 	l2 = data + sizeof(*status_code);
 

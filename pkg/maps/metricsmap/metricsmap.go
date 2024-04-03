@@ -83,9 +83,13 @@ var direction = map[uint8]string{
 
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
 type Key struct {
-	Reason   uint8     `align:"reason"`
-	Dir      uint8     `align:"dir"`
-	Reserved [3]uint16 `align:"reserved"`
+	Reason uint8 `align:"reason"`
+	Dir    uint8 `align:"dir"`
+	// Line contains the line number of the metrics statement.
+	Line uint16 `align:"line"`
+	// File is the number of the source file containing the metrics statement.
+	File     uint8    `align:"file"`
+	Reserved [3]uint8 `align:"reserved"`
 }
 
 // Value must be in sync with struct metrics_value in <bpf/lib/common.h>
@@ -125,6 +129,11 @@ func (k *Key) DropForwardReason() string {
 	return monitorAPI.DropReason(k.Reason)
 }
 
+// FileName returns the filename where the event occurred, in string format.
+func (k *Key) FileName() string {
+	return monitorAPI.BPFFileName(k.File)
+}
+
 // IsDrop checks if the reason is drop or not.
 func (k *Key) IsDrop() bool {
 	return k.Reason == monitorAPI.DropInvalid || k.Reason >= monitorAPI.DropMin
@@ -158,24 +167,10 @@ type metricsmapCollector struct {
 	droppedByteDesc  *prometheus.Desc
 	forwardCountDesc *prometheus.Desc
 	forwardByteDesc  *prometheus.Desc
-
-	// eBPF code seems to expose multiple reasons for forwarded metrics
-	// as opposed to what is stated in bpf/lib/metrics.h comments.
-	// IterateWithCallback iterates through BPF map for each reason and direction.
-	// Since we do not have "reason" label on forwarded metrics, we would end up collecting
-	// same forwarded metric multiple times which is not allowed by prometheus client.
-	// See https://github.com/prometheus/client_golang/issues/242
-	//
-	// promMetrics is a generic map used to sum all values by desired set of labels
-	// for both forwarded and dropped metrics
-	forwardedMetricsMap promMetrics[forwardLabels]
-	droppedMetricsMap   promMetrics[dropLabels]
 }
 
 func newMetricsMapCollector() prometheus.Collector {
 	return &metricsmapCollector{
-		droppedMetricsMap:   make(map[dropLabels]metricValues),
-		forwardedMetricsMap: make(map[forwardLabels]metricValues),
 		droppedByteDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "drop_bytes_total"),
 			"Total dropped bytes, tagged by drop reason and ingress/egress direction",
@@ -215,14 +210,24 @@ type metricValues struct {
 
 type labels comparable
 
-type promMetrics[k labels] map[k]metricValues
+// promMetrics is used to sum values by a desired set of labels for both
+// forwarded and dropped metrics.
+type promMetrics[k labels] map[k]*metricValues
 
-func (p promMetrics[k]) upsert(labels k, values *Values) {
+// sum accumulates a value for the given label set k and stores it in p. Can be
+// called multiple times with the same label set.
+//
+// values is a row from the metrics map, a per-cpu data structure. All entries
+// in the row are summed, and the result is added to any preexisting values
+// belonging to the label set.
+func (p promMetrics[k]) sum(labels k, values *Values) {
 	if v, ok := p[labels]; ok {
-		v.bytes = float64(values.Bytes())
-		v.count = float64(values.Count())
+		v.bytes += float64(values.Bytes())
+		v.count += float64(values.Count())
+		return
 	}
-	p[labels] = metricValues{
+
+	p[labels] = &metricValues{
 		bytes: float64(values.Bytes()),
 		count: float64(values.Count()),
 	}
@@ -232,19 +237,45 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 	mc.mutex.Lock()
 	defer mc.mutex.Unlock()
 
+	// The datapath knows many reasons for forwarding or dropping a packet. All
+	// packet metrics carry a direction label, and forwarded packets can carry
+	// either the 'success' or 'interface' forward reason depending on where it
+	// came in.
+	//
+	// Drop metrics carry direction and one of many possible drop reasons.
+	//
+	// Since Cilium 1.16, the underlying metrics map contains line/file
+	// information for all metrics to enable troubleshooting. We don't expose
+	// these as labels through the /metrics endpoint to keep cardinality low and
+	// to avoid breaking user queries and recording rules. `cilium-dbg bpf metrics
+	// list` always shows all properties and is included in sysdumps.
+	//
+	// The code below first generates a label set, typically a subset of the
+	// members of the metrics key, and sums up all byte/packet counters matching
+	// the label set. This accounts for future versions of Cilium adding new
+	// fields, causing surprising behaviour without the summing logic in place in
+	// case the agent is downgraded. From the perspective of the downgraded agent,
+	// this will cause multiple identical metrics to appear with different values.
+	// The Prometheus library rejects metrics with duplicate label sets.
+
+	drop := make(promMetrics[dropLabels])
+	fwd := make(promMetrics[forwardLabels])
+
 	err := Metrics.IterateWithCallback(func(key *Key, values *Values) {
 		if key.IsDrop() {
 			labelSet := dropLabels{
 				direction: key.Direction(),
 				reason:    key.DropForwardReason(),
 			}
-			mc.droppedMetricsMap.upsert(labelSet, values)
-		} else {
-			labelSet := forwardLabels{
-				direction: key.Direction(),
-			}
-			mc.forwardedMetricsMap.upsert(labelSet, values)
+			drop.sum(labelSet, values)
+
+			return
 		}
+
+		labelSet := forwardLabels{
+			direction: key.Direction(),
+		}
+		fwd.sum(labelSet, values)
 	})
 	if err != nil {
 		log.WithError(err).Warn("Failed to read metrics from BPF map")
@@ -252,12 +283,12 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	for labels, value := range mc.forwardedMetricsMap {
+	for labels, value := range fwd {
 		mc.updateCounterMetric(mc.forwardCountDesc, ch, value.count, labels.direction)
 		mc.updateCounterMetric(mc.forwardByteDesc, ch, value.bytes, labels.direction)
 	}
 
-	for labels, value := range mc.droppedMetricsMap {
+	for labels, value := range drop {
 		mc.updateCounterMetric(mc.droppedCountDesc, ch, value.count, labels.reason, labels.direction)
 		mc.updateCounterMetric(mc.droppedByteDesc, ch, value.bytes, labels.reason, labels.direction)
 	}
