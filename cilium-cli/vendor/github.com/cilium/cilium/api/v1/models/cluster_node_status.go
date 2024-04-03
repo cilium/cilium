@@ -128,6 +128,11 @@ func (m *ClusterNodeStatus) contextValidateNodesAdded(ctx context.Context, forma
 	for i := 0; i < len(m.NodesAdded); i++ {
 
 		if m.NodesAdded[i] != nil {
+
+			if swag.IsZero(m.NodesAdded[i]) { // not required
+				return nil
+			}
+
 			if err := m.NodesAdded[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes-added" + "." + strconv.Itoa(i))
@@ -148,6 +153,11 @@ func (m *ClusterNodeStatus) contextValidateNodesRemoved(ctx context.Context, for
 	for i := 0; i < len(m.NodesRemoved); i++ {
 
 		if m.NodesRemoved[i] != nil {
+
+			if swag.IsZero(m.NodesRemoved[i]) { // not required
+				return nil
+			}
+
 			if err := m.NodesRemoved[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes-removed" + "." + strconv.Itoa(i))

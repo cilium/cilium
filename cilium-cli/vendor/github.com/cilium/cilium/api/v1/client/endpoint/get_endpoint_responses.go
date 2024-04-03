@@ -45,7 +45,7 @@ func (o *GetEndpointReader) ReadResponse(response runtime.ClientResponse, consum
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /endpoint] GetEndpoint", response, response.Code())
 	}
 }
 
@@ -86,6 +86,11 @@ func (o *GetEndpointOK) IsServerError() bool {
 // IsCode returns true when this get endpoint o k response a status code equal to that given
 func (o *GetEndpointOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get endpoint o k response
+func (o *GetEndpointOK) Code() int {
+	return 200
 }
 
 func (o *GetEndpointOK) Error() string {
@@ -148,6 +153,11 @@ func (o *GetEndpointNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
+// Code gets the status code for the get endpoint not found response
+func (o *GetEndpointNotFound) Code() int {
+	return 404
+}
+
 func (o *GetEndpointNotFound) Error() string {
 	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound ", 404)
 }
@@ -197,6 +207,11 @@ func (o *GetEndpointTooManyRequests) IsServerError() bool {
 // IsCode returns true when this get endpoint too many requests response a status code equal to that given
 func (o *GetEndpointTooManyRequests) IsCode(code int) bool {
 	return code == 429
+}
+
+// Code gets the status code for the get endpoint too many requests response
+func (o *GetEndpointTooManyRequests) Code() int {
+	return 429
 }
 
 func (o *GetEndpointTooManyRequests) Error() string {

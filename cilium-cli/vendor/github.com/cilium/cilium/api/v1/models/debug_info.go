@@ -228,6 +228,11 @@ func (m *DebugInfo) ContextValidate(ctx context.Context, formats strfmt.Registry
 func (m *DebugInfo) contextValidateCiliumStatus(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.CiliumStatus != nil {
+
+		if swag.IsZero(m.CiliumStatus) { // not required
+			return nil
+		}
+
 		if err := m.CiliumStatus.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium-status")
@@ -244,6 +249,11 @@ func (m *DebugInfo) contextValidateCiliumStatus(ctx context.Context, formats str
 func (m *DebugInfo) contextValidateEncryption(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Encryption != nil {
+
+		if swag.IsZero(m.Encryption) { // not required
+			return nil
+		}
+
 		if err := m.Encryption.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption")
@@ -262,6 +272,11 @@ func (m *DebugInfo) contextValidateEndpointList(ctx context.Context, formats str
 	for i := 0; i < len(m.EndpointList); i++ {
 
 		if m.EndpointList[i] != nil {
+
+			if swag.IsZero(m.EndpointList[i]) { // not required
+				return nil
+			}
+
 			if err := m.EndpointList[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
@@ -280,6 +295,11 @@ func (m *DebugInfo) contextValidateEndpointList(ctx context.Context, formats str
 func (m *DebugInfo) contextValidatePolicy(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Policy != nil {
+
+		if swag.IsZero(m.Policy) { // not required
+			return nil
+		}
+
 		if err := m.Policy.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
@@ -298,6 +318,11 @@ func (m *DebugInfo) contextValidateServiceList(ctx context.Context, formats strf
 	for i := 0; i < len(m.ServiceList); i++ {
 
 		if m.ServiceList[i] != nil {
+
+			if swag.IsZero(m.ServiceList[i]) { // not required
+				return nil
+			}
+
 			if err := m.ServiceList[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("service-list" + "." + strconv.Itoa(i))
@@ -390,6 +415,11 @@ func (m *DebugInfoEncryption) ContextValidate(ctx context.Context, formats strfm
 func (m *DebugInfoEncryption) contextValidateWireguard(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Wireguard != nil {
+
+		if swag.IsZero(m.Wireguard) { // not required
+			return nil
+		}
+
 		if err := m.Wireguard.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption" + "." + "wireguard")

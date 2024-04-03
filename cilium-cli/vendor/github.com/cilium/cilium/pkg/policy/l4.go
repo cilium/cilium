@@ -1459,5 +1459,6 @@ type ProxyPolicy interface {
 	GetL7Parser() L7ParserType
 	GetIngress() bool
 	GetPort() uint16
+	GetProtocol() uint8
 	GetListener() string
 }

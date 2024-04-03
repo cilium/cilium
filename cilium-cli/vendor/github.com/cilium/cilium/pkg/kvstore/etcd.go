@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
 	ciliumrate "github.com/cilium/cilium/pkg/rate"
@@ -51,6 +52,10 @@ const (
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
+
+	// EtcdBootstrapRateLimitOption specifies maximum kv operations per second
+	// during bootstrapping
+	EtcdBootstrapRateLimitOption = "etcd.bootstrapQps"
 
 	// EtcdMaxInflightOption specifies maximum inflight concurrent kv store operations
 	EtcdMaxInflightOption = "etcd.maxInflight"
@@ -133,6 +138,13 @@ func newEtcdModule() backendModule {
 					return err
 				},
 			},
+			EtcdBootstrapRateLimitOption: &backendOption{
+				description: "Rate limit in kv store operations per second during bootstrapping",
+				validate: func(v string) error {
+					_, err := strconv.Atoi(v)
+					return err
+				},
+			},
 			EtcdMaxInflightOption: &backendOption{
 				description: "Maximum inflight concurrent kv store operations; defaults to etcd.qps if unset",
 				validate: func(v string) error {
@@ -190,6 +202,7 @@ type clientOptions struct {
 	KeepAliveHeartbeat time.Duration
 	KeepAliveTimeout   time.Duration
 	RateLimit          int
+	BootstrapRateLimit int
 	MaxInflight        int
 	ListBatchSize      int
 }
@@ -206,6 +219,10 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 
 	if o, ok := e.opts[EtcdRateLimitOption]; ok && o.value != "" {
 		clientOptions.RateLimit, _ = strconv.Atoi(o.value)
+	}
+
+	if o, ok := e.opts[EtcdBootstrapRateLimitOption]; ok && o.value != "" {
+		clientOptions.BootstrapRateLimit, _ = strconv.Atoi(o.value)
 	}
 
 	if o, ok := e.opts[EtcdMaxInflightOption]; ok && o.value != "" {
@@ -446,7 +463,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	defer cancel()
 
 	select {
-	// Wait for the the initial connection to be established
+	// Wait for the initial connection to be established
 	case <-e.firstSession:
 		if err := e.sessionError(); err != nil {
 			return err
@@ -557,12 +574,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 	errorChan := make(chan error)
 
-	limiter := ciliumrate.NewAPILimiter(makeSessionName("etcd", opts), ciliumrate.APILimiterParameters{
-		RateLimit:        rate.Limit(clientOptions.RateLimit),
-		RateBurst:        clientOptions.RateLimit,
-		ParallelRequests: clientOptions.MaxInflight,
-	}, ciliumratemetrics.APILimiterObserver())
-
 	ec := &etcdClient{
 		client:               c,
 		config:               config,
@@ -571,7 +582,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		latestStatusSnapshot: "Waiting for initial connection to be established",
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
-		limiter:              limiter,
 		listBatchSize:        clientOptions.ListBatchSize,
 		statusCheckErrors:    make(chan error, 128),
 		logger: log.WithFields(logrus.Fields{
@@ -579,6 +589,29 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			"config":    cfgPath,
 		}),
 	}
+
+	initialLimit := clientOptions.RateLimit
+	// If BootstrapRateLimit and BootstrapComplete are provided, set the
+	// initial rate limit to BootstrapRateLimit and apply the standard rate limit
+	// once the caller has signaled that bootstrap is complete by closing the channel.
+	if clientOptions.BootstrapRateLimit > 0 && opts != nil && opts.BootstrapComplete != nil {
+		ec.logger.WithField(logfields.EtcdQPSLimit, clientOptions.BootstrapRateLimit).Info("Setting client QPS limit for bootstrap")
+		initialLimit = clientOptions.BootstrapRateLimit
+		go func() {
+			select {
+			case <-ec.client.Ctx().Done():
+			case <-opts.BootstrapComplete:
+				ec.logger.WithField(logfields.EtcdQPSLimit, clientOptions.RateLimit).Info("Bootstrap complete, updating client QPS limit")
+				ec.limiter.SetRateLimit(rate.Limit(clientOptions.RateLimit))
+			}
+		}()
+	}
+
+	ec.limiter = ciliumrate.NewAPILimiter(makeSessionName("etcd", opts), ciliumrate.APILimiterParameters{
+		RateLimit:        rate.Limit(initialLimit),
+		RateBurst:        clientOptions.RateLimit,
+		ParallelRequests: clientOptions.MaxInflight,
+	}, ciliumratemetrics.APILimiterObserver())
 
 	ec.logger.Info("Connecting to etcd server...")
 
@@ -730,7 +763,7 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 
 	_, err = e.client.Delete(ctx, path, client.WithPrefix())
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 
 	if err == nil {
 		e.leaseManager.ReleasePrefix(path)
@@ -796,7 +829,7 @@ reList:
 		}
 		kvs, revision, err := e.paginatedList(ctx, scopedLog, w.Prefix)
 		if err != nil {
-			lr.Error(err)
+			lr.Error(err, -1)
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
 			errLimiter.Wait(ctx)
 			continue
@@ -1099,7 +1132,7 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 	}
 
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 
@@ -1127,7 +1160,7 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 
 	getR, err := e.client.Get(ctx, key)
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 	lr.Done()
@@ -1162,7 +1195,7 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 	}
 
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	return Hint(err)
 }
 
@@ -1181,7 +1214,7 @@ func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
 
 	_, err = e.client.Delete(ctx, key)
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 
 	if err == nil {
 		e.leaseManager.Release(key)
@@ -1221,7 +1254,7 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 	}
 
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	return Hint(err)
 }
 
@@ -1249,7 +1282,7 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	e.leaseManager.CancelIfExpired(err, leaseID)
 
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	return Hint(err)
 }
 
@@ -1267,7 +1300,7 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 	cnds := lock.Comparator().(client.Cmp)
 	txnresp, err := e.client.Txn(ctx).If(cnds).Then(client.OpGet(key)).Commit()
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 
 	// On error, attempt update blindly
@@ -1308,7 +1341,7 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 
 	getR, err := e.client.Get(ctx, key)
 	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
+	lr.Error(err, -1)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
 	if err != nil || getR.Count == 0 {
@@ -1357,7 +1390,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(req).Else(opGets...).Commit()
 	increaseMetric(key, metricSet, "CreateOnlyLocked", duration.EndError(err).Total(), err)
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return false, Hint(err)
 	}
@@ -1416,7 +1449,7 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 	txnresp, err := e.client.Txn(ctx).If(cond).Then(req).Commit()
 
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return false, Hint(err)
 	}
@@ -1445,7 +1478,7 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 		err = ErrLockLeaseExpired
 	}
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 	lr.Done()
@@ -1478,7 +1511,7 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 
 	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
 	if err != nil {
-		lr.Error(err)
+		lr.Error(err, -1)
 		return nil, Hint(err)
 	}
 	lr.Done()

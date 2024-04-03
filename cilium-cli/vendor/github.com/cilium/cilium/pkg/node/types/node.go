@@ -69,6 +69,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		Annotations:     n.ObjectMeta.Annotations,
 		NodeIdentity:    uint32(n.Spec.NodeIdentity),
 		WireguardPubKey: wireguardPubKey,
+		BootID:          n.Spec.BootID,
 	}
 
 	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
@@ -166,6 +167,7 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 				PodCIDRs: podCIDRs,
 			},
 			NodeIdentity: uint64(n.NodeIdentity),
+			BootID:       n.BootID,
 		},
 	}
 }
@@ -261,6 +263,9 @@ type Node struct {
 
 	// WireguardPubKey is the WireGuard public key of this node
 	WireguardPubKey string
+
+	// BootID is a unique node identifier generated on boot
+	BootID string
 }
 
 // Fullname returns the node's full name including the cluster name if a

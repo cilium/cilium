@@ -126,6 +126,10 @@ type ENI struct {
 	Tags map[string]string `json:"tags,omitempty"`
 }
 
+func (e *ENI) DeepCopyInterface() types.Interface {
+	return e.DeepCopy()
+}
+
 // InterfaceID returns the identifier of the interface
 func (e *ENI) InterfaceID() string {
 	return e.NetworkInterfaceID

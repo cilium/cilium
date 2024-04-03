@@ -45,7 +45,7 @@ func (o *PostIpamReader) ReadResponse(response runtime.ClientResponse, consumer 
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[POST /ipam] PostIpam", response, response.Code())
 	}
 }
 
@@ -86,6 +86,11 @@ func (o *PostIpamCreated) IsServerError() bool {
 // IsCode returns true when this post ipam created response a status code equal to that given
 func (o *PostIpamCreated) IsCode(code int) bool {
 	return code == 201
+}
+
+// Code gets the status code for the post ipam created response
+func (o *PostIpamCreated) Code() int {
+	return 201
 }
 
 func (o *PostIpamCreated) Error() string {
@@ -150,6 +155,11 @@ func (o *PostIpamForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
+// Code gets the status code for the post ipam forbidden response
+func (o *PostIpamForbidden) Code() int {
+	return 403
+}
+
 func (o *PostIpamForbidden) Error() string {
 	return fmt.Sprintf("[POST /ipam][%d] postIpamForbidden ", 403)
 }
@@ -200,6 +210,11 @@ func (o *PostIpamFailure) IsServerError() bool {
 // IsCode returns true when this post ipam failure response a status code equal to that given
 func (o *PostIpamFailure) IsCode(code int) bool {
 	return code == 502
+}
+
+// Code gets the status code for the post ipam failure response
+func (o *PostIpamFailure) Code() int {
+	return 502
 }
 
 func (o *PostIpamFailure) Error() string {

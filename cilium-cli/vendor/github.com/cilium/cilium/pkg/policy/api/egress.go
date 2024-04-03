@@ -98,7 +98,7 @@ type EgressCommonRule struct {
 	//     - 'sg-XXXXXXXXXXXXX'
 	//
 	// +kubebuilder:validation:Optional
-	ToGroups []ToGroups `json:"toGroups,omitempty"`
+	ToGroups []Groups `json:"toGroups,omitempty"`
 
 	// ToNodes is a list of nodes identified by an
 	// EndpointSelector to which endpoints subject to the rule is allowed to communicate.
@@ -349,16 +349,11 @@ func (e *EgressRule) CreateDerivative(ctx context.Context) (*EgressRule, error) 
 		return newRule, nil
 	}
 	newRule.ToCIDRSet = make(CIDRRuleSlice, 0, len(e.ToGroups))
-	for _, group := range e.ToGroups {
-		cidrSet, err := group.GetCidrSet(ctx)
-		if err != nil {
-			return &EgressRule{}, err
-		}
-		if len(cidrSet) == 0 {
-			return &EgressRule{}, nil
-		}
-		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+	cidrSet, err := ExtractCidrSet(ctx, e.ToGroups)
+	if err != nil {
+		return &EgressRule{}, err
 	}
+	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
 	e.SetAggregatedSelectors()
 	return newRule, nil
@@ -374,16 +369,11 @@ func (e *EgressDenyRule) CreateDerivative(ctx context.Context) (*EgressDenyRule,
 		return newRule, nil
 	}
 	newRule.ToCIDRSet = make(CIDRRuleSlice, 0, len(e.ToGroups))
-	for _, group := range e.ToGroups {
-		cidrSet, err := group.GetCidrSet(ctx)
-		if err != nil {
-			return &EgressDenyRule{}, err
-		}
-		if len(cidrSet) == 0 {
-			return &EgressDenyRule{}, nil
-		}
-		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+	cidrSet, err := ExtractCidrSet(ctx, e.ToGroups)
+	if err != nil {
+		return &EgressDenyRule{}, err
 	}
+	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
 	e.SetAggregatedSelectors()
 	return newRule, nil

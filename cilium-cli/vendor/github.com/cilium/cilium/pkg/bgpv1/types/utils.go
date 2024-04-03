@@ -5,9 +5,22 @@ package types
 
 import (
 	"net/netip"
+	"slices"
+
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 )
+
+// CanAdvertisePodCIDR returns true if the provided IPAM mode is supported for
+// advertising PodCIDR
+func CanAdvertisePodCIDR(ipam string) bool {
+	supportedIPAMs := []string{
+		ipamOption.IPAMKubernetes,
+		ipamOption.IPAMClusterPool,
+	}
+	return slices.Contains(supportedIPAMs, ipam)
+}
 
 // NewPathForPrefix returns a Path that can be used to advertise the provided
 // IP prefix by the underlying BGP implementation.

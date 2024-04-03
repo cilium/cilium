@@ -28,11 +28,6 @@ var (
 		Identity:         identity.ReservedIdentityHost.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
-	// localRemoteNodeKey represents an ingress L3 allow from remote nodes.
-	localRemoteNodeKey = Key{
-		Identity:         identity.ReservedIdentityRemoteNode.Uint32(),
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	allKey = Key{
 		Identity: identity.IdentityUnknown.Uint32(),
@@ -1296,18 +1291,6 @@ func (ms *mapState) determineAllowLocalhostIngress() {
 		}
 		es := NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for local host ingress
 		ms.denyPreferredInsert(localHostKey, es, nil, allFeatures)
-		if !option.Config.EnableRemoteNodeIdentity {
-			var isHostDenied bool
-			v, ok := ms.Get(localHostKey)
-			isHostDenied = ok && v.IsDeny
-			derivedFrom := labels.LabelArrayList{
-				labels.LabelArray{
-					labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowRemoteHostIngress, labels.LabelSourceReserved),
-				},
-			}
-			es := NewMapStateEntry(nil, derivedFrom, 0, "", 0, isHostDenied, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for remote node ingress
-			ms.denyPreferredInsert(localRemoteNodeKey, es, nil, allFeatures)
-		}
 	}
 }
 
