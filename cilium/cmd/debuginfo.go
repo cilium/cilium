@@ -461,6 +461,7 @@ func writeMarkdown(data []byte, path string) {
 	}
 	w := tabwriter.NewWriter(f, 5, 0, 3, ' ', 0)
 	w.Write(data)
+	f.Close()
 }
 
 func writeFile(data []byte, path string) {
@@ -470,6 +471,7 @@ func writeFile(data []byte, path string) {
 		os.Exit(1)
 	}
 	f.Write(data)
+	f.Close()
 }
 
 func writeJSON(data []byte, path string) {
@@ -478,6 +480,8 @@ func writeJSON(data []byte, path string) {
 		fmt.Fprintf(os.Stderr, "Could not create file %s", path)
 		os.Exit(1)
 	}
+
+	defer f.Close()
 
 	db := &models.DebugInfo{}
 
