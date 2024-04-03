@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -52,110 +56,146 @@ func registerK8sReflector(p reflectorParams) error {
 	return nil
 }
 
+func bufferEvent[Obj runtime.Object](buf map[resource.Key]resource.Event[Obj], ev resource.Event[Obj]) map[resource.Key]resource.Event[Obj] {
+	if ev.Kind == resource.Sync {
+		ev.Done(nil)
+		return buf
+	}
+	if buf == nil {
+		buf = map[resource.Key]resource.Event[Obj]{}
+	}
+
+	if ev, ok := buf[ev.Key]; ok {
+		ev.Done(nil)
+	}
+	buf[ev.Key] = ev
+	return buf
+}
+
 func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_corev1.Service], epR resource.Resource[*k8s.Endpoints], svcs *Services) {
-	svcEvents := svcR.Events(ctx)
-	epEvents := epR.Events(ctx)
+	// Buffer the events to commit in larger write transactions.
+	svcEvents := stream.ToChannel(ctx,
+		stream.Buffer(
+			svcR,
+			500,                 // buffer size
+			10*time.Millisecond, // wait time
+			bufferEvent[*slim_corev1.Service],
+		),
+	)
+	epEvents := stream.ToChannel(
+		ctx,
+		stream.Buffer(
+			epR,
+			500,                 // buffer size
+			10*time.Millisecond, // wait time
+			bufferEvent[*k8s.Endpoints],
+		),
+	)
 
 	// Keep track of currently existing backends by endpoint slice.
 	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
 
 	for svcEvents != nil || epEvents != nil {
 		select {
-		case ev, ok := <-svcEvents:
+		case buf, ok := <-svcEvents:
 			if !ok {
 				svcEvents = nil
 				continue
 			}
 			txn := svcs.WriteTxn()
-			obj := ev.Object
-			switch ev.Kind {
-			case resource.Sync:
-				// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
-				// with each table in StateDB and increment that prior to start and then decrement when done.
-				// The generic reconciler would not perform pruning if it's not ready.
-				// (perhaps could be configurable to also avoid Update/Delete)
-				ev.Done(nil)
-			case resource.Upsert:
-				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
-				var err error
-				for _, svc := range toServiceParams(obj) {
-					err = svcs.UpsertService(txn, name, svc)
-					if err != nil {
-						// TODO: how to resolve conflicts when the same service or frontend address
-						// is added from different sources? do we retry, give up or update Service.Status?
-						// Or should *Service be designed to allow overlaps by merging them ("shadowed services")?
-						fmt.Printf("error with name %s, %#v: %s\n", name, svc, err)
-						break
+			for _, ev := range buf {
+				obj := ev.Object
+				switch ev.Kind {
+				case resource.Sync:
+					// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
+					// with each table in StateDB and increment that prior to start and then decrement when done.
+					// The generic reconciler would not perform pruning if it's not ready.
+					// (perhaps could be configurable to also avoid Update/Delete)
+					ev.Done(nil)
+				case resource.Upsert:
+					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+					var err error
+					for _, svc := range toServiceParams(obj) {
+						err = svcs.UpsertService(txn, name, svc)
+						if err != nil {
+							// TODO: how to resolve conflicts when the same service or frontend address
+							// is added from different sources? do we retry, give up or update Service.Status?
+							// Or should *Service be designed to allow overlaps by merging them ("shadowed services")?
+							fmt.Printf("error with name %s, %#v: %s\n", name, svc, err)
+							break
+						}
 					}
-				}
-				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
-			case resource.Delete:
-				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
-				// FIXME: only need to parse out the addresses
-				for _, p := range toServiceParams(obj) {
-					err := svcs.DeleteService(txn, name, p.L3n4Addr)
-					if err != nil {
-						panic(err)
+					ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
+				case resource.Delete:
+					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+					// FIXME: only need to parse out the addresses
+					for _, p := range toServiceParams(obj) {
+						err := svcs.DeleteService(txn, name, p.L3n4Addr)
+						if err != nil {
+							panic(err)
+						}
 					}
 				}
 			}
 			txn.Commit()
 
-		case ev, ok := <-epEvents:
+		case buf, ok := <-epEvents:
 			if !ok {
 				epEvents = nil
 				continue
 			}
 
 			txn := svcs.WriteTxn()
-			obj := ev.Object
-			switch ev.Kind {
-			case resource.Sync:
-				// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
-				// with each table in StateDB and increment that prior to start and then decrement when done.
-				// The generic reconciler would not perform pruning if it's not ready.
-				// (perhaps could be configurable to also avoid Update/Delete)
-				ev.Done(nil)
-			case resource.Upsert:
-				name, backends := endpointsToBackendParams(obj)
+			for _, ev := range buf {
+				obj := ev.Object
+				switch ev.Kind {
+				case resource.Sync:
+					// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
+					// with each table in StateDB and increment that prior to start and then decrement when done.
+					// The generic reconciler would not perform pruning if it's not ready.
+					// (perhaps could be configurable to also avoid Update/Delete)
+					ev.Done(nil)
+				case resource.Upsert:
+					name, backends := endpointsToBackendParams(obj)
 
-				old := currentBackends[obj.EndpointSliceName]
+					old := currentBackends[obj.EndpointSliceName]
 
-				err := svcs.UpsertBackends(
-					txn,
-					name,
-					backends...)
-
-				if err == nil {
-					// Delete orphaned backends
-					newAddrs := sets.New[loadbalancer.L3n4Addr]()
-					for _, be := range backends {
-						newAddrs.Insert(be.L3n4Addr)
-					}
-					for orphan := range old.Difference(newAddrs) {
-						svcs.DeleteBackend(txn, name, orphan)
-					}
-					currentBackends[obj.EndpointSliceName] = newAddrs
-				}
-
-				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
-			case resource.Delete:
-				// FIXME delete by owner. Or should we keep the state here to figure out which backends are
-				// gone when the endpoint slice changes? The "owner" ("EndpointSliceName") notion doesn't really
-				// translate to e.g. REST API.
-				name, backends := endpointsToBackendParams(obj)
-				var err error
-				for _, p := range backends {
-					err := svcs.DeleteBackend(
+					err := svcs.UpsertBackends(
 						txn,
 						name,
-						p.L3n4Addr,
-					)
-					if err != nil {
-						break
+						backends...)
+
+					if err == nil {
+						// Delete orphaned backends
+						newAddrs := sets.New[loadbalancer.L3n4Addr]()
+						for _, be := range backends {
+							newAddrs.Insert(be.L3n4Addr)
+						}
+						for orphan := range old.Difference(newAddrs) {
+							svcs.DeleteBackend(txn, name, orphan)
+						}
+						currentBackends[obj.EndpointSliceName] = newAddrs
 					}
+
+					ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
+				case resource.Delete:
+					// FIXME delete by owner. Or should we keep the state here to figure out which backends are
+					// gone when the endpoint slice changes? The "owner" ("EndpointSliceName") notion doesn't really
+					// translate to e.g. REST API.
+					name, backends := endpointsToBackendParams(obj)
+					var err error
+					for _, p := range backends {
+						err := svcs.DeleteBackend(
+							txn,
+							name,
+							p.L3n4Addr,
+						)
+						if err != nil {
+							break
+						}
+					}
+					ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
 				}
-				ev.Done(err) // This keeps retrying forever in case of conflicts. Probably not what we want.
 			}
 			txn.Commit()
 
