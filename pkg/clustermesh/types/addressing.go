@@ -4,6 +4,8 @@
 package types
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -41,6 +43,42 @@ type AddrCluster struct {
 }
 
 const AddrClusterLen = 20
+
+// MarshalJSON marshals the address as a string in the form
+// <addr>@<clusterID>, e.g. "1.2.3.4@1"
+func (a *AddrCluster) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('"')
+	if !a.addr.IsValid() {
+		b.WriteString("0.0.0.0")
+	} else {
+		b.WriteString(a.addr.String())
+	}
+	if a.clusterID != 0 {
+		b.WriteByte('@')
+		b.WriteString(
+			strconv.FormatUint(uint64(a.clusterID), 10),
+		)
+	}
+	b.WriteByte('"')
+	return b.Bytes(), nil
+}
+
+func (a *AddrCluster) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || data[0] != '"' || data[len(data)-1] != '"' {
+		return errors.New("AddrCluster.UnmarshalJSON: bad address")
+	}
+	// Drop the parens
+	data = data[1 : len(data)-1]
+
+	a2, err := ParseAddrCluster(string(data))
+	if err != nil {
+		return err
+	}
+	a.addr = a2.addr
+	a.clusterID = a2.clusterID
+	return nil
+}
 
 // ParseAddrCluster parses s as an IP + ClusterID and returns AddrCluster.
 // The string s can be a bare IP string (any IP address format allowed in

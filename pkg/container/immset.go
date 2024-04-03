@@ -42,8 +42,12 @@ func (s ImmSet[T]) Has(x T) bool {
 	return found
 }
 
-func (s ImmSet[T]) MarshalJSON() ([]byte, error) {
+func (s *ImmSet[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.xs)
+}
+
+func (s *ImmSet[T]) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &s.xs)
 }
 
 func (s ImmSet[T]) Insert(xs ...T) ImmSet[T] {
