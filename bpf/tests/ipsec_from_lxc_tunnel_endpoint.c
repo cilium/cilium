@@ -2,7 +2,6 @@
 /* Copyright Authors of Cilium */
 
 #define TUNNEL_MODE
-#define HAVE_ENCAP
 #define USE_BPF_PROG_FOR_INGRESS_POLICY 1
 #define ENABLE_ENDPOINT_ROUTES 1
 
