@@ -225,6 +225,11 @@ func (m *EndpointChangeRequest) ContextValidate(ctx context.Context, formats str
 func (m *EndpointChangeRequest) contextValidateAddressing(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Addressing != nil {
+
+		if swag.IsZero(m.Addressing) { // not required
+			return nil
+		}
+
 		if err := m.Addressing.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
@@ -241,6 +246,11 @@ func (m *EndpointChangeRequest) contextValidateAddressing(ctx context.Context, f
 func (m *EndpointChangeRequest) contextValidateDatapathConfiguration(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.DatapathConfiguration != nil {
+
+		if swag.IsZero(m.DatapathConfiguration) { // not required
+			return nil
+		}
+
 		if err := m.DatapathConfiguration.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("datapath-configuration")
@@ -271,6 +281,7 @@ func (m *EndpointChangeRequest) contextValidateLabels(ctx context.Context, forma
 func (m *EndpointChangeRequest) contextValidateState(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.State != nil {
+
 		if err := m.State.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("state")

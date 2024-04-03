@@ -754,4 +754,18 @@ const (
 
 	// State is the state of an individual component (apiserver, kvstore etc)
 	State = "state"
+
+	// EtcdQPSLimit is the QPS limit for an etcd client.
+	EtcdQPSLimit = "etcdQPSLimit"
+
+	// LeaseID identifies a KVStore lease
+	LeaseID = "leaseID"
+
+	// EventType identifies the type of KVStore events
+	EventType = "eventType"
+
+	// Entries specifies the number of KVStore entries
+	Entries = "entries"
+	// Action is the summarized action from a reconciliation.
+	Action = "action"
 )

@@ -130,7 +130,7 @@ type NodeNeighbors interface {
 	NodeNeighDiscoveryEnabled() bool
 
 	// NodeNeighborRefresh is called to refresh node neighbor table
-	NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node)
+	NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node, refresh bool) error
 
 	// NodeCleanNeighbors cleans all neighbor entries for the direct routing device
 	// and the encrypt interface.

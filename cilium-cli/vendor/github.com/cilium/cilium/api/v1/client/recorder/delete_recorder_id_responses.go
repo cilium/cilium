@@ -51,7 +51,7 @@ func (o *DeleteRecorderIDReader) ReadResponse(response runtime.ClientResponse, c
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[DELETE /recorder/{id}] DeleteRecorderID", response, response.Code())
 	}
 }
 
@@ -91,6 +91,11 @@ func (o *DeleteRecorderIDOK) IsServerError() bool {
 // IsCode returns true when this delete recorder Id o k response a status code equal to that given
 func (o *DeleteRecorderIDOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the delete recorder Id o k response
+func (o *DeleteRecorderIDOK) Code() int {
+	return 200
 }
 
 func (o *DeleteRecorderIDOK) Error() string {
@@ -144,6 +149,11 @@ func (o *DeleteRecorderIDForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
+// Code gets the status code for the delete recorder Id forbidden response
+func (o *DeleteRecorderIDForbidden) Code() int {
+	return 403
+}
+
 func (o *DeleteRecorderIDForbidden) Error() string {
 	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdForbidden ", 403)
 }
@@ -193,6 +203,11 @@ func (o *DeleteRecorderIDNotFound) IsServerError() bool {
 // IsCode returns true when this delete recorder Id not found response a status code equal to that given
 func (o *DeleteRecorderIDNotFound) IsCode(code int) bool {
 	return code == 404
+}
+
+// Code gets the status code for the delete recorder Id not found response
+func (o *DeleteRecorderIDNotFound) Code() int {
+	return 404
 }
 
 func (o *DeleteRecorderIDNotFound) Error() string {
@@ -245,6 +260,11 @@ func (o *DeleteRecorderIDFailure) IsServerError() bool {
 // IsCode returns true when this delete recorder Id failure response a status code equal to that given
 func (o *DeleteRecorderIDFailure) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the delete recorder Id failure response
+func (o *DeleteRecorderIDFailure) Code() int {
+	return 500
 }
 
 func (o *DeleteRecorderIDFailure) Error() string {

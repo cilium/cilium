@@ -68,8 +68,8 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 				"Metrics will not be exported for this controller.")
 	}
 
-	ctrl, exists := m.controllers[name]
-	if exists {
+	ctrl := m.lookupLocked(name)
+	if ctrl != nil {
 		ctrl.getLogger().Debug("Updating existing controller")
 		ctrl.updateParamsLocked(params)
 
@@ -121,7 +121,7 @@ func (m *Manager) CreateController(name string, params ControllerParams) bool {
 	defer m.mutex.Unlock()
 
 	if m.controllers != nil {
-		if _, exists := m.controllers[name]; exists {
+		if ctrl := m.lookupLocked(name); ctrl != nil {
 			return false
 		}
 	} else {
@@ -145,11 +145,13 @@ func (m *Manager) removeController(ctrl *managedController) {
 func (m *Manager) lookup(name string) *managedController {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
+	return m.lookupLocked(name)
+}
 
+func (m *Manager) lookupLocked(name string) *managedController {
 	if c, ok := m.controllers[name]; ok {
 		return c
 	}
-
 	return nil
 }
 
@@ -161,8 +163,8 @@ func (m *Manager) removeAndReturnController(name string) (*managedController, er
 		return nil, fmt.Errorf("empty controller map")
 	}
 
-	oldCtrl, ok := m.controllers[name]
-	if !ok {
+	oldCtrl := m.lookupLocked(name)
+	if oldCtrl == nil {
 		return nil, fmt.Errorf("unable to find controller %s", name)
 	}
 

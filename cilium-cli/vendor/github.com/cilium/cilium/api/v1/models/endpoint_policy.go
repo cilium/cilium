@@ -160,6 +160,11 @@ func (m *EndpointPolicy) ContextValidate(ctx context.Context, formats strfmt.Reg
 func (m *EndpointPolicy) contextValidateCidrPolicy(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.CidrPolicy != nil {
+
+		if swag.IsZero(m.CidrPolicy) { // not required
+			return nil
+		}
+
 		if err := m.CidrPolicy.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cidr-policy")
@@ -176,6 +181,11 @@ func (m *EndpointPolicy) contextValidateCidrPolicy(ctx context.Context, formats 
 func (m *EndpointPolicy) contextValidateL4(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.L4 != nil {
+
+		if swag.IsZero(m.L4) { // not required
+			return nil
+		}
+
 		if err := m.L4.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("l4")
@@ -190,6 +200,10 @@ func (m *EndpointPolicy) contextValidateL4(ctx context.Context, formats strfmt.R
 }
 
 func (m *EndpointPolicy) contextValidatePolicyEnabled(ctx context.Context, formats strfmt.Registry) error {
+
+	if swag.IsZero(m.PolicyEnabled) { // not required
+		return nil
+	}
 
 	if err := m.PolicyEnabled.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {

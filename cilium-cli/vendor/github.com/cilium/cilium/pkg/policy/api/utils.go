@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -169,4 +170,19 @@ func ResourceQualifiedName(namespace, cecName, resourceName string, options ...O
 	sb.WriteString(resourceName)
 
 	return sb.String(), true
+}
+
+// ExtractCidrSet abstracts away some of the logic from the CreateDerivative methods
+func ExtractCidrSet(ctx context.Context, groups []Groups) ([]CIDRRule, error) {
+	var cidrSet []CIDRRule
+	for _, group := range groups {
+		c, err := group.GetCidrSet(ctx)
+		if err != nil {
+			return cidrSet, err
+		}
+		if len(c) > 0 {
+			cidrSet = append(cidrSet, c...)
+		}
+	}
+	return cidrSet, nil
 }

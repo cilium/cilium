@@ -231,7 +231,7 @@ func parseToCiliumEgressCommonRule(namespace string, es api.EndpointSelector, eg
 	}
 
 	if egr.ToGroups != nil {
-		retRule.ToGroups = make([]api.ToGroups, len(egr.ToGroups))
+		retRule.ToGroups = make([]api.Groups, len(egr.ToGroups))
 		copy(retRule.ToGroups, egr.ToGroups)
 	}
 
@@ -345,6 +345,7 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 	retRule.Labels = ParseToCiliumLabels(namespace, name, uid, r.Labels)
 
 	retRule.Description = r.Description
+	retRule.EnableDefaultDeny = r.EnableDefaultDeny
 
 	return retRule
 }
