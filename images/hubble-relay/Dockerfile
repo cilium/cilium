@@ -10,7 +10,7 @@
 # $ cosign verify --key cosign.pub $BASE_IMAGE
 # The key may be found at the following address:
 # https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
-ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:55c636171053dbc8ae07a280023bd787d2921f10e569f3e319f1539076dbba11
+ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:f41b84cda410b05cc690c2e33d1973a31c6165a2721e2b5343aab50fecb63441
 ARG GOLANG_IMAGE=docker.io/library/golang:1.21.8@sha256:856073656d1a517517792e6cdd2f7a5ef080d3ca2dff33e518c8412f140fdd2d
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
