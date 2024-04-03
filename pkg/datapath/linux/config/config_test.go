@@ -137,7 +137,7 @@ func (s *ConfigSuite) TestWriteNodeConfig(c *C) {
 
 func (s *ConfigSuite) TestWriteNetdevConfig(c *C) {
 	writeConfig(c, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
-		return dp.WriteNetdevConfig(w, &dummyDevCfg)
+		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
 	})
 }
 

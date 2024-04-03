@@ -37,7 +37,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 		NodeAddressing: nil,
 		NodeMap:        nil,
 		ConfigWriter:   &config.HeaderfileWriter{},
-	}, linux.DatapathConfiguration{})
+	})
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)

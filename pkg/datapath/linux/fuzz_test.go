@@ -23,7 +23,7 @@ func FuzzNodeHandler(f *testing.F) {
 		}
 		dpConfig := DatapathConfiguration{HostDevice: "veth0"}
 		fakeNodeAddressing := fakeTypes.NewNodeAddressing()
-		linuxNodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing, nil, &fakeTypes.MTU{}, new(mockEnqueuer), nil, nil)
+		linuxNodeHandler := newNodeHandler(dpConfig, fakeNodeAddressing, nil, &fakeTypes.MTU{}, new(mockEnqueuer), nil, nil)
 		if linuxNodeHandler == nil {
 			panic("Should not be nil")
 		}
