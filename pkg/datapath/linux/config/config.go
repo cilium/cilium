@@ -943,8 +943,8 @@ is_l3; })`))
 	return macByIfIndexMacro.String(), isL3DevMacro, nil
 }
 
-func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) {
-	fmt.Fprint(w, cfg.GetOptions().GetFmtList())
+func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, opts *option.IntOptions) {
+	fmt.Fprint(w, opts.GetFmtList())
 
 	if option.Config.EnableEndpointRoutes {
 		fmt.Fprint(w, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
@@ -952,9 +952,9 @@ func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceCon
 }
 
 // WriteNetdevConfig writes the BPF configuration for the endpoint to a writer.
-func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) error {
+func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOptions) error {
 	fw := bufio.NewWriter(w)
-	h.writeNetdevConfig(fw, cfg)
+	h.writeNetdevConfig(fw, opts)
 	return fw.Flush()
 }
 
@@ -1112,7 +1112,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []*tabl
 	// Local delivery metrics should always be set for endpoint programs.
 	fmt.Fprint(fw, "#define LOCAL_DELIVERY_METRICS 1\n")
 
-	h.writeNetdevConfig(fw, e)
+	h.writeNetdevConfig(fw, e.GetOptions())
 
 	return fw.Flush()
 }

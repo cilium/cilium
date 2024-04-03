@@ -11,6 +11,7 @@ import (
 	"io"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -49,7 +50,7 @@ func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigurat
 		_ = c.WriteNodeConfig(d, nodeCfg)
 	}
 	if netdevCfg != nil {
-		_ = c.WriteNetdevConfig(d, netdevCfg)
+		_ = c.WriteNetdevConfig(d, option.Config.Opts)
 	}
 	if epCfg != nil {
 		_ = c.WriteTemplateConfig(d, epCfg)

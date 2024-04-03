@@ -28,14 +28,18 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -100,6 +104,26 @@ var (
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
 func NewNodeHandler(
+	tunnelConfig dpTunnel.Config,
+	nodeAddressing datapath.NodeAddressing,
+	nodeMap nodemap.MapV2,
+	mtu mtu.MTU,
+	nodeManager manager.NodeManager,
+	db *statedb.DB,
+	devices statedb.Table[*tables.Device],
+) (datapath.NodeHandler, datapath.NodeIDHandler, datapath.NodeNeighbors) {
+	datapathConfig := DatapathConfiguration{
+		HostDevice:   defaults.HostDevice,
+		TunnelDevice: tunnelConfig.DeviceName(),
+	}
+
+	handler := newNodeHandler(datapathConfig, nodeAddressing, nodeMap, mtu, nodeManager, db, devices)
+	return handler, handler, handler
+}
+
+// newNodeHandler returns a new node handler to handle node events and
+// implement the implications in the Linux datapath
+func newNodeHandler(
 	datapathConfig DatapathConfiguration,
 	nodeAddressing datapath.NodeAddressing,
 	nodeMap nodemap.MapV2,

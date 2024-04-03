@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -76,7 +76,7 @@ type Recorder struct {
 	recMask map[string]*RecMask
 	queue   recQueue
 	ctx     context.Context
-	owner   datapath.BaseProgramOwner
+	loader  types.Loader
 }
 
 // NewRecorder initializes the main recorder infrastructure once upon agent
@@ -84,7 +84,7 @@ type Recorder struct {
 // down into the BPF datapath. Given we currently do not support restore
 // functionality, it also flushes prior existing recorder objects from the
 // BPF maps.
-func NewRecorder(ctx context.Context, owner datapath.BaseProgramOwner) (*Recorder, error) {
+func NewRecorder(ctx context.Context, loader types.Loader) (*Recorder, error) {
 	rec := &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
@@ -92,8 +92,8 @@ func NewRecorder(ctx context.Context, owner datapath.BaseProgramOwner) (*Recorde
 			add: []*RecorderTuple{},
 			del: []*RecorderTuple{},
 		},
-		ctx:   ctx,
-		owner: owner,
+		ctx:    ctx,
+		loader: loader,
 	}
 	if option.Config.EnableRecorder {
 		maps := []*bpf.Map{}
@@ -217,7 +217,6 @@ func (r *Recorder) orderedMaskSets() ([]*RecMask, []*RecMask) {
 
 func (r *Recorder) triggerDatapathRegenerate() error {
 	var masks4, masks6 string
-	l := r.owner.Datapath().Loader()
 	extraCArgs := []string{}
 	if len(r.recMask) == 0 {
 		extraCArgs = append(extraCArgs, "-Dcapture_enabled=0")
@@ -247,7 +246,7 @@ func (r *Recorder) triggerDatapathRegenerate() error {
 			extraCArgs = append(extraCArgs, masks6)
 		}
 	}
-	err := l.ReinitializeXDP(r.ctx, r.owner, extraCArgs)
+	err := r.loader.ReinitializeXDP(r.ctx, extraCArgs)
 	if err != nil {
 		log.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
 			masks4, masks6)

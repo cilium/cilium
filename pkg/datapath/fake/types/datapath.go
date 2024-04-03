@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
@@ -66,7 +67,7 @@ func (f *FakeDatapath) WriteNodeConfig(io.Writer, *datapath.LocalNodeConfigurati
 }
 
 // WriteNetdevConfig pretends to write the netdev configuration to a writer.
-func (f *FakeDatapath) WriteNetdevConfig(io.Writer, datapath.DeviceConfiguration) error {
+func (f *FakeDatapath) WriteNetdevConfig(io.Writer, *option.IntOptions) error {
 	return nil
 }
 
@@ -133,7 +134,7 @@ func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, s
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
 	panic("implement me")
 }
 
@@ -153,7 +154,7 @@ func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
 
@@ -171,6 +172,6 @@ func (f *FakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress 
 
 type FakeOrchestrator struct{}
 
-func (f *FakeOrchestrator) Reinitialize(ctx context.Context, owner datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeOrchestrator) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
