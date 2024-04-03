@@ -9,7 +9,6 @@ import (
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
-	"github.com/cilium/cilium/daemon/controllers"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/daemon/tables"
@@ -245,9 +244,6 @@ var (
 
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		tables.ServiceCacheCell,
-
-		// Table[Service] -> ServiceManager
-		controllers.ServiceControllerCell,
 	)
 )
 

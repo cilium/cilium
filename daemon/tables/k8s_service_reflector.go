@@ -77,7 +77,7 @@ func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_core
 	svcEvents := stream.ToChannel(ctx,
 		stream.Buffer(
 			svcR,
-			500,                 // buffer size
+			300,                 // buffer size
 			10*time.Millisecond, // wait time
 			bufferEvent[*slim_corev1.Service],
 		),
@@ -86,7 +86,7 @@ func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_core
 		ctx,
 		stream.Buffer(
 			epR,
-			500,                 // buffer size
+			300,                 // buffer size
 			10*time.Millisecond, // wait time
 			bufferEvent[*k8s.Endpoints],
 		),
@@ -106,12 +106,6 @@ func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_core
 			for _, ev := range buf {
 				obj := ev.Object
 				switch ev.Kind {
-				case resource.Sync:
-					// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
-					// with each table in StateDB and increment that prior to start and then decrement when done.
-					// The generic reconciler would not perform pruning if it's not ready.
-					// (perhaps could be configurable to also avoid Update/Delete)
-					ev.Done(nil)
 				case resource.Upsert:
 					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
 					var err error
@@ -149,12 +143,6 @@ func runResourceReflector(ctx context.Context, svcR resource.Resource[*slim_core
 			for _, ev := range buf {
 				obj := ev.Object
 				switch ev.Kind {
-				case resource.Sync:
-					// TODO here we should mark readyness for pruning. Idea would be to associate some unreadiness counter
-					// with each table in StateDB and increment that prior to start and then decrement when done.
-					// The generic reconciler would not perform pruning if it's not ready.
-					// (perhaps could be configurable to also avoid Update/Delete)
-					ev.Done(nil)
 				case resource.Upsert:
 					name, backends := endpointsToBackendParams(obj)
 

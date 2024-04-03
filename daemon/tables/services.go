@@ -173,12 +173,15 @@ var ServicesCell = cell.Module(
 	cell.ProvidePrivate(
 		NewServicesTable,
 		NewBackendsTable,
+		serviceManagerReconcilerConfig,
+		newServiceManagerOps,
 	),
 	cell.Provide(
 		NewServices,
 		statedb.RWTable[*Service].ToTable,
 		statedb.RWTable[*Backend].ToTable,
 	),
+	cell.Invoke(reconciler.Register[*Service]),
 )
 
 var ServicesReconcilerCell = cell.Module(
