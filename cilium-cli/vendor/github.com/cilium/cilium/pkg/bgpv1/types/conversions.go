@@ -3,7 +3,11 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+)
 
 // SessionState as defined in rfc4271#section-8.2.2
 type SessionState uint32
@@ -253,4 +257,11 @@ func ParseSafi(s string) Safi {
 		ret = SafiUnknown
 	}
 	return ret
+}
+
+func ToAgentFamily(fam v2alpha1.CiliumBGPFamily) Family {
+	return Family{
+		Afi:  ParseAfi(fam.Afi),
+		Safi: ParseSafi(fam.Safi),
+	}
 }

@@ -22,7 +22,20 @@ const (
 // Sanitize validates and sanitizes a policy rule. Minor edits such as
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
-func (r Rule) Sanitize() error {
+func (r *Rule) Sanitize() error {
+	// Fill in the default traffic posture of this Rule.
+	// Default posture is per-direction (ingress or egress),
+	// if there is a peer selector for that direction, the
+	// default is deny, else allow.
+	if r.EnableDefaultDeny.Egress == nil {
+		x := len(r.Egress) > 0 || len(r.EgressDeny) > 0
+		r.EnableDefaultDeny.Egress = &x
+	}
+	if r.EnableDefaultDeny.Ingress == nil {
+		x := len(r.Ingress) > 0 || len(r.IngressDeny) > 0
+		r.EnableDefaultDeny.Ingress = &x
+	}
+
 	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
 		return fmt.Errorf("rule must have one of EndpointSelector or NodeSelector")
 	}
@@ -179,10 +192,27 @@ func (i *IngressRule) sanitize() error {
 	return nil
 }
 
+// countNonGeneratedRules counts the number of CIDRRule items which are not
+// `Generated`, i.e. were directly provided by the user.
+// The `Generated` field is currently only set by the `ToServices`
+// implementation, which extracts service endpoints and translates them as
+// ToCIDRSet rules before the CNP is passed to the policy repository.
+// Therefore, we want to allow the combination of ToCIDRSet and ToServices
+// rules, if (and only if) the ToCIDRSet only contains `Generated` entries.
+func countNonGeneratedCIDRRules(s CIDRRuleSlice) int {
+	n := 0
+	for _, c := range s {
+		if !c.Generated {
+			n++
+		}
+	}
+	return n
+}
+
 func (e *EgressRule) sanitize() error {
 	l3Members := map[string]int{
 		"ToCIDR":      len(e.ToCIDR),
-		"ToCIDRSet":   len(e.ToCIDRSet),
+		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
 		"ToEndpoints": len(e.ToEndpoints),
 		"ToEntities":  len(e.ToEntities),
 		"ToServices":  len(e.ToServices),

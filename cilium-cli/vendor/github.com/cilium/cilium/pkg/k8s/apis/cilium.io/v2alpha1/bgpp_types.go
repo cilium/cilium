@@ -326,6 +326,12 @@ type CiliumBGPVirtualRouter struct {
 	//
 	// +kubebuilder:validation:Optional
 	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector,omitempty"`
+	// ServiceAdvertisements selects a group of BGP Advertisement(s) to advertise
+	// for the selected services.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={LoadBalancerIP}
+	ServiceAdvertisements []BGPServiceAddressType `json:"serviceAdvertisements,omitempty"`
 	// Neighbors is a list of neighboring BGP peers for this virtual router
 	//
 	// +kubebuilder:validation:Required
@@ -351,6 +357,10 @@ func (r *CiliumBGPVirtualRouter) SetDefaults() {
 	}
 	for i := range r.Neighbors {
 		r.Neighbors[i].SetDefaults()
+	}
+
+	if r.ServiceAdvertisements == nil {
+		r.ServiceAdvertisements = []BGPServiceAddressType{BGPLoadBalancerIPAddr}
 	}
 }
 

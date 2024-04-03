@@ -88,6 +88,11 @@ func (m *BPFMap) contextValidateCache(ctx context.Context, formats strfmt.Regist
 	for i := 0; i < len(m.Cache); i++ {
 
 		if m.Cache[i] != nil {
+
+			if swag.IsZero(m.Cache[i]) { // not required
+				return nil
+			}
+
 			if err := m.Cache[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("cache" + "." + strconv.Itoa(i))

@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"mime"
 	"net/http"
@@ -31,12 +32,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-openapi/strfmt"
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/logger"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/runtime/yamlpc"
-	"github.com/go-openapi/strfmt"
-	"github.com/opentracing/opentracing-go"
 )
 
 const (
@@ -142,7 +144,7 @@ func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 				return nil, fmt.Errorf("tls client priv key: %v", err)
 			}
 		default:
-			return nil, fmt.Errorf("tls client priv key: unsupported key type")
+			return nil, errors.New("tls client priv key: unsupported key type")
 		}
 
 		block = pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes}
@@ -378,14 +380,11 @@ func (r *Runtime) EnableConnectionReuse() {
 func (r *Runtime) createHttpRequest(operation *runtime.ClientOperation) (*request, *http.Request, error) { //nolint:revive,stylecheck
 	params, _, auth := operation.Params, operation.Reader, operation.AuthInfo
 
-	request, err := newRequest(operation.Method, operation.PathPattern, params)
-	if err != nil {
-		return nil, nil, err
-	}
+	request := newRequest(operation.Method, operation.PathPattern, params)
 
 	var accept []string
 	accept = append(accept, operation.ProducesMediaTypes...)
-	if err = request.SetHeaderParam(runtime.HeaderAccept, accept...); err != nil {
+	if err := request.SetHeaderParam(runtime.HeaderAccept, accept...); err != nil {
 		return nil, nil, err
 	}
 

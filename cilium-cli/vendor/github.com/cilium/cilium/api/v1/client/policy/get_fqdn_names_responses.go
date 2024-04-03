@@ -39,7 +39,7 @@ func (o *GetFqdnNamesReader) ReadResponse(response runtime.ClientResponse, consu
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /fqdn/names] GetFqdnNames", response, response.Code())
 	}
 }
 
@@ -80,6 +80,11 @@ func (o *GetFqdnNamesOK) IsServerError() bool {
 // IsCode returns true when this get fqdn names o k response a status code equal to that given
 func (o *GetFqdnNamesOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get fqdn names o k response
+func (o *GetFqdnNamesOK) Code() int {
+	return 200
 }
 
 func (o *GetFqdnNamesOK) Error() string {
@@ -143,6 +148,11 @@ func (o *GetFqdnNamesBadRequest) IsServerError() bool {
 // IsCode returns true when this get fqdn names bad request response a status code equal to that given
 func (o *GetFqdnNamesBadRequest) IsCode(code int) bool {
 	return code == 400
+}
+
+// Code gets the status code for the get fqdn names bad request response
+func (o *GetFqdnNamesBadRequest) Code() int {
+	return 400
 }
 
 func (o *GetFqdnNamesBadRequest) Error() string {

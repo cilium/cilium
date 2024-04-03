@@ -361,6 +361,9 @@ type Interface interface {
 	// ForeachAddress must iterate over all addresses of the interface and
 	// call fn for each address
 	ForeachAddress(instanceID string, fn AddressIterator) error
+
+	// DeepCopyInterface returns a deep copy of the underlying interface type.
+	DeepCopyInterface() Interface
 }
 
 // InterfaceRevision is the configurationr revision of a network interface. It
@@ -542,6 +545,7 @@ func (m *InstanceMap) DeepCopy() *InstanceMap {
 	c := NewInstanceMap()
 	m.ForeachInterface("", func(instanceID, interfaceID string, rev InterfaceRevision) error {
 		// c is not exposed yet, we can access it without locking it
+		rev.Resource = rev.Resource.DeepCopyInterface()
 		c.updateLocked(instanceID, rev)
 		return nil
 	})
