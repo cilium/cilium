@@ -48,7 +48,7 @@ func (be *Backend) TableRow() []string {
 		state = err.Error()
 	}
 	return []string{
-		be.L3n4Addr.String(),
+		be.L3n4Addr.StringWithProtocol(),
 		state,
 		be.Source.String(),
 		strings.Join(toStrings(be.ReferencedBy.AsSlice()), ", "),

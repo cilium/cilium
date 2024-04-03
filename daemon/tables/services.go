@@ -89,7 +89,7 @@ func (s *Service) TableHeader() []string {
 func (s *Service) TableRow() []string {
 	return []string{
 		s.Name.String(),
-		s.L3n4Addr.String(),
+		s.L3n4Addr.StringWithProtocol(),
 		string(s.Type),
 		s.Source.String(),
 		s.BPFStatus.String(),
