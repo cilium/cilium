@@ -102,7 +102,7 @@ type ConfigWriter interface {
 	// of configurable options to the specified writer. Options specified
 	// here will apply to base programs and not to endpoints, though
 	// endpoints may have equivalent configurable options.
-	WriteNetdevConfig(io.Writer, DeviceConfiguration) error
+	WriteNetdevConfig(io.Writer, *option.IntOptions) error
 
 	// WriteTemplateConfig writes the implementation-specific configuration
 	// of configurable options for BPF templates to the specified writer.

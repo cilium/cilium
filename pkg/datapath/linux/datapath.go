@@ -26,9 +26,10 @@ type DatapathConfiguration struct {
 type linuxDatapath struct {
 	datapath.ConfigWriter
 	datapath.IptablesManager
-	node           *linuxNodeHandler
+	nodeHandler    datapath.NodeHandler
+	nodeIDHandler  datapath.NodeIDHandler
+	nodeNeighbors  datapath.NodeNeighbors
 	nodeAddressing datapath.NodeAddressing
-	config         DatapathConfiguration
 	loader         loader.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
@@ -49,23 +50,27 @@ type DatapathParams struct {
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
 	Orchestrator   datapath.Orchestrator
+	NodeHandler    datapath.NodeHandler
+	NodeIDHandler  datapath.NodeIDHandler
+	NodeNeighbors  datapath.NodeNeighbors
 }
 
 // NewDatapath creates a new Linux datapath
-func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath {
+func NewDatapath(p DatapathParams) datapath.Datapath {
 	dp := &linuxDatapath{
 		ConfigWriter:    p.ConfigWriter,
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
-		config:          cfg,
 		loader:          p.Loader,
 		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
+		nodeHandler:     p.NodeHandler,
+		nodeIDHandler:   p.NodeIDHandler,
+		nodeNeighbors:   p.NodeNeighbors,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.NodeManager, p.DB, p.Devices)
 	return dp
 }
 
@@ -75,15 +80,15 @@ func (l *linuxDatapath) Name() string {
 
 // Node returns the handler for node events
 func (l *linuxDatapath) Node() datapath.NodeHandler {
-	return l.node
+	return l.nodeHandler
 }
 
 func (l *linuxDatapath) NodeIDs() datapath.NodeIDHandler {
-	return l.node
+	return l.nodeIDHandler
 }
 
 func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
-	return l.node
+	return l.nodeNeighbors
 }
 
 // LocalNodeAddressing returns the node addressing implementation of the local

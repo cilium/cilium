@@ -90,6 +90,9 @@ type loader struct {
 	devices         statedb.Table[*tables.Device]
 	prefilter       datapath.PreFilter
 	compilationLock datapath.CompilationLock
+	configWriter    datapath.ConfigWriter
+	localNodeConfig datapath.LocalNodeConfiguration
+	nodeHandler     datapath.NodeHandler
 }
 
 type Params struct {
@@ -102,6 +105,9 @@ type Params struct {
 	Devices         statedb.Table[*tables.Device]
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
+	ConfigWriter    datapath.ConfigWriter
+	LocalNodeConfig datapath.LocalNodeConfiguration
+	NodeHandler     datapath.NodeHandler
 }
 
 // newLoader returns a new loader.
@@ -115,6 +121,9 @@ func newLoader(p Params) *loader {
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
 		compilationLock:   p.CompilationLock,
+		configWriter:      p.ConfigWriter,
+		localNodeConfig:   p.LocalNodeConfig,
+		nodeHandler:       p.NodeHandler,
 	}
 }
 
@@ -136,16 +145,16 @@ func NewLoaderForTest(tb testing.TB) *loader {
 
 // Init initializes the datapath cache with base program hashes derived from
 // the LocalNodeConfiguration.
-func (l *loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
+func (l *loader) init() {
 	l.once.Do(func() {
-		l.templateCache = newObjectCache(dp, nodeCfg, option.Config.StateDir)
+		l.templateCache = newObjectCache(l.configWriter, &l.localNodeConfig, option.Config.StateDir)
 		ignorePrefixes := ignoredELFPrefixes
 		if !option.Config.EnableIPv4 {
 			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
 		}
 		elf.IgnoreSymbolPrefixes(ignorePrefixes)
 	})
-	l.templateCache.Update(nodeCfg)
+	l.templateCache.Update(&l.localNodeConfig)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {

@@ -10,5 +10,5 @@ import (
 )
 
 type Orchestrator interface {
-	Reinitialize(ctx context.Context, owner BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 }

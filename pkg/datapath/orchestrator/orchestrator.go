@@ -28,6 +28,6 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 	}
 }
 
-func (o *orchestrator) Reinitialize(ctx context.Context, owner datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	return o.params.Loader.Reinitialize(ctx, owner, tunnelConfig, deviceMTU, iptMgr, p)
+func (o *orchestrator) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	return o.params.Loader.Reinitialize(ctx, tunnelConfig, deviceMTU, iptMgr, p)
 }
