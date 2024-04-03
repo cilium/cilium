@@ -20,6 +20,16 @@ import (
 // TODO: Consider keeping Service and ServiceParams struct private and instead
 // just expose a "Service" interface. This would make it safer to interact with
 // as accidental mutation is harder. The boilerplate might be worth it.
+// It would look something like this:
+// type service struct {
+//   ... unexported fields ...
+// }
+// type Service interface {
+//   L3n4Addr() loadbalancer.L3n4Addr
+//   Type() loadbalancer.SVCType
+//   Labels() labels.Labels()
+//   ...
+// }
 
 type ServiceParams struct {
 	L3n4Addr loadbalancer.L3n4Addr
@@ -171,7 +181,7 @@ var ServicesReconcilerCell = cell.Module(
 )
 
 func NewServices(db *statedb.DB, svcs statedb.RWTable[*Service], bes statedb.RWTable[*Backend]) (*Services, error) {
-	return &Services{db, svcs, bes}, nil
+	return &Services{db, svcs, bes, nil}, nil
 }
 
 // Services provides safe access to manipulating the services table in a semantics-preserving
@@ -180,6 +190,8 @@ type Services struct {
 	db   *statedb.DB
 	svcs statedb.RWTable[*Service]
 	bes  statedb.RWTable[*Backend]
+
+	hooks []Hook
 }
 
 type ServiceWriteTxn struct {
@@ -190,6 +202,12 @@ var (
 	ErrServiceSourceMismatch = errors.New("service exists from different source")
 	ErrServiceConflict       = errors.New("conflict with a service with same address, but different name")
 )
+
+// RegisterHook adds a new hook to modify a service when upserted. This must only be called from
+// providers/invokes and not after starting!
+func (s *Services) RegisterHook(h Hook) {
+	s.hooks = append(s.hooks, h)
+}
 
 // WriteTxn returns a write transaction against services & backends and other additional
 // tables to be used with the methods of [Services]. The returned transaction MUST be
@@ -222,6 +240,12 @@ func (s *Services) UpsertService(txn ServiceWriteTxn, name loadbalancer.ServiceN
 	svc.Name = name
 	svc.ServiceParams = params
 	svc.BPFStatus = reconciler.StatusPending()
+
+	// Run hooks
+	for _, hook := range s.hooks {
+		hook(txn, &svc)
+	}
+
 	_, _, err := s.svcs.Insert(txn, &svc)
 	return err
 }
