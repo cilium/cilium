@@ -326,6 +326,9 @@ func startK8sReflector_EventObservable(ctx context.Context, c client.Clientset, 
 }
 
 func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
+	// FIXME: code-golf to deduplicate loops over ports
+	// (see watchers.genCartesianProduct for inspiration)
+
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		// Skip headless services (TODO do we need them anywhere? addK8sSVCs skips them)
 		return
@@ -350,69 +353,70 @@ func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
 		common.IntPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 
+	scopes := []uint8{loadbalancer.ScopeExternal}
+	twoScopes := (common.ExtPolicy == loadbalancer.SVCTrafficPolicyLocal) != (common.IntPolicy == loadbalancer.SVCTrafficPolicyLocal)
+	if twoScopes {
+		scopes = append(scopes, loadbalancer.ScopeInternal)
+	}
+
 	// ClusterIP
 	clusterIPs := sets.New[string](svc.Spec.ClusterIPs...)
 	if svc.Spec.ClusterIP != "" {
 		clusterIPs.Insert(svc.Spec.ClusterIP)
 	}
 	for ip := range clusterIPs {
-		addr, err := cmtypes.ParseAddrCluster(ip)
-		if err != nil {
-			panic(err)
-			//continue
-		}
-
-		params := common
-		params.Type = loadbalancer.SVCTypeClusterIP
-		params.L3n4Addr.AddrCluster = addr
-		params.L3n4Addr.Scope = loadbalancer.ScopeExternal
-
-		for _, port := range svc.Spec.Ports {
-			params := params
-			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			if p == nil {
-				panic(fmt.Sprintf("L4Addr parse of %v failed", port))
+		for _, scope := range scopes {
+			addr, err := cmtypes.ParseAddrCluster(ip)
+			if err != nil {
+				panic(err)
 				//continue
 			}
-			params.L3n4Addr.L4Addr = *p
-			params.PortName = loadbalancer.FEPortName(port.Name)
-			out = append(out, &params)
+
+			for _, port := range svc.Spec.Ports {
+				params := common
+				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				if p == nil {
+					panic(fmt.Sprintf("L4Addr parse of %v failed", port))
+					//continue
+				}
+
+				params.Type = loadbalancer.SVCTypeClusterIP
+				params.L3n4Addr.AddrCluster = addr
+				params.L3n4Addr.Scope = scope
+				params.L3n4Addr.L4Addr = *p
+				params.PortName = loadbalancer.FEPortName(port.Name)
+				out = append(out, &params)
+			}
 		}
 	}
 
-	// FIXME
-	zeroV4 := cmtypes.MustParseAddrCluster("0.0.0.0")
-	zeroV6 := cmtypes.MustParseAddrCluster("::")
-
 	// NodePort
 	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort {
-		scopes := []uint8{loadbalancer.ScopeExternal}
-		twoScopes := (common.ExtPolicy == loadbalancer.SVCTrafficPolicyLocal) != (common.IntPolicy == loadbalancer.SVCTrafficPolicyLocal)
-		if twoScopes {
-			scopes = append(scopes, loadbalancer.ScopeInternal)
-		}
+		// FIXME where should zero address definition live?
+		zeroV4 := cmtypes.MustParseAddrCluster("0.0.0.0")
+		zeroV6 := cmtypes.MustParseAddrCluster("::")
 
 		for _, scope := range scopes {
 			for _, family := range svc.Spec.IPFamilies {
-				params := common
-				switch family {
-				case slim_corev1.IPv4Protocol:
-					params.L3n4Addr.AddrCluster = zeroV4
-				case slim_corev1.IPv6Protocol:
-					params.L3n4Addr.AddrCluster = zeroV6
-				default:
-					continue
-				}
-				params.L3n4Addr.Scope = scope
-				params.Type = loadbalancer.SVCTypeNodePort
 				for _, port := range svc.Spec.Ports {
-					params := params
+					params := common
 
-					// FIXME proper zero value ipv4/ipv6
+					switch family {
+					case slim_corev1.IPv4Protocol:
+						params.L3n4Addr.AddrCluster = zeroV4
+					case slim_corev1.IPv6Protocol:
+						params.L3n4Addr.AddrCluster = zeroV6
+					default:
+						continue
+					}
+
 					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
 					if p == nil {
 						continue
 					}
+
+					params.L3n4Addr.Scope = scope
+					params.Type = loadbalancer.SVCTypeNodePort
 					params.L3n4Addr.L4Addr = *p
 					params.PortName = loadbalancer.FEPortName(port.Name)
 					out = append(out, &params)
@@ -422,7 +426,62 @@ func toServiceParams(svc *slim_corev1.Service) (out []*ServiceParams) {
 	}
 
 	// LoadBalancer
+	if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+		for _, ip := range svc.Status.LoadBalancer.Ingress {
+			if ip.IP == "" {
+				continue
+			}
+
+			addr, err := cmtypes.ParseAddrCluster(ip.IP)
+			if err != nil {
+				continue
+			}
+
+			for _, scope := range scopes {
+				for _, port := range svc.Spec.Ports {
+					params := common
+					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+					if p == nil {
+						continue
+					}
+
+					params.Type = loadbalancer.SVCTypeLoadBalancer
+					params.L3n4Addr.AddrCluster = addr
+					params.L3n4Addr.Scope = scope
+					params.L3n4Addr.L4Addr = *p
+					params.PortName = loadbalancer.FEPortName(port.Name)
+					out = append(out, &params)
+				}
+			}
+
+		}
+	}
+
 	// ExternalIP
+	for _, ip := range svc.Spec.ExternalIPs {
+		addr, err := cmtypes.ParseAddrCluster(ip)
+		if err != nil {
+			continue
+		}
+
+		for _, scope := range scopes {
+			for _, port := range svc.Spec.Ports {
+				params := common
+				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				if p == nil {
+					continue
+				}
+
+				params.Type = loadbalancer.SVCTypeExternalIPs
+				params.L3n4Addr.AddrCluster = addr
+				params.L3n4Addr.Scope = scope
+				params.L3n4Addr.L4Addr = *p
+				params.PortName = loadbalancer.FEPortName(port.Name)
+				out = append(out, &params)
+			}
+		}
+
+	}
 
 	return
 }
