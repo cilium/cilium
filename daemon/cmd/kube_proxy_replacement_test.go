@@ -131,7 +131,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			},
 		},
 
-		// KPR true + IPsec: error as they're incompatible
+		// KPR true + IPsec: all options enabled, host routing disabled.
 		{
 			"kpr-true+ipsec",
 			func(cfg *kprConfig) {
@@ -139,8 +139,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.enableIPSec = true
 			},
 			kprConfig{
-				expectedErrorRegex: "IPSec cannot be used with.+",
-				// options are still left enabled:
 				enableSocketLB:          true,
 				enableNodePort:          true,
 				enableHostPort:          true,
