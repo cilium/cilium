@@ -8,9 +8,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/proxy"
 )
 
 type orchestrator struct {
@@ -20,7 +22,11 @@ type orchestrator struct {
 type orchestratorParams struct {
 	cell.In
 
-	Loader types.Loader
+	Loader          types.Loader
+	TunnelConfig    tunnel.Config
+	MTU             mtu.MTU
+	IPTablesManager *iptables.Manager
+	Proxy           *proxy.Proxy
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -29,6 +35,12 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 	}
 }
 
-func (o *orchestrator) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	return o.params.Loader.Reinitialize(ctx, tunnelConfig, deviceMTU, iptMgr, p)
+func (o *orchestrator) Reinitialize(ctx context.Context) error {
+	return o.params.Loader.Reinitialize(
+		ctx,
+		o.params.TunnelConfig,
+		o.params.MTU.GetDeviceMTU(),
+		o.params.IPTablesManager,
+		o.params.Proxy,
+	)
 }

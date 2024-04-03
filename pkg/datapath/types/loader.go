@@ -73,7 +73,7 @@ type IptablesManager interface {
 	RemoveNoTrackRules(ip netip.Addr, port uint16)
 }
 
-// CompilationLock is a interface over a mutex, it is used by both the loader, deamon
+// CompilationLock is a interface over a mutex, it is used by both the loader, daemon
 // and endpoint manager to lock the compilation process. This is a bit of a layer violation
 // since certain methods on the loader such as CompileAndLoad and CompileOrLoad expect the
 // lock to be taken before being called.
