@@ -456,6 +456,7 @@ func writeMarkdown(data []byte, path string) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not create file %s", path)
+		os.Exit(1)
 	}
 	w := tabwriter.NewWriter(f, 5, 0, 3, ' ', 0)
 	w.Write(data)
