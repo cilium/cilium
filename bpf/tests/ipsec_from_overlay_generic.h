@@ -47,8 +47,8 @@ int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 __section("mock-handle-policy")
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
-	/* https://github.com/cilium/cilium/blob/b825f4e47e7eea9908ec8324591d7cc95238e1b8/bpf/bpf_lxc.c#L1927 */
-#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+	/* https://github.com/cilium/cilium/blob/v1.16.0-pre.1/bpf/bpf_lxc.c#L2040 */
+#if !defined(ENABLE_ROUTING) && !defined(ENABLE_NODEPORT)
 	return TC_ACT_OK;
 #else
 	return TC_ACT_REDIRECT;
