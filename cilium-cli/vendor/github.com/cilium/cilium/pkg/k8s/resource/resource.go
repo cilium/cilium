@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/stream"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 // Resource provides access to a Kubernetes resource through either

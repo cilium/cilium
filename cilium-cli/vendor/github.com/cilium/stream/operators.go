@@ -5,10 +5,9 @@ package stream
 
 import (
 	"context"
+	"time"
 
 	"golang.org/x/time/rate"
-
-	"github.com/cilium/cilium/pkg/time"
 )
 
 //
@@ -68,6 +67,74 @@ func Reduce[Item, Result any](src Observable[Item], init Result, reduce func(Res
 					}
 					complete(err)
 				})
+		})
+}
+
+// Concat takes one or more observable of the same type and emits the items from each of
+// them in order.
+func Concat[T any](srcs ...Observable[T]) Observable[T] {
+	return FuncObservable[T](
+		func(ctx context.Context, next func(T), complete func(error)) {
+			go func() {
+				for _, src := range srcs {
+					errs := make(chan error, 1)
+					src.Observe(
+						ctx,
+						next,
+						func(err error) {
+							if err != nil {
+								errs <- err
+							}
+							close(errs)
+						},
+					)
+					if err, ok := <-errs; ok {
+						complete(err)
+						return
+					}
+				}
+				complete(nil)
+			}()
+		})
+}
+
+// FlatMap applies a function that returns an observable of Bs to the source observable of As.
+// The observable from the 'apply' function is flattened to produce a flat stream of Bs.
+func FlatMap[A, B any](src Observable[A], apply func(A) Observable[B]) Observable[B] {
+	return FuncObservable[B](
+		func(ctx context.Context, next func(B), complete func(error)) {
+			ctx, cancel := context.WithCancel(ctx)
+			innerErrs := make(chan error, 1)
+			src.Observe(
+				ctx,
+				func(a A) {
+					done := make(chan struct{})
+					apply(a).Observe(
+						ctx,
+						next,
+						func(err error) {
+							if err != nil {
+								select {
+								case innerErrs <- err:
+								default:
+								}
+								cancel()
+							}
+							close(done)
+						},
+					)
+					<-done
+				},
+				func(err error) {
+					defer close(innerErrs)
+					select {
+					case innerErr := <-innerErrs:
+						complete(innerErr)
+					default:
+						complete(err)
+					}
+				},
+			)
 		})
 }
 

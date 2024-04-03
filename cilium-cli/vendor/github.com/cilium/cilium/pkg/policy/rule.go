@@ -422,9 +422,6 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 	hostWildcardL7 := make([]string, 0, 2)
 	if option.Config.AlwaysAllowLocalhost() {
 		hostWildcardL7 = append(hostWildcardL7, labels.IDNameHost)
-		if !option.Config.EnableRemoteNodeIdentity {
-			hostWildcardL7 = append(hostWildcardL7, labels.IDNameRemoteNode)
-		}
 	}
 
 	var (

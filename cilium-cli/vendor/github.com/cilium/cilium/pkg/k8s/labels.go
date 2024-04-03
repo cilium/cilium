@@ -4,11 +4,8 @@
 package k8s
 
 import (
-	"strings"
-
 	"github.com/sirupsen/logrus"
 
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -32,25 +29,11 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 
 	objMetaCpy := pod.ObjectMeta.DeepCopy()
 	annotations := objMetaCpy.Annotations
-	k8sLabels := filterPodLabels(objMetaCpy.Labels)
+	labels := k8sUtils.SanitizePodLabels(objMetaCpy.Labels, k8sNs, pod.Spec.ServiceAccountName, option.Config.ClusterName)
 
 	for _, containers := range pod.Spec.Containers {
 		containerPorts = append(containerPorts, containers.Ports...)
 	}
 
-	labels := k8sUtils.SanitizePodLabels(k8sLabels, k8sNs, pod.Spec.ServiceAccountName, option.Config.ClusterName)
-
 	return containerPorts, labels, annotations, nil
-}
-
-// filterPodLabels returns a copy of the given labels map, without the labels owned by Cilium.
-func filterPodLabels(labels map[string]string) map[string]string {
-	res := map[string]string{}
-	for k, v := range labels {
-		if strings.HasPrefix(k, k8sConst.LabelPrefix) {
-			continue
-		}
-		res[k] = v
-	}
-	return res
 }

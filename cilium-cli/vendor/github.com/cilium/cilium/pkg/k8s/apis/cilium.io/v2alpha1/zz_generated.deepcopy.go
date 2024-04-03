@@ -1203,6 +1203,11 @@ func (in *CiliumBGPVirtualRouter) DeepCopyInto(out *CiliumBGPVirtualRouter) {
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ServiceAdvertisements != nil {
+		in, out := &in.ServiceAdvertisements, &out.ServiceAdvertisements
+		*out = make([]BGPServiceAddressType, len(*in))
+		copy(*out, *in)
+	}
 	if in.Neighbors != nil {
 		in, out := &in.Neighbors, &out.Neighbors
 		*out = make([]CiliumBGPNeighbor, len(*in))
