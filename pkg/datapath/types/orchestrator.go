@@ -5,10 +5,8 @@ package types
 
 import (
 	"context"
-
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 )
 
 type Orchestrator interface {
-	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	Reinitialize(ctx context.Context) error
 }

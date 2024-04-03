@@ -252,7 +252,7 @@ func (d *Daemon) init() error {
 	}
 
 	if !option.Config.DryMode {
-		if err := d.Datapath().Orchestrator().Reinitialize(d.ctx, d.tunnelConfig, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+		if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 
@@ -1028,7 +1028,7 @@ func (d *Daemon) Close() {
 // endpoints may or may not have successfully regenerated.
 func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
-	if err := d.Datapath().Orchestrator().Reinitialize(d.ctx, d.tunnelConfig, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+	if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
 		return nil, fmt.Errorf("unable to recompile base programs from %s: %w", reason, err)
 	}
 
