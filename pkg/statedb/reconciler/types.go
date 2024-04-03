@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/duration"
+
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
@@ -146,9 +148,9 @@ type BatchOperations[Obj any] interface {
 type StatusKind string
 
 const (
-	StatusKindPending StatusKind = "pending"
-	StatusKindDone    StatusKind = "done"
-	StatusKindError   StatusKind = "error"
+	StatusKindPending StatusKind = "Pending"
+	StatusKindDone    StatusKind = "Done"
+	StatusKindError   StatusKind = "Error"
 )
 
 // Key implements an optimized construction of index.Key for StatusKind
@@ -182,10 +184,18 @@ type Status struct {
 }
 
 func (s Status) String() string {
-	if s.Kind == StatusKindError {
-		return fmt.Sprintf("%s (delete: %v, updated: %s ago, error: %s)", s.Kind, s.Delete, time.Now().Sub(s.UpdatedAt), s.Error)
+	deleteText := ""
+	if s.Delete {
+		deleteText = " (delete)"
 	}
-	return fmt.Sprintf("%s (delete: %v, updated: %s ago)", s.Kind, s.Delete, time.Now().Sub(s.UpdatedAt))
+	if s.Kind == StatusKindError {
+		return fmt.Sprintf("Error%s: %s (%s ago)", deleteText, s.Error, prettySince(s.UpdatedAt))
+	}
+	return fmt.Sprintf("%s%s (%s ago)", s.Kind, deleteText, prettySince(s.UpdatedAt))
+}
+
+func prettySince(t time.Time) string {
+	return duration.HumanDuration(time.Since(t))
 }
 
 // StatusPending constructs the status for marking the object as
