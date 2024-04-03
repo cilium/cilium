@@ -298,6 +298,7 @@ jobs:
           key-algo: ${{ matrix.key-two }}
           key-type-one: ${{ matrix.key-type-one }}
           key-type-two: ${{ matrix.key-type-two }}
+          encryption-overlay: ${{ matrix.encryption-overlay }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
