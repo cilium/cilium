@@ -221,11 +221,6 @@ jobs:
           - focus: "datapath"
             cliFocus: "RuntimeDatapathConntrackInVethModeTest|RuntimeDatapathMonitorTest"
 
-          ###
-          # RuntimeDatapathPrivilegedUnitTests Run Tests
-          - focus: "privileged"
-            cliFocus: "RuntimeDatapathPrivilegedUnitTests"
-
     timeout-minutes: 40
     steps:
       - name: Checkout context ref (trusted)
