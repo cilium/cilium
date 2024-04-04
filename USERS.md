@@ -268,6 +268,12 @@ Users (Alphabetically)
       U: Networking
       L: https://github.com/f5devcentral/f5-ci-docs/blob/master/docs/cilium/cilium-bigip-info.rst
       Q: @vincentmli
+    
+    * N: Gcore
+      D: Gcore supports Cilium as CNI provider for Gcore Managed Kubernetes Service
+      U: CNI, Networking, NetworkPolicy, Kubernetes Services
+      L: https://gcore.com/news/cilium-cni-support
+      Q: @rzdebskiy
 
     * N: Giant Swarm
       D: Giant Swarm is using Cilium in their Cluster API based managed Kubernetes service (AWS, Azure, GCP, OpenStack, VMware Cloud Director and VMware vSphere) as CNI
