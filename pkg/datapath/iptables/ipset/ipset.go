@@ -150,7 +150,6 @@ func newIPSetManager(
 	reconciler reconciler.Reconciler[*tables.IPSetEntry],
 	ops *ops,
 ) Manager {
-	db.RegisterTable(table)
 	mgr := &manager{
 		logger:     logger,
 		enabled:    cfg.NodeIPSetNeeded,
@@ -267,23 +266,31 @@ func (i *ipset) list(ctx context.Context, name string) (AddrSet, error) {
 	return addrs, nil
 }
 
-func (i *ipset) add(ctx context.Context, name string, addr netip.Addr) error {
-	if _, err := i.run(ctx, "add", name, addr.String(), "-exist"); err != nil {
-		return fmt.Errorf("failed to add %s to ipset %s: %w", addr, name, err)
+func (i *ipset) addBatch(ctx context.Context, batch map[string][]netip.Addr) error {
+	b := strings.Builder{}
+	for name, addrs := range batch {
+		for _, addr := range addrs {
+			fmt.Fprintf(&b, "add %s %s -exist\n", name, addr)
+		}
 	}
-	return nil
+	_, err := i.exec(ctx, "ipset", b.String(), "restore")
+	return err
 }
 
-func (i *ipset) del(ctx context.Context, name string, addr netip.Addr) error {
-	if _, err := i.run(ctx, "del", name, addr.String(), "-exist"); err != nil {
-		return fmt.Errorf("failed to del %s to ipset %s: %w", addr, name, err)
+func (i *ipset) delBatch(ctx context.Context, batch map[string][]netip.Addr) error {
+	b := strings.Builder{}
+	for name, addrs := range batch {
+		for _, addr := range addrs {
+			fmt.Fprintf(&b, "del %s %s -exist\n", name, addr)
+		}
 	}
-	return nil
+	_, err := i.exec(ctx, "ipset", b.String(), "restore")
+	return err
 }
 
 func (i *ipset) run(ctx context.Context, args ...string) ([]byte, error) {
 	i.log.Debugf("Running command %s", i.fullCommand(args...))
-	return i.exec(ctx, "ipset", args...)
+	return i.exec(ctx, "ipset", "", args...)
 }
 
 func (i *ipset) fullCommand(args ...string) string {
@@ -292,11 +299,11 @@ func (i *ipset) fullCommand(args ...string) string {
 
 // useful to ease the creation of a mock ipset command for testing purposes
 type executable interface {
-	exec(ctx context.Context, name string, arg ...string) ([]byte, error)
+	exec(ctx context.Context, name string, stdin string, arg ...string) ([]byte, error)
 }
 
-type funcExecutable func(ctx context.Context, name string, arg ...string) ([]byte, error)
+type funcExecutable func(ctx context.Context, name string, stdin string, arg ...string) ([]byte, error)
 
-func (f funcExecutable) exec(ctx context.Context, name string, arg ...string) ([]byte, error) {
-	return f(ctx, name, arg...)
+func (f funcExecutable) exec(ctx context.Context, name string, stdin string, arg ...string) ([]byte, error) {
+	return f(ctx, name, stdin, arg...)
 }
