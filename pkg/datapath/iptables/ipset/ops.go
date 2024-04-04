@@ -56,10 +56,11 @@ func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPS
 		return nil
 	}
 
-	// check that the set exists
-	if _, err := ops.ipset.list(ctx, entry.Name); err != nil {
-		return nil
+	// create the set if does not exist
+	if err := ops.ipset.create(ctx, entry.Name, string(entry.Family)); err != nil {
+		return err
 	}
+
 	return ops.ipset.del(ctx, entry.Name, entry.Addr)
 }
 
