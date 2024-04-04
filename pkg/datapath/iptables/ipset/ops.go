@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) *ops {
@@ -30,37 +31,61 @@ type ops struct {
 	ipset   *ipset
 }
 
-func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry, changed *bool) error {
+// UpdateBatch implements reconciler.BatchOperations.
+func (ops *ops) UpdateBatch(ctx context.Context, txn statedb.ReadTxn, batch []reconciler.BatchEntry[*tables.IPSetEntry]) {
 	if !ops.enabled {
-		return nil
+		return
 	}
 
-	// create the set if does not exist
-	if err := ops.ipset.create(ctx, entry.Name, string(entry.Family)); err != nil {
-		return err
+	addrsByName := map[string][]netip.Addr{}
+	for _, entry := range batch {
+		addrsByName[entry.Object.Name] = append(addrsByName[entry.Object.Name], entry.Object.Addr)
+	}
+	err := ops.ipset.addBatch(ctx, addrsByName)
+	if err != nil {
+		// Fail the whole batch.
+		for i := range batch {
+			batch[i].Result = err
+		}
+	}
+}
+
+// DeleteBatch implements reconciler.BatchOperations.
+func (ops *ops) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []reconciler.BatchEntry[*tables.IPSetEntry]) {
+	if !ops.enabled {
+		return
 	}
 
-	if err := ops.ipset.add(ctx, entry.Name, entry.Addr); err != nil {
-		return err
+	addrsByName := map[string][]netip.Addr{}
+	for _, entry := range batch {
+		addrsByName[entry.Object.Name] = append(addrsByName[entry.Object.Name], entry.Object.Addr)
 	}
-
-	if changed != nil {
-		*changed = true
+	err := ops.ipset.delBatch(ctx, addrsByName)
+	if err != nil {
+		// Fail the whole batch.
+		for i := range batch {
+			batch[i].Result = err
+		}
 	}
+}
 
+var _ reconciler.Operations[*tables.IPSetEntry] = &ops{}
+var _ reconciler.BatchOperations[*tables.IPSetEntry] = &ops{}
+
+func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry, changed *bool) error {
+	// Since we're using batch operations Update is only called for full reconciliation.
+	// As we're doing full synchronization in Prune() we don't need to do anything here.
+	// The reconciler will be changed from Update+Prune to Sync in the future after which
+	// this hack can be removed.
+	if changed == nil {
+		// Panic here in case the assumptions change.
+		panic("Unexpectedly Update() called from incremental reconciliation")
+	}
 	return nil
 }
 
 func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
-	if !ops.enabled {
-		return nil
-	}
-
-	// check that the set exists
-	if _, err := ops.ipset.list(ctx, entry.Name); err != nil {
-		return nil
-	}
-	return ops.ipset.del(ctx, entry.Name, entry.Addr)
+	panic("Unexpectedly Delete() called from incremental reconciliation")
 }
 
 func (ops *ops) Prune(ctx context.Context, _ statedb.ReadTxn, iter statedb.Iterator[*tables.IPSetEntry]) error {
@@ -102,19 +127,16 @@ func reconcile(
 	}
 
 	toDel := curSet.Difference(desired)
-	for addr := range toDel {
-		if err := ipset.del(ctx, name, addr); err != nil {
-			return fmt.Errorf("unable to delete addr %s from ipset %s: %w", name, addr, err)
-		}
+	delBatch := map[string][]netip.Addr{name: toDel.UnsortedList()}
+	if err := ipset.delBatch(ctx, delBatch); err != nil {
+		return fmt.Errorf("unable to delete from ipset: %w", err)
 	}
 
 	toAdd := desired.Difference(curSet)
-	for addr := range toAdd {
-		if err := ipset.add(ctx, name, addr); err != nil {
-			return fmt.Errorf("unable to add addr %s from ipset %s: %w", name, addr, err)
-		}
+	addBatch := map[string][]netip.Addr{name: toAdd.UnsortedList()}
+	if err := ipset.addBatch(ctx, addBatch); err != nil {
+		return fmt.Errorf("unable to delete from ipset: %w", err)
 	}
-
 	return nil
 }
 
