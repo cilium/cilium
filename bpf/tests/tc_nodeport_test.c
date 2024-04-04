@@ -53,7 +53,8 @@ struct {
  *            \---------------------------/
  */
 
-static __always_inline int build_packet(struct __ctx_buff *ctx)
+static __always_inline int build_packet(struct __ctx_buff *ctx,
+					__be16 sport)
 {
 	struct pktgen builder;
 	volatile const __u8 *src = mac_one;
@@ -84,10 +85,9 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 
 	/* Push TCP header */
 	l4 = pktgen__push_default_tcphdr(&builder);
-
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
+	l4->source = sport;
 	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
@@ -104,7 +104,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 PKTGEN("tc", "hairpin_flow_1_forward_v4")
 int hairpin_flow_forward_pktgen(struct __ctx_buff *ctx)
 {
-	return build_packet(ctx);
+	return build_packet(ctx, tcp_src_one);
 }
 
 /* Test that sending a packet from a pod to its own service gets source nat-ed
@@ -509,7 +509,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 
 	int ret;
 
-	ret = build_packet(ctx);
+	ret = build_packet(ctx, tcp_src_two);
 	if (ret)
 		return ret;
 
