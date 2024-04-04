@@ -308,7 +308,9 @@ Annotations:
 
 * Cilium Envoy DaemonSet is now enabled by default, and existing in-container installs
   will be changed to DaemonSet mode unless specifically opted out of. This can be done by
-  disabling it manually by setting ``envoy.enabled=false`` accordingly.
+  disabling it manually by setting ``envoy.enabled=false`` accordingly. This change adds
+  one additional Pod per Node, therefore Nodes at maximum Pod capacity will face an
+  eviction of a single non-system critical Pod after upgrading.
 * The ``cilium-dbg status --verbose`` command health data may now show health reported on a non-leaf
   component under a leaf named ``reporter``. Health data tree branches will now also be sorted by
   the fully qualified health status identifier.
