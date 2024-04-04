@@ -847,13 +847,14 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
 #endif
-	if (unlikely(svc->count == 0))
-		return DROP_NO_SERVICE;
 
 	/* See lb4_local comments re svc endpoint lookup process */
 	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, ACTION_CREATE, CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
+		if (unlikely(svc->count == 0))
+			goto drop_no_service;
+
 #ifdef ENABLE_SESSION_AFFINITY
 		if (lb6_svc_is_affinity(svc)) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
@@ -903,6 +904,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (!backend_id) {
+			if (unlikely(svc->count == 0))
+				goto drop_no_service;
+
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			if (!backend_id)
 				goto drop_no_service;
@@ -928,6 +932,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb6_lookup_service(key, false, true);
 		if (!svc)
 			goto drop_no_service;
+
+		if (unlikely(svc->count == 0))
+			goto drop_no_service;
+
 		backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 		backend = lb6_lookup_backend(ctx, backend_id);
 		if (!backend)
@@ -1537,13 +1545,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		.client_ip = saddr,
 	};
 #endif
-	if (unlikely(svc->count == 0))
-		return DROP_NO_SERVICE;
 
 	ret = ct_lazy_lookup4(map, tuple, ctx, l4_off, has_l4_header, ACTION_CREATE,
 			      CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
+		if (unlikely(svc->count == 0))
+			goto drop_no_service;
+
 #ifdef ENABLE_SESSION_AFFINITY
 		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
@@ -1605,6 +1614,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (!backend_id) {
+			if (unlikely(svc->count == 0))
+				goto drop_no_service;
+
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			if (!backend_id)
 				goto drop_no_service;
@@ -1630,6 +1642,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb4_lookup_service(key, false, true);
 		if (!svc)
 			goto drop_no_service;
+
+		if (unlikely(svc->count == 0))
+			goto drop_no_service;
+
 		backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 		backend = lb4_lookup_backend(ctx, backend_id);
 		if (!backend)
