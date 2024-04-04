@@ -1048,7 +1048,7 @@ func (e *etcdClient) statusChecker() {
 		default:
 			e.latestErrorStatus = nil
 			e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, leases=%d, lock leases=%d, has-quorum=%s: %s",
-				ok, len(endpoints), e.leaseManager.TotalLeases(), e.leaseManager.TotalLeases(), quorumString, strings.Join(newStatus, "; "))
+				ok, len(endpoints), e.leaseManager.TotalLeases(), e.lockLeaseManager.TotalLeases(), quorumString, strings.Join(newStatus, "; "))
 		}
 
 		e.statusLock.Unlock()
