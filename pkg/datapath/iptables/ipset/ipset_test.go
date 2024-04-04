@@ -12,10 +12,12 @@ import (
 	"io"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -379,6 +381,61 @@ func withLocked(m *lock.Mutex, f func()) {
 	defer m.Unlock()
 
 	f()
+}
+
+func TestOpsPruneEnabled(t *testing.T) {
+	fakeLogger := logrus.New()
+	fakeLogger.SetOutput(io.Discard)
+
+	db, _ := statedb.NewDB(nil, statedb.NewMetrics())
+	table, _ := statedb.NewTable("ipsets", tables.IPSetEntryIndex)
+	require.NoError(t, db.RegisterTable(table))
+
+	txn := db.WriteTxn(table)
+	table.Insert(txn, &tables.IPSetEntry{
+		Name:   CiliumNodeIPSetV4,
+		Family: string(INetFamily),
+		Addr:   netip.MustParseAddr("1.1.1.1"),
+		Status: reconciler.StatusDone(),
+	})
+	table.Insert(txn, &tables.IPSetEntry{
+		Name:   CiliumNodeIPSetV4,
+		Family: string(INetFamily),
+		Addr:   netip.MustParseAddr("2.2.2.2"),
+		Status: reconciler.StatusDone(),
+	})
+	table.Insert(txn, &tables.IPSetEntry{
+		Name:   CiliumNodeIPSetV6,
+		Family: string(INet6Family),
+		Addr:   netip.MustParseAddr("cafe::1"),
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
+
+	var nCalled atomic.Bool // true if the ipset utility has been called
+
+	ipset := &ipset{
+		executable: funcExecutable(func(ctx context.Context, command string, arg ...string) ([]byte, error) {
+			nCalled.Store(true)
+			t.Logf("%s %s", command, strings.Join(arg, " "))
+			return nil, nil
+		}),
+		log: fakeLogger,
+	}
+
+	ops := newOps(fakeLogger, ipset, config{NodeIPSetNeeded: true})
+
+	// prune operation should be skipped when it is not enabled
+	iter, _ := table.All(db.ReadTxn())
+	assert.NoError(t, ops.Prune(context.TODO(), db.ReadTxn(), iter))
+	assert.False(t, nCalled.Load())
+
+	ops.enablePrune()
+
+	// prune operation should now be completed
+	iter, _ = table.All(db.ReadTxn())
+	assert.NoError(t, ops.Prune(context.TODO(), db.ReadTxn(), iter))
+	assert.True(t, nCalled.Load())
 }
 
 func TestIPSetList(t *testing.T) {
