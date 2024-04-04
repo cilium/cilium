@@ -870,8 +870,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
 #endif
-	if (unlikely(svc->count == 0))
-		return DROP_NO_SERVICE;
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -880,6 +878,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
+		if (unlikely(svc->count == 0))
+			goto no_service;
+
 #ifdef ENABLE_SESSION_AFFINITY
 		if (lb6_svc_is_affinity(svc)) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
@@ -921,6 +922,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
+
+			if (unlikely(svc->count == 0))
+				goto no_service;
 
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
@@ -1509,8 +1513,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		.client_ip = saddr,
 	};
 #endif
-	if (unlikely(svc->count == 0))
-		return DROP_NO_SERVICE;
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -1518,6 +1520,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			      CT_SERVICE, SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
+		if (unlikely(svc->count == 0))
+			goto no_service;
+
 #ifdef ENABLE_SESSION_AFFINITY
 		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
@@ -1560,6 +1565,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
+
+			if (unlikely(svc->count == 0))
+				goto no_service;
 
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
