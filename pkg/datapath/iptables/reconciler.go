@@ -256,12 +256,15 @@ stop:
 				health.OK("iptables rules full reconciliation completed")
 				firstInit = false
 				stateChanged = false
-				// close all channels waiting for reconciliation
-				for _, ch := range updatedChs {
-					close(ch)
-				}
-				updatedChs = updatedChs[:0]
 			}
+
+			// close all channels waiting for reconciliation
+			// do this even in case of a failed reconciliation, to avoid
+			// blocking consumer goroutines indefinitely.
+			for _, ch := range updatedChs {
+				close(ch)
+			}
+			updatedChs = updatedChs[:0]
 		}
 	}
 
