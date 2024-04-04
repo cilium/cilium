@@ -853,6 +853,9 @@ func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("unable to list Cilium pods: %w", err)
 		}
+		if len(ciliumPods.Items) == 0 {
+			return fmt.Errorf("no cilium agent pods found in -n %s -l %s", ct.params.CiliumNamespace, ct.params.AgentPodSelector)
+		}
 		for _, ciliumPod := range ciliumPods.Items {
 			// TODO: Can Cilium pod names collide across clusters?
 			ct.ciliumPods[ciliumPod.Name] = Pod{
