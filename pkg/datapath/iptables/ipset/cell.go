@@ -66,7 +66,7 @@ func newReconcilerConfig(
 		FullReconcilationInterval: 30 * time.Minute,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   5 * time.Second,
-		IncrementalRoundSize:      100,
+		IncrementalRoundSize:      5000,
 		GetObjectStatus:           (*tables.IPSetEntry).GetStatus,
 		WithObjectStatus:          (*tables.IPSetEntry).WithStatus,
 		Operations:                ops,
