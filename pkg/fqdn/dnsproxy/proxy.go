@@ -212,7 +212,7 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPortProto restore.PortPr
 
 	for i := range ipRules {
 		ipRule := ipRules[i]
-		if _, exists := ipRule.IPs[destIP]; exists || ipRule.IPs == nil {
+		if _, exists := ipRule.IPs[destIP]; exists || len(ipRule.IPs) == 0 {
 			if ipRule.regex != nil && ipRule.regex.MatchString(name) {
 				return true
 			}
