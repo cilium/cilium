@@ -148,18 +148,18 @@ cilium-dbg bpf multicast subscriber delete 229.0.0.1 10.100.0.1
 	},
 }
 
-// subscriberData is used to store the subscribers of a multicast group
-type subscriberData struct {
-	groupAddr   netip.Addr
-	subscribers []*maps_multicast.SubscriberV4
+// SubscriberData is used to store the subscribers of a multicast group as well as for json output.
+type SubscriberData struct {
+	GroupAddr   netip.Addr                     `json:"group_address"`
+	Subscribers []*maps_multicast.SubscriberV4 `json:"subscribers"`
 }
 
 func outputGroups(groupAddrs []netip.Addr) error {
-	var allGroups []subscriberData
+	var allGroups []SubscriberData
 
 	for _, groupAddr := range groupAddrs {
-		groupData := subscriberData{
-			groupAddr: groupAddr,
+		groupData := SubscriberData{
+			GroupAddr: groupAddr,
 		}
 
 		subscriberMap, err := getMulticastSubscriberMap(groupAddr)
@@ -167,7 +167,7 @@ func outputGroups(groupAddrs []netip.Addr) error {
 			return fmt.Errorf("failed to lookup multicast group %s: %w", groupAddr, err)
 		}
 
-		groupData.subscribers, err = subscriberMap.List()
+		groupData.Subscribers, err = subscriberMap.List()
 		if err != nil {
 			return fmt.Errorf("failed to list multicast subscribers for group %s: %w", groupAddr, err)
 		}
@@ -186,23 +186,23 @@ func outputGroups(groupAddrs []netip.Addr) error {
 	return nil
 }
 
-func printSubscriberList(subscribers []subscriberData) {
+func printSubscriberList(subscribers []SubscriberData) {
 	sort.Slice(subscribers, func(i, j int) bool {
-		return subscribers[i].groupAddr.Compare(subscribers[j].groupAddr) < 0
+		return subscribers[i].GroupAddr.Compare(subscribers[j].GroupAddr) < 0
 	})
 
 	// sort subscribers in each group
 	for _, group := range subscribers {
-		sort.Slice(group.subscribers, func(i, j int) bool {
-			return group.subscribers[i].SAddr.Compare(group.subscribers[j].SAddr) < 0
+		sort.Slice(group.Subscribers, func(i, j int) bool {
+			return group.Subscribers[i].SAddr.Compare(group.Subscribers[j].SAddr) < 0
 		})
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 16, 1, 0, ' ', 0)
 	fmt.Fprintln(w, "Group\tSubscriber\tType\t")
 	for _, subData := range subscribers {
-		fmt.Fprintf(w, "%s\t", subData.groupAddr)
-		for i, sub := range subData.subscribers {
+		fmt.Fprintf(w, "%s\t", subData.GroupAddr)
+		for i, sub := range subData.Subscribers {
 			if i > 0 {
 				// move by one tab to accommodate group address
 				fmt.Fprintf(w, "\t")
@@ -212,7 +212,7 @@ func printSubscriberList(subscribers []subscriberData) {
 			fmt.Fprintf(w, "\n")
 		}
 
-		if len(subData.subscribers) == 0 {
+		if len(subData.Subscribers) == 0 {
 			fmt.Fprintf(w, "\n")
 		}
 	}
