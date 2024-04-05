@@ -442,6 +442,9 @@ func (p *Proxy) ReinstallRoutingRules() error {
 			return err
 		}
 	}
+	if err := removeStaleProxyRulesIPv4(); err != nil {
+		return err
+	}
 
 	if option.Config.EnableIPv6 {
 		if err := installToProxyRoutesIPv6(); err != nil {
@@ -468,6 +471,9 @@ func (p *Proxy) ReinstallRoutingRules() error {
 		if err := removeFromProxyRoutesIPv6(); err != nil {
 			return err
 		}
+	}
+	if err := removeStaleProxyRulesIPv6(); err != nil {
+		return err
 	}
 
 	return nil
