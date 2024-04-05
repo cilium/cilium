@@ -729,8 +729,16 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
 	if (IS_ERR(ret)) {
-		if (dsr_fail_needs_reply(ret))
+		if (dsr_fail_needs_reply(ret)) {
+			/* revalidate_data is not strictly necessary, because the packet pointers
+			 * weren't invalidated on DROP_FRAG_NEEDED, but the verifier can't prove it.
+			 */
+			if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
 			return dsr_reply_icmp6(ctx, ip6, &addr, port, ret, ohead);
+		}
 		goto drop_err;
 	}
 
