@@ -10,6 +10,8 @@ import (
 	"syscall"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/exp/slices"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -155,6 +157,11 @@ func removeFromProxyRoutesIPv4() error {
 	return nil
 }
 
+// removeStaleProxyRulesIPv4 removes stale proxy rules. This is a v1.15 only function.
+func removeStaleProxyRulesIPv4() error {
+	return removeProtoUnspecRules(netlink.FAMILY_V4)
+}
+
 // installFromProxyRoutesIPv6 configures routes and rules needed to redirect ingress
 // packets from the proxy.
 func installFromProxyRoutesIPv6(ipv6 net.IP, device string) error {
@@ -199,5 +206,32 @@ func removeFromProxyRoutesIPv6() error {
 		return fmt.Errorf("removing ipv6 from proxy route table: %w", err)
 	}
 
+	return nil
+}
+
+// removeStaleProxyRulesIPv6 removes stale proxy rules. This is a v1.15 only function.
+func removeStaleProxyRulesIPv6() error {
+	return removeProtoUnspecRules(netlink.FAMILY_V6)
+}
+
+// removeProtoUnspecRules removes all routing rules with protocol RTPROT_UNSPEC. This is a v1.15 only function.
+func removeProtoUnspecRules(family int) error {
+	rules, err := route.ListRules(family, nil)
+	if err != nil {
+		return fmt.Errorf("listing routing rules: %w", err)
+	}
+	ciliumRouteTables := []int{
+		linux_defaults.RouteTableToProxy,
+		linux_defaults.RouteTableFromProxy,
+	}
+	for _, r := range rules {
+		if r.Protocol == unix.RTPROT_UNSPEC && slices.Contains(ciliumRouteTables, r.Table) {
+			if err := netlink.RuleDel(&r); err != nil {
+				if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
+					return fmt.Errorf("removing proto unspec routing rule: %w", err)
+				}
+			}
+		}
+	}
 	return nil
 }
