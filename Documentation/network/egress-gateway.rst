@@ -64,6 +64,8 @@ cluster with a source IP address (pod IP or node IP) that doesn't match the
 egress gateway IP. That egressing traffic will also not be redirected through
 the gateway node.
 
+.. _egress-gateway-incompatible-features:
+
 Incompatibility with other features
 -----------------------------------
 

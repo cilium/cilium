@@ -20,7 +20,6 @@ Kubernetes Networking
    kubeproxy-free
    ciliumendpoint
    ciliumendpointslice
-   ciliumendpointslice_beta
    compatibility
    troubleshooting
    bandwidth-manager
