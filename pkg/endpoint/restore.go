@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,28 +43,6 @@ var (
 	initialGlobalIdentitiesControllerGroup = controller.NewGroup("initial-global-identities")
 )
 
-// getCiliumVersionString returns the first line containing ciliumCHeaderPrefix.
-func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
-	f, err := os.Open(epCHeaderFilePath)
-	if err != nil {
-		return []byte{}, err
-	}
-	br := bufio.NewReader(f)
-	defer f.Close()
-	for {
-		b, err := br.ReadBytes('\n')
-		if errors.Is(err, io.EOF) {
-			return []byte{}, nil
-		}
-		if err != nil {
-			return []byte{}, err
-		}
-		if bytes.Contains(b, []byte(ciliumCHeaderPrefix)) {
-			return b, nil
-		}
-	}
-}
-
 // hostObjFileName is the name of the host object file.
 const hostObjFileName = "bpf_host.o"
 
@@ -98,25 +77,18 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 		epDir := filepath.Join(basePath, epDirName)
 		isHost := hasHostObjectFile(epDir)
 
-		cHeaderFile := filepath.Join(epDir, common.CHeaderFileName)
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.EndpointID: epDirName,
-			logfields.Path:       cHeaderFile,
+			logfields.Path:       epDir,
 		})
 
-		if _, err := os.Stat(cHeaderFile); err != nil {
-			scopedLog.WithError(err).Warn("C header file not found. Ignoring endpoint")
-			continue
-		}
-
-		scopedLog.Debug("Found endpoint C header file")
-
-		bEp, err := getCiliumVersionString(cHeaderFile)
+		state, err := findEndpointState(epDir, scopedLog)
 		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to read the C header file")
+			scopedLog.WithError(err).Warn("Couldn't find state, ignoring endpoint")
 			continue
 		}
-		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, bEp)
+
+		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, state)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
@@ -138,6 +110,55 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 		}
 	}
 	return possibleEPs
+}
+
+// findEndpointState finds the JSON representation of an endpoint's state in
+// a directory.
+//
+// It prefers reading from the endpoint state JSON file and falls back to
+// reading from the header.
+func findEndpointState(dir string, log *logrus.Entry) ([]byte, error) {
+	state, err := os.ReadFile(filepath.Join(dir, common.EndpointStateFileName))
+	if err == nil {
+		log.Debug("Restore from JSON file")
+		return state, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+
+	// Fall back to reading state from the C header.
+	// Remove this at some point in the far future.
+	f, err := os.Open(filepath.Join(dir, common.CHeaderFileName))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	log.Debug("Restore from C header file")
+
+	br := bufio.NewReader(f)
+	var line []byte
+	for {
+		b, err := br.ReadBytes('\n')
+		if errors.Is(err, io.EOF) {
+			return nil, os.ErrNotExist
+		}
+		if err != nil {
+			return nil, err
+		}
+		if bytes.Contains(b, []byte(ciliumCHeaderPrefix)) {
+			line = b
+			break
+		}
+	}
+
+	epSlice := bytes.Split(line, []byte{':'})
+	if len(epSlice) != 2 {
+		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", line)
+	}
+
+	return base64.StdEncoding.AppendDecode(nil, epSlice[1])
 }
 
 // partitionEPDirNamesByRestoreStatus partitions the provided list of directory

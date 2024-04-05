@@ -87,6 +87,9 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		var verBase64 string
 		verBase64, err = version.Base64()
 		if err == nil {
+			// Current versions ignore the comment, but we need to retain it
+			// so that downgrades work.
+			fmt.Fprintln(fw, " * The line below is retained for backwards compatibility only.")
 			fmt.Fprintf(fw, " * %s%s:%s\n * \n", ciliumCHeaderPrefix,
 				verBase64, epStr64)
 		}
@@ -141,9 +144,26 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		logfields.Path: headerPath,
 	}).Debug("writing header file")
 
-	// Write new contents to a temporary file which will be atomically renamed to the
-	// real file at the end of this function. This will make sure we never end up with
-	// corrupted header files on the filesystem.
+	// Write state as a plain JSON.
+	jsonState, err := e.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("failed to serialize state: %w", err)
+	}
+
+	state, err := renameio.TempFile(prefix, filepath.Join(prefix, common.EndpointStateFileName))
+	if err != nil {
+		return fmt.Errorf("failed to open temporary file: %w", err)
+	}
+	defer state.Cleanup()
+
+	if _, err := state.Write(jsonState); err != nil {
+		return err
+	}
+
+	if err := state.CloseAtomicallyReplace(); err != nil {
+		return err
+	}
+
 	f, err := renameio.TempFile(prefix, headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open temporary file: %w", err)
