@@ -1167,7 +1167,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 		return err
 	}
 
-	// Only update Envoy if there are envoy redirects and there were queued incremental changes.
+	// Only update Envoy if there are envoy redirects.
 	// This is safe to do here, since a PolicyMapChange cannot
 	// cause an envoy redirect to appear or disappear. It only allows for
 	// incremental updates. Thus, we don't need to worry about stale
