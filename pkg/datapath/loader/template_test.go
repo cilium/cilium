@@ -5,15 +5,15 @@ package loader
 
 import (
 	"bytes"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func (s *LoaderTestSuite) TestWrap(c *C) {
+func TestWrap(t *testing.T) {
 	var (
 		realEPBuffer   bytes.Buffer
 		templateBuffer bytes.Buffer
@@ -25,10 +25,10 @@ func (s *LoaderTestSuite) TestWrap(c *C) {
 
 	// Write the configuration that should be the same, and verify it is.
 	err := cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	err = cfg.WriteTemplateConfig(&templateBuffer, template)
-	c.Assert(err, IsNil)
-	c.Assert(realEPBuffer.String(), checker.DeepEquals, templateBuffer.String())
+	require.Nil(t, err)
+	require.Equal(t, realEPBuffer.String(), templateBuffer.String())
 
 	// Write with the static data, and verify that the buffers differ.
 	// Note this isn't an overly strong test because it only takes one
@@ -37,8 +37,9 @@ func (s *LoaderTestSuite) TestWrap(c *C) {
 	realEPBuffer.Reset()
 	templateBuffer.Reset()
 	err = cfg.WriteEndpointConfig(&realEPBuffer, &realEP)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	err = cfg.WriteEndpointConfig(&templateBuffer, template)
-	c.Assert(err, IsNil)
-	c.Assert(realEPBuffer.String(), Not(Equals), templateBuffer.String())
+	require.Nil(t, err)
+
+	require.NotEqual(t, realEPBuffer.String(), templateBuffer.String())
 }
