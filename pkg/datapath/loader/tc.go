@@ -25,9 +25,17 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 	}
 
 	if tcxEnabled {
-		// Attach using tcx if available. This is seamless on interfaces with
-		// existing tc programs since attaching tcx disables legacy tc evaluation.
-		err := upsertTCXProgram(device, prog, progName, bpffsDir, parent)
+		var err error
+		if device.Type() == "netkit" {
+			// If the device is a netkit device, we know that netkit links are
+			// supported, therefore use netkit instead of tcx. For all others like
+			// host devices, rely on tcx.
+			err = upsertNetkitProgram(device, prog, progName, bpffsDir, parent)
+		} else {
+			// Attach using tcx if available. This is seamless on interfaces with
+			// existing tc programs since attaching tcx disables legacy tc evaluation.
+			err = upsertTCXProgram(device, prog, progName, bpffsDir, parent)
+		}
 		if err == nil {
 			// Created tcx link, clean up any leftover legacy tc attachments.
 			if err := removeTCFilters(device, parent); err != nil {
