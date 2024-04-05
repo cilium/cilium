@@ -150,3 +150,18 @@ clusters for the service under examination.
 
       Cluster1Global-->|no|Cluster1SelfCluster2Self
       Cluster2Global-->|no|Cluster1SelfCluster2Self
+
+Limitations
+###########
+
+* Global NodePort services load balance across both local and remote backends only
+  if Cilium is configured to replace kube-proxy (either ``kubeProxyReplacement=true``
+  or ``nodePort.enabled=true``). Otherwise, only local backends are eligible for
+  load balancing when accessed through the NodePort.
+
+* Global services accessed by a Node, or a Pod running in host network, load
+  balance across both local and remote backends only if Cilium is configured
+  to replace kube-proxy (``kubeProxyReplacement=true``). This limitation can be
+  overcome enabling SocketLB in the host namespace: ``socketLB.enabled=true``,
+  ``socketLB.hostNamespaceOnly=true``. Otherwise, only local backends are eligible
+  for load balancing.
