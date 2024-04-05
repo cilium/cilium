@@ -1323,7 +1323,9 @@ var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 	},
 }
 
-func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
+// toEnvoyFullTLSContext converts a "policy" TLS context (i.e., from a CiliumNetworkPolicy or
+// CiliumClusterwideNetworkPolicy) into a "cilium envoy" TLS context (i.e., for the Cilium proxy plugin for Envoy).
+func toEnvoyFullTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
 	return &cilium.TLSContext{
 		TrustedCa:        tls.TrustedCA,
 		CertificateChain: tls.CertificateChain,
@@ -1382,10 +1384,10 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	}
 
 	if l7Rules.TerminatingTLS != nil {
-		r.DownstreamTlsContext = getCiliumTLSContext(l7Rules.TerminatingTLS)
+		r.DownstreamTlsContext = toEnvoyFullTLSContext(l7Rules.TerminatingTLS)
 	}
 	if l7Rules.OriginatingTLS != nil {
-		r.UpstreamTlsContext = getCiliumTLSContext(l7Rules.OriginatingTLS)
+		r.UpstreamTlsContext = toEnvoyFullTLSContext(l7Rules.OriginatingTLS)
 	}
 	if len(l7Rules.ServerNames) > 0 {
 		r.ServerNames = make([]string, 0, len(l7Rules.ServerNames))
