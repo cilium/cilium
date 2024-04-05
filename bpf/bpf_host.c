@@ -397,7 +397,7 @@ skip_tunnel:
 	/* See IPv4 comment. */
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true);
+					 info->sec_identity, true, false);
 #endif
 
 	return CTX_ACT_OK;
@@ -853,7 +853,7 @@ skip_tunnel:
 	/* We encrypt host to remote pod packets only if they are from proxy. */
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true);
+					 info->sec_identity, true, false);
 #endif
 
 	return CTX_ACT_OK;
