@@ -18,3 +18,4 @@ spec:
     toPorts:
       - port: "8181"
         protocol: TCP
+  skipRedirectFromBackend: true

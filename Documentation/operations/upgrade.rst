@@ -318,6 +318,10 @@ Annotations:
 * The built-in WireGuard userspace-mode fallback (Helm ``wireguard.userspaceFallback``) has been
   deprecated and will be removed in a future version of Cilium. Users of WireGuard transparent
   encryption are required to use a Linux kernel with WireGuard support going forward.
+* Local Redirect Policy, when enabled with socket-based load-balancing, redirects traffic
+  from policy-selected node-local backends destined to the policy's frontend, back to the
+  node-local backends. To override this behavior, which is enabled by default, create
+  local redirect policies with the ``skipRedirectFromBackend`` flag set to ``false``.
 
 Removed Options
 ~~~~~~~~~~~~~~~
