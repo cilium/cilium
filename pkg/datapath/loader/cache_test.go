@@ -6,19 +6,19 @@ package loader
 import (
 	"context"
 	"fmt"
-	"os"
+	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func (s *LoaderTestSuite) TestobjectCache(c *C) {
-	tmpDir, err := os.MkdirTemp("", "cilium_test")
-	c.Assert(err, IsNil)
-	defer os.RemoveAll(tmpDir)
+func TestObjectCache(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	setupCompilationDirectories(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
@@ -28,25 +28,25 @@ func (s *LoaderTestSuite) TestobjectCache(c *C) {
 
 	// First run should compile and generate the object.
 	_, isNew, err := cache.fetchOrCompile(ctx, &realEP, nil)
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, isNew, true)
 
 	// Same EP should not be compiled twice.
 	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, nil)
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, false)
+	require.Nil(t, err)
+	require.Equal(t, isNew, false)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
 	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, nil)
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, false)
+	require.Nil(t, err)
+	require.Equal(t, isNew, false)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
 	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, nil)
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, isNew, true)
 }
 
 type buildResult struct {
@@ -56,7 +56,7 @@ type buildResult struct {
 	err       error
 }
 
-func receiveResult(c *C, results chan buildResult) (*buildResult, error) {
+func receiveResult(t *testing.T, results chan buildResult) (*buildResult, error) {
 	select {
 	case result := <-results:
 		if result.err != nil {
@@ -68,13 +68,13 @@ func receiveResult(c *C, results chan buildResult) (*buildResult, error) {
 	}
 }
 
-func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
-	tmpDir, err := os.MkdirTemp("", "cilium_test")
-	c.Assert(err, IsNil)
-	defer os.RemoveAll(tmpDir)
+func TestObjectCacheParallel(t *testing.T) {
+	tmpDir := t.TempDir()
 
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
+
+	setupCompilationDirectories(t)
 
 	tests := []struct {
 		description string
@@ -98,20 +98,24 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		},
 	}
 
-	for _, t := range tests {
-		c.Logf("  %s", t.description)
+	for _, test := range tests {
+		t.Logf("  %s", test.description)
 
-		results := make(chan buildResult, t.builds)
+		results := make(chan buildResult, test.builds)
 		cache := newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
-		for i := 0; i < t.builds; i++ {
+		for i := 0; i < test.builds; i++ {
 			go func(i int) {
 				ep := testutils.NewTestEndpoint()
-				opt := fmt.Sprintf("OPT%d", i/t.divisor)
+				opt := fmt.Sprintf("OPT%d", i/test.divisor)
 				ep.Opts.SetBool(opt, true)
 				file, isNew, err := cache.fetchOrCompile(ctx, &ep, nil)
+				path := ""
+				if file != nil {
+					path = file.Name()
+				}
 				results <- buildResult{
 					goroutine: i,
-					path:      file.Name(),
+					path:      path,
 					compiled:  isNew,
 					err:       err,
 				}
@@ -119,11 +123,11 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		}
 
 		// First result will always be a compilation for the new set of options
-		compiled := make(map[string]int, t.builds)
-		used := make(map[string]int, t.builds)
-		for i := 0; i < t.builds; i++ {
-			result, err := receiveResult(c, results)
-			c.Assert(err, IsNil)
+		compiled := make(map[string]int, test.builds)
+		used := make(map[string]int, test.builds)
+		for i := 0; i < test.builds; i++ {
+			result, err := receiveResult(t, results)
+			require.Nil(t, err)
 
 			used[result.path] = used[result.path] + 1
 			if result.compiled {
@@ -131,16 +135,16 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 			}
 		}
 
-		c.Assert(len(compiled), Equals, t.builds/t.divisor)
-		c.Assert(len(used), Equals, t.builds/t.divisor)
+		require.Len(t, compiled, test.builds/test.divisor)
+		require.Len(t, used, test.builds/test.divisor)
 		for _, templateCompileCount := range compiled {
 			// Only one goroutine compiles each template
-			c.Assert(templateCompileCount, Equals, 1)
+			require.Equal(t, templateCompileCount, 1)
 		}
 		for _, templateUseCount := range used {
 			// Based on the test parameters, a number of goroutines
 			// may share the same template.
-			c.Assert(templateUseCount, Equals, t.divisor)
+			require.Equal(t, templateUseCount, test.divisor)
 		}
 	}
 }
