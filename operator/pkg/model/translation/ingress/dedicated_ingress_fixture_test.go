@@ -104,6 +104,9 @@ func toRouteAction(namespace, name, port string) *envoy_config_route_v3.Route_Ro
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 				Cluster: fmt.Sprintf("%s:%s:%s", namespace, name, port),
 			},
+			MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+				MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+			},
 		},
 	}
 }
