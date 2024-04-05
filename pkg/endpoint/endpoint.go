@@ -4,7 +4,6 @@
 package endpoint
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -878,31 +877,11 @@ func (e *Endpoint) ConntrackLocalLocked() bool {
 
 // base64 returns the endpoint in a base64 format.
 func (e *Endpoint) base64() (string, error) {
-	var (
-		jsonBytes []byte
-		err       error
-	)
-
-	jsonBytes, err = json.Marshal(e)
+	jsonBytes, err := e.MarshalJSON()
 	if err != nil {
 		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(jsonBytes), nil
-}
-
-// parseBase64ToEndpoint parses the endpoint stored in the given base64 byte slice.
-func parseBase64ToEndpoint(b []byte, ep *Endpoint) error {
-	jsonBytes := make([]byte, base64.StdEncoding.DecodedLen(len(b)))
-	n, err := base64.StdEncoding.Decode(jsonBytes, b)
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(jsonBytes[:n], ep); err != nil {
-		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %w", err)
-	}
-
-	return nil
 }
 
 // FilterEPDir returns a list of directories' names that possible belong to an endpoint.
@@ -919,24 +898,18 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 	return eptsID
 }
 
-// parseEndpoint parses the given bEp which is in the form of:
-// common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
+// parseEndpoint parses the JSON representation of an endpoint.
+//
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, bEp []byte) (*Endpoint, error) {
-	// TODO: Provide a better mechanism to update from old version once we bump
-	// TODO: cilium version.
-	epSlice := bytes.Split(bEp, []byte{':'})
-	if len(epSlice) != 2 {
-		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", bEp)
-	}
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
 	ep := Endpoint{
 		owner:            owner,
 		namedPortsGetter: namedPortsGetter,
 		policyGetter:     policyGetter,
 	}
 
-	if err := parseBase64ToEndpoint(epSlice[1], &ep); err != nil {
+	if err := ep.UnmarshalJSON(epJSON); err != nil {
 		return nil, fmt.Errorf("failed to parse restored endpoint: %w", err)
 	}
 
