@@ -897,9 +897,13 @@ func (l *loader) DeviceHasTCProgramLoaded(device string, checkEgress bool) (bool
 	if err != nil {
 		return false, err
 	}
+	ink, err := hasCiliumNetkitLinks(link, ebpf.AttachNetkitPeer)
+	if err != nil {
+		return false, err
+	}
 
 	// Need ingress programs at minimum, bail out if these are already missing.
-	if !itc && !itcx {
+	if !itc && !itcx && !ink {
 		return false, nil
 	}
 
@@ -915,6 +919,10 @@ func (l *loader) DeviceHasTCProgramLoaded(device string, checkEgress bool) (bool
 	if err != nil {
 		return false, err
 	}
+	enk, err := hasCiliumNetkitLinks(link, ebpf.AttachNetkitPrimary)
+	if err != nil {
+		return false, err
+	}
 
-	return etc || etcx, nil
+	return etc || etcx || enk, nil
 }
