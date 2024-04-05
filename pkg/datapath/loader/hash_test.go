@@ -5,8 +5,8 @@ package loader
 
 import (
 	"context"
+	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
@@ -29,9 +29,11 @@ var (
 	dummyEPCfg  = testutils.NewTestEndpoint()
 )
 
-// TesthashDatapath is done in this package just for easy access to dummy
+// TestHashDatapath is done in this package just for easy access to dummy
 // configuration objects.
-func (s *LoaderTestSuite) TesthashDatapath(c *C) {
+func TestHashDatapath(t *testing.T) {
+	setupLocalNodeStore(t)
+
 	var cfg datapath.ConfigWriter
 	hv := hive.New(
 		provideNodemap,
@@ -46,8 +48,8 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 		}),
 	)
 
-	require.NoError(c, hv.Start(context.TODO()))
-	c.Cleanup(func() { require.Nil(c, hv.Stop(context.TODO())) })
+	require.NoError(t, hv.Start(context.TODO()))
+	t.Cleanup(func() { require.Nil(t, hv.Stop(context.TODO())) })
 
 	h := newDatapathHash()
 	baseHash := h.String()
@@ -55,18 +57,18 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	// Ensure we get different hashes when config is added
 	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &dummyEPCfg)
 	dummyHash := h.String()
-	c.Assert(dummyHash, Not(Equals), baseHash)
+	require.NotEqual(t, dummyHash, baseHash)
 
 	// Ensure we get the same base hash when config is removed via Reset()
 	h.Reset()
-	c.Assert(h.String(), Equals, baseHash)
-	c.Assert(h.String(), Not(Equals), dummyHash)
+	require.Equal(t, h.String(), baseHash)
+	require.NotEqual(t, h.String(), dummyHash)
 
 	// Ensure that with a copy of the endpoint config we get the same hash
 	newEPCfg := dummyEPCfg
 	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &newEPCfg)
-	c.Assert(h.String(), Not(Equals), baseHash)
-	c.Assert(h.String(), Equals, dummyHash)
+	require.NotEqual(t, h.String(), baseHash)
+	require.Equal(t, h.String(), dummyHash)
 
 	// Even with different endpoint IDs, we get the same hash
 	//
@@ -74,15 +76,15 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	// data substitution is performed via pkg/elf instead.
 	newEPCfg.Id++
 	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &newEPCfg)
-	c.Assert(h.String(), Not(Equals), baseHash)
-	c.Assert(h.String(), Equals, dummyHash)
+	require.NotEqual(t, h.String(), baseHash)
+	require.Equal(t, h.String(), dummyHash)
 
 	// But when we configure the endpoint differently, it's different
 	newEPCfg = testutils.NewTestEndpoint()
 	newEPCfg.Opts.SetBool("foo", true)
 	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &newEPCfg)
-	c.Assert(h.String(), Not(Equals), baseHash)
-	c.Assert(h.String(), Not(Equals), dummyHash)
+	require.NotEqual(t, h.String(), baseHash)
+	require.NotEqual(t, h.String(), dummyHash)
 }
 
 var provideNodemap = cell.Provide(func() nodemap.MapV2 {
