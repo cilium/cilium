@@ -17,7 +17,7 @@ cilium-operator-azure hive [flags]
       --ces-dynamic-rate-limit-qps-limit strings             List of qps limits used for the dynamic rate limit steps
       --ces-enable-dynamic-rate-limit                        Flag to enable dynamic rate limit specified in separate fields instead of the static one
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
-      --ces-slice-mode string                                Slicing mode define how ceps are grouped into a CES (default "cesSliceModeIdentity")
+      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("cesSliceModeIdentity") or batched on a "First Come, First Served" basis ("cesSliceModeFCFS") (default "cesSliceModeIdentity")
       --ces-write-qps-burst int                              CES work queue burst rate. Ignored when ces-enable-dynamic-rate-limit is set (default 20)
       --ces-write-qps-limit float                            CES work queue rate limit. Ignored when ces-enable-dynamic-rate-limit is set (default 10)
       --cluster-id uint32                                    Unique identifier of the cluster

@@ -80,7 +80,7 @@ var defaultConfig = Config{
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Int(CESMaxCEPsInCES, def.CESMaxCEPsInCES, "Maximum number of CiliumEndpoints allowed in a CES")
-	flags.String(CESSlicingMode, def.CESSlicingMode, "Slicing mode define how ceps are grouped into a CES")
+	flags.String(CESSlicingMode, def.CESSlicingMode, "Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity (\"cesSliceModeIdentity\") or batched on a \"First Come, First Served\" basis (\"cesSliceModeFCFS\")")
 	flags.Float64(CESWriteQPSLimit, def.CESWriteQPSLimit, "CES work queue rate limit. Ignored when "+CESEnableDynamicRateLimit+" is set")
 	flags.Int(CESWriteQPSBurst, def.CESWriteQPSBurst, "CES work queue burst rate. Ignored when "+CESEnableDynamicRateLimit+" is set")
 

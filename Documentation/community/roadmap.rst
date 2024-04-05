@@ -132,7 +132,7 @@ following features to graduate to stable:
 
 * :ref:`BGP<bgp>`
 * :ref:`Local Redirect Policy<local-redirect-policy>`
-* :ref:`CiliumEndpointSlice<gsg_ces>`
+* :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
 * :ref:`Multi-Pool IPAM<ipam_crd_multi_pool>`
 * :ref:`Node-to-node WireGuard encryption<node-node-wg>`
 
