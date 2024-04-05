@@ -3046,6 +3046,9 @@ var backendRefsRequestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.C
 												},
 											},
 										},
+										MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+											MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+										},
 									},
 								},
 							},
@@ -3108,6 +3111,9 @@ var backendRefsRequestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.C
 													},
 												},
 											},
+										},
+										MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+											MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 										},
 									},
 								},
@@ -3181,6 +3187,9 @@ var backendRefsRequestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.C
 													},
 												},
 											},
+										},
+										MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+											MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 										},
 									},
 								},
@@ -3693,6 +3702,9 @@ var backendRefsResponseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.
 												},
 											},
 										},
+										MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+											MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+										},
 									},
 								},
 							},
@@ -3755,6 +3767,9 @@ var backendRefsResponseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.
 													},
 												},
 											},
+										},
+										MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+											MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 										},
 									},
 								},
@@ -3828,6 +3843,9 @@ var backendRefsResponseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.
 													},
 												},
 											},
+										},
+										MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+											MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 										},
 									},
 								},
@@ -4733,6 +4751,9 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 												HostRewriteLiteral: "one.example.org",
 											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
 										},
 									},
 								},
@@ -4749,6 +4770,9 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											},
 											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 												HostRewriteLiteral: "example.org",
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 											},
 										},
 									},
@@ -4940,6 +4964,9 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											PrefixRewrite: "/prefix",
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
 										},
 									},
 									RequestHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
@@ -4984,6 +5011,9 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 												},
 												Substitution: "/test",
 											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
 										},
 									},
 									RequestHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
@@ -5023,6 +5053,9 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											PrefixRewrite: "/one",
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
 										},
 									},
 								},
@@ -5042,6 +5075,9 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 													Regex: "^/.*$",
 												},
 												Substitution: "/one",
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 											},
 										},
 									},
@@ -5163,6 +5199,9 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 													},
 												},
 											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
 										},
 									},
 								},
@@ -5277,6 +5316,9 @@ func toRouteAction(namespace, name, port string) *envoy_config_route_v3.Route_Ro
 		Route: &envoy_config_route_v3.RouteAction{
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 				Cluster: fmt.Sprintf("%s:%s:%s", namespace, name, port),
+			},
+			MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+				MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 			},
 		},
 	}

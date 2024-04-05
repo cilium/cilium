@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -573,6 +574,9 @@ func envoyRouteAction(namespace, backend, port string) *envoy_config_route_v3.Ro
 		Route: &envoy_config_route_v3.RouteAction{
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 				Cluster: fmt.Sprintf("%s:%s:%s", namespace, backend, port),
+			},
+			MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+				MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 			},
 		},
 	}
