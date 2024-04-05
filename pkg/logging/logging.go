@@ -116,7 +116,7 @@ func (o LogOptions) GetLogFormat() LogFormat {
 	}
 
 	formatOpt = strings.ToLower(formatOpt)
-	re := regexp.MustCompile(`^(text|json|json-ts)$`)
+	re := regexp.MustCompile(`^(text|text-ts|json|json-ts)$`)
 	if !re.MatchString(formatOpt) {
 		logrus.WithError(
 			fmt.Errorf("incorrect log format configured '%s', expected 'text', 'json' or 'json-ts'", formatOpt),
