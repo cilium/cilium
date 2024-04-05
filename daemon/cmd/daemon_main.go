@@ -1358,6 +1358,7 @@ func initEnv(vp *viper.Viper) {
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 	case datapathOption.DatapathModeNetkit:
+	case datapathOption.DatapathModeNetkitL2:
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {

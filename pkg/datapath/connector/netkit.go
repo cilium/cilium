@@ -31,7 +31,7 @@ func SetupNetkitRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the temporary link, the name of the temporary link
 // and error if something fails.
-func SetupNetkit(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
+func SetupNetkit(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -40,20 +40,24 @@ func SetupNetkit(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize,
 	tmpIfName := Endpoint2TempIfName(id)
 
 	netkit, link, err := SetupNetkitWithNames(lxcIfName, tmpIfName, mtu,
-		groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize, ep, sysctl)
+		groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize, l2Mode, ep, sysctl)
 	return netkit, link, tmpIfName, err
 }
 
 // SetupNetkitWithNames sets up the net interface, the peer interface and fills up some
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the peer link and error if something fails.
-func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
+func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
+	mode := netlink.NETKIT_MODE_L3
+	if l2Mode {
+		mode = netlink.NETKIT_MODE_L2
+	}
 	netkit := &netlink.Netkit{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:   lxcIfName,
 			TxQLen: 1000,
 		},
-		Mode:       netlink.NETKIT_MODE_L3,
+		Mode:       mode,
 		Policy:     netlink.NETKIT_POLICY_FORWARD,
 		PeerPolicy: netlink.NETKIT_POLICY_BLACKHOLE,
 	}

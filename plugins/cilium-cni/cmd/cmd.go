@@ -554,11 +554,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("unable to set up veth on container side: %w", err)
 			}
-		case datapathOption.DatapathModeNetkit:
+		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
+			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
 			netkit, peer, tmpIfName, err := connector.SetupNetkit(cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
+				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
 			if err != nil {
 				return fmt.Errorf("unable to set up netkit on host side: %w", err)
 			}

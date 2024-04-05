@@ -189,7 +189,7 @@ func CleanupEndpoint() {
 	// Explicit removal is performed to ensure that everything referencing the network namespace
 	// the endpoint process is executed under is disposed, so that the network namespace itself is properly disposed.
 	switch option.Config.DatapathMode {
-	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit:
+	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		for _, iface := range []string{legacyHealthName, healthName} {
 			scopedLog := log.WithField(logfields.Interface, iface)
 			if link, err := netlink.LinkByName(iface); err == nil {
@@ -280,10 +280,11 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		if err = netlink.LinkSetNsFd(epLink, int(ns.FD())); err != nil {
 			return nil, fmt.Errorf("failed to move device %q to health namespace: %w", epIfaceName, err)
 		}
-	case datapathOption.DatapathModeNetkit:
+	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
+		l2Mode := option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 		_, epLink, err := connector.SetupNetkitWithNames(healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
-			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
+			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), l2Mode,
 			info, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating netkit: %s", err)
