@@ -320,6 +320,11 @@ func requestMirrorMutation(mirrors []*model.HTTPRequestMirror) routeActionMutati
 func timeoutMutation(backend *time.Duration, request *time.Duration) routeActionMutation {
 	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
 		if backend == nil && request == nil {
+			route.Route.MaxStreamDuration = &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+				MaxStreamDuration: &durationpb.Duration{
+					Seconds: 0,
+				},
+			}
 			return route
 		}
 		minTimeout := backend
