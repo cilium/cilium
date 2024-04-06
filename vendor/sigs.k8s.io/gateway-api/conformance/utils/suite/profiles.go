@@ -48,6 +48,10 @@ const (
 	// which covers TLS stream functionality, such as the TLSRoute API.
 	TLSConformanceProfileName ConformanceProfileName = "TLS"
 
+	// GRPCConformanceProfileName indicates the name of the conformance profile
+	// which covers GRPC functionality, such as the GRPCRoute API.
+	GRPCConformanceProfileName ConformanceProfileName = "GRPC"
+
 	// MeshConformanceProfileName indicates the name of the conformance profile
 	// which covers service mesh functionality.
 	MeshConformanceProfileName ConformanceProfileName = "MESH"
@@ -67,7 +71,9 @@ var (
 			SupportReferenceGrant,
 			SupportHTTPRoute,
 		),
-		ExtendedFeatures: HTTPRouteExtendedFeatures,
+		ExtendedFeatures: sets.New[SupportedFeature]().
+			Insert(GatewayExtendedFeatures.UnsortedList()...).
+			Insert(HTTPRouteExtendedFeatures.UnsortedList()...),
 	}
 
 	// TLSConformanceProfile is a ConformanceProfile that covers testing TLS
@@ -78,6 +84,18 @@ var (
 			SupportGateway,
 			SupportReferenceGrant,
 			SupportTLSRoute,
+		),
+		ExtendedFeatures: GatewayExtendedFeatures,
+	}
+
+	// GRPCConformanceProfile is a ConformanceProfile that covers testing GRPC
+	// related functionality with Gateways.
+	GRPCConformanceProfile = ConformanceProfile{
+		Name: GRPCConformanceProfileName,
+		CoreFeatures: sets.New(
+			SupportGateway,
+			SupportReferenceGrant,
+			SupportGRPCRoute,
 		),
 	}
 
@@ -93,6 +111,16 @@ var (
 	}
 )
 
+// RegisterConformanceProfile allows downstream tests to register unique profiles that
+// define their own set of features
+func RegisterConformanceProfile(p ConformanceProfile) {
+	_, ok := conformanceProfileMap[p.Name]
+	if ok {
+		panic(fmt.Sprintf("ConformanceProfile named %q is already registered", p.Name))
+	}
+	conformanceProfileMap[p.Name] = p
+}
+
 // -----------------------------------------------------------------------------
 // Conformance Profiles - Private Profile Mapping Helpers
 // -----------------------------------------------------------------------------
@@ -102,6 +130,7 @@ var (
 var conformanceProfileMap = map[ConformanceProfileName]ConformanceProfile{
 	HTTPConformanceProfileName: HTTPConformanceProfile,
 	TLSConformanceProfileName:  TLSConformanceProfile,
+	GRPCConformanceProfileName: GRPCConformanceProfile,
 	MeshConformanceProfileName: MeshConformanceProfile,
 }
 

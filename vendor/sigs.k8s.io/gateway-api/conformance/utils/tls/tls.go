@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
+	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 )
 
 // MakeTLSRequestAndExpectEventuallyConsistentResponse makes a request with the given parameters,
@@ -49,16 +50,16 @@ func WaitForConsistentTLSResponse(t *testing.T, r roundtripper.RoundTripper, req
 
 		cReq, cRes, err := r.CaptureRoundTrip(req)
 		if err != nil {
-			t.Logf("Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
+			tlog.Logf(t, "Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
 			return false
 		}
 
 		if err := http.CompareRequest(t, &req, cReq, cRes, expected); err != nil {
-			t.Logf("Response expectation failed for request: %+v  not ready yet: %v (after %v)", req, err, elapsed)
+			tlog.Logf(t, "Response expectation failed for request: %+v  not ready yet: %v (after %v)", req, err, elapsed)
 			return false
 		}
 
 		return true
 	})
-	t.Logf("Request passed")
+	tlog.Logf(t, "Request passed")
 }

@@ -29,6 +29,21 @@ spec:
     hostname: "*.anotherwildcard.io"
 ---
 apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: httproute-hostname-intersection-all
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: listener-1
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: specific-host-matches-listener-specific-host
@@ -133,5 +148,24 @@ spec:
         type: PathPrefix
         value: /s5
     backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-hostname-intersection-all
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: httproute-hostname-intersection-all
+    namespace: gateway-conformance-infra
+  hostnames:
+  - first.com
+  - sub.first.com
+  - second.com
+  - sub.second.com
+  rules:
+  - backendRefs:
     - name: infra-backend-v2
       port: 8080
