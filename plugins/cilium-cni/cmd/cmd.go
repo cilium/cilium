@@ -406,7 +406,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
-	logger := log.WithField("eventUUID", uuid.New())
+	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
@@ -415,18 +415,17 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			defer gops.Close()
 		}
 	}
-	logger.Debugf("Processing CNI ADD request %#v", args)
+	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI ADD request")
 
-	logger.Debugf("CNI NetConf: %#v", n)
 	if n.PrevResult != nil {
-		logger.Debugf("CNI Previous result: %#v", n.PrevResult)
+		logger.WithField("previousResult", logfields.Repr(n.PrevResult)).Debugf("CNI Previous result")
 	}
 
 	cniArgs := &types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
 		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
-	logger.Debugf("CNI Args: %#v", cniArgs)
+	logger = loggerWithCNIArgs(logger, cniArgs)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -459,7 +458,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 				logger.WithError(err).Warn("Chained ADD failed")
 				return err
 			}
-			logger.Debugf("Returning result %#v", res)
+			logger.WithField("result", logfields.Repr(res)).Debugf("Returning result")
 			return cniTypes.PrintResult(res, n.CNIVersion)
 		} else if err != nil {
 			logger.WithError(err).Error("Invalid chaining mode")
@@ -622,8 +621,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		ep.SyncBuildEndpoint = true
 		var newEp *models.Endpoint
 		if newEp, err = c.EndpointCreate(ep); err != nil {
-			logger.WithError(err).WithFields(logrus.Fields{
-				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
+			logger.WithError(err).WithField(logfields.ContainerID, ep.ContainerID).Warn("Unable to create endpoint")
 			return fmt.Errorf("unable to create endpoint: %w", err)
 		}
 		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
@@ -642,8 +640,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			Mac:     macAddrStr,
 			Sandbox: args.Netns,
 		})
-		logger.WithFields(logrus.Fields{
-			logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
+		logger.WithError(err).WithField(logfields.ContainerID, ep.ContainerID).Debug("Endpoint successfully created")
 	}
 
 	return cniTypes.PrintResult(res, n.CNIVersion)
@@ -666,7 +663,7 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
-	logger := log.WithField("eventUUID", uuid.New())
+	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
@@ -675,17 +672,13 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 			defer gops.Close()
 		}
 	}
-	logger.Debugf("Processing CNI DEL request %#v", args)
-
-	logger.Debugf("CNI NetConf: %#v", n)
+	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI DEL request")
 
 	cniArgs := &types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
 		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
-	logger.Debugf("CNI Args: %#v", cniArgs)
-
-	logger = logger.WithField("containerID", args.ContainerID)
+	logger = loggerWithCNIArgs(logger, cniArgs)
 
 	c, err := lib.NewDeletionFallbackClient(logger)
 	if err != nil {
@@ -766,7 +759,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 			fmt.Sprintf("unable to setup logging: %s", err))
 	}
 
-	logger := log.WithField("eventUUID", uuid.New())
+	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
@@ -775,11 +768,10 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 			defer gops.Close()
 		}
 	}
-	logger.Debugf("Processing CNI CHECK request %#v", args)
+	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI CHECK request")
 
-	logger.Debugf("CNI NetConf: %#v", n)
 	if n.PrevResult != nil {
-		logger.Debugf("CNI Previous result: %#v", n.PrevResult)
+		logger.WithField("previousResult", logfields.Repr(n.PrevResult)).Debugf("CNI Previous result")
 	}
 
 	cniArgs := &types.ArgsSpec{}
@@ -787,7 +779,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidArgs",
 			fmt.Sprintf("unable to extract CNI arguments: %s", err))
 	}
-	logger.Debugf("CNI Args: %#v", cniArgs)
+	logger = loggerWithCNIArgs(logger, cniArgs)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -810,7 +802,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 		// err is nil on success
 		err := chainAction.Check(context.TODO(), ctx, c)
-		logger.Debugf("Chained CHECK %s returned %s", n.Name, err)
+		logger.WithError(err).Debugf("Chained CHECK %s returned", n.Name)
 		return err
 	} else if err != nil {
 		logger.WithError(err).Error("Invalid chaining mode")
@@ -828,7 +820,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 	// Ask the agent for the endpoint's health
 	eID := endpointid.NewCNIAttachmentID(args.ContainerID, args.IfName)
-	logger.Debugf("Asking agent for healthz for %s", eID)
+	logger.WithField(logfields.EndpointID, eID).Debugf("Asking agent for healthz")
 	epHealth, err := c.EndpointHealthGet(eID)
 	if err != nil {
 		return cniTypes.NewError(types.CniErrHealthzGet, "HealthzFailed",
@@ -853,7 +845,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 // verifyInterface verifies that a given interface exists in the netns
 // with the given addresses
 func verifyInterface(netnsPinPath, ifName string, expected *cniTypesV1.Result) error {
-	wantAddresses := []*cniTypesV1.IPConfig{}
+	var wantAddresses []*cniTypesV1.IPConfig
 	for idx, iface := range expected.Interfaces {
 		if iface.Sandbox == "" {
 			continue
@@ -943,4 +935,21 @@ func getChainedAction(n *types.NetConf, logger *logrus.Entry) (chainingapi.Chain
 
 	// OK to return nil, nil if chaining isn't enabled.
 	return nil, nil
+}
+
+func loggerWithArguments(logger *logrus.Entry, args *skel.CmdArgs) *logrus.Entry {
+	return logger.WithFields(logrus.Fields{
+		logfields.ContainerID: args.ContainerID,
+		"netns":               args.Netns,
+		"ifName":              args.IfName,
+		"args":                args.Args,
+		logfields.Path:        args.Path,
+	})
+}
+
+func loggerWithCNIArgs(logger *logrus.Entry, cniArgs *types.ArgsSpec) *logrus.Entry {
+	return logger.WithFields(logrus.Fields{
+		logfields.K8sNamespace: cniArgs.K8S_POD_NAMESPACE,
+		logfields.K8sPodName:   cniArgs.K8S_POD_NAME,
+	})
 }
