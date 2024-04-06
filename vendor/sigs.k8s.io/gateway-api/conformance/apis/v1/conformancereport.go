@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 import (
+	"errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -78,4 +80,25 @@ type Implementation struct {
 	// on a repository, but for projects without a publicly exposed repository a general support
 	// page URL can be provided.
 	Contact []string `json:"contact"`
+}
+
+// Validate ensures that the Implementation struct has valid fields set
+func (i *Implementation) Validate() error {
+	// TODO: add data validation https://github.com/kubernetes-sigs/gateway-api/issues/2178
+	if i.Organization == "" {
+		return errors.New("implementation's organization can not be empty")
+	}
+	if i.Project == "" {
+		return errors.New("implementation's project can not be empty")
+	}
+	if i.URL == "" {
+		return errors.New("implementation's url can not be empty")
+	}
+	if i.Version == "" {
+		return errors.New("implementation's version can not be empty")
+	}
+	if len(i.Contact) == 0 {
+		return errors.New("implementation's contact can not be empty")
+	}
+	return nil
 }

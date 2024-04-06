@@ -241,6 +241,62 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 				})
 			}
 		})
+
+		t.Run("HTTPRoutes intersects with an unspecified hostname listener", func(t *testing.T) {
+			routes := []types.NamespacedName{
+				{Namespace: ns, Name: "httproute-hostname-intersection-all"},
+			}
+			gwNN := types.NamespacedName{Name: "httproute-hostname-intersection-all", Namespace: ns}
+			gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routes...)
+			for _, routeNN := range routes {
+				kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
+			}
+
+			var testCases []http.ExpectedResponse
+			testCases = append(testCases,
+				http.ExpectedResponse{
+					Request:   http.Request{Host: "first.com", Path: "/"},
+					Backend:   "infra-backend-v2",
+					Namespace: ns,
+				},
+				http.ExpectedResponse{
+					Request:   http.Request{Host: "sub.first.com", Path: "/"},
+					Backend:   "infra-backend-v2",
+					Namespace: ns,
+				},
+				http.ExpectedResponse{
+					Request:   http.Request{Host: "second.com", Path: "/"},
+					Backend:   "infra-backend-v2",
+					Namespace: ns,
+				},
+				http.ExpectedResponse{
+					Request:   http.Request{Host: "sub.second.com", Path: "/"},
+					Backend:   "infra-backend-v2",
+					Namespace: ns,
+				},
+				// Following should fail since it is not specified on the HTTPRoute
+				http.ExpectedResponse{
+					Request:   http.Request{Host: "third.com", Path: "/"},
+					Namespace: ns,
+					Response:  http.Response{StatusCode: 404},
+				},
+				http.ExpectedResponse{
+					Request:   http.Request{Host: "sub.third.com", Path: "/"},
+					Namespace: ns,
+					Response:  http.Response{StatusCode: 404},
+				},
+			)
+
+			for i := range testCases {
+				// Declare tc here to avoid loop variable
+				// reuse issues across parallel tests.
+				tc := testCases[i]
+				t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
+					t.Parallel()
+					http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
+				})
+			}
+		})
 	},
 }
 

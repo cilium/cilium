@@ -16,3 +16,12 @@ spec:
       port: 8080
     timeouts:
       request: 500ms
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /disable-request-timeout
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    timeouts:
+      request: "0s"

@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 )
 
 // MeshPod represents a connection to a specific pod running in the mesh.
@@ -61,18 +62,18 @@ func (m *MeshPod) MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T,
 
 		resp, err := m.request(req)
 		if err != nil {
-			t.Logf("Request %v failed, not ready yet: %v (after %v)", req, err.Error(), elapsed)
+			tlog.Logf(t, "Request %v failed, not ready yet: %v (after %v)", req, err.Error(), elapsed)
 			return false
 		}
-		t.Logf("Got resp %v", resp)
+		tlog.Logf(t, "Got resp %v", resp)
 		if err := compareRequest(exp, resp); err != nil {
-			t.Logf("Response expectation failed for request: %v  not ready yet: %v (after %v)", req, err, elapsed)
+			tlog.Logf(t, "Response expectation failed for request: %v  not ready yet: %v (after %v)", req, err, elapsed)
 			return false
 		}
 		return true
 	})
 
-	t.Logf("Request passed")
+	tlog.Logf(t, "Request passed")
 }
 
 func makeRequest(t *testing.T, r http.Request) []string {
@@ -159,10 +160,10 @@ func ConnectToAppInNamespace(t *testing.T, s *suite.ConformanceTestSuite, app Me
 	podsList := v1.PodList{}
 	err := s.Client.List(context.Background(), &podsList, client.InNamespace(ns), client.MatchingLabelsSelector{Selector: lbls})
 	if err != nil {
-		t.Fatalf("failed to query pods in app %v", app)
+		tlog.Fatalf(t, "failed to query pods in app %v", app)
 	}
 	if len(podsList.Items) == 0 {
-		t.Fatalf("no pods found in app %v", app)
+		tlog.Fatalf(t, "no pods found in app %v", app)
 	}
 	pod := podsList.Items[0]
 	podName := pod.Name

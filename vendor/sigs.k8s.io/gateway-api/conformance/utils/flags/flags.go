@@ -23,6 +23,11 @@ import (
 	"flag"
 )
 
+const (
+	// DefaultMode is the operating mode to default to in case no mode is specified.
+	DefaultMode = "default"
+)
+
 var (
 	GatewayClassName           = flag.String("gateway-class", "gateway-conformance", "Name of GatewayClass to use for tests")
 	ShowDebug                  = flag.Bool("debug", false, "Whether to print debug logs")
@@ -34,4 +39,13 @@ var (
 	EnableAllSupportedFeatures = flag.Bool("all-features", false, "Whether to enable all supported features for conformance tests")
 	NamespaceLabels            = flag.String("namespace-labels", "", "Comma-separated list of name=value labels to add to test namespaces")
 	NamespaceAnnotations       = flag.String("namespace-annotations", "", "Comma-separated list of name=value annotations to add to test namespaces")
+	ImplementationOrganization = flag.String("organization", "", "Implementation's Organization")
+	ImplementationProject      = flag.String("project", "", "Implementation's project")
+	ImplementationURL          = flag.String("url", "", "Implementation's url")
+	ImplementationVersion      = flag.String("version", "", "Implementation's version")
+	ImplementationContact      = flag.String("contact", "", "Comma-separated list of contact information for the maintainers")
+	Mode                       = flag.String("mode", DefaultMode, "The operating mode of the implementation.")
+	AllowCRDsMismatch          = flag.Bool("allow-crds-mismatch", false, "Flag to allow the suite not to fail in case there is a mismatch between CRDs versions and channels.")
+	ConformanceProfiles        = flag.String("conformance-profiles", "", "Comma-separated list of the conformance profiles to run")
+	ReportOutput               = flag.String("report-output", "", "The file where to write the conformance report")
 )

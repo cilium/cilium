@@ -26,6 +26,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
+	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 )
 
 // ExpectedResponse defines the response expected for a given request.
@@ -123,7 +124,7 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 	path, query, _ := strings.Cut(expected.Request.Path, "?")
 	reqURL := url.URL{Scheme: scheme, Host: CalculateHost(t, gwAddr, scheme), Path: path, RawQuery: query}
 
-	t.Logf("Making %s request to %s", expected.Request.Method, reqURL.String())
+	tlog.Logf(t, "Making %s request to %s", expected.Request.Method, reqURL.String())
 
 	req := roundtripper.Request{
 		Method:           expected.Request.Method,
@@ -163,7 +164,7 @@ func CalculateHost(t *testing.T, gwAddr, scheme string) string {
 		host, port, err = net.SplitHostPort(gwAddr)
 	}
 	if err != nil {
-		t.Logf("Failed to parse host %q: %v", gwAddr, err)
+		tlog.Logf(t, "Failed to parse host %q: %v", gwAddr, err)
 		return gwAddr
 	}
 	if strings.ToLower(scheme) == "http" && port == "80" {
@@ -197,7 +198,7 @@ func AwaitConvergence(t *testing.T, threshold int, maxTimeToConsistency time.Dur
 	for {
 		select {
 		case <-to:
-			t.Fatalf("timeout while waiting after %d attempts", attempts)
+			tlog.Fatalf(t, "timeout while waiting after %d attempts", attempts)
 		default:
 		}
 
@@ -216,7 +217,7 @@ func AwaitConvergence(t *testing.T, threshold int, maxTimeToConsistency time.Dur
 		select {
 		// Capture the overall timeout
 		case <-to:
-			t.Fatalf("timeout while waiting after %d attempts, %d/%d successes", attempts, successes, threshold)
+			tlog.Fatalf(t, "timeout while waiting after %d attempts, %d/%d successes", attempts, successes, threshold)
 			// And the per-try delay
 		case <-time.After(delay):
 		}
@@ -230,18 +231,18 @@ func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req ro
 	AwaitConvergence(t, threshold, maxTimeToConsistency, func(elapsed time.Duration) bool {
 		cReq, cRes, err := r.CaptureRoundTrip(req)
 		if err != nil {
-			t.Logf("Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
+			tlog.Logf(t, "Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
 			return false
 		}
 
 		if err := CompareRequest(t, &req, cReq, cRes, expected); err != nil {
-			t.Logf("Response expectation failed for request: %+v  not ready yet: %v (after %v)", req, err, elapsed)
+			tlog.Logf(t, "Response expectation failed for request: %+v  not ready yet: %v (after %v)", req, err, elapsed)
 			return false
 		}
 
 		return true
 	})
-	t.Logf("Request passed")
+	tlog.Logf(t, "Request passed")
 }
 
 func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.CapturedRequest, cRes *roundtripper.CapturedResponse, expected ExpectedResponse) error {
@@ -367,7 +368,7 @@ func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.
 				return fmt.Errorf("for https scheme, expected redirected port to be 443 or not set, got %q", gotPort)
 			}
 			if strings.ToLower(cRes.RedirectRequest.Scheme) != "http" || strings.ToLower(cRes.RedirectRequest.Scheme) != "https" {
-				t.Logf("Can't validate redirectPort for unrecognized scheme %v", cRes.RedirectRequest.Scheme)
+				tlog.Logf(t, "Can't validate redirectPort for unrecognized scheme %v", cRes.RedirectRequest.Scheme)
 			}
 		} else if expected.RedirectRequest.Port != gotPort {
 			// An expected port was specified in the tests but it didn't match with

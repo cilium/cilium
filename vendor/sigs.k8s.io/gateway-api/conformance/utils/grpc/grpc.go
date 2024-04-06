@@ -34,6 +34,7 @@ import (
 	pb "sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
+	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 )
 
 const (
@@ -186,7 +187,7 @@ func (c *client) SendRPC(t *testing.T, address string, expected ExpectedResponse
 
 	stub := pb.NewGrpcEchoClient(c.Conn)
 	var err error
-	t.Logf("Sending RPC")
+	tlog.Logf(t, "Sending RPC")
 
 	switch {
 	case expected.EchoRequest != nil:
@@ -201,13 +202,13 @@ func (c *client) SendRPC(t *testing.T, address string, expected ExpectedResponse
 
 	if err != nil {
 		resp.Code = status.Code(err)
-		t.Logf("RPC finished with error: %v", err)
+		tlog.Logf(t, "RPC finished with error: %v", err)
 		if resp.Code == codes.Internal {
-			t.Logf("Received code Internal. Resetting connection.")
+			tlog.Logf(t, "Received code Internal. Resetting connection.")
 			c.resetConnection()
 		}
 	} else {
-		t.Logf("RPC finished with response %v", resp.Response)
+		tlog.Logf(t, "RPC finished with response %v", resp.Response)
 		resp.Code = codes.OK
 	}
 
@@ -266,15 +267,15 @@ func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, timeoutConfi
 	sendRPC := func(elapsed time.Duration) bool {
 		resp, err := c.SendRPC(t, gwAddr, expected, timeoutConfig.MaxTimeToConsistency-elapsed)
 		if err != nil {
-			t.Logf("Failed to send RPC, not ready yet: %v (after %v)", err, elapsed)
+			tlog.Logf(t, "Failed to send RPC, not ready yet: %v (after %v)", err, elapsed)
 			return false
 		}
 		if err := compareResponse(&expected, resp); err != nil {
-			t.Logf("Response expectation failed for request: %v  not ready yet: %v (after %v)", expected, err, elapsed)
+			tlog.Logf(t, "Response expectation failed for request: %v  not ready yet: %v (after %v)", expected, err, elapsed)
 			return false
 		}
 		return true
 	}
 	http.AwaitConvergence(t, timeoutConfig.RequiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency, sendRPC)
-	t.Logf("Request passed")
+	tlog.Logf(t, "Request passed")
 }

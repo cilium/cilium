@@ -124,9 +124,9 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           
-          EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,Mesh"
+          EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,Mesh,HTTPRouteParentRefPort"
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
-            EXEMPT_FEATURES+=",HTTPRouteParentRefPort,HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
+            EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
@@ -255,7 +255,7 @@ jobs:
               --version main \
               --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
               --report-output report.yaml \
-              -test.run "TestExperimentalConformance" \
+              -test.run "TestConformance" \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}"
           else
             GATEWAY_API_CONFORMANCE_TESTS=1 go test \
@@ -264,6 +264,7 @@ jobs:
               --gateway-class cilium \
               --all-features \
               --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
+              --allow-crds-mismatch \
               -test.run "TestConformance" \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}"
           fi

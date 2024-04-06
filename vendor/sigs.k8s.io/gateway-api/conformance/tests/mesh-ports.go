@@ -34,6 +34,7 @@ var MeshPorts = suite.ConformanceTest{
 	Features: []suite.SupportedFeature{
 		suite.SupportMesh,
 		suite.SupportHTTPRoute,
+		suite.SupportHTTPRouteParentRefPort,
 		suite.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-ports.yaml"},
