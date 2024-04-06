@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 // ProfileReport is the generated report for the test results of a specific
 // named conformance profile.
