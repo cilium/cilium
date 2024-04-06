@@ -151,7 +151,7 @@ func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(contents string) 
 	// sanity check: if there are too many queued deletes, just return error
 	// back up to the kubelet. If we get here, it's either because something
 	// has gone wrong with the kubelet, or the agent has been down for a very
-	// long time. To guard aganst long agent startup times (when it empties the
+	// long time. To guard against long agent startup times (when it empties the
 	// queue), limit us to 256 queued deletions. If this does, indeed, overflow,
 	// then the kubelet will get the failure and eventually retry deletion.
 	files, err := os.ReadDir(defaults.DeleteQueueDir)

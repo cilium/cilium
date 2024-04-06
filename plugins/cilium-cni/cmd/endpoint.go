@@ -20,7 +20,7 @@ type EndpointConfigurator interface {
 }
 
 // EndpointConfiguration determines the configuration of an endpoint to be
-// created duing a CNI ADD invocation.
+// created during a CNI ADD invocation.
 type EndpointConfiguration interface {
 	// IfName specifies the container interface name to be used for this endpoint
 	IfName() string
