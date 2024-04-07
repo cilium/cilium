@@ -128,6 +128,10 @@ message EndpointAddress {
   // or link-local multicast (224.0.0.0/24 or ff02::/16).
   optional string ip = 1;
 
+  // The Hostname of this endpoint
+  // +optional
+  optional string hostname = 3;
+
   // Optional: Node hosting this endpoint. This can be used to determine endpoints local to a node.
   // +optional
   optional string nodeName = 4;

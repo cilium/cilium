@@ -182,6 +182,9 @@ func (in *EndpointAddress) DeepEqual(other *EndpointAddress) bool {
 	if in.IP != other.IP {
 		return false
 	}
+	if in.Hostname != other.Hostname {
+		return false
+	}
 	if (in.NodeName == nil) != (other.NodeName == nil) {
 		return false
 	} else if in.NodeName != nil {

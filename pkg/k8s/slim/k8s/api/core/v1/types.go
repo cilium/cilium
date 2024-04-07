@@ -1015,6 +1015,9 @@ type EndpointAddress struct {
 	// May not be loopback (127.0.0.0/8 or ::1), link-local (169.254.0.0/16 or fe80::/10),
 	// or link-local multicast (224.0.0.0/24 or ff02::/16).
 	IP string `json:"ip" protobuf:"bytes,1,opt,name=ip"`
+	// The Hostname of this endpoint
+	// +optional
+	Hostname string `json:"hostname,omitempty" protobuf:"bytes,3,opt,name=hostname"`
 	// Optional: Node hosting this endpoint. This can be used to determine endpoints local to a node.
 	// +optional
 	NodeName *string `json:"nodeName,omitempty" protobuf:"bytes,4,opt,name=nodeName"`

@@ -105,9 +105,11 @@ Known Limitations
 -----------------
 
 - This is a beta feature, you may experience bugs or shortcomings.
-- Hostnames synchronization is currently not supported. This means that you will not be able to
-  reach pods in a StatefulSet with the format ``${podName}.${svcName}.${namespace}.svc.cluster.local``
-  from remote clusters.
+- Hostnames are synchronized as is without any form of conflict resolution
+  mechanisms. This means that multiple StatefulSets with a single governing
+  Service that synchronize EndpointSlices across multiple clusters should have
+  different names. For instance, you can add the cluster name to the StatefulSet
+  name (``cluster1-my-statefulset`` instead of ``my-statefulset``).
 
 
 Deploying a Simple Example Service

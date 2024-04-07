@@ -1001,7 +1001,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 		},
 		Subsets: []slim_corev1.EndpointSubset{
 			{
-				Addresses: []slim_corev1.EndpointAddress{{IP: "10.0.0.2"}},
+				Addresses: []slim_corev1.EndpointAddress{{IP: "10.0.0.2", Hostname: "hostname-1"}},
 				Ports: []slim_corev1.EndpointPort{
 					{
 						Name:     "http-test-svc",
@@ -1027,6 +1027,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},
 		},
+		Hostnames: map[string]string{"10.0.0.2": "hostname-1"},
 	})
 }
 

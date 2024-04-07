@@ -76,6 +76,14 @@ type Endpoint struct {
 	// conditions contains information about the current status of the endpoint.
 	Conditions EndpointConditions `json:"conditions,omitempty" protobuf:"bytes,2,opt,name=conditions"`
 
+	// hostname of this endpoint. This field may be used by consumers of
+	// endpoints to distinguish endpoints from each other (e.g. in DNS names).
+	// Multiple endpoints which use the same hostname should be considered
+	// fungible (e.g. multiple A values in DNS). Must be lowercase and pass DNS
+	// Label (RFC 1123) validation.
+	// +optional
+	Hostname *string `json:"hostname,omitempty" protobuf:"bytes,3,opt,name=hostname"`
+
 	// deprecatedTopology contains topology information part of the v1beta1
 	// API. This field is deprecated, and will be removed when the v1beta1
 	// API is removed (no sooner than kubernetes v1.24).  While this field can
