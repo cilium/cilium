@@ -1341,7 +1341,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 			if (allow_vlan(ctx->ifindex, vlan_id))
 				return CTX_ACT_OK;
 			else
-				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
+				return send_drop_notify_error(ctx, src_sec_identity,
+							      DROP_VLAN_FILTERED,
 							      CTX_ACT_DROP, METRIC_EGRESS);
 		}
 	}
@@ -1352,7 +1353,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 
 		ctx->mark = 0;
 		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
-		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+		return send_drop_notify_error(ctx, src_sec_identity,
+					      DROP_MISSED_TAIL_CALL,
 					      CTX_ACT_DROP, METRIC_EGRESS);
 	}
 #endif
@@ -1393,8 +1395,9 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, src_sec_identity,
+						  ret, ext_err, CTX_ACT_DROP,
+						  METRIC_EGRESS);
 
 skip_host_firewall:
 #endif /* ENABLE_HOST_FIREWALL */
@@ -1424,12 +1427,13 @@ skip_host_firewall:
 	if (ret == CTX_ACT_REDIRECT)
 		return ret;
 	else if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
+		return send_drop_notify_error(ctx, src_sec_identity, ret,
+					      CTX_ACT_DROP, METRIC_EGRESS);
 
 #if defined(ENCRYPTION_STRICT_MODE)
 	if (!strict_allow(ctx))
-		return send_drop_notify_error(ctx, 0, DROP_UNENCRYPTED_TRAFFIC,
+		return send_drop_notify_error(ctx, src_sec_identity,
+					      DROP_UNENCRYPTED_TRAFFIC,
 					      CTX_ACT_DROP, METRIC_EGRESS);
 #endif /* ENCRYPTION_STRICT_MODE */
 #endif /* ENABLE_WIREGUARD */
@@ -1456,7 +1460,7 @@ skip_host_firewall:
 exit:
 #endif
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
 			  0, trace.reason, trace.monitor);
