@@ -65,6 +65,13 @@ func (in *ClusterService) DeepCopyInto(out *ClusterService) {
 			(*out)[key] = outVal
 		}
 	}
+	if in.Hostnames != nil {
+		in, out := &in.Hostnames, &out.Hostnames
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Labels != nil {
 		in, out := &in.Labels, &out.Labels
 		*out = make(map[string]string, len(*in))
