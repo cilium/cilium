@@ -483,7 +483,8 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
+handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		      struct trace_ctx *trace, __s8 *ext_err)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -507,9 +508,8 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 			return ret;
 	}
 
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
-		srcid = HOST_ID;
-	srcid = resolve_srcid_ipv6(ctx, ip6, srcid, &ipcache_srcid, true);
+	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity,
+				   &ipcache_srcid, true);
 
 	/* to-netdev is attached to the egress path of the native device. */
 	return ipv6_host_policy_egress(ctx, srcid, ipcache_srcid, ip6, trace, ext_err);
@@ -939,19 +939,18 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
+handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		      struct trace_ctx *trace, __s8 *ext_err)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u32 src_id = 0, ipcache_srcid = 0;
 
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
-		src_id = HOST_ID;
-
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	src_id = resolve_srcid_ipv4(ctx, ip4, src_id, &ipcache_srcid, true);
+	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity,
+				    &ipcache_srcid, true);
 
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
@@ -1341,16 +1340,21 @@ static __always_inline int do_encrypt_overlay(struct __ctx_buff *ctx)
 __section_entry
 int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
+	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
 	__u32 __maybe_unused vlan_id;
+	__u32 src_sec_identity = 0;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 #ifdef ENABLE_HOST_FIREWALL
 	__u16 proto = 0;
 #endif
+
+	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY)
+		src_sec_identity = HOST_ID;
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1366,17 +1370,13 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 
 #if defined(ENABLE_L7_LB)
-	{
-		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+		__u32 lxc_id = get_epid(ctx);
 
-		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-			__u32 lxc_id = get_epid(ctx);
-
-			ctx->mark = 0;
-			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
-			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
-						      CTX_ACT_DROP, METRIC_EGRESS);
-		}
+		ctx->mark = 0;
+		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
+		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+					      CTX_ACT_DROP, METRIC_EGRESS);
 	}
 #endif
 
@@ -1399,12 +1399,14 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = handle_to_netdev_ipv6(ctx, &trace, &ext_err);
+		ret = handle_to_netdev_ipv6(ctx, src_sec_identity,
+					    &trace, &ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
-		ret = handle_to_netdev_ipv4(ctx, &trace, &ext_err);
+		ret = handle_to_netdev_ipv4(ctx, src_sec_identity,
+					    &trace, &ext_err);
 		break;
 	}
 # endif
