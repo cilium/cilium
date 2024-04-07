@@ -30,6 +30,14 @@ message Endpoint {
   // conditions contains information about the current status of the endpoint.
   optional EndpointConditions conditions = 2;
 
+  // hostname of this endpoint. This field may be used by consumers of
+  // endpoints to distinguish endpoints from each other (e.g. in DNS names).
+  // Multiple endpoints which use the same hostname should be considered
+  // fungible (e.g. multiple A values in DNS). Must be lowercase and pass DNS
+  // Label (RFC 1123) validation.
+  // +optional
+  optional string hostname = 3;
+
   // topology contains arbitrary topology information associated with the
   // endpoint. These key/value pairs must conform with the label format.
   // https://kubernetes.io/docs/concepts/overview/working-with-objects/labels

@@ -58,7 +58,6 @@ func podObjectMeta(name string, clusterSvc *store.ClusterService) metav1.ObjectM
 	}
 }
 
-// TODO: handle pod hostname
 func podFromSingleAddr(addr string, portConfig store.PortConfiguration, clusterSvc *store.ClusterService) *v1.Pod {
 	return &v1.Pod{
 		// The custom TypeMeta here is only used in logging inside the endpointslice reconciler
@@ -68,7 +67,9 @@ func podFromSingleAddr(addr string, portConfig store.PortConfiguration, clusterS
 		},
 		ObjectMeta: podObjectMeta("fake-pod-"+addr, clusterSvc),
 		Spec: v1.PodSpec{
-			NodeName: clusterSvc.Cluster,
+			NodeName:  clusterSvc.Cluster,
+			Hostname:  clusterSvc.Hostnames[addr],
+			Subdomain: clusterSvc.Name + "-" + clusterSvc.Cluster,
 			Containers: []v1.Container{{
 				Ports: getContainerPorts(portConfig),
 			}},

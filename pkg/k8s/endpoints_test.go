@@ -257,6 +257,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 
 func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 	nodeName := "k8s1"
+	hostname := "pod-1"
 
 	meta := slim_metav1.ObjectMeta{
 		Name:      "foo",
@@ -344,6 +345,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 									{
 										IP:       "172.0.0.1",
 										NodeName: &nodeName,
+										Hostname: hostname,
 									},
 								},
 								Ports: []slim_corev1.EndpointPort{
@@ -371,6 +373,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
 					NodeName: nodeName,
+					Hostname: hostname,
 				}
 				return svcEP
 			},
@@ -568,6 +571,7 @@ func (s *K8sSuite) TestEndpointsString(c *check.C) {
 
 func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 	nodeName := "k8s1"
+	hostname := "pod-1"
 
 	meta := slim_metav1.ObjectMeta{
 		Name:      "foo",
@@ -622,6 +626,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 								Topology: map[string]string{
 									"kubernetes.io/hostname": nodeName,
 								},
+								Hostname: func() *string { return &hostname }(),
 							},
 						},
 						Ports: []slim_discovery_v1beta1.EndpointPort{
@@ -641,6 +646,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 					},
 					NodeName: nodeName,
+					Hostname: hostname,
 				}
 				return svcEP
 			},
@@ -1232,6 +1238,7 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 
 func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 	nodeName := "k8s1"
+	hostname := "pod-1"
 
 	meta := slim_metav1.ObjectMeta{
 		Name:      "foo",
@@ -1286,6 +1293,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 								DeprecatedTopology: map[string]string{
 									"kubernetes.io/hostname": nodeName,
 								},
+								Hostname: func() *string { return &hostname }(),
 							},
 						},
 						Ports: []slim_discovery_v1.EndpointPort{
@@ -1305,6 +1313,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 					},
 					NodeName: nodeName,
+					Hostname: hostname,
 				}
 				return svcEP
 			},
