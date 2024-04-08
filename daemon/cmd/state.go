@@ -117,12 +117,8 @@ func (d *Daemon) getPodForEndpoint(ep *endpoint.Endpoint) error {
 		pod *slim_corev1.Pod
 		err error
 	)
-	if option.Config.EnableHighScaleIPcache {
-		pod, _, _, _, _, err = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
-	} else {
-		d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
-		pod, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
-	}
+	d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
+	pod, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
 	if err != nil && k8serrors.IsNotFound(err) {
 		return fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
 	} else if err == nil && pod.Spec.NodeName != nodeTypes.GetName() {
@@ -194,12 +190,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 		return nil
 	}
 
-	var emf endpointMetadataFetcher
-	if option.Config.EnableHighScaleIPcache {
-		emf = &uncachedEndpointMetadataFetcher{slimcli: d.clientset.Slim()}
-	} else {
-		emf = &cachedEndpointMetadataFetcher{k8sWatcher: d.k8sWatcher}
-	}
+	emf := &cachedEndpointMetadataFetcher{k8sWatcher: d.k8sWatcher}
 	d.endpointMetadataFetcher = emf
 
 	log.Info("Restoring endpoints...")
