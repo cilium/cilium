@@ -178,7 +178,9 @@ spec:
         {{- end }}
         livenessProbe:
           httpGet:
+        {{- if .Values.operator.hostNetwork }}
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+        {{- end }}
             path: /healthz
             port: 9234
             scheme: HTTP
@@ -187,7 +189,9 @@ spec:
           timeoutSeconds: 3
         readinessProbe:
           httpGet:
+        {{- if .Values.operator.hostNetwork }}
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+        {{- end }}
             path: /healthz
             port: 9234
             scheme: HTTP
@@ -249,7 +253,7 @@ spec:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
-      hostNetwork: true
+      hostNetwork: {{ .Values.operator.hostNetwork }}
       {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
