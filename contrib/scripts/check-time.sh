@@ -51,7 +51,6 @@ EXCLUDED_DIRS=(
   "types"
 
   # May need subsequent evaluation to detect resiliency issues in CI
-  "contexthelpers"
   "rate"
   "resiliency"
 )
