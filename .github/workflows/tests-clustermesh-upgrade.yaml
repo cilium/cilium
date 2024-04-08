@@ -116,6 +116,9 @@ jobs:
           # * bpf.masquerade is disabled due to #23283
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
+          # * We configure the maximum number of unavailable agents to 1 to slow
+          #   down the rollout process and highlight possible connection disruption
+          #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
             --set=bpf.masquerade=false \
@@ -124,6 +127,7 @@ jobs:
             --set=tunnel=vxlan \
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=true \
+            --set=updateStrategy.rollingUpdate.maxUnavailable=1 \
             --set=clustermesh.useAPIServer=true \
             --set=clustermesh.config.enabled=true"
 
