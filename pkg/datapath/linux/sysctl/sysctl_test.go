@@ -158,7 +158,6 @@ func TestSysctl(t *testing.T) {
 				newReconcilerConfig,
 				newOps,
 			),
-			cell.Invoke(reconciler.Register[*tables.Sysctl]),
 		),
 
 		cell.Invoke(func(s Sysctl) {
@@ -262,7 +261,6 @@ func TestSysctlIgnoreErr(t *testing.T) {
 				newReconcilerConfig,
 				newOps,
 			),
-			cell.Invoke(reconciler.Register[*tables.Sysctl]),
 		),
 
 		cell.Invoke(func(s Sysctl) {
