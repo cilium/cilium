@@ -66,7 +66,7 @@ const (
 	// renovate: datasource=docker
 	ConnectivityDNSTestServerImage = "docker.io/coredns/coredns:1.11.1@sha256:1eeb4c7316bacb1d4c8ead65571cd92dd21e27359f0d4917f1a5822a73b75db1"
 	// renovate: datasource=docker
-	ConnectivityTestConnDisruptImage = "quay.io/cilium/test-connection-disruption:v0.0.13@sha256:76e6e9028bd15d103eb3a14fcf3b6e19cad7065780d7f9f27171872994285811"
+	ConnectivityTestConnDisruptImage = "quay.io/cilium/test-connection-disruption:v0.0.14@sha256:8b489a89c38ae2be4f93bdeb354a8f85a6ce204f5e104915a2d6fe99f7f5997e"
 
 	ConfigMapName = "cilium-config"
 
