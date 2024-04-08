@@ -5,3 +5,4 @@ includeItem:
   region: str()
   default: bool(required=False)
   ipsec: bool(required=False)
+  kpr: bool(required=False)
