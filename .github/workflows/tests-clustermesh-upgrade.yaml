@@ -148,7 +148,7 @@ jobs:
         id: newest-vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ inputs.SHA }}
+          image-tag: 1a487c3b1d0b977f9fe2842b66d31ff86e6f64e9
           chart-dir: ./untrusted/cilium-newest/install/kubernetes/cilium
 
       - name: Set up job variables

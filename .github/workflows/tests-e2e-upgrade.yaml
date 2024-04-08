@@ -296,9 +296,9 @@ jobs:
         id: vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SHA="${{ inputs.SHA }}"
+            SHA=1a487c3b1d0b977f9fe2842b66d31ff86e6f64e9
           else
-            SHA="${{ github.sha }}"
+            SHA=1a487c3b1d0b977f9fe2842b66d31ff86e6f64e9
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
@@ -330,7 +330,7 @@ jobs:
         id: cilium-newest-config
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: ${{ steps.vars.outputs.sha }}
+          image-tag: 1a487c3b1d0b977f9fe2842b66d31ff86e6f64e9
           chart-dir: './untrusted/cilium-newest/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
