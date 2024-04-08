@@ -7,11 +7,9 @@
 #include "dbg.h"
 #include "hash.h"
 #include "trace.h"
-#include "l3.h"
 
 #if __ctx_is == __ctx_skb
 #include "encrypt.h"
-#include "wireguard.h"
 #endif /* __ctx_is == __ctx_skb */
 
 #include "high_scale_ipcache.h"
