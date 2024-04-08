@@ -4090,6 +4090,9 @@
           "items": {},
           "type": "array"
         },
+        "hostNetwork": {
+          "type": "boolean"
+        },
         "identityGCInterval": {
           "type": "string"
         },

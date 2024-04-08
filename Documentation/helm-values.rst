@@ -2556,6 +2556,10 @@
      - Additional cilium-operator volumes.
      - list
      - ``[]``
+   * - :spelling:ignore:`operator.hostNetwork`
+     - HostNetwork setting
+     - bool
+     - ``true``
    * - :spelling:ignore:`operator.identityGCInterval`
      - Interval for identity garbage collection.
      - string
