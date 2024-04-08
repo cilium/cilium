@@ -170,6 +170,9 @@ jobs:
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
           fi
+          if [[ "${{ matrix.kpr }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
+          fi
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target amazon.com."

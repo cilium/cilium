@@ -8,7 +8,9 @@ include:
     ipsec: true
   - version: "1.28"
     region: ca-central-1
+    default: true
     ipsec: true
+    kpr: true
   - version: "1.29"
     region: us-east-1
     ipsec: true
