@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -78,6 +79,7 @@ type deploymentParameters struct {
 	Affinity                      *corev1.Affinity
 	NodeSelector                  map[string]string
 	ReadinessProbe                *corev1.Probe
+	Resources                     corev1.ResourceRequirements
 	Labels                        map[string]string
 	Annotations                   map[string]string
 	HostNetwork                   bool
@@ -145,6 +147,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Command:         p.Command,
 							ReadinessProbe:  p.ReadinessProbe,
+							Resources:       p.Resources,
 							SecurityContext: &corev1.SecurityContext{
 								Capabilities: &corev1.Capabilities{
 									Add: []corev1.Capability{"NET_RAW"},
@@ -435,6 +438,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Command:        []string{"tcd-server", "8000"},
 				Port:           8000,
 				ReadinessProbe: readinessProbe,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
+				},
 			})
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptServerDeploymentName), metav1.CreateOptions{})
 			if err != nil {
@@ -490,6 +496,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
 				},
 				ReadinessProbe: readinessProbe,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
+				},
 			})
 
 			_, err = ct.clients.dst.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptClientDeploymentName), metav1.CreateOptions{})
