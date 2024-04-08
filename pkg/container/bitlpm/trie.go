@@ -141,17 +141,24 @@ func (t *trie[K, T]) Ancestors(prefixLen uint, k Key[K], fn func(prefix uint, ke
 // prefix allowed by the trie to the maximum prefix allowed by the
 // trie.
 func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
+	if k == nil {
+		return
+	}
 	prefixLen = min(prefixLen, t.maxPrefix)
-	t.traverse(prefixLen, k, func(currentNode *node[K, T], matchLen uint) bool {
-		// Skip nodes with shorter match than the prefixLen argument.
-		if matchLen < prefixLen {
-			return true
+	searchNode := &node[K, T]{
+		key:       k,
+		prefixLen: prefixLen,
+	}
+	currentNode := t.root
+	for currentNode != nil {
+		matchLen := prefixMatch(searchNode, currentNode.prefixLen, currentNode.key)
+		// The currentNode matches the prefix-key argument.
+		if matchLen >= prefixLen {
+			currentNode.forEach(fn)
+			return
 		}
-		// currentNode is the one with the shortest match of the
-		// prefix-key argument. Iterate it and all its descendants.
-		currentNode.forEach(fn)
-		return false
-	})
+		currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
+	}
 }
 
 // traverse iterates over every prefix-key pair that contains the

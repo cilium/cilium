@@ -407,6 +407,17 @@ func TestUnsignedDescendants(t *testing.T) {
 			if !reflect.DeepEqual(expectedRes, gotRes) {
 				t.Fatalf("Descendants range %s, expected to get %v, but got: %v", entry, expectedRes, gotRes)
 			}
+			// It should still work even if the entry is not present
+			tu.Delete(i, rng)
+			expectedRes = expectedRes[1:]
+			gotRes = make([]string, 0, 16-i-1)
+			tu.Descendants(i, rng, func(prefix uint, key uint16, v string) bool {
+				gotRes = append(gotRes, v)
+				return true
+			})
+			if !reflect.DeepEqual(expectedRes, gotRes) {
+				t.Fatalf("Descendants range %s, expected to get %v, but got: %v", entry, expectedRes, gotRes)
+			}
 		})
 	}
 }
