@@ -130,7 +130,6 @@ func TestManager(t *testing.T) {
 					log: logger,
 				}
 			}),
-			cell.Invoke(reconciler.Register[*tables.IPSet]),
 		),
 
 		cell.Invoke(func(m Manager) {
@@ -317,7 +316,6 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 					log: logger,
 				}
 			}),
-			cell.Invoke(reconciler.Register[*tables.IPSet]),
 
 			// force manager instantiation
 			cell.Invoke(func(_ Manager) {}),
