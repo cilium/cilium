@@ -15,7 +15,6 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -32,7 +31,6 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -203,22 +201,6 @@ func (cemf *cachedEndpointMetadataFetcher) Fetch(nsName, podName string) (*slim_
 		return nil, nil, err
 	}
 	ns, err := cemf.k8sWatcher.GetCachedNamespace(nsName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ns, p, err
-}
-
-type uncachedEndpointMetadataFetcher struct {
-	slimcli slimclientset.Interface
-}
-
-func (uemf *uncachedEndpointMetadataFetcher) Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error) {
-	p, err := uemf.slimcli.CoreV1().Pods(nsName).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-	ns, err := uemf.slimcli.CoreV1().Namespaces().Get(context.TODO(), nsName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
