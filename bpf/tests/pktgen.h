@@ -16,6 +16,7 @@
 #include <linux/in.h>
 #include <linux/if_ether.h>
 #include <linux/tcp.h>
+#include <linux/udp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
  * without having to come up with custom addresses.
@@ -547,6 +548,28 @@ struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 	builder->cur_off += sizeof(struct sctphdr);
 
 	return layer;
+}
+
+/* Push an empty UDP header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct udphdr *pktgen__push_udphdr(struct pktgen *builder)
+{
+	return pktgen__push_rawhdr(builder, sizeof(struct udphdr), PKT_LAYER_UDP);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct udphdr *pktgen__push_default_udphdr(struct pktgen *builder)
+{
+	struct udphdr *hdr = pktgen__push_udphdr(builder);
+
+	if (!hdr)
+		return NULL;
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	return hdr;
 }
 
 /* Push room for x bytes of data onto the packet */
