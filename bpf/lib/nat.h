@@ -1631,7 +1631,11 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 			ret = snat_v6_rev_nat_handle_icmp_pkt_toobig(ctx,
 								     inner_l3_off,
 								     &state);
-			if (IS_ERR(ret))
+			/* state can't be NULL if ret is not an error, but the verifier on RHEL8
+			 * kernel doesn't see it and attempts to track ret == 0 && state == NULL,
+			 * which fails in the subsequent snat_v6_rewrite_headers.
+			 */
+			if (IS_ERR(ret) || !state)
 				return ret;
 
 			goto rewrite;
