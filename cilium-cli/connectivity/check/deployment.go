@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -487,7 +486,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Labels:   map[string]string{"app": "test-conn-disrupt-client"},
 				Command: []string{
 					"tcd-client",
-					"--dispatch-interval", strconv.Itoa(int(ct.params.ConnDisruptDispatchInterval.Milliseconds())),
+					"--dispatch-interval", ct.params.ConnDisruptDispatchInterval.String(),
 					fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
 				},
 				ReadinessProbe: readinessProbe,
