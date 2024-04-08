@@ -155,6 +155,9 @@ jobs:
           # * We explicitly configure the sync timeout to a higher value to
           #   give enough time to the clustermesh-apiserver to restart after
           #   the upgrade/downgrade before that agents regenerate the endpoints.
+          # * We configure the maximum number of unavailable agents to 1 to slow
+          #   down the rollout process and highlight possible connection disruption
+          #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
             --set=bpf.monitorAggregation=none \
@@ -165,6 +168,7 @@ jobs:
             --set=ipv6.enabled=true \
             --set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
             --set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
+            --set=updateStrategy.rollingUpdate.maxUnavailable=1 \
             --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
             --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
             --set=clustermesh.config.enabled=true \
