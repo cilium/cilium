@@ -93,6 +93,7 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 	scopedLog = scopedLog.WithField("dockerHostPath", dockerHostPath)
 	dockerCli, err := dockerCliAPI.NewClientWithOpts(
 		dockerCliAPI.WithHost(dockerHostPath),
+		dockerCliAPI.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Fatal("Error while starting cilium-client")
