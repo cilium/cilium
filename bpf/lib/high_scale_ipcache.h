@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "ipv4.h"
+#include "l4.h"
 #include "maps.h"
 
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
