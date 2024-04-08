@@ -52,6 +52,7 @@ type Parameters struct {
 	CurlImage             string
 	PerformanceImage      string
 	JSONMockImage         string
+	TestConnDisruptImage  string
 	AgentDaemonSetName    string
 	DNSTestServerImage    string
 	IncludeUnsafeTests    bool
