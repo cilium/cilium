@@ -1,4 +1,4 @@
-{{- if and .Values.agent (not .Values.preflight.enabled) }}
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.rbac.create }}
 {{- /*
 Keep file in sync with cilium-preflight/clusterrole.yaml
 */ -}}
