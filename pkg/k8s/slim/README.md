@@ -72,6 +72,7 @@ curl "${url}/staging/src/k8s.io/apimachinery/pkg/api/meta/conditions.go" > pkg/k
 All fields of the copied structures are exactly the same as the ones available
 in the official k8s source code. To keep a slimmer version of these structures
 make sure the unused fields by Cilium are removed from the slimmer versions.
+See below section regarding gotchas.
 
 If new fields need to be added or removed to these structures, some files need
 to be regenerated with `make generate-k8s-api` in the root directory of this
@@ -89,3 +90,24 @@ not optimized yet, you will hit the error:
 `Failed to list ... no kind "..." is registered for version "v1"`. To fix this
 make sure the package is registered and the client is supposed to be used
 for that structure.
+
+## Gotchas for updating slim structures
+
+* Remove any changes regarding comments starting with "import ..." because that
+  affects the protoc's code generation
+* Remove any changes regarding a change of the import path for the `core` and
+  `meta` v1* packages, i.e. undo changes that cause the import path to fallback
+  to "k8s.io/..." rather than "pkg/k8s/slim/..."
+* Remove all new structures that are not used by Cilium and only update the
+  structures that are in use
+* Ignore all changes to `pkg/k8s/slim/k8s/apis/meta/v1/meta.go` regarding the
+  `Object` interface methods, unless the updating you are performing requires
+  these interface methods to change.
+* Ignore changes that remove that the `kubebuilder` directives on the
+  `LabelSelectorRequirement` struct, especially for the `Operator` field.
+* Ignore changes to `LabelSelector` inside
+  `pkg/k8s/slim/k8s/apis/meta/v1/types.go` and `MatchLabelsValue`. The latter
+  is a custom type that we depend on.
+* Ignore changes inside `pkg/k8s/slim/k8s/apis/labels/selector.go` regarding
+  new fields in the `Parser` struct, especially with `path`. If new fields are
+  added to the struct, add them if you know what you are doing.
