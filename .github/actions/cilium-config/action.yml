@@ -65,6 +65,7 @@ runs:
             --helm-set=debug.verbose=envoy \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
+            --helm-set=dnsProxy.proxyResponseMaxDelay=250ms \
             --helm-set=cluster.name=default \
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
