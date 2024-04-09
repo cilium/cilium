@@ -33,6 +33,7 @@ const (
 	hubbleRelayContainerName           = defaults.RelayContainerName
 	hubbleRelayDeploymentName          = defaults.RelayDeploymentName
 	hubbleUIDeploymentName             = defaults.HubbleUIDeploymentName
+	hubbleGenerateCertsCronJob         = defaults.HubbleGenerateCertsCronJobName
 	spireServerContainerName           = "spire-server"
 	redacted                           = "XXXXXX"
 )
@@ -89,6 +90,7 @@ const (
 	hubbleRelayConfigMapFileName             = "hubble-relay-configmap-<ts>.yaml"
 	hubbleRelayDeploymentFileName            = "hubble-relay-deployment-<ts>.yaml"
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
+	hubbleGenerateCertsCronJobFileName       = "hubble-generate-certs-cronjob-<ts>.yaml"
 	kubernetesEndpointsFileName              = "k8s-endpoints-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
 	kubernetesEventsTableFileName            = "k8s-events-<ts>.html"
