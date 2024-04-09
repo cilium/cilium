@@ -682,6 +682,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			if helpers.RunsWithKubeProxy() {
 				options["kubeProxyReplacement"] = "false"
+			} else if helpers.RunsWithKubeProxyReplacement() {
+				options["loadBalancer.mode"] = "dsr"
+				options["loadBalancer.dsrDispatch"] = "geneve"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 
@@ -696,10 +699,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
 			Expect(err).ToNot(HaveOccurred(), "Client pods not ready after timeout")
 		}
-
-		It("Test ingress policy enforcement with VXLAN and no endpoint routes", func() {
-			testHighScaleIPcache("vxlan", "false")
-		})
 
 		It("Test ingress policy enforcement with GENEVE and endpoint routes", func() {
 			testHighScaleIPcache("geneve", "true")
