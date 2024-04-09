@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -116,10 +118,10 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 
 	// Use default label prefix if configuration file not provided
 	if file == "" {
-		log.Info("Parsing base label prefixes from default label list")
+		log.Debug("Parsing base label prefixes from default label list")
 		cfg = defaultLabelPrefixCfg()
 	} else {
-		log.Infof("Parsing base label prefixes from file %s", file)
+		log.WithField(logfields.Path, file).Debug("Parsing base label prefixes from file")
 		cfg, err = readLabelPrefixCfgFrom(file)
 		if err != nil {
 			return fmt.Errorf("unable to read label prefix file: %w", err)
@@ -146,7 +148,7 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 		nodeCfg.LabelPrefixes = append(nodeCfg.LabelPrefixes, p)
 	}
 
-	log.Infof("Parsing additional label prefixes from user inputs: %v", prefixes)
+	log.WithField("label-prefixes", prefixes).Debugf("Parsing additional label prefixes from user inputs")
 	for _, label := range prefixes {
 		if len(label) == 0 {
 			continue
@@ -181,9 +183,11 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 	validLabelPrefixes = cfg
 	validNodeLabelPrefixes = nodeCfg
 
-	log.Info("Final label prefixes to be used for identity evaluation:")
-	for _, l := range validLabelPrefixes.LabelPrefixes {
-		log.Infof(" - %s", l)
+	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+		log.Debug("Final label prefixes to be used for identity evaluation:")
+		for _, l := range validLabelPrefixes.LabelPrefixes {
+			log.Debugf(" - %s", l)
+		}
 	}
 
 	log.Info("Final node label prefixes to be used for identity evaluation:")
