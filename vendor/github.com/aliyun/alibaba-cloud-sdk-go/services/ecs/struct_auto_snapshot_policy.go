@@ -31,5 +31,7 @@ type AutoSnapshotPolicy struct {
 	RepeatWeekdays               string                             `json:"RepeatWeekdays" xml:"RepeatWeekdays"`
 	VolumeNums                   int                                `json:"VolumeNums" xml:"VolumeNums"`
 	ResourceGroupId              string                             `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	Type                         string                             `json:"Type" xml:"Type"`
+	CopyEncryptionConfiguration  CopyEncryptionConfiguration        `json:"CopyEncryptionConfiguration" xml:"CopyEncryptionConfiguration"`
 	Tags                         TagsInDescribeAutoSnapshotPolicyEx `json:"Tags" xml:"Tags"`
 }

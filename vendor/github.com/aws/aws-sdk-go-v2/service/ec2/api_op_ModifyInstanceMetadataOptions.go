@@ -72,8 +72,16 @@ type ModifyInstanceMetadataOptionsInput struct {
 	//   instance metadata retrieval requests. With this option, retrieving the IAM role
 	//   credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
 	//   available.
-	// Default: If the value of ImdsSupport for the Amazon Machine Image (AMI) for
-	// your instance is v2.0 , the default is required .
+	// Default:
+	//   - If the value of ImdsSupport for the Amazon Machine Image (AMI) for your
+	//   instance is v2.0 and the account level default is set to no-preference , the
+	//   default is required .
+	//   - If the value of ImdsSupport for the Amazon Machine Image (AMI) for your
+	//   instance is v2.0 , but the account level default is set to V1 or V2 , the
+	//   default is optional .
+	// The default value can also be affected by other combinations of parameters. For
+	// more information, see Order of precedence for instance metadata options (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence)
+	// in the Amazon EC2 User Guide.
 	HttpTokens types.HttpTokensState
 
 	// Set to enabled to allow access to instance tags from the instance metadata. Set

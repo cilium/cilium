@@ -71,25 +71,40 @@ func (client *Client) CreateAutoSnapshotPolicyWithCallback(request *CreateAutoSn
 // CreateAutoSnapshotPolicyRequest is the request struct for api CreateAutoSnapshotPolicy
 type CreateAutoSnapshotPolicyRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId              requests.Integer               `position:"Query" name:"ResourceOwnerId"`
-	CopiedSnapshotsRetentionDays requests.Integer               `position:"Query" name:"CopiedSnapshotsRetentionDays"`
-	TimePoints                   string                         `position:"Query" name:"timePoints"`
-	RepeatWeekdays               string                         `position:"Query" name:"repeatWeekdays"`
-	ResourceGroupId              string                         `position:"Query" name:"ResourceGroupId"`
-	StorageLocationArn           string                         `position:"Query" name:"StorageLocationArn"`
-	Tag                          *[]CreateAutoSnapshotPolicyTag `position:"Query" name:"Tag"  type:"Repeated"`
-	EnableCrossRegionCopy        requests.Boolean               `position:"Query" name:"EnableCrossRegionCopy"`
-	ResourceOwnerAccount         string                         `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerId                      requests.Integer               `position:"Query" name:"OwnerId"`
-	AutoSnapshotPolicyName       string                         `position:"Query" name:"autoSnapshotPolicyName"`
-	RetentionDays                requests.Integer               `position:"Query" name:"retentionDays"`
-	TargetCopyRegions            string                         `position:"Query" name:"TargetCopyRegions"`
+	ResourceOwnerId              requests.Integer                                    `position:"Query" name:"ResourceOwnerId"`
+	CopyEncryptionConfiguration  CreateAutoSnapshotPolicyCopyEncryptionConfiguration `position:"Query" name:"CopyEncryptionConfiguration"  type:"Struct"`
+	CopiedSnapshotsRetentionDays requests.Integer                                    `position:"Query" name:"CopiedSnapshotsRetentionDays"`
+	TimePoints                   string                                              `position:"Query" name:"timePoints"`
+	RepeatWeekdays               string                                              `position:"Query" name:"repeatWeekdays"`
+	ResourceGroupId              string                                              `position:"Query" name:"ResourceGroupId"`
+	StorageLocationArn           string                                              `position:"Query" name:"StorageLocationArn"`
+	Tag                          *[]CreateAutoSnapshotPolicyTag                      `position:"Query" name:"Tag"  type:"Repeated"`
+	EnableCrossRegionCopy        requests.Boolean                                    `position:"Query" name:"EnableCrossRegionCopy"`
+	ResourceOwnerAccount         string                                              `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerId                      requests.Integer                                    `position:"Query" name:"OwnerId"`
+	AutoSnapshotPolicyName       string                                              `position:"Query" name:"autoSnapshotPolicyName"`
+	RetentionDays                requests.Integer                                    `position:"Query" name:"retentionDays"`
+	TargetCopyRegions            string                                              `position:"Query" name:"TargetCopyRegions"`
+}
+
+// CreateAutoSnapshotPolicyCopyEncryptionConfiguration is a repeated param struct in CreateAutoSnapshotPolicyRequest
+type CreateAutoSnapshotPolicyCopyEncryptionConfiguration struct {
+	Encrypted string                                                        `name:"Encrypted"`
+	KMSKeyId  string                                                        `name:"KMSKeyId"`
+	Arn       *[]CreateAutoSnapshotPolicyCopyEncryptionConfigurationArnItem `name:"Arn" type:"Repeated"`
 }
 
 // CreateAutoSnapshotPolicyTag is a repeated param struct in CreateAutoSnapshotPolicyRequest
 type CreateAutoSnapshotPolicyTag struct {
 	Value string `name:"Value"`
 	Key   string `name:"Key"`
+}
+
+// CreateAutoSnapshotPolicyCopyEncryptionConfigurationArnItem is a repeated param struct in CreateAutoSnapshotPolicyRequest
+type CreateAutoSnapshotPolicyCopyEncryptionConfigurationArnItem struct {
+	Rolearn       string `name:"Rolearn"`
+	RoleType      string `name:"RoleType"`
+	AssumeRoleFor string `name:"AssumeRoleFor"`
 }
 
 // CreateAutoSnapshotPolicyResponse is the response struct for api CreateAutoSnapshotPolicy

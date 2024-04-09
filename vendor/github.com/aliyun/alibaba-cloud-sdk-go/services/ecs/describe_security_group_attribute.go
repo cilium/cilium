@@ -83,14 +83,15 @@ type DescribeSecurityGroupAttributeRequest struct {
 // DescribeSecurityGroupAttributeResponse is the response struct for api DescribeSecurityGroupAttribute
 type DescribeSecurityGroupAttributeResponse struct {
 	*responses.BaseResponse
-	VpcId             string      `json:"VpcId" xml:"VpcId"`
-	RequestId         string      `json:"RequestId" xml:"RequestId"`
-	InnerAccessPolicy string      `json:"InnerAccessPolicy" xml:"InnerAccessPolicy"`
-	Description       string      `json:"Description" xml:"Description"`
-	SecurityGroupId   string      `json:"SecurityGroupId" xml:"SecurityGroupId"`
-	SecurityGroupName string      `json:"SecurityGroupName" xml:"SecurityGroupName"`
-	RegionId          string      `json:"RegionId" xml:"RegionId"`
-	Permissions       Permissions `json:"Permissions" xml:"Permissions"`
+	VpcId             string         `json:"VpcId" xml:"VpcId"`
+	RequestId         string         `json:"RequestId" xml:"RequestId"`
+	InnerAccessPolicy string         `json:"InnerAccessPolicy" xml:"InnerAccessPolicy"`
+	Description       string         `json:"Description" xml:"Description"`
+	SecurityGroupId   string         `json:"SecurityGroupId" xml:"SecurityGroupId"`
+	SecurityGroupName string         `json:"SecurityGroupName" xml:"SecurityGroupName"`
+	RegionId          string         `json:"RegionId" xml:"RegionId"`
+	ReferencedInfo    ReferencedInfo `json:"ReferencedInfo" xml:"ReferencedInfo"`
+	Permissions       Permissions    `json:"Permissions" xml:"Permissions"`
 }
 
 // CreateDescribeSecurityGroupAttributeRequest creates a request to invoke DescribeSecurityGroupAttribute API

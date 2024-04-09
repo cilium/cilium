@@ -1,0 +1,27 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+import "google/protobuf/wrappers.proto";
+
+// The logger log levels.
+enum LogLevel {
+	UNSPECIFIED = 0;
+        PANIC = 1;
+        FATAL = 2;
+        ERROR = 3;
+        WARN  = 4;
+        INFO  = 5;
+        DEBUG = 6;
+        TRACE = 7;
+}
+
+// Represents the current Logger settings.
+message Logger {
+    // Output only. The logger's current log level.
+    LogLevel current_level = 1;
+
+    // Output only. The logger's log level at process launch.
+    LogLevel launch_level = 2;
+}
+

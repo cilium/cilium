@@ -71,16 +71,23 @@ func (client *Client) DescribeAutoProvisioningGroupsWithCallback(request *Descri
 // DescribeAutoProvisioningGroupsRequest is the request struct for api DescribeAutoProvisioningGroups
 type DescribeAutoProvisioningGroupsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId             requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PageNumber                  requests.Integer `position:"Query" name:"PageNumber"`
-	ResourceGroupId             string           `position:"Query" name:"ResourceGroupId"`
-	PageSize                    requests.Integer `position:"Query" name:"PageSize"`
-	AutoProvisioningGroupStatus *[]string        `position:"Query" name:"AutoProvisioningGroupStatus"  type:"Repeated"`
-	ResourceOwnerAccount        string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                     requests.Integer `position:"Query" name:"OwnerId"`
-	AutoProvisioningGroupId     *[]string        `position:"Query" name:"AutoProvisioningGroupId"  type:"Repeated"`
-	AutoProvisioningGroupName   string           `position:"Query" name:"AutoProvisioningGroupName"`
+	ResourceOwnerId             requests.Integer                     `position:"Query" name:"ResourceOwnerId"`
+	PageNumber                  requests.Integer                     `position:"Query" name:"PageNumber"`
+	ResourceGroupId             string                               `position:"Query" name:"ResourceGroupId"`
+	PageSize                    requests.Integer                     `position:"Query" name:"PageSize"`
+	Tag                         *[]DescribeAutoProvisioningGroupsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	AutoProvisioningGroupStatus *[]string                            `position:"Query" name:"AutoProvisioningGroupStatus"  type:"Repeated"`
+	ResourceOwnerAccount        string                               `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                string                               `position:"Query" name:"OwnerAccount"`
+	OwnerId                     requests.Integer                     `position:"Query" name:"OwnerId"`
+	AutoProvisioningGroupId     *[]string                            `position:"Query" name:"AutoProvisioningGroupId"  type:"Repeated"`
+	AutoProvisioningGroupName   string                               `position:"Query" name:"AutoProvisioningGroupName"`
+}
+
+// DescribeAutoProvisioningGroupsTag is a repeated param struct in DescribeAutoProvisioningGroupsRequest
+type DescribeAutoProvisioningGroupsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeAutoProvisioningGroupsResponse is the response struct for api DescribeAutoProvisioningGroups

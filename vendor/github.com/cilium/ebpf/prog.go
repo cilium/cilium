@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/internal/kallsyms"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/sysenc"
 	"github.com/cilium/ebpf/internal/unix"
@@ -80,6 +81,14 @@ type ProgramOptions struct {
 	// (containers) or where it is in a non-standard location. Defaults to
 	// use the kernel BTF from a well-known location if nil.
 	KernelTypes *btf.Spec
+
+	// Type information used for CO-RE relocations of kernel modules,
+	// indexed by module name.
+	//
+	// This is useful in environments where the kernel BTF is not available
+	// (containers) or where it is in a non-standard location. Defaults to
+	// use the kernel module BTF from a well-known location if nil.
+	KernelModuleTypes map[string]*btf.Spec
 }
 
 // ProgramSpec defines a Program.
@@ -146,6 +155,28 @@ func (ps *ProgramSpec) Copy() *ProgramSpec {
 // Use asm.Instructions.Tag if you need to calculate for non-native endianness.
 func (ps *ProgramSpec) Tag() (string, error) {
 	return ps.Instructions.Tag(internal.NativeEndian)
+}
+
+// KernelModule returns the kernel module, if any, the AttachTo function is contained in.
+func (ps *ProgramSpec) KernelModule() (string, error) {
+	if ps.AttachTo == "" {
+		return "", nil
+	}
+
+	switch ps.Type {
+	default:
+		return "", nil
+	case Tracing:
+		switch ps.AttachType {
+		default:
+			return "", nil
+		case AttachTraceFEntry:
+		case AttachTraceFExit:
+		}
+		fallthrough
+	case Kprobe:
+		return kallsyms.KernelModule(ps.AttachTo)
+	}
 }
 
 // VerifierError is returned by [NewProgram] and [NewProgramWithOptions] if a
@@ -242,8 +273,23 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 	insns := make(asm.Instructions, len(spec.Instructions))
 	copy(insns, spec.Instructions)
 
+	kmodName, err := spec.KernelModule()
+	if err != nil {
+		return nil, fmt.Errorf("kernel module search: %w", err)
+	}
+
+	var targets []*btf.Spec
+	if opts.KernelTypes != nil {
+		targets = append(targets, opts.KernelTypes)
+	}
+	if kmodName != "" && opts.KernelModuleTypes != nil {
+		if modBTF, ok := opts.KernelModuleTypes[kmodName]; ok {
+			targets = append(targets, modBTF)
+		}
+	}
+
 	var b btf.Builder
-	if err := applyRelocations(insns, opts.KernelTypes, spec.ByteOrder, &b); err != nil {
+	if err := applyRelocations(insns, targets, kmodName, spec.ByteOrder, &b); err != nil {
 		return nil, fmt.Errorf("apply CO-RE relocations: %w", err)
 	}
 

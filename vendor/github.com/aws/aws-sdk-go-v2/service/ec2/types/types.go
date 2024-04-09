@@ -5311,8 +5311,7 @@ type Image struct {
 	// The location of the AMI.
 	ImageLocation *string
 
-	// The Amazon Web Services account alias (for example, amazon , self ) or the
-	// Amazon Web Services account ID of the AMI owner.
+	// The owner alias ( amazon | aws-marketplace ).
 	ImageOwnerAlias *string
 
 	// The type of image.
@@ -6264,6 +6263,33 @@ type InstanceMarketOptionsRequest struct {
 	noSmithyDocumentSerde
 }
 
+// The default instance metadata service (IMDS) settings that were set at the
+// account level in the specified Amazon Web Services  Region.
+type InstanceMetadataDefaultsResponse struct {
+
+	// Indicates whether the IMDS endpoint for an instance is enabled or disabled.
+	// When disabled, the instance metadata can't be accessed.
+	HttpEndpoint InstanceMetadataEndpointState
+
+	// The maximum number of hops that the metadata token can travel.
+	HttpPutResponseHopLimit *int32
+
+	// Indicates whether IMDSv2 is required.
+	//   - optional – IMDSv2 is optional, which means that you can use either IMDSv2 or
+	//   IMDSv1.
+	//   - required – IMDSv2 is required, which means that IMDSv1 is disabled, and you
+	//   must use IMDSv2.
+	HttpTokens HttpTokensState
+
+	// Indicates whether access to instance tags from the instance metadata is enabled
+	// or disabled. For more information, see Work with instance tags using the
+	// instance metadata (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS)
+	// in the Amazon EC2 User Guide.
+	InstanceMetadataTags InstanceMetadataTagsState
+
+	noSmithyDocumentSerde
+}
+
 // The metadata options for the instance.
 type InstanceMetadataOptionsRequest struct {
 
@@ -6276,23 +6302,25 @@ type InstanceMetadataOptionsRequest struct {
 	// Default: disabled
 	HttpProtocolIpv6 InstanceMetadataProtocolState
 
-	// The desired HTTP PUT response hop limit for instance metadata requests. The
-	// larger the number, the further instance metadata requests can travel. Default: 1
-	// Possible values: Integers from 1 to 64
+	// The maximum number of hops that the metadata token can travel. Possible values:
+	// Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
 	// Indicates whether IMDSv2 is required.
-	//   - optional - IMDSv2 is optional. You can choose whether to send a session
-	//   token in your instance metadata retrieval requests. If you retrieve IAM role
-	//   credentials without a session token, you receive the IMDSv1 role credentials. If
-	//   you retrieve IAM role credentials using a valid session token, you receive the
-	//   IMDSv2 role credentials.
-	//   - required - IMDSv2 is required. You must send a session token in your
-	//   instance metadata retrieval requests. With this option, retrieving the IAM role
-	//   credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
-	//   available.
-	// Default: If the value of ImdsSupport for the Amazon Machine Image (AMI) for
-	// your instance is v2.0 , the default is required .
+	//   - optional - IMDSv2 is optional, which means that you can use either IMDSv2 or
+	//   IMDSv1.
+	//   - required - IMDSv2 is required, which means that IMDSv1 is disabled, and you
+	//   must use IMDSv2.
+	// Default:
+	//   - If the value of ImdsSupport for the Amazon Machine Image (AMI) for your
+	//   instance is v2.0 and the account level default is set to no-preference , the
+	//   default is required .
+	//   - If the value of ImdsSupport for the Amazon Machine Image (AMI) for your
+	//   instance is v2.0 , but the account level default is set to V1 or V2 , the
+	//   default is optional .
+	// The default value can also be affected by other combinations of parameters. For
+	// more information, see Order of precedence for instance metadata options (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence)
+	// in the Amazon EC2 User Guide.
 	HttpTokens HttpTokensState
 
 	// Set to enabled to allow access to instance tags from the instance metadata. Set
@@ -6315,21 +6343,15 @@ type InstanceMetadataOptionsResponse struct {
 	// enabled or disabled. Default: disabled
 	HttpProtocolIpv6 InstanceMetadataProtocolState
 
-	// The desired HTTP PUT response hop limit for instance metadata requests. The
-	// larger the number, the further instance metadata requests can travel. Default: 1
-	// Possible values: Integers from 1 to 64
+	// The maximum number of hops that the metadata token can travel. Possible values:
+	// Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
 	// Indicates whether IMDSv2 is required.
-	//   - optional - IMDSv2 is optional. You can choose whether to send a session
-	//   token in your instance metadata retrieval requests. If you retrieve IAM role
-	//   credentials without a session token, you receive the IMDSv1 role credentials. If
-	//   you retrieve IAM role credentials using a valid session token, you receive the
-	//   IMDSv2 role credentials.
-	//   - required - IMDSv2 is required. You must send a session token in your
-	//   instance metadata retrieval requests. With this option, retrieving the IAM role
-	//   credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
-	//   available.
+	//   - optional - IMDSv2 is optional, which means that you can use either IMDSv2 or
+	//   IMDSv1.
+	//   - required - IMDSv2 is required, which means that IMDSv1 is disabled, and you
+	//   must use IMDSv2.
 	HttpTokens HttpTokensState
 
 	// Indicates whether access to instance tags from the instance metadata is enabled
