@@ -315,6 +315,9 @@ Annotations:
 * L7 network policy with terminatingTLS will not load the key ``ca.crt`` even if it is present in the
   secret. This prevents Envoy from incorrectly requiring client certificates from pods when using TLS
   termination. To retain old behaviour for bug compatibility, please set ``--use-full-tls-context=true``.
+* The built-in WireGuard userspace-mode fallback (Helm ``wireguard.userspaceFallback``) has been
+  deprecated and will be removed in a future version of Cilium. Users of WireGuard transparent
+  encryption are required to use a Linux kernel with WireGuard support going forward.
 
 Removed Options
 ~~~~~~~~~~~~~~~
