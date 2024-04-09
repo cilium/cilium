@@ -35,6 +35,7 @@ $(error "CILIUM_BRANCH needs to be defined")
 endif
 
 export CERTGEN_REPO:=quay.io/cilium/certgen
+# renovate: datasource=docker depName=quay.io/cilium/certgen
 export CERTGEN_VERSION:=v0.1.11
 export CERTGEN_DIGEST:=sha256:5586de5019abc104637a9818a626956cd9b1e827327b958186ec412ae3d5dea6
 
