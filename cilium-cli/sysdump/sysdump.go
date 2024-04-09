@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -293,13 +294,33 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	return &c, nil
 }
 
-func (c *Collector) GatherResourceUnstructured(ctx context.Context, r schema.GroupVersionResource, fname string) error {
+// GatherResourceUnstructured queries resources with the given GroupVersionResource, storing them in the file specified by fname.
+// If keep is non-empty; then it will filter the items returned, keeping only those with names listed in keep.
+// If keep is empty, it will not filter the resources returned.
+func (c *Collector) GatherResourceUnstructured(ctx context.Context, r schema.GroupVersionResource, fname string, keep ...string) error {
 	n := corev1.NamespaceAll
 	v, err := c.Client.ListUnstructured(ctx, r, &n, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to collect %s (%s): %w", r.Resource, r.Version, err)
 	}
-	if err := c.WriteYAML(fname, v); err != nil {
+
+	filtered := &unstructured.UnstructuredList{
+		Object: v.Object,
+	}
+	// keep everything if keep is empty
+	if len(keep) == 0 {
+		filtered.Items = v.Items
+	} else {
+		// only save the resources which are specified by keep
+		for _, elem := range v.Items {
+			for _, name := range keep {
+				if name == elem.GetName() {
+					filtered.Items = append(filtered.Items, elem)
+				}
+			}
+		}
+	}
+	if err := c.WriteYAML(fname, filtered); err != nil {
 		return fmt.Errorf("failed to write %s YAML: %w", r.Resource, err)
 	}
 	return nil
@@ -950,6 +971,20 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to collect logs from Hubble certgen pods")
 				}
 				return nil
+			},
+		},
+		{
+			Description: "Collecting the Hubble cert-manager certificates",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				return c.GatherResourceUnstructured(
+					ctx,
+					certificate,
+					hubbleCertificatesFileName,
+					"hubble-relay-client-certs",
+					"hubble-relay-server-certs",
+					"hubble-server-certs",
+				)
 			},
 		},
 		{
