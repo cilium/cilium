@@ -247,6 +247,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
 			return fmt.Errorf("failed to add WireGuard device: %w", err)
 		}
 
+		// TODO: Remove this userspace fallback in Cilum v1.17
 		if !option.Config.EnableWireguardUserspaceFallback {
 			return fmt.Errorf("WireGuard not supported by the Linux kernel (netlink: %w). "+
 				"Please upgrade your kernel, manually install the kernel module "+

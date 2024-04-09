@@ -1049,7 +1049,7 @@
      - string
      - ``"0s"``
    * - :spelling:ignore:`encryption.wireguard.userspaceFallback`
-     - Enables the fallback to the user-space implementation.
+     - Enables the fallback to the user-space implementation (deprecated).
      - bool
      - ``false``
    * - :spelling:ignore:`endpointHealthChecking.enabled`
