@@ -78,6 +78,7 @@ type ImportImageRequest struct {
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
 	BootMode             string                          `position:"Query" name:"BootMode"`
 	ImageName            string                          `position:"Query" name:"ImageName"`
+	StorageLocationArn   string                          `position:"Query" name:"StorageLocationArn"`
 	Tag                  *[]ImportImageTag               `position:"Query" name:"Tag"  type:"Repeated"`
 	Architecture         string                          `position:"Query" name:"Architecture"`
 	LicenseType          string                          `position:"Query" name:"LicenseType"`

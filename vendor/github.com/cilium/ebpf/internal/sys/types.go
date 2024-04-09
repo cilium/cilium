@@ -740,6 +740,25 @@ func LinkCreateNetfilter(attr *LinkCreateNetfilterAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
+type LinkCreateNetkitAttr struct {
+	ProgFd           uint32
+	TargetIfindex    uint32
+	AttachType       AttachType
+	Flags            uint32
+	RelativeFdOrId   uint32
+	_                [4]byte
+	ExpectedRevision uint64
+	_                [32]byte
+}
+
+func LinkCreateNetkit(attr *LinkCreateNetkitAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
 type LinkCreatePerfEventAttr struct {
 	ProgFd     uint32
 	TargetFd   uint32
@@ -816,6 +835,26 @@ func LinkCreateUprobeMulti(attr *LinkCreateUprobeMultiAttr) (*FD, error) {
 		return nil, err
 	}
 	return NewFD(int(fd))
+}
+
+type LinkGetFdByIdAttr struct{ Id LinkID }
+
+func LinkGetFdById(attr *LinkGetFdByIdAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_GET_FD_BY_ID, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
+type LinkGetNextIdAttr struct {
+	Id     LinkID
+	NextId LinkID
+}
+
+func LinkGetNextId(attr *LinkGetNextIdAttr) error {
+	_, err := BPF(BPF_LINK_GET_NEXT_ID, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	return err
 }
 
 type LinkUpdateAttr struct {
@@ -1206,43 +1245,92 @@ func RawTracepointOpen(attr *RawTracepointOpenAttr) (*FD, error) {
 }
 
 type CgroupLinkInfo struct {
+	Type       LinkType
+	Id         LinkID
+	ProgId     uint32
+	_          [4]byte
 	CgroupId   uint64
 	AttachType AttachType
-	_          [4]byte
+	_          [28]byte
 }
 
 type IterLinkInfo struct {
+	Type          LinkType
+	Id            LinkID
+	ProgId        uint32
+	_             [4]byte
 	TargetName    Pointer
 	TargetNameLen uint32
 }
 
 type NetNsLinkInfo struct {
+	Type       LinkType
+	Id         LinkID
+	ProgId     uint32
+	_          [4]byte
 	NetnsIno   uint32
 	AttachType AttachType
+	_          [32]byte
 }
 
 type NetfilterLinkInfo struct {
+	Type     LinkType
+	Id       LinkID
+	ProgId   uint32
+	_        [4]byte
 	Pf       uint32
 	Hooknum  uint32
 	Priority int32
 	Flags    uint32
+	_        [24]byte
+}
+
+type NetkitLinkInfo struct {
+	Type       LinkType
+	Id         LinkID
+	ProgId     uint32
+	_          [4]byte
+	Ifindex    uint32
+	AttachType AttachType
+	_          [32]byte
 }
 
 type RawTracepointLinkInfo struct {
+	Type      LinkType
+	Id        LinkID
+	ProgId    uint32
+	_         [4]byte
 	TpName    Pointer
 	TpNameLen uint32
-	_         [4]byte
+	_         [28]byte
 }
 
 type TcxLinkInfo struct {
+	Type       LinkType
+	Id         LinkID
+	ProgId     uint32
+	_          [4]byte
 	Ifindex    uint32
 	AttachType AttachType
+	_          [32]byte
 }
 
 type TracingLinkInfo struct {
+	Type        LinkType
+	Id          LinkID
+	ProgId      uint32
+	_           [4]byte
 	AttachType  AttachType
 	TargetObjId uint32
 	TargetBtfId TypeID
+	_           [28]byte
 }
 
-type XDPLinkInfo struct{ Ifindex uint32 }
+type XDPLinkInfo struct {
+	Type    LinkType
+	Id      LinkID
+	ProgId  uint32
+	_       [4]byte
+	Ifindex uint32
+	_       [36]byte
+}

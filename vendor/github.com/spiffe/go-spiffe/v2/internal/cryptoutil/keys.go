@@ -1,8 +1,10 @@
 package cryptoutil
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"fmt"
 )
@@ -15,6 +17,9 @@ func PublicKeyEqual(a, b crypto.PublicKey) (bool, error) {
 	case *ecdsa.PublicKey:
 		ecdsaPublicKey, ok := b.(*ecdsa.PublicKey)
 		return ok && ECDSAPublicKeyEqual(a, ecdsaPublicKey), nil
+	case ed25519.PublicKey:
+		ed25519PublicKey, ok := b.(ed25519.PublicKey)
+		return ok && bytes.Equal(a, ed25519PublicKey), nil
 	default:
 		return false, fmt.Errorf("unsupported public key type %T", a)
 	}

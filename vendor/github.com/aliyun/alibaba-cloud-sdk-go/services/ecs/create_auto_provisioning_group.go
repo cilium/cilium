@@ -86,6 +86,7 @@ type CreateAutoProvisioningGroupRequest struct {
 	LaunchConfigurationAutoReleaseTime             string                                                            `position:"Query" name:"LaunchConfiguration.AutoReleaseTime"`
 	PayAsYouGoAllocationStrategy                   string                                                            `position:"Query" name:"PayAsYouGoAllocationStrategy"`
 	DefaultTargetCapacityType                      string                                                            `position:"Query" name:"DefaultTargetCapacityType"`
+	Tag                                            *[]CreateAutoProvisioningGroupTag                                 `position:"Query" name:"Tag"  type:"Repeated"`
 	LaunchConfigurationKeyPairName                 string                                                            `position:"Query" name:"LaunchConfiguration.KeyPairName"`
 	SystemDiskConfig                               *[]CreateAutoProvisioningGroupSystemDiskConfig                    `position:"Query" name:"SystemDiskConfig"  type:"Repeated"`
 	DataDiskConfig                                 *[]CreateAutoProvisioningGroupDataDiskConfig                      `position:"Query" name:"DataDiskConfig"  type:"Repeated"`
@@ -148,6 +149,12 @@ type CreateAutoProvisioningGroupLaunchConfigurationDataDisk struct {
 	Category           string `name:"Category"`
 	DeleteWithInstance string `name:"DeleteWithInstance"`
 	Encrypted          string `name:"Encrypted"`
+}
+
+// CreateAutoProvisioningGroupTag is a repeated param struct in CreateAutoProvisioningGroupRequest
+type CreateAutoProvisioningGroupTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateAutoProvisioningGroupSystemDiskConfig is a repeated param struct in CreateAutoProvisioningGroupRequest

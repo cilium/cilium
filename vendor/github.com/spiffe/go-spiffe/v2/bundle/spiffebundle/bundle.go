@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-jose/go-jose/v3"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/jwtutil"
@@ -23,9 +23,7 @@ const (
 	jwtSVIDUse  = "jwt-svid"
 )
 
-var (
-	spiffebundleErr = errs.Class("spiffebundle")
-)
+var spiffebundleErr = errs.Class("spiffebundle")
 
 type bundleDoc struct {
 	jose.JSONWebKeySet

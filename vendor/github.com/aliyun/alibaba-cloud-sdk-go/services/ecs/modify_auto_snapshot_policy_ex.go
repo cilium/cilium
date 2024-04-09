@@ -71,17 +71,32 @@ func (client *Client) ModifyAutoSnapshotPolicyExWithCallback(request *ModifyAuto
 // ModifyAutoSnapshotPolicyExRequest is the request struct for api ModifyAutoSnapshotPolicyEx
 type ModifyAutoSnapshotPolicyExRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId              requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	AutoSnapshotPolicyId         string           `position:"Query" name:"autoSnapshotPolicyId"`
-	CopiedSnapshotsRetentionDays requests.Integer `position:"Query" name:"CopiedSnapshotsRetentionDays"`
-	TimePoints                   string           `position:"Query" name:"timePoints"`
-	RepeatWeekdays               string           `position:"Query" name:"repeatWeekdays"`
-	EnableCrossRegionCopy        requests.Boolean `position:"Query" name:"EnableCrossRegionCopy"`
-	ResourceOwnerAccount         string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerId                      requests.Integer `position:"Query" name:"OwnerId"`
-	AutoSnapshotPolicyName       string           `position:"Query" name:"autoSnapshotPolicyName"`
-	RetentionDays                requests.Integer `position:"Query" name:"retentionDays"`
-	TargetCopyRegions            string           `position:"Query" name:"TargetCopyRegions"`
+	ResourceOwnerId              requests.Integer                                      `position:"Query" name:"ResourceOwnerId"`
+	CopyEncryptionConfiguration  ModifyAutoSnapshotPolicyExCopyEncryptionConfiguration `position:"Query" name:"CopyEncryptionConfiguration"  type:"Struct"`
+	AutoSnapshotPolicyId         string                                                `position:"Query" name:"autoSnapshotPolicyId"`
+	CopiedSnapshotsRetentionDays requests.Integer                                      `position:"Query" name:"CopiedSnapshotsRetentionDays"`
+	TimePoints                   string                                                `position:"Query" name:"timePoints"`
+	RepeatWeekdays               string                                                `position:"Query" name:"repeatWeekdays"`
+	EnableCrossRegionCopy        requests.Boolean                                      `position:"Query" name:"EnableCrossRegionCopy"`
+	ResourceOwnerAccount         string                                                `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerId                      requests.Integer                                      `position:"Query" name:"OwnerId"`
+	AutoSnapshotPolicyName       string                                                `position:"Query" name:"autoSnapshotPolicyName"`
+	RetentionDays                requests.Integer                                      `position:"Query" name:"retentionDays"`
+	TargetCopyRegions            string                                                `position:"Query" name:"TargetCopyRegions"`
+}
+
+// ModifyAutoSnapshotPolicyExCopyEncryptionConfiguration is a repeated param struct in ModifyAutoSnapshotPolicyExRequest
+type ModifyAutoSnapshotPolicyExCopyEncryptionConfiguration struct {
+	Encrypted string                                                          `name:"Encrypted"`
+	KMSKeyId  string                                                          `name:"KMSKeyId"`
+	Arn       *[]ModifyAutoSnapshotPolicyExCopyEncryptionConfigurationArnItem `name:"Arn" type:"Repeated"`
+}
+
+// ModifyAutoSnapshotPolicyExCopyEncryptionConfigurationArnItem is a repeated param struct in ModifyAutoSnapshotPolicyExRequest
+type ModifyAutoSnapshotPolicyExCopyEncryptionConfigurationArnItem struct {
+	Rolearn       string `name:"Rolearn"`
+	RoleType      string `name:"RoleType"`
+	AssumeRoleFor string `name:"AssumeRoleFor"`
 }
 
 // ModifyAutoSnapshotPolicyExResponse is the response struct for api ModifyAutoSnapshotPolicyEx
