@@ -48,6 +48,9 @@ type GroupV4Map interface {
 // addresses.
 type GroupV4OuterMap struct {
 	*ebpf.Map
+
+	// batchLookupSupported indicates if the kernel supports batch lookup.
+	batchLookupSupported bool
 }
 
 func NewGroupV4OuterMap(name string) *GroupV4OuterMap {
@@ -62,7 +65,7 @@ func NewGroupV4OuterMap(name string) *GroupV4OuterMap {
 		Pinning:    ebpf.PinByName,
 	})
 
-	return &GroupV4OuterMap{m}
+	return &GroupV4OuterMap{Map: m}
 }
 
 // ParamsIn are parameters provided by the Hive and is the argument for
@@ -114,7 +117,12 @@ func NewGroupV4Map(in ParamsIn) ParamsOut {
 
 	in.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			return groupMap.OpenOrCreate()
+			err := groupMap.OpenOrCreate()
+			if err != nil {
+				return err
+			}
+			groupMap.batchLookupSupported = haveBatchLookupSupport[GroupV4Key, GroupV4Val](groupMap.Map)
+			return nil
 		},
 		OnStop: func(cell.HookContext) error {
 			return groupMap.Close()
@@ -181,7 +189,37 @@ func (m GroupV4OuterMap) Delete(group netip.Addr) error {
 	return m.Map.Delete(key)
 }
 
+// List returns a list of all multicast groups in the map. Batch lookup is used to get the groups if supported.
+// Batch lookup is supported in kernel version 5.19 and later for map.HashOfMaps
 func (m GroupV4OuterMap) List() ([]netip.Addr, error) {
+	if m.batchLookupSupported {
+		return m.ListBatch()
+	}
+	return m.ListIterator()
+}
+
+// ListIterator is a iterator version of List. It is used when the map does not support batch lookup.
+func (m GroupV4OuterMap) ListIterator() ([]netip.Addr, error) {
+	var (
+		key GroupV4Key
+		val GroupV4Val
+		out = make([]netip.Addr, 0, MaxGroups)
+	)
+
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		ip, ok := key.ToNetIPAddr()
+		if !ok {
+			return out, fmt.Errorf("failed to convert key to netip.Addr")
+		}
+		out = append(out, ip)
+	}
+
+	return out, iter.Err()
+}
+
+// ListBatch is a batched version of List. It is used when the map supports batch lookup.
+func (m GroupV4OuterMap) ListBatch() ([]netip.Addr, error) {
 	var (
 		keys = make([]GroupV4Key, MaxGroups)
 		vals = make([]GroupV4Val, MaxGroups)
@@ -242,7 +280,10 @@ func OpenGroupV4OuterMap(name string) (*GroupV4OuterMap, error) {
 		return nil, err
 	}
 
-	return &GroupV4OuterMap{m}, nil
+	return &GroupV4OuterMap{
+		Map:                  m,
+		batchLookupSupported: haveBatchLookupSupport[GroupV4Key, GroupV4Val](m),
+	}, nil
 }
 
 // SubscriberV4Map provides an interface between the control and data plane,
@@ -418,6 +459,8 @@ func (m SubscriberV4InnerMap) Delete(Src netip.Addr) error {
 	return m.Map.Delete(key)
 }
 
+// List returns a list of all subscribers in the map. Batch lookup is used to get the subscribers.
+// Minimum kernel version required for multicast is 5.13, in which batch lookup for map.Hash is supported.
 func (m SubscriberV4InnerMap) List() ([]*SubscriberV4, error) {
 	var (
 		keys = make([]SubscriberV4Key, MaxSubscribers)
@@ -447,4 +490,16 @@ func (m SubscriberV4InnerMap) List() ([]*SubscriberV4, error) {
 	}
 
 	return out, nil
+}
+
+// haveBatchLookupSupport checks if the kernel supports batch lookup for the passed map.
+func haveBatchLookupSupport[K, V any](m *ebpf.Map) bool {
+	keys := make([]K, 1)
+	vals := make([]V, 1)
+	var cursor ciliumebpf.MapBatchCursor
+	_, err := m.BatchLookup(&cursor, keys, vals, nil)
+	if err != nil && errors.Is(err, ciliumebpf.ErrNotSupported) {
+		return false
+	}
+	return true
 }
