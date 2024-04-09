@@ -125,6 +125,8 @@ jobs:
           #   also when actually connecting to an external kvstore. This is a
           #   workaround to enable creating the clustermesh configuration secret,
           #   that is otherwise skipped in Cilium v1.14 (and earlier).
+          # * We explicitly configure the IPAM mode to prevent it from being
+          #   reset to the default value on upgrade/downgrade due to --reset-values.
           # * We configure the maximum number of unavailable agents to 1 to slow
           #   down the rollout process and highlight possible connection disruption
           #   occurring in the meanwhile.
@@ -136,6 +138,8 @@ jobs:
             --set=tunnel=vxlan \
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=true \
+            --set=ipam.mode=kubernetes \
+            --set=operator.replicas=1 \
             --set=updateStrategy.rollingUpdate.maxUnavailable=1 \
             --set=clustermesh.useAPIServer=true \
             --set=clustermesh.apiserver.replicas=${{ matrix.external-kvstore && '0' || '1' }} \
