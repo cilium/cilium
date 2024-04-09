@@ -84,6 +84,8 @@ type Options struct {
 	HubbleRelayLabelSelector string
 	// The labels used to target Hubble UI pods.
 	HubbleUILabelSelector string
+	// The labels used to target Hubble generate certs pods.
+	HubbleGenerateCertsLabelSelector string
 	// The amount of time to wait for the user to cancel the sysdump on a large cluster.
 	LargeSysdumpAbortTimeout time.Duration
 	// The threshold on the number of nodes present in the cluster that triggers a warning message.
@@ -912,6 +914,40 @@ func (c *Collector) Run() error {
 				}
 				if err := c.WriteYAML(hubbleUIDeploymentFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Hubble generate certs cronjob",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetCronJob(ctx, c.Options.CiliumNamespace, hubbleGenerateCertsCronJob, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("cronjob %q not found in namespace %q - this is expected if auto TLS is not enabled or if not using hubble.auto.tls.method=cronjob", hubbleGenerateCertsCronJob, c.Options.CiliumNamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Hubble generate certs cronjob: %w", err)
+				}
+				if err := c.WriteYAML(hubbleGenerateCertsCronJobFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Hubble generate certs cronjob: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Hubble generate certs pod logs",
+			Quick:       false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.HubbleGenerateCertsLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from Hubble certgen pods")
+				}
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Hubble certgen pods")
 				}
 				return nil
 			},
@@ -2799,6 +2835,9 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		"The labels used to target Hubble Relay pods")
 	cmd.Flags().StringVar(&options.HubbleUILabelSelector,
 		optionPrefix+"hubble-ui-labels", DefaultHubbleUILabelSelector,
+		"The labels used to target Hubble UI pods")
+	cmd.Flags().StringVar(&options.HubbleGenerateCertsLabelSelector,
+		optionPrefix+"hubble-generate-certs-labels", DefaultHubbleGenerateCertsLabelSelector,
 		"The labels used to target Hubble UI pods")
 	cmd.Flags().Int64Var(&options.LogsLimitBytes,
 		optionPrefix+"logs-limit-bytes", DefaultLogsLimitBytes,
