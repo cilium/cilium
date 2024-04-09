@@ -91,6 +91,7 @@ const (
 	hubbleRelayDeploymentFileName            = "hubble-relay-deployment-<ts>.yaml"
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
 	hubbleGenerateCertsCronJobFileName       = "hubble-generate-certs-cronjob-<ts>.yaml"
+	hubbleCertificatesFileName               = "hubble-certificates-<ts>.yaml"
 	kubernetesEndpointsFileName              = "k8s-endpoints-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
 	kubernetesEventsTableFileName            = "k8s-events-<ts>.html"
@@ -156,6 +157,12 @@ var (
 		"pprof-cpu",
 	}
 	gopsTrace = "trace"
+
+	certificate = schema.GroupVersionResource{
+		Group:    "cert-manager.io",
+		Resource: "certificates",
+		Version:  "v1",
+	}
 
 	// Gateway API resource group versions used for sysdumping these
 	gatewayClass = schema.GroupVersionResource{
