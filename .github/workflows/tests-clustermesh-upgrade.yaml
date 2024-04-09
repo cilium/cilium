@@ -116,6 +116,8 @@ jobs:
           # * bpf.masquerade is disabled due to #23283
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
+          # * We explicitly configure the IPAM mode to prevent it from being
+          #   reset to the default value on upgrade/downgrade due to --reset-values.
           # * We configure the maximum number of unavailable agents to 1 to slow
           #   down the rollout process and highlight possible connection disruption
           #   occurring in the meanwhile.
@@ -127,6 +129,8 @@ jobs:
             --set=tunnel=vxlan \
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=true \
+            --set=ipam.mode=kubernetes \
+            --set=operator.replicas=1 \
             --set=updateStrategy.rollingUpdate.maxUnavailable=1 \
             --set=clustermesh.useAPIServer=true \
             --set=clustermesh.config.enabled=true"
