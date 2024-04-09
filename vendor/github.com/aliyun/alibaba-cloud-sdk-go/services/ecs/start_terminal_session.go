@@ -79,6 +79,7 @@ type StartTerminalSessionRequest struct {
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	InstanceId           *[]string        `position:"Query" name:"InstanceId"  type:"Repeated"`
 	PortNumber           requests.Integer `position:"Query" name:"PortNumber"`
+	Username             string           `position:"Query" name:"Username"`
 }
 
 // StartTerminalSessionResponse is the response struct for api StartTerminalSession

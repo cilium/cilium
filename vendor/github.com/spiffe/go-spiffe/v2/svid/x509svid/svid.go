@@ -1,8 +1,10 @@
 package x509svid
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/x509"
 	"os"
@@ -229,6 +231,9 @@ func keyMatches(privateKey crypto.PrivateKey, publicKey crypto.PublicKey) (bool,
 	case *ecdsa.PrivateKey:
 		ecdsaPublicKey, ok := publicKey.(*ecdsa.PublicKey)
 		return ok && ecdsaPublicKeyEqual(&privateKey.PublicKey, ecdsaPublicKey), nil
+	case ed25519.PrivateKey:
+		ed25519PublicKey, ok := publicKey.(ed25519.PublicKey)
+		return ok && bytes.Equal(privateKey.Public().(ed25519.PublicKey), ed25519PublicKey), nil
 	default:
 		return false, errs.New("unsupported private key type %T", privateKey)
 	}

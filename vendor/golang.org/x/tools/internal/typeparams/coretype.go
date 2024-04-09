@@ -124,6 +124,21 @@ func _NormalTerms(typ types.Type) ([]*types.Term, error) {
 	}
 }
 
+// Deref returns the type of the variable pointed to by t,
+// if t's core type is a pointer; otherwise it returns t.
+//
+// Do not assume that Deref(T)==T implies T is not a pointer:
+// consider "type T *T", for example.
+//
+// TODO(adonovan): ideally this would live in typesinternal, but that
+// creates an import cycle. Move there when we melt this package down.
+func Deref(t types.Type) types.Type {
+	if ptr, ok := CoreType(t).(*types.Pointer); ok {
+		return ptr.Elem()
+	}
+	return t
+}
+
 // MustDeref returns the type of the variable pointed to by t.
 // It panics if t's core type is not a pointer.
 //
