@@ -521,7 +521,7 @@ func (l *Log) FmtString() string {
 			fmt.Fprint(&sb, int16(l.Args[argNum]))
 		case "x":
 			hb := make([]byte, 2)
-			nl.NativeEndian().PutUint16(hb, uint16(l.Args[argNum]))
+			binary.BigEndian.PutUint16(hb, uint16(l.Args[argNum]))
 			fmt.Fprint(&sb, hex.EncodeToString(hb))
 
 		case "lu":
@@ -530,7 +530,7 @@ func (l *Log) FmtString() string {
 			fmt.Fprint(&sb, int32(l.Args[argNum]))
 		case "lx":
 			hb := make([]byte, 4)
-			nl.NativeEndian().PutUint32(hb, uint32(l.Args[argNum]))
+			binary.BigEndian.PutUint32(hb, uint32(l.Args[argNum]))
 			fmt.Fprint(&sb, hex.EncodeToString(hb))
 
 		case "llu":
@@ -539,7 +539,7 @@ func (l *Log) FmtString() string {
 			fmt.Fprint(&sb, int64(l.Args[argNum]))
 		case "llx":
 			hb := make([]byte, 8)
-			nl.NativeEndian().PutUint64(hb, uint64(l.Args[argNum]))
+			binary.BigEndian.PutUint64(hb, uint64(l.Args[argNum]))
 			fmt.Fprint(&sb, hex.EncodeToString(hb))
 
 		default:
