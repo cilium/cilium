@@ -113,7 +113,6 @@ include:
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting, IPv4 only
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
   # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with GENEVE and endpoint routes
-  # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with VXLAN and no endpoint routes
   # K8sDatapathConfig Iptables Skip conntrack for pod traffic
   # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
   # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
