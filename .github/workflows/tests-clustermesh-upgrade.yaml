@@ -176,7 +176,7 @@ jobs:
             --test='allow-all-except-world/' \
             --test='client-ingress/' \
             --test='client-egress/' \
-            --test='cluster-entity-multicluster/' \
+            --test='cluster-entity-multi-cluster/' \
             --test='!/pod-to-world' \
             --test='!/pod-to-cidr' \
             --collect-sysdump-on-failure"
