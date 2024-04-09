@@ -28,6 +28,7 @@ const (
 	DefaultHubbleFlowsTimeout                = 5 * time.Second
 	DefaultHubbleRelayLabelSelector          = labelPrefix + "hubble-relay"
 	DefaultHubbleUILabelSelector             = labelPrefix + "hubble-ui"
+	DefaultHubbleGenerateCertsLabelSelector  = labelPrefix + "hubble-generate-certs"
 	DefaultLargeSysdumpAbortTimeout          = 5 * time.Second
 	DefaultLargeSysdumpThreshold             = 20
 	DefaultLogsSinceTime                     = 8760 * time.Hour // 1y

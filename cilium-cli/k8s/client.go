@@ -20,6 +20,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -489,6 +490,10 @@ func (c *Client) CheckDaemonSetStatus(ctx context.Context, namespace, deployment
 
 func (c *Client) GetStatefulSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.StatefulSet, error) {
 	return c.Clientset.AppsV1().StatefulSets(namespace).Get(ctx, name, opts)
+}
+
+func (c *Client) GetCronJob(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*batchv1.CronJob, error) {
+	return c.Clientset.BatchV1().CronJobs(namespace).Get(ctx, name, opts)
 }
 
 func (c *Client) GetCRD(ctx context.Context, name string, opts metav1.GetOptions) (*apiextensions.CustomResourceDefinition, error) {
