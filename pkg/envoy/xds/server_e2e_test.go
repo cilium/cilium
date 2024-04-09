@@ -5,7 +5,6 @@ package xds
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -41,8 +40,7 @@ const (
 )
 
 var (
-	DeferredCompletion = errors.New("Deferred completion")
-	nodes              = map[string]*envoy_config_core.Node{
+	nodes = map[string]*envoy_config_core.Node{
 		node0: {Id: "node0~10.0.0.0~node0~bar"},
 		node1: {Id: "node1~10.0.0.1~node1~bar"},
 		node2: {Id: "node2~10.0.0.2~node2~bar"},
@@ -672,12 +670,13 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 
 	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}})
 
-	streamDone := make(chan struct{})
+	wg := completion.NewWaitGroup(ctx)
+	comp := wg.AddCompletion()
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer comp.Complete(nil)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -783,12 +782,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 
 	// Close the stream.
 	closeStream()
-
-	select {
-	case <-ctx.Done():
-		c.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
-	case <-streamDone:
-	}
+	c.Assert(wg.Wait(), IsNil)
 }
 
 func (s *ServerSuite) TestNAck(c *C) {
