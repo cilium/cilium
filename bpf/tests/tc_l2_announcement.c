@@ -137,13 +137,13 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
 	if ((void *)l3 + sizeof(struct arphdreth) > data_end)
 		test_fatal("l3 out of bounds");
 
-	assert(memcmp(l2->h_source, (__u8 *)mac_one, ETH_HLEN) != 0);
-	assert(memcmp(l2->h_dest, (__u8 *)mac_bcast, ETH_HLEN) != 0);
+	assert(memcmp(l2->h_source, (__u8 *)mac_one, ETH_ALEN) == 0);
+	assert(memcmp(l2->h_dest, (__u8 *)mac_bcast, ETH_ALEN) == 0);
 	assert(l3->ar_op == bpf_htons(ARPOP_REQUEST));
 	assert(l3->ar_sip == v4_ext_one);
 	assert(l3->ar_tip == v4_svc_one);
-	assert(memcmp(l3->ar_sha, (__u8 *)mac_one, ETH_HLEN) != 0);
-	assert(memcmp(l3->ar_tha, (__u8 *)mac_bcast, ETH_HLEN) != 0);
+	assert(memcmp(l3->ar_sha, (__u8 *)mac_one, ETH_ALEN) == 0);
+	assert(memcmp(l3->ar_tha, (__u8 *)mac_bcast, ETH_ALEN) == 0);
 
 	test_finish();
 }
@@ -209,13 +209,13 @@ int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff 
 	if ((void *)l3 + sizeof(struct arphdreth) > data_end)
 		test_fatal("l3 out of bounds");
 
-	assert(memcmp(l2->h_source, (__u8 *)mac_two, ETH_HLEN) != 0);
-	assert(memcmp(l2->h_dest, (__u8 *)mac_one, ETH_HLEN) != 0);
+	assert(memcmp(l2->h_source, (__u8 *)mac_two, ETH_ALEN) == 0);
+	assert(memcmp(l2->h_dest, (__u8 *)mac_one, ETH_ALEN) == 0);
 	assert(l3->ar_op == bpf_htons(ARPOP_REPLY));
 	assert(l3->ar_sip == v4_svc_one);
 	assert(l3->ar_tip == v4_ext_one);
-	assert(memcmp(l3->ar_sha, (__u8 *)mac_two, ETH_HLEN) != 0);
-	assert(memcmp(l3->ar_tha, (__u8 *)mac_one, ETH_HLEN) != 0);
+	assert(memcmp(l3->ar_sha, (__u8 *)mac_two, ETH_ALEN) == 0);
+	assert(memcmp(l3->ar_tha, (__u8 *)mac_one, ETH_ALEN) == 0);
 
 	test_finish();
 }
