@@ -648,7 +648,6 @@ func (manager *Manager) removeUnusedEgressRules() {
 			egressPolicies[*key] = *val
 		})
 
-nextPolicyKey:
 	for policyKey, policyVal := range egressPolicies {
 		matchPolicy := func(endpointIP netip.Addr, dstCIDR netip.Prefix, excludedCIDR bool, gwc *gatewayConfig) bool {
 			gatewayIP := gwc.gatewayIP
@@ -660,7 +659,7 @@ nextPolicyKey:
 		}
 
 		if manager.policyMatches(policyKey.GetSourceIP(), matchPolicy) {
-			continue nextPolicyKey
+			continue
 		}
 
 		logger := log.WithFields(logrus.Fields{
