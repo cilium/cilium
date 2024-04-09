@@ -152,6 +152,8 @@ jobs:
 
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
+          # * We explicitly configure the IPAM mode to prevent it from being
+          #   reset to the default value on upgrade/downgrade due to --reset-values.
           # * We explicitly configure the sync timeout to a higher value to
           #   give enough time to the clustermesh-apiserver to restart after
           #   the upgrade/downgrade before that agents regenerate the endpoints.
@@ -168,6 +170,8 @@ jobs:
             --set=ipv6.enabled=true \
             --set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
             --set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
+            --set=ipam.mode=kubernetes \
+            --set=operator.replicas=1 \
             --set=updateStrategy.rollingUpdate.maxUnavailable=1 \
             --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
             --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
