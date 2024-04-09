@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -321,6 +322,10 @@ func (c *fakeClient) GetDaemonSet(_ context.Context, _, _ string, _ metav1.GetOp
 }
 
 func (c *fakeClient) GetStatefulSet(_ context.Context, _, _ string, _ metav1.GetOptions) (*appsv1.StatefulSet, error) {
+	return nil, nil
+}
+
+func (c *fakeClient) GetCronJob(_ context.Context, _, _ string, _ metav1.GetOptions) (*batchv1.CronJob, error) {
 	return nil, nil
 }
 
