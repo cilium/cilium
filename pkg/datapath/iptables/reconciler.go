@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -114,6 +115,11 @@ func reconciliationLoop(
 	// The minimum interval between reconciliation attempts
 	const minReconciliationInterval = 200 * time.Millisecond
 
+	// log limiter for partial (proxy and no track rules) reconciliation errors
+	partialLogLimiter := logging.NewLimiter(10*time.Second, 3)
+	// log limiter for full reconciliation errors
+	fullLogLimiter := logging.NewLimiter(10*time.Second, 3)
+
 	state := desiredState{
 		installRules: installIptRules,
 		proxies:      make(map[string]proxyInfo),
@@ -186,7 +192,9 @@ stop:
 			}
 
 			if err := updateProxyRules(req.info.port, req.info.isLocalOnly, req.info.name); err != nil {
-				log.WithError(err).Warning("iptables proxy rules incremental update failed, will retry a full reconciliation")
+				if partialLogLimiter.Allow() {
+					log.WithError(err).Error("iptables proxy rules incremental update failed, will retry a full reconciliation")
+				}
 				// incremental rules update failed, schedule a full iptables reconciliation
 				stateChanged = true
 				updatedChs = append(updatedChs, req.updated)
@@ -211,7 +219,9 @@ stop:
 			}
 
 			if err := installNoTrackRules(req.info.ip, req.info.port); err != nil {
-				log.WithError(err).Warning("iptables no track rules incremental install failed, will retry a full reconciliation")
+				if partialLogLimiter.Allow() {
+					log.WithError(err).Error("iptables no track rules incremental install failed, will retry a full reconciliation")
+				}
 				// incremental rules update failed, schedule a full iptables reconciliation
 				stateChanged = true
 				updatedChs = append(updatedChs, req.updated)
@@ -236,7 +246,9 @@ stop:
 			}
 
 			if err := removeNoTrackRules(req.info.ip, req.info.port); err != nil {
-				log.WithError(err).Warning("iptables no track rules incremental removal failed, will retry a full reconciliation")
+				if partialLogLimiter.Allow() {
+					log.WithError(err).Error("iptables no track rules incremental removal failed, will retry a full reconciliation")
+				}
 				// incremental rules update failed, schedule a full iptables reconciliation
 				stateChanged = true
 				updatedChs = append(updatedChs, req.updated)
@@ -249,7 +261,9 @@ stop:
 			}
 
 			if err := updateRules(state, firstInit); err != nil {
-				log.WithError(err).Warning("iptables rules full reconciliation failed, will retry a full reconciliation")
+				if fullLogLimiter.Allow() {
+					log.WithError(err).Error("iptables rules full reconciliation failed, will retry another one later")
+				}
 				health.Degraded("iptables rules full reconciliation failed", err)
 				// Keep stateChanged=true to try again on the next tick.
 			} else {
