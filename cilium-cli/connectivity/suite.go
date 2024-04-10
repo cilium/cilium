@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-// Package connectivity defines tests executed by the "cilium connectivity test"
-// command. Do not modify this package. It's being moved to cilium/cilium repo as
-// a part of https://github.com/cilium/design-cfps/pull/9.
 package connectivity
 
 import (
