@@ -10,15 +10,6 @@ ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.29.3-2c7164c53e26902bba2ab
 FROM ${CILIUM_ENVOY_IMAGE} as cilium-envoy
 
 #
-# Hubble CLI
-#
-FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as hubble
-ARG BUILDPLATFORM
-COPY images/cilium/download-hubble.sh /tmp/download-hubble.sh
-RUN /tmp/download-hubble.sh
-RUN /out/${BUILDPLATFORM}/bin/hubble completion bash > /out/linux/bash_completion
-
-#
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
 #
 # cilium-builder tag is the date on which the compatible build image
@@ -56,7 +47,11 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
     # bash_completion is the same for both architectures.
     make GOARCH=${BUILDARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} PKG_BUILD=1 V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
     DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} install-bash-completion licenses-all && \
-    mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all
+    mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all && \
+    mkdir -p /tmp/hubble/${TARGETOS}/${TARGETARCH} && \
+    cd hubble && \
+    make GOOS=${TARGETOS} GOARCH=${TARGETARCH} && \
+    mv hubble /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble
 
 COPY images/cilium/init-container.sh \
      plugins/cilium-cni/install-plugin.sh \
@@ -85,10 +80,9 @@ COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /us
 # When used within the Cilium container, Hubble CLI should target the
 # local unix domain socket instead of Hubble Relay.
 ENV HUBBLE_SERVER=unix:///var/run/cilium/hubble.sock
-COPY --from=hubble /out/${TARGETOS}/${TARGETARCH}/bin/hubble /usr/bin/hubble
-COPY --from=hubble /out/linux/bash_completion /etc/bash_completion.d/hubble
-
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
+COPY --from=builder /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble /usr/bin/hubble
+RUN /usr/bin/hubble completion bash > /etc/bash_completion.d/hubble
 WORKDIR /home/cilium
 
 ENV INITSYSTEM="SYSTEMD"

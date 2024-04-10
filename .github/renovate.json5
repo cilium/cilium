@@ -422,7 +422,6 @@
   "regexManagers": [
     {
       "fileMatch": [
-        "images/cilium/download-hubble\\.sh",
         "images/runtime/build-gops.sh",
         "images/hubble-relay/download-grpc-health-probe.sh"
       ],
