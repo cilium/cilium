@@ -85,6 +85,11 @@ func (m *CgroupDumpMetadata) contextValidatePodMetadatas(ctx context.Context, fo
 	for i := 0; i < len(m.PodMetadatas); i++ {
 
 		if m.PodMetadatas[i] != nil {
+
+			if swag.IsZero(m.PodMetadatas[i]) { // not required
+				return nil
+			}
+
 			if err := m.PodMetadatas[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("pod-metadatas" + "." + strconv.Itoa(i))
