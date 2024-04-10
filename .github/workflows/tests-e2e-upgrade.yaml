@@ -290,7 +290,7 @@ jobs:
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
-          misc: 'bpfClockProbe=false,cni.uninstall=false' # TODO(brb) maybe it's only needed for <1.14
+          misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
@@ -310,7 +310,8 @@ jobs:
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
-          misc: 'bpfClockProbe=false,cni.uninstall=false'
+          ingress-controller: ${{ matrix.ingress-controller }}
+          misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@a9579d1afc528b085930c5237a69ee77b2c2be76 # v0.16.4
