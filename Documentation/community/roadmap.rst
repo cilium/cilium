@@ -33,7 +33,7 @@ Major Feature Status
 +-----------------------------+------------------------------------------------------------+
 | Service Mesh                | Stable (:ref:`Roadmap Details<rm-cilium-service-mesh>`)    |
 +-----------------------------+------------------------------------------------------------+
-| Tetragon Security           | Beta                                                       |
+| Tetragon Security           | Stable (:ref:`Roadmap Details<rm-tetragon>`)               |
 +-----------------------------+------------------------------------------------------------+
 
 "Stable" means that the feature is in use in production (though advanced
@@ -143,6 +143,8 @@ We have a comprehensive set of tests running in CI, but several contributors are
 currently working on `CI improvements`_ to make these more reliable and easier to
 maintain. This is a good area to get involved if you are interested in learning
 more about Cilium internals and development.
+
+.. _rm-tetragon:
 
 Tetragon Security
 ~~~~~~~~~~~~~~~~~
