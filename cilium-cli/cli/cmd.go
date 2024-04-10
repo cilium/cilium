@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 
-	command "github.com/cilium/cilium/cilium-cli/cli"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium-cli/api"
@@ -86,7 +85,7 @@ cilium connectivity test`,
 		newCmdBgp(),
 		newCmdClusterMesh(),
 		newCmdConfig(),
-		command.NewCmdConnectivity(hooks),
+		newCmdConnectivity(hooks),
 		newCmdContext(),
 		newCmdEncrypt(),
 		newCmdHubble(),

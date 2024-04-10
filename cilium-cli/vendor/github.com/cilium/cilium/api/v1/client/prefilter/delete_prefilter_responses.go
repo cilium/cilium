@@ -51,7 +51,7 @@ func (o *DeletePrefilterReader) ReadResponse(response runtime.ClientResponse, co
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[DELETE /prefilter] DeletePrefilter", response, response.Code())
 	}
 }
 
@@ -92,6 +92,11 @@ func (o *DeletePrefilterOK) IsServerError() bool {
 // IsCode returns true when this delete prefilter o k response a status code equal to that given
 func (o *DeletePrefilterOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the delete prefilter o k response
+func (o *DeletePrefilterOK) Code() int {
+	return 200
 }
 
 func (o *DeletePrefilterOK) Error() string {
@@ -156,6 +161,11 @@ func (o *DeletePrefilterForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
+// Code gets the status code for the delete prefilter forbidden response
+func (o *DeletePrefilterForbidden) Code() int {
+	return 403
+}
+
 func (o *DeletePrefilterForbidden) Error() string {
 	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterForbidden ", 403)
 }
@@ -206,6 +216,11 @@ func (o *DeletePrefilterInvalidCIDR) IsServerError() bool {
 // IsCode returns true when this delete prefilter invalid c Id r response a status code equal to that given
 func (o *DeletePrefilterInvalidCIDR) IsCode(code int) bool {
 	return code == 461
+}
+
+// Code gets the status code for the delete prefilter invalid c Id r response
+func (o *DeletePrefilterInvalidCIDR) Code() int {
+	return 461
 }
 
 func (o *DeletePrefilterInvalidCIDR) Error() string {
@@ -267,6 +282,11 @@ func (o *DeletePrefilterFailure) IsServerError() bool {
 // IsCode returns true when this delete prefilter failure response a status code equal to that given
 func (o *DeletePrefilterFailure) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the delete prefilter failure response
+func (o *DeletePrefilterFailure) Code() int {
+	return 500
 }
 
 func (o *DeletePrefilterFailure) Error() string {

@@ -63,7 +63,7 @@ func (o *DeleteIpamIPReader) ReadResponse(response runtime.ClientResponse, consu
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[DELETE /ipam/{ip}] DeleteIpamIP", response, response.Code())
 	}
 }
 
@@ -103,6 +103,11 @@ func (o *DeleteIpamIPOK) IsServerError() bool {
 // IsCode returns true when this delete ipam Ip o k response a status code equal to that given
 func (o *DeleteIpamIPOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the delete ipam Ip o k response
+func (o *DeleteIpamIPOK) Code() int {
+	return 200
 }
 
 func (o *DeleteIpamIPOK) Error() string {
@@ -156,6 +161,11 @@ func (o *DeleteIpamIPInvalid) IsCode(code int) bool {
 	return code == 400
 }
 
+// Code gets the status code for the delete ipam Ip invalid response
+func (o *DeleteIpamIPInvalid) Code() int {
+	return 400
+}
+
 func (o *DeleteIpamIPInvalid) Error() string {
 	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpInvalid ", 400)
 }
@@ -205,6 +215,11 @@ func (o *DeleteIpamIPForbidden) IsServerError() bool {
 // IsCode returns true when this delete ipam Ip forbidden response a status code equal to that given
 func (o *DeleteIpamIPForbidden) IsCode(code int) bool {
 	return code == 403
+}
+
+// Code gets the status code for the delete ipam Ip forbidden response
+func (o *DeleteIpamIPForbidden) Code() int {
+	return 403
 }
 
 func (o *DeleteIpamIPForbidden) Error() string {
@@ -258,6 +273,11 @@ func (o *DeleteIpamIPNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
+// Code gets the status code for the delete ipam Ip not found response
+func (o *DeleteIpamIPNotFound) Code() int {
+	return 404
+}
+
 func (o *DeleteIpamIPNotFound) Error() string {
 	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpNotFound ", 404)
 }
@@ -308,6 +328,11 @@ func (o *DeleteIpamIPFailure) IsServerError() bool {
 // IsCode returns true when this delete ipam Ip failure response a status code equal to that given
 func (o *DeleteIpamIPFailure) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the delete ipam Ip failure response
+func (o *DeleteIpamIPFailure) Code() int {
+	return 500
 }
 
 func (o *DeleteIpamIPFailure) Error() string {
@@ -368,6 +393,11 @@ func (o *DeleteIpamIPDisabled) IsServerError() bool {
 // IsCode returns true when this delete ipam Ip disabled response a status code equal to that given
 func (o *DeleteIpamIPDisabled) IsCode(code int) bool {
 	return code == 501
+}
+
+// Code gets the status code for the delete ipam Ip disabled response
+func (o *DeleteIpamIPDisabled) Code() int {
+	return 501
 }
 
 func (o *DeleteIpamIPDisabled) Error() string {

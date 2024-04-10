@@ -75,6 +75,11 @@ func (m *RecorderMaskStatus) ContextValidate(ctx context.Context, formats strfmt
 func (m *RecorderMaskStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Realized != nil {
+
+		if swag.IsZero(m.Realized) { // not required
+			return nil
+		}
+
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

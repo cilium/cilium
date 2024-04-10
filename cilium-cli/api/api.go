@@ -6,11 +6,11 @@ package api
 import (
 	"context"
 
-	"github.com/cilium/cilium/cilium-cli/connectivity"
-	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium-cli/connectivity"
+	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/sysdump"
 )

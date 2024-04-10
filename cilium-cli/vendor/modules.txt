@@ -55,7 +55,7 @@ github.com/chai2010/gettext-go/po
 # github.com/cilium/charts v0.0.0-20240403030229-7815d9933404
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.16.0-pre.0.0.20240331012019-3f1e7de62dd9
+# github.com/cilium/cilium v1.16.0-pre.1
 ## explicit; go 1.22.0
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/bgp
@@ -77,17 +77,6 @@ github.com/cilium/cilium/api/v1/models
 github.com/cilium/cilium/api/v1/observer
 github.com/cilium/cilium/api/v1/relay
 github.com/cilium/cilium/api/v1/server/restapi/bgp
-github.com/cilium/cilium/cilium-cli/cli
-github.com/cilium/cilium/cilium-cli/connectivity
-github.com/cilium/cilium/cilium-cli/connectivity/builder
-github.com/cilium/cilium/cilium-cli/connectivity/builder/manifests/template
-github.com/cilium/cilium/cilium-cli/connectivity/check
-github.com/cilium/cilium/cilium-cli/connectivity/filters
-github.com/cilium/cilium/cilium-cli/connectivity/internal/junit
-github.com/cilium/cilium/cilium-cli/connectivity/perf/benchmarks/netperf
-github.com/cilium/cilium/cilium-cli/connectivity/perf/common
-github.com/cilium/cilium/cilium-cli/connectivity/sniff
-github.com/cilium/cilium/cilium-cli/connectivity/tests
 github.com/cilium/cilium/daemon/k8s
 github.com/cilium/cilium/pkg/alibabacloud/eni/types
 github.com/cilium/cilium/pkg/allocator
@@ -567,7 +556,7 @@ github.com/davecgh/go-spew/spew
 # github.com/distribution/reference v0.5.0
 ## explicit; go 1.20
 github.com/distribution/reference
-# github.com/docker/cli v25.0.3+incompatible
+# github.com/docker/cli v25.0.1+incompatible
 ## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
@@ -977,7 +966,7 @@ github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.6.0
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.51.0
+# github.com/prometheus/common v0.51.1
 ## explicit; go 1.21
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg

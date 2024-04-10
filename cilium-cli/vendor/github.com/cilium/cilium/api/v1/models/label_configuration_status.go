@@ -187,6 +187,11 @@ func (m *LabelConfigurationStatus) contextValidateDisabled(ctx context.Context, 
 func (m *LabelConfigurationStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Realized != nil {
+
+		if swag.IsZero(m.Realized) { // not required
+			return nil
+		}
+
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

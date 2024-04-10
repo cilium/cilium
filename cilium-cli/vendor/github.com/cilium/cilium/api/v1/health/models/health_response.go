@@ -106,6 +106,10 @@ func (m *HealthResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 
 func (m *HealthResponse) contextValidateCilium(ctx context.Context, formats strfmt.Registry) error {
 
+	if swag.IsZero(m.Cilium) { // not required
+		return nil
+	}
+
 	if err := m.Cilium.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("cilium")
@@ -121,6 +125,11 @@ func (m *HealthResponse) contextValidateCilium(ctx context.Context, formats strf
 func (m *HealthResponse) contextValidateSystemLoad(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.SystemLoad != nil {
+
+		if swag.IsZero(m.SystemLoad) { // not required
+			return nil
+		}
+
 		if err := m.SystemLoad.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("system-load")
