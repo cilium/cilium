@@ -58,7 +58,7 @@ Major Feature Status
 ++-------------------------------------------------+----------------------------------------------------------+
 || :ref:`SPIFFE integration<identity_management>`  | Beta                                                     |
 ++-------------------------------------------------+----------------------------------------------------------+
-| `Tetragon`_ Security                             | Beta (:ref:`Roadmap Details<rm-tetragon>`)               |
+| `Tetragon`_ Security                             | Stable (:ref:`Roadmap Details<rm-tetragon>`)             |
 +--------------------------------------------------+----------------------------------------------------------+
 
 "Stable" means that the feature is in use in production (though advanced
@@ -164,8 +164,7 @@ Tetragon Security
 CLI for things like process execution, file access, network observability, and
 privileged execution.
 
-Although Tetragon is still in Beta stage, a set of adopters already use it in
-production.
+Tetragon is already used in production by adopters such as Github, Bell CA, Palantir, GResearch etc.
 
 Codebase modularization
 ~~~~~~~~~~~~~~~~~~~~~~~
