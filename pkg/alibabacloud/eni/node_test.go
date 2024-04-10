@@ -139,11 +139,12 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
+	mngr.SetInstancesAPIReadiness(false) // to avoid the manager background jobs starting and racing us.
 
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 2)
+	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 2, check.Commentf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.InterfaceCandidates))
 
 	// create one eni
 	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
@@ -156,7 +157,7 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	// one eni left
 	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 1)
+	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 1, check.Commentf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.InterfaceCandidates))
 }
 
 func (e *ENISuite) TestNode_allocENIIndex(c *check.C) {
