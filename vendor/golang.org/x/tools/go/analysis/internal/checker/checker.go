@@ -172,6 +172,7 @@ func load(patterns []string, allSyntax bool) ([]*packages.Package, error) {
 	if allSyntax {
 		mode = packages.LoadAllSyntax
 	}
+	mode |= packages.NeedModule
 	conf := packages.Config{
 		Mode:  mode,
 		Tests: IncludeTests,
@@ -770,6 +771,15 @@ func (act *action) execOnce() {
 				err = fmt.Errorf(
 					"internal error: on package %s, analyzer %s returned a result of type %v, but declared ResultType %v",
 					pass.Pkg.Path(), pass.Analyzer, got, want)
+			}
+		}
+	}
+	if err == nil { // resolve diagnostic URLs
+		for i := range act.diagnostics {
+			if url, uerr := analysisflags.ResolveURL(act.a, act.diagnostics[i]); uerr == nil {
+				act.diagnostics[i].URL = url
+			} else {
+				err = uerr // keep the last error
 			}
 		}
 	}
