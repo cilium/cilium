@@ -439,8 +439,8 @@ jobs:
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
               \$EXTRA
 
             # --flush-ct interrupts the flows, so we need to set up again.
@@ -480,8 +480,8 @@ jobs:
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests upgrade 3 (${{ join(matrix.*, ', ') }})" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 3 (${{ matrix.name }})" \
               \$EXTRA
 
       - name: Fetch artifacts
