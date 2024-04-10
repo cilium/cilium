@@ -161,12 +161,6 @@ func (ipt *ipt) runProg(args []string) error {
 	return err
 }
 
-// skipPodTrafficConntrack returns true if it's possible to install iptables
-// `-j CT --notrack` rules to skip tracking pod traffic.
-func skipPodTrafficConntrack(ipv6, installNoConntrackIptRules bool) bool {
-	return !ipv6 && installNoConntrackIptRules
-}
-
 func reverseRule(rule string) ([]string, error) {
 	if strings.HasPrefix(rule, "-A") {
 		// From: -A POSTROUTING -m comment [...]
@@ -954,8 +948,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 // When InstallNoConntrackIptRules is not set, this function will be executed to install NOTRACK rules.
 // The rules installed by this function is very specific, for now, the only user is node-local-dns pods.
 func (m *Manager) InstallNoTrackRules(ip netip.Addr, port uint16) {
-	if ip.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
-		ip.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
+	if m.skipPodTrafficConntrack(ip) {
 		return
 	}
 
@@ -966,8 +959,7 @@ func (m *Manager) InstallNoTrackRules(ip netip.Addr, port uint16) {
 
 // See comments for InstallNoTrackRules.
 func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
-	if ip.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
-		ip.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
+	if m.skipPodTrafficConntrack(ip) {
 		return
 	}
 
@@ -1573,7 +1565,7 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
-	if skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) {
+	if m.sharedCfg.InstallNoConntrackIptRules {
 		podsCIDR := state.localNodeInfo.ipv4NativeRoutingCIDR
 
 		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
@@ -1693,8 +1685,7 @@ func (m *Manager) addCiliumNoTrackXfrmRules() (err error) {
 func (m *Manager) installNoTrackRules(addr netip.Addr, port uint16) error {
 	// Do not install per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
-	if addr.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
-		addr.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
+	if m.skipPodTrafficConntrack(addr) {
 		return nil
 	}
 
@@ -1713,8 +1704,7 @@ func (m *Manager) installNoTrackRules(addr netip.Addr, port uint16) error {
 func (m *Manager) removeNoTrackRules(addr netip.Addr, port uint16) error {
 	// Do not remove per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
-	if addr.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
-		addr.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
+	if m.skipPodTrafficConntrack(addr) {
 		return nil
 	}
 
@@ -1728,6 +1718,15 @@ func (m *Manager) removeNoTrackRules(addr netip.Addr, port uint16) error {
 		}
 	}
 	return nil
+}
+
+// skipPodTrafficConntrack returns true if it's possible to install iptables
+// `-j CT --notrack` rules to skip tracking pod traffic.
+func (m *Manager) skipPodTrafficConntrack(addr netip.Addr) bool {
+	if addr.Is4() && m.sharedCfg.InstallNoConntrackIptRules {
+		return true
+	}
+	return false
 }
 
 func (m *Manager) addNoTrackPodTrafficRules(prog runnable, podsCIDR string) error {
