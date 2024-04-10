@@ -164,8 +164,6 @@ Tetragon Security
 CLI for things like process execution, file access, network observability, and
 privileged execution.
 
-Tetragon is already used in production by adopters such as Github, Bell CA, Palantir, GResearch etc.
-
 Codebase modularization
 ~~~~~~~~~~~~~~~~~~~~~~~
 
