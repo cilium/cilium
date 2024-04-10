@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -38,4 +39,11 @@ func setupCompilationDirectories(tb testing.TB) {
 		option.Config.StateDir = ""
 		testIncludes = nil
 	})
+}
+
+func newTestLoader(tb testing.TB) *loader {
+	setupCompilationDirectories(tb)
+	l := NewLoaderForTest(tb)
+	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tb.TempDir())
+	return l
 }
