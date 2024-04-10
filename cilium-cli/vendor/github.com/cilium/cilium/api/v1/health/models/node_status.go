@@ -140,6 +140,11 @@ func (m *NodeStatus) ContextValidate(ctx context.Context, formats strfmt.Registr
 func (m *NodeStatus) contextValidateEndpoint(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Endpoint != nil {
+
+		if swag.IsZero(m.Endpoint) { // not required
+			return nil
+		}
+
 		if err := m.Endpoint.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("endpoint")
@@ -156,6 +161,11 @@ func (m *NodeStatus) contextValidateEndpoint(ctx context.Context, formats strfmt
 func (m *NodeStatus) contextValidateHealthEndpoint(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HealthEndpoint != nil {
+
+		if swag.IsZero(m.HealthEndpoint) { // not required
+			return nil
+		}
+
 		if err := m.HealthEndpoint.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health-endpoint")
@@ -172,6 +182,11 @@ func (m *NodeStatus) contextValidateHealthEndpoint(ctx context.Context, formats 
 func (m *NodeStatus) contextValidateHost(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Host != nil {
+
+		if swag.IsZero(m.Host) { // not required
+			return nil
+		}
+
 		if err := m.Host.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host")

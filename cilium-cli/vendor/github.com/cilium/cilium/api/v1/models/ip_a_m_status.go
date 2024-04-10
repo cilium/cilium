@@ -85,6 +85,10 @@ func (m *IPAMStatus) ContextValidate(ctx context.Context, formats strfmt.Registr
 
 func (m *IPAMStatus) contextValidateAllocations(ctx context.Context, formats strfmt.Registry) error {
 
+	if swag.IsZero(m.Allocations) { // not required
+		return nil
+	}
+
 	if err := m.Allocations.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("allocations")

@@ -33,7 +33,7 @@ func (o *GetLrpReader) ReadResponse(response runtime.ClientResponse, consumer ru
 		}
 		return result, nil
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /lrp] GetLrp", response, response.Code())
 	}
 }
 
@@ -74,6 +74,11 @@ func (o *GetLrpOK) IsServerError() bool {
 // IsCode returns true when this get lrp o k response a status code equal to that given
 func (o *GetLrpOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get lrp o k response
+func (o *GetLrpOK) Code() int {
+	return 200
 }
 
 func (o *GetLrpOK) Error() string {
