@@ -500,7 +500,9 @@ data:
 {{- end }}
 
 {{- if .Values.eni.enabled }}
+  {{- if not .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: "true"
+  {{- end }}
   auto-create-cilium-node-resource: "true"
 {{- if .Values.eni.updateEC2AdapterLimitViaAPI }}
   update-ec2-adapter-limit-via-api: "true"
