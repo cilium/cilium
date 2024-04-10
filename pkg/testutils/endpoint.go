@@ -26,6 +26,7 @@ type TestEndpoint struct {
 	MAC      mac.MAC
 	IPv6     netip.Addr
 	isHost   bool
+	State    string
 }
 
 func NewTestEndpoint() TestEndpoint {
@@ -87,5 +88,8 @@ func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {
 }
 
 func (e *TestEndpoint) StateDir() string {
+	if e.State != "" {
+		return e.State
+	}
 	return "test_loader"
 }
