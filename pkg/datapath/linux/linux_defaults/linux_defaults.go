@@ -12,10 +12,6 @@ const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
 	RouteTableIPSec = 200
 
-	// RouteTableWireguard is the default table ID to use for WireGuard routing
-	// rules
-	RouteTableWireguard = 201
-
 	// RouteTableVtep is the default table ID to use for VTEP routing rules
 	RouteTableVtep = 202
 
@@ -69,9 +65,6 @@ const (
 	// rules (see networkd config directive ManageForeignRoutingPolicyRules, set
 	// to 'yes' by default).
 	RTProto = unix.RTPROT_KERNEL
-
-	// RulePriorityWireguard is the priority of the rule used for routing packets to WireGuard device for encryption
-	RulePriorityWireguard = 1
 
 	// RulePriorityToProxyIngress is the priority of the routing rule installed by
 	// the proxy package for redirecting inbound packets to the proxy.
