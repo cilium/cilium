@@ -152,6 +152,11 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchPrefixes(ctx context.Conte
 	for i := 0; i < len(m.MatchPrefixes); i++ {
 
 		if m.MatchPrefixes[i] != nil {
+
+			if swag.IsZero(m.MatchPrefixes[i]) { // not required
+				return nil
+			}
+
 			if err := m.MatchPrefixes[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("match-prefixes" + "." + strconv.Itoa(i))

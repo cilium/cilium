@@ -51,7 +51,7 @@ func (o *PatchPrefilterReader) ReadResponse(response runtime.ClientResponse, con
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[PATCH /prefilter] PatchPrefilter", response, response.Code())
 	}
 }
 
@@ -92,6 +92,11 @@ func (o *PatchPrefilterOK) IsServerError() bool {
 // IsCode returns true when this patch prefilter o k response a status code equal to that given
 func (o *PatchPrefilterOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the patch prefilter o k response
+func (o *PatchPrefilterOK) Code() int {
+	return 200
 }
 
 func (o *PatchPrefilterOK) Error() string {
@@ -156,6 +161,11 @@ func (o *PatchPrefilterForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
+// Code gets the status code for the patch prefilter forbidden response
+func (o *PatchPrefilterForbidden) Code() int {
+	return 403
+}
+
 func (o *PatchPrefilterForbidden) Error() string {
 	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterForbidden ", 403)
 }
@@ -206,6 +216,11 @@ func (o *PatchPrefilterInvalidCIDR) IsServerError() bool {
 // IsCode returns true when this patch prefilter invalid c Id r response a status code equal to that given
 func (o *PatchPrefilterInvalidCIDR) IsCode(code int) bool {
 	return code == 461
+}
+
+// Code gets the status code for the patch prefilter invalid c Id r response
+func (o *PatchPrefilterInvalidCIDR) Code() int {
+	return 461
 }
 
 func (o *PatchPrefilterInvalidCIDR) Error() string {
@@ -267,6 +282,11 @@ func (o *PatchPrefilterFailure) IsServerError() bool {
 // IsCode returns true when this patch prefilter failure response a status code equal to that given
 func (o *PatchPrefilterFailure) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the patch prefilter failure response
+func (o *PatchPrefilterFailure) Code() int {
+	return 500
 }
 
 func (o *PatchPrefilterFailure) Error() string {
