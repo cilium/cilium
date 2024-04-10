@@ -57,7 +57,7 @@ func (o *PutPolicyReader) ReadResponse(response runtime.ClientResponse, consumer
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[PUT /policy] PutPolicy", response, response.Code())
 	}
 }
 
@@ -98,6 +98,11 @@ func (o *PutPolicyOK) IsServerError() bool {
 // IsCode returns true when this put policy o k response a status code equal to that given
 func (o *PutPolicyOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the put policy o k response
+func (o *PutPolicyOK) Code() int {
+	return 200
 }
 
 func (o *PutPolicyOK) Error() string {
@@ -163,6 +168,11 @@ func (o *PutPolicyInvalidPolicy) IsCode(code int) bool {
 	return code == 400
 }
 
+// Code gets the status code for the put policy invalid policy response
+func (o *PutPolicyInvalidPolicy) Code() int {
+	return 400
+}
+
 func (o *PutPolicyInvalidPolicy) Error() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy  %+v", 400, o.Payload)
 }
@@ -223,6 +233,11 @@ func (o *PutPolicyForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
+// Code gets the status code for the put policy forbidden response
+func (o *PutPolicyForbidden) Code() int {
+	return 403
+}
+
 func (o *PutPolicyForbidden) Error() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyForbidden ", 403)
 }
@@ -273,6 +288,11 @@ func (o *PutPolicyInvalidPath) IsServerError() bool {
 // IsCode returns true when this put policy invalid path response a status code equal to that given
 func (o *PutPolicyInvalidPath) IsCode(code int) bool {
 	return code == 460
+}
+
+// Code gets the status code for the put policy invalid path response
+func (o *PutPolicyInvalidPath) Code() int {
+	return 460
 }
 
 func (o *PutPolicyInvalidPath) Error() string {
@@ -334,6 +354,11 @@ func (o *PutPolicyFailure) IsServerError() bool {
 // IsCode returns true when this put policy failure response a status code equal to that given
 func (o *PutPolicyFailure) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the put policy failure response
+func (o *PutPolicyFailure) Code() int {
+	return 500
 }
 
 func (o *PutPolicyFailure) Error() string {

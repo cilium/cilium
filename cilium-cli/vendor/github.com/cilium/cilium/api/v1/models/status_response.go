@@ -855,6 +855,11 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 func (m *StatusResponse) contextValidateAuthCertificateProvider(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.AuthCertificateProvider != nil {
+
+		if swag.IsZero(m.AuthCertificateProvider) { // not required
+			return nil
+		}
+
 		if err := m.AuthCertificateProvider.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("auth-certificate-provider")
@@ -871,6 +876,11 @@ func (m *StatusResponse) contextValidateAuthCertificateProvider(ctx context.Cont
 func (m *StatusResponse) contextValidateBandwidthManager(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.BandwidthManager != nil {
+
+		if swag.IsZero(m.BandwidthManager) { // not required
+			return nil
+		}
+
 		if err := m.BandwidthManager.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("bandwidth-manager")
@@ -887,6 +897,11 @@ func (m *StatusResponse) contextValidateBandwidthManager(ctx context.Context, fo
 func (m *StatusResponse) contextValidateBpfMaps(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.BpfMaps != nil {
+
+		if swag.IsZero(m.BpfMaps) { // not required
+			return nil
+		}
+
 		if err := m.BpfMaps.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("bpf-maps")
@@ -903,6 +918,11 @@ func (m *StatusResponse) contextValidateBpfMaps(ctx context.Context, formats str
 func (m *StatusResponse) contextValidateCilium(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Cilium != nil {
+
+		if swag.IsZero(m.Cilium) { // not required
+			return nil
+		}
+
 		if err := m.Cilium.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium")
@@ -919,6 +939,11 @@ func (m *StatusResponse) contextValidateCilium(ctx context.Context, formats strf
 func (m *StatusResponse) contextValidateClockSource(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.ClockSource != nil {
+
+		if swag.IsZero(m.ClockSource) { // not required
+			return nil
+		}
+
 		if err := m.ClockSource.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("clock-source")
@@ -935,6 +960,11 @@ func (m *StatusResponse) contextValidateClockSource(ctx context.Context, formats
 func (m *StatusResponse) contextValidateCluster(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Cluster != nil {
+
+		if swag.IsZero(m.Cluster) { // not required
+			return nil
+		}
+
 		if err := m.Cluster.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cluster")
@@ -951,6 +981,11 @@ func (m *StatusResponse) contextValidateCluster(ctx context.Context, formats str
 func (m *StatusResponse) contextValidateClusterMesh(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.ClusterMesh != nil {
+
+		if swag.IsZero(m.ClusterMesh) { // not required
+			return nil
+		}
+
 		if err := m.ClusterMesh.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cluster-mesh")
@@ -967,6 +1002,11 @@ func (m *StatusResponse) contextValidateClusterMesh(ctx context.Context, formats
 func (m *StatusResponse) contextValidateCniChaining(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.CniChaining != nil {
+
+		if swag.IsZero(m.CniChaining) { // not required
+			return nil
+		}
+
 		if err := m.CniChaining.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cni-chaining")
@@ -983,6 +1023,11 @@ func (m *StatusResponse) contextValidateCniChaining(ctx context.Context, formats
 func (m *StatusResponse) contextValidateCniFile(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.CniFile != nil {
+
+		if swag.IsZero(m.CniFile) { // not required
+			return nil
+		}
+
 		if err := m.CniFile.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cni-file")
@@ -999,6 +1044,11 @@ func (m *StatusResponse) contextValidateCniFile(ctx context.Context, formats str
 func (m *StatusResponse) contextValidateContainerRuntime(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.ContainerRuntime != nil {
+
+		if swag.IsZero(m.ContainerRuntime) { // not required
+			return nil
+		}
+
 		if err := m.ContainerRuntime.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("container-runtime")
@@ -1029,6 +1079,11 @@ func (m *StatusResponse) contextValidateControllers(ctx context.Context, formats
 func (m *StatusResponse) contextValidateEncryption(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Encryption != nil {
+
+		if swag.IsZero(m.Encryption) { // not required
+			return nil
+		}
+
 		if err := m.Encryption.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption")
@@ -1045,6 +1100,11 @@ func (m *StatusResponse) contextValidateEncryption(ctx context.Context, formats 
 func (m *StatusResponse) contextValidateHostFirewall(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HostFirewall != nil {
+
+		if swag.IsZero(m.HostFirewall) { // not required
+			return nil
+		}
+
 		if err := m.HostFirewall.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-firewall")
@@ -1061,6 +1121,11 @@ func (m *StatusResponse) contextValidateHostFirewall(ctx context.Context, format
 func (m *StatusResponse) contextValidateHostRouting(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HostRouting != nil {
+
+		if swag.IsZero(m.HostRouting) { // not required
+			return nil
+		}
+
 		if err := m.HostRouting.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-routing")
@@ -1077,6 +1142,11 @@ func (m *StatusResponse) contextValidateHostRouting(ctx context.Context, formats
 func (m *StatusResponse) contextValidateHubble(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Hubble != nil {
+
+		if swag.IsZero(m.Hubble) { // not required
+			return nil
+		}
+
 		if err := m.Hubble.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("hubble")
@@ -1093,6 +1163,11 @@ func (m *StatusResponse) contextValidateHubble(ctx context.Context, formats strf
 func (m *StatusResponse) contextValidateIdentityRange(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IdentityRange != nil {
+
+		if swag.IsZero(m.IdentityRange) { // not required
+			return nil
+		}
+
 		if err := m.IdentityRange.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity-range")
@@ -1109,6 +1184,11 @@ func (m *StatusResponse) contextValidateIdentityRange(ctx context.Context, forma
 func (m *StatusResponse) contextValidateIpam(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Ipam != nil {
+
+		if swag.IsZero(m.Ipam) { // not required
+			return nil
+		}
+
 		if err := m.Ipam.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipam")
@@ -1125,6 +1205,11 @@ func (m *StatusResponse) contextValidateIpam(ctx context.Context, formats strfmt
 func (m *StatusResponse) contextValidateIPV4BigTCP(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IPV4BigTCP != nil {
+
+		if swag.IsZero(m.IPV4BigTCP) { // not required
+			return nil
+		}
+
 		if err := m.IPV4BigTCP.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv4-big-tcp")
@@ -1141,6 +1226,11 @@ func (m *StatusResponse) contextValidateIPV4BigTCP(ctx context.Context, formats 
 func (m *StatusResponse) contextValidateIPV6BigTCP(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IPV6BigTCP != nil {
+
+		if swag.IsZero(m.IPV6BigTCP) { // not required
+			return nil
+		}
+
 		if err := m.IPV6BigTCP.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv6-big-tcp")
@@ -1157,6 +1247,11 @@ func (m *StatusResponse) contextValidateIPV6BigTCP(ctx context.Context, formats 
 func (m *StatusResponse) contextValidateKubeProxyReplacement(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.KubeProxyReplacement != nil {
+
+		if swag.IsZero(m.KubeProxyReplacement) { // not required
+			return nil
+		}
+
 		if err := m.KubeProxyReplacement.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kube-proxy-replacement")
@@ -1173,6 +1268,11 @@ func (m *StatusResponse) contextValidateKubeProxyReplacement(ctx context.Context
 func (m *StatusResponse) contextValidateKubernetes(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Kubernetes != nil {
+
+		if swag.IsZero(m.Kubernetes) { // not required
+			return nil
+		}
+
 		if err := m.Kubernetes.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kubernetes")
@@ -1189,6 +1289,11 @@ func (m *StatusResponse) contextValidateKubernetes(ctx context.Context, formats 
 func (m *StatusResponse) contextValidateKvstore(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Kvstore != nil {
+
+		if swag.IsZero(m.Kvstore) { // not required
+			return nil
+		}
+
 		if err := m.Kvstore.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstore")
@@ -1205,6 +1310,11 @@ func (m *StatusResponse) contextValidateKvstore(ctx context.Context, formats str
 func (m *StatusResponse) contextValidateMasquerading(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Masquerading != nil {
+
+		if swag.IsZero(m.Masquerading) { // not required
+			return nil
+		}
+
 		if err := m.Masquerading.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("masquerading")
@@ -1221,6 +1331,11 @@ func (m *StatusResponse) contextValidateMasquerading(ctx context.Context, format
 func (m *StatusResponse) contextValidateNodeMonitor(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.NodeMonitor != nil {
+
+		if swag.IsZero(m.NodeMonitor) { // not required
+			return nil
+		}
+
 		if err := m.NodeMonitor.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
@@ -1237,6 +1352,11 @@ func (m *StatusResponse) contextValidateNodeMonitor(ctx context.Context, formats
 func (m *StatusResponse) contextValidateProxy(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Proxy != nil {
+
+		if swag.IsZero(m.Proxy) { // not required
+			return nil
+		}
+
 		if err := m.Proxy.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("proxy")
@@ -1253,6 +1373,11 @@ func (m *StatusResponse) contextValidateProxy(ctx context.Context, formats strfm
 func (m *StatusResponse) contextValidateSrv6(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Srv6 != nil {
+
+		if swag.IsZero(m.Srv6) { // not required
+			return nil
+		}
+
 		if err := m.Srv6.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("srv6")

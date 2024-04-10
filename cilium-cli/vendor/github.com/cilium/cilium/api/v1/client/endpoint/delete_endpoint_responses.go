@@ -55,7 +55,7 @@ func (o *DeleteEndpointReader) ReadResponse(response runtime.ClientResponse, con
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[DELETE /endpoint] DeleteEndpoint", response, response.Code())
 	}
 }
 
@@ -95,6 +95,11 @@ func (o *DeleteEndpointOK) IsServerError() bool {
 // IsCode returns true when this delete endpoint o k response a status code equal to that given
 func (o *DeleteEndpointOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the delete endpoint o k response
+func (o *DeleteEndpointOK) Code() int {
+	return 200
 }
 
 func (o *DeleteEndpointOK) Error() string {
@@ -147,6 +152,11 @@ func (o *DeleteEndpointErrors) IsServerError() bool {
 // IsCode returns true when this delete endpoint errors response a status code equal to that given
 func (o *DeleteEndpointErrors) IsCode(code int) bool {
 	return code == 206
+}
+
+// Code gets the status code for the delete endpoint errors response
+func (o *DeleteEndpointErrors) Code() int {
+	return 206
 }
 
 func (o *DeleteEndpointErrors) Error() string {
@@ -209,6 +219,11 @@ func (o *DeleteEndpointInvalid) IsCode(code int) bool {
 	return code == 400
 }
 
+// Code gets the status code for the delete endpoint invalid response
+func (o *DeleteEndpointInvalid) Code() int {
+	return 400
+}
+
 func (o *DeleteEndpointInvalid) Error() string {
 	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointInvalid ", 400)
 }
@@ -260,6 +275,11 @@ func (o *DeleteEndpointNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
+// Code gets the status code for the delete endpoint not found response
+func (o *DeleteEndpointNotFound) Code() int {
+	return 404
+}
+
 func (o *DeleteEndpointNotFound) Error() string {
 	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointNotFound ", 404)
 }
@@ -309,6 +329,11 @@ func (o *DeleteEndpointTooManyRequests) IsServerError() bool {
 // IsCode returns true when this delete endpoint too many requests response a status code equal to that given
 func (o *DeleteEndpointTooManyRequests) IsCode(code int) bool {
 	return code == 429
+}
+
+// Code gets the status code for the delete endpoint too many requests response
+func (o *DeleteEndpointTooManyRequests) Code() int {
+	return 429
 }
 
 func (o *DeleteEndpointTooManyRequests) Error() string {

@@ -39,7 +39,7 @@ func (o *GetCgroupDumpMetadataReader) ReadResponse(response runtime.ClientRespon
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /cgroup-dump-metadata] GetCgroupDumpMetadata", response, response.Code())
 	}
 }
 
@@ -80,6 +80,11 @@ func (o *GetCgroupDumpMetadataOK) IsServerError() bool {
 // IsCode returns true when this get cgroup dump metadata o k response a status code equal to that given
 func (o *GetCgroupDumpMetadataOK) IsCode(code int) bool {
 	return code == 200
+}
+
+// Code gets the status code for the get cgroup dump metadata o k response
+func (o *GetCgroupDumpMetadataOK) Code() int {
+	return 200
 }
 
 func (o *GetCgroupDumpMetadataOK) Error() string {
@@ -143,6 +148,11 @@ func (o *GetCgroupDumpMetadataFailure) IsServerError() bool {
 // IsCode returns true when this get cgroup dump metadata failure response a status code equal to that given
 func (o *GetCgroupDumpMetadataFailure) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the get cgroup dump metadata failure response
+func (o *GetCgroupDumpMetadataFailure) Code() int {
+	return 500
 }
 
 func (o *GetCgroupDumpMetadataFailure) Error() string {
