@@ -236,6 +236,17 @@ jobs:
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
 
+          - name: '15'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240307.011705'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            ingress-controller: 'true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,bpf.tproxy=true'
+
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.15-20240305.092417'
@@ -290,6 +301,7 @@ jobs:
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
+          ingress-controller: ${{ matrix.ingress-controller }}
           misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
 
       - name: Derive newest Cilium installation config
