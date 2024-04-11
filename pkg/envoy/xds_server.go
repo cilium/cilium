@@ -209,6 +209,7 @@ type xdsServerConfig struct {
 	httpRetryCount     int
 	httpRetryTimeout   int
 	httpNormalizePath  bool
+	useFullTLSContext  bool
 }
 
 // newXDSServer creates a new xDS GRPC server.
@@ -1325,9 +1326,32 @@ var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 
 // toEnvoyFullTLSContext converts a "policy" TLS context (i.e., from a CiliumNetworkPolicy or
 // CiliumClusterwideNetworkPolicy) into a "cilium envoy" TLS context (i.e., for the Cilium proxy plugin for Envoy).
+//
+// Deprecated: This includes both the CA *and* the cert/key. You almost certainly don't want this. Use
+// toEnvoyOriginatingTLSContext or toEnvoyTerminatingTLSContext instead.
+// x-ref: https://github.com/cilium/cilium/issues/31761
 func toEnvoyFullTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
 	return &cilium.TLSContext{
 		TrustedCa:        tls.TrustedCA,
+		CertificateChain: tls.CertificateChain,
+		PrivateKey:       tls.PrivateKey,
+	}
+}
+
+// toEnvoyOriginatingTLSContext converts a "policy" TLS context (i.e., from a CiliumNetworkPolicy or
+// CiliumClusterwideNetworkPolicy) for originating TLS (i.e., verifying TLS connections from *outside*) into a "cilium
+// envoy" TLS context (i.e., for the Cilium proxy plugin for Envoy).
+func toEnvoyOriginatingTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
+	return &cilium.TLSContext{
+		TrustedCa: tls.TrustedCA,
+	}
+}
+
+// toEnvoyTerminatingTLSContext converts a "policy" TLS context (i.e., from a CiliumNetworkPolicy or
+// CiliumClusterwideNetworkPolicy) for terminating TLS (i.e., providing a valid cert to clients *inside*) into a "cilium
+// envoy" TLS context (i.e., for the Cilium proxy plugin for Envoy).
+func toEnvoyTerminatingTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
+	return &cilium.TLSContext{
 		CertificateChain: tls.CertificateChain,
 		PrivateKey:       tls.PrivateKey,
 	}
@@ -1357,7 +1381,7 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
@@ -1383,11 +1407,24 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 		return r, false
 	}
 
-	if l7Rules.TerminatingTLS != nil {
-		r.DownstreamTlsContext = toEnvoyFullTLSContext(l7Rules.TerminatingTLS)
-	}
-	if l7Rules.OriginatingTLS != nil {
-		r.UpstreamTlsContext = toEnvoyFullTLSContext(l7Rules.OriginatingTLS)
+	if useFullTLSContext {
+		// Intentionally retain compatibility with older, buggy behaviour. In this mode the full contents of the
+		// Kubernetes secret identified by TLS context is copied into the downstream/upstream TLS context. For the
+		// downstream (i.e., in-cluster pod) this could include a CA bundle if a ca.crt key is present in the secret,
+		// which may incorrectly lead Envoy to require client certificates.
+		if l7Rules.TerminatingTLS != nil {
+			r.DownstreamTlsContext = toEnvoyFullTLSContext(l7Rules.TerminatingTLS)
+		}
+		if l7Rules.OriginatingTLS != nil {
+			r.UpstreamTlsContext = toEnvoyFullTLSContext(l7Rules.OriginatingTLS)
+		}
+	} else {
+		if l7Rules.TerminatingTLS != nil {
+			r.DownstreamTlsContext = toEnvoyTerminatingTLSContext(l7Rules.TerminatingTLS)
+		}
+		if l7Rules.OriginatingTLS != nil {
+			r.UpstreamTlsContext = toEnvoyOriginatingTLSContext(l7Rules.OriginatingTLS)
+		}
 	}
 	if len(l7Rules.ServerNames) > 0 {
 		r.ServerNames = make([]string, 0, len(l7Rules.ServerNames))
@@ -1514,7 +1551,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis)+1)
@@ -1596,7 +1633,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
 				// being different between the selectors.
 				wildcard := nSelectors == 1 || sel.IsWildcard()
-				rule, cs := getPortNetworkPolicyRule(sel, wildcard, l4.L7Parser, l7)
+				rule, cs := getPortNetworkPolicyRule(sel, wildcard, l4.L7Parser, l7, useFullTLSContext)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false
@@ -1649,7 +1686,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, ips []string, l4Policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool,
+	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext bool,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		EndpointIps:      ips,
@@ -1669,8 +1706,8 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy,
 		ingressMap = l4Policy.Ingress.PortRules
 		egressMap = l4Policy.Egress.PortRules
 	}
-	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, visIngress, "ingress")
-	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, visEgress, "egress")
+	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, visIngress, "ingress")
+	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, visEgress, "egress")
 
 	return p
 }
@@ -1715,7 +1752,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 		return nil, func() error { return nil }
 	}
 
-	networkPolicy := getNetworkPolicy(ep, vis, ips, policy, ingressPolicyEnforced, egressPolicyEnforced)
+	networkPolicy := getNetworkPolicy(ep, vis, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext)
 
 	// First, validate the policy
 	err := networkPolicy.Validate()
