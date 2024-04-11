@@ -1,5 +1,78 @@
 # Changelog
 
+## v1.15.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add "node-map-max" to allow configuring nodemap size. (Backport PR #31727, Upstream PR #31407, @tommyp1ckles)
+* Add line numbers and file names to all metrics in 'cilium-dbg bpf metrics list' (Backport PR #31558, Upstream PR #30972, @ti-mo)
+* bugtool: Collect hubble metrics (Backport PR #31890, Upstream PR #31533, @chancez)
+* feat: Add the http return code to metric api_processed_total (Backport PR #31890, Upstream PR #31227, @vipul-21)
+* Fix overlapping keys in agent-side service BPF map cache used for retries. In rare cases this bug may have caused retrying of a failed BPF map update for a services entry to be skipped leading to a missing entry. This may have, for example, adversely affected recovering from a full BPF service map after excess services were removed. (Backport PR #31890, Upstream PR #29581, @xyz-li)
+* Skip overlay traffic in the BPF SNAT processing, and thus reduce pressure on the BPF Connection tracking and NAT maps. (Backport PR #31785, Upstream PR #31082, @julianwiedmann)
+
+**Bugfixes:**
+* Avoid drops with "CT: Unknown L4 protocol" for non-ICMP/TCP/UDP traffic, caused by an error check in the BPF NAT engine. (Backport PR #31890, Upstream PR #31820, @julianwiedmann)
+* cilium-health: Fix broken retry loop in `cilium-health-ep` controller (Backport PR #31727, Upstream PR #31622, @gandro)
+* cni: Allow text-ts log format value (Backport PR #31890, Upstream PR #31686, @sayboras)
+* Fix a bug that could cause local packet delivery to be skipped, leading to lower performance, when IPsec was enabled and `--devices` provided. (Backport PR #31601, Upstream PR #31345, @pchaigno)
+* Fix incorrect reporting of the number of etcd lock leases in cilium-dbg status. (Backport PR #31890, Upstream PR #31781, @giorio94)
+* fix: Delegated ipam not configure ipv6 if ipv6 disabled in agent (Backport PR #31727, Upstream PR #31104, @tamilmani1989)
+* Fixed a race condition in service updates for L7 LB. (Backport PR #31860, Upstream PR #31744, @jrajahalme)
+* fqdn: Fix minor restore bug that causes false negative checks against a restored DNS IP map. (#31870, @nathanjsweet)
+* fqdn: Fixed bug that caused DNS Proxy to be overly restrictive on allowed DNS selectors. (Backport PR #31727, Upstream PR #31328, @nathanjsweet)
+* gateway-api: Ensure hostname check when set on both the HTTPRoute and the Gateway Listener (Backport PR #31769, Upstream PR #30686, @cjvirtucio87)
+* gateway-api: fixed RequestRedirect picks wrong port with multiple listeners (Backport PR #31769, Upstream PR #31361, @chaunceyjiang)
+* gateway-api: shorten the length of the value of the svc's label. (Backport PR #31769, Upstream PR #31292, @chaunceyjiang)
+* ingress/gateway-api: sort virtual hosts in CEC (Backport PR #31739, Upstream PR #31493, @mhofstetter)
+* ingress/gateway-api: stable envoy listener filterchain sort-order (Backport PR #31601, Upstream PR #31572, @mhofstetter)
+* metric: Avoid memory leak/increase in cilium-agent (Backport PR #31890, Upstream PR #31714, @sayboras)
+
+**CI Changes:**
+* ci-e2e: Add e2e test with WireGuard + Host Firewall (Backport PR #31727, Upstream PR #31594, @qmonnet)
+* ci/ipsec: Print more info to debug credentials removal check failures (Backport PR #31727, Upstream PR #31652, @qmonnet)
+* deflake endpointmanager tests (Backport PR #31601, Upstream PR #31488, @bimmlerd)
+* gh/workflows: Add IPsec key rotation action and use it in ci-eks / ci-ipsec-e2e (Backport PR #31428, Upstream PR #29704, @brb)
+* Make BPF unit tests reproducible (Backport PR #31663, Upstream PR #31526, @ti-mo)
+* Make testdata build output more stable by reducing header includes (Backport PR #31663, Upstream PR #31644, @ti-mo)
+* update azure k8s versions (Backport PR #31890, Upstream PR #31220, @brlbil)
+* workflows: Debug info for key rotations (Backport PR #31727, Upstream PR #31627, @pchaigno)
+* workflows: ipsec-e2e: add missing key types for some configs (Backport PR #31727, Upstream PR #31636, @julianwiedmann)
+
+**Misc Changes:**
+* bitlpm: Document and Fix Descendants Bug (Backport PR #31890, Upstream PR #31851, @nathanjsweet)
+* bpf: host: restore HostFW for overlay traffic in to-netdev (Backport PR #31785, Upstream PR #31818, @julianwiedmann)
+* bpf: tests: don't define HAVE_ENCAP in IPsec tests (Backport PR #31785, Upstream PR #31737, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.15) (#31822, @renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (#31698, @renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.17 (v1.15) (#31703, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.4 (v1.15) (#31674, @renovate[bot])
+* chore(deps): update docker/setup-buildx-action action to v3.3.0 (v1.15) (#31828, @renovate[bot])
+* chore(deps): update gcr.io/distroless/static-debian11:nonroot docker digest to f41b84c (v1.15) (#31747, @renovate[bot])
+* chore(deps): update go to v1.21.9 (v1.15) (#31764, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (#31704, @renovate[bot])
+* cilium-dbg: avoid leaking file resources (Backport PR #31890, Upstream PR #31750, @tklauser)
+* docs: Document `No node ID found` drops in case of remote node deletion (Backport PR #31727, Upstream PR #31635, @pchaigno)
+* docs: ipsec: document native-routing + Egress proxy case (Backport PR #31727, Upstream PR #31478, @julianwiedmann)
+* Fix spelling in DNS-based proxy info (Backport PR #31890, Upstream PR #31728, @saintdle)
+* helm: update nodeinit image using renovate (Backport PR #31727, Upstream PR #31641, @tklauser)
+* ingress: sort all shared ingresses during model generation (Backport PR #31727, Upstream PR #31494, @mhofstetter)
+* loader: refactor/cleanup replaceNetworkDatapath (Backport PR #31663, Upstream PR #29825, @rgo3)
+* Move governance docs to the Cilium community repo (Backport PR #31890, Upstream PR #31692, @katiestruthers)
+* Remove Hubble-OTel from the roadmap (Backport PR #31890, Upstream PR #31847, @xmulligan)
+* Remove tcx links created by Cilium 1.16 onwards (Backport PR #31663, Upstream PR #31553, @ti-mo)
+* Restructure OpenShift installation instructions to point to Red Hat Ecosystem Catalog (Backport PR #31727, Upstream PR #29300, @learnitall)
+* v1.15: update cilium/certgen to v0.1.11 (#31882, @rolinh)
+
+**Other Changes:**
+* [v1.15] envoy: Bump envoy image for golang 1.21.9 (#31770, @sayboras)
+* [v1.15] Multicast Datapath Backport (#31668, @ldelossa)
+* [v1.15] route: Specify "proto kernel" for ip routes and rules (#31777, @jschwinger233)
+* envoy: Bump envoy version to v1.27.4 (#31807, @sayboras)
+* install: Update image digests for v1.15.3 (#31623, @jrajahalme)
+
 ## v1.15.3
 
 Summary of Changes
