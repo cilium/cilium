@@ -210,19 +210,22 @@ jobs:
             egress-gateway: 'true'
             ingress-controller: 'true'
 
-          - name: '12'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240315.012542'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
+          # Disable until https://github.com/cilium/cilium/pull/31622
+          # has been released. Otherwise, the health-ep is failing quite
+          # often.
+          #- name: '12'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: 'bpf-next-20240315.012542'
+          #  kube-proxy: 'none'
+          #  kpr: 'true'
+          #  devices: '{eth0,eth1}'
+          #  secondary-network: 'true'
+          #  tunnel: 'disabled'
+          #  encryption: 'wireguard'
+          #  encryption-node: 'true'
+          #  lb-mode: 'snat'
+          #  egress-gateway: 'true'
+          #  ingress-controller: 'true'
 
           - name: '14'
             # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
@@ -338,35 +341,23 @@ jobs:
           binary-name: cilium-cli
           binary-dir: ./
 
-      - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+      - name: Set Kind params
+        id: kind-params
+        shell: bash
+        run: |
+          IP_FAM="dual"
+          if [ "${{ matrix.ipv6 }}" == "false" ]; then
+            IP_FAM="ipv4"
+          fi
+          echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
+
+      - name: Provision K8s on LVH VM
+        uses: ./.github/actions/lvh-kind
         with:
-          test-name: ipsec-upgrade
-          image-version: ${{ matrix.kernel }}
-          host-mount: ./
-          cpu: 4
-          mem: '12G'
-          install-dependencies: 'true'
-          cmd: |
-            git config --global --add safe.directory /host
-
-      - name: Setup K8s cluster
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            export IMAGE=${{ env.KIND_K8S_IMAGE }}
-            IP_FAM="dual"
-            if [ "${{ matrix.ipv6 }}" == "false" ]; then
-              IP_FAM="ipv4"
-            fi
-            ./contrib/scripts/kind.sh --xdp --secondary-network "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
-
-            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
-
-            mkdir -p cilium-junits
+          test-name: e2e-conformance
+          kernel: ${{ matrix.kernel }}
+          kind-params: "${{ steps.kind-params.outputs.params }}"
+          kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -397,123 +388,100 @@ jobs:
           done
 
       - name: Install Cilium ${{ env.cilium_stable_version }}
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
+        shell: bash
+        run: |
+          kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-            ./cilium-cli install \
-              ${{ steps.cilium-stable-config.outputs.config }}
+          ./cilium-cli install \
+            ${{ steps.cilium-stable-config.outputs.config }}
 
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -- cilium status
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+          mkdir -p cilium-junits
 
       - name: Start conn-disrupt-test
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            # Create pods which establish long lived connections. It will be used by
-            # subsequent connectivity tests with --include-conn-disrupt-test to catch any
-            # interruption in such flows.
-            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-              --conn-disrupt-dispatch-interval 0ms
+        shell: bash
+        run: |
+          # Create pods which establish long lived connections. It will be used by
+          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+          # interruption in such flows.
+          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
+        shell: bash
+        run: |
+          ./cilium-cli upgrade \
+            ${{ steps.cilium-newest-config.outputs.config }}
 
-            ./cilium-cli upgrade \
-              ${{ steps.cilium-newest-config.outputs.config }}
-
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -- cilium status
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Test Cilium after upgrade
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
+        shell: bash
+        run: |
+          EXTRA=""
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA="--secondary-network-iface=eth1"
+          fi
 
-            EXTRA=""
-            if [ "${{ matrix.secondary-network }}" = "true" ]; then
-              EXTRA="--secondary-network-iface=eth1"
-            fi
+          # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --include-conn-disrupt-test \
+            --flush-ct \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
+            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
+            $EXTRA
 
-            # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-              --include-conn-disrupt-test \
-              --flush-ct \
-              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-              --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-              \$EXTRA
-
-            # --flush-ct interrupts the flows, so we need to set up again.
-            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-              --conn-disrupt-dispatch-interval 0ms
+          # --flush-ct interrupts the flows, so we need to set up again.
+          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-dispatch-interval 0ms
 
       - name: Downgrade Cilium ${{ env.cilium_stable_version }}
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
+        shell: bash
+        run: |
+          ./cilium-cli upgrade \
+            ${{ steps.cilium-stable-config.outputs.config }}
 
-            ./cilium-cli upgrade \
-              ${{ steps.cilium-stable-config.outputs.config }}
-
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -- cilium status
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
+        shell: bash
+        run: |
+          EXTRA=""
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA="--secondary-network-iface=eth1"
+          fi
 
-            EXTRA=""
-            if [ "${{ matrix.secondary-network }}" = "true" ]; then
-              EXTRA="--secondary-network-iface=eth1"
-            fi
+          kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
 
-            kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
-
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-              --include-conn-disrupt-test \
-              --flush-ct \
-              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-              --junit-property github_job_step="Run tests upgrade 3 (${{ matrix.name }})" \
-              \$EXTRA
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --include-conn-disrupt-test \
+            --flush-ct \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
+            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
+            $EXTRA
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
-            kubectl get pods --all-namespaces -o wide
-            ./cilium-cli status
-            mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-            # To debug https://github.com/cilium/cilium/issues/26062
-            head -n -0 /proc/buddyinfo /proc/pagetypeinfo
+        shell: bash
+        run: |
+          kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
+          kubectl get pods --all-namespaces -o wide
+          ./cilium-cli status
+          mkdir -p cilium-sysdumps
+          ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+          # To debug https://github.com/cilium/cilium/issues/26062
+          head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 
       - name: Upload artifacts
         if: ${{ !success() }}
