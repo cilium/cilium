@@ -67,8 +67,7 @@ const podApiGroup = resources.K8sAPIGroupPodV1Core
 var ciliumEndpointSyncPodLabelsControllerGroup = controller.NewGroup("sync-pod-labels-with-cilium-endpoint")
 
 // createAllPodsController is used in the rare configurations where CiliumEndpointCRD is disabled.
-// If kvstore and K8sEventHandover is enabled then we fall back to watching only local pods when
-// kvstore connects.
+// If kvstore is enabled then we fall back to watching only local pods when kvstore connects.
 func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface) (cache.Store, cache.Controller) {
 	return informer.NewInformer(
 		k8sUtils.ListerWatcherWithFields(
@@ -181,9 +180,7 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 		return
 	}
 
-	// If CiliumEndpointCRD is disabled, we will fallback on watching all pods
-	// and then watching on the pods created for this node if the
-	// K8sEventHandover is enabled.
+	// If CiliumEndpointCRD is disabled, we will fallback on watching all pods.
 	for {
 		podStore, podController := k.createAllPodsController(slimClient)
 
@@ -997,12 +994,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 	return skipped, nil
 }
 
-// GetCachedPod returns a pod from the local store. Depending if the Cilium
-// agent flag `option.Config.K8sEventHandover` this function might only return
-// local pods.
-// If `option.Config.K8sEventHandover` is:
-//   - true: returns only local pods received by the pod watcher.
-//   - false: returns any pod in the cluster received by the pod watcher.
+// GetCachedPod returns a pod from the local store.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
 	k.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
