@@ -261,6 +261,12 @@ func (round *incrementalRound[Obj]) processSingle(obj Obj, rev statedb.Revision,
 }
 
 func (round *incrementalRound[Obj]) commitStatus() <-chan struct{} {
+	if len(round.results) == 0 {
+		// Nothing to commit.
+		_, watch := round.table.All(round.txn)
+		return watch
+	}
+
 	wtxn := round.db.WriteTxn(round.table)
 	defer wtxn.Commit()
 
