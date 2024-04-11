@@ -84,7 +84,8 @@ Apply a Host Network Policy
 `HostPolicies` match on node labels using a :ref:`NodeSelector` to identify the
 nodes to which the policy applies. The following policy applies to all nodes.
 It allows communications from outside the cluster only for TCP/22 and for ICMP
-echo requests. All communications from the cluster to the hosts are allowed.
+(ping) echo requests. All communications from the cluster to the hosts are
+allowed.
 
 Host policies don't apply to communications between pods or between pods and
 the outside of the cluster, except if those pods are host-networking pods.
