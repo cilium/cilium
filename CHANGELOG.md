@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.13.15
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* [v1.13] Bump envoy to v1.27.x (#31498, @sayboras)
+
+**Bugfixes:**
+* cilium-health: Fix broken retry loop in `cilium-health-ep` controller (Backport PR #31722, Upstream PR #31622, @gandro)
+* Fixed a race condition in service updates for L7 LB. (Backport PR #31862, Upstream PR #31744, @jrajahalme)
+* Fixed issue with assigning 0 nodeID when corresponding bpf map run out of space.  Potentially it could have impacted connectivity in large clusters (>4k nodes) with IPSec or Mutual Auth enabled. Otherwise, it was merely generating unnecessary error log messages. (Backport PR #31657, Upstream PR #31380, @marseel)
+
+**CI Changes:**
+* ci/ipsec: Print more info to debug credentials removal check failures (Backport PR #31722, Upstream PR #31652, @qmonnet)
+* controlplane: fix mechanism for ensuring watchers (Backport PR #31587, Upstream PR #31030, @bimmlerd)
+* deflake endpointmanager tests (Backport PR #31722, Upstream PR #31488, @bimmlerd)
+* Reduce flakiness of controlplane tests (Backport PR #31587, Upstream PR #30906, @bimmlerd)
+* workflows: Debug info for key rotations (Backport PR #31722, Upstream PR #31627, @pchaigno)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.13) (#31835, @renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.17 (v1.13) (#31709, @renovate[bot])
+* chore(deps): update go to v1.21.9 (v1.13) (#31766, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.13) (patch) (#31710, @renovate[bot])
+* docs: Document `No node ID found` drops in case of remote node deletion (Backport PR #31722, Upstream PR #31635, @pchaigno)
+* docs: ipsec: document native-routing + Egress proxy case (Backport PR #31722, Upstream PR #31478, @julianwiedmann)
+* helm: update nodeinit image using renovate (Backport PR #31722, Upstream PR #31641, @tklauser)
+* Restructure OpenShift installation instructions to point to Red Hat Ecosystem Catalog (Backport PR #31722, Upstream PR #29300, @learnitall)
+* v1.13: update cilium/certgen to v0.1.11 (#31884, @rolinh)
+
+**Other Changes:**
+* [v1.13] envoy: Bump envoy image for golang 1.21.9 (#31772, @sayboras)
+* [v1.13] fix aws region being used twice (#31740, @brlbil)
+* [v1.13] workflows: ipsec-e2e: clean up escaping artifacts (#31630, @julianwiedmann)
+* Bump google.golang.org/grpc to v1.63.2 (v1.13) (#31878, @ferozsalam)
+* CI: Remove no longer supported k8s v1.24 (#31830, @brlbil)
+* envoy: Bump envoy version to v1.27.4 (#31809, @sayboras)
+* fqdn: Fix minor restore bug that causes false negative checks against a restored DNS IP map. (#31872, @nathanjsweet)
+* fqdn: Fixed bug that caused DNS Proxy to be overly restrictive on allowed DNS selectors. (#31713, @nathanjsweet)
+* Update image digests for v1.13.14 (#31631, @thorn3r)
+
 ## v1.13.14
 
 Summary of Changes
