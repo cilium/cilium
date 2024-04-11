@@ -10,8 +10,9 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -69,6 +70,8 @@ const (
 
 	IPsecEnabled                  Feature = "enable-ipsec"
 	ClusterMeshEnableEndpointSync Feature = "clustermesh-enable-endpoint-sync"
+
+	LocalRedirectPolicy Feature = "enable-local-redirect-policy"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -288,6 +291,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[ClusterMeshEnableEndpointSync] = Status{
 		Enabled: cm.Data[string(ClusterMeshEnableEndpointSync)] == "true",
+	}
+
+	fs[LocalRedirectPolicy] = Status{
+		Enabled: cm.Data[string(LocalRedirectPolicy)] == "true",
 	}
 }
 
