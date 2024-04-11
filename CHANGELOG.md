@@ -1,5 +1,63 @@
 # Changelog
 
+## v1.14.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bugtool: Collect hubble metrics (Backport PR #31888, Upstream PR #31533, @chancez)
+* Fix overlapping keys in agent-side service BPF map cache used for retries. In rare cases this bug may have caused retrying of a failed BPF map update for a services entry to be skipped leading to a missing entry. This may have, for example, adversely affected recovering from a full BPF service map after excess services were removed. (Backport PR #31888, Upstream PR #29581, @xyz-li)
+* Update to Envoy 1.27.0, run cilium-envoy process without any privileges. (Backport PR #31007, Upstream PR #27498, @jrajahalme)
+
+**Bugfixes:**
+* cilium-health: Fix broken retry loop in `cilium-health-ep` controller (Backport PR #31724, Upstream PR #31622, @gandro)
+* cni: Allow text-ts log format value (Backport PR #31888, Upstream PR #31686, @sayboras)
+* fix: Delegated ipam not configure ipv6 if ipv6 disabled in agent (Backport PR #31724, Upstream PR #31104, @tamilmani1989)
+* Fixed a race condition in service updates for L7 LB. (Backport PR #31861, Upstream PR #31744, @jrajahalme)
+* Fixed issue with assigning 0 nodeID when corresponding bpf map run out of space.  Potentially it could have impacted connectivity in large clusters (>4k nodes) with IPSec or Mutual Auth enabled. Otherwise, it was merely generating unnecessary error log messages. (Backport PR #31656, Upstream PR #31380, @marseel)
+* fqdn: Fix minor restore bug that causes false negative checks against a restored DNS IP map. (#31871, @nathanjsweet)
+* fqdn: Fixed bug that caused DNS Proxy to be overly restrictive on allowed DNS selectors. (#31801, @nathanjsweet)
+* metric: Avoid memory leak/increase in cilium-agent (Backport PR #31888, Upstream PR #31714, @sayboras)
+
+**CI Changes:**
+* ci-e2e: Add e2e test with WireGuard + Host Firewall (Backport PR #31724, Upstream PR #31594, @qmonnet)
+* ci-e2e: Enable Ingress Controller test for more setup (Backport PR #31658, Upstream PR #30657, @sayboras)
+* ci-ipsec-e2e: Misc refactor + more keys (Backport PR #31429, Upstream PR #29592, @brb)
+* ci/ipsec: Print more info to debug credentials removal check failures (Backport PR #31724, Upstream PR #31652, @qmonnet)
+* deflake endpointmanager tests (Backport PR #31724, Upstream PR #31488, @bimmlerd)
+* gh/workflows: Add IPsec key rotation action and use it in ci-eks / ci-ipsec-e2e (Backport PR #31429, Upstream PR #29704, @brb)
+* gha: Enable Ingress Controller tests in conformance-e2e (Backport PR #31658, Upstream PR #29130, @sayboras)
+* workflows: Debug info for key rotations (Backport PR #31724, Upstream PR #31627, @pchaigno)
+
+**Misc Changes:**
+* bitlpm: Document and Fix Descendants Bug (Backport PR #31888, Upstream PR #31851, @nathanjsweet)
+* Bump go-jose to v3.0.3 (v1.14) (#31881, @ferozsalam)
+* chore(deps): update all github action dependencies (v1.14) (#31824, @renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.17 (v1.14) (#31707, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.4 (v1.14) (#31675, @renovate[bot])
+* chore(deps): update gcr.io/distroless/static-debian11:nonroot docker digest to f41b84c (v1.14) (#31748, @renovate[bot])
+* chore(deps): update go to v1.21.9 (v1.14) (#31765, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (#31708, @renovate[bot])
+* cilium-dbg: avoid leaking file resources (Backport PR #31888, Upstream PR #31750, @tklauser)
+* docs: Document `No node ID found` drops in case of remote node deletion (Backport PR #31724, Upstream PR #31635, @pchaigno)
+* docs: ipsec: document native-routing + Egress proxy case (Backport PR #31724, Upstream PR #31478, @julianwiedmann)
+* Fix spelling in DNS-based proxy info (Backport PR #31888, Upstream PR #31728, @saintdle)
+* helm: update nodeinit image using renovate (Backport PR #31724, Upstream PR #31641, @tklauser)
+* Move governance docs to the Cilium community repo (Backport PR #31888, Upstream PR #31692, @katiestruthers)
+* Remove Hubble-OTel from the roadmap (Backport PR #31888, Upstream PR #31847, @xmulligan)
+* Restructure OpenShift installation instructions to point to Red Hat Ecosystem Catalog (Backport PR #31724, Upstream PR #29300, @learnitall)
+* Support for batch deletion of endpoints (Backport PR #31585, Upstream PR #27351, @tklauser)
+* v1.14: update cilium/certgen to v0.1.11 (#31883, @rolinh)
+
+**Other Changes:**
+* [v1.14]  envoy: Bump envoy image for golang 1.21.9 (#31771, @sayboras)
+* [v1.14] fix unsupported aws region (#31742, @brlbil)
+* [v1.15] envoy: Bump golang version to 1.21.8 (Backport PR #31007, Upstream PR #31221, @sayboras)
+* CI: Remove unsupported k8s version (#31829, @brlbil)
+* envoy: Bump envoy version to v1.27.4 (#31808, @sayboras)
+* install: Update image digests for v1.14.9 (#31629, @jrajahalme)
+
 ## v1.14.9
 
 Summary of Changes
