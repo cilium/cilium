@@ -428,7 +428,6 @@ jobs:
             EXTRA="--secondary-network-iface=eth1"
           fi
 
-          # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --flush-ct \
@@ -460,8 +459,6 @@ jobs:
             EXTRA="--secondary-network-iface=eth1"
           fi
 
-          kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
-
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --flush-ct \
@@ -475,13 +472,10 @@ jobs:
         if: ${{ !success() }}
         shell: bash
         run: |
-          kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
           kubectl get pods --all-namespaces -o wide
           ./cilium-cli status
           mkdir -p cilium-sysdumps
           ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-          # To debug https://github.com/cilium/cilium/issues/26062
-          head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 
       - name: Upload artifacts
         if: ${{ !success() }}
