@@ -272,10 +272,14 @@ jobs:
           fi
 
           CILIUM_INSTALL_INGRESS=""
+          # Once https://github.com/cilium/cilium/issues/31653 is fixed, we can remove tunnel check
           if [ "${{ matrix.kube-proxy }}" == "none" ]; then
-            # The ingress controller requires KPR to be enabled.
-            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true \
-              --helm-set-string=kubeProxyReplacement=true"
+            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
+            # Use the legacy host routing in case of tunnel disabled
+            # Related to https://github.com/cilium/cilium/pull/22006
+            if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+              CILIUM_INSTALL_INGRESS+=" --helm-set=bpf.hostLegacyRouting=true"
+            fi
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
