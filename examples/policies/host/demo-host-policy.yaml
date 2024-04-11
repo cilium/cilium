@@ -16,5 +16,5 @@ spec:
         protocol: TCP
   - icmps:
     - fields:
-      - type: 8
+      - type: EchoRequest
         family: IPv4
