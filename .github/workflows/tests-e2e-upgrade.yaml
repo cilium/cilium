@@ -225,8 +225,12 @@ jobs:
             ingress-controller: 'true'
 
           - name: '14'
+            # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
+            # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
+            # explains why 5.4 might cause north-south-loadbalancing tests to
+            # fail.
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240305.092417'
+            kernel: '5.15-20240305.092417'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
