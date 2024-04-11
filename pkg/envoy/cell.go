@@ -58,6 +58,7 @@ type envoyProxyConfig struct {
 	HTTPMaxGRPCTimeout                uint
 	HTTPRetryCount                    uint
 	HTTPRetryTimeout                  uint
+	UseFullTLSContext                 bool
 }
 
 func (r envoyProxyConfig) Flags(flags *pflag.FlagSet) {
@@ -77,6 +78,8 @@ func (r envoyProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint("http-max-grpc-timeout", 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
 	flags.Uint("http-retry-count", 3, "Number of retries performed after a forwarded request attempt fails")
 	flags.Uint("http-retry-timeout", 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
+	// This should default to false in 1.16+ (i.e., we don't implement buggy behaviour) and true in 1.15 and earlier (i.e., we keep compatibility with an existing bug).
+	flags.Bool("use-full-tls-context", false, "If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.")
 }
 
 type secretSyncConfig struct {
@@ -129,6 +132,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			httpRetryCount:     int(params.EnvoyProxyConfig.HTTPRetryCount),
 			httpRetryTimeout:   int(params.EnvoyProxyConfig.HTTPRetryTimeout),
 			httpNormalizePath:  params.EnvoyProxyConfig.HTTPNormalizePath,
+			useFullTLSContext:  params.EnvoyProxyConfig.UseFullTLSContext,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Envoy xDS server: %w", err)
