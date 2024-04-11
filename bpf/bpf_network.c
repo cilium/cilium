@@ -27,8 +27,6 @@ int cil_from_network(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	barrier_data(ctx);  /* clang-10 workaround */
-
 	/* This program should be attached to the tc-ingress of
 	 * the network-facing device. Thus, as far as Cilium
 	 * knows, no one touches to the ctx->mark before this
