@@ -17,7 +17,7 @@ import (
 
 func (p *PolicyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string) error {
 	defer func() {
-		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+		p.k8sSyncRegister.setEventTimestamp(apiGroup)
 	}()
 
 	scopedLog := p.log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
@@ -59,7 +59,7 @@ func (p *PolicyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 
 func (p *PolicyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string) error {
 	defer func() {
-		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+		p.k8sSyncRegister.setEventTimestamp(apiGroup)
 	}()
 
 	labels := k8s.GetPolicyLabelsv1(k8sNP)

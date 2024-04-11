@@ -250,10 +250,12 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	svcCache := fakeServiceCache{}
 	p := &PolicyWatcher{
-		log:                logrus.NewEntry(logger),
-		config:             &option.DaemonConfig{},
-		k8sResourceSynced:  &k8sSynced.Resources{},
-		k8sAPIGroups:       &k8sSynced.APIGroups{},
+		log:    logrus.NewEntry(logger),
+		config: &option.DaemonConfig{},
+		k8sSyncRegister: &k8sSyncRegister{
+			k8sResourceSynced: &k8sSynced.Resources{},
+			k8sAPIGroups:      &k8sSynced.APIGroups{},
+		},
 		policyManager:      policyManager,
 		svcCache:           svcCache,
 		cnpCache:           map[resource.Key]*types.SlimCNP{},

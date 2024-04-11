@@ -4,8 +4,6 @@
 package k8s
 
 import (
-	"context"
-
 	"github.com/sirupsen/logrus"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -27,7 +25,7 @@ func (p *PolicyWatcher) onUpsert(
 	initialRecvTime := time.Now()
 
 	defer func() {
-		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+		p.k8sSyncRegister.setEventTimestamp(apiGroup)
 	}()
 
 	oldCNP, ok := p.cnpCache[key]
@@ -89,7 +87,7 @@ func (p *PolicyWatcher) onDelete(
 	}
 	delete(p.toServicesPolicies, key)
 
-	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+	p.k8sSyncRegister.setEventTimestamp(apiGroup)
 
 	return err
 }
@@ -173,11 +171,6 @@ func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 		scopedLog.WithError(err).Warn("Unable to delete CiliumNetworkPolicy")
 	}
 	return err
-}
-
-func (p *PolicyWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {
-	p.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), nil, syncFn, resource)
-	p.k8sAPIGroups.AddAPI(resource)
 }
 
 // reportCNPChangeMetrics generates metrics for changes (Add, Update, Delete) to

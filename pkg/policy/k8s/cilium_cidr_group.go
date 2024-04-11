@@ -22,7 +22,7 @@ func (p *PolicyWatcher) onUpsertCIDRGroup(
 ) error {
 
 	defer func() {
-		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+		p.k8sSyncRegister.setEventTimestamp(apiGroup)
 	}()
 
 	oldCidrGroup, ok := p.cidrGroupCache[cidrGroup.Name]
@@ -46,7 +46,7 @@ func (p *PolicyWatcher) onDeleteCIDRGroup(
 
 	err := p.updateCIDRGroupRefPolicies(cidrGroupName)
 
-	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+	p.k8sSyncRegister.setEventTimestamp(apiGroup)
 
 	return err
 }
