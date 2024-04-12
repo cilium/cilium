@@ -25,7 +25,7 @@ Create TLS Certificate and Private Key
 
             $ kubectl create secret tls demo-cert --key=_.cilium.rocks/key.pem --cert=_.cilium.rocks/cert.pem
 
-    .. group-tab:: Cert Manager
+    .. group-tab:: cert-manager
 
         Let us install cert-manager:
 
