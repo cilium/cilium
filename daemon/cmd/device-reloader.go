@@ -113,9 +113,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if daemon.l2announcer != nil {
-		daemon.l2announcer.DevicesChanged(devices)
-	}
 
 	// Reload the datapath.
 	wg, err := daemon.TriggerReloadWithoutCompile("devices changed")
