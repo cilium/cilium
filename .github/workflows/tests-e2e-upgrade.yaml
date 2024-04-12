@@ -260,7 +260,9 @@ jobs:
             # Disable until https://github.com/cilium/cilium/issues/30717
             # has been resolved.
             # ingress-controller: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,bpf.tproxy=true'
+            # Disable bpf.tproxy=true until https://github.com/cilium/cilium/issues/31918
+            # has been resolved.
+            misc: 'bpfClockProbe=false,cni.uninstall=false'
 
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
