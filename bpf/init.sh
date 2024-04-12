@@ -113,6 +113,7 @@ function setup_proxy_rules()
 	# Any packet from an ingress proxy uses a separate routing table that routes
 	# the packet back to the cilium host device.
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+	from_egress_rulespec="fwmark 0xB00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
 	# that routes the packet to the loopback device regardless of the destination
