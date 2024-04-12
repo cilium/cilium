@@ -73,8 +73,30 @@ var (
 var (
 	clientLabel  = map[string]string{"name": "client"}
 	client2Label = map[string]string{"name": "client2"}
+)
 
-	primaryTests = []testBuilder{
+type testBuilder interface {
+	build(ct *check.ConnectivityTest, templates map[string]string)
+}
+
+// NetworkPerformanceTests builds the network performance connectivity tests.
+func NetworkPerformanceTests(ct *check.ConnectivityTest) error {
+	return getTests(ct, []testBuilder{networkPerf{}})
+}
+
+// ConnDisruptTests builds the conn disrupt connectivity tests.
+func ConnDisruptTests(ct *check.ConnectivityTest) error {
+	tests := []testBuilder{
+		noInterruptedConnections{},
+		noIpsecXfrmErrors{},
+	}
+	return getTests(ct, tests)
+}
+
+// ConcurrentTests builds the all connectivity tests that can be run concurrently.
+// Each test should be run in a separate namespace.
+func ConcurrentTests(ct *check.ConnectivityTest) error {
+	tests := []testBuilder{
 		noUnexpectedPacketDrops{},
 		noPolicies{},
 		noPoliciesFromOutside{},
@@ -144,8 +166,6 @@ var (
 		outsideToIngressServiceDenyWorldIdentity{},
 		outsideToIngressServiceDenyCidr{},
 		outsideToIngressServiceDenyAllIngress{},
-		hostFirewallIngress{},
-		hostFirewallEgress{},
 		dnsOnly{},
 		toFqdns{},
 		podToControlplaneHost{},
@@ -153,44 +173,21 @@ var (
 		podToControlplaneHostCidr{},
 		podToK8sOnControlplaneCidr{},
 	}
-)
-
-type testBuilder interface {
-	build(ct *check.ConnectivityTest, templates map[string]string)
+	return getTests(ct, tests)
 }
 
-// InjectTests function injects needed connectivity tests in a proper order.
-func InjectTests(ct *check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error {
-	templates, err := renderTemplates(ct.Params())
-	if err != nil {
-		return err
+// SequentialTests builds the all connectivity tests that must be run sequentially.
+func SequentialTests(ct *check.ConnectivityTest) error {
+	tests := []testBuilder{
+		hostFirewallIngress{},
+		hostFirewallEgress{},
 	}
+	return getTests(ct, tests)
+}
 
-	// Network Performance Test
-	if ct.Params().Perf {
-		injectTests(ct, templates, networkPerf{})
-		return nil
-	}
-
-	// Conn disrupt Test
-	if ct.Params().IncludeConnDisruptTest {
-		injectTests(ct, templates, noInterruptedConnections{}, noIpsecXfrmErrors{})
-		if ct.Params().ConnDisruptTestSetup {
-			// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
-			// will be used by another invocation of "cli connectivity test" (with
-			// include --include-conn-disrupt-test"
-			return nil
-		}
-	}
-
-	injectTests(ct, templates, primaryTests...)
-
-	if err := extraTests(ct); err != nil {
-		return err
-	}
-
-	injectTests(ct, templates, checkLogErrors{})
-	return nil
+// FinalTests builds the all connectivity tests that must be run as the last tests sequentially.
+func FinalTests(ct *check.ConnectivityTest) error {
+	return getTests(ct, []testBuilder{checkLogErrors{}})
 }
 
 func renderTemplates(param check.Parameters) (map[string]string, error) {
@@ -223,15 +220,21 @@ func renderTemplates(param check.Parameters) (map[string]string, error) {
 	return renderedTemplates, nil
 }
 
+func getTests(ct *check.ConnectivityTest, tests []testBuilder) error {
+	templates, err := renderTemplates(ct.Params())
+	if err != nil {
+		return err
+	}
+
+	for i := range tests {
+		tests[i].build(ct, templates)
+	}
+	return nil
+}
+
 func newTest(name string, ct *check.ConnectivityTest) *check.Test {
 	test := check.NewTest(name, ct.Params().Verbose, ct.Params().Debug)
 	return ct.AddTest(test)
-}
-
-func injectTests(ct *check.ConnectivityTest, templates map[string]string, tests ...testBuilder) {
-	for _, t := range tests {
-		t.build(ct, templates)
-	}
 }
 
 func withKPRReqForMultiCluster(ct *check.ConnectivityTest, reqs ...features.Requirement) []features.Requirement {
