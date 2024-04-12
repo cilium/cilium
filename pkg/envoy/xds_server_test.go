@@ -903,7 +903,7 @@ var L4PolicyTLSIngress = &policy.L4Policy{
 			L7Parser: "tls",
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
-					OriginatingTLS: &policy.TLSContext{
+					TerminatingTLS: &policy.TLSContext{
 						CertificateChain: "certchain",
 						PrivateKey:       "key",
 					},
@@ -919,7 +919,7 @@ var ExpectedPerPortPoliciesTLSIngress = []*cilium.PortNetworkPolicy{
 		Port:     443,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			UpstreamTlsContext: &cilium.TLSContext{
+			DownstreamTlsContext: &cilium.TLSContext{
 				CertificateChain: "certchain",
 				PrivateKey:       "key",
 			},
