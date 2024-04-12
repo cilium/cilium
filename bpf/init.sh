@@ -107,6 +107,7 @@ function move_local_rules()
 function setup_proxy_rules()
 {
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
+        from_egress_rulespec="fwmark 0xB00/0xF00 pref 10 lookup $PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
 	use_from_ingress_proxy_rules=0
 
 	if [ "$IPSEC_ENCRYPTION" = "true" ] && [ "$MODE" != "tunnel" ]; then
