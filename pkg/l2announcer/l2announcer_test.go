@@ -208,7 +208,7 @@ func blueService() *slim_corev1.Service {
 func TestHappyPath(t *testing.T) {
 	fix := newFixture()
 
-	fix.announcer.DevicesChanged([]string{"eno01"})
+	fix.announcer.devices = []string{"eno01"}
 	err := fix.announcer.processDevicesChanged(context.Background())
 	assert.NoError(t, err)
 
@@ -275,7 +275,7 @@ func TestHappyPath(t *testing.T) {
 // we should always end on the same result.
 func TestHappyPathPermutations(t *testing.T) {
 	addDevices := func(fix *fixture, tt *testing.T) {
-		fix.announcer.DevicesChanged([]string{"eno01"})
+		fix.announcer.devices = []string{"eno01"}
 		err := fix.announcer.processDevicesChanged(context.Background())
 		assert.NoError(t, err)
 	}
@@ -386,7 +386,7 @@ func TestHappyPathPermutations(t *testing.T) {
 func TestPolicyRedundancy(t *testing.T) {
 	fix := newFixture()
 
-	fix.announcer.DevicesChanged([]string{"eno01"})
+	fix.announcer.devices = []string{"eno01"}
 	err := fix.announcer.processDevicesChanged(context.Background())
 	assert.NoError(t, err)
 
@@ -496,7 +496,7 @@ func TestPolicyRedundancy(t *testing.T) {
 func baseUpdateSetup(t *testing.T) *fixture {
 	fix := newFixture()
 
-	fix.announcer.DevicesChanged([]string{"eno01"})
+	fix.announcer.devices = []string{"eno01"}
 	err := fix.announcer.processDevicesChanged(context.Background())
 	require.NoError(t, err)
 	require.Len(t, fix.announcer.devices, 1)
@@ -975,7 +975,7 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 func TestUpdatePolicy_ChangeInterfaces(t *testing.T) {
 	fix := baseUpdateSetup(t)
 
-	fix.announcer.DevicesChanged([]string{"eno01", "eth0"})
+	fix.announcer.devices = []string{"eno01", "eth0"}
 	err := fix.announcer.processDevicesChanged(context.Background())
 	assert.NoError(t, err)
 
@@ -1182,6 +1182,8 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 		Cell,
 		cell.Provide(tables.NewL2AnnounceTable),
 		cell.Invoke(statedb.RegisterTable[*tables.L2AnnounceEntry]),
+		cell.Provide(tables.NewDeviceTable, statedb.RWTable[*tables.Device].ToTable),
+		cell.Invoke(statedb.RegisterTable[*tables.Device]),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
 				EnableL2Announcements: true,

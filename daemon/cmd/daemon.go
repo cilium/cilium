@@ -61,7 +61,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -201,8 +200,6 @@ type Daemon struct {
 
 	// just used to tie together some status reporting
 	cniConfigManager cni.CNIConfigManager
-
-	l2announcer *l2announcer.L2Announcer
 
 	// authManager for reporting the status of the auth system certificate provider
 	authManager *auth.AuthManager
@@ -444,7 +441,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		cniConfigManager:     params.CNIConfigManager,
 		clustermesh:          params.ClusterMesh,
 		monitorAgent:         params.MonitorAgent,
-		l2announcer:          params.L2Announcer,
 		svc:                  params.ServiceManager,
 		l7Proxy:              params.L7Proxy,
 		envoyXdsServer:       params.EnvoyXdsServer,
@@ -731,9 +727,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// which can be modified after the device detection.
 	var devices []string
 	if d.deviceManager != nil {
-		if detected, err := d.deviceManager.Detect(params.Clientset.IsEnabled()); err == nil {
-			devices = append(devices, detected...)
-		} else {
+		if devices, err = d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
 			if option.Config.AreDevicesRequired() {
 				// Fail hard if devices are required to function.
 				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
@@ -741,10 +735,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 			disableNodePort()
 		}
-	}
-
-	if d.l2announcer != nil {
-		d.l2announcer.DevicesChanged(devices)
 	}
 
 	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
