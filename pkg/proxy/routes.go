@@ -108,6 +108,15 @@ var (
 		Table:    linux_defaults.RouteTableFromProxy,
 		Protocol: linux_defaults.RTProto,
 	}
+
+	//nolint:unused // Routing rule for traffic from egress proxy.
+	fromEgressProxyRule = route.Rule{
+		Priority: linux_defaults.RulePriorityFromProxy,
+		Mark:     linux_defaults.MagicMarkEgress,
+		Mask:     linux_defaults.MagicMarkHostMask,
+		Table:    linux_defaults.RouteTableFromProxy,
+		Protocol: linux_defaults.RTProto,
+	}
 )
 
 // installFromProxyRoutesIPv4 configures routes and rules needed to redirect ingress
