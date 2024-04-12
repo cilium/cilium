@@ -87,7 +87,6 @@ jobs:
           nodes:
           - role: control-plane
           - role: worker
-          - role: worker
           EOF
 
       - name: Workaround CoreDNS for IPv6 airgapped
@@ -162,44 +161,86 @@ jobs:
         run: |
           cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Run Kubernetes sig-network conformance test
+      - name: Run Statefulsets madness
         run: |
-          # output_dir
-          mkdir -p _artifacts
+          # This statefulset will be restarting during Cilium upgrade
+          cat << EOF > sts1.yaml
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: sts1
+          spec:
+            selector:
+              matchLabels:
+                name: sts1
+            replicas: 5
+            template:
+              metadata:
+                labels:
+                  name: sts1
+              spec:
+                affinity:
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: kubernetes.io/hostname
+                          operator: In
+                          values:
+                          - cilium-testing-worker
+                terminationGracePeriodSeconds: 10
+                containers:
+                - name: sleep
+                  image: gcr.io/k8s-staging-perf-tests/sleep:v0.1.0
+                  command: ["/usr/bin/sleep"]
+                  args: ["-termination-grace-period=5s", "30m"]
+                  resources:
+                    requests:
+                      cpu: 5m
+                      memory: "20M"
+          EOF
 
-          # get kubeconfig to pass to the e2e binary
-          kind get kubeconfig --name ${{ env.cluster_name }} > _artifacts/kubeconfig.conf
+          kubectl apply -f sts1.yaml
 
-          # Kubernetes e2e tests use ginkgo and tags to select the tests that should run based on two regex, focus and skip:
-          # Focus tests:
-          # \[Conformance\]|\[sig-network\]: Conformance tests are defined by the project to guarantee a consistent behaviour and some mandatory features on all clusters
-          #                                  sig-network tests are defined by sig-networkto guarantee a consistent behaviour on all the the k8s network implementations
-          # Skipped tests:
-          # Disruptive|Serial : require to run in serial and perform disruptive operations on clusters (reboots, ...)
-          # Federation|PerformanceDNS : unrelated sig-network tests
-          # Feature : skip features that are not GA, however, some of them should be enabled, per example [Feature:ProxyTerminatingEndpoints]
-          # DualStack : only with dualstack clusters
-          # KubeProxy|kube-proxy : kube-proxy specifics
-          # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
-          # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
-          # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
-          # same.port.number.but.different.protocols|HostPort|should.serve.endpoints.on.same.port.and.different.protocols : #9207
-          # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
-          # externalTrafficPolicy : needs investigation
+          kubectl get nodes
 
-          # Run tests
-          export KUBERNETES_CONFORMANCE_TEST='y'
-          export E2E_REPORT_DIR=${PWD}/_artifacts
-          /usr/local/bin/ginkgo --nodes=25                \
-            --focus="\[Conformance\]|\[sig-network\]"     \
-            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols|should.serve.endpoints.on.same.port.and.different.protocols"   \
-            /usr/local/bin/e2e.test                       \
-            --                                            \
-            --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
-            --provider=local                              \
-            --dump-logs-on-failure=true                   \
-            --report-dir=${E2E_REPORT_DIR}                \
-            --disable-log-dump=true
+          kubectl rollout status statefulset sts1
+
+          # Disable Cilium
+          kubectl -n kube-system patch daemonset cilium -p '{"spec": {"template": {"spec": {"nodeSelector": {"non-existing": "true"}}}}}'
+
+          # Start rollout of statefulset
+          kubectl rollout restart statefulset sts1
+
+          # Wait for Cilium to be disabled
+          kubectl rollout status -n kube-system daemonset cilium
+
+          # Give some time for few statefulset to dissapear
+          # One pod should be pending
+          sleep 20s
+          kubectl get pods
+
+          # Enable Cilium
+          kubectl -n kube-system patch daemonset cilium --type json -p='[{"op": "remove", "path": "/spec/template/spec/nodeSelector/non-existing"}]'
+
+          # Wait for Cilium to be enabled
+          kubectl rollout status -n kube-system daemonset cilium
+
+          # Wait for statefulset to finish rollout
+          kubectl rollout status statefulset sts1
+
+          # Give some time for all reconcilation to happen
+          sleep 20s
+
+          # Manually compare pods and cep uids
+          echo "cep owner references:"
+          kubectl get cep -o=jsonpath="{range .items[*]}{.metadata.ownerReferences[0].uid}{'\n'}" | sort | uniq -c > output1
+          cat output1
+          echo "pod owner references:"
+          kubectl get pod -o=jsonpath="{range .items[*]}{.metadata.uid}{'\n'}" | sort | uniq -c > output2
+          cat output2
+          echo "diff:"
+          diff output1 output2
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
