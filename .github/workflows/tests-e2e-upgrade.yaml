@@ -162,7 +162,7 @@ jobs:
             lb-acceleration: 'testing-only'
             # Disable until https://github.com/cilium/cilium/issues/30717
             # has been resolved.
-            ingress-controller: 'true'
+            # ingress-controller: 'true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -214,7 +214,7 @@ jobs:
             egress-gateway: 'true'
             # Disable until https://github.com/cilium/cilium/issues/30717
             # has been resolved.
-            ingress-controller: 'true'
+            # ingress-controller: 'true'
 
           # Disable until https://github.com/cilium/cilium/pull/31622
           # has been released. Otherwise, the health-ep is failing quite
@@ -259,7 +259,7 @@ jobs:
             tunnel: 'disabled'
             # Disable until https://github.com/cilium/cilium/issues/30717
             # has been resolved.
-            ingress-controller: 'true'
+            # ingress-controller: 'true'
             misc: 'bpfClockProbe=false,cni.uninstall=false,bpf.tproxy=true'
 
           - name: '16'
