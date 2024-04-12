@@ -2891,7 +2891,7 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		"Whether to enable quick mode (i.e. skip collection of 'cilium-bugtool' output and logs)")
 	cmd.Flags().IntVar(&options.WorkerCount,
 		optionPrefix+"worker-count", DefaultWorkerCount,
-		"The number of workers to use\nNOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards.")
+		"The number of workers to use\nNOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards. Defaults to the number of available CPUs.")
 	cmd.Flags().StringArrayVar(&options.CiliumBugtoolFlags,
 		optionPrefix+"cilium-bugtool-flags", nil,
 		"Optional set of flags to pass to cilium-bugtool command.")
