@@ -67,6 +67,7 @@ type Agent struct {
 	lock.RWMutex
 
 	wgClient   wireguardClient
+	wgExternal bool
 	ipCache    *ipcache.IPCache
 	listenPort int
 	privKey    wgtypes.Key
@@ -328,7 +329,10 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 	return nil
 }
 
-func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error {
+func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, newAddrs struct {
+	NodeIPv4, NodeIPv6, ExternalIPv4, ExternalIPv6 net.IP
+	UseExternalEndpoint                            bool
+}) error {
 	// To avoid running into a deadlock, we need to lock the IPCache before
 	// calling a.Lock(), because IPCache might try to call into
 	// OnIPIdentityCacheChange concurrently
@@ -365,12 +369,12 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		allowedIPs = prev.allowedIPs
 
 		// Handle Node IP change
-		if !prev.nodeIPv4.Equal(nodeIPv4) {
-			delete(a.nodeNameByNodeIP, prev.nodeIPv4.String())
+		if !prev.NodeIPv4.Equal(newAddrs.NodeIPv4) {
+			delete(a.nodeNameByNodeIP, prev.NodeIPv4.String())
 			allowedIPs = nil // reset allowedIPs and re-initialize below
 		}
-		if !prev.nodeIPv6.Equal(nodeIPv6) {
-			delete(a.nodeNameByNodeIP, prev.nodeIPv6.String())
+		if !prev.NodeIPv6.Equal(newAddrs.NodeIPv6) {
+			delete(a.nodeNameByNodeIP, prev.NodeIPv6.String())
 			allowedIPs = nil // reset allowedIPs and re-initialize below
 		}
 	}
@@ -380,50 +384,54 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		// allowedIPs will be updated by OnIPIdentityCacheChange after this
 		// function returns.
 		var lookupIPv4, lookupIPv6 net.IP
-		if option.Config.EnableIPv4 && nodeIPv4 != nil {
-			lookupIPv4 = nodeIPv4
+		if option.Config.EnableIPv4 && newAddrs.NodeIPv4 != nil {
+			lookupIPv4 = newAddrs.NodeIPv4
 			allowedIPs = append(allowedIPs, net.IPNet{
-				IP:   nodeIPv4,
+				IP:   newAddrs.NodeIPv4,
 				Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
 			})
 		}
-		if option.Config.EnableIPv6 && nodeIPv6 != nil {
-			lookupIPv6 = nodeIPv6
+		if option.Config.EnableIPv6 && newAddrs.NodeIPv6 != nil {
+			lookupIPv6 = newAddrs.NodeIPv6
 			allowedIPs = append(allowedIPs, net.IPNet{
-				IP:   nodeIPv6,
+				IP:   newAddrs.NodeIPv6,
 				Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
 			})
 		}
 		allowedIPs = append(allowedIPs, a.ipCache.LookupByHostRLocked(lookupIPv4, lookupIPv6)...)
 	}
 
-	ep := ""
-	if option.Config.EnableIPv4 && nodeIPv4 != nil {
-		ep = net.JoinHostPort(nodeIPv4.String(), strconv.Itoa(listenPort))
-	} else if option.Config.EnableIPv6 && nodeIPv6 != nil {
-		ep = net.JoinHostPort(nodeIPv6.String(), strconv.Itoa(listenPort))
-	} else {
-		return fmt.Errorf("missing node IP for node %q", nodeName)
+	var epHost net.IP
+	switch {
+	case option.Config.EnableIPv4 && !newAddrs.UseExternalEndpoint && newAddrs.NodeIPv4 != nil:
+		epHost = newAddrs.NodeIPv4
+	case option.Config.EnableIPv4 && newAddrs.UseExternalEndpoint && newAddrs.ExternalIPv4 != nil:
+		epHost = newAddrs.ExternalIPv4
+	case option.Config.EnableIPv6 && !newAddrs.UseExternalEndpoint && newAddrs.NodeIPv6 != nil:
+		epHost = newAddrs.NodeIPv6
+	case option.Config.EnableIPv6 && newAddrs.UseExternalEndpoint && newAddrs.ExternalIPv6 != nil:
+		epHost = newAddrs.ExternalIPv6
+	default:
+		return fmt.Errorf("failed to determine endpoint address for peer %q", nodeName)
 	}
 
-	epAddr, err := net.ResolveUDPAddr("udp", ep)
+	epAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(epHost.String(), strconv.Itoa(listenPort)))
 	if err != nil {
 		return fmt.Errorf("failed to resolve peer endpoint address: %w", err)
 	}
 
 	peer := &peerConfig{
-		pubKey:     pubKey,
-		endpoint:   epAddr,
-		nodeIPv4:   nodeIPv4,
-		nodeIPv6:   nodeIPv6,
-		allowedIPs: allowedIPs,
+		pubKey:        pubKey,
+		endpoint:      epAddr,
+		peerAddresses: newAddrs,
+		allowedIPs:    allowedIPs,
 	}
 
 	log.WithFields(logrus.Fields{
 		logfields.NodeName: nodeName,
 		logfields.PubKey:   pubKeyHex,
-		logfields.NodeIPv4: nodeIPv4,
-		logfields.NodeIPv6: nodeIPv6,
+		logfields.NodeIPv4: peer.NodeIPv4,
+		logfields.NodeIPv6: peer.NodeIPv6,
 	}).Debug("Updating peer")
 
 	if err := a.updatePeerByConfig(peer); err != nil {
@@ -432,11 +440,11 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 
 	a.peerByNodeName[nodeName] = peer
 	a.nodeNameByPubKey[pubKey] = nodeName
-	if nodeIPv4 != nil {
-		a.nodeNameByNodeIP[nodeIPv4.String()] = nodeName
+	if peer.NodeIPv4 != nil {
+		a.nodeNameByNodeIP[peer.NodeIPv4.String()] = nodeName
 	}
-	if nodeIPv6 != nil {
-		a.nodeNameByNodeIP[nodeIPv6.String()] = nodeName
+	if peer.NodeIPv6 != nil {
+		a.nodeNameByNodeIP[peer.NodeIPv6.String()] = nodeName
 	}
 
 	return nil
@@ -458,11 +466,11 @@ func (a *Agent) DeletePeer(nodeName string) error {
 	delete(a.peerByNodeName, nodeName)
 	delete(a.nodeNameByPubKey, peer.pubKey)
 
-	if peer.nodeIPv4 != nil {
-		delete(a.nodeNameByNodeIP, peer.nodeIPv4.String())
+	if peer.NodeIPv4 != nil {
+		delete(a.nodeNameByNodeIP, peer.NodeIPv4.String())
 	}
-	if peer.nodeIPv6 != nil {
-		delete(a.nodeNameByNodeIP, peer.nodeIPv6.String())
+	if peer.NodeIPv6 != nil {
+		delete(a.nodeNameByNodeIP, peer.NodeIPv6.String())
 	}
 
 	return nil
@@ -660,10 +668,15 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 // WireGuard agent and update the `AllowedIPs` list of known peers
 // accordingly.
 type peerConfig struct {
-	pubKey             wgtypes.Key
-	endpoint           *net.UDPAddr
-	nodeIPv4, nodeIPv6 net.IP
-	allowedIPs         []net.IPNet
+	peerAddresses
+	pubKey     wgtypes.Key
+	endpoint   *net.UDPAddr
+	allowedIPs []net.IPNet
+}
+
+type peerAddresses struct {
+	NodeIPv4, NodeIPv6, ExternalIPv4, ExternalIPv6 net.IP
+	UseExternalEndpoint                            bool
 }
 
 // removeAllowedIP removes ip from the list of allowedIPs and returns true

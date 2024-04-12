@@ -107,13 +107,13 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 	ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
-	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, peerAddresses{NodeIPv4: k8s1NodeIPv4, NodeIPv6: k8s1NodeIPv6})
 	c.Assert(err, IsNil)
 
 	k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
 	c.Assert(k8s1, NotNil)
-	c.Assert(k8s1.nodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
-	c.Assert(k8s1.nodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
+	c.Assert(k8s1.NodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
+	c.Assert(k8s1.NodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
 	c.Assert(k8s1.pubKey.String(), Equals, k8s1PubKey)
 	c.Assert(k8s1.allowedIPs, HasLen, 6)
 	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)), Equals, true)
@@ -136,7 +136,7 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	agentUpdatePending := make(chan struct{})
 	go func() {
 		close(agentUpdatePending)
-		err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+		err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, peerAddresses{NodeIPv4: k8s2NodeIPv4, NodeIPv6: k8s2NodeIPv6})
 		c.Assert(err, IsNil)
 		close(agentUpdated)
 	}()
@@ -181,8 +181,8 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	<-ipCacheUpdated
 
 	k8s1 = wgAgent.peerByNodeName[k8s1NodeName]
-	c.Assert(k8s1.nodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
-	c.Assert(k8s1.nodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
+	c.Assert(k8s1.NodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
+	c.Assert(k8s1.NodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
 	c.Assert(k8s1.pubKey.String(), Equals, k8s1PubKey)
 	c.Assert(k8s1.allowedIPs, HasLen, 4)
 	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)), Equals, true)
@@ -191,8 +191,8 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv6), Equals, true)
 
 	k8s2 := wgAgent.peerByNodeName[k8s2NodeName]
-	c.Assert(k8s2.nodeIPv4, checker.DeepEquals, k8s2NodeIPv4)
-	c.Assert(k8s2.nodeIPv6, checker.DeepEquals, k8s2NodeIPv6)
+	c.Assert(k8s2.NodeIPv4, checker.DeepEquals, k8s2NodeIPv4)
+	c.Assert(k8s2.NodeIPv6, checker.DeepEquals, k8s2NodeIPv6)
 	c.Assert(k8s2.pubKey.String(), Equals, k8s2PubKey)
 	c.Assert(k8s2.allowedIPs, HasLen, 4)
 	c.Assert(containsIP(k8s2.allowedIPs, iputil.IPToPrefix(k8s2NodeIPv4)), Equals, true)
@@ -201,7 +201,7 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	c.Assert(containsIP(k8s2.allowedIPs, pod3IPv6), Equals, true)
 
 	// Tests that duplicate public keys are rejected (k8s2 imitates k8s1)
-	err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+	err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, peerAddresses{NodeIPv4: k8s2NodeIPv4, NodeIPv6: k8s2NodeIPv6})
 	c.Assert(err, ErrorMatches, "detected duplicate public key.*")
 
 	// Node Deletion
@@ -221,13 +221,13 @@ func (a *AgentSuite) TestAgent_PeerConfig_WithEncryptNode(c *C) {
 	ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 	ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
-	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, peerAddresses{NodeIPv4: k8s1NodeIPv4, NodeIPv6: k8s1NodeIPv6})
 	c.Assert(err, IsNil)
 
 	k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
 	c.Assert(k8s1, NotNil)
-	c.Assert(k8s1.nodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
-	c.Assert(k8s1.nodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
+	c.Assert(k8s1.NodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
+	c.Assert(k8s1.NodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
 	c.Assert(k8s1.pubKey.String(), Equals, k8s1PubKey)
 	c.Assert(k8s1.allowedIPs, HasLen, 4)
 	c.Assert(containsIP(k8s1.allowedIPs, pod1IPv4), Equals, true)

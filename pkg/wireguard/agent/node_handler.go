@@ -7,6 +7,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // NodeAdd is called when a node is discovered for the first time.
@@ -43,14 +44,30 @@ func (a *Agent) NodeValidateImplementation(node nodeTypes.Node) error {
 }
 
 func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
-	if node.IsLocal() || node.WireguardPubKey == "" {
+	externalNodeLabelValue, ok := node.Labels[wgTypes.ExternalNodeLabel]
+	isExternalNode := ok && externalNodeLabelValue == "true"
+
+	if (node.IsLocal() && !isExternalNode) || node.WireguardPubKey == "" {
 		return nil
 	}
 
-	newIP4 := node.GetNodeIP(false)
-	newIP6 := node.GetNodeIP(true)
+	if node.IsLocal() {
+		if isExternalNode != a.wgExternal {
+			log.Infof("switching wireguard agent mode: external node = %v", isExternalNode)
+			a.wgExternal = isExternalNode
+		}
+		return nil // local node doesn't have a peer entry
+	}
 
-	if err := a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
+	newAddrs := peerAddresses{
+		NodeIPv4:            node.GetNodeIP(false),
+		NodeIPv6:            node.GetNodeIP(true),
+		ExternalIPv4:        node.GetExternalIP(false),
+		ExternalIPv6:        node.GetExternalIP(true),
+		UseExternalEndpoint: isExternalNode || a.wgExternal,
+	}
+
+	if err := a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newAddrs); err != nil {
 		log.WithError(err).
 			WithField(logfields.NodeName, node.Fullname()).
 			Warning("Failed to update WireGuard configuration for peer")

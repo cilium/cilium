@@ -12,4 +12,6 @@ const (
 	// StaticEncryptKey is used in the IPCache to mark entries for which we
 	// want to enable WireGuard encryption
 	StaticEncryptKey = uint8(0xFF)
+
+	ExternalNodeLabel = "wg.cilium.io/external-node"
 )
