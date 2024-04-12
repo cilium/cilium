@@ -24,8 +24,38 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	ct.Infof("Cilium version: %v", ct.CiliumVersion)
 
-	extraTests := func(ct *check.ConnectivityTest) error { return extra.AddConnectivityTests(ct) }
-	if err := builder.InjectTests(ct, extraTests); err != nil {
+	if ct.Params().Perf {
+		if err := builder.NetworkPerformanceTests(ct); err != nil {
+			return err
+		}
+		return ct.Run(ctx)
+	}
+
+	if ct.Params().IncludeConnDisruptTest {
+		if err := builder.ConnDisruptTests(ct); err != nil {
+			return err
+		}
+		if ct.Params().ConnDisruptTestSetup {
+			// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
+			// will be used by another invocation of "cli connectivity test" (with
+			// include --include-conn-disrupt-test"
+			return ct.Run(ctx)
+		}
+	}
+
+	if err := builder.ConcurrentTests(ct); err != nil {
+		return err
+	}
+
+	if err := builder.SequentialTests(ct); err != nil {
+		return err
+	}
+
+	if err := extra.AddConnectivityTests(ct); err != nil {
+		return err
+	}
+
+	if err := builder.FinalTests(ct); err != nil {
 		return err
 	}
 
