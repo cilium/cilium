@@ -32,7 +32,7 @@ but with the addition of TLS termination.
 
             $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/servicemesh/tls-ingress.yaml
 
-    .. group-tab:: Cert Manager
+    .. group-tab:: cert-manager
 
         .. parsed-literal::
 
@@ -107,7 +107,7 @@ Make HTTPS Requests
             $ curl -o demo.proto https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/main/protos/demo.proto
             $ grpcurl -proto ./demo.proto -cacert minica.pem hipstershop.cilium.rocks:443 hipstershop.ProductCatalogService/ListProducts
 
-    .. group-tab:: Cert Manager
+    .. group-tab:: cert-manager
 
         .. code-block:: shell-session
 
