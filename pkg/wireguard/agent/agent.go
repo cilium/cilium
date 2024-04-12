@@ -350,7 +350,22 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	}
 
 	var allowedIPs []net.IPNet = nil
-	if prev := a.peerByNodeName[nodeName]; prev != nil {
+
+	prev := a.peerByNodeName[nodeName]
+	prevName := nodeName
+
+	// This is for a case when a new node shows up with the previous node IP, and
+	// the node object garbage collector failed to deleted the previous node.
+	if prev == nil {
+		prevName = a.nodeNameByNodeIP[nodeIPv4.String()]
+		prev = a.peerByNodeName[prevName]
+	}
+	if prev == nil {
+		prevName = a.nodeNameByNodeIP[nodeIPv6.String()]
+		prev = a.peerByNodeName[prevName]
+	}
+
+	if prev != nil {
 		// Handle pubKey change
 		if prev.pubKey != pubKey {
 			log.WithField(logfields.NodeName, nodeName).Debug("Pubkey has changed")
@@ -370,6 +385,19 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		}
 		if !prev.nodeIPv6.Equal(nodeIPv6) {
 			delete(a.nodeNameByNodeIP, prev.nodeIPv6.String())
+			allowedIPs = nil // reset allowedIPs and re-initialize below
+		}
+
+		// This is the new node with the previous node IP. Remove the stale
+		// previous node.
+		if prevName != nodeName {
+			if err := a.deletePeer(prevName); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.NodeName: prevName,
+					logfields.NodeIPv4: nodeIPv4,
+					logfields.NodeIPv6: nodeIPv6,
+				}).WithError(err).Warn("Failed to remove the stale node")
+			}
 			allowedIPs = nil // reset allowedIPs and re-initialize below
 		}
 	}
@@ -445,6 +473,10 @@ func (a *Agent) DeletePeer(nodeName string) error {
 	a.Lock()
 	defer a.Unlock()
 
+	return a.deletePeer(nodeName)
+}
+
+func (a *Agent) deletePeer(nodeName string) error {
 	peer := a.peerByNodeName[nodeName]
 	if peer == nil {
 		return fmt.Errorf("cannot find peer for %q node", nodeName)

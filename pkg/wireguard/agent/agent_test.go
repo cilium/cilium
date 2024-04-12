@@ -51,10 +51,12 @@ var (
 	k8s1NodeIPv4 = net.ParseIP("192.168.60.11")
 	k8s1NodeIPv6 = net.ParseIP("fd01::b")
 
-	k8s2NodeName = "k8s2"
-	k8s2PubKey   = "lH+Xsa0JClu1syeBVbXN0LZNQVB6rTPBzbzWOHwQLW4="
-	k8s2NodeIPv4 = net.ParseIP("192.168.60.12")
-	k8s2NodeIPv6 = net.ParseIP("fd01::c")
+	k8s2NodeName    = "k8s2"
+	k8s2AltNodeName = "k8s2-new"
+	k8s2PubKey      = "lH+Xsa0JClu1syeBVbXN0LZNQVB6rTPBzbzWOHwQLW4="
+	k8s2AltPubKey   = "W8xXaVPJ1jaLSc0EzU4Zqg5HuQ9BHeBtnIuAIfbwtnM="
+	k8s2NodeIPv4    = net.ParseIP("192.168.60.12")
+	k8s2NodeIPv6    = net.ParseIP("fd01::c")
 
 	pod1IPv4Str = "10.0.0.1"
 	pod1IPv4    = iputil.IPToPrefix(net.ParseIP(pod1IPv4Str))
@@ -204,9 +206,18 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
 	c.Assert(err, ErrorMatches, "detected duplicate public key.*")
 
+	// Tests that a node update with the same IP but different name and pubkey
+	// removes an old node with the same IP
+	err = wgAgent.UpdatePeer(k8s2AltNodeName, k8s2AltPubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+	c.Assert(err, IsNil)
+	_, found := wgAgent.peerByNodeName[k8s2NodeName]
+	c.Assert(found, Equals, false)
+	_, found = wgAgent.peerByNodeName[k8s2AltNodeName]
+	c.Assert(found, Equals, true)
+
 	// Node Deletion
 	wgAgent.DeletePeer(k8s1NodeName)
-	wgAgent.DeletePeer(k8s2NodeName)
+	wgAgent.DeletePeer(k8s2AltNodeName)
 	c.Assert(wgAgent.peerByNodeName, HasLen, 0)
 	c.Assert(wgAgent.nodeNameByNodeIP, HasLen, 0)
 	c.Assert(wgAgent.nodeNameByPubKey, HasLen, 0)
