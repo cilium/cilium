@@ -111,6 +111,7 @@ function move_local_rules()
 function setup_proxy_rules()
 {
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+	from_egress_rulespec="fwmark 0xB00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 	use_from_ingress_proxy_rules_v4=0
 	use_from_ingress_proxy_rules_v6=0
 
