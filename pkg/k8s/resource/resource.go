@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/stream"
 	corev1 "k8s.io/api/core/v1"
@@ -847,6 +848,7 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 
 				switch d.Type {
 				case cache.Sync, cache.Added, cache.Updated:
+					time.Sleep(time.Second * 5)
 					metric := resources.MetricCreate
 					if d.Type != cache.Added {
 						metric = resources.MetricUpdate
@@ -867,6 +869,7 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 						sub.enqueueKey(key)
 					}
 				case cache.Deleted:
+					time.Sleep(time.Second * 5)
 					r.metricEventReceived(resources.MetricDelete, true, false)
 
 					if err := clientState.Delete(obj); err != nil {

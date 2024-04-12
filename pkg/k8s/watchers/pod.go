@@ -102,6 +102,7 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+
 				if pod := k8s.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
 					err := k.deleteK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
@@ -138,6 +139,7 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 					}
 					synced.Store(true)
 				case resource.Upsert:
+					log.Warnf("Upsert pod: %s", ev.Key)
 					newPod := ev.Object
 					oldPod := pods[ev.Key]
 					if oldPod == nil {
@@ -148,6 +150,7 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
 					pods[ev.Key] = newPod
 				case resource.Delete:
+					log.Warnf("Delete pod: %s", ev.Key)
 					k.deleteK8sPodV1(ev.Object)
 					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
 					delete(pods, ev.Key)
