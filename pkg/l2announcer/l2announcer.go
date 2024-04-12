@@ -71,6 +71,7 @@ type l2AnnouncerParams struct {
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
+	Devices              statedb.Table[*tables.Device]
 	StateDB              *statedb.DB
 	JobRegistry          job.Registry
 	Scope                cell.Scope
@@ -142,17 +143,6 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	return announcer
 }
 
-// DevicesChanged can be invoked by an external component responsible for discovering all available network devices to
-// inform this component of all the devices we can use for L2 announcements.
-func (l2a *L2Announcer) DevicesChanged(devices []string) {
-	l2a.devices = devices
-
-	select {
-	case l2a.devicesUpdatedSig <- struct{}{}:
-	default:
-	}
-}
-
 func (l2a *L2Announcer) run(ctx context.Context, health cell.HealthReporter) error {
 	var err error
 	l2a.svcStore, err = l2a.params.Services.Store(ctx)
@@ -168,6 +158,9 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.HealthReporter) err
 	svcChan := l2a.params.Services.Events(ctx)
 	policyChan := l2a.params.L2AnnouncementPolicy.Events(ctx)
 	localNodeChan := l2a.params.LocalNodeResource.Events(ctx)
+
+	devices, watchDevices := tables.SelectedDevices(l2a.params.Devices, l2a.params.StateDB.ReadTxn())
+	l2a.devices = tables.DeviceNames(devices)
 
 	// We have to first have a local node before we can start processing other events.
 	for {
@@ -226,7 +219,14 @@ loop:
 				l2a.params.Logger.WithError(err).Warn("Error processing leader event")
 			}
 
-		case <-l2a.devicesUpdatedSig:
+		case <-watchDevices:
+			devices, watchDevices = tables.SelectedDevices(l2a.params.Devices, l2a.params.StateDB.ReadTxn())
+			deviceNames := tables.DeviceNames(devices)
+
+			if slices.Equal(l2a.devices, deviceNames) {
+				continue
+			}
+			l2a.devices = deviceNames
 			if err := l2a.processDevicesChanged(ctx); err != nil {
 				l2a.params.Logger.WithError(err).Warn("Error processing devices changed signal")
 			}
