@@ -60,11 +60,9 @@ spec:
           env:
           {{- if .Values.k8sServiceHost }}
           - name: KUBERNETES_SERVICE_HOST
-            value: {{ .Values.k8sServiceHost | quote }}
-          {{- end }}
-          {{- if .Values.k8sServicePort }}
+            value: {{ include "k8sServiceHost" . }}
           - name: KUBERNETES_SERVICE_PORT
-            value: {{ .Values.k8sServicePort | quote }}
+            value: {{ include "k8sServicePort" . }}
           {{- end }}
           {{- with .Values.preflight.extraEnv }}
           {{- toYaml . | trim | nindent 10 }}

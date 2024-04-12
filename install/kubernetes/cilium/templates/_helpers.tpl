@@ -165,3 +165,34 @@ Convert a map to a comma-separated string: key1=value1,key2=value2
 {{- end -}}
 {{ join "," $list }}
 {{- end -}}
+
+{{/*
+Enable automatic lookup of k8sServiceHost from the cluster-info ConfigMap (kubeadm-based clusters only)
+*/}}
+{{- define "k8sServiceHost" }}
+  {{- if eq .Values.k8sServiceHost "auto" }}
+    {{- $configmap := (lookup "v1" "ConfigMap" "kube-public" "cluster-info") }}
+    {{- $kubeconfig := get $configmap.data "kubeconfig" }}
+    {{- $k8sServer := get ($kubeconfig | fromYaml) "clusters" | mustFirst | dig "cluster" "server" "" }}
+    {{- $uri := (split "https://" $k8sServer)._1 | trim }}
+    {{- (split ":" $uri)._0 | quote }}
+  {{- else }}
+    {{- .Values.k8sServiceHost | quote }}
+  {{- end }}
+{{- end }}
+
+{{/*
+Enable automatic lookup of k8sServicePort from the cluster-info ConfigMap (kubeadm-based clusters only)
+*/}}
+{{- define "k8sServicePort" }}
+  {{- if eq .Values.k8sServiceHost "auto" }}
+    {{- $configmap := (lookup "v1" "ConfigMap" "kube-public" "cluster-info") }}
+    {{- $kubeconfig := get $configmap.data "kubeconfig" }}
+    {{- $k8sServer := get ($kubeconfig | fromYaml) "clusters" | mustFirst | dig "cluster" "server" "" }}
+    {{- $uri := (split "https://" $k8sServer)._1 | trim }}
+    {{- (split ":" $uri)._1 | quote }}
+  {{- else }}
+    {{- .Values.k8sServicePort | quote }}
+  {{- end }}
+{{- end }}
+
