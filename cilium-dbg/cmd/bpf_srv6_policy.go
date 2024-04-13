@@ -35,7 +35,8 @@ var bpfSRv6PolicyListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf srv6 policy")
 
-		if err := srv6map.OpenPolicyMaps(); err != nil {
+		m4, m6, err := srv6map.OpenPolicyMaps()
+		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find SRv6 policy maps")
 				return
@@ -53,10 +54,10 @@ var bpfSRv6PolicyListCmd = &cobra.Command{
 			})
 		}
 
-		if err := srv6map.SRv6PolicyMap4.IterateWithCallback4(parse); err != nil {
+		if err := m4.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the IPv4 SRv6 policy map: %s\n", err)
 		}
-		if err := srv6map.SRv6PolicyMap6.IterateWithCallback6(parse); err != nil {
+		if err := m6.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the IPv6 SRv6 policy map: %s\n", err)
 		}
 

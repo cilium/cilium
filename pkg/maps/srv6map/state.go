@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	StateMapName4 = "cilium_srv6_state_v4"
-	StateMapName6 = "cilium_srv6_state_v6"
+	stateMapName4 = "cilium_srv6_state_v4"
+	stateMapName6 = "cilium_srv6_state_v6"
 )
 
 // We can delete this in v1.18
 func cleanupStateMap() {
-	os.Remove(bpf.MapPath(StateMapName4))
-	os.Remove(bpf.MapPath(StateMapName6))
+	os.Remove(bpf.MapPath(stateMapName4))
+	os.Remove(bpf.MapPath(stateMapName6))
 }
