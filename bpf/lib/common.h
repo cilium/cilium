@@ -122,7 +122,7 @@ enum {
 #define CILIUM_CALL_IPV6_CT_EGRESS		32
 #define CILIUM_CALL_SRV6_ENCAP			33
 #define CILIUM_CALL_SRV6_DECAP			34
-#define CILIUM_CALL_SRV6_REPLY			35
+/* Unused CILIUM_CALL_SRV6_REPLY		35 */
 #define CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS	36
 #define CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS	37
 #define CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD	38
@@ -481,16 +481,6 @@ struct srv6_policy_key6 {
 	union v6addr dst_cidr;
 };
 
-struct srv6_ipv4_2tuple {
-	__u32 src;
-	__u32 dst;
-};
-
-struct srv6_ipv6_2tuple {
-	union v6addr src;
-	union v6addr dst;
-};
-
 struct vtep_key {
 	__u32 vtep_ip;
 };
@@ -648,7 +638,7 @@ enum {
 #define DROP_INVALID_VNI	-183
 #define DROP_INVALID_TC_BUFFER  -184
 #define DROP_NO_SID		-185
-#define DROP_MISSING_SRV6_STATE	-186
+#define DROP_MISSING_SRV6_STATE	-186 /* unused */
 #define DROP_NAT46		-187
 #define DROP_NAT64		-188
 #define DROP_POLICY_AUTH_REQUIRED	-189

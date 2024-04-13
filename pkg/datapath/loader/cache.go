@@ -56,8 +56,6 @@ var ignoredELFPrefixes = []string{
 	"cilium_srv6_policy_v6",           // Global
 	"cilium_srv6_vrf_v4",              // Global
 	"cilium_srv6_vrf_v6",              // Global
-	"cilium_srv6_state_v4",            // Global
-	"cilium_srv6_state_v6",            // Global
 	"cilium_srv6_sid",                 // Global
 	"cilium_vtep_map",                 // Global
 	"cilium_per_cluster_ct",           // Global
