@@ -110,7 +110,6 @@ spec:
       hostNetwork: true
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}
       restartPolicy: Always
-      serviceAccount: {{ .Values.serviceAccounts.etcd.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.etcd.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.etcd.automount }}
 {{- with .Values.etcd.nodeSelector }}

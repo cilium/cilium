@@ -114,7 +114,6 @@ spec:
       hostNetwork: true
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.nodeinit.priorityClassName "system-node-critical") }}
       {{- if .Values.serviceAccounts.nodeinit.enabled }}
-      serviceAccount: {{ .Values.serviceAccounts.nodeinit.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.nodeinit.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.nodeinit.automount }}
       {{- end }}
