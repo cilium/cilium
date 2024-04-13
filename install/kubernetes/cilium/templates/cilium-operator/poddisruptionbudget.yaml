@@ -1,6 +1,6 @@
 {{- if and .Values.operator.enabled .Values.operator.podDisruptionBudget.enabled }}
 {{- $component := .Values.operator.podDisruptionBudget }}
-apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: cilium-operator

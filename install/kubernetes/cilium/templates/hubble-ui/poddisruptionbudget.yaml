@@ -1,6 +1,6 @@
 {{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.podDisruptionBudget.enabled }}
 {{- $component := .Values.hubble.ui.podDisruptionBudget }}
-apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: hubble-ui

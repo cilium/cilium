@@ -1,6 +1,6 @@
 {{- if and .Values.hubble.enabled .Values.hubble.relay.enabled .Values.hubble.relay.podDisruptionBudget.enabled }}
 {{- $component := .Values.hubble.relay.podDisruptionBudget }}
-apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: hubble-relay
