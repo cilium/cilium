@@ -1,6 +1,6 @@
 {{- if and .Values.etcd.managed .Values.etcd.podDisruptionBudget.enabled }}
 {{- $component := .Values.etcd.podDisruptionBudget }}
-apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: cilium-etcd-operator
