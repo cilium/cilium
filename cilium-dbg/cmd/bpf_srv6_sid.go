@@ -33,7 +33,8 @@ var bpfSRv6SIDListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf srv6 sid")
 
-		if err := srv6map.OpenSIDMap(); err != nil {
+		m, err := srv6map.OpenSIDMap()
+		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find SRv6 SID map")
 				return
@@ -50,7 +51,7 @@ var bpfSRv6SIDListCmd = &cobra.Command{
 			})
 		}
 
-		if err := srv6map.SRv6SIDMap.IterateWithCallback(parse); err != nil {
+		if err := m.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the SRv6 SID map: %s\n", err)
 		}
 
