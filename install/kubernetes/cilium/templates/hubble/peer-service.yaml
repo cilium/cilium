@@ -24,7 +24,5 @@ spec:
     {{- end }}
     protocol: TCP
     targetPort: {{ .Values.hubble.peerService.targetPort }}
-{{- if semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion }}
   internalTrafficPolicy: Local
-{{- end }}
 {{- end }}
