@@ -24,14 +24,12 @@ spec:
     protocol: TCP
     nodePort: {{ .Values.ingressController.service.secureNodePort }}
   type: {{ .Values.ingressController.service.type }}
-  {{- if semverCompare ">=1.24-0" .Capabilities.KubeVersion.Version -}}
   {{- if .Values.ingressController.service.loadBalancerClass }}
   loadBalancerClass: {{ .Values.ingressController.service.loadBalancerClass }}
   {{- end }}
   {{- if (not (kindIs "invalid" .Values.ingressController.service.allocateLoadBalancerNodePorts)) }}
   allocateLoadBalancerNodePorts: {{ .Values.ingressController.service.allocateLoadBalancerNodePorts }}
   {{- end }}
-  {{- end -}}
   {{- if .Values.ingressController.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.ingressController.service.loadBalancerIP }}
   {{- end }}
