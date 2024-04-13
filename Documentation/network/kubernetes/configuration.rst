@@ -333,8 +333,7 @@ If you want to use CRIO, use the instructions below.
 .. parsed-literal::
 
    helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set containerRuntime.integration=crio
+     --namespace kube-system
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the

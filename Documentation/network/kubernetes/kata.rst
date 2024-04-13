@@ -72,8 +72,7 @@ Deploy Cilium release via Helm:
         .. parsed-literal::
 
            helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set containerRuntime.integration=containerd
+             --namespace kube-system
 
 .. warning::
 

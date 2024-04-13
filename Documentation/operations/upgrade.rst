@@ -345,6 +345,7 @@ Helm Options
   ``enable-remote-node-identity=false`` make sure to update them.
 * The clustermesh-apiserver ``podSecurityContext`` and ``securityContext`` settings now
   default to drop all capabilities and run as non-root user.
+* Deprecated Helm option ``containerRuntime.integration`` is removed. If you are using crio, please check :ref:`crio-instructions`.
 
 Added Metrics
 ~~~~~~~~~~~~~
