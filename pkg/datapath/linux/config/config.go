@@ -53,7 +53,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
-	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
@@ -221,14 +220,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NODE_MAP"] = nodemap.MapName
 	cDefinesMap["NODE_MAP_V2"] = nodemap.MapNameV2
 	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", h.nodeMap.Size())
-	cDefinesMap["SRV6_VRF_MAP4"] = srv6map.VRFMapName4
-	cDefinesMap["SRV6_VRF_MAP6"] = srv6map.VRFMapName6
-	cDefinesMap["SRV6_POLICY_MAP4"] = srv6map.PolicyMapName4
-	cDefinesMap["SRV6_POLICY_MAP6"] = srv6map.PolicyMapName6
-	cDefinesMap["SRV6_SID_MAP"] = srv6map.SIDMapName
-	cDefinesMap["SRV6_VRF_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxVRFEntries)
-	cDefinesMap["SRV6_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxPolicyEntries)
-	cDefinesMap["SRV6_SID_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxSIDEntries)
 	cDefinesMap["WORLD_CIDRS4_MAP"] = worldcidrsmap.MapName4
 	cDefinesMap["WORLD_CIDRS4_MAP_SIZE"] = fmt.Sprintf("%d", worldcidrsmap.MapMaxEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)

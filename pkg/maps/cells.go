@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 )
 
 // Cell contains all cells which are providing BPF Maps.
@@ -45,4 +46,7 @@ var Cell = cell.Module(
 
 	// Provides access to the multicast maps.
 	multicast.Cell,
+
+	// Provies access to the SRv6 maps.
+	srv6map.Cell,
 )

@@ -35,7 +35,8 @@ var bpfSRv6VRFListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf srv6 vrf")
 
-		if err := srv6map.OpenVRFMaps(); err != nil {
+		m4, m6, err := srv6map.OpenVRFMaps()
+		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find SRv6 VRF mapping maps")
 				return
@@ -53,10 +54,10 @@ var bpfSRv6VRFListCmd = &cobra.Command{
 			})
 		}
 
-		if err := srv6map.SRv6VRFMap4.IterateWithCallback4(parse); err != nil {
+		if err := m4.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the IPv4 SRv6 VRF mapping map: %s\n", err)
 		}
-		if err := srv6map.SRv6VRFMap6.IterateWithCallback6(parse); err != nil {
+		if err := m6.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the IPv6 SRv6 VRF mapping map: %s\n", err)
 		}
 
