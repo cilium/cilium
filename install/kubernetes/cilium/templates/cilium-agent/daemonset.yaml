@@ -287,8 +287,7 @@ spec:
         - mountPath: /host/proc/sys/kernel
           name: host-proc-sys-kernel
         {{- end}}
-        {{- /* CRI-O already mounts the BPF filesystem */ -}}
-        {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
+        {{- if .Values.bpf.autoMount.enabled }}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
           {{- if .Values.securityContext.privileged }}
@@ -565,8 +564,7 @@ spec:
         terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           privileged: true
-      {{- /* CRI-O already mounts the BPF filesystem */ -}}
-      {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
+      {{- if and .Values.bpf.autoMount.enabled }}
         volumeMounts:
         - name: bpf-maps
           mountPath: /sys/fs/bpf
@@ -645,8 +643,7 @@ spec:
               - ALL
           {{- end}}
         volumeMounts:
-        {{- /* CRI-O already mounts the BPF filesystem */ -}}
-        {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
+        {{- if .Values.bpf.autoMount.enabled}}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
         {{- end }}
@@ -771,8 +768,7 @@ spec:
         hostPath:
           path: {{ .Values.daemon.runPath }}
           type: DirectoryOrCreate
-      {{- /* CRI-O already mounts the BPF filesystem */ -}}
-      {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
+      {{- if .Values.bpf.autoMount.enabled }}
         # To keep state between restarts / upgrades for bpf maps
       - name: bpf-maps
         hostPath:
