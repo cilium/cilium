@@ -119,7 +119,6 @@ spec:
         {{- include "hubble-relay.containers.extra" . | nindent 8 }}
       restartPolicy: Always
       priorityClassName: {{ .Values.hubble.relay.priorityClassName }}
-      serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.relay.automount }}
       terminationGracePeriodSeconds: {{ .Values.hubble.relay.terminationGracePeriodSeconds }}
