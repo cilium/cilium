@@ -252,7 +252,6 @@ spec:
       {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.operator.priorityClassName "system-cluster-critical") }}
-      serviceAccount: {{ .Values.serviceAccounts.operator.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.operator.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.operator.automount }}
       {{- with .Values.operator.affinity }}

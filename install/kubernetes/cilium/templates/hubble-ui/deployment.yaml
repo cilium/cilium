@@ -44,7 +44,6 @@ spec:
         {{- omit . "enabled" | toYaml | nindent 8 }}
       {{- end }}
       priorityClassName: {{ .Values.hubble.ui.priorityClassName }}
-      serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.ui.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.ui.automount }}
       {{- with .Values.imagePullSecrets }}

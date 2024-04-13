@@ -404,7 +404,6 @@ spec:
       {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}
-      serviceAccount: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       terminationGracePeriodSeconds: {{ .Values.clustermesh.apiserver.terminationGracePeriodSeconds }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.clustermeshApiserver.automount }}
