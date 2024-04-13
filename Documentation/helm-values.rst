@@ -844,14 +844,6 @@
      - Configure the maximum frequency for the garbage collection of the connection tracking table. Only affects the automatic computation for the frequency and has no effect when 'conntrackGCInterval' is set. This can be set to more frequently clean up unused identities created from ToFQDN policies.
      - string
      - ``""``
-   * - :spelling:ignore:`containerRuntime`
-     - Configure container runtime specific integration. Deprecated in favor of bpf.autoMount.enabled. To be removed in 1.15.
-     - object
-     - ``{"integration":"none"}``
-   * - :spelling:ignore:`containerRuntime.integration`
-     - Enables specific integrations for container runtimes. Supported values: - crio - none
-     - string
-     - ``"none"``
    * - :spelling:ignore:`crdWaitTimeout`
      - Configure timeout in which Cilium will exit if CRDs are not available
      - string

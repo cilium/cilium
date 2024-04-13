@@ -1346,14 +1346,6 @@
     "conntrackGCMaxInterval": {
       "type": "string"
     },
-    "containerRuntime": {
-      "properties": {
-        "integration": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
     "crdWaitTimeout": {
       "type": "string"
     },
