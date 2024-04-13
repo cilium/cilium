@@ -743,7 +743,6 @@ spec:
       {{- end }} # .Values.cni.install
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
-      serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.cilium.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.cilium.automount }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
