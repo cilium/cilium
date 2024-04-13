@@ -165,8 +165,6 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"tc/globals/cilium_srv6_vrf_v6",
 		"tc/globals/cilium_srv6_policy_v4",
 		"tc/globals/cilium_srv6_policy_v6",
-		"tc/globals/cilium_srv6_state_v4",
-		"tc/globals/cilium_srv6_state_v6",
 		"tc/globals/cilium_srv6_sid",
 		"tc/globals/cilium_lb4_services_v2",
 		"tc/globals/cilium_lb4_backends_v2",
