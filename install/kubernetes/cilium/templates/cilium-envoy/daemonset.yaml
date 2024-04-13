@@ -213,7 +213,6 @@ spec:
       {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.envoy.priorityClassName "system-node-critical") }}
-      serviceAccount: {{ .Values.serviceAccounts.envoy.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.envoy.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.envoy.automount }}
       terminationGracePeriodSeconds: {{ .Values.envoy.terminationGracePeriodSeconds }}
