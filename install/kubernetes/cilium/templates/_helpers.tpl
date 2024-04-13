@@ -52,17 +52,6 @@ where:
 {{- end -}}
 
 {{/*
-Return the appropriate apiVersion for podDisruptionBudget.
-*/}}
-{{- define "podDisruptionBudget.apiVersion" -}}
-{{- if semverCompare ">=1.21-0" .Capabilities.KubeVersion.Version -}}
-{{- print "policy/v1" -}}
-{{- else -}}
-{{- print "policy/v1beta1" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
 Generate TLS CA for Cilium
 Note: Always use this template as follows:
     {{- $_ := include "cilium.ca.setup" . -}}
