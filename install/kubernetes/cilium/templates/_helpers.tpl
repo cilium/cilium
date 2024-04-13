@@ -43,11 +43,7 @@ where:
 {{- if $priorityClass }}
   {{- $priorityClass }}
 {{- else if and $root.Values.enableCriticalPriorityClass $criticalPriorityClass -}}
-  {{- if and (eq $root.Release.Namespace "kube-system") (semverCompare ">=1.10-0" $root.Capabilities.KubeVersion.Version) -}}
-    {{- $criticalPriorityClass }}
-  {{- else if semverCompare ">=1.17-0" $root.Capabilities.KubeVersion.Version -}}
-    {{- $criticalPriorityClass }}
-  {{- end -}}
+  {{- $criticalPriorityClass }}
 {{- end -}}
 {{- end -}}
 
