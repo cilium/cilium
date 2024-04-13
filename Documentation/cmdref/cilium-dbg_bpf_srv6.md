@@ -23,6 +23,5 @@ Manage the SRv6 routing rules
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
 * [cilium-dbg bpf srv6 policy](cilium-dbg_bpf_srv6_policy.md)	 - List SRv6 policy entries
 * [cilium-dbg bpf srv6 sid](cilium-dbg_bpf_srv6_sid.md)	 - List SRv6 SID entries
-* [cilium-dbg bpf srv6 state](cilium-dbg_bpf_srv6_state.md)	 - List SRv6 state entries
 * [cilium-dbg bpf srv6 vrf](cilium-dbg_bpf_srv6_vrf.md)	 - List SRv6 VRF mappings
 

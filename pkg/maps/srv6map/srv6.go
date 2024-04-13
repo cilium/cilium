@@ -7,4 +7,5 @@ func CreateMaps() {
 	CreatePolicyMaps()
 	CreateSIDMap()
 	CreateVRFMaps()
+	cleanupStateMap()
 }
