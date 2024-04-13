@@ -1,6 +1,6 @@
 {{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.ingress.enabled }}
 {{- $baseUrl  := .Values.hubble.ui.baseUrl -}}
-apiVersion: {{ template "ingress.apiVersion" . }}
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: hubble-ui
@@ -35,6 +35,11 @@ spec:
       http:
         paths:
           - path: {{ $baseUrl | quote }}
-            {{- include "ingress.paths" $ | nindent 12 }}
+            pathType: Prefix
+            backend:
+              service:
+                name: hubble-ui
+                port:
+                  name: http
   {{- end }}
 {{- end }}
