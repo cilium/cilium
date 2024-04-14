@@ -5,7 +5,7 @@ package srv6map
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"strconv"
 	"unsafe"
 
@@ -48,11 +48,11 @@ func (v *VRFKey4) String() string {
 	return fmt.Sprintf("srcip=%s, destCIDR=%s", v.SourceIP, v.getDestCIDR())
 }
 
-func (k *VRFKey4) getDestCIDR() *net.IPNet {
-	return &net.IPNet{
-		IP:   k.DestCIDR.IP(),
-		Mask: net.CIDRMask(int(k.PrefixLen-vrf4StaticPrefixBits), 32),
-	}
+func (k *VRFKey4) getDestCIDR() netip.Prefix {
+	return netip.PrefixFrom(
+		k.DestCIDR.Addr(),
+		int(k.PrefixLen-vrf4StaticPrefixBits),
+	)
 }
 
 // VRFKey6 is a key for the VRFMap6. Implements bpf.MapKey.
@@ -71,17 +71,17 @@ func (v *VRFKey6) String() string {
 	return fmt.Sprintf("srcip=%s, destCIDR=%s", v.SourceIP, v.getDestCIDR())
 }
 
-func (k *VRFKey6) getDestCIDR() *net.IPNet {
-	return &net.IPNet{
-		IP:   k.DestCIDR.IP(),
-		Mask: net.CIDRMask(int(k.PrefixLen-vrf6StaticPrefixBits), 128),
-	}
+func (k *VRFKey6) getDestCIDR() netip.Prefix {
+	return netip.PrefixFrom(
+		k.DestCIDR.Addr(),
+		int(k.PrefixLen-vrf6StaticPrefixBits),
+	)
 }
 
 // VRFKey abstracts away the differences between VRFKey4 and VRFKey6.
 type VRFKey struct {
-	SourceIP *net.IP
-	DestCIDR *net.IPNet
+	SourceIP netip.Addr
+	DestCIDR netip.Prefix
 }
 
 // VRFValue is a value for the VRFMap4/6. Implements bpf.MapValue.
@@ -111,9 +111,8 @@ type VRFMap6 srv6VRFMap
 func (m *VRFMap4) IterateWithCallback(cb SRv6VRFIterateCallback) error {
 	return m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
 		k4 := k.(*VRFKey4)
-		sip := k4.SourceIP.IP()
 		key := &VRFKey{
-			SourceIP: &sip,
+			SourceIP: k4.SourceIP.Addr(),
 			DestCIDR: k4.getDestCIDR(),
 		}
 		value := v.(*VRFValue)
@@ -126,9 +125,8 @@ func (m *VRFMap4) IterateWithCallback(cb SRv6VRFIterateCallback) error {
 func (m *VRFMap6) IterateWithCallback(cb SRv6VRFIterateCallback) error {
 	return m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
 		k6 := k.(*VRFKey6)
-		sip := k6.SourceIP.IP()
 		key := &VRFKey{
-			SourceIP: &sip,
+			SourceIP: k6.SourceIP.Addr(),
 			DestCIDR: k6.getDestCIDR(),
 		}
 		value := v.(*VRFValue)

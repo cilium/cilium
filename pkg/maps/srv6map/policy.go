@@ -5,7 +5,7 @@ package srv6map
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"strconv"
 	"unsafe"
 
@@ -44,11 +44,11 @@ func (k *PolicyKey4) String() string {
 	return fmt.Sprintf("vrfid=%d, destCIDR=%s", k.VRFID, k.getDestCIDR())
 }
 
-func (k *PolicyKey4) getDestCIDR() *net.IPNet {
-	return &net.IPNet{
-		IP:   k.DestCIDR.IP(),
-		Mask: net.CIDRMask(int(k.PrefixLen-policyStaticPrefixBits), 32),
-	}
+func (k *PolicyKey4) getDestCIDR() netip.Prefix {
+	return netip.PrefixFrom(
+		k.DestCIDR.Addr(),
+		int(k.PrefixLen-policyStaticPrefixBits),
+	)
 }
 
 // PolicyKey6 is a key for the PolicyMap6. Implements bpf.MapKey.
@@ -67,17 +67,17 @@ func (k *PolicyKey6) String() string {
 	return fmt.Sprintf("vrfid=%d, destCIDR=%s", k.VRFID, k.getDestCIDR())
 }
 
-func (k *PolicyKey6) getDestCIDR() *net.IPNet {
-	return &net.IPNet{
-		IP:   k.DestCIDR.IP(),
-		Mask: net.CIDRMask(int(k.PrefixLen-policyStaticPrefixBits), 128),
-	}
+func (k *PolicyKey6) getDestCIDR() netip.Prefix {
+	return netip.PrefixFrom(
+		k.DestCIDR.Addr(),
+		int(k.PrefixLen-policyStaticPrefixBits),
+	)
 }
 
 // PolicyKey abstracts away the differences between PolicyKey4 and PolicyKey6.
 type PolicyKey struct {
 	VRFID    uint32
-	DestCIDR *net.IPNet
+	DestCIDR netip.Prefix
 }
 
 // PolicyValue is a value for the PolicyMap4/6. Implements bpf.MapValue.
