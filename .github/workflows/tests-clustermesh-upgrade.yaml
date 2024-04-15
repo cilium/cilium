@@ -114,8 +114,8 @@ jobs:
           "
 
           # * bpf.masquerade is disabled due to #23283
-          # * Hubble is disabled to avoid the performance penalty in the testing
-          #   environment due to the relatively high traffic load.
+          # * Monitor aggregation is set to medium to avoid the performance penalty
+          #   in the testing environment due to the relatively high traffic load.
           # * We explicitly configure the IPAM mode to prevent it from being
           #   reset to the default value on upgrade/downgrade due to --reset-values.
           # * We configure the maximum number of unavailable agents to 1 to slow
@@ -124,8 +124,8 @@ jobs:
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
             --set=bpf.masquerade=false \
-            --set=bpf.monitorAggregation=none \
-            --set=hubble.enabled=false \
+            --set=bpf.monitorAggregation=medium \
+            --set=hubble.enabled=true \
             --set=tunnel=vxlan \
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=true \
