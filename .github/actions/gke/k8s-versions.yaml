@@ -1,19 +1,16 @@
 # List of k8s version for GKE tests
 ---
 k8s:
-  - version: "1.25"
-    zone: us-west1-b
-    vmIndex: 1
   - version: "1.26"
     zone: us-west2-c
-    vmIndex: 2
+    vmIndex: 1
   - version: "1.27"
     zone: us-west3-a
-    vmIndex: 3
-    default: true
+    vmIndex: 2
   - version: "1.28"
     zone: us-east4-b
-    vmIndex: 4
+    vmIndex: 3
   - version: "1.29"
     zone: us-east1-c
-    vmIndex: 5
+    vmIndex: 4
+    default: true
