@@ -1273,7 +1273,11 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		}
 	}
 
-	return errs
+	if errs != nil {
+		log.WithError(errs).Warn("node configuration changed but was unable to update node datapath configuration")
+	}
+
+	return nil
 }
 
 func filterL2Devices(devices []string) ([]string, error) {
