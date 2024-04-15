@@ -75,7 +75,8 @@ versionwarning_api_url = "https://docs.cilium.io/"
 
 # The version of Go used to compile Cilium
 go_mod = open("../go.mod", "r").readlines()
-go_release = [line.rstrip()[len("go "):] for line in go_mod if line.startswith("go ")][0]
+go_release = [line.rstrip()[len("go "):]
+              for line in go_mod if line.startswith("go ")][0]
 
 # The image tag for Cilium docker images
 image_tag = 'v' + release
@@ -215,7 +216,7 @@ htmlhelp_basename = 'Ciliumdoc'
 # -- Options for Last Page Edit -------------------------------------------
 # If not None, a 'Last updated on:' timestamp is inserted at every page
 # bottom, using the given strftime format.
-# The empty string is equivalent to '%b %d, %Y'. 
+# The empty string is equivalent to '%b %d, %Y'.
 html_last_updated_fmt = '%b %d, %Y'
 
 
@@ -299,6 +300,7 @@ linkcheck_anchors = False
 linkcheck_retries = 5
 
 tls_verify = False
+
 
 def setup(app):
     app.add_css_file('parsed-literal.css')
