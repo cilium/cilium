@@ -182,7 +182,7 @@ github.com/cilium/coverbee/pkg/verifierlog
 ## explicit; go 1.20
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
+# github.com/cilium/dns v1.1.51-0.20240411200813-4e6b438d9e05
 ## explicit; go 1.18
 github.com/cilium/dns
 # github.com/cilium/ebpf v0.10.1-0.20230626090016-654491c8a500
