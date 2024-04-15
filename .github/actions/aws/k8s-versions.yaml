@@ -1,16 +1,10 @@
 # List of k8s version for EKS tests
 ---
 include:
-  - version: "1.24"
-    region: ca-west-1
-  - version: "1.25"
-    region: us-west-2
   - version: "1.26"
     region: us-west-1
-    default: true
   - version: "1.27"
     region: us-east-2
-    default: true
     ipsec: true
   - version: "1.28"
     region: ca-central-1
@@ -18,3 +12,4 @@ include:
   - version: "1.29"
     region: us-east-1
     ipsec: true
+    default: true
