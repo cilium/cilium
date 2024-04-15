@@ -1,11 +1,7 @@
 # List of k8s version for AKS tests
 ---
 include:
-  - version: "1.25"
-    location: westus3
-    index: 1
-    disabled: true
   - version: "1.26"
     location: westus2
-    index: 2
+    index: 1
     default: true
