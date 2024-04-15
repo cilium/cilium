@@ -88,7 +88,7 @@ func (opt *inliningOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.A
 		if len(matches) == 1 || !isBindable(matches, inlineVar.Expr(), inlineVar.Type()) {
 			for _, match := range matches {
 				// Copy the inlined AST expr and source info.
-				copyExpr := copyASTAndMetadata(ctx, inlineVar.def)
+				copyExpr := ctx.CopyASTAndMetadata(inlineVar.def)
 				opt.inlineExpr(ctx, match, copyExpr, inlineVar.Type())
 			}
 			continue
@@ -121,24 +121,13 @@ func (opt *inliningOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.A
 		}
 
 		// Copy the inlined AST expr and source info.
-		copyExpr := copyASTAndMetadata(ctx, inlineVar.def)
+		copyExpr := ctx.CopyASTAndMetadata(inlineVar.def)
 		// Update the least common ancestor by inserting a cel.bind() call to the alias.
 		inlined, bindMacro := ctx.NewBindMacro(lca.ID(), inlineVar.Alias(), copyExpr, lca)
 		opt.inlineExpr(ctx, lca, inlined, inlineVar.Type())
-		ctx.sourceInfo.SetMacroCall(lca.ID(), bindMacro)
+		ctx.SetMacroCall(lca.ID(), bindMacro)
 	}
 	return a
-}
-
-// copyASTAndMetadata copies the input AST and propagates the macro metadata into the AST being
-// optimized.
-func copyASTAndMetadata(ctx *OptimizerContext, a *ast.AST) ast.Expr {
-	copyExpr, copyInfo := ctx.CopyAST(a)
-	// Add in the macro calls from the inlined AST
-	for id, call := range copyInfo.MacroCalls() {
-		ctx.sourceInfo.SetMacroCall(id, call)
-	}
-	return copyExpr
 }
 
 // inlineExpr replaces the current expression with the inlined one, unless the location of the inlining
@@ -168,11 +157,11 @@ func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, i
 	if inlined.Kind() == ast.SelectKind {
 		presenceTest, hasMacro := ctx.NewHasMacro(prev.ID(), inlined)
 		ctx.UpdateExpr(prev, presenceTest)
-		ctx.sourceInfo.SetMacroCall(prev.ID(), hasMacro)
+		ctx.SetMacroCall(prev.ID(), hasMacro)
 		return
 	}
 
-	ctx.sourceInfo.ClearMacroCall(prev.ID())
+	ctx.ClearMacroCall(prev.ID())
 	if inlinedType.IsAssignableType(NullType) {
 		ctx.UpdateExpr(prev,
 			ctx.NewCall(operators.NotEquals,

@@ -77,6 +77,7 @@ go_test(
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "//common/types/traits:go_default_library",
+        "//ext:go_default_library",
         "//test:go_default_library",
         "//test/proto2pb:go_default_library",
         "//test/proto3pb:go_default_library",
