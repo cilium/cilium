@@ -114,7 +114,7 @@ github_repo = 'https://github.com/cilium/cilium/'
 archive_filename = archive_name + '.tar.gz'
 archive_link = github_repo + 'archive/' + archive_filename
 archive_name = 'cilium-' + archive_name.strip('v')
-project_link = github_repo + 'projects?query=is:open+' + next_release
+project_link = github_repo + 'projects?type=classic&query=is:open+' + next_release
 backport_format = github_repo + \
     'pulls?q=is:open+is:pr+-label:backport/author+label:%s/' + current_release
 
