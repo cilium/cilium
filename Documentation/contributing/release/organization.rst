@@ -18,9 +18,9 @@ view the projects related to the \ |NEXT_RELEASE| release here:
 Release Cadence
 ---------------
 
-New versions of Cilium are released based on completion of feature work that
-has been scheduled for that release. Minor releases are typically designated by
-by incrementing the ``Y`` in the version format ``X.Y.Z``.
+New versions of Cilium are released on a cadence of around six months. Minor
+releases are typically designated by by incrementing the ``Y`` in the version
+format ``X.Y.Z``.
 
 Three stable branches are maintained at a time: One for the most recent minor
 release, and two for the prior two minor releases. For each minor release that
