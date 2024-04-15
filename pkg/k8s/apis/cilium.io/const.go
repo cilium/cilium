@@ -80,6 +80,10 @@ const (
 	// to sync the CNP with kube-apiserver.
 	CtrlPrefixPolicyStatus = "sync-cnp-policy-status"
 
+	// BatchJobControllerUID is one of the labels that is available on a Job
+	// https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-labels
+	BatchJobControllerUID = "batch.kubernetes.io/controller-uid"
+
 	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
 	CiliumIdentityAnnotationDeprecated = "cilium-identity"
 )
