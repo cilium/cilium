@@ -5,7 +5,7 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-      {}
+      kind: client
   egress:
     - toEntities:
         - cluster
