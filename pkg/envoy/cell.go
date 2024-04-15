@@ -32,6 +32,7 @@ var Cell = cell.Module(
 
 	cell.Config(envoyProxyConfig{}),
 	cell.Config(secretSyncConfig{}),
+	cell.Config(AccessLogParams{}),
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
 	cell.ProvidePrivate(newEnvoyAccessLogServer),
@@ -39,6 +40,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newArtifactCopier),
 	cell.Invoke(registerEnvoyVersionCheck),
 	cell.Invoke(registerSecretSyncer),
+	cell.Provide(InitEnvoyAccessLog),
 )
 
 type envoyProxyConfig struct {
@@ -188,7 +190,7 @@ type accessLogServerParams struct {
 
 func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 	if !option.Config.EnableL7Proxy {
-		log.Debug("L7 proxies are disabled - not starting Envoy AccessLog server")
+		log.Debug("L7 proxies are disabled - not starting Envoy AccessLogs server")
 		return nil
 	}
 
@@ -197,7 +199,7 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
 			if err := accessLogServer.start(); err != nil {
-				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
+				return fmt.Errorf("failed to start Envoy AccessLogs server: %w", err)
 			}
 			return nil
 		},

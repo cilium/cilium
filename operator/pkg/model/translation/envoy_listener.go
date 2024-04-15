@@ -9,6 +9,7 @@ import (
 	goslices "slices"
 	"syscall"
 
+	envoy_config_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_extensions_listener_proxy_protocol_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/proxy_protocol/v3"
@@ -149,7 +150,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // NewHTTPListenerWithDefaults same as NewListener but with default mutators applied.
-func NewHTTPListenerWithDefaults(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewHTTPListenerWithDefaults(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, accessLogs []*envoy_config_accesslog_v3.AccessLog, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -157,19 +158,20 @@ func NewHTTPListenerWithDefaults(name string, ciliumSecretNamespace string, tls 
 			defaultTCPKeepAliveProbeIntervalInSeconds,
 			defaultTCPKeepAliveMaxFailures),
 	)
-	return NewHTTPListener(name, ciliumSecretNamespace, tls, fns...)
+	return NewHTTPListener(name, ciliumSecretNamespace, tls, accessLogs, fns...)
 }
 
 // NewHTTPListener creates a new Envoy listener with the given name.
 // The listener will have both secure and insecure filters.
 // Secret Discovery Service (SDS) is used to fetch the TLS certificates.
-func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, accessLogs []*envoy_config_accesslog_v3.AccessLog, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
 	insecureHttpConnectionManager, err := NewHTTPConnectionManager(
 		insecureHttpConnectionManagerName,
 		insecureHttpConnectionManagerName,
+		WithAccessLog(accessLogs),
 	)
 	if err != nil {
 		return ciliumv2.XDSResource{}, err
@@ -293,7 +295,7 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 }
 
 // NewSNIListenerWithDefaults same as NewSNIListener but with default mutators applied.
-func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string, accessLogs []*envoy_config_accesslog_v3.AccessLog, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -301,12 +303,12 @@ func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string
 			defaultTCPKeepAliveProbeIntervalInSeconds,
 			defaultTCPKeepAliveMaxFailures),
 	)
-	return NewSNIListener(name, backendsForHost, fns...)
+	return NewSNIListener(name, backendsForHost, accessLogs, fns...)
 }
 
 // NewSNIListener creates a new Envoy listener with the given name.
-// The listener will be configured to use SNI to determine thhe backend
-func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+// The listener will be configured to use SNI to determine the backend
+func NewSNIListener(name string, backendsForHost map[string][]string, accessLogs []*envoy_config_accesslog_v3.AccessLog, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
 	orderedBackends := maps.Keys(backendsForHost)
@@ -325,6 +327,7 @@ func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFun
 							ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
 								Cluster: backend,
 							},
+							AccessLog: accessLogs,
 						}),
 					},
 				},

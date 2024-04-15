@@ -80,6 +80,10 @@ cilium-operator-alibabacloud hive [flags]
       --operator-pprof-address string                           Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                              Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string                   Address to serve Prometheus metrics (default ":9963")
+      --proxy-accesslog-enabled                                 Enable Envoy Proxy Access Log
+      --proxy-accesslog-format string                           Proxy Access Log format (e.g. json or text)
+      --proxy-accesslog-path string                             Proxy Access Log path. Defaults to /dev/stdout
+      --proxy-accesslog-pattern string                          Proxy Access Log string pattern
       --skip-crd-creation                                       When true, Kubernetes Custom Resource Definitions will not be created
 ```
 

@@ -93,6 +93,10 @@ cilium-agent hive dot-graph [flags]
       --prepend-iptables-chains                                   Prepend custom iptables chains instead of appending (default true)
       --procfs string                                             Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+      --proxy-accesslog-enabled                                   Enable Envoy Proxy Access Log
+      --proxy-accesslog-format string                             Proxy Access Log format (e.g. json or text)
+      --proxy-accesslog-path string                               Proxy Access Log path. Defaults to /dev/stdout
+      --proxy-accesslog-pattern string                            Proxy Access Log string pattern
       --proxy-admin-port int                                      Port to serve Envoy admin interface on.
       --proxy-connect-timeout uint                                Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)

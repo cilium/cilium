@@ -46,6 +46,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/healthv2"
 	"github.com/cilium/cilium/pkg/hive"
@@ -128,6 +129,7 @@ var (
 		"Operator Control Plane",
 
 		cell.Config(cmtypes.DefaultClusterInfo),
+		cell.Config(envoy.AccessLogParams{}),
 		cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.InitClusterIDMax() }),
 		cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.Validate() }),
 
@@ -169,6 +171,8 @@ var (
 				DisableCiliumEndpointCRD: daemonCfg.DisableCiliumEndpointCRD,
 			}
 		}),
+
+		cell.Provide(envoy.InitEnvoyAccessLog),
 
 		api.HealthHandlerCell(
 			kvstoreEnabled,

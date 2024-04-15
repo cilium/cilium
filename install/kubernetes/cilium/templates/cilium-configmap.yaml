@@ -234,6 +234,13 @@ data:
   {{- end }}
 {{- end }}
 
+{{- if .Values.envoy.accessLog.enabled }}
+  proxy-accesslog-enabled: {{ .Values.envoy.accessLog.enabled | quote }}
+  proxy-accesslog-path: {{ .Values.envoy.accessLog.path | quote }}
+  proxy-accesslog-format: {{ .Values.envoy.accessLog.format | quote }}
+  proxy-accesslog-pattern: {{ .Values.envoy.accessLog.pattern | quote }}
+{{- end }}
+
 {{- if .Values.operator.prometheus.enabled }}
   # If you want metrics enabled in cilium-operator, set the port for
   # which the Cilium Operator will have their metrics exposed.

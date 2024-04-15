@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	envoy_config_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,6 +92,8 @@ type gatewayAPIParams struct {
 	AgentConfig      *option.DaemonConfig
 	OperatorConfig   *operatorOption.OperatorConfig
 	GatewayApiConfig gatewayApiConfig
+
+	AccessLogs []*envoy_config_accesslog_v3.AccessLog
 }
 
 func initGatewayAPIController(params gatewayAPIParams) error {
@@ -128,6 +131,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.AgentConfig.EnableIPv4,
 		params.AgentConfig.EnableIPv6,
 		params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
+		params.AccessLogs,
 	)
 
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, params.GatewayApiConfig.GatewayAPIHostnetworkEnabled)

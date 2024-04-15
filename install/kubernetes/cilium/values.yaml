@@ -2184,6 +2184,25 @@ envoy:
       # -- Port number (bound to loopback interface).
       # kubectl port-forward can be used to access the admin interface.
       port: 9901
+  accessLog:
+    # -- Enable Envoy Access Logging.
+    # ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/access_log
+    enabled: true
+    # -- Access log format
+    # Applicable values: text, json
+    # @schema
+    # type: [null, string]
+    # @schema
+    format: text
+    # -- Path to a separate Envoy log file, if any.
+    path: "/var/run/cilium/envoy-accesslog.log"
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Format string pattern for Envoy access logs.
+    # ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage"
+    pattern: |
+      [%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% "%REQ(X-FORWARDED-FOR)%" "%REQ(USER-AGENT)%" "%REQ(X-REQUEST-ID)%" "%REQ(:AUTHORITY)%" "%UPSTREAM_HOST%"\n
   # -- Configure Cilium Envoy Prometheus options.
   # Note that some of these apply to either cilium-agent or cilium-envoy.
   prometheus:

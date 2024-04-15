@@ -6,6 +6,7 @@ package ingress
 import (
 	"fmt"
 
+	envoy_config_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -91,6 +92,8 @@ type ingressParams struct {
 	AgentConfig        *option.DaemonConfig
 	OperatorConfig     *operatorOption.OperatorConfig
 	IngressConfig      ingressConfig
+
+	AccessLogs []*envoy_config_accesslog_v3.AccessLog
 }
 
 func registerReconciler(params ingressParams) error {
@@ -114,6 +117,7 @@ func registerReconciler(params ingressParams) error {
 		params.AgentConfig.EnableIPv4,
 		params.AgentConfig.EnableIPv6,
 		operatorOption.Config.IngressProxyXffNumTrustedHops,
+		params.AccessLogs,
 	)
 
 	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)

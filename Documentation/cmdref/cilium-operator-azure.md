@@ -120,6 +120,10 @@ cilium-operator-azure [flags]
       --operator-prometheus-serve-addr string                   Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                              Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string                             cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
+      --proxy-accesslog-enabled                                 Enable Envoy Proxy Access Log
+      --proxy-accesslog-format string                           Proxy Access Log format (e.g. json or text)
+      --proxy-accesslog-path string                             Proxy Access Log path. Defaults to /dev/stdout
+      --proxy-accesslog-pattern string                          Proxy Access Log string pattern
       --remove-cilium-node-taints                               Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                              Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --set-cilium-node-taints                                  Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running

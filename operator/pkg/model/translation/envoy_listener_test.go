@@ -23,7 +23,7 @@ import (
 
 func TestNewHTTPListener(t *testing.T) {
 	t.Run("without TLS", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil)
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -36,7 +36,7 @@ func TestNewHTTPListener(t *testing.T) {
 	})
 
 	t.Run("with default XffNumTrustedHops", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil)
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -52,7 +52,7 @@ func TestNewHTTPListener(t *testing.T) {
 	})
 
 	t.Run("without TLS with Proxy Protocol", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, WithProxyProtocol())
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, nil, WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -74,11 +74,11 @@ func TestNewHTTPListener(t *testing.T) {
 		res1, err1 := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-		})
+		}, nil)
 		res2, err2 := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
-		})
+		}, nil)
 
 		require.NoError(t, err1)
 		require.NoError(t, err2)
@@ -93,7 +93,7 @@ func TestNewHTTPListener(t *testing.T) {
 		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-		})
+		}, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -148,6 +148,7 @@ func TestNewSNIListener(t *testing.T) {
 					"example.com",
 				},
 			},
+			nil,
 		)
 		require.Nil(t, err)
 
@@ -173,6 +174,7 @@ func TestNewSNIListener(t *testing.T) {
 					"foo.bar",
 				},
 			},
+			nil,
 		)
 		res2, err2 := NewSNIListener("dummy-name",
 			map[string][]string{
@@ -184,6 +186,7 @@ func TestNewSNIListener(t *testing.T) {
 					"example.com",
 				},
 			},
+			nil,
 		)
 		require.Nil(t, err1)
 		require.Nil(t, err2)
@@ -195,7 +198,7 @@ func TestNewSNIListener(t *testing.T) {
 	})
 
 	t.Run("normal SNI listener with Proxy Protocol", func(t *testing.T) {
-		res, err := NewSNIListener("dummy-name", map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
+		res, err := NewSNIListener("dummy-name", map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, nil, WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}

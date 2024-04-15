@@ -9,6 +9,7 @@ import (
 	goslices "slices"
 	"sort"
 
+	envoy_config_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,12 +52,14 @@ type cecTranslator struct {
 	idleTimeoutSeconds int
 
 	xffNumTrustedHops uint32
+
+	accessLogs []*envoy_config_accesslog_v3.AccessLog
 }
 
 // NewCECTranslator returns a new translator
 func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
 	hostNetworkEnabled bool, hostNetworkNodeLabelSelector *slim_metav1.LabelSelector, ipv4Enabled bool, ipv6Enabled bool,
-	xffNumTrustedHops uint32,
+	xffNumTrustedHops uint32, accessLogs []*envoy_config_accesslog_v3.AccessLog,
 ) CECTranslator {
 	return &cecTranslator{
 		secretsNamespace:             secretsNamespace,
@@ -68,6 +71,7 @@ func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, hostNameSu
 		hostNetworkNodeLabelSelector: hostNetworkNodeLabelSelector,
 		ipv4Enabled:                  ipv4Enabled,
 		ipv6Enabled:                  ipv6Enabled,
+		accessLogs:                   accessLogs,
 	}
 }
 
@@ -167,7 +171,7 @@ func (i *cecTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResou
 		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
 	}
 
-	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap, mutatorFuncs...)
+	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap, i.accessLogs, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
@@ -200,7 +204,7 @@ func (i *cecTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSResour
 		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m.TLS, i.ipv4Enabled, i.ipv6Enabled))
 	}
 
-	l, _ := NewSNIListenerWithDefaults("listener", backendsMap, mutatorFuncs...)
+	l, _ := NewSNIListenerWithDefaults("listener", backendsMap, i.accessLogs, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 

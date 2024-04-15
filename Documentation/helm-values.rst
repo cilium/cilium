@@ -1100,6 +1100,22 @@
      - Update ENI Adapter limits from the EC2 API
      - bool
      - ``true``
+   * - :spelling:ignore:`envoy.accessLog.enabled`
+     - Enable Envoy Access Logging. ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/access_log
+     - bool
+     - ``true``
+   * - :spelling:ignore:`envoy.accessLog.format`
+     - Access log format Applicable values: text, json @schema type: [null, string] @schema
+     - string
+     - ``"text"``
+   * - :spelling:ignore:`envoy.accessLog.path`
+     - Path to a separate Envoy log file, if any.
+     - string
+     - ``"/var/run/cilium/envoy-accesslog.log"``
+   * - :spelling:ignore:`envoy.accessLog.pattern`
+     - Format string pattern for Envoy access logs. ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage"
+     - string
+     - ``"[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\"\\n\n"``
    * - :spelling:ignore:`envoy.affinity`
      - Affinity for cilium-envoy.
      - object

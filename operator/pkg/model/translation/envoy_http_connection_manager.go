@@ -4,6 +4,7 @@
 package translation
 
 import (
+	accessLogv3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	grpcStatsv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcWebv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_web/v3"
@@ -19,6 +20,17 @@ import (
 )
 
 type HttpConnectionManagerMutator func(*httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager
+
+// WithAccessLog returns a mutation function that sets the access log path for the connection manager.
+func WithAccessLog(accessLogs []*accessLogv3.AccessLog) HttpConnectionManagerMutator {
+	return func(hcm *httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager {
+		if len(accessLogs) == 0 {
+			return hcm
+		}
+		hcm.AccessLog = accessLogs
+		return hcm
+	}
+}
 
 // NewHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
 // Mutation functions can be passed to modify the filter based on the caller's needs.
