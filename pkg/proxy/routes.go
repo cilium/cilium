@@ -111,7 +111,7 @@ var (
 		Protocol: linux_defaults.RTProto,
 	}
 
-	//nolint:unused // Routing rule for traffic from egress proxy.
+	// Routing rule for traffic from egress proxy.
 	fromEgressProxyRule = route.Rule{
 		Priority: linux_defaults.RulePriorityFromProxy,
 		Mark:     linux_defaults.MagicMarkEgress,
@@ -169,6 +169,13 @@ func removeFromIngressProxyRoutesIPv4() error {
 // removeStaleProxyRulesIPv4 removes stale proxy rules. This is a v1.15 only function.
 func removeStaleProxyRulesIPv4() error {
 	return removeProtoUnspecRules(netlink.FAMILY_V4)
+}
+
+func removeFromEgressProxyRoutesIPv4() error {
+	if err := route.DeleteRule(netlink.FAMILY_V4, fromEgressProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
+		return fmt.Errorf("removing ipv4 from egress proxy routing rule: %w", err)
+	}
+	return nil
 }
 
 // installFromProxyRoutesIPv6 configures routes and rules needed to redirect ingress
@@ -243,6 +250,15 @@ func removeProtoUnspecRules(family int) error {
 			if err := netlink.RuleDel(&r); err != nil && !errors.Is(err, syscall.ENOENT) {
 				return fmt.Errorf("removing proto unspec routing rule: %w", err)
 			}
+		}
+	}
+	return nil
+}
+
+func removeFromEgressProxyRoutesIPv6() error {
+	if err := route.DeleteRule(netlink.FAMILY_V6, fromEgressProxyRule); err != nil {
+		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			return fmt.Errorf("removing ipv6 from egress proxy routing rule: %w", err)
 		}
 	}
 	return nil
