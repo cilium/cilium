@@ -50,6 +50,9 @@ Verify that flow logs are stored in target files:
 Once you have configured the Hubble Exporter, you can configure your logging solution to consume
 logs from your Hubble export file path.
 
+To get Hubble flows directly exported to the logs instead of written to a rotated file, 
+``stdout`` can be defined as ``hubble-export-file-path``.
+
 To disable the static configuration, you must remove the ``hubble-export-file-path`` key in the
 ``cilium-config`` ConfigMap and manually clean up the log files created in the specified
 location in the container. The below command will restart the Cilium pods. If you edit the
