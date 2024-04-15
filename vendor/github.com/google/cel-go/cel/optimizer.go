@@ -212,6 +212,12 @@ type optimizerExprFactory struct {
 	sourceInfo *ast.SourceInfo
 }
 
+// NewAST creates an AST from the current expression using the tracked source info which
+// is modified and managed by the OptimizerContext.
+func (opt *optimizerExprFactory) NewAST(expr ast.Expr) *ast.AST {
+	return ast.NewAST(expr, opt.sourceInfo)
+}
+
 // CopyAST creates a renumbered copy of `Expr` and `SourceInfo` values of the input AST, where the
 // renumbering uses the same scheme as the core optimizer logic ensuring there are no collisions
 // between copies.
@@ -224,6 +230,27 @@ func (opt *optimizerExprFactory) CopyAST(a *ast.AST) (ast.Expr, *ast.SourceInfo)
 	copyInfo := ast.CopySourceInfo(a.SourceInfo())
 	normalizeIDs(idGen.renumberStable, copyExpr, copyInfo)
 	return copyExpr, copyInfo
+}
+
+// CopyASTAndMetadata copies the input AST and propagates the macro metadata into the AST being
+// optimized.
+func (opt *optimizerExprFactory) CopyASTAndMetadata(a *ast.AST) ast.Expr {
+	copyExpr, copyInfo := opt.CopyAST(a)
+	for macroID, call := range copyInfo.MacroCalls() {
+		opt.SetMacroCall(macroID, call)
+	}
+	return copyExpr
+}
+
+// ClearMacroCall clears the macro at the given expression id.
+func (opt *optimizerExprFactory) ClearMacroCall(id int64) {
+	opt.sourceInfo.ClearMacroCall(id)
+}
+
+// SetMacroCall sets the macro call metadata for the given macro id within the tracked source info
+// metadata.
+func (opt *optimizerExprFactory) SetMacroCall(id int64, expr ast.Expr) {
+	opt.sourceInfo.SetMacroCall(id, expr)
 }
 
 // NewBindMacro creates an AST expression representing the expanded bind() macro, and a macro expression
@@ -239,7 +266,7 @@ func (opt *optimizerExprFactory) NewBindMacro(macroID int64, varName string, var
 		return id
 	})
 	if call, exists := opt.sourceInfo.GetMacroCall(macroID); exists {
-		opt.sourceInfo.SetMacroCall(remainingID, opt.fac.CopyExpr(call))
+		opt.SetMacroCall(remainingID, opt.fac.CopyExpr(call))
 	}
 
 	astExpr = opt.fac.NewComprehension(macroID,
