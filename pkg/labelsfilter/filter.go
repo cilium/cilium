@@ -224,11 +224,13 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 		"!" + regexp.QuoteMeta(k8sConst.StatefulSetPodNameLabel),        // ignore statefulset.kubernetes.io/pod-name label
 		"!" + regexp.QuoteMeta(k8sConst.StatefulSetPodIndexLabel),       // ignore apps.kubernetes.io/pod-index label
 		"!" + regexp.QuoteMeta(k8sConst.IndexedJobCompletionIndexLabel), // ignore batch.kubernetes.io/job-completion-index label
+		"!" + regexp.QuoteMeta(k8sConst.BatchJobControllerUID),          // ignore batch.kubernetes.io/controller-uid
 		`!.*beta\.kubernetes\.io`,                                       // ignore all beta.kubernetes.io labels
 		`!k8s\.io`,                                                      // ignore all k8s.io labels
 		`!pod-template-generation`,                                      // ignore pod-template-generation
 		`!pod-template-hash`,                                            // ignore pod-template-hash
 		`!controller-revision-hash`,                                     // ignore controller-revision-hash
+		`!controller-uid`,                                               // ignore controller-uid
 		`!annotation.*`,                                                 // ignore all annotation labels
 		`!etcd_node`,                                                    // ignore etcd_node label
 	}
