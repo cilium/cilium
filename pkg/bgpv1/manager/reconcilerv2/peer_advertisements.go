@@ -5,6 +5,7 @@ package reconcilerv2
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -145,4 +146,45 @@ func (p *CiliumPeerAdvertisement) familySelectedAdvertisements(family v2alpha1.C
 		}
 	}
 	return result, nil
+}
+
+func PeerAdvertisementsEqual(first, second PeerAdvertisements) bool {
+	if len(first) != len(second) {
+		return false
+	}
+
+	for peer, peerAdverts := range first {
+		if !FamilyAdvertisementsEqual(peerAdverts, second[peer]) {
+			return false
+		}
+	}
+	return true
+}
+
+func FamilyAdvertisementsEqual(first, second PeerFamilyAdvertisements) bool {
+	if len(first) != len(second) {
+		return false
+	}
+
+	for family, familyAdverts := range first {
+		otherFamilyAdverts, exist := second[family]
+		if !exist || len(familyAdverts) != len(otherFamilyAdverts) {
+			return false
+		}
+
+		sort.Slice(familyAdverts, func(i, j int) bool {
+			return familyAdverts[i].AdvertisementType < familyAdverts[j].AdvertisementType
+		})
+
+		sort.Slice(otherFamilyAdverts, func(i, j int) bool {
+			return otherFamilyAdverts[i].AdvertisementType < otherFamilyAdverts[j].AdvertisementType
+		})
+
+		for i, advert := range familyAdverts {
+			if !advert.DeepEqual(&otherFamilyAdverts[i]) {
+				return false
+			}
+		}
+	}
+	return true
 }
