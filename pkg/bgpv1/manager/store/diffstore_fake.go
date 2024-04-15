@@ -28,6 +28,14 @@ func NewFakeDiffStore[T runtime.Object]() *fakeDiffStore[T] {
 	}
 }
 
+func InitFakeDiffStore[T runtime.Object](objs []T) *fakeDiffStore[T] {
+	mds := NewFakeDiffStore[T]()
+	for _, obj := range objs {
+		mds.Upsert(obj)
+	}
+	return mds
+}
+
 func (mds *fakeDiffStore[T]) Diff() (upserted []T, deleted []resource.Key, err error) {
 	mds.changedMu.Lock()
 	defer mds.changedMu.Unlock()
