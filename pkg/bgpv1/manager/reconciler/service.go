@@ -249,12 +249,11 @@ func (r *ServiceReconciler) diffReconciliationServiceList() (toReconcile []*slim
 			continue
 		}
 
-		// We only need Endpoints tracking for externalTrafficPolicy=Local
-		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
-			continue
+		// We only need Endpoints tracking for externalTrafficPolicy=Local or internalTrafficPolicy=Local.
+		if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal ||
+			(svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal) {
+			upserted = append(upserted, svc)
 		}
-
-		upserted = append(upserted, svc)
 	}
 
 	// We may have duplicated services that changes happened for both of

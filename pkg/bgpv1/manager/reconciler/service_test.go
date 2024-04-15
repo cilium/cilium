@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
@@ -2006,6 +2007,152 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+func TestEPUpdateOnly(t *testing.T) {
+	blueSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+	svc1Name := resource.Key{Name: "svc-1", Namespace: "default"}
+	clusterIPV4 := "192.168.0.1"
+	clusterIPV4Prefix := clusterIPV4 + "/32"
+
+	svc1 := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc1Name.Name,
+			Namespace: svc1Name.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIPV4,
+			ClusterIPs: []string{
+				clusterIPV4,
+			},
+		},
+	}
+
+	svc1WithITP := svc1.DeepCopy()
+	internalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
+	svc1WithITP.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+
+	eps1IPv4Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+	eps1IPv4LocalUpdated := eps1IPv4Local.DeepCopy()
+	eps1IPv4LocalUpdated.Backends = map[cmtypes.AddrCluster]*k8s.Backend{
+		cmtypes.MustParseAddrCluster("10.0.0.1"): {
+			NodeName: "node2",
+		},
+	}
+
+	steps := []struct {
+		name             string
+		vr               *v2alpha1api.CiliumBGPVirtualRouter
+		upsertServices   []*slim_corev1.Service
+		upsertEPs        []*k8s.Endpoints
+		expectedMetadata map[resource.Key][]string
+	}{
+		{
+			name:           "initial setup, cluster wide service",
+			upsertServices: []*slim_corev1.Service{svc1},
+			expectedMetadata: map[resource.Key][]string{
+				svc1Name: {clusterIPV4Prefix},
+			},
+		},
+		{
+			name:             "set service to internalTrafficPolicy=Local",
+			upsertServices:   []*slim_corev1.Service{svc1WithITP},
+			expectedMetadata: map[resource.Key][]string{}, // since there is no local endpoint, no metadata should be added
+		},
+		{
+			name:           "add local endpoint",
+			upsertServices: []*slim_corev1.Service{},        // no update to service
+			upsertEPs:      []*k8s.Endpoints{eps1IPv4Local}, // update endpoints
+			expectedMetadata: map[resource.Key][]string{ // metadata should be added
+				svc1Name: {clusterIPV4Prefix},
+			},
+		},
+		{
+			name:             "remove local endpoint",
+			upsertServices:   []*slim_corev1.Service{},               // no update to service
+			upsertEPs:        []*k8s.Endpoints{eps1IPv4LocalUpdated}, // update endpoint to have backend as node2
+			expectedMetadata: map[resource.Key][]string{              // metadata should be removed
+			},
+		},
+	}
+
+	srvParams := types.ServerParameters{
+		Global: types.BGPGlobal{
+			ASN:        64125,
+			RouterID:   "127.0.0.1",
+			ListenPort: -1,
+		},
+	}
+
+	req := require.New(t)
+
+	vr := &v2alpha1api.CiliumBGPVirtualRouter{
+		LocalASN:              64125,
+		Neighbors:             []v2alpha1api.CiliumBGPNeighbor{},
+		ServiceSelector:       &blueSelector,
+		ServiceAdvertisements: []v2alpha1api.BGPServiceAddressType{v2alpha1api.BGPClusterIPAddr},
+	}
+
+	testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+	req.NoError(err)
+
+	testSC.Config = vr
+
+	diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+	epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+	reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+
+	for _, step := range steps {
+		t.Logf("running step: %s", step.name)
+
+		for _, svc := range step.upsertServices {
+			diffstore.Upsert(svc)
+		}
+
+		for _, ep := range step.upsertEPs {
+			epDiffStore.Upsert(ep)
+		}
+
+		err := reconciler.Reconcile(context.Background(), ReconcileParams{
+			CurrentServer: testSC,
+			DesiredConfig: vr,
+			CiliumNode: &v2api.CiliumNode{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "node1",
+				},
+			},
+		})
+		req.NoError(err)
+
+		// running paths
+		running := make(map[resource.Key][]string)
+		for key, paths := range reconciler.getMetadata(testSC) {
+			for _, path := range paths {
+				running[key] = append(running[key], path.NLRI.String())
+			}
+		}
+
+		req.Equal(step.expectedMetadata, running)
 	}
 }
 
