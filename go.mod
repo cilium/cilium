@@ -21,7 +21,7 @@ require (
 	github.com/cilium/checkmate v1.0.3
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
-	github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
+	github.com/cilium/dns v1.1.51-0.20240411200813-4e6b438d9e05
 	github.com/cilium/ebpf v0.14.0
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.6.1
