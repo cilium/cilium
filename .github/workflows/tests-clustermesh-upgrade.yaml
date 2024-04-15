@@ -137,8 +137,8 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo "downgrade_version=${CILIUM_DOWNGRADE_VERSION}" >> $GITHUB_OUTPUT
 
-          # * Hubble is disabled to avoid the performance penalty in the testing
-          #   environment due to the relatively high traffic load.
+          # * Monitor aggregation is set to medium to avoid the performance penalty
+          #   in the testing environment due to the relatively high traffic load.
           # * We explicitly configure the IPAM mode to prevent it from being
           #   reset to the default value on upgrade/downgrade due to --reset-values.
           # * We explicitly configure the sync timeout to a higher value to
@@ -149,8 +149,8 @@ jobs:
           #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
-            --set=bpf.monitorAggregation=none \
-            --set=hubble.enabled=false \
+            --set=bpf.monitorAggregation=medium \
+            --set=hubble.enabled=true \
             --set=routingMode=tunnel \
             --set=tunnelProtocol=vxlan \
             --set=ipv4.enabled=true \
