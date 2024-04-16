@@ -618,8 +618,8 @@ Step 15: Write Docs or Getting Started Guide (optional)
 At a minimum, the policy examples included as part of the runtime tests serve
 as basic documentation of the policy and its expected behavior.  But we also 
 encourage adding more user friendly examples and documentation, for example, 
-Getting Started Guides.  cilium/Documentation/gettingstarted/cassandra.rst is
-a good example to follow.   Also be sure to update Documentation/gettingstarted/index.rst
+Getting Started Guides.  ``cilium/Documentation/gettingstarted/cassandra.rst`` is
+a good example to follow.   Also be sure to update ``Documentation/gettingstarted/index.rst``
 with a link to this new getting started guide. 
 
 With that, you are ready to post this change for feedback from the Cilium community. Congrats!
