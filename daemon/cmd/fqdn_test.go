@@ -109,7 +109,9 @@ func BenchmarkFqdnCache(b *testing.B) {
 	}
 	b.ResetTimer()
 
-	extractDNSLookups(endpoints, "0.0.0.0/0", "*", "")
+	prefixMatcher := func(_ netip.Addr) bool { return true }
+	nameMatcher := func(_ string) bool { return true }
+	extractDNSLookups(endpoints, prefixMatcher, nameMatcher, "")
 }
 
 // BenchmarkNotifyOnDNSMsg stresses the main callback function for the DNS
