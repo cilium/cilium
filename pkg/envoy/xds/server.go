@@ -261,7 +261,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 		switch chosen {
 		case doneChIndex: // Context got canceled, most likely by the client terminating.
 			streamLog.WithError(ctx.Err()).Debug("xDS stream context canceled")
-			return ctx.Err()
+			return nil
 
 		case reqChIndex: // Request received from the stream.
 			if !recvOK {
