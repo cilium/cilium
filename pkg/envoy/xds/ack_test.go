@@ -21,6 +21,8 @@ const (
 	node0 = "10.0.0.0"
 	node1 = "10.0.0.1"
 	node2 = "10.0.0.2"
+
+	MaxCompletionDuration = 250 * time.Millisecond
 )
 
 type compCheck struct {
@@ -79,6 +81,39 @@ func (c *IsCompletedChecker) Check(params []interface{}, names []string) (result
 // IsCompleted checks that a Completion is completed.
 var IsCompleted Checker = &IsCompletedChecker{
 	&CheckerInfo{Name: "IsCompleted", Params: []string{
+		"completion"}},
+}
+
+// IsCompletedInTimeChecker checks that a Completion is completed without errors.
+type IsCompletedInTimeChecker struct {
+	*CheckerInfo
+}
+
+func (c *IsCompletedInTimeChecker) Check(params []interface{}, names []string) (result bool, err string) {
+	comp, ok := params[0].(*compCheck)
+	if !ok {
+		return false, "completion must be a *compCheck"
+	}
+	if comp == nil {
+		return false, "completion is nil"
+	}
+
+	// receive from a closed channel returns nil, so test for a previous error before trying again
+	if comp.err != nil {
+		return false, err
+	}
+
+	select {
+	case comp.err = <-comp.ch:
+		return comp.err == nil, err
+	case <-time.After(MaxCompletionDuration):
+		return false, "not completed in time"
+	}
+}
+
+// IsCompletedInTime checks that a Completion is completed within MaxCompletionDuration.
+var IsCompletedInTime Checker = &IsCompletedInTimeChecker{
+	&CheckerInfo{Name: "IsCompletedInTime", Params: []string{
 		"completion"}},
 }
 
