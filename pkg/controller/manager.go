@@ -255,37 +255,6 @@ func (m *Manager) TriggerController(name string) {
 	}
 }
 
-// FakeManager returns a fake controller manager with the specified number of
-// failing controllers. The returned manager is identical in any regard except
-// for internal pointers.
-// Used for testing only.
-func FakeManager(failingControllers int) *Manager {
-	m := &Manager{
-		controllers: controllerMap{},
-	}
-
-	for i := 0; i < failingControllers; i++ {
-		ctrl := &managedController{
-			controller: controller{
-				name:              fmt.Sprintf("controller-%d", i),
-				uuid:              fmt.Sprintf("%d", i),
-				stop:              make(chan struct{}),
-				update:            make(chan ControllerParams, 1),
-				trigger:           make(chan struct{}, 1),
-				terminated:        make(chan struct{}),
-				lastError:         fmt.Errorf("controller failed"),
-				failureCount:      1,
-				consecutiveErrors: 1,
-			},
-		}
-
-		ctrl.params.Context, ctrl.cancelDoFunc = context.WithCancel(context.Background())
-		m.controllers[ctrl.name] = ctrl
-	}
-
-	return m
-}
-
 type managedController struct {
 	controller
 
