@@ -16,7 +16,6 @@ import (
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -78,7 +77,7 @@ func (b *BGPResourceManager) upsertNodeConfig(ctx context.Context, config *v2alp
 			Name: nodeName,
 			OwnerReferences: []meta_v1.OwnerReference{
 				{
-					APIVersion: slim_core_v1.SchemeGroupVersion.String(),
+					APIVersion: v2alpha1.SchemeGroupVersion.String(),
 					Kind:       v2alpha1.BGPCCKindDefinition,
 					Name:       config.GetName(),
 					UID:        config.GetUID(),

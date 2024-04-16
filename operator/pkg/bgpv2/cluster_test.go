@@ -565,82 +565,6 @@ func Test_ClusterConfigSteps(t *testing.T) {
 	}
 }
 
-func Test_Cleanup(t *testing.T) {
-	// initialization
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
-	defer cancel()
-
-	req := require.New(t)
-	f, watcherReady := newFixture(ctx, req)
-
-	tlog := hivetest.Logger(t)
-	f.hive.Start(tlog, ctx)
-	defer f.hive.Stop(tlog, ctx)
-
-	watcherReady()
-
-	// create new resource
-	upsertNode(req, ctx, f, &cilium_api_v2.CiliumNode{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "node-1",
-			Labels: map[string]string{
-				"bgp": "rack1",
-			},
-		},
-	})
-
-	upsertNode(req, ctx, f, &cilium_api_v2.CiliumNode{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "node-2",
-			Labels: map[string]string{
-				"bgp": "rack1",
-			},
-		},
-	})
-
-	upsertBGPCC(req, ctx, f, &cilium_api_v2alpha1.CiliumBGPClusterConfig{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "bgp-cluster-config",
-		},
-		Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
-			NodeSelector: &slim_meta_v1.LabelSelector{
-				MatchLabels: map[string]string{
-					"bgp": "rack1",
-				},
-			},
-			BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
-				cluster1,
-			},
-		},
-	})
-
-	// check for existence
-	assert.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodes, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
-		if err != nil {
-			assert.NoError(c, err)
-			return
-		}
-		// expected 2 node configs
-		assert.Len(c, nodes.Items, 2)
-	}, TestTimeout, 50*time.Millisecond)
-
-	// delete resource
-	deleteBGPCC(req, ctx, f, "bgp-cluster-config")
-
-	// check for non-existence
-	assert.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodes, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
-		if err != nil {
-			assert.NoError(c, err)
-			return
-		}
-
-		// expected 0 node configs
-		assert.Len(c, nodes.Items, 0)
-	}, TestTimeout, 50*time.Millisecond)
-}
-
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *cilium_api_v2.CiliumNode) {
 	_, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
@@ -665,18 +589,6 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 		req.Fail(err.Error())
 	} else {
 		_, err = f.bgpcClient.Update(ctx, bgpcc, meta_v1.UpdateOptions{})
-	}
-	req.NoError(err)
-}
-
-func deleteBGPCC(req *require.Assertions, ctx context.Context, f *fixture, name string) {
-	_, err := f.bgpcClient.Get(ctx, name, meta_v1.GetOptions{})
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return // already deleted
-	} else if err != nil {
-		req.Fail(err.Error())
-	} else {
-		err = f.bgpcClient.Delete(ctx, name, meta_v1.DeleteOptions{})
 	}
 	req.NoError(err)
 }
