@@ -997,7 +997,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	ipv4 := targetServerIP.To4() != nil
 	dialer := net.Dialer{
-		Timeout: 2 * time.Second,
+		Timeout: ProxyForwardTimeout,
 		Control: func(network, address string, c syscall.RawConn) error {
 			var soerr error
 			if err := c.Control(func(su uintptr) {
