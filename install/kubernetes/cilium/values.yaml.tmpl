@@ -867,7 +867,7 @@ encryption:
   wireguard:
     # -- Enables the fallback to the user-space implementation (deprecated).
     userspaceFallback: false
-    # -- Controls Wireguard PersistentKeepalive option. Set 0s to disable.
+    # -- Controls WireGuard PersistentKeepalive option. Set 0s to disable.
     persistentKeepalive: 0s
 endpointHealthChecking:
   # -- Enable connectivity health checking between virtual endpoints.
@@ -3293,7 +3293,7 @@ authentication:
   gcInterval: "5m0s"
   # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
   # Note that this is not full mTLS support without also enabling encryption of some form.
-  # Current encryption options are Wireguard or IPSec, configured in encryption block above.
+  # Current encryption options are WireGuard or IPSec, configured in encryption block above.
   mutual:
     # -- Port on the agent where mutual authentication handshakes between agents will be performed
     port: 4250

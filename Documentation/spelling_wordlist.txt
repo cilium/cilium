@@ -130,7 +130,6 @@ Vagrantfile
 Vagrantfiles
 Viljoen
 Wendlandt
-Wireguard
 Wireshark
 Xenial
 Yan
