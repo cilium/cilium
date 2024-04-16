@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -28,11 +29,13 @@ var (
 	// localHostKey represents an ingress L3 allow from the local host.
 	localHostKey = Key{
 		Identity:         identity.ReservedIdentityHost.Uint32(),
+		PortMask:         api.FullPortMask,
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	allKey = Key{
 		Identity: identity.IdentityUnknown.Uint32(),
+		PortMask: api.FullPortMask,
 	}
 )
 
@@ -184,6 +187,12 @@ type Key struct {
 	// DestPort is the port at L4 to / from which traffic is allowed, in
 	// host-byte order.
 	DestPort uint16
+	// PortMask is the mask that should be applied to the DestPort to
+	// define a range of ports that the policy-rule should be applied to.
+	// For example:
+	// range 2-3 would be DestPort:2 and PortMask:0xfffe
+	// range 32768-49151 would be DestPort:32768 and PortMask:0xc000
+	PortMask uint16
 	// NextHdr is the protocol which is allowed.
 	Nexthdr uint8
 	// TrafficDirection indicates in which direction Identity is allowed
@@ -193,8 +202,12 @@ type Key struct {
 
 // String returns a string representation of the Key
 func (k Key) String() string {
+	dPort := strconv.FormatUint(uint64(k.DestPort), 10)
+	if k.DestPort != 0 && k.PortMask != api.FullPortMask {
+		dPort += "-" + strconv.FormatUint(uint64(k.DestPort+(^k.PortMask)), 10)
+	}
 	return "Identity=" + strconv.FormatUint(uint64(k.Identity), 10) +
-		",DestPort=" + strconv.FormatUint(uint64(k.DestPort), 10) +
+		",DestPort=" + dPort +
 		",Nexthdr=" + strconv.FormatUint(uint64(k.Nexthdr), 10) +
 		",TrafficDirection=" + strconv.FormatUint(uint64(k.TrafficDirection), 10)
 }
@@ -209,32 +222,65 @@ func (k Key) IsEgress() bool {
 	return k.TrafficDirection == trafficdirection.Egress.Uint8()
 }
 
+// EndPort returns the end-port of the Key based on the Mask.
+func (k Key) EndPort() uint16 {
+	return k.DestPort + ^k.PortMask
+}
+
 // PortProtoIsBroader returns true if the receiver Key has broader
 // port-protocol than the argument Key. That is a port-protocol
 // that covers the argument Key's port-protocol and is larger.
 // An equal port-protocol will return false.
 func (k Key) PortProtoIsBroader(c Key) bool {
-	return k.DestPort == 0 && c.DestPort != 0 ||
-		k.Nexthdr == 0 && c.Nexthdr != 0
+	return k.Nexthdr == 0 && c.Nexthdr != 0 ||
+		k.Nexthdr == c.Nexthdr && k.PortIsBroader(c)
 }
 
 // PortProtoIsEqual returns true if the port-protocols of the
 // two keys are exactly equal.
 func (k Key) PortProtoIsEqual(c Key) bool {
-	return k.DestPort == c.DestPort && k.Nexthdr == c.Nexthdr
+	return k.DestPort == c.DestPort &&
+		k.PortMask == c.PortMask &&
+		k.Nexthdr == c.Nexthdr
+}
+
+// PortIsBroader returns true if the receiver Key's
+// port range covers the argument Key's port range,
+// but returns false if they are equal.
+func (k Key) PortIsBroader(c Key) bool {
+	if k.DestPort == 0 && c.DestPort != 0 {
+		return true
+	}
+	if k.DestPort != 0 && c.DestPort == 0 {
+		return false
+	}
+	kEP := k.EndPort()
+	cEP := c.EndPort()
+	if k.DestPort <= c.DestPort && kEP >= cEP {
+		// The port ranges cannot be exactly equal.
+		return k.DestPort != c.DestPort || kEP != cEP
+	}
+	return false
+}
+
+// PortIsEqual returns true if the port ranges
+// between the two keys are exactly equal.
+func (k Key) PortIsEqual(c Key) bool {
+	return k.DestPort == c.DestPort &&
+		k.PortMask == c.PortMask
 }
 
 // Prefix returns the prefix lenth of the key
 // for indexing it.
 func (k Key) Prefix() uint {
 	p := mapStatePrefixLen
-	if k.DestPort == 0 {
-		p -= 16
-		// We can only mask Nexthdr
-		// if DestPort is also masked.
-		if k.Nexthdr == 0 {
-			p -= 8
-		}
+	pPref := uint(16)
+	if k.DestPort != 0 {
+		pPref = MaskToPrefix(k.PortMask)
+	}
+	p -= pPref
+	if pPref == 16 && k.Nexthdr == 0 {
+		p -= 8
 	}
 	return p
 }
@@ -908,7 +954,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
 				return true
 			}
-
 			if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
 				if newKey.PortProtoIsBroader(k) {
 					// If this iterated-allow-entry is a superset of the new-entry
@@ -917,6 +962,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// specific port-protocol of the iterated-allow-entry must be inserted.
 					newKeyCpy := newKey
 					newKeyCpy.DestPort = k.DestPort
+					newKeyCpy.PortMask = k.PortMask
 					newKeyCpy.Nexthdr = k.Nexthdr
 					l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 					updates = append(updates, MapChange{
@@ -1018,6 +1064,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// be added.
 					denyKeyCpy := k
 					denyKeyCpy.DestPort = newKey.DestPort
+					denyKeyCpy.PortMask = newKey.PortMask
 					denyKeyCpy.Nexthdr = newKey.Nexthdr
 					l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 					updates = append(updates, MapChange{
@@ -1085,7 +1132,7 @@ func (k Key) IsSuperSetOf(other Key) int {
 					return 1 // */*/* is a superset of */proto/x
 				} // else both are */*/*
 			} else if k.Nexthdr == other.Nexthdr {
-				if k.DestPort == 0 && other.DestPort != 0 {
+				if k.PortIsBroader(other) {
 					return 2 // */proto/* is a superset of */proto/port
 				} // else more specific or different ports
 			} // else more specific or different protocol
@@ -1094,9 +1141,9 @@ func (k Key) IsSuperSetOf(other Key) int {
 			if k.Nexthdr == 0 { // k.DestPort == 0 is implied
 				return 1 // */*/* is a superset of ID/x/x
 			} else if k.Nexthdr == other.Nexthdr {
-				if k.DestPort == 0 {
+				if k.PortIsBroader(other) {
 					return 2 // */proto/* is a superset of ID/proto/x
-				} else if k.DestPort == other.DestPort {
+				} else if k.PortIsEqual(other) {
 					return 3 // */proto/port is a superset of ID/proto/port
 				} // else more specific or different ports
 			} // else more specific or different protocol
@@ -1107,7 +1154,7 @@ func (k Key) IsSuperSetOf(other Key) int {
 				return 4 // ID/*/* is a superset of ID/proto/x
 			} // else both are ID/*/*
 		} else if k.Nexthdr == other.Nexthdr {
-			if k.DestPort == 0 && other.DestPort != 0 {
+			if k.PortIsBroader(other) {
 				return 5 // ID/proto/* is a superset of ID/proto/port
 			} // else more specific or different ports
 		} // else more specific or different protocol
@@ -1329,9 +1376,11 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 
 	allowAllKey := Key{
 		TrafficDirection: direction.Uint8(),
+		PortMask:         api.FullPortMask,
 	}
 	key := Key{
 		DestPort:         visMeta.Port,
+		PortMask:         api.FullPortMask,
 		Nexthdr:          uint8(visMeta.Proto),
 		TrafficDirection: direction.Uint8(),
 	}
@@ -1460,6 +1509,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 		keyToAdd := Key{
 			Identity:         0,
 			DestPort:         0,
+			PortMask:         api.FullPortMask,
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Ingress.Uint8(),
 		}
@@ -1474,6 +1524,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 		keyToAdd := Key{
 			Identity:         0,
 			DestPort:         0,
+			PortMask:         api.FullPortMask,
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Egress.Uint8(),
 		}
@@ -1507,6 +1558,7 @@ func (ms *mapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	anyKey := Key{
 		Identity:         0,
 		DestPort:         0,
+		PortMask:         api.FullPortMask,
 		Nexthdr:          0,
 		TrafficDirection: dir,
 	}
@@ -1586,17 +1638,21 @@ type MapChange struct {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, key Key, value MapStateEntry) {
+func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, keys []Key, value MapStateEntry) {
 	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
 	for _, id := range adds {
-		key.Identity = id.Uint32()
-		mc.changes = append(mc.changes, MapChange{Add: true, Key: key, Value: value})
+		for _, k := range keys {
+			k.Identity = id.Uint32()
+			mc.changes = append(mc.changes, MapChange{Add: true, Key: k, Value: value})
+		}
 	}
 	for _, id := range deletes {
-		key.Identity = id.Uint32()
-		mc.changes = append(mc.changes, MapChange{Add: false, Key: key, Value: value})
+		for _, k := range keys {
+			k.Identity = id.Uint32()
+			mc.changes = append(mc.changes, MapChange{Add: false, Key: k, Value: value})
+		}
 	}
-	mc.mutex.Unlock()
 }
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,

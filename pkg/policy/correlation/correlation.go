@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -59,6 +60,7 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	derivedFrom, rev, ok := lookupPolicyForKey(epInfo, policy.Key{
 		Identity:         uint32(remoteIdentity),
 		DestPort:         dport,
+		PortMask:         api.FullPortMask,
 		Nexthdr:          uint8(proto),
 		TrafficDirection: uint8(direction),
 	}, f.GetPolicyMatchType())
@@ -141,6 +143,7 @@ func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key, matchType uint32) (d
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         key.Identity,
 			DestPort:         0,
+			PortMask:         api.FullPortMask,
 			Nexthdr:          0,
 			TrafficDirection: key.TrafficDirection,
 		})
@@ -149,6 +152,7 @@ func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key, matchType uint32) (d
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         0,
 			DestPort:         0,
+			PortMask:         api.FullPortMask,
 			Nexthdr:          0,
 			TrafficDirection: key.TrafficDirection,
 		})

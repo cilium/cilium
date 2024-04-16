@@ -5,36 +5,35 @@ package policy
 
 import (
 	"sort"
+	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
 // maskedPorts have to be sorted for this check
-func validateMaskedPorts(c *C, maskedPorts []MaskedPort, start, end uint16) {
+func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end uint16) {
 	// Wildcard case.
 	if start == 0 && end == 0 {
-		c.Assert(len(maskedPorts), Equals, 1)
-		c.Assert(maskedPorts[0].port, Equals, uint16(0))
-		c.Assert(maskedPorts[0].mask, Equals, uint16(0))
+		require.Equal(t, len(maskedPorts), 1)
+		require.Equal(t, maskedPorts[0].port, uint16(0))
+		require.Equal(t, maskedPorts[0].mask, uint16(0))
 		return
 	}
-	c.Assert(maskedPorts, NotNil)
-	c.Assert(len(maskedPorts), Not(Equals), 0)
+	require.NotNil(t, maskedPorts)
+	require.NotEqual(t, len(maskedPorts), 0)
 	// validate that range elements are continuous and non-overlapping
 	first := maskedPorts[0].port
 	last := first + ^maskedPorts[0].mask
 	for i := 1; i < len(maskedPorts); i++ {
-		c.Assert(maskedPorts[i].port, Equals, last+1)
+		require.Equal(t, maskedPorts[i].port, last+1)
 		last = maskedPorts[i].port + ^maskedPorts[i].mask
 	}
 	// Check that the computed range matches the given range
-	c.Assert(first, Equals, start)
-	c.Assert(last, Equals, end)
+	require.Equal(t, first, start)
+	require.Equal(t, last, end)
 }
 
-func (ds *PolicyTestSuite) TestPortRange(c *C) {
+func TestPortRange(t *testing.T) {
 	type testCase struct {
 		start, end uint16
 		expected   []MaskedPort
@@ -337,12 +336,12 @@ func (ds *PolicyTestSuite) TestPortRange(c *C) {
 		sort.Slice(maskedPorts, func(i, j int) bool {
 			return maskedPorts[i].port < maskedPorts[j].port
 		})
-		c.Logf("TestPortRange test case: 0x%x-0x%x (%d-%d)", test.start, test.end, test.start, test.end)
-		c.Assert(maskedPorts, checker.Equals, test.expected)
+		t.Logf("TestPortRange test case: 0x%x-0x%x (%d-%d)", test.start, test.end, test.start, test.end)
+		require.Equal(t, maskedPorts, test.expected)
 		// Validate when given a proper range
 		if test.start <= test.end {
 			// Validation checks that the masked ports form a continuous range
-			validateMaskedPorts(c, maskedPorts, test.start, test.end)
+			validateMaskedPorts(t, maskedPorts, test.start, test.end)
 		}
 	}
 }

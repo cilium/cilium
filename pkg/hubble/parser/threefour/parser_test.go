@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -388,6 +389,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	policyKey := policy.Key{
 		Identity:         uint32(remoteIdentity),
 		DestPort:         uint16(dstPort),
+		PortMask:         policyapi.FullPortMask,
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Egress.Uint8(),
 	}
@@ -658,6 +660,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	policyKey := policy.Key{
 		Identity:         remoteID,
 		DestPort:         0,
+		PortMask:         policyapi.FullPortMask,
 		Nexthdr:          0,
 		TrafficDirection: trafficdirection.Egress.Uint8(),
 	}
@@ -841,6 +844,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, true, ok)
 	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 		Identity:         f.GetDestination().GetIdentity(),
+		PortMask:         policyapi.FullPortMask,
 		TrafficDirection: directionFromProto(f.GetTrafficDirection()).Uint8(),
 	})
 	assert.Equal(t, true, ok)
