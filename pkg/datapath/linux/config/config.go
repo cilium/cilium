@@ -703,6 +703,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 	cDefinesMap["VLAN_FILTER(ifindex, vlan_id)"] = vlanFilter
 
+	if option.Config.DisableExternalIPMitigation {
+		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
+	}
+
 	if option.Config.EnableICMPRules {
 		cDefinesMap["ENABLE_ICMP_RULE"] = "1"
 	}

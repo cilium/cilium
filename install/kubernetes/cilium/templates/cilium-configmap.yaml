@@ -1133,6 +1133,10 @@ data:
   vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
 {{- end }}
 
+{{- if .Values.bpf.disableExternalIPMitigation }}
+  disable-external-ip-mitigation: {{ .Values.bpf.disableExternalIPMitigation | quote }}
+{{- end }}
+
 {{- if .Values.enableCiliumEndpointSlice }}
   enable-cilium-endpoint-slice: "true"
 {{- end }}
