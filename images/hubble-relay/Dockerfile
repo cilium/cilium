@@ -11,7 +11,7 @@
 # The key may be found at the following address:
 # https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
 ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:f41b84cda410b05cc690c2e33d1973a31c6165a2721e2b5343aab50fecb63441
-ARG GOLANG_IMAGE=docker.io/library/golang:1.22.2@sha256:c4fb952e712efd8f787bcd8e53fd66d1d83b7dc26adabc218e9eac1dbf776bdf
+ARG GOLANG_IMAGE=docker.io/library/golang:1.22.2@sha256:450e3822c7a135e1463cd83e51c8e2eb03b86a02113c89424e6f0f8344bb4168
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:780580e3dd8c5b944f3af7e3b094755cfbb1ebf0@sha256:593c25278aed08120f68228c7ebcfad682d9a8baf7225ed0995e85ef42add375
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
