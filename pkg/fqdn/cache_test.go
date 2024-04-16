@@ -637,10 +637,11 @@ func TestZombiesSiblingsGC(t *testing.T) {
 	// Mark 1.1.1.2 alive which should also keep 1.1.1.1 alive since they
 	// have the same name
 	now = now.Add(5 * time.Minute)
-	zombies.SetCTGCTime(now)
+	next := now.Add(5 * time.Minute)
+	zombies.SetCTGCTime(now, next)
 	now = now.Add(time.Second)
 	zombies.MarkAlive(now.Add(time.Second), netip.MustParseAddr("1.1.1.2"))
-	zombies.SetCTGCTime(now)
+	zombies.SetCTGCTime(now, next)
 
 	alive, dead := zombies.GC()
 	assertZombiesContain(t, alive, map[string][]string{
@@ -680,7 +681,8 @@ func TestZombiesGC(t *testing.T) {
 	// Even when not marking alive, running CT GC the first time is ignored;
 	// we must always complete 2 GC cycles before allowing a name to be dead
 	now = now.Add(5 * time.Minute)
-	zombies.SetCTGCTime(now)
+	next := now.Add(5 * time.Minute)
+	zombies.SetCTGCTime(now, next)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -691,9 +693,10 @@ func TestZombiesGC(t *testing.T) {
 	// Cause 1.1.1.1 to die by not marking it alive before the second GC
 	//zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
 	now = now.Add(5 * time.Minute)
+	next = now.Add(5 * time.Minute)
 	// Mark 2.2.2.2 alive with 1 second grace period
 	zombies.MarkAlive(now.Add(time.Second), netip.MustParseAddr("2.2.2.2"))
-	zombies.SetCTGCTime(now)
+	zombies.SetCTGCTime(now, next)
 
 	// alive should contain 2.2.2.2 -> somethingelse.com
 	// dead should contain 1.1.1.1 -> anotherthing.com, test.com
@@ -724,10 +727,12 @@ func TestZombiesGC(t *testing.T) {
 
 	// Cause all zombies but 2.2.2.2 to die
 	now = now.Add(5 * time.Minute)
-	zombies.SetCTGCTime(now)
+	next = now.Add(5 * time.Minute)
+	zombies.SetCTGCTime(now, next)
 	now = now.Add(5 * time.Minute)
+	next = now.Add(5 * time.Minute)
 	zombies.MarkAlive(now.Add(time.Second), netip.MustParseAddr("2.2.2.2"))
-	zombies.SetCTGCTime(now)
+	zombies.SetCTGCTime(now, next)
 	alive, dead = zombies.GC()
 	require.Len(t, alive, 1)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -739,7 +744,7 @@ func TestZombiesGC(t *testing.T) {
 
 	// Cause all zombies to die
 	now = now.Add(2 * time.Second)
-	zombies.SetCTGCTime(now)
+	zombies.SetCTGCTime(now, next)
 	alive, dead = zombies.GC()
 	require.Len(t, alive, 0)
 	assertZombiesContain(t, dead, map[string][]string{
@@ -776,7 +781,7 @@ func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 	afterNow := now.Add(1 * time.Nanosecond)
 	maxConnections := 3
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, maxConnections)
-	zombies.SetCTGCTime(now)
+	zombies.SetCTGCTime(now, afterNow)
 
 	// Limit the number of IPs per hostname, but associate 'test.com' with
 	// more IPs.
@@ -790,7 +795,7 @@ func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 	for i := 0; i < maxConnections; i++ {
 		zombies.MarkAlive(afterNow, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)))
 	}
-	zombies.SetCTGCTime(afterNow)
+	zombies.SetCTGCTime(afterNow, afterNow.Add(5*time.Minute))
 
 	// Garbage collection should now impose the maxConnections limit on
 	// the name, prioritizing to keep the active IPs live and then marking
@@ -850,9 +855,10 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 	// latest insert time.
 	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
 	gcTime := now.Add(4 * time.Second)
+	next := now.Add(4 * time.Second)
 	zombies.MarkAlive(gcTime, netip.MustParseAddr("1.1.1.1"))
 	zombies.MarkAlive(gcTime, netip.MustParseAddr("2.2.2.2"))
-	zombies.SetCTGCTime(gcTime)
+	zombies.SetCTGCTime(gcTime, next)
 
 	alive, dead = zombies.GC()
 	assertZombiesContain(t, dead, map[string][]string{
@@ -1005,7 +1011,8 @@ func TestZombiesDumpAlive(t *testing.T) {
 	// Ensure that two GC runs must progress before
 	// marking zombies dead.
 	now = now.Add(time.Second)
-	zombies.SetCTGCTime(now)
+	next := now.Add(5 * time.Minute)
+	zombies.SetCTGCTime(now, next)
 	alive = zombies.DumpAlive(nil)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
@@ -1014,9 +1021,10 @@ func TestZombiesDumpAlive(t *testing.T) {
 	})
 
 	now = now.Add(5 * time.Minute) // Need to step the clock 5 minutes ahead here, to account for the grace period
+	next = now.Add(5 * time.Minute)
 	zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
 	zombies.MarkAlive(now, netip.MustParseAddr("2.2.2.2"))
-	zombies.SetCTGCTime(now)
+	zombies.SetCTGCTime(now, next)
 
 	alive = zombies.DumpAlive(nil)
 	assertZombiesContain(t, alive, map[string][]string{
