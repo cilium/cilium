@@ -39,6 +39,6 @@ func (e *Endpoint) MarkDNSCTEntry(dstIP netip.Addr, now time.Time) {
 // deleted.
 // The DNS garbage collector is in daemon/fqdn.go and the CT GC is in
 // pkg/maps/ctmap/gc/gc.go
-func (e *Endpoint) MarkCTGCTime(now time.Time) {
-	e.DNSZombies.SetCTGCTime(now)
+func (e *Endpoint) MarkCTGCTime(prev, next time.Time) {
+	e.DNSZombies.SetCTGCTime(prev, next)
 }
