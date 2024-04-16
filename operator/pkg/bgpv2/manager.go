@@ -155,15 +155,6 @@ func (b *BGPResourceManager) initializeJobs() {
 }
 
 func (b *BGPResourceManager) initializeStores(ctx context.Context) (err error) {
-	defer func() {
-		hr := b.health.NewScope("bgpv2-store-initialization")
-		if err != nil {
-			hr.Stopped("store initialization failed")
-		} else {
-			hr.OK("store initialization successful")
-		}
-	}()
-
 	b.clusterConfigStore, err = b.clusterConfig.Store(ctx)
 	if err != nil {
 		return
