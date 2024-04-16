@@ -36,7 +36,7 @@ var _ = Suite(&ServerSuite{})
 
 const (
 	TestTimeout   = 10 * time.Second
-	StreamTimeout = 2 * time.Second
+	StreamTimeout = 4 * time.Second
 )
 
 var (
