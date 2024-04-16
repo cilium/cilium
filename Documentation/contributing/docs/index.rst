@@ -23,6 +23,7 @@ to learn how to fork and clone the repository.
    docsstructure
    docsstyle
    docstest
+   docsframework
 
 The best way to get help if you get stuck is to ask a question on `Cilium
 Slack`_. With Cilium contributors across the globe, there is almost always

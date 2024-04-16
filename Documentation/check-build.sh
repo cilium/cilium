@@ -107,7 +107,7 @@ run_linter() {
         --ignore-languages "bash,c" \
         --ignore-messages "${ignored_messages}" \
         --ignore-directives "tabs,openapi" \
-        --ignore-roles "${CONF_PY_ROLES},spelling:ignore" \
+        --ignore-roles "${CONF_PY_ROLES},spelling:ignore,spelling:word" \
         --ignore-substitutions "${CONF_PY_SUBSTITUTIONS}" \
        -r . ../README.rst 2>&1 | \
        grep -v 'WARNING:rstcheck_core.checker:An `AttributeError` error occured. This is most probably due to a code block directive (code/code-block/sourcecode) without a specified language.'
