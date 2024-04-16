@@ -1154,6 +1154,7 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 // PrefixMatcherFunc is a function passed to (*DNSZombieMappings).DumpAlive,
 // called on each zombie to determine whether it should be returned.
 type PrefixMatcherFunc func(ip netip.Addr) bool
+type NameMatcherFunc func(name string) bool
 
 // DumpAlive returns copies of still-alive zombies matching prefixMatcher.
 func (zombies *DNSZombieMappings) DumpAlive(prefixMatcher PrefixMatcherFunc) (alive []*DNSZombieMapping) {

@@ -480,22 +480,11 @@ func getFqdnCacheHandler(d *Daemon, params GetFqdnCacheParams) middleware.Respon
 	// endpoints we want data from
 	endpoints := d.endpointManager.GetEndpoints()
 
-	CIDRStr := ""
-	if params.Cidr != nil {
-		CIDRStr = *params.Cidr
+	prefixMatcher, nameMatcher, source, err := parseFqdnFilters(params.Cidr, params.Matchpattern, params.Source)
+	if err != nil {
+		return api.Error(GetFqdnCacheBadRequestCode, err)
 	}
-
-	matchPatternStr := ""
-	if params.Matchpattern != nil {
-		matchPatternStr = *params.Matchpattern
-	}
-
-	source := ""
-	if params.Source != nil {
-		source = *params.Source
-	}
-
-	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr, source)
+	lookups, err := extractDNSLookups(endpoints, prefixMatcher, nameMatcher, source)
 	switch {
 	case err != nil:
 		return api.Error(GetFqdnCacheBadRequestCode, err)
@@ -533,22 +522,11 @@ func getFqdnCacheIDHandler(d *Daemon, params GetFqdnCacheIDParams) middleware.Re
 		}
 	}
 
-	CIDRStr := ""
-	if params.Cidr != nil {
-		CIDRStr = *params.Cidr
+	prefixMatcher, nameMatcher, source, err := parseFqdnFilters(params.Cidr, params.Matchpattern, params.Source)
+	if err != nil {
+		return api.Error(GetFqdnCacheBadRequestCode, err)
 	}
-
-	matchPatternStr := ""
-	if params.Matchpattern != nil {
-		matchPatternStr = *params.Matchpattern
-	}
-
-	source := ""
-	if params.Source != nil {
-		source = *params.Source
-	}
-
-	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr, source)
+	lookups, err := extractDNSLookups(endpoints, prefixMatcher, nameMatcher, source)
 	switch {
 	case err != nil:
 		return api.Error(GetFqdnCacheBadRequestCode, err)
@@ -564,28 +542,37 @@ func getFqdnNamesHandler(d *Daemon, params GetFqdnNamesParams) middleware.Respon
 	return NewGetFqdnNamesOK().WithPayload(payload)
 }
 
-// extractDNSLookups returns API models.DNSLookup copies of DNS data in each
-// endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
-// they are non-empty.
-func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr, source string) (lookups []*models.DNSLookup, err error) {
+func parseFqdnFilters(cidr, pattern, src *string) (fqdn.PrefixMatcherFunc, fqdn.NameMatcherFunc, string, error) {
 	prefixMatcher := func(ip netip.Addr) bool { return true }
-	if CIDRStr != "" {
-		prefix, err := netip.ParsePrefix(CIDRStr)
+	if cidr != nil {
+		prefix, err := netip.ParsePrefix(*cidr)
 		if err != nil {
-			return nil, err
+			return nil, nil, "", err
 		}
 		prefixMatcher = func(ip netip.Addr) bool { return prefix.Contains(ip) }
 	}
 
 	nameMatcher := func(name string) bool { return true }
-	if matchPatternStr != "" {
-		matcher, err := matchpattern.ValidateWithoutCache(matchpattern.Sanitize(matchPatternStr))
+	if pattern != nil {
+		matcher, err := matchpattern.ValidateWithoutCache(matchpattern.Sanitize(*pattern))
 		if err != nil {
-			return nil, err
+			return nil, nil, "", err
 		}
 		nameMatcher = func(name string) bool { return matcher.MatchString(name) }
 	}
 
+	source := ""
+	if src != nil {
+		source = *src
+	}
+
+	return prefixMatcher, nameMatcher, source, nil
+}
+
+// extractDNSLookups returns API models.DNSLookup copies of DNS data in each
+// endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
+// they are non-empty.
+func extractDNSLookups(endpoints []*endpoint.Endpoint, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
 	for _, ep := range endpoints {
 		lookupSourceEntries := []*models.DNSLookup{}
 		connectionSourceEntries := []*models.DNSLookup{}
