@@ -291,7 +291,7 @@ func (c *SharedClient) ExchangeSharedContext(ctx context.Context, m *Msg) (r *Ms
 
 	// This request keeps 'c.requests' open; sending a request may hang indefinitely if
 	// the handler happens to quit at the same time. Use ctx.Done to avoid this.
-	timeout := c.Client.writeTimeout()
+	timeout := c.getTimeoutForRequest(c.Client.writeTimeout())
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	respCh := make(chan sharedClientResponse)
