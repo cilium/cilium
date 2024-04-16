@@ -6,12 +6,12 @@ package ciliumenvoyconfig
 import (
 	"fmt"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // Cell manages the CiliumEnvoyConfig related controllers.

@@ -11,10 +11,11 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/mdlayher/arp"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -63,7 +64,7 @@ func (s *garpSuite) TestGARPCell(c *C) {
 	))
 	hive.AddConfigOverride(h, func(cfg *Config) { cfg.L2PodAnnouncementsInterface = testIfaceName })
 
-	if err := h.Populate(); err != nil {
+	if err := h.Populate(hivetest.Logger(c)); err != nil {
 		c.Fatalf("Failed to populate: %s", err)
 	}
 }

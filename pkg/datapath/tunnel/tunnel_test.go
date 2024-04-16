@@ -7,12 +7,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 func TestConfig(t *testing.T) {
@@ -123,7 +124,7 @@ func TestConfig(t *testing.T) {
 				cell.Provide(newConfig),
 				cell.Provide(tt.enablers...),
 				cell.Invoke(func(tc Config) { out = tc }),
-			).Populate()
+			).Populate(hivetest.Logger(t))
 
 			if tt.shallFail {
 				assert.Error(t, err)

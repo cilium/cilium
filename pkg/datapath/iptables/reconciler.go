@@ -8,13 +8,12 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
@@ -104,7 +103,7 @@ type noTrackPodInfo struct {
 func reconciliationLoop(
 	ctx context.Context,
 	log logrus.FieldLogger,
-	health cell.HealthReporter,
+	health cell.Health,
 	installIptRules bool,
 	params *reconcilerParams,
 	updateRules func(state desiredState, firstInit bool) error,

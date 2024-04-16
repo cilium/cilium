@@ -6,11 +6,11 @@ package kvstoremesh
 import (
 	"net/http"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/health"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 var HealthAPIEndpointsCell = cell.Module(

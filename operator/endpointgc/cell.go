@@ -6,7 +6,9 @@ package endpointgc
 import (
 	"time"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // Cell is a cell that implements a periodic and one-off Cilium endpoints
@@ -21,7 +23,7 @@ var Cell = cell.Module(
 	// Invoke forces the instantiation of the endpoint gc
 	cell.Invoke(registerGC),
 
-	cell.Metric(NewMetrics),
+	metrics.Metric(NewMetrics),
 )
 
 // SharedConfig contains the configuration that is shared between

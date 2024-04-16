@@ -7,13 +7,12 @@ import (
 	"context"
 	"sync"
 
+	"github.com/cilium/hive/cell"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
@@ -135,7 +134,6 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 			return f.fakeClientSet
 		}),
 
-		job.Cell,
 		Cell,
 	)
 

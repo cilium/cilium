@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/go-openapi/runtime"
 	"go.uber.org/goleak"
 
@@ -19,7 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
+	cellMetric "github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/safeio"
 )
@@ -59,7 +61,8 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 		}),
 	)
 
-	if err := hive.Start(context.Background()); err != nil {
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -82,7 +85,7 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 		t.Fatalf("no metrics expected, found %v", metrics)
 	}
 
-	if err := hive.Stop(context.Background()); err != nil {
+	if err := hive.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
@@ -104,7 +107,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 				EnableGatewayAPI: false,
 			}
 		}),
-		cell.Metric(newTestMetrics),
+		cellMetric.Metric(newTestMetrics),
 
 		MetricsHandlerCell,
 
@@ -138,7 +141,8 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 	// To avoid port clashing while testing, let the kernel pick an available port.
 	hive.Viper().Set(operatorMetrics.OperatorPrometheusServeAddr, "localhost:0")
 
-	if err := hive.Start(context.Background()); err != nil {
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -168,7 +172,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 		t.Fatalf("error while inspecting metric: %s", err)
 	}
 
-	if err := hive.Stop(context.Background()); err != nil {
+	if err := hive.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }

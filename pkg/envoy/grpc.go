@@ -15,7 +15,6 @@ import (
 	envoy_service_listener "github.com/cilium/proxy/go/envoy/service/listener/v3"
 	envoy_service_route "github.com/cilium/proxy/go/envoy/service/route/v3"
 	envoy_service_secret "github.com/cilium/proxy/go/envoy/service/secret/v3"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 

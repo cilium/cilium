@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net/netip"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
-
-	"golang.org/x/sys/unix"
 )
 
 var (

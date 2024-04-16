@@ -963,7 +963,7 @@ See also the runnable example in `pkg/k8s/resource/example <https://github.com/c
 Job groups
 ^^^^^^^^^^
 
-The `job package <https://pkg.go.dev/github.com/cilium/cilium/pkg/hive/job>`_ contains logic that 
+The `job package <https://pkg.go.dev/github.com/cilium/hive/job>`_ contains logic that
 makes it easy to manage units of work that the package refers to as "jobs". These jobs are 
 scheduled as part of a job group.
 

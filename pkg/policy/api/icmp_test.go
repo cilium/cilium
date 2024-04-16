@@ -7,10 +7,9 @@ import (
 	"encoding/json"
 
 	. "github.com/cilium/checkmate"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/pkg/checker"
-
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (s *PolicyAPITestSuite) TestICMPFieldUnmarshal(c *C) {

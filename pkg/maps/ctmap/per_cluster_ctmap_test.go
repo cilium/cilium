@@ -6,9 +6,8 @@ package ctmap
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"

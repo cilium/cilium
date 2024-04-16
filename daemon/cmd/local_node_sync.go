@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/hive/cell"
 	"golang.org/x/exp/maps"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"

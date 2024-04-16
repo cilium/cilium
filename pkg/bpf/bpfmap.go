@@ -3,7 +3,7 @@
 
 package bpf
 
-import "github.com/cilium/cilium/pkg/hive/cell"
+import "github.com/cilium/hive/cell"
 
 // BpfMap defines the base interface every BPF map needs to implement.
 //

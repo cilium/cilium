@@ -14,11 +14,12 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/ebpf/rlimit"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -27,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/node"
@@ -106,7 +106,6 @@ func writeConfig(c *C, header string, write writeFn) {
 		c.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
 			provideNodemap,
-			statedb.Cell,
 			cell.Provide(
 				fakeTypes.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
@@ -122,8 +121,9 @@ func writeConfig(c *C, header string, write writeFn) {
 			}),
 		)
 
-		require.NoError(c, h.Start(context.TODO()))
-		c.Cleanup(func() { require.Nil(c, h.Stop(context.TODO())) })
+		tlog := hivetest.Logger(c)
+		require.NoError(c, h.Start(tlog, context.TODO()))
+		c.Cleanup(func() { require.Nil(c, h.Stop(tlog, context.TODO())) })
 
 		c.Assert(write(test.output, writer), test.expResult)
 	}
@@ -386,7 +386,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		na      datapath.NodeAddressing
 	)
 	h := hive.New(
-		statedb.Cell,
 		cell.Provide(
 			fakeTypes.NewNodeAddressing,
 			tables.NewDeviceTable,
@@ -406,8 +405,9 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		}),
 	)
 
-	require.NoError(t, h.Start(context.TODO()))
-	t.Cleanup(func() { h.Stop(context.TODO()) })
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()))
+	t.Cleanup(func() { h.Stop(tlog, context.TODO()) })
 
 	var buffer bytes.Buffer
 

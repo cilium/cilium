@@ -6,12 +6,12 @@ package cmd
 import (
 	"context"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -35,7 +35,7 @@ type epBPFProgWatchdogParams struct {
 	Logger        logrus.FieldLogger
 	Lifecycle     cell.Lifecycle
 	DaemonPromise promise.Promise[*Daemon]
-	Scope         cell.Scope
+	Health        cell.Health
 }
 
 var (
@@ -67,8 +67,8 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 			mgr.UpdateController(
 				epBPFProgWatchdog,
 				controller.ControllerParams{
-					Group:          controller.NewGroup(epBPFProgWatchdog),
-					HealthReporter: cell.GetHealthReporter(p.Scope, epBPFProgWatchdog),
+					Group:  controller.NewGroup(epBPFProgWatchdog),
+					Health: p.Health.NewScope(epBPFProgWatchdog),
 					DoFunc: func(ctx context.Context) error {
 						d, err := p.DaemonPromise.Await(ctx)
 						if err != nil {

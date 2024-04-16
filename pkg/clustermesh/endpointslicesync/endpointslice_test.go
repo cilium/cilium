@@ -12,6 +12,8 @@ import (
 	"unsafe"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -24,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -122,7 +123,12 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 			return nil
 		}),
 	)
-	hive.Start(context.Background())
+	tlog := hivetest.Logger(t)
+	err := hive.Start(tlog, context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hive.Stop(tlog, context.Background())
 
 	globalService := common.NewGlobalServiceCache(metric.NewGauge(metric.GaugeOpts{}))
 	podInformer := newMeshPodInformer(globalService)

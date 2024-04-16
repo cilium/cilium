@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	meta "k8s.io/apimachinery/pkg/api/meta"
@@ -23,8 +25,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipalloc"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -117,14 +117,14 @@ func (ipam *LBIPAM) restart() {
 
 	// Re-start the main goroutine
 	ipam.jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context, health cell.HealthReporter) error {
+		job.OneShot("lbipam main", func(ctx context.Context, health cell.Health) error {
 			ipam.Run(ctx, health)
 			return nil
 		}),
 	)
 }
 
-func (ipam *LBIPAM) Run(ctx context.Context, health cell.HealthReporter) {
+func (ipam *LBIPAM) Run(ctx context.Context, health cell.Health) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

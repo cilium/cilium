@@ -8,20 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"runtime/pprof"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
-
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 // Cell provides the L2 Responder Reconciler. This component takes the desired state, calculated by
@@ -53,8 +52,8 @@ type params struct {
 	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
 	NetLink             linkByNamer
-	JobRegistry         job.Registry
-	Scope               cell.Scope
+	JobGroup            job.Group
+	Health              cell.Health
 }
 
 type linkByNamer interface {
@@ -74,18 +73,12 @@ func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 		params: params,
 	}
 
-	group := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(params.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "l2-responder-reconciler")),
-	)
-	params.Lifecycle.Append(group)
-	group.Add(job.OneShot("l2-responder-reconciler", reconciler.run))
+	params.JobGroup.Add(job.OneShot("l2-responder-reconciler", reconciler.run))
 
 	return &reconciler
 }
 
-func (p *l2ResponderReconciler) run(ctx context.Context, health cell.HealthReporter) error {
+func (p *l2ResponderReconciler) run(ctx context.Context, health cell.Health) error {
 	log := p.params.Logger
 
 	// This timer triggers full reconciliation once in a while, in case partial reconciliation

@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/stream"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -18,8 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/statedb/index"
@@ -91,9 +92,10 @@ func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, RWT
 		}),
 	)
 
-	require.NoError(t, h.Start(context.TODO()))
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()))
 	t.Cleanup(func() {
-		assert.NoError(t, h.Stop(context.TODO()))
+		assert.NoError(t, h.Stop(tlog, context.TODO()))
 		logging.SetLogLevel(logrus.InfoLevel)
 	})
 	return db, table, metrics

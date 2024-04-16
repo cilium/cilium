@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
-
 	gobgpapi "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/apiutil"
 	gobgpb "github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/server"
+
+	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 )
 
 // goBGP configuration used in tests

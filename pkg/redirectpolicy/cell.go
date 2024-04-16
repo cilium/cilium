@@ -4,9 +4,10 @@
 package redirectpolicy
 
 import (
+	"github.com/cilium/hive/cell"
+
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/service"
 )
 

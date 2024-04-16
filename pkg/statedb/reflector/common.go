@@ -4,7 +4,7 @@
 package reflector
 
 import (
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
 )
 
 // Reflector reflects external data into a statedb table

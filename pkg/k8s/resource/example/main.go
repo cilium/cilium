@@ -7,14 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -49,7 +50,7 @@ func main() {
 	)
 	hive.RegisterFlags(pflag.CommandLine)
 	pflag.Parse()
-	hive.Run()
+	hive.Run(slog.Default())
 }
 
 var resourcesCell = cell.Module(

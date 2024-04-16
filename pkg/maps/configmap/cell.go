@@ -4,8 +4,9 @@
 package configmap
 
 import (
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // Cell initializes and manages the config map.

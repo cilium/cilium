@@ -5,8 +5,9 @@ package auth
 
 import (
 	"fmt"
-	"runtime/pprof"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -14,8 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/auth/spire"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -71,10 +70,10 @@ func (r config) Flags(flags *pflag.FlagSet) {
 type authManagerParams struct {
 	cell.In
 
-	Logger      logrus.FieldLogger
-	Lifecycle   cell.Lifecycle
-	JobRegistry job.Registry
-	Scope       cell.Scope
+	Logger    logrus.FieldLogger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+	Health    cell.Health
 
 	Config       config
 	AuthMap      authmap.Map
@@ -118,19 +117,11 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 		},
 	})
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(params.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "auth")),
-	)
-
-	if err := registerSignalAuthenticationJob(jobGroup, mgr, params.SignalManager, params.Config); err != nil {
+	if err := registerSignalAuthenticationJob(params.JobGroup, mgr, params.SignalManager, params.Config); err != nil {
 		return nil, fmt.Errorf("failed to register signal authentication job: %w", err)
 	}
-	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
-	registerGCJobs(jobGroup, params.Lifecycle, mapGC, params.Config, params.NodeManager, params.EndpointManager, params.IdentityChanges)
-
-	params.Lifecycle.Append(jobGroup)
+	registerReAuthenticationJob(params.JobGroup, mgr, params.AuthHandlers)
+	registerGCJobs(params.JobGroup, params.Lifecycle, mapGC, params.Config, params.NodeManager, params.EndpointManager, params.IdentityChanges)
 
 	return mgr, nil
 }

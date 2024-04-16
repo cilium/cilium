@@ -8,6 +8,12 @@ import (
 	"fmt"
 	"net"
 
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
+	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
+
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/aws/ec2"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -19,12 +25,6 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
-
-	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/aws/smithy-go"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/time/rate"
 )
 
 // ENIMap is a map of ENI interfaced indexed by ENI ID

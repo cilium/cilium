@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 type HealthAPIServerConfig struct {

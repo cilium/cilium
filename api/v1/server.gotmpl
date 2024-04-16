@@ -30,9 +30,9 @@ import (
 
   {{ imports .DefaultImports }}
   {{ imports .Imports }}
+  "github.com/cilium/hive/cell"
 
   "github.com/cilium/cilium/pkg/hive"
-  "github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // Cell implements the {{ humanize .Name }} REST API server when provided

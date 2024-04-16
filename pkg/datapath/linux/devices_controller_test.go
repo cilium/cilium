@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -25,7 +27,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -287,6 +288,7 @@ func TestDevicesController(t *testing.T) {
 		},
 	}
 
+	tlog := hivetest.Logger(t)
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
 		var (
@@ -295,7 +297,6 @@ func TestDevicesController(t *testing.T) {
 			routesTable  statedb.Table[*tables.Route]
 		)
 		h := hive.New(
-			statedb.Cell,
 			DevicesControllerCell,
 			cell.Provide(func() (*netlinkFuncs, error) {
 				// Provide the normal netlink interface, but restrict it to the test network
@@ -312,7 +313,7 @@ func TestDevicesController(t *testing.T) {
 		// Create a dummy device before starting to exercise initialize()
 		require.NoError(t, createDummy("dummy0", "192.168.0.1/24", false))
 
-		err := h.Start(ctx)
+		err := h.Start(tlog, ctx)
 		require.NoError(t, err)
 
 		for _, step := range testSteps {
@@ -349,7 +350,7 @@ func TestDevicesController(t *testing.T) {
 			}
 		}
 
-		err = h.Stop(ctx)
+		err = h.Stop(tlog, ctx)
 		require.NoError(t, err)
 		return nil
 	})
@@ -364,6 +365,7 @@ func TestDevicesController_Wildcards(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	devicesControllerTestSetup(t)
 
+	tlog := hivetest.Logger(t)
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
 		var (
@@ -371,7 +373,6 @@ func TestDevicesController_Wildcards(t *testing.T) {
 			devicesTable statedb.Table[*tables.Device]
 		)
 		h := hive.New(
-			statedb.Cell,
 			DevicesControllerCell,
 			cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs() }),
 			cell.Invoke(func(db_ *statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
@@ -382,7 +383,7 @@ func TestDevicesController_Wildcards(t *testing.T) {
 			c.Devices = []string{"dummy+"}
 		})
 
-		err := h.Start(ctx)
+		err := h.Start(tlog, ctx)
 		require.NoError(t, err)
 		require.NoError(t, createDummy("dummy0", "192.168.0.1/24", false))
 		require.NoError(t, createDummy("nonviable", "192.168.1.1/24", false))
@@ -403,7 +404,7 @@ func TestDevicesController_Wildcards(t *testing.T) {
 			}
 		}
 
-		err = h.Stop(context.TODO())
+		err = h.Stop(tlog, context.TODO())
 		assert.NoError(t, err)
 		return nil
 	})
@@ -519,8 +520,8 @@ func TestDevicesController_Restarts(t *testing.T) {
 		},
 	}
 
+	tlog := hivetest.Logger(t)
 	h := hive.New(
-		statedb.Cell,
 		DevicesControllerCell,
 		cell.Provide(func() *netlinkFuncs { return &funcs }),
 		cell.Invoke(func(db_ *statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
@@ -528,7 +529,7 @@ func TestDevicesController_Restarts(t *testing.T) {
 			devicesTable = devicesTable_
 		}))
 
-	err := h.Start(ctx)
+	err := h.Start(tlog, ctx)
 	assert.NoError(t, err)
 
 	for {
@@ -550,7 +551,7 @@ func TestDevicesController_Restarts(t *testing.T) {
 		}
 	}
 
-	err = h.Stop(ctx)
+	err = h.Stop(tlog, ctx)
 	assert.NoError(t, err)
 
 }

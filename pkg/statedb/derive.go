@@ -6,8 +6,8 @@ package statedb
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 )
 
 type DeriveResult int
@@ -24,7 +24,7 @@ type DeriveParams[In, Out any] struct {
 
 	Lifecycle cell.Lifecycle
 	Jobs      job.Registry
-	Scope     cell.Scope
+	Health    cell.Health
 	DB        *DB
 	InTable   Table[In]
 	OutTable  RWTable[Out]
@@ -52,7 +52,7 @@ type DeriveParams[In, Out any] struct {
 //	)
 func Derive[In, Out any](jobName string, transform func(obj In, deleted bool) (Out, DeriveResult)) func(DeriveParams[In, Out]) {
 	return func(p DeriveParams[In, Out]) {
-		g := p.Jobs.NewGroup(p.Scope)
+		g := p.Jobs.NewGroup(p.Health)
 		g.Add(job.OneShot(
 			jobName,
 			derive[In, Out]{p, jobName, transform}.loop),
@@ -68,7 +68,7 @@ type derive[In, Out any] struct {
 	transform func(obj In, deleted bool) (Out, DeriveResult)
 }
 
-func (d derive[In, Out]) loop(ctx context.Context, health cell.HealthReporter) error {
+func (d derive[In, Out]) loop(ctx context.Context, health cell.Health) error {
 	out := d.OutTable
 	wtxn := d.DB.WriteTxn(d.InTable)
 	tracker, err := d.InTable.DeleteTracker(wtxn, d.jobName)

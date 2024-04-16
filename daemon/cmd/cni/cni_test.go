@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/logging"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestInstallCNIConfFile(t *testing.T) {

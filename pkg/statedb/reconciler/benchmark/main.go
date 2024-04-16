@@ -8,15 +8,16 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"runtime"
 	"runtime/pprof"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
@@ -137,7 +138,8 @@ func main() {
 		),
 	)
 
-	err = hive.Start(context.TODO())
+	slg := slog.Default()
+	err = hive.Start(slg, context.TODO())
 	if err != nil {
 		panic(err)
 	}
@@ -191,7 +193,7 @@ func main() {
 		}
 	}
 
-	err = hive.Stop(context.TODO())
+	err = hive.Stop(slg, context.TODO())
 	if err != nil {
 		panic(err)
 	}

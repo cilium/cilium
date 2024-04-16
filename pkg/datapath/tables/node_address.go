@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"golang.org/x/sys/unix"
@@ -19,8 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -193,7 +193,7 @@ func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 type nodeAddressControllerParams struct {
 	cell.In
 
-	HealthScope     cell.Scope
+	Health          cell.Health
 	Log             logrus.FieldLogger
 	Config          NodeAddressConfig
 	Lifecycle       cell.Lifecycle
@@ -228,7 +228,7 @@ func newNodeAddressController(p nodeAddressControllerParams) (tbl statedb.Table[
 }
 
 func (n *nodeAddressController) register() {
-	g := n.Jobs.NewGroup(n.HealthScope)
+	g := n.Jobs.NewGroup(n.Health)
 	g.Add(job.OneShot("node-address-update", n.run))
 
 	n.Lifecycle.Append(
@@ -261,7 +261,7 @@ func (n *nodeAddressController) register() {
 
 }
 
-func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthReporter) error {
+func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) error {
 	defer n.tracker.Close()
 
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
@@ -347,7 +347,7 @@ func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device
 }
 
 // updates the node addresses of a single device.
-func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter cell.HealthReporter, device string) {
+func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter cell.Health, device string) {
 	updated := false
 	prefixLen := len(device)
 

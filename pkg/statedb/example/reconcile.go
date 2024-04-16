@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"math/rand"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
@@ -33,12 +33,11 @@ type reconcilerParams struct {
 	Lifecycle cell.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
-	Scope     cell.Scope
-	Reporter  cell.HealthReporter
+	Health    cell.Health
 }
 
 func registerReconciler(p reconcilerParams) {
-	g := p.Registry.NewGroup(p.Scope)
+	g := p.Registry.NewGroup(p.Health)
 	r := &reconciler{
 		reconcilerParams: p,
 		handle:           &backendsHandle{backends: sets.New[BackendID]()},
@@ -53,8 +52,8 @@ type reconciler struct {
 	handle *backendsHandle
 }
 
-func (r *reconciler) reconcileLoop(ctx context.Context, health cell.HealthReporter) error {
-	defer r.Reporter.Stopped("Stopped")
+func (r *reconciler) reconcileLoop(ctx context.Context, health cell.Health) error {
+	defer r.Health.Stopped("Stopped")
 
 	wtxn := r.DB.WriteTxn(r.Backends)
 	deleteTracker, err := r.Backends.DeleteTracker(wtxn, "backends-reconciler")
@@ -104,13 +103,13 @@ func (r *reconciler) reconcileLoop(ctx context.Context, health cell.HealthReport
 		)
 
 		if processErr != nil {
-			r.Reporter.Degraded("Failure to process", processErr)
+			r.Health.Degraded("Failure to process", processErr)
 			if err := backoff.Wait(ctx); err != nil {
 				return err
 			}
 		} else {
 			backoff.Reset()
-			r.Reporter.OK("OK")
+			r.Health.OK("OK")
 
 			r.validate(txn)
 		}

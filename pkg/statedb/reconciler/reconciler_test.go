@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -21,8 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/healthv2"
 	"github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/lock"
 	metricsPkg "github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -60,18 +60,13 @@ func testReconciler(t *testing.T, batchOps bool) {
 		registry    *metricsPkg.Registry
 		r           reconciler.Reconciler[*testObject]
 		statusTable statedb.Table[types.Status]
-		scope       cell.Scope
+		health      cell.Health
 	)
 
 	testObjects, err := statedb.NewTable[*testObject]("test-objects", idIndex, statusIndex)
 	require.NoError(t, err, "NewTable")
 
 	hive := hive.New(
-		statedb.Cell,
-		healthv2.Cell,
-		job.Cell,
-		reconciler.Cell,
-
 		cell.Group(
 			cell.Provide(func() *option.DaemonConfig { return option.Config }),
 			cell.Provide(func() metricsPkg.RegistryConfig { return metricsPkg.RegistryConfig{} }),
@@ -110,9 +105,9 @@ func testReconciler(t *testing.T, batchOps bool) {
 			}),
 			cell.Provide(reconciler.New[*testObject]),
 
-			cell.Invoke(func(r_ reconciler.Reconciler[*testObject], m *reconciler.Metrics, st statedb.Table[types.Status], s cell.Scope) {
+			cell.Invoke(func(r_ reconciler.Reconciler[*testObject], m *reconciler.Metrics, st statedb.Table[types.Status], h cell.Health) {
 				r = r_
-				scope = s
+				health = h
 				statusTable = st
 
 				// Enable all metrics for the test
@@ -128,7 +123,8 @@ func testReconciler(t *testing.T, batchOps bool) {
 		),
 	)
 
-	require.NoError(t, hive.Start(context.TODO()), "Start")
+	tlog := hivetest.Logger(t)
+	require.NoError(t, hive.Start(tlog, context.TODO()), "Start")
 
 	h := testHelper{
 		t:           t,
@@ -137,7 +133,7 @@ func testReconciler(t *testing.T, batchOps bool) {
 		ops:         mt,
 		r:           r,
 		statusTable: statusTable,
-		scope:       scope,
+		health:      health,
 	}
 
 	numIterations := 3
@@ -296,7 +292,7 @@ func testReconciler(t *testing.T, batchOps bool) {
 	assert.Greater(t, m["cilium_reconciler_incremental_errors_total/module_id=test"], 0.0)
 	assert.Greater(t, m["cilium_reconciler_incremental_total/module_id=test"], 0.0)
 
-	assert.NoError(t, hive.Stop(context.TODO()), "Stop")
+	assert.NoError(t, hive.Stop(tlog, context.TODO()), "Stop")
 }
 
 type testObject struct {
@@ -460,7 +456,7 @@ type testHelper struct {
 	ops         *mockOps
 	r           reconciler.Reconciler[*testObject]
 	statusTable statedb.Table[types.Status]
-	scope       cell.Scope
+	health      cell.Health
 }
 
 const (
@@ -552,7 +548,7 @@ func (h testHelper) expectHealthLevel(level cell.Level) {
 		tx := h.db.ReadTxn()
 		iter, _ := h.statusTable.LowerBound(tx,
 			healthv2.PrimaryIndex.QueryFromObject(types.Status{
-				ID: types.Identifier{Module: types.FullModuleID{"test"}},
+				ID: types.Identifier{Module: cell.FullModuleID{"test"}},
 			}))
 
 		ss := []types.Status{}
@@ -569,7 +565,7 @@ func (h testHelper) expectHealthLevel(level cell.Level) {
 		tx := h.db.ReadTxn()
 		iter, _ := h.statusTable.LowerBound(tx,
 			healthv2.PrimaryIndex.QueryFromObject(types.Status{
-				ID: types.Identifier{Module: types.FullModuleID{"test"}},
+				ID: types.Identifier{Module: cell.FullModuleID{"test"}},
 			}))
 
 		ss := []types.Status{}

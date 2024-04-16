@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
-	"github.com/vishvananda/netlink"
-
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/node"

@@ -7,8 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime/pprof"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,8 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -41,8 +40,8 @@ type params struct {
 
 	Logger              logrus.FieldLogger
 	Lifecycle           cell.Lifecycle
-	JobRegistry         job.Registry
-	Scope               cell.Scope
+	JobGroup            job.Group
+	Health              cell.Health
 	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	Clientset           k8sClient.Clientset
@@ -79,19 +78,11 @@ func registerCleanup(p params) {
 		ciliumEndpointSliceEnabled: p.DaemonCfg.EnableCiliumEndpointSlice,
 	}
 
-	jobGroup := p.JobRegistry.NewGroup(
-		p.Scope,
-		job.WithLogger(p.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "endpoint-cleanup")),
-	)
-
-	jobGroup.Add(
-		job.OneShot("endpoint-cleanup", func(ctx context.Context, health cell.HealthReporter) error {
+	p.JobGroup.Add(
+		job.OneShot("endpoint-cleanup", func(ctx context.Context, health cell.Health) error {
 			return cleanup.run(ctx)
 		}),
 	)
-
-	p.Lifecycle.Append(jobGroup)
 }
 
 func (c *cleanup) run(ctx context.Context) error {

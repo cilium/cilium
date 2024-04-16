@@ -5,14 +5,15 @@ package suite
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/operator/cmd"
 	"github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
@@ -21,12 +22,13 @@ type operatorHandle struct {
 	t *testing.T
 
 	hive *hive.Hive
+	log  *slog.Logger
 }
 
 func (h *operatorHandle) tearDown() {
 	// If hive is nil, we have not yet started.
 	if h.hive != nil {
-		if err := h.hive.Stop(context.TODO()); err != nil {
+		if err := h.hive.Stop(h.log, context.TODO()); err != nil {
 			h.t.Fatalf("Operator hive failed to stop: %s", err)
 		}
 	}
@@ -66,6 +68,6 @@ func populateCiliumOperatorOptions(
 
 }
 
-func startCiliumOperator(h *hive.Hive) error {
-	return h.Start(context.TODO())
+func startCiliumOperator(h *hive.Hive, log *slog.Logger) error {
+	return h.Start(log, context.TODO())
 }

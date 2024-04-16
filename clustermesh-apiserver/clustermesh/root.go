@@ -6,10 +6,12 @@ package clustermesh
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"path"
 	"sync"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,7 +22,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -51,7 +52,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		Use:   "clustermesh",
 		Short: "Run ClusterMesh",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := h.Run(); err != nil {
+			if err := h.Run(slog.Default()); err != nil {
 				log.Fatal(err)
 			}
 		},

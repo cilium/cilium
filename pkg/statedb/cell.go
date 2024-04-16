@@ -4,7 +4,7 @@
 package statedb
 
 import (
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
 )
 
 // This module provides an in-memory database built on top of immutable radix trees
@@ -20,8 +20,12 @@ var Cell = cell.Module(
 		newHiveDB,
 		newDumpHandler,
 		newQueryHandler,
+		NewMetrics,
 	),
-	cell.Metric(NewMetrics),
+	// NOTE: StateDB metrics are disabled until cilium/cilium has moved to using
+	// cilium/statedb. This is needed as pkg/hive now includes statedb.Cell by default
+	// and we need to drop this to fix the cycle.
+	//metrics.Metric(NewMetrics),
 )
 
 func newHiveDB(lc cell.Lifecycle, metrics Metrics) (*DB, error) {

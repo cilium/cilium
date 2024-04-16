@@ -6,11 +6,12 @@ package config
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
 )
 
 func TestCell(t *testing.T) {
-	require.NoError(t, hive.New(Cell).Populate())
+	require.NoError(t, hive.New(Cell).Populate(hivetest.Logger(t)))
 }

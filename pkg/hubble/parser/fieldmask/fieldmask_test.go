@@ -7,11 +7,11 @@ package fieldmask
 import (
 	"testing"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
-
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 )
 
 func TestFieldMask_invalid(t *testing.T) {

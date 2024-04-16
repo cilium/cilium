@@ -8,14 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/cilium/hive/cell"
+
 	operatorServer "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 )
 
@@ -120,5 +122,5 @@ func cleanupCRDName(name string) string {
 }
 
 func main() {
-	Hive.Run()
+	Hive.Run(slog.Default())
 }

@@ -5,15 +5,16 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sConsts "github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/option/resolver"
@@ -38,7 +39,7 @@ var buildConfigCmd = &cobra.Command{
 	Short: "Resolve all of the configuration sources that apply to this node",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running")
-		if err := buildConfigHive.Run(); err != nil {
+		if err := buildConfigHive.Run(slog.Default()); err != nil {
 			Fatalf("Build config failed: %v\n", err)
 		}
 	},

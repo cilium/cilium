@@ -6,11 +6,11 @@ package eventsmap
 import (
 	"fmt"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // Cell provides eventsmap.Map, which is the hive representation of the cilium

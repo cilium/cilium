@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -102,12 +103,13 @@ func TestUsersManagement(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := hive.Start(ctx); err != nil {
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, ctx); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
 	defer func() {
-		if err := hive.Stop(ctx); err != nil {
+		if err := hive.Stop(tlog, ctx); err != nil {
 			t.Fatalf("failed to stop: %s", err)
 		}
 	}()

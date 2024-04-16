@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"go.uber.org/goleak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,9 +20,9 @@ import (
 	"github.com/cilium/cilium/operator/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -37,7 +39,7 @@ func TestIdentitiesGC(t *testing.T) {
 
 	hive := hive.New(
 		cell.Config(cmtypes.DefaultClusterInfo),
-		cell.Metric(NewMetrics),
+		metrics.Metric(NewMetrics),
 
 		// provide a fake clientset
 		k8sClient.FakeClientCell,
@@ -88,7 +90,8 @@ func TestIdentitiesGC(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := hive.Start(ctx); err != nil {
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, ctx); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -137,7 +140,7 @@ func TestIdentitiesGC(t *testing.T) {
 		t.Fatalf("expected Cilium Auth identity \"99999\", got %q", authIdentities[0])
 	}
 
-	if err := hive.Stop(ctx); err != nil {
+	if err := hive.Stop(tlog, ctx); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }

@@ -10,9 +10,8 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/mackerelio/go-osstat/memory"
-
 	"github.com/cilium/workerpool"
+	"github.com/mackerelio/go-osstat/memory"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/murmur3"

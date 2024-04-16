@@ -12,16 +12,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
-	"testing"
-
 	. "github.com/cilium/checkmate"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/option"

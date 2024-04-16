@@ -6,15 +6,16 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
@@ -41,7 +42,6 @@ has an exit code 1 is returned.`,
 			})
 		}),
 	)
-	hive.SetTimeouts(validateK8sPoliciesTimeout, validateK8sPoliciesTimeout)
 	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
@@ -49,7 +49,7 @@ has an exit code 1 is returned.`,
 		// the CLI tool.
 		logging.DefaultLogger.SetFormatter(log.Formatter)
 
-		if err := hive.Run(); err != nil {
+		if err := hive.Run(slog.Default()); err != nil {
 			log.Fatal(err)
 		}
 	}

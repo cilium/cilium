@@ -8,6 +8,7 @@ import (
 	"os"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/ebpf/rlimit"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -15,8 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/cilium/ebpf/rlimit"
 )
 
 var testMap = newMap("cilium_policy_test")

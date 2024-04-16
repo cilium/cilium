@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
@@ -55,6 +56,7 @@ func TestDerive(t *testing.T) {
 	h := hive.New(
 		Cell, // DB
 		job.Cell,
+		cell.SimpleHealthCell,
 
 		cell.Module(
 			"test", "Test",
@@ -73,7 +75,8 @@ func TestDerive(t *testing.T) {
 			cell.Invoke(Derive[testObject, derived]("testObject-to-derived", transform)),
 		),
 	)
-	require.NoError(t, h.Start(context.TODO()), "Start")
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()), "Start")
 
 	getDerived := func() []derived {
 		txn := db.ReadTxn()
@@ -138,5 +141,5 @@ func TestDerive(t *testing.T) {
 		"expected 1 to be gone, and 2 mark deleted",
 	)
 
-	require.NoError(t, h.Stop(context.TODO()), "Stop")
+	require.NoError(t, h.Stop(tlog, context.TODO()), "Stop")
 }

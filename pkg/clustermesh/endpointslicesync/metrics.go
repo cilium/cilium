@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/blang/semver/v4"
-
 	"github.com/prometheus/client_golang/prometheus"
 	k8smetrics "k8s.io/component-base/metrics"
 	endpointslicemetrics "k8s.io/endpointslice/metrics"

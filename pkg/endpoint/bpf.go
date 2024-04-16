@@ -1449,8 +1449,8 @@ func (e *Endpoint) startSyncPolicyMapController() {
 	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
 	e.controllers.CreateController(ctrlName,
 		controller.ControllerParams{
-			Group:          syncPolicymapControllerGroup,
-			HealthReporter: e.GetReporter("policymap-sync"),
+			Group:  syncPolicymapControllerGroup,
+			Health: e.GetReporter("policymap-sync"),
 			DoFunc: func(ctx context.Context) error {
 				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we

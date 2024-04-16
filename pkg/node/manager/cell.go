@@ -4,10 +4,12 @@
 package manager
 
 import (
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -19,7 +21,7 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
-	cell.Metric(NewNodeMetrics),
+	metrics.Metric(NewNodeMetrics),
 )
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An
@@ -80,9 +82,9 @@ func newAllNodeManager(in struct {
 	IPSetMgr    ipset.Manager
 	IPSetFilter IPSetFilterFn `optional:"true"`
 	NodeMetrics *nodeMetrics
-	HealthScope cell.Scope
+	Health      cell.Health
 }) (NodeManager, error) {
-	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.HealthScope)
+	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health)
 	if err != nil {
 		return nil, err
 	}

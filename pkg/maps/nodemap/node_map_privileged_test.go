@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
-
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"

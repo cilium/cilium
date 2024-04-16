@@ -9,12 +9,13 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // fakeSender mocks the GARP Sender, allowing for a feedback channel.
@@ -59,8 +60,9 @@ func (s *garpSuite) TestProcessorCell(c *C) {
 		cfg.EnableL2PodAnnouncements = true
 	})
 
+	tlog := hivetest.Logger(c)
 	// Everything is ready, start the cell.
-	if err := h.Start(context.Background()); err != nil {
+	if err := h.Start(tlog, context.Background()); err != nil {
 		c.Fatalf("Failed to start: %s", err)
 	}
 

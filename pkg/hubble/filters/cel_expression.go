@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/google/cel-go/cel"
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-
-	"github.com/google/cel-go/cel"
 )
 
 var (

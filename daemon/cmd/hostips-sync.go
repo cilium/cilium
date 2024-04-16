@@ -9,9 +9,10 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/identity"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -32,7 +33,7 @@ type syncHostIPsParams struct {
 	cell.In
 
 	Jobs          job.Registry
-	Scope         cell.Scope
+	Health        cell.Health
 	DB            *statedb.DB
 	Config        *option.DaemonConfig
 	NodeAddresses statedb.Table[tables.NodeAddress]
@@ -67,14 +68,14 @@ func newSyncHostIPs(lc cell.Lifecycle, p syncHostIPsParams) *syncHostIPs {
 		return s
 	}
 
-	g := p.Jobs.NewGroup(p.Scope)
+	g := p.Jobs.NewGroup(p.Health)
 	g.Add(job.OneShot("sync-hostips", s.loop))
 	lc.Append(g)
 
 	return s
 }
 
-func (s *syncHostIPs) loop(ctx context.Context, health cell.HealthReporter) error {
+func (s *syncHostIPs) loop(ctx context.Context, health cell.Health) error {
 	// Wait for start signal. This is needed for now to synchronize with initialization
 	// (e.g. IPcache restoration, map init) that still happens in newDaemon.
 	select {

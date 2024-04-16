@@ -6,11 +6,11 @@ package auth
 import (
 	"context"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/operator/auth/identity"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )

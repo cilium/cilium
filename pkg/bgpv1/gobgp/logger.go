@@ -5,7 +5,6 @@ package gobgp
 
 import (
 	gobgpLog "github.com/osrg/gobgp/v3/pkg/log"
-
 	"github.com/sirupsen/logrus"
 )
 

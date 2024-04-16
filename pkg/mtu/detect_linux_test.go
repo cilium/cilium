@@ -4,9 +4,9 @@
 package mtu
 
 import (
-	"github.com/cilium/cilium/pkg/testutils"
-
 	. "github.com/cilium/checkmate"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func (m *MTUSuite) TestAutoDetect(c *C) {

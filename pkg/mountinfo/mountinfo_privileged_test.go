@@ -8,10 +8,10 @@ package mountinfo
 import (
 	"os"
 
-	"github.com/cilium/cilium/pkg/testutils"
-
 	. "github.com/cilium/checkmate"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type MountInfoPrivilegedTestSuite struct{}

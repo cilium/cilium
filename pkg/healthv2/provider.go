@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/healthv2/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -62,7 +63,7 @@ func (p *HealthProvider) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (p *HealthProvider) ForModule(mid types.FullModuleID) types.Health {
+func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 	return &moduleReporter{
 		id: types.Identifier{Module: mid},
 		upsert: func(s types.Status) error {
@@ -160,11 +161,11 @@ func (r *moduleReporter) newScope(name string) *moduleReporter {
 	}
 }
 
-func (r *moduleReporter) NewScope(name string) types.Health {
+func (r *moduleReporter) NewScope(name string) cell.Health {
 	return r.newScope(name)
 }
 
-func (r *moduleReporter) NewScopeWithContext(ctx context.Context, name string) types.Health {
+func (r *moduleReporter) NewScopeWithContext(ctx context.Context, name string) cell.Health {
 	s := r.newScope(name)
 	go func() {
 		<-ctx.Done()

@@ -4,9 +4,8 @@
 package multicast
 
 import (
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
-
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 const (

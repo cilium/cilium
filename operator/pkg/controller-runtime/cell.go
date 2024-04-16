@@ -6,9 +6,10 @@ package controllerruntime
 import (
 	"context"
 	"fmt"
-	"runtime/pprof"
 
 	"github.com/bombsimon/logrusr/v4"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -17,8 +18,6 @@ import (
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 )
@@ -51,10 +50,10 @@ func newScheme() (*runtime.Scheme, error) {
 type managerParams struct {
 	cell.In
 
-	Logger      logrus.FieldLogger
-	Lifecycle   cell.Lifecycle
-	JobRegistry job.Registry
-	Scope       cell.Scope
+	Logger    logrus.FieldLogger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+	Health    cell.Health
 
 	K8sClient client.Clientset
 	Scheme    *runtime.Scheme
@@ -85,17 +84,9 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		return nil, fmt.Errorf("failed to create new controller-runtime manager: %w", err)
 	}
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(params.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "controller-runtime")),
-	)
-
-	jobGroup.Add(job.OneShot("manager", func(ctx context.Context, health cell.HealthReporter) error {
+	params.JobGroup.Add(job.OneShot("manager", func(ctx context.Context, health cell.Health) error {
 		return mgr.Start(ctx)
 	}))
-
-	params.Lifecycle.Append(jobGroup)
 
 	return mgr, nil
 }

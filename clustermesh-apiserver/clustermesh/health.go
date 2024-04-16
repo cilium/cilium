@@ -6,11 +6,11 @@ package clustermesh
 import (
 	"net/http"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/health"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 

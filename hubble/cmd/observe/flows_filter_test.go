@@ -9,15 +9,15 @@ import (
 	"strconv"
 	"testing"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/identity"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/identity"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func TestNoBlacklist(t *testing.T) {

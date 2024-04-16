@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"github.com/stretchr/testify/require"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 var (
@@ -126,7 +126,7 @@ func Test_NeighborAddDel(t *testing.T) {
 	defer testDone()
 
 	// test setup, we configure two gobgp instances here.
-	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConfPassword, gobgpConf2}, newFixtureConf())
+	gobgpInstances, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConfPassword, gobgpConf2}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpInstances, 2)
 	defer cleanup()
@@ -268,7 +268,7 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 	defer testDone()
 
 	// test setup, we configure single gobgp instance here.
-	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpInstances, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpInstances, 1)
 	defer cleanup()

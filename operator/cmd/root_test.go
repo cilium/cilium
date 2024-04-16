@@ -6,6 +6,7 @@ package cmd
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
@@ -23,6 +24,6 @@ func TestOperatorHive(t *testing.T) {
 		goleak.IgnoreCurrent(),
 	)
 
-	err := hive.New(Operator).Populate()
+	err := hive.New(Operator).Populate(hivetest.Logger(t))
 	assert.NoError(t, err, "Populate()")
 }

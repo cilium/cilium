@@ -10,8 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	. "github.com/cilium/cilium/pkg/node"
 )
 
@@ -84,14 +86,15 @@ func TestLocalNodeStore(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	if err := hive.Start(ctx); err != nil {
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, ctx); err != nil {
 		t.Fatalf("Failed to start: %s", err)
 	}
 
 	// Wait until all values have been observed
 	waitObserve.Wait()
 
-	if err := hive.Stop(ctx); err != nil {
+	if err := hive.Stop(tlog, ctx); err != nil {
 		t.Fatalf("Failed to stop: %s", err)
 	}
 

@@ -6,10 +6,10 @@ package link
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/testutils"
-
 	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type LinkSuite struct{}

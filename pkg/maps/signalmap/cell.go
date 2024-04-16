@@ -5,11 +5,11 @@ package signalmap
 
 import (
 	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // Cell initializes and manages the config map.

@@ -13,13 +13,12 @@ import (
 	typedv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	metaslimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slimscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
-
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/identity"
 	client "github.com/cilium/cilium/pkg/k8s/client"
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	metaslimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/time"
 )
 

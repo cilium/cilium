@@ -6,11 +6,11 @@ package types
 import (
 	"context"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
-
-	"github.com/vishvananda/netlink"
 )
 
 type Loader interface {

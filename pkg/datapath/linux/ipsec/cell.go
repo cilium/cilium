@@ -5,13 +5,11 @@ package ipsec
 
 import (
 	"fmt"
-	"runtime/pprof"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -30,26 +28,18 @@ var Cell = cell.Module(
 type custodianParameters struct {
 	cell.In
 
-	Logger         logrus.FieldLogger
-	Scope          cell.Scope
-	JobRegistry    job.Registry
+	Health         cell.Health
+	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
 }
 
 func newKeyCustodian(lc cell.Lifecycle, p custodianParameters) types.IPsecKeyCustodian {
-	group := p.JobRegistry.NewGroup(
-		p.Scope,
-		job.WithLogger(p.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "ipsec-key-custodian")),
-	)
-
 	ipsec := &keyCustodian{
 		localNode: p.LocalNodeStore,
-		jobs:      group,
+		jobs:      p.JobGroup,
 	}
 
 	lc.Append(ipsec)
-	lc.Append(group)
 	return ipsec
 }
 

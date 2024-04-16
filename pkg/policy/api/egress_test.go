@@ -9,7 +9,6 @@ import (
 	"net/netip"
 
 	. "github.com/cilium/checkmate"
-
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/pkg/checker"

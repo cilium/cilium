@@ -13,9 +13,10 @@ import (
 	"testing"
 
 	"github.com/cilium/dns"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
@@ -247,10 +248,11 @@ func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
 		bench,
 	)
 
-	if err := h.Start(context.TODO()); err != nil {
+	tlog := hivetest.Logger(b)
+	if err := h.Start(tlog, context.TODO()); err != nil {
 		b.Fatalf("failed to start hive: %v", err)
 	}
-	if err := h.Stop(context.TODO()); err != nil {
+	if err := h.Stop(tlog, context.TODO()); err != nil {
 		b.Fatalf("failed to stop hive: %v", err)
 	}
 }
@@ -279,10 +281,11 @@ func BenchmarkLogNotifierWithListeners(b *testing.B) {
 		bench,
 	)
 
-	if err := h.Start(context.TODO()); err != nil {
+	tlog := hivetest.Logger(b)
+	if err := h.Start(tlog, context.TODO()); err != nil {
 		b.Fatalf("failed to start hive: %v", err)
 	}
-	if err := h.Stop(context.TODO()); err != nil {
+	if err := h.Stop(tlog, context.TODO()); err != nil {
 		b.Fatalf("failed to stop hive: %v", err)
 	}
 }

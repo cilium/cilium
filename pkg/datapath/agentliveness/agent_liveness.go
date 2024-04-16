@@ -6,16 +6,16 @@ package agentliveness
 import (
 	"context"
 	"fmt"
-	"io"
+	"log/slog"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/time"
-
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 )
 
 // Cell provides the agent liveness updater which periodically writes the current monotonic time to the config
@@ -41,18 +41,15 @@ func (alc agentLivenessConfig) Flags(flags *pflag.FlagSet) {
 }
 
 func newAgentLivenessUpdater(
-	logger logrus.FieldLogger,
 	lifecycle cell.Lifecycle,
 	jobRegistry job.Registry,
-	scope cell.Scope,
+	health cell.Health,
 	configMap configmap.Map,
 	agentLivenessConfig agentLivenessConfig,
 ) {
 	// Discard even debug logs since this particular job is very noisy
-	log := logrus.New()
-	log.Out = io.Discard
-	group := jobRegistry.NewGroup(scope, job.WithLogger(log))
-
+	log := slog.New(logging.SlogNopHandler)
+	group := jobRegistry.NewGroup(health, job.WithLogger(log))
 	group.Add(job.Timer("agent-liveness-updater", func(_ context.Context) error {
 		mtime, err := bpf.GetMtime()
 		if err != nil {

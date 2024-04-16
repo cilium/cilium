@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	apiext_clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiext_fake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -30,7 +32,6 @@ import (
 	"k8s.io/client-go/util/connrotation"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -495,7 +496,7 @@ func NewStandaloneClientset(cfg Config) (Clientset, error) {
 		return nil, err
 	}
 
-	if err := lc.Start(context.Background()); err != nil {
+	if err := lc.Start(slog.Default(), context.Background()); err != nil {
 		return nil, err
 	}
 

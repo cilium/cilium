@@ -9,7 +9,6 @@ import (
 	// These dependencies should be included only when this file is included in the build.
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool"
 	"github.com/cilium/cilium/pkg/ipam/allocator/multipool"
-
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 

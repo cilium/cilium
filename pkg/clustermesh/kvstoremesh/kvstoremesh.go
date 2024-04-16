@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
@@ -14,8 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -100,22 +100,19 @@ type SyncWaiterParams struct {
 	KVStoreMesh *KVStoreMesh
 	SyncState   syncstate.SyncState
 	Lifecycle   cell.Lifecycle
-	JobRegistry job.Registry
-	Scope       cell.Scope
+	JobGroup    job.Group
+	Health      cell.Health
 }
 
 func RegisterSyncWaiter(p SyncWaiterParams) {
 	syncedCallback := p.SyncState.WaitForResource()
 	p.SyncState.Stop()
 
-	jobGroup := p.JobRegistry.NewGroup(p.Scope)
-	jobGroup.Add(
-		job.OneShot("kvstoremesh-sync-waiter", func(ctx context.Context, health cell.HealthReporter) error {
+	p.JobGroup.Add(
+		job.OneShot("kvstoremesh-sync-waiter", func(ctx context.Context, health cell.Health) error {
 			return p.KVStoreMesh.synced(ctx, syncedCallback)
 		}),
 	)
-
-	p.Lifecycle.Append(jobGroup)
 }
 
 func (km *KVStoreMesh) Start(ctx cell.HookContext) error {

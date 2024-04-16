@@ -8,6 +8,7 @@ import (
 	stdlog "log"
 
 	. "github.com/cilium/checkmate"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -16,8 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {

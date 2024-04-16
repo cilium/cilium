@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 func TestPprofDisabled(t *testing.T) {
@@ -33,7 +34,8 @@ func TestPprofDisabled(t *testing.T) {
 		}),
 	)
 
-	if err := hive.Start(context.Background()); err != nil {
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -41,7 +43,7 @@ func TestPprofDisabled(t *testing.T) {
 		t.Fatalf("listener unexpectedly started on port %d", testSrv.Port())
 	}
 
-	if err := hive.Stop(context.Background()); err != nil {
+	if err := hive.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
@@ -63,7 +65,8 @@ func TestPprofHandlers(t *testing.T) {
 		}),
 	)
 
-	if err := hive.Start(context.Background()); err != nil {
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -89,7 +92,7 @@ func TestPprofHandlers(t *testing.T) {
 		t.Fatalf("expected http status code %d, got: %d", http.StatusOK, res.StatusCode)
 	}
 
-	if err := hive.Stop(context.Background()); err != nil {
+	if err := hive.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }

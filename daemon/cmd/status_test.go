@@ -7,6 +7,7 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -14,7 +15,6 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/checker"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -44,7 +44,8 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, manager.NewNodeMetrics(), cell.TestScope())
+	h, _ := cell.NewSimpleHealth()
+	nm, err = manager.New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, manager.NewNodeMetrics(), h)
 	c.Assert(err, IsNil)
 }
 

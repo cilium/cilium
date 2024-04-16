@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/monitor/payload"
-
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+
+	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
 /*

@@ -10,7 +10,6 @@ import (
 
 	. "github.com/cilium/checkmate"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
-
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/api/v1/models"
