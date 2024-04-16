@@ -862,7 +862,7 @@ encryption:
     # -- Maximum duration of the IPsec key rotation. The previous key will be
     # removed after that delay.
     keyRotationDuration: "5m"
-    # -- Enable IPSec encrypted overlay
+    # -- Enable IPsec encrypted overlay
     encryptedOverlay: false
   wireguard:
     # -- Enables the fallback to the user-space implementation (deprecated).
@@ -3293,7 +3293,7 @@ authentication:
   gcInterval: "5m0s"
   # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
   # Note that this is not full mTLS support without also enabling encryption of some form.
-  # Current encryption options are WireGuard or IPSec, configured in encryption block above.
+  # Current encryption options are WireGuard or IPsec, configured in encryption block above.
   mutual:
     # -- Port on the agent where mutual authentication handshakes between agents will be performed
     port: 4250

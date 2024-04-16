@@ -332,7 +332,7 @@ to enable health monitoring. If the firewall does not permit either of these
 methods, Cilium will still operate fine but will not be able to provide health
 information.
 
-For IPSec enabled Cilium deployments, you need to ensure that the firewall
+For IPsec enabled Cilium deployments, you need to ensure that the firewall
 allows ESP traffic through. For example, AWS Security Groups doesn't allow ESP
 traffic by default.
 

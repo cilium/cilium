@@ -29,7 +29,7 @@ example below demonstrates generation of the necessary IPsec configuration
 which will be distributed as a Kubernetes secret called ``cilium-ipsec-keys``.
 A Kubernetes secret should consist of one key-value pair where the key is the
 name of the file to be mounted as a volume in cilium-agent pods, and the
-value is an IPSec configuration in the following format::
+value is an IPsec configuration in the following format::
 
     key-id encryption-algorithms PSK-in-hex-format key-size
 
@@ -197,7 +197,7 @@ Troubleshooting
 ===============
 
  * If the ``cilium`` Pods fail to start after enabling encryption, double-check if
-   the IPSec ``Secret`` and Cilium are deployed in the same namespace together.
+   the IPsec ``Secret`` and Cilium are deployed in the same namespace together.
 
  * Check for ``level=warning`` and ``level=error`` messages in the Cilium log files
 
