@@ -179,7 +179,7 @@ jobs:
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Login to Azure
-        uses: azure/login@8c334a195cbb38e46038007b304988d888bf676a # v2.0.0
+        uses: azure/login@6b2456866fc08b011acb422a92a4aa20e2c4de32 # v2.1.0
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
