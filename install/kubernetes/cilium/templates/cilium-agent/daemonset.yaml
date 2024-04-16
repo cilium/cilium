@@ -418,6 +418,9 @@ spec:
         {{- if (not (kindIs "invalid" .Values.daemon.blockedConfigOverrides)) }}
         - "--deny-config-keys={{.Values.daemon.blockedConfigOverrides}}"
         {{- end }}
+        {{- if .Values.kubeConfigPath }}
+        - "--k8s-kubeconfig-path={{ .Values.kubeConfigPath }}"
+        {{- end }}
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -443,6 +446,11 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
+        {{- if .Values.kubeConfigPath }}
+        - name: kube-config
+          mountPath: {{ .Values.kubeConfigPath }}
+          readOnly: true
+        {{- end }}
         {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
