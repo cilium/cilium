@@ -253,7 +253,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
 				endpoints.Backends[addrCluster] = backend
-				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
+				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
 					backend.NodeName = nodeName
 				}
 				if sub.Hostname != nil {
@@ -371,7 +371,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 				if sub.NodeName != nil {
 					backend.NodeName = *sub.NodeName
 				} else {
-					if nodeName, ok := sub.DeprecatedTopology["kubernetes.io/hostname"]; ok {
+					if nodeName, ok := sub.DeprecatedTopology[corev1.LabelHostname]; ok {
 						backend.NodeName = nodeName
 					}
 				}
