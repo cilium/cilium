@@ -151,8 +151,8 @@ func (s *ServerSuite) TestRequestAllResources(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -276,8 +276,8 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -401,8 +401,8 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -574,8 +574,8 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -676,8 +676,8 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -815,8 +815,8 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -949,8 +949,8 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
@@ -1082,8 +1082,8 @@ func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
 
 	// Run the server's stream handler concurrently.
 	go func() {
+		defer close(streamDone)
 		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
-		close(streamDone)
 		c.Check(err, IsNil)
 	}()
 
