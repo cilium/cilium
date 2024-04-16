@@ -512,6 +512,9 @@
             "integer"
           ]
         },
+        "disableExternalIPMitigation": {
+          "type": "boolean"
+        },
         "events": {
           "properties": {
             "drop": {

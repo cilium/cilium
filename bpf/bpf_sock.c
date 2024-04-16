@@ -160,7 +160,7 @@ sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 {
 	if (lb4_to_lb6_service(svc))
 		return true;
-	if (lb4_svc_is_external_ip(svc) ||
+	if ((lb4_svc_is_external_ip(svc) && !is_defined(DISABLE_EXTERNAL_IP_MITIGATION)) ||
 	    (lb4_svc_is_hostport(svc) && !is_v4_loopback(address))) {
 		struct remote_endpoint_info *info;
 
@@ -725,7 +725,7 @@ sock6_skip_xlate(struct lb6_service *svc, const union v6addr *address)
 {
 	if (lb6_to_lb4_service(svc))
 		return true;
-	if (lb6_svc_is_external_ip(svc) ||
+	if ((lb6_svc_is_external_ip(svc) && !is_defined(DISABLE_EXTERNAL_IP_MITIGATION)) ||
 	    (lb6_svc_is_hostport(svc) && !is_v6_loopback(address))) {
 		struct remote_endpoint_info *info;
 

@@ -85,6 +85,7 @@ cilium-agent [flags]
       --direct-routing-device string                              Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --disable-endpoint-crd                                      Disable use of CiliumEndpoint CRD
       --disable-envoy-version-check                               Do not perform Envoy version check
+      --disable-external-ip-mitigation                            Disable ExternalIP mitigation (CVE-2020-8554, default false)
       --disable-iptables-feeder-rules strings                     Chains to ignore when installing feeder rules.
       --dns-max-ips-per-restored-rule int                         Maximum number of IPs to maintain for each restored DNS rule (default 1000)
       --dns-policy-unload-on-shutdown                             Unload DNS policy rules on graceful shutdown
