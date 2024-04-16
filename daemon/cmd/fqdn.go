@@ -568,13 +568,13 @@ func getFqdnNamesHandler(d *Daemon, params GetFqdnNamesParams) middleware.Respon
 // endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
 // they are non-empty.
 func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr, source string) (lookups []*models.DNSLookup, err error) {
-	cidrMatcher := func(ip net.IP) bool { return true }
+	prefixMatcher := func(ip netip.Addr) bool { return true }
 	if CIDRStr != "" {
-		_, cidr, err := net.ParseCIDR(CIDRStr)
+		prefix, err := netip.ParsePrefix(CIDRStr)
 		if err != nil {
 			return nil, err
 		}
-		cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
+		prefixMatcher = func(ip netip.Addr) bool { return prefix.Contains(ip) }
 	}
 
 	nameMatcher := func(name string) bool { return true }
@@ -597,10 +597,10 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr,
 			// The API model needs strings
 			IPStrings := make([]string, 0, len(lookup.IPs))
 
-			// only proceed if any IP matches the cidr selector
+			// only proceed if any IP matches the prefix selector
 			anIPMatches := false
 			for _, ip := range lookup.IPs {
-				anIPMatches = anIPMatches || cidrMatcher(ip.AsSlice())
+				anIPMatches = anIPMatches || prefixMatcher(ip)
 				IPStrings = append(IPStrings, ip.String())
 			}
 			if !anIPMatches {
@@ -618,7 +618,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr,
 			})
 		}
 
-		for _, delete := range ep.DNSZombies.DumpAlive(cidrMatcher) {
+		for _, delete := range ep.DNSZombies.DumpAlive(prefixMatcher) {
 			for _, name := range delete.Names {
 				if !nameMatcher(name) {
 					continue

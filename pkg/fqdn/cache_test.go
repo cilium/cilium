@@ -1024,20 +1024,19 @@ func TestZombiesDumpAlive(t *testing.T) {
 		"2.2.2.2": {"example.com"},
 	})
 
-	cidrMatcher := func(ip net.IP) bool { return false }
+	cidrMatcher := func(addr netip.Addr) bool { return false }
 	alive = zombies.DumpAlive(cidrMatcher)
 	require.Len(t, alive, 0)
 
-	cidrMatcher = func(ip net.IP) bool { return true }
+	cidrMatcher = func(_ netip.Addr) bool { return true }
 	alive = zombies.DumpAlive(cidrMatcher)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
 		"2.2.2.2": {"example.com"},
 	})
 
-	_, cidr, err := net.ParseCIDR("1.1.1.0/24")
-	require.Nil(t, err)
-	cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
+	prefix := netip.MustParsePrefix("1.1.1.0/24")
+	cidrMatcher = func(a netip.Addr) bool { return prefix.Contains(a) }
 	alive = zombies.DumpAlive(cidrMatcher)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
@@ -1051,9 +1050,8 @@ func TestZombiesDumpAlive(t *testing.T) {
 		"1.1.1.2": {"test2.com"},
 	})
 
-	_, cidr, err = net.ParseCIDR("4.4.0.0/16")
-	require.Nil(t, err)
-	cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
+	prefix = netip.MustParsePrefix("4.4.0.0/16")
+	cidrMatcher = func(a netip.Addr) bool { return prefix.Contains(a) }
 	alive = zombies.DumpAlive(cidrMatcher)
 	require.Len(t, alive, 0)
 }
