@@ -71,6 +71,9 @@ func (s *MockStream) Recv() (*envoy_service_discovery.DiscoveryRequest, error) {
 		return nil, subCtx.Err()
 	case req := <-s.recv:
 		cancel()
+		if req == nil {
+			return nil, io.EOF
+		}
 		return req, nil
 	}
 }
