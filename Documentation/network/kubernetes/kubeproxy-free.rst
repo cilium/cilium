@@ -490,6 +490,10 @@ In some public cloud provider environments that implement source /
 destination IP address checking (e.g. AWS), the checking has to be disabled in
 order for the DSR mode to work.
 
+By default Cilium uses special ExternalIP mitigation for CEV-2020-8554 MITM vulnerability.
+This may affect connectivity targeted to ExternalIP on the same cluster.
+This mitigation can be disabled by setting ``bpf.disableExternalIPMitigation`` to ``true``.
+
 .. _DSR mode with Option:
 
 Direct Server Return (DSR) with IPv4 option / IPv6 extension Header

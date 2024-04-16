@@ -1094,6 +1094,9 @@ const (
 	// VLANBPFBypass instructs Cilium to bypass bpf logic for vlan tagged packets
 	VLANBPFBypass = "vlan-bpf-bypass"
 
+	// DisableExternalIPMitigation disable ExternalIP mitigation (CVE-2020-8554)
+	DisableExternalIPMitigation = "disable-external-ip-mitigation"
+
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
 	EnableICMPRules = "enable-icmp-rules"
 
@@ -2230,6 +2233,10 @@ type DaemonConfig struct {
 
 	// VLANBPFBypass list of explicitly allowed VLAN id's for bpf logic bypass
 	VLANBPFBypass []int
+
+	// DisableExternalIPMigration disable externalIP mitigation (CVE-2020-8554)
+	DisableExternalIPMitigation bool
+
 	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
 	// discovery.
 	EnableL2NeighDiscovery bool
@@ -3044,6 +3051,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		}
 		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
 	}
+
+	c.DisableExternalIPMitigation = vp.GetBool(DisableExternalIPMitigation)
 
 	tcFilterPrio := vp.GetUint32(TCFilterPriority)
 	if tcFilterPrio > math.MaxUint16 {
