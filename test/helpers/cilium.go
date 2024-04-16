@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,47 +25,6 @@ import (
 )
 
 var log = logging.DefaultLogger
-
-const (
-	// MaxRetries is the number of times that a loop should iterate until a
-	// specified condition is not met
-	MaxRetries = 30
-)
-
-// BpfLBList returns the output of `cilium bpf lb list -o json` as a map
-// Key will be the frontend address and the value is an array with all backend
-// addresses
-func (s *SSHMeta) BpfLBList(noDuplicates bool) (map[string][]string, error) {
-	var (
-		result map[string][]string
-		res    *CmdRes
-	)
-
-	res = s.ExecCilium("bpf lb list -o json")
-
-	if !res.WasSuccessful() {
-		return nil, fmt.Errorf("cannot get bpf lb list: %s", res.CombineOutput())
-	}
-	err := res.Unmarshal(&result)
-	if err != nil {
-		return nil, err
-	}
-
-	if noDuplicates {
-		for svc, entries := range result {
-			unique := make(map[string]struct{})
-			for _, e := range entries {
-				unique[e] = struct{}{}
-			}
-			result[svc] = make([]string, 0, len(unique))
-			for e := range unique {
-				result[svc] = append(result[svc], e)
-			}
-		}
-	}
-
-	return result, nil
-}
 
 // BpfIPCacheList returns the output of `cilium bpf ipcache list -o json` as a map
 // Key will be the CIDR (address with mask) and the value is the associated numeric security identity
@@ -837,120 +795,6 @@ func (s *SSHMeta) GatherLogs() {
 			s.logger.Errorf("cannot gather files for cmd '%s': %s", cmd, res.CombineOutput())
 		}
 	}
-}
-
-// ServiceAdd creates a new Cilium service with the provided ID, frontend,
-// backends. Returns the result of creating said service.
-func (s *SSHMeta) ServiceAdd(id int, frontend string, backends []string) *CmdRes {
-	cmd := fmt.Sprintf(
-		"service update --frontend '%s' --backends '%s' --id '%d'",
-		frontend, strings.Join(backends, ","), id)
-	return s.ExecCilium(cmd)
-}
-
-// ServiceIsSynced checks that the Cilium service with the specified id has its
-// metadata match that of the load balancer BPF maps
-func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
-	var svc *models.Service
-	svcRes := s.ServiceGet(id)
-	if !svcRes.WasSuccessful() {
-		return false, fmt.Errorf("cannot get service id %d: %s", id, svcRes.CombineOutput())
-	}
-	err := svcRes.Unmarshal(&svc)
-	if err != nil {
-		return false, err
-	}
-
-	bpfLB, err := s.BpfLBList(false)
-	if err != nil {
-		return false, err
-	}
-
-	frontendAddr := net.JoinHostPort(
-		svc.Status.Realized.FrontendAddress.IP,
-		fmt.Sprintf("%d", svc.Status.Realized.FrontendAddress.Port))
-	lb, ok := bpfLB[frontendAddr]
-	if !ok {
-		return false, fmt.Errorf(
-			"frontend address from the service %d does not have it's corresponding frontend address(%s) on bpf maps",
-			id, frontendAddr)
-	}
-
-	for _, backendAddr := range svc.Status.Realized.BackendAddresses {
-		result := false
-		backendSVC := net.JoinHostPort(
-			*backendAddr.IP,
-			fmt.Sprintf("%d", backendAddr.Port))
-		target := fmt.Sprintf("%s (%d)", backendSVC, id)
-
-		for _, addr := range lb {
-			if strings.Contains(addr, target) {
-				result = true
-			}
-		}
-		if !result {
-			return false, fmt.Errorf(
-				"backend address %s does not exists on BPF load balancer metadata id=%d", target, id)
-		}
-	}
-	return true, nil
-}
-
-// ServiceList returns the output of  `cilium service list`
-func (s *SSHMeta) ServiceList() *CmdRes {
-	return s.ExecCilium("service list -o json")
-}
-
-// ServiceGet is a wrapper around `cilium service get <id>`. It returns the
-// result of retrieving said service.
-func (s *SSHMeta) ServiceGet(id int) *CmdRes {
-	return s.ExecCilium(fmt.Sprintf("service get '%d' -o json", id))
-}
-
-// ServiceGetFrontendAddress returns a string with the frontend address and
-// port. It returns an error if the ID cannot be retrieved.
-func (s *SSHMeta) ServiceGetFrontendAddress(id int) (string, error) {
-
-	var svc *models.Service
-	res := s.ServiceGet(id)
-	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Cannot get service id %d: %s", id, res.CombineOutput())
-	}
-
-	err := res.Unmarshal(&svc)
-	if err != nil {
-		return "", err
-	}
-
-	frontendAddress := net.JoinHostPort(
-		svc.Status.Realized.FrontendAddress.IP,
-		fmt.Sprintf("%d", svc.Status.Realized.FrontendAddress.Port))
-	return frontendAddress, nil
-}
-
-// ServiceGetIds returns an array with the IDs of all Cilium services. Returns
-// an error if the IDs cannot be retrieved
-func (s *SSHMeta) ServiceGetIds() ([]string, error) {
-	filter := `{range [*]}{@.status.realized.id}{"\n"}{end}`
-	res, err := s.ServiceList().Filter(filter)
-	if err != nil {
-		return nil, err
-	}
-	// trim the trailing \n
-	trimmed := strings.Trim(res.String(), "\n")
-	return strings.Split(trimmed, "\n"), nil
-}
-
-// ServiceDel is a wrapper around `cilium service delete <id>`. It returns the
-// result of deleting said service.
-func (s *SSHMeta) ServiceDel(id int) *CmdRes {
-	return s.ExecCilium(fmt.Sprintf("service delete '%d'", id))
-}
-
-// ServiceDelAll is a wrapper around `cilium service delete --all`. It returns the
-// result of the command.
-func (s *SSHMeta) ServiceDelAll() *CmdRes {
-	return s.ExecCilium("service delete --all")
 }
 
 // SetUpCilium sets up Cilium as a systemd service with a hardcoded set of options. It
