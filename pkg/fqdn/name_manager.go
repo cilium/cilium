@@ -145,7 +145,7 @@ func (n *NameManager) GetDNSHistoryModel(endpointID string, prefixMatcher Prefix
 					Ips:            []string{delete.IP.String()},
 					LookupTime:     strfmt.DateTime(delete.AliveAt),
 					TTL:            0,
-					ExpirationTime: strfmt.DateTime(delete.AliveAt),
+					ExpirationTime: strfmt.DateTime(ep.DNSZombies.nextCTGCUpdate),
 					EndpointID:     int64(ep.ID64),
 					Source:         DNSSourceConnection,
 				})

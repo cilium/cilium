@@ -163,9 +163,10 @@ func (gc *GC) Enable() {
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
+			interval := ctmap.GetInterval(gcInterval, maxDeleteRatio)
 			if success && ipv4 == gc.ipv4 && ipv6 == gc.ipv6 {
 				for _, e := range eps {
-					e.MarkCTGCTime(gcStart)
+					e.MarkCTGCTime(gcStart, time.Now().Add(interval))
 				}
 			}
 
@@ -198,7 +199,7 @@ func (gc *GC) Enable() {
 						ipv6 = true
 					}
 				}
-			case <-ctTimer.After(ctmap.GetInterval(gcInterval, maxDeleteRatio)):
+			case <-ctTimer.After(interval):
 				gc.signalHandler.MuteSignals()
 				ipv4 = gc.ipv4
 				ipv6 = gc.ipv6
