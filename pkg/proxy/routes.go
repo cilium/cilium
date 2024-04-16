@@ -217,6 +217,11 @@ func removeStaleProxyRulesIPv6() error {
 // removeProtoUnspecRules removes all routing rules with protocol RTPROT_UNSPEC. This is a v1.15 only function.
 func removeProtoUnspecRules(family int) error {
 	rules, err := route.ListRules(family, nil)
+	if errors.Is(err, syscall.EAFNOSUPPORT) {
+		// if the address family is not supported we can skip rule removal
+		// as there will be no rules for that address family.
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("listing routing rules: %w", err)
 	}
@@ -226,10 +231,8 @@ func removeProtoUnspecRules(family int) error {
 	}
 	for _, r := range rules {
 		if r.Protocol == unix.RTPROT_UNSPEC && slices.Contains(ciliumRouteTables, r.Table) {
-			if err := netlink.RuleDel(&r); err != nil {
-				if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
-					return fmt.Errorf("removing proto unspec routing rule: %w", err)
-				}
+			if err := netlink.RuleDel(&r); err != nil && !errors.Is(err, syscall.ENOENT) {
+				return fmt.Errorf("removing proto unspec routing rule: %w", err)
 			}
 		}
 	}
