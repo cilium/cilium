@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	observerpb "github.com/cilium/cilium/api/v1/observer"
-	"github.com/cilium/cilium/hubble/pkg/defaults"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/hubble/pkg/defaults"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func TestAgentEventSubTypeMap(t *testing.T) {

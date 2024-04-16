@@ -6,8 +6,11 @@ package suite
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"testing"
+
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/daemon/cmd"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
@@ -16,8 +19,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -27,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type agentHandle struct {
@@ -37,6 +37,7 @@ type agentHandle struct {
 	dp *fakeTypes.FakeDatapath
 
 	hive *hive.Hive
+	log  *slog.Logger
 }
 
 func (h *agentHandle) tearDown() {
@@ -46,7 +47,7 @@ func (h *agentHandle) tearDown() {
 
 	// If hive is nil, we have not yet started.
 	if h.hive != nil {
-		if err := h.hive.Stop(context.TODO()); err != nil {
+		if err := h.hive.Stop(h.log, context.TODO()); err != nil {
 			h.t.Fatalf("Failed to stop the agent: %s", err)
 		}
 	}
@@ -71,8 +72,6 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		),
 		fakeDatapath.Cell,
 		monitorAgent.Cell,
-		statedb.Cell,
-		job.Cell,
 		metrics.Cell,
 		store.Cell,
 		cmd.ControlPlane,
@@ -120,7 +119,7 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 }
 
 func (h *agentHandle) startCiliumAgent() (*cmd.Daemon, error) {
-	if err := h.hive.Start(context.TODO()); err != nil {
+	if err := h.hive.Start(h.log, context.TODO()); err != nil {
 		return nil, err
 	}
 

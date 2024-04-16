@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
-
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/testutils"

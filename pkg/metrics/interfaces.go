@@ -4,12 +4,12 @@
 package metrics
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/health/client/connectivity"
 	metricpkg "github.com/cilium/cilium/pkg/metrics/metric"
-
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 )
 
 type daemonHealthGetter interface {

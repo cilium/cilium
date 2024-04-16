@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -33,7 +34,8 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 			return nil
 		}),
 	)
-	err := hive.Start(context.Background())
+	tlog := hivetest.Logger(t)
+	err := hive.Start(tlog, context.Background())
 	if err != nil {
 		t.Fatalf("unable to start hive for the test: %s", err)
 	}
@@ -75,7 +77,7 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 	gotIdentities = usedIdentitiesInCESs(cesStore)
 	assertEqualIDs(t, wantIdentities, gotIdentities)
 
-	err = hive.Stop(context.Background())
+	err = hive.Stop(tlog, context.Background())
 	if err != nil {
 		t.Fatalf("unable to stop hive for the test: %s", err)
 	}

@@ -6,9 +6,8 @@ package bpf
 import (
 	"testing"
 
-	"github.com/cilium/ebpf"
-
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/ebpf"
 )
 
 func Test(t *testing.T) { TestingT(t) }

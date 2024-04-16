@@ -6,17 +6,18 @@ package endpointslicesync
 import (
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 const subsystem = "clustermesh"
@@ -34,8 +35,8 @@ var Cell = cell.Module(
 
 	cell.Config(common.Config{}),
 
-	cell.Metric(NewMetrics),
-	cell.Metric(common.MetricsProvider(subsystem)),
+	metrics.Metric(NewMetrics),
+	metrics.Metric(common.MetricsProvider(subsystem)),
 )
 
 type clusterMeshParams struct {

@@ -6,12 +6,12 @@ package api
 import (
 	"errors"
 
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/discovery"
 
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 )

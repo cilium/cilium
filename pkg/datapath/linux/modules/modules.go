@@ -6,9 +6,10 @@ package modules
 import (
 	"fmt"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/slices"
 )
 

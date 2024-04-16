@@ -6,9 +6,11 @@ package cmd
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"path"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,7 +18,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
@@ -61,7 +62,6 @@ func migrateIdentityCmd() *cobra.Command {
 			})
 		}),
 	)
-	hive.SetTimeouts(opTimeout, opTimeout)
 	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
@@ -69,7 +69,7 @@ func migrateIdentityCmd() *cobra.Command {
 		// the CLI tool.
 		logging.DefaultLogger.SetFormatter(log.Formatter)
 
-		if err := hive.Run(); err != nil {
+		if err := hive.Run(slog.Default()); err != nil {
 			log.Fatal(err)
 		}
 	}

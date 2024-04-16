@@ -11,17 +11,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"github.com/stretchr/testify/require"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	ipam_types "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-	"github.com/stretchr/testify/require"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 var (
@@ -142,7 +142,7 @@ func Test_PodCIDRAdvert(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
@@ -419,7 +419,7 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 	// setup topology
 	cfg := newFixtureConf()
 	cfg.ipam = ipam_option.IPAMMultiPool
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, cfg)
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, cfg)
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
@@ -631,7 +631,7 @@ func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
@@ -828,7 +828,7 @@ func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
@@ -1025,7 +1025,7 @@ func Test_LBEgressAdvertisementWithExternalIP(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
@@ -1213,7 +1213,7 @@ func Test_AdvertisedPathAttributes(t *testing.T) {
 	defer testDone()
 
 	// setup topology - iBGP (ASN == ciliumASN)
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConfIBGP}, newFixtureConf())
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConfIBGP}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()

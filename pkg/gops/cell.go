@@ -6,11 +6,11 @@ package gops
 import (
 	"fmt"
 
+	"github.com/cilium/hive/cell"
 	gopsAgent "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )

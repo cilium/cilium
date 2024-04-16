@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 )
 

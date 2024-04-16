@@ -9,17 +9,16 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"runtime/pprof"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
@@ -141,8 +140,8 @@ func (m *manager) RemoveFromIPSet(name string, addrs ...netip.Addr) {
 func newIPSetManager(
 	logger logrus.FieldLogger,
 	lc cell.Lifecycle,
-	jobRegistry job.Registry,
-	scope cell.Scope,
+	jg job.Group,
+	health cell.Health,
 	db *statedb.DB,
 	table statedb.RWTable[*tables.IPSetEntry],
 	cfg config,
@@ -179,18 +178,12 @@ func newIPSetManager(
 		},
 	})
 
-	jg := jobRegistry.NewGroup(
-		scope,
-		job.WithLogger(logger),
-		job.WithPprofLabels(pprof.Labels("cell", "ipset")),
-	)
 	jg.Add(job.OneShot("ipset-init-finalizer", mgr.init))
-	lc.Append(jg)
 
 	return mgr
 }
 
-func (m *manager) init(ctx context.Context, _ cell.HealthReporter) error {
+func (m *manager) init(ctx context.Context, _ cell.Health) error {
 	if !m.enabled {
 		// If node ipsets are not needed, clear the Cilium managed ones to remove possible stale entries.
 		for _, ciliumNodeIPSet := range []string{CiliumNodeIPSetV4, CiliumNodeIPSetV6} {

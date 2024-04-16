@@ -7,9 +7,9 @@ import (
 	"net/netip"
 	"slices"
 
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
 // CanAdvertisePodCIDR returns true if the provided IPAM mode is supported for

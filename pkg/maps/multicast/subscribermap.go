@@ -9,15 +9,15 @@ import (
 	"net/netip"
 	"unsafe"
 
+	ciliumebpf "github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive/cell"
-
-	ciliumebpf "github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
-	"github.com/sirupsen/logrus"
 )
 
 // compile time checks

@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"

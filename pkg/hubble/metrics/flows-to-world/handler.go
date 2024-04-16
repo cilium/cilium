@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	pkglabels "github.com/cilium/cilium/pkg/labels"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (

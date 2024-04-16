@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/healthv2/types"
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
@@ -51,8 +52,8 @@ func TestProvider(t *testing.T) {
 		cell.Provide(newHealthV2Provider),
 		cell.ProvidePrivate(newTablesPrivate),
 		cell.Invoke(func(statusTable statedb.RWTable[types.Status], db *statedb.DB, p types.Provider, sd hive.Shutdowner) error {
-			h := p.ForModule(types.FullModuleID{"foo", "bar"})
-			hm2 := p.ForModule(types.FullModuleID{"foo", "bar2"})
+			h := p.ForModule(cell.FullModuleID{"foo", "bar"})
+			hm2 := p.ForModule(cell.FullModuleID{"foo", "bar2"})
 			hm2.NewScope("zzz").OK("yay2")
 
 			h = h.NewScope("zzz")
@@ -91,5 +92,5 @@ func TestProvider(t *testing.T) {
 			return nil
 		}),
 	)
-	assert.NoError(h.Run())
+	assert.NoError(h.Run(hivetest.Logger(t)))
 }

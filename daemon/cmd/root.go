@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -36,7 +37,7 @@ func NewAgentCmd(h *hive.Hive) *cobra.Command {
 				log.Fatalf("invalid daemon configuration: %s", err)
 			}
 
-			if err := h.Run(); err != nil {
+			if err := h.Run(logging.DefaultSlogLogger); err != nil {
 				log.Fatal(err)
 			}
 		},

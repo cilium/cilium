@@ -5,16 +5,15 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
@@ -75,8 +74,9 @@ func main() {
 	cmd := cobra.Command{
 		Use: "example",
 		Run: func(_ *cobra.Command, args []string) {
-			if err := Hive.Run(); err != nil {
-				fmt.Fprintf(os.Stderr, "Run: %s\n", err)
+			l := slog.Default()
+			if err := Hive.Run(l); err != nil {
+				l.Error("Run failed", "error", err)
 			}
 		},
 	}
@@ -96,6 +96,7 @@ func main() {
 }
 
 var Hive = hive.New(
+	cell.SimpleHealthCell,
 	statedb.Cell,
 	job.Cell,
 	reconciler.Cell,
@@ -144,7 +145,7 @@ const maxMemoSize = 1024
 
 func registerHTTPServer(
 	lc cell.Lifecycle,
-	log logrus.FieldLogger,
+	log *slog.Logger,
 	db *statedb.DB,
 	memos statedb.RWTable[*Memo]) {
 
@@ -184,7 +185,7 @@ func registerHTTPServer(
 					Content: string(content),
 					Status:  reconciler.StatusPending(),
 				})
-			log.Infof("Inserted memo '%s'", name)
+			log.Info(fmt.Sprintf("Inserted memo '%s'", name))
 			w.WriteHeader(http.StatusOK)
 
 		case "DELETE":
@@ -196,7 +197,7 @@ func registerHTTPServer(
 			memos.Insert(
 				txn,
 				memo.WithStatus(reconciler.StatusPendingDelete()))
-			log.Infof("Deleted memo '%s'", name)
+			log.Info(fmt.Sprintf("Deleted memo '%s'", name))
 			w.WriteHeader(http.StatusOK)
 		}
 	})
@@ -208,7 +209,7 @@ func registerHTTPServer(
 
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			log.Infof("Serving API at %s", server.Addr)
+			log.Info(fmt.Sprintf("Serving API at %s", server.Addr))
 			go server.ListenAndServe()
 			return nil
 		},

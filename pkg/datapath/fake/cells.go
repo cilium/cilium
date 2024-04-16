@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
 	"golang.org/x/sys/unix"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -17,18 +18,16 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/maps/authmap"
+	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
-
-	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
-	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 )
 
 // Cell provides a fake version of the datapath cell.

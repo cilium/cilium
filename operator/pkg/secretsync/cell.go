@@ -6,10 +6,9 @@ package secretsync
 import (
 	"fmt"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
-
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // Cell manages K8s Secret synchronization from application namespaces

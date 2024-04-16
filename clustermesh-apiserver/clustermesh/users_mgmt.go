@@ -9,13 +9,13 @@ import (
 	"os"
 	"sync"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fswatcher"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"

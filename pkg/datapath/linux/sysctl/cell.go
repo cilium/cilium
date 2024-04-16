@@ -4,11 +4,11 @@
 package sysctl
 
 import (
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/afero"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )

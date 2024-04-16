@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,8 +22,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
@@ -59,8 +59,6 @@ func TestKubernetes(t *testing.T) {
 	}
 
 	h := hive.New(
-		statedb.Cell,
-		job.Cell,
 		cell.Module("test", "Test",
 			cell.ProvidePrivate(sourceConfig),
 			reflector.KubernetesCell[*v1.Pod](),
@@ -71,7 +69,8 @@ func TestKubernetes(t *testing.T) {
 		}),
 	)
 
-	require.NoError(t, h.Start(context.TODO()))
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()))
 
 	// Table is empty when starting.
 	txn := db.ReadTxn()
@@ -139,7 +138,7 @@ func TestKubernetes(t *testing.T) {
 	objs = statedb.Collect[*v1.Pod](iter)
 	assert.Len(t, objs, 0)
 
-	assert.NoError(t, h.Stop(context.TODO()))
+	assert.NoError(t, h.Stop(tlog, context.TODO()))
 }
 
 type slimPod struct {
@@ -202,8 +201,6 @@ func TestKubernetesWithTransformAndQueryAll(t *testing.T) {
 	}
 
 	h := hive.New(
-		statedb.Cell,
-		job.Cell,
 		cell.Module("test", "Test",
 			cell.ProvidePrivate(sourceConfig),
 			reflector.KubernetesCell[*slimPod](),
@@ -214,7 +211,8 @@ func TestKubernetesWithTransformAndQueryAll(t *testing.T) {
 		}),
 	)
 
-	require.NoError(t, h.Start(context.TODO()))
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()))
 
 	{
 		txn := db.WriteTxn(table)
@@ -291,7 +289,7 @@ func TestKubernetesWithTransformAndQueryAll(t *testing.T) {
 	objs = statedb.Collect[*slimPod](iter)
 	assert.Len(t, objs, 2)
 
-	assert.NoError(t, h.Stop(context.TODO()))
+	assert.NoError(t, h.Stop(tlog, context.TODO()))
 }
 
 // BenchmarkKubernetes uses the fake client to benchmark how many objects per second
@@ -352,8 +350,6 @@ func BenchmarkKubernetes(b *testing.B) {
 	var db *statedb.DB
 
 	h := hive.New(
-		statedb.Cell,
-		job.Cell,
 		cell.Module("test", "Test",
 			cell.ProvidePrivate(sourceConfig),
 			reflector.KubernetesCell[*v1.Pod](),
@@ -388,7 +384,8 @@ func BenchmarkKubernetes(b *testing.B) {
 		lw.initial = append(lw.initial, *pod.DeepCopy())
 	}
 
-	require.NoError(b, h.Start(context.TODO()))
+	tlog := hivetest.Logger(b)
+	require.NoError(b, h.Start(tlog, context.TODO()))
 
 	// Wait for the initial pods to be created
 	iter, watchAll := table.All(db.ReadTxn())

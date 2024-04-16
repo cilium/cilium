@@ -7,12 +7,11 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
-
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // Options stores all the configurations values for Hubble exporter.

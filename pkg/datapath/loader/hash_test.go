@@ -7,6 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
@@ -16,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -39,7 +40,6 @@ func TestHashDatapath(t *testing.T) {
 	var cfg datapath.ConfigWriter
 	hv := hive.New(
 		provideNodemap,
-		statedb.Cell,
 		cell.Provide(
 			fakeTypes.NewNodeAddressing,
 			func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
@@ -55,8 +55,9 @@ func TestHashDatapath(t *testing.T) {
 		}),
 	)
 
-	require.NoError(t, hv.Start(context.TODO()))
-	t.Cleanup(func() { require.Nil(t, hv.Stop(context.TODO())) })
+	tlog := hivetest.Logger(t)
+	require.NoError(t, hv.Start(tlog, context.TODO()))
+	t.Cleanup(func() { require.Nil(t, hv.Stop(tlog, context.TODO())) })
 
 	h := newDatapathHash()
 	baseHash := h.String()

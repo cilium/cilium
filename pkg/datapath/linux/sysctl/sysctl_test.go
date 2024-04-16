@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
@@ -77,8 +77,6 @@ func TestWaitForReconciliation(t *testing.T) {
 	)
 
 	hive := hive.New(
-		statedb.Cell,
-
 		cell.Module(
 			"sysctl-test",
 			"sysctl-test",
@@ -97,7 +95,8 @@ func TestWaitForReconciliation(t *testing.T) {
 		),
 	)
 
-	assert.NoError(t, hive.Start(context.Background()))
+	tlog := hivetest.Logger(t)
+	assert.NoError(t, hive.Start(tlog, context.Background()))
 
 	time.MaxInternalTimerDelay = time.Millisecond
 	t.Cleanup(func() { time.MaxInternalTimerDelay = 0 })
@@ -122,7 +121,7 @@ func TestWaitForReconciliation(t *testing.T) {
 	// waitForReconciliation should return without error
 	assert.NoError(t, sysctl.waitForReconciliation(paramName))
 
-	assert.NoError(t, hive.Stop(context.Background()))
+	assert.NoError(t, hive.Stop(tlog, context.Background()))
 }
 
 func TestSysctl(t *testing.T) {
@@ -137,10 +136,6 @@ func TestSysctl(t *testing.T) {
 	var sysctl Sysctl
 
 	hive := hive.New(
-		statedb.Cell,
-		job.Cell,
-		reconciler.Cell,
-
 		cell.Module(
 			"sysctl-test",
 			"sysctl-test",
@@ -183,7 +178,8 @@ func TestSysctl(t *testing.T) {
 		}),
 	)
 
-	assert.NoError(t, hive.Start(context.Background()))
+	tlog := hivetest.Logger(t)
+	assert.NoError(t, hive.Start(tlog, context.Background()))
 
 	for _, s := range settings {
 		assert.NoError(t, sysctl.Write(s, "1"))
@@ -229,7 +225,7 @@ func TestSysctl(t *testing.T) {
 		assert.Equal(t, s.Val, val, "unexpected value %q for parameter %q", val, s.Name)
 	}
 
-	assert.NoError(t, hive.Stop(context.Background()))
+	assert.NoError(t, hive.Stop(tlog, context.Background()))
 }
 
 func TestSysctlIgnoreErr(t *testing.T) {
@@ -240,10 +236,6 @@ func TestSysctlIgnoreErr(t *testing.T) {
 	var sysctl Sysctl
 
 	hive := hive.New(
-		statedb.Cell,
-		job.Cell,
-		reconciler.Cell,
-
 		cell.Module(
 			"sysctl-test",
 			"sysctl-test",
@@ -268,12 +260,13 @@ func TestSysctlIgnoreErr(t *testing.T) {
 		}),
 	)
 
-	assert.NoError(t, hive.Start(context.Background()))
+	tlog := hivetest.Logger(t)
+	assert.NoError(t, hive.Start(tlog, context.Background()))
 
 	// should not return an error since the parameter is marked as IgnoreErr
 	assert.NoError(t, sysctl.ApplySettings([]tables.Sysctl{parameter}))
 
-	assert.NoError(t, hive.Stop(context.Background()))
+	assert.NoError(t, hive.Stop(tlog, context.Background()))
 }
 
 func sysctlToPath(name string) string {

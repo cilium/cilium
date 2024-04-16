@@ -4,7 +4,8 @@
 package ipcache
 
 import (
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"

@@ -6,8 +6,9 @@ package syncstate
 import (
 	"context"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -18,7 +19,7 @@ var Cell = cell.Module(
 	"sync",
 	"ClusterMesh Sync",
 
-	cell.Metric(MetricsProvider),
+	metrics.Metric(MetricsProvider),
 	cell.Provide(new),
 )
 

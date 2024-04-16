@@ -6,19 +6,21 @@ package main
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/loads"
 
 	healthServer "github.com/cilium/cilium/api/v1/health/server"
 	operatorServer "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -119,5 +121,5 @@ func printAPIFlagTables(
 }
 
 func main() {
-	Hive.Run()
+	Hive.Run(slog.New(logging.SlogNopHandler))
 }

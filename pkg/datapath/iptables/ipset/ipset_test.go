@@ -16,6 +16,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,8 +27,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
@@ -55,9 +56,6 @@ func TestManager(t *testing.T) {
 	tmpl := template.Must(template.New("ipsets").Parse(textTmpl))
 
 	hive := hive.New(
-		statedb.Cell,
-		job.Cell,
-		reconciler.Cell,
 
 		cell.Module(
 			"ipset-manager-test",
@@ -260,7 +258,8 @@ func TestManager(t *testing.T) {
 	time.MaxInternalTimerDelay = time.Millisecond
 	t.Cleanup(func() { time.MaxInternalTimerDelay = 0 })
 
-	assert.NoError(t, hive.Start(context.Background()))
+	tlog := hivetest.Logger(t)
+	assert.NoError(t, hive.Start(tlog, context.Background()))
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -284,7 +283,7 @@ func TestManager(t *testing.T) {
 		})
 	}
 
-	assert.NoError(t, hive.Stop(context.Background()))
+	assert.NoError(t, hive.Stop(tlog, context.Background()))
 }
 
 func TestManagerNodeIpsetNotNeeded(t *testing.T) {
@@ -294,10 +293,6 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 	var mu lock.Mutex                  // protect the ipsets map
 
 	hive := hive.New(
-		statedb.Cell,
-		job.Cell,
-		reconciler.Cell,
-
 		cell.Module(
 			"ipset-manager-test",
 			"ipset-manager-test",
@@ -350,7 +345,8 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 		ipsets[CiliumNodeIPSetV6] = sets.New(netip.MustParseAddr("cafe::1"))
 	})
 
-	assert.NoError(t, hive.Start(context.Background()))
+	tlog := hivetest.Logger(t)
+	assert.NoError(t, hive.Start(tlog, context.Background()))
 
 	// Cilium node ipsets should eventually be pruned
 	assert.Eventually(t, func() bool {
@@ -372,7 +368,7 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 		ipsets["unmanaged-ipset"] = AddrSet{}
 	})
 
-	assert.NoError(t, hive.Stop(context.Background()))
+	assert.NoError(t, hive.Stop(tlog, context.Background()))
 
 	// ipset managed by Cilium should not have been created again
 	withLocked(&mu, func() {
@@ -596,7 +592,8 @@ func BenchmarkManager(b *testing.B) {
 		}),
 	)
 
-	assert.NoError(b, hive.Start(context.Background()))
+	tlog := hivetest.Logger(b)
+	assert.NoError(b, hive.Start(tlog, context.Background()))
 
 	b.ResetTimer()
 
@@ -638,5 +635,5 @@ func BenchmarkManager(b *testing.B) {
 
 	initializer.InitDone()
 
-	assert.NoError(b, hive.Stop(context.Background()))
+	assert.NoError(b, hive.Stop(tlog, context.Background()))
 }

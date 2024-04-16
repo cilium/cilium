@@ -4,7 +4,9 @@
 package store
 
 import (
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var Cell = cell.Module(
@@ -13,7 +15,7 @@ var Cell = cell.Module(
 
 	cell.Provide(NewFactory),
 
-	cell.Metric(MetricsProvider),
+	metrics.Metric(MetricsProvider),
 )
 
 type Factory interface {

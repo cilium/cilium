@@ -6,6 +6,7 @@ package cmd
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
@@ -40,6 +41,6 @@ func TestAgentCell(t *testing.T) {
 	option.Config.IPv4ServiceRange = AutoCIDR
 	option.Config.IPv6ServiceRange = AutoCIDR
 
-	err := hive.New(Agent).Populate()
+	err := hive.New(Agent).Populate(hivetest.Logger(t))
 	assert.NoError(t, err, "Populate()")
 }

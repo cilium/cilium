@@ -11,12 +11,14 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
@@ -238,7 +240,8 @@ func (s *K8sClientSuite) Test_client(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	c.Assert(hive.Start(ctx), IsNil)
+	tlog := hivetest.Logger(c)
+	c.Assert(hive.Start(tlog, ctx), IsNil)
 
 	// Check that we see the connection probe and version check
 	c.Assert(getRequest("/api/v1/namespaces/kube-system"), NotNil)
@@ -270,5 +273,5 @@ func (s *K8sClientSuite) Test_client(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(getRequest("/apis/cilium.io/v2/namespaces/test/ciliumendpoints/ces"), NotNil)
 
-	c.Assert(hive.Stop(ctx), IsNil)
+	c.Assert(hive.Stop(tlog, ctx), IsNil)
 }

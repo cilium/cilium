@@ -11,14 +11,21 @@ import (
 	"net/http"
 	"net/netip"
 	"regexp"
-	"runtime/pprof"
 	"slices"
 	"strings"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -31,14 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
-
-	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/leaderelection"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
 var Cell = cell.Module(
@@ -64,6 +63,7 @@ type l2AnnouncerParams struct {
 
 	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
+	Health    cell.Health
 
 	DaemonConfig         *option.DaemonConfig
 	Clientset            k8sClient.Clientset
@@ -73,8 +73,7 @@ type l2AnnouncerParams struct {
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
 	Devices              statedb.Table[*tables.Device]
 	StateDB              *statedb.DB
-	JobRegistry          job.Registry
-	Scope                cell.Scope
+	JobGroup             job.Group
 }
 
 // L2Announcer takes all L2 announcement policies and filters down to those that match the labels of the local node. It
@@ -88,7 +87,6 @@ type L2Announcer struct {
 	policyStore resource.Store[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	localNode   *v2.CiliumNode
 
-	jobgroup    job.Group
 	scopedGroup job.ScopedGroup
 
 	leaderChannel     chan leaderElectionEvent
@@ -107,12 +105,7 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	// These values were picked because it seemed right, change if necessary
 	const leaderElectionBufferSize = 16
 	announcer := &L2Announcer{
-		params: params,
-		jobgroup: params.JobRegistry.NewGroup(
-			params.Scope,
-			job.WithLogger(params.Logger),
-			job.WithPprofLabels(pprof.Labels("cell", "l2-announcer")),
-		),
+		params:            params,
 		selectedServices:  make(map[resource.Key]*selectedService),
 		selectedPolicies:  make(map[resource.Key]*selectedPolicy),
 		leaderChannel:     make(chan leaderElectionEvent, leaderElectionBufferSize),
@@ -124,26 +117,24 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 		return announcer
 	}
 
-	announcer.scopedGroup = announcer.jobgroup.Scoped("leader-election")
-
-	params.Lifecycle.Append(announcer.jobgroup)
+	announcer.scopedGroup = announcer.params.JobGroup.Scoped("leader-election")
 
 	if !params.DaemonConfig.EnableL2Announcements {
 		// If the L2 announcement feature is disabled, garbage collect any leases from previous runs when the feature
 		// might have been active. Just once, not on a timer.
-		announcer.jobgroup.Add(job.OneShot("l2-announcer lease-gc", announcer.leaseGC))
+		announcer.params.JobGroup.Add(job.OneShot("l2-announcer lease-gc", announcer.leaseGC))
 		return announcer
 	}
 
-	announcer.jobgroup.Add(job.OneShot("l2-announcer run", announcer.run))
-	announcer.jobgroup.Add(job.Timer("l2-announcer lease-gc", func(ctx context.Context) error {
+	announcer.params.JobGroup.Add(job.OneShot("l2-announcer run", announcer.run))
+	announcer.params.JobGroup.Add(job.Timer("l2-announcer lease-gc", func(ctx context.Context) error {
 		return announcer.leaseGC(ctx, nil)
 	}, time.Minute))
 
 	return announcer
 }
 
-func (l2a *L2Announcer) run(ctx context.Context, health cell.HealthReporter) error {
+func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	var err error
 	l2a.svcStore, err = l2a.params.Services.Store(ctx)
 	if err != nil {
@@ -238,7 +229,7 @@ loop:
 
 // Called periodically to garbage collect any leases which are no longer held by any agent.
 // This is needed since agents do not track leases for services that we no longer select.
-func (l2a *L2Announcer) leaseGC(ctx context.Context, health cell.HealthReporter) error {
+func (l2a *L2Announcer) leaseGC(ctx context.Context, health cell.Health) error {
 	leaseClient := l2a.params.Clientset.CoordinationV1().Leases(l2a.leaseNamespace())
 	list, err := leaseClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -1091,7 +1082,7 @@ type selectedService struct {
 	done   chan struct{}
 }
 
-func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cell.HealthReporter) error {
+func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cell.Health) error {
 	defer close(ss.done)
 
 	ss.ctx, ss.cancel = context.WithCancel(ctx)

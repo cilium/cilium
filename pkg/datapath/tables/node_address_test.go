@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,8 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -46,8 +46,9 @@ func TestNodeAddressConfig(t *testing.T) {
 		h := newHive()
 		h.RegisterFlags(flags)
 		flags.Set("nodeport-addresses", strings.Join(testCase, ","))
-		if assert.NoError(t, h.Start(context.TODO()), "Start") {
-			assert.NoError(t, h.Stop(context.TODO()), "Stop")
+		tlog := hivetest.Logger(t)
+		if assert.NoError(t, h.Start(tlog, context.TODO()), "Start") {
+			assert.NoError(t, h.Stop(tlog, context.TODO()), "Stop")
 			require.Len(t, cfg.NodePortAddresses, len(testCase))
 			for i := range testCase {
 				assert.Equal(t, testCase[i], cfg.NodePortAddresses[i].String())
@@ -551,8 +552,6 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 		nodeAddrs statedb.Table[NodeAddress]
 	)
 	h := hive.New(
-		job.Cell,
-		statedb.Cell,
 		NodeAddressCell,
 		cell.Provide(
 			NewDeviceTable,
@@ -576,9 +575,11 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 	if beforeStart != nil {
 		beforeStart(h)
 	}
-	require.NoError(t, h.Start(context.TODO()), "Start")
+
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()), "Start")
 	t.Cleanup(func() {
-		assert.NoError(t, h.Stop(context.TODO()), "Stop")
+		assert.NoError(t, h.Stop(tlog, context.TODO()), "Stop")
 	})
 	return db, devices, nodeAddrs
 }
