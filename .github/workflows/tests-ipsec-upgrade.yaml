@@ -165,18 +165,18 @@ jobs:
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
           if [ "${{ matrix.mode }}" = "minor" ]; then
-            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
-            IMAGE_TAG=${CILIUM_DOWNGRADE_VERSION}
+            CILIUM_DOWNGRADE_VERSION=5527f042c287321e813c17d04127a3ea9d01683f # https://github.com/cilium/cilium/actions/runs/8660164275/job/23747930313?pr=31926
+            IMAGE_TAG=5527f042c287321e813c17d04127a3ea9d01683f
           else
             # Upgrade from / downgrade to patch release.
             # In some cases we expect to fail to get the version number, do not
             # fail the workflow in such case. This is typically the case on
             # main branch where we don't have preceeding patch releases.
-            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh patch || true)
+            CILIUM_DOWNGRADE_VERSION=37290f96a3f38c54ac5cc378aa623168991f1e9f # https://github.com/cilium/cilium/actions/runs/8659812051/job/23746982786?pr=31922
             # Pass an empty tag to the cilium-config action to fall back to the
             # default release image, without crafting an image path with the
             # "-ci" suffix
-            IMAGE_TAG=''
+            IMAGE_TAG=37290f96a3f38c54ac5cc378aa623168991f1e9f
           fi
           echo "CILIUM_DOWNGRADE_VERSION: ${CILIUM_DOWNGRADE_VERSION}"
           echo "IMAGE_TAG: ${IMAGE_TAG}"
