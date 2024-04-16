@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -19,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -35,7 +36,7 @@ func TestReconciliationLoop(t *testing.T) {
 		db      *statedb.DB
 		devices statedb.RWTable[*tables.Device]
 		store   *node.LocalNodeStore
-		health  cell.HealthReporter
+		health  cell.Health
 		params  *reconcilerParams
 	)
 	h := hive.New(
@@ -43,7 +44,6 @@ func TestReconciliationLoop(t *testing.T) {
 			"iptables-reconciler-test",
 			"iptables-reconciler-test",
 
-			statedb.Cell,
 			cell.Provide(
 				tables.NewDeviceTable,
 				statedb.RWTable[*tables.Device].ToTable,
@@ -53,13 +53,13 @@ func TestReconciliationLoop(t *testing.T) {
 				db_ *statedb.DB,
 				devices_ statedb.RWTable[*tables.Device],
 				store_ *node.LocalNodeStore,
-				scope cell.Scope,
+				health_ cell.Health,
 			) {
 				db = db_
 				devices = devices_
 				store = store_
 				db.RegisterTable(devices_)
-				health = cell.GetHealthReporter(scope, "iptables-reconciler-test")
+				health = health_.NewScope("iptables-reconciler-test")
 				params = &reconcilerParams{
 					localNodeStore: store_,
 					db:             db_,
@@ -348,7 +348,8 @@ func TestReconciliationLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	assert.NoError(t, h.Start(ctx))
+	tlog := hivetest.Logger(t)
+	assert.NoError(t, h.Start(tlog, ctx))
 
 	// apply initial state
 	testCases[0].action()
@@ -390,7 +391,7 @@ func TestReconciliationLoop(t *testing.T) {
 		})
 	}
 
-	assert.NoError(t, h.Stop(ctx))
+	assert.NoError(t, h.Stop(tlog, ctx))
 
 	close(params.proxies)
 	close(params.addNoTrackPod)

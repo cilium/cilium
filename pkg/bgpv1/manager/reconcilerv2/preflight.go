@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // PreflightReconciler reconciles BPG Global configuration. This reconciler is similar to v1 preflight reconciler.

@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
@@ -23,7 +23,7 @@ import (
 // with the new set of node addresses assigned for NodePort use.
 func registerServiceReconciler(p serviceReconcilerParams) {
 	sr := serviceReconciler(p)
-	g := p.Jobs.NewGroup(p.Scope)
+	g := p.Jobs.NewGroup(p.Health)
 	g.Add(job.OneShot("ServiceReconciler", sr.reconcileLoop))
 	p.Lifecycle.Append(g)
 }
@@ -37,7 +37,7 @@ type serviceReconcilerParams struct {
 
 	Lifecycle      cell.Lifecycle
 	Jobs           job.Registry
-	Scope          cell.Scope
+	Health         cell.Health
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 	ServiceManager syncNodePort
@@ -45,7 +45,7 @@ type serviceReconcilerParams struct {
 
 type serviceReconciler serviceReconcilerParams
 
-func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.HealthReporter) error {
+func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Health) error {
 	var (
 		retry        <-chan time.Time
 		retryAttempt int

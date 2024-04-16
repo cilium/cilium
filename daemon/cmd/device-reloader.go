@@ -7,9 +7,10 @@ import (
 	"context"
 	"slices"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -20,7 +21,7 @@ type deviceReloaderParams struct {
 	cell.In
 
 	Jobs          job.Registry
-	Scope         cell.Scope
+	Health        cell.Health
 	DB            *statedb.DB
 	Daemon        promise.Promise[*Daemon]
 	Config        *option.DaemonConfig
@@ -64,7 +65,7 @@ func (d *deviceReloader) Start(ctx cell.HookContext) error {
 	close(c)
 	d.addrsChanged = c
 
-	jg := d.params.Jobs.NewGroup(d.params.Scope)
+	jg := d.params.Jobs.NewGroup(d.params.Health)
 	jg.Add(job.Timer("device-reloader", d.reload, time.Second))
 	d.jg = jg
 	return jg.Start(ctx)

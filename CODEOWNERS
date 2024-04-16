@@ -461,7 +461,6 @@ Makefile* @cilium/build
 /pkg/healthv2/ @cilium/sig-foundations
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
-/pkg/hive/job/metrics.go @cilium/sig-foundations @cilium/metrics
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/iana/ @cilium/sig-agent

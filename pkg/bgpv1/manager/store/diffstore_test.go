@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -70,22 +70,21 @@ func newDiffStoreFixture() *DiffStoreFixture {
 			}
 		}),
 
-		cell.Provide(signaler.NewBGPCPSignaler),
+		cell.Module(
+			"bgpv1-test",
+			"Testing module for bgpv1",
+			cell.Provide(signaler.NewBGPCPSignaler),
 
-		cell.Invoke(func(
-			signaler *signaler.BGPCPSignaler,
-			diffFactory DiffStore[*slimv1.Service],
-		) {
-			fixture.signaler = signaler
-			fixture.diffStore = diffFactory
-		}),
+			cell.Invoke(func(
+				signaler *signaler.BGPCPSignaler,
+				diffFactory DiffStore[*slimv1.Service],
+			) {
+				fixture.signaler = signaler
+				fixture.diffStore = diffFactory
+			}),
 
-		cell.Provide(NewDiffStore[*slimv1.Service]),
-
-		job.Cell,
-		cell.Provide(func() cell.Scope {
-			return cell.TestScope()
-		}),
+			cell.Provide(NewDiffStore[*slimv1.Service]),
+		),
 	)
 
 	return fixture
@@ -106,7 +105,8 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = fixture.hive.Start(context.Background())
+	tlog := hivetest.Logger(t)
+	err = fixture.hive.Start(tlog, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal("Runtime deleted not one")
 	}
 
-	err = fixture.hive.Stop(context.Background())
+	err = fixture.hive.Stop(tlog, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,8 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 	fixture := newDiffStoreFixture()
 	tracker := fixture.slimCs.Tracker()
 
-	err := fixture.hive.Start(context.Background())
+	tlog := hivetest.Logger(t)
+	err := fixture.hive.Start(tlog, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +366,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal("Expected to only see the latest update")
 	}
 
-	err = fixture.hive.Stop(context.Background())
+	err = fixture.hive.Stop(tlog, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

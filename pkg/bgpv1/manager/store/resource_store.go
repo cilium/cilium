@@ -6,16 +6,15 @@ package store
 import (
 	"context"
 	"fmt"
-	"runtime/pprof"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
-
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/util/workqueue"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // BGPCPResourceStore is a wrapper around the resource.Store for the BGP Control Plane reconcilers usage.
@@ -33,11 +32,11 @@ var _ BGPCPResourceStore[*k8sRuntime.Unknown] = (*bgpCPResourceStore[*k8sRuntime
 type bgpCPResourceStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
-	Lifecycle   cell.Lifecycle
-	Scope       cell.Scope
-	JobRegistry job.Registry
-	Resource    resource.Resource[T]
-	Signaler    *signaler.BGPCPSignaler
+	Lifecycle cell.Lifecycle
+	Health    cell.Health
+	JobGroup  job.Group
+	Resource  resource.Resource[T]
+	Signaler  *signaler.BGPCPSignaler
 }
 
 // bgpCPResourceStore takes a resource.Resource[T] and watches for events. It can still be used as a normal Store,
@@ -61,26 +60,23 @@ func NewBGPCPResourceStore[T k8sRuntime.Object](params bgpCPResourceStoreParams[
 		signaler: params.Signaler,
 	}
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithPprofLabels(pprof.Labels("cell", "bgp-cp")),
+	params.JobGroup.Add(
+		job.OneShot("bgpcp-resource-store-events",
+			func(ctx context.Context, health cell.Health) (err error) {
+				s.store, err = s.resource.Store(ctx)
+				if err != nil {
+					return fmt.Errorf("error creating resource store: %w", err)
+				}
+				for event := range s.resource.Events(ctx) {
+					s.signaler.Event(struct{}{})
+					event.Done(nil)
+				}
+				return nil
+			},
+			job.WithRetry(3, &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: time.Second}),
+			job.WithShutdown()),
 	)
 
-	jobGroup.Add(
-		job.OneShot("bgpcp-resource-store-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
-			s.store, err = s.resource.Store(ctx)
-			if err != nil {
-				return fmt.Errorf("error creating resource store: %w", err)
-			}
-			for event := range s.resource.Events(ctx) {
-				s.signaler.Event(struct{}{})
-				event.Done(nil)
-			}
-			return nil
-		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
-	)
-
-	params.Lifecycle.Append(jobGroup)
 	return s
 }
 

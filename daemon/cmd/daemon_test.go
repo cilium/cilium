@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -25,8 +28,6 @@ import (
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -40,13 +41,13 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 type DaemonSuite struct {
 	hive *hive.Hive
+	log  *slog.Logger
 
 	d *Daemon
 
@@ -99,7 +100,7 @@ func TestMain(m *testing.M) {
 
 type dummyEpSyncher struct{}
 
-func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, hr cell.HealthReporter) {
+func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
 }
 
 func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
@@ -155,8 +156,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		fakeDatapath.Cell,
 		monitorAgent.Cell,
 		ControlPlane,
-		statedb.Cell,
-		job.Cell,
 		metrics.Cell,
 		store.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
@@ -172,7 +171,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	option.Config.RunDir = testRunDir
 	option.Config.StateDir = testRunDir
 
-	err := ds.hive.Start(ctx)
+	ds.log = hivetest.Logger(c)
+	err := ds.hive.Start(ds.log, ctx)
 	c.Assert(err, IsNil)
 
 	ds.d, err = daemonPromise.Await(ctx)
@@ -210,7 +210,7 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	// Restore the policy enforcement mode.
 	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
 
-	err := ds.hive.Stop(ctx)
+	err := ds.hive.Stop(ds.log, ctx)
 	c.Assert(err, IsNil)
 
 	ds.d.Close()

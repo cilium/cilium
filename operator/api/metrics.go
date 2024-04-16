@@ -4,11 +4,11 @@
 package api
 
 import (
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	opMetrics "github.com/cilium/cilium/operator/metrics"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 var MetricsHandlerCell = cell.Module(

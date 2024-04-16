@@ -7,12 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -47,10 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
-	"github.com/cilium/cilium/pkg/healthv2"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -65,7 +64,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -116,10 +114,6 @@ var (
 				EnableGatewayAPI: operatorCfg.EnableGatewayAPI,
 			}
 		}),
-
-		statedb.Cell,
-
-		healthv2.Cell,
 	)
 
 	// ControlPlane implements the control functions.
@@ -178,9 +172,6 @@ var (
 		controller.Cell,
 		operatorApi.SpecCell,
 		api.ServerCell,
-
-		// Provides a global job registry which cells can use to spawn job groups.
-		job.Cell,
 
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
@@ -267,7 +258,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 
 			initEnv(h.Viper())
 
-			if err := h.Run(); err != nil {
+			if err := h.Run(logging.DefaultSlogLogger); err != nil {
 				log.Fatal(err)
 			}
 		},
@@ -304,19 +295,19 @@ func Execute(cmd *cobra.Command) {
 	}
 }
 
-func registerOperatorHooks(lc cell.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	var wg sync.WaitGroup
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			wg.Add(1)
 			go func() {
-				runOperator(llc, clientset, shutdowner)
+				runOperator(log, llc, clientset, shutdowner)
 				wg.Done()
 			}()
 			return nil
 		},
 		OnStop: func(ctx cell.HookContext) error {
-			if err := llc.Stop(ctx); err != nil {
+			if err := llc.Stop(log, ctx); err != nil {
 				return err
 			}
 			doCleanup()
@@ -354,7 +345,7 @@ func doCleanup() {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capability in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func runOperator(slog *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	isLeader.Store(false)
 
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
@@ -373,7 +364,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 	if !k8sversion.Capabilities().LeasesResourceLock {
 		log.Info("Support for coordination.k8s.io/v1 not present, fallback to non HA mode")
 
-		if err := lc.Start(leaderElectionCtx); err != nil {
+		if err := lc.Start(slog, leaderElectionCtx); err != nil {
 			log.WithError(err).Fatal("Failed to start leading")
 		}
 		return
@@ -422,7 +413,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				if err := lc.Start(ctx); err != nil {
+				if err := lc.Start(slog, ctx); err != nil {
 					log.WithError(err).Error("Failed to start when elected leader, shutting down")
 					shutdowner.Shutdown(hive.ShutdownWithError(err))
 				}

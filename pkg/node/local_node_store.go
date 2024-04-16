@@ -8,11 +8,11 @@ import (
 	"io"
 	"sync"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 )

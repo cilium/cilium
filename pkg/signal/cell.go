@@ -4,7 +4,8 @@
 package signal
 
 import (
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 )
 

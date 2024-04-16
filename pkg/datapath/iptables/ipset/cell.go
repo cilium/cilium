@@ -8,10 +8,10 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"

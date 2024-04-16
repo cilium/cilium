@@ -9,17 +9,18 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/maps/l2respondermap"
-	"github.com/cilium/cilium/pkg/statedb"
-
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/maps/l2respondermap"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type fixture struct {
@@ -30,33 +31,35 @@ type fixture struct {
 	respondermap       l2respondermap.Map
 }
 
-func newFixture() *fixture {
+func newFixture(t testing.TB) *fixture {
 	var (
 		tbl statedb.RWTable[*tables.L2AnnounceEntry]
 		db  *statedb.DB
-		jr  job.Registry
+		jg  job.Group
 	)
 
 	hive.New(
-		statedb.Cell,
-		job.Cell,
 		cell.Provide(
 			tables.NewL2AnnounceTable,
 			statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		),
-		cell.Invoke(
-			statedb.RegisterTable[*tables.L2AnnounceEntry],
-			func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Registry) {
 
-				db = d
-				tbl = t
-				jr = j
-			}),
-	).Populate()
+		cell.Module(
+			"l2responder-test",
+			"L2 responder test module",
+
+			cell.Invoke(
+				statedb.RegisterTable[*tables.L2AnnounceEntry],
+				func(d *statedb.DB, lc cell.Lifecycle, h cell.Health, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Group) {
+					db = d
+					tbl = t
+					jg = j
+				}),
+		),
+	).Populate(hivetest.Logger(t))
 
 	nl := &mockNeighborNetlink{}
 	m := l2respondermap.NewFakeMap()
-
 	return &fixture{
 		reconciler: NewL2ResponderReconciler(params{
 			Lifecycle:           &cell.DefaultLifecycle{},
@@ -65,7 +68,7 @@ func newFixture() *fixture {
 			StateDB:             db,
 			L2ResponderMap:      m,
 			NetLink:             nl,
-			JobRegistry:         jr,
+			JobGroup:            jg,
 		}),
 		proxyNeighborTable: tbl,
 		stateDB:            db,
@@ -89,7 +92,7 @@ const (
 // Start with an empty map, add a new entry to the table, trigger a partial reconciliation.
 // We expect to see the new entry being added.
 func TestEmptyMapAddPartialSync(t *testing.T) {
-	fix := newFixture()
+	fix := newFixture(t)
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	tracker, err := fix.proxyNeighborTable.DeleteTracker(txn, "l2-responder-reconciler")
@@ -130,7 +133,7 @@ func TestEmptyMapAddPartialSync(t *testing.T) {
 // trigger a partial reconciliation. We expect to see the new entry being added and the deleted entry
 // to not be added.
 func TestEmptyMapAddDelPartialSync(t *testing.T) {
-	fix := newFixture()
+	fix := newFixture(t)
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	tracker, err := fix.proxyNeighborTable.DeleteTracker(txn, "l2-responder-reconciler")
@@ -193,7 +196,7 @@ func TestEmptyMapAddDelPartialSync(t *testing.T) {
 // Start with an empty map, add a new entry to the table, trigger a full reconciliation.
 // We expect to see the new entry being added.
 func TestEmptyMapAddFullSync(t *testing.T) {
-	fix := newFixture()
+	fix := newFixture(t)
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err := fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
@@ -224,7 +227,7 @@ func TestEmptyMapAddFullSync(t *testing.T) {
 // trigger a full reconciliation. We expect to see the new entry being added and the deleted entry
 // to not be added.
 func TestEmptyMapAddDelFullSync(t *testing.T) {
-	fix := newFixture()
+	fix := newFixture(t)
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err := fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
@@ -277,7 +280,7 @@ func TestEmptyMapAddDelFullSync(t *testing.T) {
 // Add a rouge entry to the map, add a new entry, trigger partial reconciliation.
 // We expect both entry to be present, since partial reconciliation does not purge rouge entries.
 func Test1RougeAddPartialSync(t *testing.T) {
-	fix := newFixture()
+	fix := newFixture(t)
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	tracker, err := fix.proxyNeighborTable.DeleteTracker(txn, "l2-responder-reconciler")
@@ -326,7 +329,7 @@ func Test1RougeAddPartialSync(t *testing.T) {
 // Add a rouge entry to the map, add a new entry, trigger full reconciliation.
 // We expect only our new entry to be present, no rouge entry anymore.
 func Test1RougeAddFullSync(t *testing.T) {
-	fix := newFixture()
+	fix := newFixture(t)
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err := fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
@@ -365,7 +368,7 @@ func Test1RougeAddFullSync(t *testing.T) {
 // Add a entry to the map, add the same entry, trigger full reconciliation.
 // We expect nothing to happen since the same entry already exists.
 func Test1ExistingAddFullSync(t *testing.T) {
-	fix := newFixture()
+	fix := newFixture(t)
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err := fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{

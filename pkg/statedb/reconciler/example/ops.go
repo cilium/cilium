@@ -7,13 +7,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"os"
 	"path"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/cell"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
@@ -21,12 +22,12 @@ import (
 // MemoOps writes [Memo]s to disk.
 // Implements the Reconciler.Operations[*Memo] API.
 type MemoOps struct {
-	log       logrus.FieldLogger
+	log       *slog.Logger
 	directory string
 }
 
 // NewMemoOps creates the memo operations.
-func NewMemoOps(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) reconciler.Operations[*Memo] {
+func NewMemoOps(lc cell.Lifecycle, log *slog.Logger, cfg Config) reconciler.Operations[*Memo] {
 	ops := &MemoOps{directory: cfg.Directory, log: log}
 
 	// Register the Start and Stop methods to be called when the application
@@ -40,7 +41,7 @@ func NewMemoOps(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) reconcile
 func (ops *MemoOps) Delete(ctx context.Context, txn statedb.ReadTxn, memo *Memo) error {
 	filename := path.Join(ops.directory, memo.Name)
 	err := os.Remove(filename)
-	ops.log.Infof("Delete(%s): %s", filename, err)
+	ops.log.Info(fmt.Sprintf("Delete(%s): %v", filename, err))
 	return err
 }
 
@@ -68,7 +69,7 @@ func (ops *MemoOps) Prune(ctx context.Context, txn statedb.ReadTxn, iter statedb
 	for name := range unexpected {
 		filename := path.Join(ops.directory, name)
 		err := os.Remove(filename)
-		ops.log.Infof("Prune(%s): %v", filename, err)
+		ops.log.Info(fmt.Sprintf("Prune(%s): %v", filename, err))
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -93,7 +94,7 @@ func (ops *MemoOps) Update(ctx context.Context, txn statedb.ReadTxn, memo *Memo,
 		*changed = true
 	}
 	err = os.WriteFile(filename, []byte(memo.Content), 0644)
-	ops.log.Infof("Update(%s): %v", filename, err)
+	ops.log.Info(fmt.Sprintf("Update(%s): %v", filename, err))
 	return err
 }
 

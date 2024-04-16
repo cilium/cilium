@@ -6,7 +6,8 @@ package clustermesh
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/lock"
 )
 

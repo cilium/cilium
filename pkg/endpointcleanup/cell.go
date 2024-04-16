@@ -4,10 +4,10 @@
 package endpointcleanup
 
 import (
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 var Cell = cell.Module(

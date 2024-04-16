@@ -4,12 +4,14 @@
 package clustermesh
 
 import (
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 )
@@ -31,8 +33,8 @@ var Cell = cell.Module(
 
 	cell.Config(common.Config{}),
 
-	cell.Metric(NewMetrics),
-	cell.Metric(common.MetricsProvider(subsystem)),
+	metrics.Metric(NewMetrics),
+	metrics.Metric(common.MetricsProvider(subsystem)),
 
 	cell.Invoke(ipsetSyncer),
 )

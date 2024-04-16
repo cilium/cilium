@@ -4,9 +4,10 @@
 package ciliumendpointslice
 
 import (
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 const (
@@ -52,7 +53,7 @@ var Cell = cell.Module(
 	"Cilium Endpoint Slice Controller",
 	cell.Config(defaultConfig),
 	cell.Invoke(registerController),
-	cell.Metric(NewMetrics),
+	metrics.Metric(NewMetrics),
 )
 
 type Config struct {

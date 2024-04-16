@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
-
 	. "github.com/cilium/checkmate"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/trigger"

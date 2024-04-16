@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -65,7 +65,7 @@ type KubernetesParams[Obj any] struct {
 
 	Config KubernetesConfig[Obj]
 	Jobs   job.Registry
-	Scope  cell.Scope
+	Health cell.Health
 	DB     *statedb.DB
 }
 
@@ -77,7 +77,7 @@ func Kubernetes[Obj any](p KubernetesParams[Obj]) Reflector[Obj] {
 		KubernetesConfig: p.Config,
 		db:               p.DB,
 	}
-	g := p.Jobs.NewGroup(p.Scope)
+	g := p.Jobs.NewGroup(p.Health)
 	g.Add(job.OneShot(
 		fmt.Sprintf("k8s-reflector-[%T]", *new(Obj)),
 		tr.run))
@@ -105,7 +105,7 @@ type k8sReflector[Obj any] struct {
 	db *statedb.DB
 }
 
-func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter) error {
+func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 	type entry struct {
 		deleted   bool
 		name      string

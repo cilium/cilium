@@ -14,17 +14,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	clientv3 "go.etcd.io/etcd/client/v3"
+
 	"github.com/cilium/cilium/pkg/defaults"
 	kvstoreEtcdInit "github.com/cilium/cilium/pkg/kvstore/etcdinit"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
-
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 // EtcdBinaryLocation is hardcoded because we expect this command to be run inside a Cilium container that places the

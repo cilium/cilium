@@ -8,15 +8,14 @@ import (
 	"encoding"
 	"testing"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
@@ -162,10 +161,6 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 	// Setup and start a hive to run the reconciler.
 	var db *statedb.DB
 	h := hive.New(
-		statedb.Cell,
-		reconciler.Cell,
-		job.Cell,
-
 		cell.Module(
 			"example",
 			"Example",
@@ -185,11 +180,12 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 		),
 	)
 
-	err = h.Start(context.Background())
+	tlog := hivetest.Logger(t)
+	err = h.Start(tlog, context.Background())
 	require.NoError(t, err, "Start")
 
 	t.Cleanup(func() {
-		h.Stop(context.Background())
+		h.Stop(tlog, context.Background())
 	})
 
 	// Insert an object to the desired state and wait for it to reconcile.

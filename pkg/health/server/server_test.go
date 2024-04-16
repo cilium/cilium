@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	. "github.com/cilium/checkmate"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 

@@ -8,11 +8,11 @@ import (
 	"math/rand"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -32,11 +32,11 @@ type controlParams struct {
 	Lifecycle cell.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
-	Scope     cell.Scope
+	Health    cell.Health
 }
 
 func registerControl(p controlParams) {
-	g := p.Registry.NewGroup(p.Scope)
+	g := p.Registry.NewGroup(p.Health)
 	c := &control{p}
 	g.Add(job.OneShot("control-loop", c.controlLoop))
 	p.Lifecycle.Append(g)
@@ -46,7 +46,7 @@ type control struct {
 	controlParams
 }
 
-func (c *control) controlLoop(ctx context.Context, health cell.HealthReporter) error {
+func (c *control) controlLoop(ctx context.Context, health cell.Health) error {
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	for {

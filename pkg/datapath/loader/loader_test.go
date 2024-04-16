@@ -13,11 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"

@@ -11,12 +11,12 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
-
-	"github.com/spf13/cobra"
 )
 
 const (

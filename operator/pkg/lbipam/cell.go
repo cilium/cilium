@@ -5,16 +5,16 @@ package lbipam
 
 import (
 	"context"
-	"runtime/pprof"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -26,7 +26,7 @@ var Cell = cell.Module(
 	// Invoke an empty function which takes an LBIPAM to force its construction.
 	cell.Invoke(func(*LBIPAM) {}),
 	// Provide LB-IPAM related metrics
-	cell.Metric(newMetrics),
+	metrics.Metric(newMetrics),
 )
 
 type lbipamCellParams struct {
@@ -34,9 +34,9 @@ type lbipamCellParams struct {
 
 	Logger logrus.FieldLogger
 
-	LC          cell.Lifecycle
-	JobRegistry job.Registry
-	Scope       cell.Scope
+	LC       cell.Lifecycle
+	JobGroup job.Group
+	Health   cell.Health
 
 	Clientset    k8sClient.Clientset
 	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
@@ -61,12 +61,6 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		lbClasses = append(lbClasses, cilium_api_v2alpha1.L2AnnounceLoadBalancerClass)
 	}
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(params.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "lbipam")),
-	)
-
 	lbIPAM := newLBIPAM(lbIPAMParams{
 		logger:       params.Logger,
 		poolResource: params.PoolResource,
@@ -77,17 +71,15 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		ipv6Enabled:  option.Config.IPv6Enabled(),
 		poolClient:   params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 		svcClient:    params.Clientset.Slim().CoreV1(),
-		jobGroup:     jobGroup,
+		jobGroup:     params.JobGroup,
 	})
 
-	jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context, health cell.HealthReporter) error {
+	lbIPAM.jobGroup.Add(
+		job.OneShot("lbipam main", func(ctx context.Context, health cell.Health) error {
 			lbIPAM.Run(ctx, health)
 			return nil
 		}),
 	)
-
-	params.LC.Append(jobGroup)
 
 	return lbIPAM
 }

@@ -8,19 +8,19 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
 
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -234,13 +234,14 @@ func TestGC(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			assert.NoError(t, hive.Start(ctx))
+			tlog := hivetest.Logger(t)
+			assert.NoError(t, hive.Start(tlog, ctx))
 
 			assert.NoError(t, testCleanup.run(ctx))
 
 			assert.ElementsMatch(t, test.expectedDeletedSet, deletedSet)
 
-			assert.NoError(t, hive.Stop(ctx))
+			assert.NoError(t, hive.Stop(tlog, ctx))
 		})
 	}
 }

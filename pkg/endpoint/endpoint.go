@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -414,7 +414,7 @@ type Endpoint struct {
 	properties map[string]interface{}
 
 	// Root scope for all of this endpoints reporters.
-	reporterScope       cell.Scope
+	reporterScope       cell.Health
 	closeHealthReporter func()
 
 	// NetNsCookie is the network namespace cookie of the Endpoint.
@@ -428,12 +428,19 @@ func (e *Endpoint) GetRealizedRedirects() (redirects map[string]uint16) {
 	return redirects
 }
 
-func (e *Endpoint) GetReporter(name string) cell.HealthReporter {
-	return cell.GetHealthReporter(e.reporterScope, name)
+func (e *Endpoint) GetReporter(name string) cell.Health {
+	if e.reporterScope == nil {
+		_, h := cell.NewSimpleHealth()
+		return h.NewScope(name)
+	}
+	return e.reporterScope.NewScope(name)
 }
 
-func (e *Endpoint) InitEndpointScope(parent cell.Scope) {
-	s := cell.GetSubScope(parent, fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
+func (e *Endpoint) InitEndpointHealth(parent cell.Health) {
+	if parent == nil {
+		_, parent = cell.NewSimpleHealth()
+	}
+	s := parent.NewScope(fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
 	if s != nil {
 		e.closeHealthReporter = s.Close
 		e.reporterScope = s

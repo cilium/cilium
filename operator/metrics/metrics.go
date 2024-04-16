@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -15,7 +16,6 @@ import (
 	controllerRuntimeMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )

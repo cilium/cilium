@@ -8,12 +8,12 @@ import (
 	"net/netip"
 	"strconv"
 
+	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -46,8 +46,8 @@ type collectorIn struct {
 }
 
 // RegisterCollector registers the BGP Control Plane metrics collector to the
-// global prometheus registry. We don't rely on the cell.Metric because the
-// collectors we can provide through cell.Metric needs to implement
+// global prometheus registry. We don't rely on the metrics.Metric because the
+// collectors we can provide through metrics.Metric needs to implement
 // prometheus.Collector per metric which is not optimal in our case. We can
 // retrieve the multiple metrics from the single call to
 // RouterManager.GetPeers() and it is wasteful to call the same function

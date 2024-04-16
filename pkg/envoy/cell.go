@@ -6,14 +6,15 @@ package envoy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"runtime/pprof"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -217,9 +218,10 @@ type versionCheckParams struct {
 	cell.In
 
 	Lifecycle        cell.Lifecycle
+	Slog             *slog.Logger
 	Logger           logrus.FieldLogger
 	JobRegistry      job.Registry
-	Scope            cell.Scope
+	Health           cell.Health
 	EnvoyProxyConfig envoyProxyConfig
 	EnvoyAdminClient *EnvoyAdminClient
 }
@@ -238,8 +240,8 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(params.Logger),
+		params.Health,
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
 	)
 	params.Lifecycle.Append(jobGroup)
@@ -284,10 +286,11 @@ func newArtifactCopier(lifecycle cell.Lifecycle) *ArtifactCopier {
 type syncerParams struct {
 	cell.In
 
+	Slog        *slog.Logger
 	Logger      logrus.FieldLogger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
-	Scope       cell.Scope
+	Health      cell.Health
 
 	K8sClientset client.Clientset
 
@@ -321,8 +324,8 @@ func registerSecretSyncer(params syncerParams) error {
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(params.Logger),
+		params.Health,
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
 	)
 

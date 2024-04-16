@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"

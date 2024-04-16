@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )

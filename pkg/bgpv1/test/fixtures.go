@@ -7,7 +7,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -17,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sPkg "github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -185,7 +186,6 @@ func newFixture(conf fixtureConfig) *fixture {
 		}),
 
 		metrics.Cell,
-		job.Cell,
 		bgpv1.Cell,
 	}
 	f.hive = hive.New(f.cells...)
@@ -210,14 +210,14 @@ func setupSingleNeighbor(ctx context.Context, f *fixture, peerASN uint32) error 
 }
 
 // setup configures the test environment based on provided gobgp and fixture config.
-func setup(ctx context.Context, peerConfigs []gobgpConfig, fixConfig fixtureConfig) (peers []*goBGP, f *fixture, cleanup func(), err error) {
+func setup(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, fixConfig fixtureConfig) (peers []*goBGP, f *fixture, cleanup func(), err error) {
 	f = newFixture(fixConfig)
-	peers, cleanup, err = start(ctx, peerConfigs, f)
+	peers, cleanup, err = start(ctx, t, peerConfigs, f)
 	return
 }
 
 // start configures dummy links, starts gobgp and cilium bgp cell.
-func start(ctx context.Context, peerConfigs []gobgpConfig, f *fixture) (peers []*goBGP, cleanup func(), err error) {
+func start(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, f *fixture) (peers []*goBGP, cleanup func(), err error) {
 	// cleanup old dummy links if they are hanging around
 	_ = teardownLinks()
 
@@ -242,7 +242,8 @@ func start(ctx context.Context, peerConfigs []gobgpConfig, f *fixture) (peers []
 	}
 
 	// start cilium
-	err = f.hive.Start(ctx)
+	tlog := hivetest.Logger(t)
+	err = f.hive.Start(tlog, ctx)
 	if err != nil {
 		return
 	}
@@ -254,7 +255,7 @@ func start(ctx context.Context, peerConfigs []gobgpConfig, f *fixture) (peers []
 
 		f.bgp.BGPMgr.Stop()
 
-		f.hive.Stop(ctx)
+		f.hive.Stop(tlog, ctx)
 		teardownLinks()
 	}
 

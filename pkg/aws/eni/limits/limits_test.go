@@ -7,9 +7,8 @@ import (
 	"context"
 	"testing"
 
-	check "github.com/cilium/checkmate"
-
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	check "github.com/cilium/checkmate"
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/operator/option"

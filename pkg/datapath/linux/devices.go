@@ -4,14 +4,14 @@
 package linux
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"strings"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -99,10 +99,4 @@ type devicesManagerParams struct {
 // Dummy dependency to *devicesController to make sure devices table is populated.
 func newDeviceManager(p devicesManagerParams, _ *devicesController) *DeviceManager {
 	return &DeviceManager{params: p, hive: nil}
-}
-
-func (dm *DeviceManager) Stop() {
-	if dm.hive != nil {
-		dm.hive.Stop(context.TODO())
-	}
 }

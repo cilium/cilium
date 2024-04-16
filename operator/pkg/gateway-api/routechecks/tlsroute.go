@@ -10,9 +10,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,6 +17,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
 // TLSRouteInput is used to implement the Input interface for TLSRoute

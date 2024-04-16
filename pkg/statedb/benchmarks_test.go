@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	iradix "github.com/hashicorp/go-immutable-radix/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
@@ -286,9 +287,10 @@ func BenchmarkDB_PropagationDelay(b *testing.B) {
 		}),
 	)
 
-	require.NoError(b, h.Start(context.TODO()))
+	tlog := hivetest.Logger(b)
+	require.NoError(b, h.Start(tlog, context.TODO()))
 	b.Cleanup(func() {
-		assert.NoError(b, h.Stop(context.TODO()))
+		assert.NoError(b, h.Stop(tlog, context.TODO()))
 		logging.SetLogLevel(logrus.InfoLevel)
 	})
 

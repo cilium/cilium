@@ -11,12 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vishvananda/netlink"
-
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"

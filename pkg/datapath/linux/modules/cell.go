@@ -3,7 +3,7 @@
 
 package modules
 
-import "github.com/cilium/cilium/pkg/hive/cell"
+import "github.com/cilium/hive/cell"
 
 var Cell = cell.Module(
 	"kernel-modules-manager",

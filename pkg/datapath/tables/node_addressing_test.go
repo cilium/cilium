@@ -9,14 +9,14 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -29,9 +29,6 @@ var (
 
 func setupNodeAddressing(t *testing.T, addrs []DeviceAddress) (nodeAddressing types.NodeAddressing) {
 	h := hive.New(
-		job.Cell,
-		statedb.Cell,
-
 		// Table[*Device] infrastructure, to be filled with some fakes below.
 		cell.Provide(NewDeviceTable),
 		cell.Invoke(statedb.RegisterTable[*Device]),
@@ -79,9 +76,11 @@ func setupNodeAddressing(t *testing.T, addrs []DeviceAddress) (nodeAddressing ty
 			nodeAddressing = nodeAddressing_
 		}),
 	)
-	require.NoError(t, h.Start(context.TODO()), "Start")
+
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()), "Start")
 	t.Cleanup(func() {
-		h.Stop(context.TODO())
+		h.Stop(tlog, context.TODO())
 	})
 	return
 }

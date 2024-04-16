@@ -4,8 +4,9 @@
 package gc
 
 import (
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 var Cell = cell.Module(

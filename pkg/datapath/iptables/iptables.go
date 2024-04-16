@@ -11,11 +11,12 @@ import (
 	"net/netip"
 	"os"
 	"regexp"
-	"runtime/pprof"
 	"strconv"
 	"strings"
 
 	"github.com/blang/semver/v4"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -32,8 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -297,10 +296,10 @@ type params struct {
 	Cfg       Config
 	SharedCfg SharedConfig
 
-	JobRegistry job.Registry
-	Scope       cell.Scope
-	DB          *statedb.DB
-	Devices     statedb.Table[*tables.Device]
+	JobGroup job.Group
+	Health   cell.Health
+	DB       *statedb.DB
+	Devices  statedb.Table[*tables.Device]
 }
 
 func newIptablesManager(p params) *Manager {
@@ -324,14 +323,8 @@ func newIptablesManager(p params) *Manager {
 
 	p.Lifecycle.Append(iptMgr)
 
-	jg := p.JobRegistry.NewGroup(
-		p.Scope,
-		job.WithLogger(p.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "iptables")),
-	)
-
-	jg.Add(
-		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.HealthReporter) error {
+	p.JobGroup.Add(
+		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.Health) error {
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
@@ -342,8 +335,6 @@ func newIptablesManager(p params) *Manager {
 			)
 		}),
 	)
-
-	p.Lifecycle.Append(jg)
 
 	return iptMgr
 }

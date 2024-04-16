@@ -6,11 +6,10 @@ package probes
 import (
 	"errors"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/features"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/lock"
 )

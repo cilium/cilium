@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -54,7 +55,6 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	healthTypes "github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1624,9 +1624,7 @@ type daemonParams struct {
 	APILimiterSet        *rate.APILimiterSet
 	AuthManager          *auth.AuthManager
 	Settings             cellSettings
-	HealthProvider       cell.Health
 	HealthV2Provider     healthTypes.Provider
-	HealthScope          cell.Scope
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
 	Devices              statedb.Table[*datapathTables.Device]
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.

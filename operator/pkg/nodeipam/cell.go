@@ -6,11 +6,11 @@ package nodeipam
 import (
 	"fmt"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 

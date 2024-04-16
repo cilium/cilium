@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"syscall"
 
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime"
 	"github.com/sirupsen/logrus"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 type Server interface {

@@ -7,9 +7,9 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/checker"
-
 	. "github.com/cilium/checkmate"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 type CounterTestSuite struct{}

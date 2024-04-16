@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/cilium/cilium/hubble/pkg"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/hubble/pkg"
 )
 
 // New version command.

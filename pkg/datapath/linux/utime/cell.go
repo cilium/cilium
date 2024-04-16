@@ -7,8 +7,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/time"
 )

@@ -7,11 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"

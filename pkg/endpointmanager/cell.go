@@ -8,9 +8,10 @@ import (
 	"net/netip"
 	"sync"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -179,7 +180,7 @@ type EndpointManager interface {
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
 // resources with Kubernetes.
 type EndpointResourceSynchronizer interface {
-	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, hr cell.HealthReporter)
+	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, hr cell.Health)
 	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
 
@@ -196,7 +197,7 @@ type endpointManagerParams struct {
 	Config          EndpointManagerConfig
 	Clientset       client.Clientset
 	MetricsRegistry *metrics.Registry
-	Scope           cell.Scope
+	Health          cell.Health
 	EPSynchronizer  EndpointResourceSynchronizer
 	LocalNodeStore  *node.LocalNodeStore
 }
@@ -212,7 +213,7 @@ type endpointManagerOut struct {
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(p.EPSynchronizer, p.LocalNodeStore, p.Scope)
+	mgr := New(p.EPSynchronizer, p.LocalNodeStore, p.Health)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(cell.Hook{

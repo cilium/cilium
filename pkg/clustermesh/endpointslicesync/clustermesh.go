@@ -9,13 +9,13 @@ import (
 	"net"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
+	"github.com/cilium/hive/cell"
 	"k8s.io/client-go/informers"
 	cache "k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"

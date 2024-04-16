@@ -4,8 +4,9 @@
 package service
 
 import (
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 )
 

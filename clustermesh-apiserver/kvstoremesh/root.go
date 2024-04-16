@@ -4,12 +4,14 @@
 package kvstoremesh
 
 import (
+	"log/slog"
+
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -26,7 +28,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		Use:   "kvstoremesh",
 		Short: "Run KVStoreMesh",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := h.Run(); err != nil {
+			if err := h.Run(slog.Default()); err != nil {
 				log.Fatal(err)
 			}
 		},

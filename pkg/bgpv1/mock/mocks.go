@@ -6,15 +6,15 @@ package mock
 import (
 	"context"
 
+	v1 "k8s.io/api/core/v1"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
+	v1listers "k8s.io/client-go/listers/core/v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-
-	v1 "k8s.io/api/core/v1"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
-	v1listers "k8s.io/client-go/listers/core/v1"
 )
 
 var _ v1listers.NodeLister = (*MockNodeLister)(nil)

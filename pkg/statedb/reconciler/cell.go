@@ -3,7 +3,11 @@
 
 package reconciler
 
-import "github.com/cilium/cilium/pkg/hive/cell"
+import (
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/metrics"
+)
 
 // Cell provides shared objects used by all reconciler instances.
 // Currently it provides only the Metrics object.
@@ -11,5 +15,5 @@ var Cell = cell.Module(
 	"reconciler",
 	"Shared metrics for the reconcilers",
 
-	cell.Metric(newMetrics),
+	metrics.Metric(newMetrics),
 )

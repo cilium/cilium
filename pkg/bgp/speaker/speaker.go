@@ -13,10 +13,9 @@ import (
 	"github.com/sirupsen/logrus"
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 	v1 "k8s.io/api/core/v1"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp/fence"

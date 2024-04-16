@@ -8,11 +8,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
@@ -46,7 +45,7 @@ func New[Obj comparable](p Params[Obj]) (Reconciler[Obj], error) {
 		primaryIndexer: idx,
 	}
 
-	g := p.Jobs.NewGroup(p.Scope)
+	g := p.Jobs.NewGroup(p.Health)
 
 	g.Add(job.OneShot("reconciler-loop", r.loop))
 	p.Lifecycle.Append(g)
@@ -59,13 +58,12 @@ type Params[Obj comparable] struct {
 
 	Config    Config[Obj]
 	Lifecycle cell.Lifecycle
-	Log       logrus.FieldLogger
 	DB        *statedb.DB
 	Table     statedb.RWTable[Obj]
 	Jobs      job.Registry
 	Metrics   *Metrics
 	ModuleId  cell.ModuleID
-	Scope     cell.Scope
+	Health    cell.Health
 }
 
 type reconciler[Obj comparable] struct {
@@ -106,7 +104,7 @@ func WaitForReconciliation[Obj any](ctx context.Context, db *statedb.DB, table s
 	}
 }
 
-func (r *reconciler[Obj]) loop(ctx context.Context, health cell.HealthReporter) error {
+func (r *reconciler[Obj]) loop(ctx context.Context, health cell.Health) error {
 	var fullReconTickerChan <-chan time.Time
 	if r.Config.FullReconcilationInterval > 0 {
 		fullReconTicker := time.NewTicker(r.Config.FullReconcilationInterval)

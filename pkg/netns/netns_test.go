@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/testutils"
-
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func lock(t *testing.T) {

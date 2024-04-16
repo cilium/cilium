@@ -4,9 +4,11 @@
 package kvstoremesh
 
 import (
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var Cell = cell.Module(
@@ -18,5 +20,5 @@ var Cell = cell.Module(
 	cell.Config(common.Config{}),
 	store.Cell,
 
-	cell.Metric(common.MetricsProvider("")),
+	metrics.Metric(common.MetricsProvider("")),
 )

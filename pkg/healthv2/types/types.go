@@ -7,24 +7,14 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/cilium/hive/cell"
 )
-
-// ModuleID is the module identifier. Provided in the module's scope.
-type ModuleID string
-
-// FullModuleID is the fully qualified module identifier, e.g. the
-// concat of nested module ids, e.g. "agent.controlplane.endpoint-manager".
-// Provided in the module's scope.
-type FullModuleID []string
-
-func (i FullModuleID) String() string {
-	return strings.Join(i, ".")
-}
 
 // Provider has functionality to create health reporters, scoped a
 // module.
 type Provider interface {
-	ForModule(mid FullModuleID) Health
+	ForModule(mid cell.FullModuleID) cell.Health
 }
 
 type pathIdent []string
@@ -43,7 +33,7 @@ type HealthID string
 // Identifier is a fully qualified, path based identifier for health status
 // which is made up of module ID and component ID parts.
 type Identifier struct {
-	Module    FullModuleID
+	Module    cell.FullModuleID
 	Component pathIdent
 }
 

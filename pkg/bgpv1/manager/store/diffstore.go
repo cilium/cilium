@@ -7,16 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime/pprof"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
-
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/util/workqueue"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var ErrStoreUninitialized = errors.New("the store has not initialized yet")
@@ -40,11 +39,11 @@ var _ DiffStore[*k8sRuntime.Unknown] = (*diffStore[*k8sRuntime.Unknown])(nil)
 type diffStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
-	Lifecycle   cell.Lifecycle
-	Scope       cell.Scope
-	JobRegistry job.Registry
-	Resource    resource.Resource[T]
-	Signaler    *signaler.BGPCPSignaler
+	Lifecycle cell.Lifecycle
+	Health    cell.Health
+	JobGroup  job.Group
+	Resource  resource.Resource[T]
+	Signaler  *signaler.BGPCPSignaler
 }
 
 // diffStore takes a resource.Resource[T] and watches for events, it stores all of the keys that have been changed.
@@ -74,25 +73,22 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 		updatedKeys: make(map[resource.Key]bool),
 	}
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithPprofLabels(pprof.Labels("cell", "bgp-cp")),
+	params.JobGroup.Add(
+		job.OneShot("diffstore-events",
+			func(ctx context.Context, health cell.Health) (err error) {
+				ds.store, err = ds.resource.Store(ctx)
+				if err != nil {
+					return fmt.Errorf("error creating resource store: %w", err)
+				}
+				for event := range ds.resource.Events(ctx) {
+					ds.handleEvent(event)
+				}
+				return nil
+			},
+			job.WithRetry(3, &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: time.Second}),
+			job.WithShutdown()),
 	)
 
-	jobGroup.Add(
-		job.OneShot("diffstore-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
-			ds.store, err = ds.resource.Store(ctx)
-			if err != nil {
-				return fmt.Errorf("error creating resource store: %w", err)
-			}
-			for event := range ds.resource.Events(ctx) {
-				ds.handleEvent(event)
-			}
-			return nil
-		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
-	)
-
-	params.Lifecycle.Append(jobGroup)
 	return ds
 }
 
