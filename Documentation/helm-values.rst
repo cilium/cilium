@@ -985,7 +985,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.ipsec.encryptedOverlay`
-     - Enable IPSec encrypted overlay
+     - Enable IPsec encrypted overlay
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.ipsec.interface`
