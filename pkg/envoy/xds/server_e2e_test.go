@@ -725,18 +725,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 	err = stream.SendRequest(req)
 	c.Assert(err, IsNil)
 
-	// Expecting no response from the server.
-
-	// Resend the request with the correct nonce.
-	req = &envoy_service_discovery.DiscoveryRequest{
-		TypeUrl:       typeURL,
-		VersionInfo:   resp.VersionInfo, // ACK the received version.
-		Node:          nodes[node0],
-		ResourceNames: nil,
-		ResponseNonce: resp.Nonce,
-	}
-	err = stream.SendRequest(req)
-	c.Assert(err, IsNil)
+	// Server correctly detects 0 nonce and resets it to the correct value.
 
 	// Expecting a response with both resources.
 	resp, err = stream.RecvResponse()
