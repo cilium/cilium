@@ -495,6 +495,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		if err != nil {
 			return fmt.Errorf("creating endpoint verifier log file: %w", err)
 		}
+		defer f.Close()
 		if _, err := fmt.Fprintf(f, "%+v\n", ve); err != nil {
 			return fmt.Errorf("writing verifier log to endpoint directory: %w", err)
 		}
