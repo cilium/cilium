@@ -200,6 +200,40 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		require.Zero(t, len(epList.Items))
 	})
 
+	t.Run("Create headless service and global service", func(t *testing.T) {
+		svcName := "local-svc-headless-global-svc"
+		svc1 := createService(svcName)
+		svc1.Spec.ClusterIP = corev1.ClusterIPNone
+
+		svcStore.CacheStore().Add(svc1)
+		serviceInformer.refreshAllCluster(svc1)
+		createGlobalService(globalService, podInformer, svcName)
+
+		queue := getControllerQueue(controller)
+		require.NoError(t, waitEmptyQueue(queue))
+
+		epList, err := getEndpointSlice(&fakeClient, svcName)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(epList.Items))
+	})
+
+	t.Run("Create headless service with endpointslice opt-out and global service", func(t *testing.T) {
+		svcName := "local-svc-headless-opt-out-global-svc"
+		svc1 := createService(svcName)
+		svc1.Spec.ClusterIP = corev1.ClusterIPNone
+		svc1.ObjectMeta.Annotations[annotation.GlobalServiceSyncEndpointSlices] = "false"
+		svcStore.CacheStore().Add(svc1)
+		serviceInformer.refreshAllCluster(svc1)
+		createGlobalService(globalService, podInformer, svcName)
+
+		queue := getControllerQueue(controller)
+		require.NoError(t, waitEmptyQueue(queue))
+
+		epList, err := getEndpointSlice(&fakeClient, svcName)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(epList.Items))
+	})
+
 	t.Run("Create service with global annotation and remove it", func(t *testing.T) {
 		svcName := "svc-remove-annotation"
 		createGlobalService(globalService, podInformer, svcName)

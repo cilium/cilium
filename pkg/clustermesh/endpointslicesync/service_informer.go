@@ -72,11 +72,11 @@ func doesServiceSyncEndpointSlice(svc *slim_corev1.Service) bool {
 	}
 
 	value, ok = annotation.Get(svc, annotation.GlobalServiceSyncEndpointSlices)
-	if !ok || strings.ToLower(value) != "true" {
-		return false
+	if !ok {
+		// If the service is headless we sync the EndpointSlice by default
+		return svc.Spec.ClusterIP == v1.ClusterIPNone
 	}
-
-	return true
+	return strings.ToLower(value) == "true"
 }
 
 func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) error {
