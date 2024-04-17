@@ -125,7 +125,7 @@ pipeline {
             parallel {
                 stage ("Copy code and boot vms"){
                     options {
-                        timeout(time: 30, unit: 'MINUTES')
+                        timeout(time: 120, unit: 'MINUTES')
                     }
 
                     environment {
@@ -159,7 +159,7 @@ pipeline {
                     steps {
                         withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
                             dir("${TESTDIR}") {
-                                sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 25m ./vagrant-ci-start.sh'
+                                sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 115m ./vagrant-ci-start.sh'
                             }
                         }
                     }
