@@ -76,6 +76,6 @@ func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ad
 	info.Identity = uint64(id)
 	identity := r.identityAllocator.LookupIdentityByID(context.TODO(), id)
 	if identity != nil {
-		info.Labels = identity.Labels.GetModel()
+		info.Labels = identity.LabelArray
 	}
 }
