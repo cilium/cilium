@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -89,31 +88,27 @@ func getEpDirs(ep *testutils.TestEndpoint) *directoryInfo {
 	}
 }
 
-func testCompileAndLoad(t *testing.T, ep *testutils.TestEndpoint) {
+func testCompileOrLoad(t *testing.T, ep *testutils.TestEndpoint) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	err := l.compileAndLoad(ctx, ep, getEpDirs(ep), stats)
+	err := l.compileOrLoad(ctx, ep, getEpDirs(ep), stats)
 	require.Nil(t, err)
 }
 
-// TestCompileAndLoadDefaultEndpoint checks that the datapath can be compiled
+// TestCompileOrLoadDefaultEndpoint checks that the datapath can be compiled
 // and loaded.
-func TestCompileAndLoadDefaultEndpoint(t *testing.T) {
+func TestCompileOrLoadDefaultEndpoint(t *testing.T) {
 	ep := testutils.NewTestEndpoint()
 	initEndpoint(t, &ep)
-	testCompileAndLoad(t, &ep)
+	testCompileOrLoad(t, &ep)
 }
 
-// TestCompileAndLoadHostEndpoint is the same as
+// TestCompileOrLoadHostEndpoint is the same as
 // TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
-func TestCompileAndLoadHostEndpoint(t *testing.T) {
-	elfMapPrefixes = []string{
-		fmt.Sprintf("test_%s", policymap.MapName),
-		fmt.Sprintf("test_%s", callsmap.MapName),
-	}
+func TestCompileOrLoadHostEndpoint(t *testing.T) {
 
 	callsmap.HostMapName = fmt.Sprintf("test_%s", callsmap.MapName)
 	callsmap.NetdevMapName = fmt.Sprintf("test_%s", callsmap.MapName)
@@ -121,7 +116,7 @@ func TestCompileAndLoadHostEndpoint(t *testing.T) {
 	hostEp := testutils.NewTestHostEndpoint()
 	initEndpoint(t, &hostEp)
 
-	testCompileAndLoad(t, &hostEp)
+	testCompileOrLoad(t, &hostEp)
 }
 
 // TestReload compiles and attaches the datapath multiple times.
@@ -177,7 +172,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.compileAndLoad(ctx, ep, getEpDirs(ep), stats)
+		err = l.compileOrLoad(ctx, ep, getEpDirs(ep), stats)
 	}
 	require.NotNil(t, err)
 }
@@ -316,11 +311,6 @@ func TestSubstituteConfiguration(t *testing.T) {
 	elf.IgnoreSymbolPrefixes(ignorePrefixes)
 
 	setupCompilationDirectories(t)
-
-	elfMapPrefixes = []string{
-		fmt.Sprintf("test_%s", policymap.MapName),
-		fmt.Sprintf("test_%s", callsmap.MapName),
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()

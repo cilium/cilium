@@ -630,41 +630,9 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 	return nil
 }
 
-func (l *loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
-	stats.BpfCompilation.Start()
-	err := compileDatapath(ctx, dirs, ep.IsHost(), ep.Logger(subsystem))
-	stats.BpfCompilation.End(err == nil)
-	if err != nil {
-		return err
-	}
-
-	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ctx, ep, dirs)
-	stats.BpfLoadProg.End(err == nil)
-	return err
-}
-
-// CompileAndLoad compiles the BPF datapath programs for the specified endpoint
-// and loads it onto the interface associated with the endpoint.
-//
-// Expects the caller to have created the directory at the path ep.StateDir().
-func (l *loader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	if ep == nil {
-		log.Fatalf("LoadBPF() doesn't support non-endpoint load")
-	}
-
-	dirs := directoryInfo{
-		Library: option.Config.BpfDir,
-		Runtime: option.Config.StateDir,
-		State:   ep.StateDir(),
-		Output:  ep.StateDir(),
-	}
-	return l.compileAndLoad(ctx, ep, &dirs, stats)
-}
-
 // CompileOrLoad loads the BPF datapath programs for the specified endpoint.
 //
-// In contrast with CompileAndLoad(), it attempts to find a pre-compiled
+// It attempts to find a pre-compiled
 // template datapath object to use, to avoid a costly compile operation.
 // Only if there is no existing template that has the same configuration
 // parameters as the specified endpoint, this function will compile a new
@@ -676,7 +644,17 @@ func (l *loader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
 func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, stats)
+	dirs := &directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		State:   ep.StateDir(),
+		Output:  ep.StateDir(),
+	}
+	return l.compileOrLoad(ctx, ep, dirs, stats)
+}
+
+func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, dirs, stats)
 	if err != nil {
 		return err
 	}

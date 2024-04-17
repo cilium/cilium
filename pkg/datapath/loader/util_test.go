@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/maps/callsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -33,11 +35,18 @@ func setupCompilationDirectories(tb testing.TB) {
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
 	}
 
+	oldElfMapPrefixes := elfMapPrefixes
+	elfMapPrefixes = []string{
+		fmt.Sprintf("test_%s", policymap.MapName),
+		fmt.Sprintf("test_%s", callsmap.MapName),
+	}
+
 	tb.Cleanup(func() {
 		option.Config.DryMode = false
 		option.Config.BpfDir = ""
 		option.Config.StateDir = ""
 		testIncludes = nil
+		elfMapPrefixes = oldElfMapPrefixes
 	})
 }
 
