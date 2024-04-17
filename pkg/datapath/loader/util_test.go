@@ -8,7 +8,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/statedb"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
@@ -52,7 +58,19 @@ func setupCompilationDirectories(tb testing.TB) {
 
 func newTestLoader(tb testing.TB) *loader {
 	setupCompilationDirectories(tb)
-	l := NewLoaderForTest(tb)
+	nodeAddrs, err := tables.NewNodeAddressTable()
+	require.NoError(tb, err, "NewNodeAddressTable")
+	devices, err := tables.NewDeviceTable()
+	require.NoError(tb, err, "NewDeviceTable")
+	db := statedb.New()
+	require.NoError(tb, db.RegisterTable(nodeAddrs, devices), "RegisterTable")
+	l := newLoader(Params{
+		Config:    DefaultConfig,
+		DB:        db,
+		NodeAddrs: nodeAddrs,
+		Sysctl:    sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+		Devices:   devices,
+	})
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tb.TempDir())
 	return l
 }

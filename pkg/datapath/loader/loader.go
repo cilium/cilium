@@ -12,13 +12,10 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -125,22 +122,6 @@ func newLoader(p Params) *loader {
 		localNodeConfig:   p.LocalNodeConfig,
 		nodeHandler:       p.NodeHandler,
 	}
-}
-
-func NewLoaderForTest(tb testing.TB) *loader {
-	nodeAddrs, err := tables.NewNodeAddressTable()
-	require.NoError(tb, err, "NewNodeAddressTable")
-	devices, err := tables.NewDeviceTable()
-	require.NoError(tb, err, "NewDeviceTable")
-	db := statedb.New()
-	require.NoError(tb, db.RegisterTable(nodeAddrs, devices), "RegisterTable")
-	return newLoader(Params{
-		Config:    DefaultConfig,
-		DB:        db,
-		NodeAddrs: nodeAddrs,
-		Sysctl:    sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		Devices:   devices,
-	})
 }
 
 // Init initializes the datapath cache with base program hashes derived from
@@ -253,7 +234,8 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 	}
 	defer hostObj.Close()
 
-	opts, strings := l.ELFSubstitutions(ep)
+	opts := ELFVariableSubstitutions(ep)
+	strings := ELFMapSubstitutions(ep)
 
 	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
@@ -728,7 +710,8 @@ func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *
 		epObj = hostEndpointObj
 	}
 	dstPath := path.Join(ep.StateDir(), epObj)
-	opts, strings := l.ELFSubstitutions(ep)
+	opts := ELFVariableSubstitutions(ep)
+	strings := ELFMapSubstitutions(ep)
 	if err = template.Write(dstPath, opts, strings); err != nil {
 		stats.BpfWriteELF.End(err == nil)
 		return err

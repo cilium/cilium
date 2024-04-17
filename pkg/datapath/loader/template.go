@@ -133,10 +133,10 @@ func wrap(cfg datapath.CompileTimeConfiguration) *templateCfg {
 	}
 }
 
-// elfMapSubstitutions returns the set of map substitutions that must occur in
+// ELFMapSubstitutions returns the set of map substitutions that must occur in
 // an ELF template object file to update map references for the specified
 // endpoint.
-func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
+func ELFMapSubstitutions(ep datapath.Endpoint) map[string]string {
 	result := make(map[string]string)
 	epID := uint16(ep.GetID())
 
@@ -220,10 +220,10 @@ func sliceToBe64(input []byte) uint64 {
 	return byteorder.HostToNetwork64(sliceToU64(input))
 }
 
-// elfVariableSubstitutions returns the set of data substitutions that must
+// ELFVariableSubstitutions returns the set of data substitutions that must
 // occur in an ELF template object file to update static data for the specified
 // endpoint.
-func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
+func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	result := make(map[string]uint64)
 
 	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
@@ -271,11 +271,4 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	result["POLICY_VERDICT_LOG_FILTER"] = uint64(ep.GetPolicyVerdictLogFilter())
 	return result
 
-}
-
-// ELFSubstitutions fetches the set of variable and map substitutions that
-// must be implemented against an ELF template to configure the datapath for
-// the specified endpoint.
-func (l *loader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
-	return elfVariableSubstitutions(ep), elfMapSubstitutions(ep)
 }
