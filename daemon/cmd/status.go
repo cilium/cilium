@@ -190,10 +190,17 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 	return s
 }
 
-func (d *Daemon) getHostRoutingStatus() *models.HostRouting {
-	s := &models.HostRouting{Mode: models.HostRoutingModeBPF}
+func (d *Daemon) getRoutingStatus() *models.Routing {
+	s := &models.Routing{
+		IntraHostRoutingMode: models.RoutingIntraHostRoutingModeBPF,
+		InterHostRoutingMode: models.RoutingInterHostRoutingModeTunnel,
+		TunnelProtocol:       d.tunnelConfig.Protocol().String(),
+	}
 	if option.Config.EnableHostLegacyRouting {
-		s.Mode = models.HostRoutingModeLegacy
+		s.IntraHostRoutingMode = models.RoutingIntraHostRoutingModeLegacy
+	}
+	if option.Config.RoutingMode == option.RoutingModeNative {
+		s.InterHostRoutingMode = models.RoutingInterHostRoutingModeNative
 	}
 	return s
 }
@@ -1072,7 +1079,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
-	d.statusResponse.HostRouting = d.getHostRoutingStatus()
+	d.statusResponse.Routing = d.getRoutingStatus()
 	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()

@@ -2156,9 +2156,9 @@ definitions:
       masquerading:
         description: Status of masquerading
         "$ref": "#/definitions/Masquerading"
-      host-routing:
-        description: Status of host routing
-        "$ref": "#/definitions/HostRouting"
+      routing:
+        description: Status of routing
+        "$ref": "#/definitions/Routing"
       clock-source:
         description: Status of clock source
         "$ref": "#/definitions/ClockSource"
@@ -3490,19 +3490,28 @@ definitions:
       hertz:
         description: Kernel Hz
         type: integer
-  HostRouting:
+  Routing:
     description: |-
-      Status of host routing
+      Status of routing
 
       +k8s:deepcopy-gen=true
     type: object
     properties:
-      mode:
-        description: Datapath routing mode
+      inter-host-routing-mode:
+        description: Datapath routing mode for cross-cluster connectivity
+        type: string
+        enum:
+        - Native
+        - Tunnel
+      intra-host-routing-mode:
+        description: Datapath routing mode for connectivity within the host
         type: string
         enum:
         - BPF
         - Legacy
+      tunnel-protocol:
+        description: Tunnel protocol in use for cross-cluster connectivity
+        type: string
   ControllerStatuses:
     description: Collection of controller statuses
     type: array
