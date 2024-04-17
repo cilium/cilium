@@ -117,13 +117,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 		daemon.l2announcer.DevicesChanged(devices)
 	}
 
-	// Reload the datapath.
-	wg, err := daemon.TriggerReloadWithoutCompile("devices changed")
-	if err != nil {
-		log.WithError(err).Warn("Failed to reload datapath")
-	} else {
-		wg.Wait()
-	}
 	d.prevDevices = devices
 	return nil
 }

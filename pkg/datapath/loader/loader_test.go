@@ -95,7 +95,7 @@ func testCompileAndLoad(t *testing.T, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	err := l.compileAndLoad(ctx, ep, getEpDirs(ep), stats)
+	err := l.compileAndLoad(ctx, ep, getEpDirs(ep), nil, stats)
 	require.Nil(t, err)
 }
 
@@ -177,7 +177,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.compileAndLoad(ctx, ep, getEpDirs(ep), stats)
+		err = l.compileAndLoad(ctx, ep, getEpDirs(ep), nil, stats)
 	}
 	require.NotNil(t, err)
 }
@@ -336,7 +336,7 @@ func TestSubstituteConfiguration(t *testing.T) {
 	l := newTestLoader(t)
 	stats := &metrics.SpanStat{}
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, t.TempDir())
-	if err := l.CompileOrLoad(ctx, &ep, stats); err != nil {
+	if err := l.CompileOrLoad(ctx, &ep, nil, stats); err != nil {
 		t.Fatal(err)
 	}
 }
