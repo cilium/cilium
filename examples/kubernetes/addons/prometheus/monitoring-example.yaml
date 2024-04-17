@@ -83,6 +83,12 @@ data:
   
     #################################### Analytics ###########################
     [analytics]
+    # Also known as 'usage analytics', when set to false, this option disables
+    # the writers that write to the Grafana database and the associated features,
+    # such as dashboard and data source insights, presence indicators, and
+    # advanced dashboard search. The default value is 'true'.
+    enabled = false
+
     # Server reporting, sends usage counters to stats.grafana.org every 24 hours.
     # No ip addresses are being tracked, only simple counters to track
     # running instances, dashboard and error counts. It is very helpful to us.
@@ -95,7 +101,13 @@ data:
     # This option does not cause any auto updates, nor send any information
     # only a GET request to https://grafana.com to get latest versions
     check_for_updates = false
-  
+    
+    # Set to false, disables checking for new versions of Grafana from Grafana's
+    # GitHub repository. When enabled, the check for a new version runs every
+    # 10 minutes. It will notify, via the UI, when a new version is available.
+    # The check itself will not send any sensitive information.
+    check_for_plugin_updates = false
+
     #################################### Security ############################
     [security]
     # default admin user, created on startup
