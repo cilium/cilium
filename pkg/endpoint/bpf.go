@@ -660,14 +660,14 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 
 		// Compile and install BPF programs for this endpoint
 		if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRewrite {
-			err = e.owner.Datapath().Loader().CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+			err = e.owner.Datapath().Orchestrator().CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Rewrote endpoint BPF program")
 			} else if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while rewriting endpoint BPF program")
 			}
 		} else { // RegenerateWithDatapathLoad
-			err = e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+			err = e.owner.Datapath().Orchestrator().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Reloaded endpoint BPF program")
 			} else {
@@ -908,7 +908,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
 	var headerfileChanged bool
-	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Datapath().Loader().EndpointHash(e)
+	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Datapath().Orchestrator().EndpointHash(e)
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		datapathRegenCtxt.bpfHeaderfilesHash = ""

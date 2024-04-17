@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -87,7 +86,6 @@ type loader struct {
 	sysctl          sysctl.Sysctl
 	db              *statedb.DB
 	nodeAddrs       statedb.Table[tables.NodeAddress]
-	devices         statedb.Table[*tables.Device]
 	prefilter       datapath.PreFilter
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
@@ -102,7 +100,6 @@ type Params struct {
 	DB              *statedb.DB
 	NodeAddrs       statedb.Table[tables.NodeAddress]
 	Sysctl          sysctl.Sysctl
-	Devices         statedb.Table[*tables.Device]
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
@@ -117,7 +114,6 @@ func newLoader(p Params) *loader {
 		db:                p.DB,
 		nodeAddrs:         p.NodeAddrs,
 		sysctl:            p.Sysctl,
-		devices:           p.Devices,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
 		compilationLock:   p.CompilationLock,
@@ -128,18 +124,9 @@ func newLoader(p Params) *loader {
 }
 
 func NewLoaderForTest(tb testing.TB) *loader {
-	nodeAddrs, err := tables.NewNodeAddressTable()
-	require.NoError(tb, err, "NewNodeAddressTable")
-	devices, err := tables.NewDeviceTable()
-	require.NoError(tb, err, "NewDeviceTable")
-	db := statedb.New()
-	require.NoError(tb, db.RegisterTable(nodeAddrs, devices), "RegisterTable")
 	return newLoader(Params{
-		Config:    DefaultConfig,
-		DB:        db,
-		NodeAddrs: nodeAddrs,
-		Sysctl:    sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		Devices:   devices,
+		Config: DefaultConfig,
+		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 }
 
@@ -553,16 +540,12 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	return nil
 }
 
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo) error {
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, devices []string) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 	device := ep.InterfaceName()
 
 	if ep.IsHost() {
-		// TODO: react to changes (using the currently ignored watch channel)
-		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-		devices := tables.DeviceNames(nativeDevices)
-
 		if option.Config.NeedBPFHostOnWireGuardDevice() {
 			devices = append(devices, wgTypes.IfaceName)
 		}
@@ -676,17 +659,17 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
-	return l.compileOrLoad(ctx, ep, dirs, stats)
+	return l.compileOrLoad(ctx, ep, dirs, devices, stats)
 }
 
-func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
+func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, devices []string, stats *metrics.SpanStat) error {
 	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, dirs, stats)
 	if err != nil {
 		return err
@@ -736,11 +719,11 @@ func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *
 	}
 	stats.BpfWriteELF.End(err == nil)
 
-	return l.ReloadDatapath(ctx, ep, stats)
+	return l.ReloadDatapath(ctx, ep, devices, stats)
 }
 
 // ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -748,7 +731,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 		Output:  ep.StateDir(),
 	}
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ctx, ep, &dirs)
+	err = l.reloadDatapath(ctx, ep, &dirs, devices)
 	stats.BpfLoadProg.End(err == nil)
 	return err
 }

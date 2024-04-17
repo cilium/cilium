@@ -17,12 +17,12 @@ import (
 type Loader interface {
 	CallsMapPath(id uint16) string
 	CustomCallsMapPath(id uint16) string
-	CompileOrLoad(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
-	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
-	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
+	CompileOrLoad(ctx context.Context, ep Endpoint, devices []string, stats *metrics.SpanStat) error
+	ReloadDatapath(ctx context.Context, ep Endpoint, devices []string, stats *metrics.SpanStat) error
+	ReinitializeXDP(ctx context.Context, extraCArgs []string, devices []string) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
-	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy, devices []string) error
 	HostDatapathInitialized() <-chan struct{}
 	RestoreTemplates(stateDir string) error
 }

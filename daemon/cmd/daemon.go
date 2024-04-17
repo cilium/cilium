@@ -246,10 +246,6 @@ func (d *Daemon) init() error {
 	}
 
 	if !option.Config.DryMode {
-		if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
-			return fmt.Errorf("failed while reinitializing datapath: %w", err)
-		}
-
 		if option.Config.EnableL7Proxy {
 			if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
 				return fmt.Errorf("ensuring local routing rule: %w", err)
@@ -455,7 +451,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
 	d.configModifyQueue.Run()
 
-	d.rec, err = recorder.NewRecorder(d.ctx, params.Datapath.Loader())
+	d.rec, err = recorder.NewRecorder(d.ctx, params.Datapath.Orchestrator())
 	if err != nil {
 		log.WithError(err).Error("error while initializing BPF pcap recorder")
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
@@ -1004,29 +1000,6 @@ func (d *Daemon) Close() {
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
-}
-
-// TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
-// without recompiling the datapath logic for each endpoint. It first attempts
-// to recompile the base programs, and if this fails returns an error. If base
-// program load is successful, it subsequently triggers regeneration of all
-// endpoints and returns a waitgroup that may be used by the caller to wait for
-// all endpoint regeneration to complete.
-//
-// If an error is returned, then no regeneration was successful. If no error
-// is returned, then the base programs were successfully regenerated, but
-// endpoints may or may not have successfully regenerated.
-func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
-	log.Debugf("BPF reload triggered from %s", reason)
-	if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
-		return nil, fmt.Errorf("unable to recompile base programs from %s: %w", reason, err)
-	}
-
-	regenRequest := &regeneration.ExternalRegenerationMetadata{
-		Reason:            reason,
-		RegenerationLevel: regeneration.RegenerateWithDatapathLoad,
-	}
-	return d.endpointManager.RegenerateAllEndpoints(regenRequest), nil
 }
 
 func (d *Daemon) datapathRegen(reasons []string) {
