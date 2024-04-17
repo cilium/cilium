@@ -6040,7 +6040,7 @@ data:
               "refId": "C"
             },
             {
-              "expr": "sum(cilium_policy_change_total{k8s_app=\"cilium\", pod=~\"$pod\"}, outcome=\"fail\") by (pod)",
+              "expr": "sum(cilium_policy_change_total{k8s_app=\"cilium\", pod=~\"$pod\", outcome=\"failure\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "policy change errors",
