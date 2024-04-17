@@ -93,7 +93,7 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				return err
 			}
 
-			w := &PolicyWatcher{
+			w := &policyWatcher{
 				log:                              p.Logger,
 				config:                           p.Config,
 				k8sResourceSynced:                p.K8sResourceSynced,
@@ -101,10 +101,10 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				svcCache:                         p.ServiceCache,
 				svcCacheNotifications:            svcCacheNotifications,
 				policyManager:                    policyManager,
-				CiliumNetworkPolicies:            p.CiliumNetworkPolicies,
-				CiliumClusterwideNetworkPolicies: p.CiliumClusterwideNetworkPolicies,
-				CiliumCIDRGroups:                 p.CiliumCIDRGroups,
-				NetworkPolicies:                  p.NetworkPolicies,
+				ciliumNetworkPolicies:            p.CiliumNetworkPolicies,
+				ciliumClusterwideNetworkPolicies: p.CiliumClusterwideNetworkPolicies,
+				ciliumCIDRGroups:                 p.CiliumCIDRGroups,
+				networkPolicies:                  p.NetworkPolicies,
 
 				cnpCache:          make(map[resource.Key]*types.SlimCNP),
 				cidrGroupCache:    make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup),

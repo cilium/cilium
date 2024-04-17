@@ -26,7 +26,7 @@ import (
 // This requirement, however, is dropped for HighScale IPCache mode, because pod IPs are
 // normally excluded from the ipcache regardless. Therefore, in HighScale IPCache mode,
 // all services can be selected by ToServices.
-func (p *PolicyWatcher) isSelectableService(svc *k8s.Service) bool {
+func (p *policyWatcher) isSelectableService(svc *k8s.Service) bool {
 	if svc == nil {
 		return false
 	}
@@ -35,7 +35,7 @@ func (p *PolicyWatcher) isSelectableService(svc *k8s.Service) bool {
 
 // onServiceEvent processes a ServiceNotification and (if necessary)
 // recalculates all policies affected by this change.
-func (p *PolicyWatcher) onServiceEvent(event k8s.ServiceNotification) {
+func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 	err := p.updateToServicesPolicies(event.ID, event.Service, event.OldService)
 	if err != nil {
 		p.log.WithError(err).WithFields(logrus.Fields{
@@ -49,7 +49,7 @@ func (p *PolicyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 // added, removed, its endpoints have changed, or its labels have changed).
 // This function then checks if any of the known CNP/CCNPs are affected by this
 // change, and recomputes them by calling resolveCiliumNetworkPolicyRefs.
-func (p *PolicyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service) error {
+func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service) error {
 	var errs []error
 
 	// Bail out early if updated service is not selectable
@@ -110,7 +110,7 @@ func (p *PolicyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 
 // resolveToServices translates all ToServices rules found in the provided CNP
 // and to corresponding ToCIDRSet rules. Mutates the passed in cnp in place.
-func (p *PolicyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) {
+func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) {
 	// We consult the service cache to obtain the service endpoints
 	// which are selected by the ToServices selectors found in the CNP.
 	p.svcCache.ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool {
@@ -143,7 +143,7 @@ func (p *PolicyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 
 // cnpMatchesService returns true if the cnp contains a ToServices rule which
 // matches the provided service svcID/svc
-func (p *PolicyWatcher) cnpMatchesService(cnp *types.SlimCNP, svcID k8s.ServiceID, svc *k8s.Service) bool {
+func (p *policyWatcher) cnpMatchesService(cnp *types.SlimCNP, svcID k8s.ServiceID, svc *k8s.Service) bool {
 	if !p.isSelectableService(svc) {
 		return false
 	}
@@ -163,7 +163,7 @@ func (p *PolicyWatcher) cnpMatchesService(cnp *types.SlimCNP, svcID k8s.ServiceI
 
 // markCNPForService marks that a policy (referred to by 'key') contains a
 // ToServices selector selecting the service svcID
-func (p *PolicyWatcher) markCNPForService(key resource.Key, svcID k8s.ServiceID) {
+func (p *policyWatcher) markCNPForService(key resource.Key, svcID k8s.ServiceID) {
 	svcMap, ok := p.cnpByServiceID[svcID]
 	if !ok {
 		svcMap = make(map[resource.Key]struct{}, 1)
@@ -175,7 +175,7 @@ func (p *PolicyWatcher) markCNPForService(key resource.Key, svcID k8s.ServiceID)
 
 // clearCNPForService indicates that a policy (referred to by 'key') no longer
 // selects the service svcID via a ToServices rule
-func (p *PolicyWatcher) clearCNPForService(key resource.Key, svcID k8s.ServiceID) {
+func (p *policyWatcher) clearCNPForService(key resource.Key, svcID k8s.ServiceID) {
 	delete(p.cnpByServiceID[svcID], key)
 	if len(p.cnpByServiceID[svcID]) == 0 {
 		delete(p.cnpByServiceID, svcID)
