@@ -395,11 +395,9 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 				return fmt.Errorf("no global constant found in %s at offset %d", globalDataMap, off)
 			}
 
-			imm := spec.ByteOrder.Uint64(value)
-
 			// Replace the map load with an immediate load. Must be a dword load
 			// to match the instruction width of a map load.
-			r := asm.LoadImm(ins.Dst, int64(imm), asm.DWord)
+			r := asm.LoadImm(ins.Dst, int64(value), asm.DWord)
 
 			// Preserve metadata of the original instruction. Otherwise, a program's
 			// first instruction could be stripped of its func_info or Symbol
@@ -413,7 +411,7 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-type varOffsets map[uint32][]byte
+type varOffsets map[uint32]uint64
 
 // globalData gets the contents of the first entry in the global data map
 // and removes it from the spec to prevent it from being created in the kernel.
@@ -441,22 +439,36 @@ func globalData(spec *ebpf.CollectionSpec) (varOffsets, error) {
 	// Slice up the binary contents of the global data map according to the
 	// variables described in its Datasec.
 	out := make(varOffsets)
+	buf := make([]byte, 8)
 	for _, vsi := range ds.Vars {
-		if vsi.Size > 8 {
-			return nil, fmt.Errorf("variables larger than 8 bytes are not supported (got %d)", vsi.Size)
+		_, ok := vsi.Type.(*btf.Var)
+		if !ok {
+			// VarSecInfo.Type can be a Func.
+			continue
 		}
 
 		if _, ok := out[vsi.Offset]; ok {
 			return nil, fmt.Errorf("duplicate VarSecInfo for offset %d", vsi.Offset)
 		}
 
-		// Allocate a fixed slice of 8 bytes so it can be used to store in an imm64
-		// instruction later using ByteOrder.Uint64().
-		v := make([]byte, 8)
-		copy(v, data[vsi.Offset:vsi.Offset+vsi.Size])
+		copy(buf, data[vsi.Offset:vsi.Offset+vsi.Size])
+
+		var value uint64
+		switch vsi.Size {
+		case 8:
+			value = spec.ByteOrder.Uint64(buf)
+		case 4:
+			value = uint64(spec.ByteOrder.Uint32(buf))
+		case 2:
+			value = uint64(spec.ByteOrder.Uint16(buf))
+		case 1:
+			value = uint64(buf[0])
+		default:
+			return nil, fmt.Errorf("invalid variable size %d", vsi.Size)
+		}
 
 		// Emit the variable's value by its offset in the datasec.
-		out[vsi.Offset] = v
+		out[vsi.Offset] = value
 	}
 
 	// Remove the map definition to skip loading it into the kernel.
