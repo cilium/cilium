@@ -95,7 +95,7 @@ func testCompileOrLoad(t *testing.T, ep *testutils.TestEndpoint) {
 
 	l := newTestLoader(t)
 	err := l.compileOrLoad(ctx, ep, getEpDirs(ep), stats)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 // TestCompileOrLoadDefaultEndpoint checks that the datapath can be compiled
@@ -129,7 +129,7 @@ func TestReload(t *testing.T) {
 
 	dirInfo := getEpDirs(&ep)
 	err := compileDatapath(ctx, dirInfo, false, log)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 	progs := []progDefinition{
@@ -143,12 +143,12 @@ func TestReload(t *testing.T) {
 		linkDir:  testutils.TempBPFFS(t),
 	}
 	finalize, err := replaceDatapath(ctx, opts)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	finalize()
 
 	finalize, err = replaceDatapath(ctx, opts)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	finalize()
 }
 
@@ -174,7 +174,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	for err == nil && time.Now().Before(timeout) {
 		err = l.compileOrLoad(ctx, ep, getEpDirs(ep), stats)
 	}
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 // TestCompileFailureDefaultEndpoint attempts to compile then cancels the

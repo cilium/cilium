@@ -33,24 +33,24 @@ func TestObjectCache(t *testing.T) {
 
 	// First run should compile and generate the object.
 	_, isNew, err := cache.fetchOrCompile(ctx, &realEP, dir, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, isNew, true)
 
 	// Same EP should not be compiled twice.
 	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, isNew, false)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
 	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, isNew, false)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
 	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, isNew, true)
 }
 
@@ -132,7 +132,7 @@ func TestObjectCacheParallel(t *testing.T) {
 		used := make(map[string]int, test.builds)
 		for i := 0; i < test.builds; i++ {
 			result, err := receiveResult(t, results)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			used[result.path] = used[result.path] + 1
 			if result.compiled {
