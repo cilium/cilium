@@ -84,7 +84,7 @@ option is set in the ``scrape_configs`` section:
           regex: true
         - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
           action: replace
-          regex: (.+):(?:\d+);(\d+)
+          regex: ([^:]+)(?::\d+)?;(\d+)
           replacement: ${1}:${2}
           target_label: __address__
 
