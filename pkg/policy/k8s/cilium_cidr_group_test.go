@@ -1137,7 +1137,7 @@ func TestCIDRGroupRefsToCIDRsSets(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			p := &PolicyWatcher{cidrGroupCache: tc.cache}
+			p := &policyWatcher{cidrGroupCache: tc.cache}
 			got, err := p.cidrGroupRefsToCIDRsSets(tc.refs)
 			if err != nil {
 				t.Fatalf("unexpected error from cidrGroupRefsToCIDRsSets: %s", err)

@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-type PolicyWatcher struct {
+type policyWatcher struct {
 	log    logrus.FieldLogger
 	config *option.DaemonConfig
 
@@ -31,10 +31,10 @@ type PolicyWatcher struct {
 	svcCache              serviceCache
 	svcCacheNotifications <-chan k8s.ServiceNotification
 
-	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
-	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
-	CiliumCIDRGroups                 resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
-	NetworkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
+	ciliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
+	ciliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
+	ciliumCIDRGroups                 resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+	networkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
 
 	// cnpCache contains both CNPs and CCNPs, stored using a common intermediate
 	// representation (*types.SlimCNP). The cache is indexed on resource.Key,
@@ -51,16 +51,16 @@ type PolicyWatcher struct {
 	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
 }
 
-func (p *PolicyWatcher) watchResources(ctx context.Context) {
+func (p *policyWatcher) watchResources(ctx context.Context) {
 	var knpSynced, cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
 	go func() {
 		var knpEvents <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
 		if p.config.EnableK8sNetworkPolicy {
-			knpEvents = p.NetworkPolicies.Events(ctx)
+			knpEvents = p.networkPolicies.Events(ctx)
 		}
-		cnpEvents := p.CiliumNetworkPolicies.Events(ctx)
-		ccnpEvents := p.CiliumClusterwideNetworkPolicies.Events(ctx)
-		cidrGroupEvents := p.CiliumCIDRGroups.Events(ctx)
+		cnpEvents := p.ciliumNetworkPolicies.Events(ctx)
+		ccnpEvents := p.ciliumClusterwideNetworkPolicies.Events(ctx)
+		cidrGroupEvents := p.ciliumCIDRGroups.Events(ctx)
 		serviceEvents := p.svcCacheNotifications
 
 		for {

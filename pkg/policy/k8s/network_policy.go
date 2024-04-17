@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (p *PolicyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string) error {
+func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string) error {
 	defer func() {
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
@@ -57,7 +57,7 @@ func (p *PolicyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 	return nil
 }
 
-func (p *PolicyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string) error {
+func (p *policyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string) error {
 	defer func() {
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
