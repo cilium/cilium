@@ -807,6 +807,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if params.Clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 
+		// Launch the policy K8s watcher
+		if params.PolicyK8sWatcher != nil {
+			params.PolicyK8sWatcher.WatchK8sPolicyResources(d.ctx, &d)
+		}
+
 		// Launch the K8s watchers in parallel as we continue to process other
 		// daemon options.
 		resources, cacheOnly := d.k8sWatcher.ResourceGroups()

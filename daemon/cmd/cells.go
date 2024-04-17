@@ -45,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -223,13 +222,7 @@ var (
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		k8s.ServiceCacheCell,
 
-		// K8s policy resource watcher cell. It depends on the daemon which we cast into
-		// the interface type here to avoid a circular package import
-		cell.Provide(func(p promise.Promise[*Daemon]) promise.Promise[policyK8s.PolicyManager] {
-			return promise.Map(p, func(d *Daemon) policyK8s.PolicyManager {
-				return d
-			})
-		}),
+		// K8s policy resource watcher cell.
 		policyK8s.Cell,
 
 		// ClusterMesh is the Cilium's multicluster implementation.
