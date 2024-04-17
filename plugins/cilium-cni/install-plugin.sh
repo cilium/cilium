@@ -26,10 +26,13 @@ install_cni() {
 	echo "Wrote $dst"
 }
 
-# Install the CNI loopback driver if not installed already
-if [ ! -f "${CNI_DIR}/bin/loopback" ]; then
+# Install the CNI loopback driver if not installed already or instructed to overwrite
+if [ "${OVERWRITE_LOOPBACK:-false}" = "true" ] || [ ! -f "${CNI_DIR}/bin/loopback" ]; then
 	# Don't fail hard if this fails as it is usually not required
 	install_cni /cni/loopback || true
 fi
 
-install_cni "/opt/cni/bin/${BIN_NAME}"
+# Install the Cilium CNI binary unless installed already and instructed not to overwrite
+if [ "${OVERWRITE_CILIUM:-true}" = "true" ] || [ ! -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
+	install_cni "/opt/cni/bin/${BIN_NAME}"
+fi
