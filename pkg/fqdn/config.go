@@ -38,6 +38,7 @@ type Config struct {
 
 type EndpointDNSInfo struct {
 	ID         string
+	ID64       int64
 	DNSHistory *DNSCache
 	DNSZombies *DNSZombieMappings
 }

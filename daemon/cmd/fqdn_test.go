@@ -71,49 +71,6 @@ type dummyInfoRegistry struct{}
 func (*dummyInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr, id identity.NumericIdentity) {
 }
 
-// makeIPs generates count sequential IPv4 IPs
-func makeIPs(count uint32) []netip.Addr {
-	ips := make([]netip.Addr, 0, count)
-	for i := uint32(0); i < count; i++ {
-		ips = append(ips, netip.AddrFrom4([4]byte{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i >> 0)}))
-	}
-	return ips
-}
-
-func BenchmarkFqdnCacheConsul(b *testing.B) {
-	ds := setupDaemonConsulSuite(b)
-	ds.benchmarkFqdnCache(b)
-}
-
-func BenchmarkFqdnCacheEtcd(b *testing.B) {
-	ds := setupDaemonEtcdSuite(b)
-	ds.benchmarkFqdnCache(b)
-}
-
-// BenchmarkFqdnCache tests how slow a full dump of DNSHistory from a number of
-// endpoints is. Each endpoints has 1000 DNS lookups, each with 10 IPs. The
-// dump iterates over all endpoints, lookups, and IPs.
-func BenchmarkFqdnCache(b *testing.B) {
-	endpoints := make([]*endpoint.Endpoint, 0, b.N)
-	for i := 0; i < b.N; i++ {
-		lookupTime := time.Now()
-		ep := &endpoint.Endpoint{} // only works because we only touch .DNSHistory
-		ep.DNSHistory = fqdn.NewDNSCache(0)
-		ep.DNSZombies = &fqdn.DNSZombieMappings{}
-
-		for i := 0; i < 1000; i++ {
-			ep.DNSHistory.Update(lookupTime, fmt.Sprintf("domain-%d.com.", i), makeIPs(10), 1000)
-		}
-
-		endpoints = append(endpoints, ep)
-	}
-	b.ResetTimer()
-
-	prefixMatcher := func(_ netip.Addr) bool { return true }
-	nameMatcher := func(_ string) bool { return true }
-	extractDNSLookups(endpoints, prefixMatcher, nameMatcher, "")
-}
-
 // BenchmarkNotifyOnDNSMsg stresses the main callback function for the DNS
 // proxy path, which is called on every DNS request and response.
 func BenchmarkNotifyOnDNSMsg(b *testing.B) {

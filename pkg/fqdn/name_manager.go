@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -74,6 +75,95 @@ func (n *NameManager) GetModel() *models.NameManager {
 	return &models.NameManager{
 		FQDNPolicySelectors: allSelectors,
 	}
+}
+
+var (
+	DNSSourceLookup     = "lookup"
+	DNSSourceConnection = "connection"
+)
+
+type NoEndpointIDMatch struct {
+	ID string
+}
+
+func (e NoEndpointIDMatch) Error() string {
+	return "unable to find target endpoint ID: " + e.ID
+}
+
+// GetDNSHistoryModel returns API models.DNSLookup copies of DNS data in each
+// endpoint's DNSHistory. These are filtered by the specified matchers if
+// they are non-empty.
+//
+// Note that this does *NOT* dump the NameManager's own global DNSCache.
+//
+// endpointID may be "" in order to get DNS history for all endpoints.
+func (n *NameManager) GetDNSHistoryModel(endpointID string, prefixMatcher PrefixMatcherFunc, nameMatcher NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
+	eps := n.config.GetEndpointsDNSInfo(endpointID)
+	if eps == nil {
+		return nil, &NoEndpointIDMatch{ID: endpointID}
+	}
+	for _, ep := range eps {
+		lookupSourceEntries := []*models.DNSLookup{}
+		connectionSourceEntries := []*models.DNSLookup{}
+		for _, lookup := range ep.DNSHistory.Dump() {
+			if !nameMatcher(lookup.Name) {
+				continue
+			}
+
+			// The API model needs strings
+			IPStrings := make([]string, 0, len(lookup.IPs))
+
+			// only proceed if any IP matches the prefix selector
+			anIPMatches := false
+			for _, ip := range lookup.IPs {
+				anIPMatches = anIPMatches || prefixMatcher(ip)
+				IPStrings = append(IPStrings, ip.String())
+			}
+			if !anIPMatches {
+				continue
+			}
+
+			lookupSourceEntries = append(lookupSourceEntries, &models.DNSLookup{
+				Fqdn:           lookup.Name,
+				Ips:            IPStrings,
+				LookupTime:     strfmt.DateTime(lookup.LookupTime),
+				TTL:            int64(lookup.TTL),
+				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
+				EndpointID:     int64(ep.ID64),
+				Source:         DNSSourceLookup,
+			})
+		}
+
+		for _, delete := range ep.DNSZombies.DumpAlive(prefixMatcher) {
+			for _, name := range delete.Names {
+				if !nameMatcher(name) {
+					continue
+				}
+
+				connectionSourceEntries = append(connectionSourceEntries, &models.DNSLookup{
+					Fqdn:           name,
+					Ips:            []string{delete.IP.String()},
+					LookupTime:     strfmt.DateTime(delete.AliveAt),
+					TTL:            0,
+					ExpirationTime: strfmt.DateTime(delete.AliveAt),
+					EndpointID:     int64(ep.ID64),
+					Source:         DNSSourceConnection,
+				})
+			}
+		}
+
+		switch source {
+		case DNSSourceLookup:
+			lookups = append(lookups, lookupSourceEntries...)
+		case DNSSourceConnection:
+			lookups = append(lookups, connectionSourceEntries...)
+		default:
+			lookups = append(lookups, lookupSourceEntries...)
+			lookups = append(lookups, connectionSourceEntries...)
+		}
+	}
+
+	return lookups, nil
 }
 
 // Lock must be held during any calls to RegisterForIPUpdatesLocked or
