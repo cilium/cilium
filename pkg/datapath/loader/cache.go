@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var ignoredELFPrefixes = []string{
@@ -167,12 +166,12 @@ func (o *objectCache) serialize(key string) *cachedObject {
 
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) (string, error) {
+func (o *objectCache) build(ctx context.Context, cfg *templateCfg, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
-	dir := &directoryInfo{
-		Library: option.Config.BpfDir,
-		Runtime: option.Config.StateDir,
+	dir = &directoryInfo{
+		Library: dir.Library,
+		Runtime: dir.Runtime,
 		Output:  templatePath,
 		State:   templatePath,
 	}
@@ -220,7 +219,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 //
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
 	var hash string
 	hash, err = o.baseHash.sumEndpoint(o, cfg, false)
 	if err != nil {
@@ -255,7 +254,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 		}
 	}
 
-	path, err := o.build(ctx, wrap(cfg, stats), hash)
+	path, err := o.build(ctx, wrap(cfg, stats), dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			scopedLog.WithError(err).Error("BPF template object creation failed")

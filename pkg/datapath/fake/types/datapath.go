@@ -121,10 +121,6 @@ func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
 type FakeLoader struct {
 }
 
-func (f *FakeLoader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	panic("implement me")
-}
-
 func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
