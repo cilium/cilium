@@ -29,7 +29,9 @@ type Config struct {
 
 	// GetEndpointsDNSInfo is a function that returns a list of fqdn-relevant fields from all Endpoints known to the agent.
 	// The endpoint's DNSHistory and DNSZombies are used as part of the garbage collection and restoration processes.
-	GetEndpointsDNSInfo func() []EndpointDNSInfo
+	//
+	// Optional parameter endpointID will cause this function to only return the endpoint with the specified ID.
+	GetEndpointsDNSInfo func(endpointID string) []EndpointDNSInfo
 
 	IPCache IPCache
 }

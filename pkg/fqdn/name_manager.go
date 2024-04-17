@@ -145,7 +145,7 @@ func NewNameManager(config Config) *NameManager {
 		}
 	}
 	if config.GetEndpointsDNSInfo == nil {
-		config.GetEndpointsDNSInfo = func() []EndpointDNSInfo {
+		config.GetEndpointsDNSInfo = func(_ string) []EndpointDNSInfo {
 			return nil
 		}
 	}
