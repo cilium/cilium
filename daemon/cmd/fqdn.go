@@ -15,10 +15,8 @@ import (
 
 	"github.com/cilium/dns"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -54,9 +52,6 @@ const (
 	metricErrorProxy   = "proxyErr"
 	metricErrorDenied  = "denied"
 	metricErrorAllow   = "allow"
-
-	dnsSourceLookup     = "lookup"
-	dnsSourceConnection = "connection"
 )
 
 // requestNameKey is used as a key to context.Value(). It is used
@@ -219,6 +214,7 @@ func (d *Daemon) getEndpointsDNSInfo(endpointID string) []fqdn.EndpointDNSInfo {
 	for _, ep := range eps {
 		out = append(out, fqdn.EndpointDNSInfo{
 			ID:         ep.StringID(),
+			ID64:       int64(ep.ID),
 			DNSHistory: ep.DNSHistory,
 			DNSZombies: ep.DNSZombies,
 		})
@@ -487,19 +483,17 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 }
 
 func getFqdnCacheHandler(d *Daemon, params GetFqdnCacheParams) middleware.Responder {
-	// endpoints we want data from
-	endpoints := d.endpointManager.GetEndpoints()
-
 	prefixMatcher, nameMatcher, source, err := parseFqdnFilters(params.Cidr, params.Matchpattern, params.Source)
 	if err != nil {
 		return api.Error(GetFqdnCacheBadRequestCode, err)
 	}
-	lookups, err := extractDNSLookups(endpoints, prefixMatcher, nameMatcher, source)
+
+	lookups, err := d.dnsNameManager.GetDNSHistoryModel("", prefixMatcher, nameMatcher, source)
 	switch {
 	case err != nil:
 		return api.Error(GetFqdnCacheBadRequestCode, err)
 	case len(lookups) == 0:
-		return NewGetFqdnCacheIDNotFound()
+		return NewGetFqdnCacheNotFound()
 	}
 
 	return NewGetFqdnCacheOK().WithPayload(lookups)
@@ -519,27 +513,19 @@ func deleteFqdnCacheHandler(d *Daemon, params DeleteFqdnCacheParams) middleware.
 }
 
 func getFqdnCacheIDHandler(d *Daemon, params GetFqdnCacheIDParams) middleware.Responder {
-	var endpoints []*endpoint.Endpoint
-	if params.ID != "" {
-		ep, err := d.endpointManager.Lookup(params.ID)
-		switch {
-		case err != nil:
-			return api.Error(GetFqdnCacheIDBadRequestCode, err)
-		case ep == nil:
-			return api.Error(GetFqdnCacheIDNotFoundCode, fmt.Errorf("Cannot find endpoint %s", params.ID))
-		default:
-			endpoints = []*endpoint.Endpoint{ep}
-		}
-	}
+	var epErr fqdn.NoEndpointIDMatch
 
 	prefixMatcher, nameMatcher, source, err := parseFqdnFilters(params.Cidr, params.Matchpattern, params.Source)
 	if err != nil {
-		return api.Error(GetFqdnCacheBadRequestCode, err)
+		return api.Error(GetFqdnCacheIDBadRequestCode, err)
 	}
-	lookups, err := extractDNSLookups(endpoints, prefixMatcher, nameMatcher, source)
+
+	lookups, err := d.dnsNameManager.GetDNSHistoryModel(params.ID, prefixMatcher, nameMatcher, source)
 	switch {
+	case errors.As(err, &epErr):
+		return api.Error(GetFqdnCacheIDNotFoundCode, err)
 	case err != nil:
-		return api.Error(GetFqdnCacheBadRequestCode, err)
+		return api.Error(GetFqdnCacheIDBadRequestCode, err)
 	case len(lookups) == 0:
 		return NewGetFqdnCacheIDNotFound()
 	}
@@ -577,72 +563,4 @@ func parseFqdnFilters(cidr, pattern, src *string) (fqdn.PrefixMatcherFunc, fqdn.
 	}
 
 	return prefixMatcher, nameMatcher, source, nil
-}
-
-// extractDNSLookups returns API models.DNSLookup copies of DNS data in each
-// endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
-// they are non-empty.
-func extractDNSLookups(endpoints []*endpoint.Endpoint, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
-	for _, ep := range endpoints {
-		lookupSourceEntries := []*models.DNSLookup{}
-		connectionSourceEntries := []*models.DNSLookup{}
-		for _, lookup := range ep.DNSHistory.Dump() {
-			if !nameMatcher(lookup.Name) {
-				continue
-			}
-
-			// The API model needs strings
-			IPStrings := make([]string, 0, len(lookup.IPs))
-
-			// only proceed if any IP matches the prefix selector
-			anIPMatches := false
-			for _, ip := range lookup.IPs {
-				anIPMatches = anIPMatches || prefixMatcher(ip)
-				IPStrings = append(IPStrings, ip.String())
-			}
-			if !anIPMatches {
-				continue
-			}
-
-			lookupSourceEntries = append(lookupSourceEntries, &models.DNSLookup{
-				Fqdn:           lookup.Name,
-				Ips:            IPStrings,
-				LookupTime:     strfmt.DateTime(lookup.LookupTime),
-				TTL:            int64(lookup.TTL),
-				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
-				EndpointID:     int64(ep.ID),
-				Source:         dnsSourceLookup,
-			})
-		}
-
-		for _, delete := range ep.DNSZombies.DumpAlive(prefixMatcher) {
-			for _, name := range delete.Names {
-				if !nameMatcher(name) {
-					continue
-				}
-
-				connectionSourceEntries = append(connectionSourceEntries, &models.DNSLookup{
-					Fqdn:           name,
-					Ips:            []string{delete.IP.String()},
-					LookupTime:     strfmt.DateTime(delete.AliveAt),
-					TTL:            0,
-					ExpirationTime: strfmt.DateTime(delete.AliveAt),
-					EndpointID:     int64(ep.ID),
-					Source:         dnsSourceConnection,
-				})
-			}
-		}
-
-		switch source {
-		case dnsSourceLookup:
-			lookups = append(lookups, lookupSourceEntries...)
-		case dnsSourceConnection:
-			lookups = append(lookups, connectionSourceEntries...)
-		default:
-			lookups = append(lookups, lookupSourceEntries...)
-			lookups = append(lookups, connectionSourceEntries...)
-		}
-	}
-
-	return lookups, nil
 }
