@@ -19,7 +19,7 @@ func TestWrap(t *testing.T) {
 	)
 
 	realEP := testutils.NewTestEndpoint()
-	template := wrap(&realEP, nil)
+	template := wrap(&realEP)
 	cfg := configWriterForTest(t)
 
 	// Write the configuration that should be the same, and verify it is.
