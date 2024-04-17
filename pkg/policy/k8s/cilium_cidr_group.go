@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func (p *PolicyWatcher) onUpsertCIDRGroup(
+func (p *policyWatcher) onUpsertCIDRGroup(
 	cidrGroup *cilium_v2_alpha1.CiliumCIDRGroup,
 	apiGroup string,
 ) error {
@@ -38,7 +38,7 @@ func (p *PolicyWatcher) onUpsertCIDRGroup(
 	return err
 }
 
-func (p *PolicyWatcher) onDeleteCIDRGroup(
+func (p *policyWatcher) onDeleteCIDRGroup(
 	cidrGroupName string,
 	apiGroup string,
 ) error {
@@ -51,7 +51,7 @@ func (p *PolicyWatcher) onDeleteCIDRGroup(
 	return err
 }
 
-func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
+func (p *policyWatcher) updateCIDRGroupRefPolicies(
 	cidrGroup string,
 ) error {
 	var errs []error
@@ -76,7 +76,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 	return errors.Join(errs...)
 }
 
-func (p *PolicyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP) {
+func (p *policyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP) {
 	refs := getCIDRGroupRefs(cnp)
 	if len(refs) == 0 {
 		return
@@ -190,7 +190,7 @@ func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
 	return cidrGroupRefs
 }
 
-func (p *PolicyWatcher) cidrGroupRefsToCIDRsSets(cidrGroupRefs []string) (map[string][]api.CIDR, error) {
+func (p *policyWatcher) cidrGroupRefsToCIDRsSets(cidrGroupRefs []string) (map[string][]api.CIDR, error) {
 	var errs []error
 	cidrsSet := make(map[string][]api.CIDR)
 	for _, cidrGroupRef := range cidrGroupRefs {

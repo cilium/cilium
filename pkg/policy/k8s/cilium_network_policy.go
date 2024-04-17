@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func (p *PolicyWatcher) onUpsert(
+func (p *policyWatcher) onUpsert(
 	cnp *types.SlimCNP,
 	key resource.Key,
 	apiGroup string,
@@ -70,7 +70,7 @@ func (p *PolicyWatcher) onUpsert(
 	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID)
 }
 
-func (p *PolicyWatcher) onDelete(
+func (p *policyWatcher) onDelete(
 	cnp *types.SlimCNP,
 	key resource.Key,
 	apiGroup string,
@@ -99,7 +99,7 @@ func (p *PolicyWatcher) onDelete(
 // and then adds the translated CNP to the policy repository.
 // If the CNP was successfully imported, the raw (i.e. untranslated) CNP/CCNP
 // is also added to p.cnpCache.
-func (p *PolicyWatcher) resolveCiliumNetworkPolicyRefs(
+func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	cnp *types.SlimCNP,
 	key resource.Key,
 	initialRecvTime time.Time,
@@ -126,7 +126,7 @@ func (p *PolicyWatcher) resolveCiliumNetworkPolicyRefs(
 	return err
 }
 
-func (p *PolicyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
+func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
 	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -154,7 +154,7 @@ func (p *PolicyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 	return policyImportErr
 }
 
-func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID) error {
+func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID) error {
 	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -175,7 +175,7 @@ func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 	return err
 }
 
-func (p *PolicyWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {
+func (p *policyWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {
 	p.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), nil, syncFn, resource)
 	p.k8sAPIGroups.AddAPI(resource)
 }

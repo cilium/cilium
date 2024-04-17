@@ -249,7 +249,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 
 	svcCache := fakeServiceCache{}
-	p := &PolicyWatcher{
+	p := &policyWatcher{
 		log:                logrus.NewEntry(logger),
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{},
