@@ -33,4 +33,6 @@ var Cell = cell.Module(
 
 	cell.Metric(NewMetrics),
 	cell.Metric(common.MetricsProvider(subsystem)),
+
+	cell.Invoke(ipsetSyncer),
 )
