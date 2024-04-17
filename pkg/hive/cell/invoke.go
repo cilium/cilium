@@ -37,7 +37,11 @@ func (inv *invoker) invoke(cont container) error {
 			return err
 		}
 		d := time.Since(t0)
-		log.WithField("duration", d).WithField("function", afn.name).Info("Invoked")
+		if d > logThreshold {
+			log.WithField("duration", d).WithField("function", afn.name).Info("Invoked")
+		} else {
+			log.WithField("duration", d).WithField("function", afn.name).Debug("Invoked")
+		}
 	}
 	return nil
 }

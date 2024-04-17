@@ -4,11 +4,15 @@
 package cell
 
 import (
+	"time"
+
 	"go.uber.org/dig"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+const logThreshold = 100 * time.Millisecond
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "hive")
