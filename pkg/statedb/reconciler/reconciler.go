@@ -113,6 +113,9 @@ func (r *reconciler[Obj]) loop(ctx context.Context, health cell.HealthReporter) 
 		defer fullReconTicker.Stop()
 		fullReconTickerChan = fullReconTicker.C
 	}
+	if r.Config.RateLimiter != nil {
+		defer r.Config.RateLimiter.Stop()
+	}
 
 	tableWatchChan := closedWatchChannel
 	revision := statedb.Revision(0)
