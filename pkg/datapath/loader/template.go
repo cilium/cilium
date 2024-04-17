@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -64,7 +63,6 @@ type templateCfg struct {
 	// endpoint configuration, while the rest of the EndpointConfiguration
 	// interface is implemented directly here through receiver functions.
 	datapath.CompileTimeConfiguration
-	stats *metrics.SpanStat
 }
 
 // GetID returns a uint64, but in practice on the datapath side it is
@@ -129,13 +127,9 @@ func (t *templateCfg) GetPolicyVerdictLogFilter() uint32 {
 // it inside a templateCfg which hides static data from callers that wish to
 // generate header files based on the configuration, substituting it for
 // template data.
-func wrap(cfg datapath.CompileTimeConfiguration, stats *metrics.SpanStat) *templateCfg {
-	if stats == nil {
-		stats = &metrics.SpanStat{}
-	}
+func wrap(cfg datapath.CompileTimeConfiguration) *templateCfg {
 	return &templateCfg{
 		CompileTimeConfiguration: cfg,
-		stats:                    stats,
 	}
 }
 
