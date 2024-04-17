@@ -165,7 +165,7 @@ func (o *objectCache) serialize(key string) *cachedObject {
 
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, cfg *templateCfg, dir *directoryInfo, hash string) (string, error) {
+func (o *objectCache) build(ctx context.Context, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
 	dir = &directoryInfo{
@@ -195,16 +195,16 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, dir *director
 		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 
-	cfg.stats.BpfCompilation.Start()
+	stats.BpfCompilation.Start()
 	err = compileDatapath(ctx, dir, isHost, log)
-	cfg.stats.BpfCompilation.End(err == nil)
+	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to compile template program: %w", err)
 	}
 
 	log.WithFields(logrus.Fields{
 		logfields.Path:               objectPath,
-		logfields.BPFCompilationTime: cfg.stats.BpfCompilation.Total(),
+		logfields.BPFCompilationTime: stats.BpfCompilation.Total(),
 	}).Info("Compiled new BPF template")
 
 	return objectPath, nil
@@ -219,6 +219,8 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, dir *director
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
 func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
+	cfg = wrap(cfg)
+
 	var hash string
 	hash, err = o.baseHash.sumEndpoint(o, cfg, false)
 	if err != nil {
@@ -253,7 +255,11 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 		}
 	}
 
-	path, err := o.build(ctx, wrap(cfg, stats), dir, hash)
+	if stats == nil {
+		stats = &metrics.SpanStat{}
+	}
+
+	path, err := o.build(ctx, cfg, stats, dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			scopedLog.WithError(err).Error("BPF template object creation failed")
