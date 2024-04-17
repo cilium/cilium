@@ -650,6 +650,11 @@ Users (Alphabetically)
       U: CNI
       L: https://www.youtube.com/watch?v=6CZ_SSTqb4g
 
+    * N: Spectro Cloud
+      D: Spectro Cloud uses & promotes Cilium for clusters its K8S management platform (Palette) deploys
+      U: CNI, Overlay network, kube-proxy replacement
+      Q: @Kevin Reeuwijk
+
     * N: Spherity
       D: Spherity  is using Cilium on AWS EKS
       U: CNI/ENI Networking, Network policies, Hubble
