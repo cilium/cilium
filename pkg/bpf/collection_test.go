@@ -67,9 +67,9 @@ func TestInlineGlobalData(t *testing.T) {
 			globalDataMap: {
 				Value: &btf.Datasec{
 					Vars: []btf.VarSecinfo{
-						{Offset: 0, Size: 4},
-						{Offset: 4, Size: 2},
-						{Offset: 8, Size: 8},
+						{Offset: 0, Size: 4, Type: &btf.Var{}},
+						{Offset: 4, Size: 2, Type: &btf.Var{}},
+						{Offset: 8, Size: 8, Type: &btf.Var{}},
 					},
 				},
 				Contents: []ebpf.MapKV{{Value: []byte{
