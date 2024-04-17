@@ -3373,20 +3373,6 @@ func init() {
         }
       }
     },
-    "HostRouting": {
-      "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
-      "type": "object",
-      "properties": {
-        "mode": {
-          "description": "Datapath routing mode",
-          "type": "string",
-          "enum": [
-            "BPF",
-            "Legacy"
-          ]
-        }
-      }
-    },
     "HubbleStatus": {
       "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -4792,6 +4778,32 @@ func init() {
         }
       }
     },
+    "Routing": {
+      "description": "Status of routing\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "inter-host-routing-mode": {
+          "description": "Datapath routing mode for cross-cluster connectivity",
+          "type": "string",
+          "enum": [
+            "Native",
+            "Tunnel"
+          ]
+        },
+        "intra-host-routing-mode": {
+          "description": "Datapath routing mode for connectivity within the host",
+          "type": "string",
+          "enum": [
+            "BPF",
+            "Legacy"
+          ]
+        },
+        "tunnel-protocol": {
+          "description": "Tunnel protocol in use for cross-cluster connectivity",
+          "type": "string"
+        }
+      }
+    },
     "SelectorCache": {
       "description": "cache of which identities match selectors in the policy repository",
       "type": "array",
@@ -5073,10 +5085,6 @@ func init() {
           "description": "Status of the host firewall",
           "$ref": "#/definitions/HostFirewall"
         },
-        "host-routing": {
-          "description": "Status of host routing",
-          "$ref": "#/definitions/HostRouting"
-        },
         "hubble": {
           "description": "Status of Hubble server",
           "$ref": "#/definitions/HubbleStatus"
@@ -5120,6 +5128,10 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
+        },
+        "routing": {
+          "description": "Status of routing",
+          "$ref": "#/definitions/Routing"
         },
         "srv6": {
           "description": "Status of SRv6",
@@ -9180,20 +9192,6 @@ func init() {
         }
       }
     },
-    "HostRouting": {
-      "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
-      "type": "object",
-      "properties": {
-        "mode": {
-          "description": "Datapath routing mode",
-          "type": "string",
-          "enum": [
-            "BPF",
-            "Legacy"
-          ]
-        }
-      }
-    },
     "HubbleStatus": {
       "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -10993,6 +10991,32 @@ func init() {
         }
       }
     },
+    "Routing": {
+      "description": "Status of routing\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "inter-host-routing-mode": {
+          "description": "Datapath routing mode for cross-cluster connectivity",
+          "type": "string",
+          "enum": [
+            "Native",
+            "Tunnel"
+          ]
+        },
+        "intra-host-routing-mode": {
+          "description": "Datapath routing mode for connectivity within the host",
+          "type": "string",
+          "enum": [
+            "BPF",
+            "Legacy"
+          ]
+        },
+        "tunnel-protocol": {
+          "description": "Tunnel protocol in use for cross-cluster connectivity",
+          "type": "string"
+        }
+      }
+    },
     "SelectorCache": {
       "description": "cache of which identities match selectors in the policy repository",
       "type": "array",
@@ -11342,10 +11366,6 @@ func init() {
           "description": "Status of the host firewall",
           "$ref": "#/definitions/HostFirewall"
         },
-        "host-routing": {
-          "description": "Status of host routing",
-          "$ref": "#/definitions/HostRouting"
-        },
         "hubble": {
           "description": "Status of Hubble server",
           "$ref": "#/definitions/HubbleStatus"
@@ -11389,6 +11409,10 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
+        },
+        "routing": {
+          "description": "Status of routing",
+          "$ref": "#/definitions/Routing"
         },
         "srv6": {
           "description": "Status of SRv6",

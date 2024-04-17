@@ -69,9 +69,6 @@ type StatusResponse struct {
 	// Status of the host firewall
 	HostFirewall *HostFirewall `json:"host-firewall,omitempty"`
 
-	// Status of host routing
-	HostRouting *HostRouting `json:"host-routing,omitempty"`
-
 	// Status of Hubble server
 	Hubble *HubbleStatus `json:"hubble,omitempty"`
 
@@ -104,6 +101,9 @@ type StatusResponse struct {
 
 	// Status of proxy
 	Proxy *ProxyStatus `json:"proxy,omitempty"`
+
+	// Status of routing
+	Routing *Routing `json:"routing,omitempty"`
 
 	// Status of SRv6
 	Srv6 *Srv6 `json:"srv6,omitempty"`
@@ -168,10 +168,6 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateHostRouting(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.validateHubble(formats); err != nil {
 		res = append(res, err)
 	}
@@ -213,6 +209,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateProxy(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateRouting(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -475,25 +475,6 @@ func (m *StatusResponse) validateHostFirewall(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *StatusResponse) validateHostRouting(formats strfmt.Registry) error {
-	if swag.IsZero(m.HostRouting) { // not required
-		return nil
-	}
-
-	if m.HostRouting != nil {
-		if err := m.HostRouting.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("host-routing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("host-routing")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (m *StatusResponse) validateHubble(formats strfmt.Registry) error {
 	if swag.IsZero(m.Hubble) { // not required
 		return nil
@@ -703,6 +684,25 @@ func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *StatusResponse) validateRouting(formats strfmt.Registry) error {
+	if swag.IsZero(m.Routing) { // not required
+		return nil
+	}
+
+	if m.Routing != nil {
+		if err := m.Routing.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("routing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("routing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *StatusResponse) validateSrv6(formats strfmt.Registry) error {
 	if swag.IsZero(m.Srv6) { // not required
 		return nil
@@ -794,10 +794,6 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 		res = append(res, err)
 	}
 
-	if err := m.contextValidateHostRouting(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.contextValidateHubble(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -839,6 +835,10 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 	}
 
 	if err := m.contextValidateProxy(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateRouting(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -1118,27 +1118,6 @@ func (m *StatusResponse) contextValidateHostFirewall(ctx context.Context, format
 	return nil
 }
 
-func (m *StatusResponse) contextValidateHostRouting(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.HostRouting != nil {
-
-		if swag.IsZero(m.HostRouting) { // not required
-			return nil
-		}
-
-		if err := m.HostRouting.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("host-routing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("host-routing")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (m *StatusResponse) contextValidateHubble(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Hubble != nil {
@@ -1362,6 +1341,27 @@ func (m *StatusResponse) contextValidateProxy(ctx context.Context, formats strfm
 				return ve.ValidateName("proxy")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("proxy")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateRouting(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Routing != nil {
+
+		if swag.IsZero(m.Routing) { // not required
+			return nil
+		}
+
+		if err := m.Routing.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("routing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("routing")
 			}
 			return err
 		}
