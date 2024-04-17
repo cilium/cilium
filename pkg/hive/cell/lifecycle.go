@@ -110,7 +110,11 @@ func (lc *DefaultLifecycle) Start(ctx context.Context) error {
 			return err
 		}
 		d := time.Since(t0)
-		l.WithField("duration", d).Info("Start hook executed")
+		if d > logThreshold {
+			l.WithField("duration", d).Info("Start hook executed")
+		} else {
+			l.WithField("duration", d).Debug("Start hook executed")
+		}
 		lc.numStarted++
 	}
 	return nil
@@ -145,7 +149,11 @@ func (lc *DefaultLifecycle) Stop(ctx context.Context) error {
 			errs = errors.Join(errs, err)
 		} else {
 			d := time.Since(t0)
-			l.WithField("duration", d).Info("Stop hook executed")
+			if d > logThreshold {
+				l.WithField("duration", d).Info("Stop hook executed")
+			} else {
+				l.WithField("duration", d).Debug("Stop hook executed")
+			}
 		}
 	}
 	return errs
