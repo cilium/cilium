@@ -92,6 +92,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
+	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
@@ -1606,6 +1607,7 @@ type daemonParams struct {
 	Policy               *policy.Repository
 	PolicyUpdater        *policy.Updater
 	IPCache              *ipcache.IPCache
+	PolicyK8sWatcher     *policyK8s.PolicyResourcesWatcher
 	EgressGatewayManager *egressgateway.Manager
 	IPAMMetadataManager  *ipamMetadata.Manager
 	CNIConfigManager     cni.CNIConfigManager
