@@ -203,8 +203,18 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 // getEndpointsDNSInfo is used by the NameManager to iterate through endpoints
 // without having to have access to the EndpointManager.
-func (d *Daemon) getEndpointsDNSInfo() []fqdn.EndpointDNSInfo {
+//
+// Optional parameter endpointID will cause this function to only return the
+// endpoint with the ID matching the parameter.
+func (d *Daemon) getEndpointsDNSInfo(endpointID string) []fqdn.EndpointDNSInfo {
 	eps := d.endpointManager.GetEndpoints()
+	if endpointID != "" {
+		ep, err := d.endpointManager.Lookup(endpointID)
+		if ep == nil || err != nil {
+			return nil
+		}
+		eps = []*endpoint.Endpoint{ep}
+	}
 	out := make([]fqdn.EndpointDNSInfo, 0, len(eps))
 	for _, ep := range eps {
 		out = append(out, fqdn.EndpointDNSInfo{

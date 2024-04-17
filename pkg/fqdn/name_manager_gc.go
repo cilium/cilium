@@ -60,7 +60,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 	maybeStaleIPs := n.cache.GetIPs()
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
-	endpoints := n.config.GetEndpointsDNSInfo()
+	endpoints := n.config.GetEndpointsDNSInfo("")
 	for _, ep := range endpoints {
 		epID := ep.ID
 		if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
@@ -175,7 +175,7 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
 	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
-	for _, ep := range n.config.GetEndpointsDNSInfo() {
+	for _, ep := range n.config.GetEndpointsDNSInfo("") {
 		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
 		n.cache.UpdateFromCache(ep.DNSHistory, nil)
 
