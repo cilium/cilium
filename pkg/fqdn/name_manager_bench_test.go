@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strconv"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -77,4 +78,44 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 				IPs: []net.IP{ip.AsSlice()},
 			}})
 	}
+}
+
+// BenchmarkFqdnCache tests how slow a full dump of DNSHistory from a number of
+// endpoints is. Each endpoints has 1000 DNS lookups, each with 10 IPs. The
+// dump iterates over all endpoints, lookups, and IPs.
+func BenchmarkFqdnCache(b *testing.B) {
+	caches := make([]*DNSCache, 0, b.N)
+	for i := 0; i < b.N; i++ {
+		lookupTime := time.Now()
+		dnsHistory := NewDNSCache(0)
+
+		for i := 0; i < 1000; i++ {
+			dnsHistory.Update(lookupTime, fmt.Sprintf("domain-%d.com.", i), makeIPs(10), 1000)
+		}
+
+		caches = append(caches, dnsHistory)
+	}
+
+	nameManager := NewNameManager(Config{
+		MinTTL:  1,
+		Cache:   NewDNSCache(0),
+		IPCache: testipcache.NewMockIPCache(),
+		GetEndpointsDNSInfo: func(endpointID string) []EndpointDNSInfo {
+			out := make([]EndpointDNSInfo, 0, len(caches))
+			for i, c := range caches {
+				out = append(out, EndpointDNSInfo{
+					ID:         strconv.Itoa(i),
+					ID64:       int64(i),
+					DNSHistory: c,
+					DNSZombies: NewDNSZombieMappings(1000, 1000),
+				})
+			}
+			return out
+		},
+	})
+	b.ResetTimer()
+
+	prefixMatcher := func(_ netip.Addr) bool { return true }
+	nameMatcher := func(_ string) bool { return true }
+	nameManager.GetDNSHistoryModel("", prefixMatcher, nameMatcher, "")
 }
