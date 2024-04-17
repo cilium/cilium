@@ -62,7 +62,7 @@ func (c *binaryCheck) Run() (checkResult, string) {
 	version := output
 	if c.versionRegexp != nil {
 		match := c.versionRegexp.FindSubmatch(version)
-		if len(match) != 2 {
+		if len(match) < 2 {
 			return checkFailed, fmt.Sprintf("found %s, could not parse version from %s", path, version)
 		}
 		version = match[1]
