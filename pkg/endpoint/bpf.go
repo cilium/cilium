@@ -661,7 +661,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
-		err = e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+		err = e.owner.Datapath().Orchestrator().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")

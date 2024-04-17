@@ -72,11 +72,11 @@ type recQueue struct {
 
 type Recorder struct {
 	lock.RWMutex
-	recByID map[ID]*RecInfo
-	recMask map[string]*RecMask
-	queue   recQueue
-	ctx     context.Context
-	loader  types.Loader
+	recByID      map[ID]*RecInfo
+	recMask      map[string]*RecMask
+	queue        recQueue
+	ctx          context.Context
+	orchestrator types.Orchestrator
 }
 
 // NewRecorder initializes the main recorder infrastructure once upon agent
@@ -84,7 +84,7 @@ type Recorder struct {
 // down into the BPF datapath. Given we currently do not support restore
 // functionality, it also flushes prior existing recorder objects from the
 // BPF maps.
-func NewRecorder(ctx context.Context, loader types.Loader) (*Recorder, error) {
+func NewRecorder(ctx context.Context, orchestrator types.Orchestrator) (*Recorder, error) {
 	rec := &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
@@ -92,8 +92,8 @@ func NewRecorder(ctx context.Context, loader types.Loader) (*Recorder, error) {
 			add: []*RecorderTuple{},
 			del: []*RecorderTuple{},
 		},
-		ctx:    ctx,
-		loader: loader,
+		ctx:          ctx,
+		orchestrator: orchestrator,
 	}
 	if option.Config.EnableRecorder {
 		maps := []*bpf.Map{}
@@ -246,7 +246,7 @@ func (r *Recorder) triggerDatapathRegenerate() error {
 			extraCArgs = append(extraCArgs, masks6)
 		}
 	}
-	err := r.loader.ReinitializeXDP(r.ctx, extraCArgs)
+	err := r.orchestrator.ReinitializeXDP(r.ctx, extraCArgs)
 	if err != nil {
 		log.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
 			masks4, masks6)

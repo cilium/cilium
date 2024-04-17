@@ -19,9 +19,9 @@ type Loader interface {
 	DetachXDP(iface netlink.Link, bpffsBase, progName string) error
 	EndpointHash(cfg types.EndpointConfiguration) (string, error)
 	HostDatapathInitialized() <-chan struct{}
-	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr types.IptablesManager, p types.Proxy) error
-	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
-	ReloadDatapath(ctx context.Context, ep types.Endpoint, stats *metrics.SpanStat) (err error)
+	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr types.IptablesManager, p types.Proxy, devices []string) error
+	ReinitializeXDP(ctx context.Context, extraCArgs []string, devices []string) error
+	ReloadDatapath(ctx context.Context, ep types.Endpoint, devices []string, stats *metrics.SpanStat) (err error)
 	RestoreTemplates(stateDir string) error
 	Unload(ep types.Endpoint)
 }

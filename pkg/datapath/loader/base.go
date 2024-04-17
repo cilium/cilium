@@ -300,11 +300,7 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
-	// TODO: react to changes (using the currently ignored watch channel)
-	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-	devices := tables.DeviceNames(nativeDevices)
-
+func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string, devices []string) error {
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
@@ -314,7 +310,7 @@ func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, devices []string) error {
 	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -381,9 +377,6 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
 
-	// TODO: react to changes (using the currently ignored watch channel)
-	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-	devices := tables.DeviceNames(nativeDevices)
 	if err := cleanIngressQdisc(devices); err != nil {
 		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
 		return err

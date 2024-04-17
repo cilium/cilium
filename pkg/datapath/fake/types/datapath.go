@@ -126,15 +126,15 @@ func (f *FakeDatapath) Orchestrator() datapath.Orchestrator {
 type FakeLoader struct {
 }
 
-func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string, devices []string) error {
 	panic("implement me")
 }
 
@@ -154,7 +154,7 @@ func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, devices []string) error {
 	return nil
 }
 
@@ -170,4 +170,27 @@ type FakeOrchestrator struct{}
 
 func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
 	return nil
+}
+
+func (f *FakeOrchestrator) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+	return "", nil
+}
+
+func (f *FakeOrchestrator) Unload(ep datapath.Endpoint) {
 }

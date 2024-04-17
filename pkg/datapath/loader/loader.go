@@ -83,7 +83,6 @@ type loader struct {
 	sysctl          sysctl.Sysctl
 	db              *statedb.DB
 	nodeAddrs       statedb.Table[tables.NodeAddress]
-	devices         statedb.Table[*tables.Device]
 	prefilter       datapath.PreFilter
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
@@ -98,7 +97,6 @@ type Params struct {
 	DB              *statedb.DB
 	NodeAddrs       statedb.Table[tables.NodeAddress]
 	Sysctl          sysctl.Sysctl
-	Devices         statedb.Table[*tables.Device]
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
@@ -113,7 +111,6 @@ func newLoader(p Params) *loader {
 		db:                p.DB,
 		nodeAddrs:         p.NodeAddrs,
 		sysctl:            p.Sysctl,
-		devices:           p.Devices,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
 		compilationLock:   p.CompilationLock,
@@ -499,7 +496,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, devices []string, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	// Replace all occurrences of the template endpoint ID with the real ID.
@@ -520,10 +517,6 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, spec 
 	}
 
 	if ep.IsHost() {
-		// TODO: react to changes (using the currently ignored watch channel)
-		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-		devices := tables.DeviceNames(nativeDevices)
-
 		if option.Config.NeedBPFHostOnWireGuardDevice() {
 			devices = append(devices, wgTypes.IfaceName)
 		}
@@ -636,7 +629,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -656,7 +649,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 	}
 
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ctx, ep, spec)
+	err = l.reloadDatapath(ctx, ep, devices, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return err
 }
