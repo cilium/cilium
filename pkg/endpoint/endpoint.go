@@ -1075,16 +1075,10 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 
-	// If configuration options are provided, we only regenerate if necessary.
-	// Otherwise always regenerate.
-	if cfg.Options == nil {
-		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapathRebuild
-		regenCtx.Reason = "endpoint was manually regenerated via API"
-	} else if e.updateAndOverrideEndpointOptions(om) || e.status.CurrentStatus() != OK {
+	// Only regenerate if necessary.
+	if cfg.Options == nil || e.updateAndOverrideEndpointOptions(om) || e.status.CurrentStatus() != OK {
 		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapathRewrite
-	}
 
-	if regenCtx.RegenerationLevel > regeneration.RegenerateWithoutDatapath {
 		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
 			" attempting to regenerate")
 
