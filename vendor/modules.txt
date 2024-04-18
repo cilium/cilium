@@ -543,7 +543,7 @@ github.com/dimchansky/utfbom
 # github.com/distribution/reference v0.5.0
 ## explicit; go 1.20
 github.com/distribution/reference
-# github.com/docker/docker v26.0.1+incompatible
+# github.com/docker/docker v26.0.2+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
