@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -536,7 +537,10 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 
 func (k *K8sWatcher) k8sServiceHandler() {
 	eventHandler := func(event k8s.ServiceEvent) {
-		defer event.SWG.Done()
+		defer func(startTime time.Time) {
+			event.SWG.Done()
+			k.K8sServiceEventProcessed(event.Action.String(), startTime)
+		}(time.Now())
 
 		svc := event.Service
 
@@ -890,6 +894,12 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 	metrics.KubernetesEventReceived.WithLabelValues(scope, action, validStr, equalStr).Inc()
 
 	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
+}
+
+// K8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
+func (k *K8sWatcher) K8sServiceEventProcessed(action string, startTime time.Time) {
+	duration, _ := safetime.TimeSinceSafe(startTime, log)
+	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
 }
 
 // initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
