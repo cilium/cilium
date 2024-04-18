@@ -1143,6 +1143,9 @@ ct_recreate4:
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 	{
+		struct endpoint_info *gateway_node_ep;
+		__be32 gateway_ip = 0;
+
 		/* If the packet is destined to an entity inside the cluster,
 		 * either EP or node, it should not be forwarded to an egress
 		 * gateway since only traffic leaving the cluster is supposed to
@@ -1151,20 +1154,29 @@ ct_recreate4:
 		if (identity_is_cluster(*dst_sec_identity))
 			goto skip_egress_gateway;
 
-		if (egress_gw_request_needs_redirect_hook(tuple, ct_status, &tunnel_endpoint)) {
-			if (tunnel_endpoint == EGRESS_GATEWAY_NO_GATEWAY) {
-				/* Special case for no gateway to drop the traffic */
-				return DROP_NO_EGRESS_GATEWAY;
-			}
-			/* Send the packet to egress gateway node through a tunnel. */
-			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, 0,
-						       SECLABEL_IPV4,
-						       *dst_sec_identity, &trace);
-			if (ret == CTX_ACT_OK)
-				goto encrypt_to_stack;
+		ret = egress_gw_request_needs_redirect_hook(tuple, ct_status, &gateway_ip);
+		if (IS_ERR(ret))
+			return DROP_NO_EGRESS_GATEWAY;
 
-			return ret;
-		}
+		if (ret == CTX_ACT_OK)
+			goto skip_egress_gateway;
+
+		/* If the gateway node is the local node, then just let the
+		 * packet go through, as it will be SNATed later on by
+		 * handle_nat_fwd().
+		 */
+		gateway_node_ep = __lookup_ip4_endpoint(gateway_ip);
+		if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
+			goto skip_egress_gateway;
+
+		/* Send the packet to egress gateway node through a tunnel. */
+		ret = __encap_and_redirect_lxc(ctx, gateway_ip, 0,
+					       SECLABEL_IPV4,
+					       *dst_sec_identity, &trace);
+		if (ret == CTX_ACT_OK)
+			goto encrypt_to_stack;
+
+		return ret;
 	}
 skip_egress_gateway:
 #endif
