@@ -146,19 +146,11 @@ jobs:
         id: set_clang_dir
         run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
-        with:
-          path: ${{ steps.set_clang_dir.outputs.clang_dir }}
-          key: llvm-17.0.6-${{ matrix.arch }}
-
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@8b37482c5a2997a3ab5dbf6561f8109e2eaa7d3b # v2.0.2
         with:
           version: "17.0.6"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
       - name: Prepare environment
         timeout-minutes: 15
