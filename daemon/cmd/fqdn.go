@@ -324,13 +324,18 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	if msg.Response {
 		flowType = accesslog.TypeResponse
 		addrInfo.DstIPPort = epIPPort
-		addrInfo.DstIdentity = ep.GetIdentity()
+		addrInfo.DstEPID = ep.GetID()
+		// ignore error; log fields are best effort. Only returns error if endpoint
+		// is going away.
+		addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
 		addrInfo.SrcIPPort = serverAddr
 		addrInfo.SrcIdentity = serverID
 	} else {
 		flowType = accesslog.TypeRequest
 		addrInfo.SrcIPPort = epIPPort
-		addrInfo.SrcIdentity = ep.GetIdentity()
+		addrInfo.SrcEPID = ep.GetID()
+		// ignore error; same reason as above.
+		addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
 		addrInfo.DstIPPort = serverAddr
 		addrInfo.DstIdentity = serverID
 	}

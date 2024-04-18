@@ -123,16 +123,30 @@ func (logTags) Timestamp(ts time.Time) LogTag {
 
 // AddressingInfo is the information passed in via the Addressing() tag
 type AddressingInfo struct {
-	SrcIPPort   string
-	DstIPPort   string
-	SrcIdentity identity.NumericIdentity
-	DstIdentity identity.NumericIdentity
+	SrcIPPort string
+	DstIPPort string
+
+	SrcIdentity    identity.NumericIdentity
+	SrcSecIdentity *identity.Identity
+	SrcEPID        uint64
+
+	DstIdentity    identity.NumericIdentity
+	DstSecIdentity *identity.Identity
+	DstEPID        uint64
 }
 
 // Addressing attaches addressing information about the source and destination
 // to the logrecord
 func (logTags) Addressing(i AddressingInfo) LogTag {
 	return func(lr *LogRecord) {
+		lr.SourceEndpoint.ID = i.SrcEPID
+		if i.SrcSecIdentity != nil {
+			lr.SourceEndpoint.Identity = uint64(i.SrcSecIdentity.ID)
+			lr.SourceEndpoint.Labels = i.SrcSecIdentity.LabelArray
+		} else {
+			lr.SourceEndpoint.Identity = uint64(i.SrcIdentity)
+		}
+
 		addrPort, err := netip.ParseAddrPort(i.SrcIPPort)
 		if err == nil {
 			if addrPort.Addr().Is6() {
@@ -140,13 +154,21 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			}
 
 			lr.SourceEndpoint.Port = addrPort.Port()
-			endpointInfoRegistry.FillEndpointInfo(&lr.SourceEndpoint, addrPort.Addr(), i.SrcIdentity)
+			endpointInfoRegistry.FillEndpointInfo(&lr.SourceEndpoint, addrPort.Addr())
+		}
+
+		lr.DestinationEndpoint.ID = i.DstEPID
+		if i.DstSecIdentity != nil {
+			lr.DestinationEndpoint.Identity = uint64(i.DstSecIdentity.ID)
+			lr.DestinationEndpoint.Labels = i.DstSecIdentity.LabelArray
+		} else {
+			lr.DestinationEndpoint.Identity = uint64(i.DstIdentity)
 		}
 
 		addrPort, err = netip.ParseAddrPort(i.DstIPPort)
 		if err == nil {
 			lr.DestinationEndpoint.Port = addrPort.Port()
-			endpointInfoRegistry.FillEndpointInfo(&lr.DestinationEndpoint, addrPort.Addr(), i.DstIdentity)
+			endpointInfoRegistry.FillEndpointInfo(&lr.DestinationEndpoint, addrPort.Addr())
 		}
 	}
 }
@@ -258,11 +280,12 @@ func SetMetadata(md []string) {
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP address.
 type EndpointInfoRegistry interface {
 	// FillEndpointInfo resolves the labels of the specified identity if known locally.
-	// If 'id' is passed as zero, will locate the EP by 'ip', and also fill info.ID, if found.
+	// ID and Labels should be provieded in 'info' if known.
+	// If 'id' is passed as zero, will locate the EP by 'addr', and also fill info.ID, if found.
 	// Fills in the following info member fields:
 	//  - info.IPv4           (if 'ip' is IPv4)
 	//  - info.IPv6           (if 'ip' is not IPv4)
 	//  - info.Identity       (defaults to WORLD if not known)
 	//  - info.Labels         (only if identity is found)
-	FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr, id identity.NumericIdentity)
+	FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr)
 }
