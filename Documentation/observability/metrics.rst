@@ -291,6 +291,7 @@ Services
 Name                                       Labels                                             Default    Description
 ========================================== ================================================== ========== ========================================================
 ``services_events_total``                                                                     Enabled    Number of services events labeled by action type
+``service_implementation_delay``           ``action``                                         Enabled    Duration in seconds to propagate the data plane programming of a service, its network and endpoints from the time the service or the service pod was changed excluding the event queue latency
 ========================================== ================================================== ========== ========================================================
 
 Cluster health
