@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -319,14 +318,8 @@ func TestSubstituteConfiguration(t *testing.T) {
 	ep := testutils.NewTestEndpoint()
 	initEndpoint(t, &ep)
 
-	option.Config.DryMode = true
-	defer func() {
-		option.Config.DryMode = false
-	}()
-
 	l := newTestLoader(t)
 	stats := &metrics.SpanStat{}
-	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, t.TempDir())
 	if err := l.CompileOrLoad(ctx, &ep, stats); err != nil {
 		t.Fatal(err)
 	}
