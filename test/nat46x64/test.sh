@@ -26,6 +26,16 @@ function cilium_install {
     sleep 1
 }
 
+function assert_maglev_maps_sane {
+    MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
+    MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
+    if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
+        echo "Invalid content of Maglev table!"
+        ${CILIUM_EXEC} cilium-dbg bpf lb maglev list
+        exit 1
+    fi
+}
+
 # With Docker-in-Docker we create two nodes:
 #
 # * "lb-node" runs cilium in the LB-only mode.
@@ -71,13 +81,7 @@ SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
 
 ${CILIUM_EXEC} cilium-dbg bpf lb list
 
-MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
-MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
-if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
-	echo "Invalid content of Maglev table!"
-	${CILIUM_EXEC} cilium-dbg bpf lb maglev list
-	exit 1
-fi
+assert_maglev_maps_sane
 
 LB_NODE_IP=$(docker exec -t lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
@@ -193,13 +197,7 @@ SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
 
 ${CILIUM_EXEC} cilium-dbg bpf lb list
 
-MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
-MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
-if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
-	echo "Invalid content of Maglev table!"
-	${CILIUM_EXEC} cilium-dbg bpf lb maglev list
-	exit 1
-fi
+assert_maglev_maps_sane
 
 LB_NODE_IP=$(docker exec -t lb-node ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip -6 r a "${LB_VIP}/128" via "$LB_NODE_IP"
