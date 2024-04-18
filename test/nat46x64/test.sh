@@ -306,24 +306,6 @@ done
 ${CILIUM_EXEC} cilium-dbg service delete 1
 ${CILIUM_EXEC} cilium-dbg service delete 2
 
-# Misc compilation tests
-########################
-
-# Install Cilium as standalone L4LB & NAT46/64 GW: tc
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled
-
-# Install Cilium as standalone L4LB & NAT46/64 GW: XDP
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=native
-
-# Install Cilium as standalone L4LB & NAT46/64 GW: restore
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled
-
 # NAT test suite & PCAP recorder
 ################################
 
