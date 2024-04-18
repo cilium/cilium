@@ -127,8 +127,9 @@ type manager struct {
 	ipcache IPCache
 
 	// ipsetMgr is the ipset cluster nodes configuration manager
-	ipsetMgr    ipset.Manager
-	ipsetFilter IPSetFilterFn
+	ipsetMgr         ipset.Manager
+	ipsetInitializer ipset.Initializer
+	ipsetFilter      IPSetFilterFn
 
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
@@ -273,6 +274,7 @@ func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetF
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
 		ipsetMgr:          ipsetMgr,
+		ipsetInitializer:  ipsetMgr.NewInitializer(),
 		ipsetFilter:       ipsetFilter,
 		metrics:           nodeMetrics,
 		healthScope:       healthScope,
@@ -825,6 +827,13 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	} else {
 		hr.OK("Node deletions successful")
 	}
+}
+
+// NodeSync signals the manager that the initial nodes listing (either from k8s or kvstore)
+// has been completed. This allows the manager to initiate the deletion of possible stale entries
+// in the kernel IP sets managed by Cilium.
+func (m *manager) NodeSync() {
+	m.ipsetInitializer.InitDone()
 }
 
 // GetNodeIdentities returns a list of all node identities store in node

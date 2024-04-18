@@ -60,6 +60,7 @@ func (k *K8sWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.
 				switch event.Kind {
 				case resource.Sync:
 					synced.Store(true)
+					k.nodeManager.NodeSync()
 				case resource.Upsert:
 					var needUpdate bool
 					oldObj, ok := cache[event.Key]

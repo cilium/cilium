@@ -80,6 +80,9 @@ type NodeManager interface {
 
 	// NodeDeleted is called when the store detects a deletion of a node
 	NodeDeleted(n nodeTypes.Node)
+
+	// NodeSync is called when the store completes the initial nodes listing
+	NodeSync()
 }
 
 // NodeRegistrar is a wrapper around store.SharedStore.
@@ -198,6 +201,9 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeManager) er
 	}
 
 	nr.SharedStore = nodeStore
+
+	manager.NodeSync()
+
 	return nil
 }
 
