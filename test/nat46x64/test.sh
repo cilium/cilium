@@ -15,7 +15,7 @@ function cilium_install {
             -v /lib/modules:/lib/modules \
             --privileged=true \
             --network=host \
-            quay.io/${IMG_OWNER}/cilium-ci:${IMG_TAG} \
+            "quay.io/${IMG_OWNER}/cilium-ci:${IMG_TAG}" \
             cilium-agent \
             --enable-ipv4=true \
             --enable-ipv6=true \
@@ -53,12 +53,11 @@ cilium_install \
 IFIDX=$(docker exec -i lb-node \
     /bin/sh -c 'echo $(( $(ip -o l show eth0 | awk "{print $1}" | cut -d: -f1) ))')
 LB_VETH_HOST=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
-ethtool -K $LB_VETH_HOST rx off tx off
+ethtool -K "$LB_VETH_HOST" rx off tx off
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
-WORKER_IP4=$(nsenter -t $NGINX_PID -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
-WORKER_IP6=$(nsenter -t $NGINX_PID -n ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
-WORKER_MAC=$(nsenter -t $NGINX_PID -n ip -o l show dev eth0 | grep -oP '(?<=link/ether )[^ ]+')
+WORKER_IP4=$(nsenter -t "$NGINX_PID" -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+WORKER_IP6=$(nsenter -t "$NGINX_PID" -n ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 
 # NAT 4->6 test suite (services)
 ################################
@@ -74,7 +73,7 @@ ${CILIUM_EXEC} cilium-dbg bpf lb list
 
 MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
 MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
-if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
+if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
 	echo "Invalid content of Maglev table!"
 	${CILIUM_EXEC} cilium-dbg bpf lb maglev list
 	exit 1
@@ -85,7 +84,7 @@ ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
@@ -112,7 +111,7 @@ cilium_install \
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
@@ -124,7 +123,7 @@ cilium_install \
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
 # Add another IPv6->IPv6 service and reuse backend
@@ -142,7 +141,7 @@ ip -6 r a "${LB_ALT}/128" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
 # Try and sleep until the LB2 comes up, seems to be no other way to detect when the service is ready.
@@ -155,7 +154,7 @@ set -e
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit 1)
 done
 
 # Check if restore for both is proper and that this also works
@@ -171,12 +170,12 @@ cilium_install \
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit 1)
 done
 
 ${CILIUM_EXEC} cilium-dbg service delete 1
@@ -196,7 +195,7 @@ ${CILIUM_EXEC} cilium-dbg bpf lb list
 
 MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
 MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
-if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
+if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
 	echo "Invalid content of Maglev table!"
 	${CILIUM_EXEC} cilium-dbg bpf lb maglev list
 	exit 1
@@ -207,7 +206,7 @@ ip -6 r a "${LB_VIP}/128" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
@@ -234,7 +233,7 @@ cilium_install \
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
@@ -246,7 +245,7 @@ cilium_install \
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
 # Add another IPv4->IPv4 service and reuse backend
@@ -264,12 +263,12 @@ ip r a "${LB_ALT}/32" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit 1)
 done
 
 # Check if restore for both is proper and that this also works
@@ -285,12 +284,12 @@ cilium_install \
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit -1)
+    curl -s -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit 1)
 done
 
 ${CILIUM_EXEC} cilium-dbg service delete 1
