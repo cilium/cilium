@@ -954,6 +954,35 @@ func (m *Bootstrap) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetGrpcAsyncClientManagerConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "GrpcAsyncClientManagerConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "GrpcAsyncClientManagerConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetGrpcAsyncClientManagerConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BootstrapValidationError{
+				field:  "GrpcAsyncClientManagerConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	switch v := m.StatsFlush.(type) {
 	case *Bootstrap_StatsFlushOnAdmin:
 		if v == nil {
@@ -1370,6 +1399,8 @@ func (m *ClusterManager) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for EnableDeferredClusterCreation
 
 	if len(errors) > 0 {
 		return ClusterManagerMultiError(errors)
@@ -3373,6 +3404,142 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = Bootstrap_DeferredStatOptionsValidationError{}
+
+// Validate checks the field values on Bootstrap_GrpcAsyncClientManagerConfig
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
+func (m *Bootstrap_GrpcAsyncClientManagerConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Bootstrap_GrpcAsyncClientManagerConfig with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// Bootstrap_GrpcAsyncClientManagerConfigMultiError, or nil if none found.
+func (m *Bootstrap_GrpcAsyncClientManagerConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Bootstrap_GrpcAsyncClientManagerConfig) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if d := m.GetMaxCachedEntryIdleDuration(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = Bootstrap_GrpcAsyncClientManagerConfigValidationError{
+				field:  "MaxCachedEntryIdleDuration",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gte := time.Duration(5*time.Second + 0*time.Nanosecond)
+
+			if dur < gte {
+				err := Bootstrap_GrpcAsyncClientManagerConfigValidationError{
+					field:  "MaxCachedEntryIdleDuration",
+					reason: "value must be greater than or equal to 5s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if len(errors) > 0 {
+		return Bootstrap_GrpcAsyncClientManagerConfigMultiError(errors)
+	}
+
+	return nil
+}
+
+// Bootstrap_GrpcAsyncClientManagerConfigMultiError is an error wrapping
+// multiple validation errors returned by
+// Bootstrap_GrpcAsyncClientManagerConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Bootstrap_GrpcAsyncClientManagerConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Bootstrap_GrpcAsyncClientManagerConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Bootstrap_GrpcAsyncClientManagerConfigMultiError) AllErrors() []error { return m }
+
+// Bootstrap_GrpcAsyncClientManagerConfigValidationError is the validation
+// error returned by Bootstrap_GrpcAsyncClientManagerConfig.Validate if the
+// designated constraints aren't met.
+type Bootstrap_GrpcAsyncClientManagerConfigValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Bootstrap_GrpcAsyncClientManagerConfigValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Bootstrap_GrpcAsyncClientManagerConfigValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Bootstrap_GrpcAsyncClientManagerConfigValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Bootstrap_GrpcAsyncClientManagerConfigValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Bootstrap_GrpcAsyncClientManagerConfigValidationError) ErrorName() string {
+	return "Bootstrap_GrpcAsyncClientManagerConfigValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e Bootstrap_GrpcAsyncClientManagerConfigValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBootstrap_GrpcAsyncClientManagerConfig.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Bootstrap_GrpcAsyncClientManagerConfigValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Bootstrap_GrpcAsyncClientManagerConfigValidationError{}
 
 // Validate checks the field values on Bootstrap_ApplicationLogConfig_LogFormat
 // with the rules defined in the proto definition for this message. If any

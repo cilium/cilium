@@ -285,6 +285,8 @@ func (m *ExternalProcessor) validate(all bool) error {
 
 	// no validation rules for AllowModeOverride
 
+	// no validation rules for DisableImmediateResponse
+
 	if len(errors) > 0 {
 		return ExternalProcessorMultiError(errors)
 	}
