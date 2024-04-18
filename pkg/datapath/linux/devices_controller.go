@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
@@ -32,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -314,7 +314,7 @@ func (dc *devicesController) initialize() error {
 
 func (dc *devicesController) deviceNameSet(txn statedb.ReadTxn) sets.Set[string] {
 	devs, _ := tables.SelectedDevices(dc.params.DeviceTable, txn)
-	return sets.New[string](tables.DeviceNames(devs)...)
+	return sets.New(tables.DeviceNames(devs)...)
 }
 
 func (dc *devicesController) processUpdates(
@@ -400,7 +400,7 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]any) {
 	before := dc.deviceNameSet(txn)
 	for index, updates := range batch {
-		d, _, _ := dc.params.DeviceTable.First(txn, tables.DeviceIDIndex.Query(index))
+		d, _, _ := dc.params.DeviceTable.Get(txn, tables.DeviceIDIndex.Query(index))
 		if d == nil {
 			// Unseen device. We may receive address updates before link updates
 			// and thus the only thing we know at this point is the index.
@@ -491,7 +491,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 
 			// Remove all routes for the device. For a deleted device netlink does not
 			// send complete set of route delete messages.
-			iter, _ := dc.params.RouteTable.Get(txn, tables.RouteLinkIndex.Query(d.Index))
+			iter := dc.params.RouteTable.List(txn, tables.RouteLinkIndex.Query(d.Index))
 			for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
 				dc.params.RouteTable.Delete(txn, r)
 			}
@@ -592,7 +592,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 }
 
 func hasGlobalRoute(devIndex int, tbl statedb.Table[*tables.Route], rxn statedb.ReadTxn) bool {
-	iter, _ := tbl.Get(rxn, tables.RouteLinkIndex.Query(devIndex))
+	iter := tbl.List(rxn, tables.RouteLinkIndex.Query(devIndex))
 	hasGlobal := false
 	for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
 		if r.Dst.Addr().IsGlobalUnicast() {

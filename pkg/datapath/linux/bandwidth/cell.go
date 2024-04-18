@@ -10,6 +10,8 @@ package bandwidth
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
@@ -18,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -50,14 +50,16 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableBBR, def.EnableBBR, "Enable BBR for the bandwidth manager")
 }
 
-func newReconcilerConfig(log logrus.FieldLogger, bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
+func newReconcilerConfig(log logrus.FieldLogger, tbl statedb.RWTable[*tables.BandwidthQDisc], bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
 	return reconciler.Config[*tables.BandwidthQDisc]{
+		Table:                     tbl,
 		FullReconcilationInterval: 10 * time.Minute,
 		RetryBackoffMinDuration:   time.Second,
 		RetryBackoffMaxDuration:   time.Minute,
 		IncrementalRoundSize:      1000,
 		GetObjectStatus:           (*tables.BandwidthQDisc).GetStatus,
-		WithObjectStatus:          (*tables.BandwidthQDisc).WithStatus,
+		SetObjectStatus:           (*tables.BandwidthQDisc).SetStatus,
+		CloneObject:               (*tables.BandwidthQDisc).Clone,
 		Operations:                newOps(log, bwm),
 	}
 }
@@ -99,7 +101,8 @@ type bandwidthManagerParams struct {
 func registerReconciler(
 	cfg Config,
 	deriveParams statedb.DeriveParams[*tables.Device, *tables.BandwidthQDisc],
-	reconcilerParams reconciler.Params[*tables.BandwidthQDisc],
+	config reconciler.Config[*tables.BandwidthQDisc],
+	reconcilerParams reconciler.Params,
 ) error {
 	if !cfg.EnableBandwidthManager {
 		return nil
@@ -112,7 +115,7 @@ func registerReconciler(
 
 	// Create and register a reconciler for 'Table[*BandwidthQDisc]' that
 	// reconciles using '*ops'.
-	return reconciler.Register(reconcilerParams)
+	return reconciler.Register(config, reconcilerParams)
 }
 
 func deviceToBandwidthQDisc(device *tables.Device, deleted bool) (*tables.BandwidthQDisc, statedb.DeriveResult) {
@@ -120,8 +123,7 @@ func deviceToBandwidthQDisc(device *tables.Device, deleted bool) (*tables.Bandwi
 		return &tables.BandwidthQDisc{
 			LinkIndex: device.Index,
 			LinkName:  device.Name,
-			Status:    reconciler.StatusPendingDelete(),
-		}, statedb.DeriveUpdate
+		}, statedb.DeriveDelete
 	}
 	return &tables.BandwidthQDisc{
 		LinkIndex: device.Index,

@@ -11,10 +11,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -161,9 +162,9 @@ func configWriterForTest(t testing.TB) types.ConfigWriter {
 	if err != nil {
 		t.Fatalf("failed to create device table: %v", err)
 	}
-	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
-	if err != nil {
-		t.Fatalf("failed to create statedb: %v", err)
+	db := statedb.New()
+	if err := db.RegisterTable(devices); err != nil {
+		t.Fatalf("failed to register devices: %v", err)
 	}
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
 		DB:      db,

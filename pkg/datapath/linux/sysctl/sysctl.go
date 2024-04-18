@@ -15,10 +15,11 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/safeio"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -132,7 +133,7 @@ func (sysctl *reconcilingSysctl) WriteInt(name string, val int64) error {
 func (sysctl *reconcilingSysctl) ApplySettings(sysSettings []tables.Sysctl) error {
 	txn := sysctl.db.WriteTxn(sysctl.settings)
 	for _, s := range sysSettings {
-		_, _, _ = sysctl.settings.Insert(txn, s.WithStatus(reconciler.StatusPending()))
+		_, _, _ = sysctl.settings.Insert(txn, s.Clone().SetStatus(reconciler.StatusPending()))
 	}
 	txn.Commit()
 
@@ -328,7 +329,7 @@ func (sysctl *reconcilingSysctl) waitForReconciliation(name string) error {
 
 	var err error
 	for {
-		obj, _, watch, _ := sysctl.settings.FirstWatch(sysctl.db.ReadTxn(), tables.SysctlNameIndex.Query(name))
+		obj, _, watch, _ := sysctl.settings.GetWatch(sysctl.db.ReadTxn(), tables.SysctlNameIndex.Query(name))
 		if obj.Status.Kind == reconciler.StatusKindDone {
 			// already reconciled
 			return nil

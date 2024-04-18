@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/daemon/cmd"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type agentHandle struct {

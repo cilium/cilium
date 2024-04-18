@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/statedb/reconciler"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -60,7 +61,6 @@ func TestOps(t *testing.T) {
 	ctx := context.TODO()
 
 	// Initial Update()
-	var changed bool
 	err = ns.Do(func() error {
 		return ops.Update(ctx, nil, &tables.BandwidthQDisc{
 			LinkIndex: index,
@@ -68,9 +68,8 @@ func TestOps(t *testing.T) {
 			FqHorizon: FqDefaultHorizon,
 			FqBuckets: FqDefaultBuckets,
 			Status:    reconciler.StatusPending(),
-		}, &changed)
+		})
 	})
-	require.True(t, changed, "expected changed=true for initial update")
 	require.NoError(t, err, "expected no error from initial update")
 
 	// qdisc should now have changed from "noqueue" to mq (or fq if mq not supported)
@@ -86,7 +85,6 @@ func TestOps(t *testing.T) {
 	}
 
 	// Second Update() should not do anything.
-	changed = false
 	err = ns.Do(func() error {
 		return ops.Update(ctx, nil, &tables.BandwidthQDisc{
 			LinkIndex: index,
@@ -94,13 +92,11 @@ func TestOps(t *testing.T) {
 			FqHorizon: FqDefaultHorizon,
 			FqBuckets: FqDefaultBuckets,
 			Status:    reconciler.StatusPending(),
-		}, &changed)
+		})
 	})
-	require.False(t, changed, "expected changed=false for second update")
 	require.NoError(t, err, "expected no error from second update")
 
 	// Non-existing devices return an error.
-	changed = false
 	err = ns.Do(func() error {
 		return ops.Update(ctx, nil, &tables.BandwidthQDisc{
 			LinkIndex: 1234,
@@ -108,8 +104,7 @@ func TestOps(t *testing.T) {
 			FqHorizon: FqDefaultHorizon,
 			FqBuckets: FqDefaultBuckets,
 			Status:    reconciler.StatusPending(),
-		}, &changed)
+		})
 	})
-	require.False(t, changed, "expected changed=false for update on non-existing device")
 	require.Error(t, err, "expected no error from update of non-existing device")
 }

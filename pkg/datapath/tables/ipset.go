@@ -6,9 +6,9 @@ package tables
 import (
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/reconciler"
 )
 
 const IPSetsTableName = "ipsets"
@@ -62,11 +62,12 @@ func (s *IPSetEntry) GetStatus() reconciler.Status {
 	return s.Status
 }
 
-func (s *IPSetEntry) WithStatus(newStatus reconciler.Status) *IPSetEntry {
-	return &IPSetEntry{
-		Name:   s.Name,
-		Family: s.Family,
-		Addr:   s.Addr,
-		Status: newStatus,
-	}
+func (s *IPSetEntry) SetStatus(newStatus reconciler.Status) *IPSetEntry {
+	s.Status = newStatus
+	return s
+}
+
+func (s *IPSetEntry) Clone() *IPSetEntry {
+	s2 := *s
+	return &s2
 }

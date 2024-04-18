@@ -14,6 +14,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -24,8 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -154,7 +154,7 @@ var (
 )
 
 func NewNodeAddressTable() (statedb.RWTable[NodeAddress], error) {
-	return statedb.NewTable[NodeAddress](
+	return statedb.NewTable(
 		NodeAddressTableName,
 		NodeAddressIndex,
 		NodeAddressDeviceNameIndex,
@@ -211,7 +211,7 @@ type nodeAddressControllerParams struct {
 type nodeAddressController struct {
 	nodeAddressControllerParams
 
-	tracker *statedb.DeleteTracker[*Device]
+	deviceChanges statedb.ChangeIterator[*Device]
 
 	fallbackAddresses fallbackAddresses
 }
@@ -243,7 +243,7 @@ func (n *nodeAddressController) register() {
 
 				// Start tracking deletions of devices.
 				var err error
-				n.tracker, err = n.Devices.DeleteTracker(txn, "node-addresses")
+				n.deviceChanges, err = n.Devices.Changes(txn)
 				if err != nil {
 					return fmt.Errorf("DeleteTracker: %w", err)
 				}
@@ -266,30 +266,31 @@ func (n *nodeAddressController) register() {
 }
 
 func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) error {
-	defer n.tracker.Close()
+	defer n.deviceChanges.Close()
 
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
 	for {
 		txn := n.DB.WriteTxn(n.NodeAddresses)
-		process := func(dev *Device, deleted bool, rev statedb.Revision) {
+		for change, _, ok := n.deviceChanges.Next(); ok; change, _, ok = n.deviceChanges.Next() {
+			dev := change.Object
+
 			// Note: prefix match! existing may contain node addresses from devices with names
 			// prefixed by dev. See https://github.com/cilium/cilium/issues/29324.
-			addrIter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(dev.Name))
-			existing := statedb.CollectSet[NodeAddress](addrIter)
+			addrIter := n.NodeAddresses.List(txn, NodeAddressDeviceNameIndex.Query(dev.Name))
+			existing := statedb.Collect(addrIter)
 			var new sets.Set[NodeAddress]
-			if !deleted {
+			if !change.Deleted {
 				new = n.getAddressesFromDevice(dev)
 			}
-			n.update(txn, existing, new, reporter, dev.Name)
-			n.updateWildcardDevice(txn, dev, deleted)
+			n.update(txn, sets.New(existing...), new, reporter, dev.Name)
+			n.updateWildcardDevice(txn, dev, change.Deleted)
 		}
-		watch := n.tracker.Iterate(txn, process)
 		txn.Commit()
 
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-watch:
+		case <-n.deviceChanges.Watch(n.DB.ReadTxn()):
 		}
 		if err := limiter.Wait(ctx); err != nil {
 			return err
@@ -307,7 +308,7 @@ func (n *nodeAddressController) updateWildcardDevice(txn statedb.WriteTxn, dev *
 	}
 
 	// Clear existing fallback addresses.
-	iter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(WildcardDeviceName))
+	iter := n.NodeAddresses.List(txn, NodeAddressDeviceNameIndex.Query(WildcardDeviceName))
 	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
 		n.NodeAddresses.Delete(txn, addr)
 	}

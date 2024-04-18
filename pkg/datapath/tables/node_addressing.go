@@ -8,12 +8,12 @@ import (
 	"net"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // NodeAddressingCell provides the [NodeAddressing] interface that provides
@@ -90,7 +90,7 @@ func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
 		return 0, nil, false
 	}
 
-	dev, _, ok := a.devices.First(a.db.ReadTxn(), DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
+	dev, _, ok := a.devices.Get(a.db.ReadTxn(), DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
 	if !ok {
 		return 0, nil, false
 	}

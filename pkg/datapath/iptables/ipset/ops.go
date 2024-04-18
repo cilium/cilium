@@ -13,9 +13,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) *ops {
@@ -72,15 +73,9 @@ func (ops *ops) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []re
 var _ reconciler.Operations[*tables.IPSetEntry] = &ops{}
 var _ reconciler.BatchOperations[*tables.IPSetEntry] = &ops{}
 
-func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry, changed *bool) error {
+func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
 	// Since we're using batch operations Update is only called for full reconciliation.
 	// As we're doing full synchronization in Prune() we don't need to do anything here.
-	// The reconciler will be changed from Update+Prune to Sync in the future after which
-	// this hack can be removed.
-	if changed == nil {
-		// Panic here in case the assumptions change.
-		panic("Unexpectedly Update() called from incremental reconciliation")
-	}
 	return nil
 }
 

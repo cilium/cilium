@@ -4,14 +4,15 @@
 package tables
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/netip"
 	"slices"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
 )
 
 var (
@@ -42,7 +43,7 @@ var (
 )
 
 func NewDeviceTable() (statedb.RWTable[*Device], error) {
-	return statedb.NewTable[*Device](
+	return statedb.NewTable(
 		"devices",
 		DeviceIDIndex,
 		DeviceNameIndex,
@@ -51,7 +52,7 @@ func NewDeviceTable() (statedb.RWTable[*Device], error) {
 }
 
 // HardwareAddr is the physical address for a network device.
-// Defined here instead of using net.Hardwareaddr for proper
+// Defined here instead of using net.HardwareAddr for proper
 // JSON marshalling.
 type HardwareAddr []byte
 
@@ -61,6 +62,19 @@ func (a HardwareAddr) String() string {
 
 func (a HardwareAddr) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + a.String() + "\""), nil
+}
+
+func (a *HardwareAddr) UnmarshalJSON(bs []byte) error {
+	bs = bytes.Trim(bs, "\"")
+	if len(bs) == 0 {
+		return nil
+	}
+	hw, err := net.ParseMAC(string(bs))
+	if err != nil {
+		return err
+	}
+	*a = []byte(hw)
+	return nil
 }
 
 // Device is a local network device along with addresses associated with it.
@@ -148,7 +162,7 @@ func (d *DeviceAddress) String() string {
 // The invalidated channel is closed when devices have changed and
 // should be requeried with a new transaction.
 func SelectedDevices(tbl statedb.Table[*Device], txn statedb.ReadTxn) ([]*Device, <-chan struct{}) {
-	iter, invalidated := tbl.Get(txn, DeviceSelectedIndex.Query(true))
+	iter, invalidated := tbl.ListWatch(txn, DeviceSelectedIndex.Query(true))
 	return statedb.Collect(iter), invalidated
 }
 

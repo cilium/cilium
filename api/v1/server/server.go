@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
-	"github.com/cilium/cilium/api/v1/server/restapi/statedb"
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/api"
@@ -108,8 +107,6 @@ type apiParams struct {
 	RecorderGetRecorderMasksHandler      recorder.GetRecorderMasksHandler
 	ServiceGetServiceHandler             service.GetServiceHandler
 	ServiceGetServiceIDHandler           service.GetServiceIDHandler
-	StatedbGetStatedbDumpHandler         statedb.GetStatedbDumpHandler
-	StatedbGetStatedbQueryTableHandler   statedb.GetStatedbQueryTableHandler
 	DaemonPatchConfigHandler             daemon.PatchConfigHandler
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
@@ -171,8 +168,6 @@ func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api.RecorderGetRecorderMasksHandler = p.RecorderGetRecorderMasksHandler
 	api.ServiceGetServiceHandler = p.ServiceGetServiceHandler
 	api.ServiceGetServiceIDHandler = p.ServiceGetServiceIDHandler
-	api.StatedbGetStatedbDumpHandler = p.StatedbGetStatedbDumpHandler
-	api.StatedbGetStatedbQueryTableHandler = p.StatedbGetStatedbQueryTableHandler
 	api.DaemonPatchConfigHandler = p.DaemonPatchConfigHandler
 	api.EndpointPatchEndpointIDHandler = p.EndpointPatchEndpointIDHandler
 	api.EndpointPatchEndpointIDConfigHandler = p.EndpointPatchEndpointIDConfigHandler
@@ -428,8 +423,6 @@ func (s *Server) Serve() error {
 
 // Start the server
 func (s *Server) Start(cell.HookContext) (err error) {
-	s.ConfigureAPI()
-
 	if !s.hasListeners {
 		if err = s.Listen(); err != nil {
 			return err
@@ -446,6 +439,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 			return errors.New("can't create the default handler, as no api is set")
 		}
 
+		s.ConfigureAPI()
 		s.SetHandler(s.api.Serve(nil))
 	}
 

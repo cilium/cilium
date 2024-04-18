@@ -10,10 +10,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -72,7 +73,7 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 			}
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
-			old, _, found := p.statusTable.First(tx, PrimaryIndex.QueryFromObject(s))
+			old, _, found := p.statusTable.Get(tx, PrimaryIndex.QueryFromObject(s))
 			if found && !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", s.ID)
 			}
@@ -126,7 +127,7 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 			}
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
-			old, _, found := p.statusTable.First(tx, PrimaryIndex.QueryFromObject(types.Status{ID: i}))
+			old, _, found := p.statusTable.Get(tx, PrimaryIndex.QueryFromObject(types.Status{ID: i}))
 			if found && !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", i)
 			}

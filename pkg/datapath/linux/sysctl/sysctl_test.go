@@ -12,14 +12,14 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -109,8 +109,8 @@ func TestWaitForReconciliation(t *testing.T) {
 
 	// fake a successful reconciliation
 	txn := db.WriteTxn(settings)
-	old, _, found := settings.First(txn, tables.SysctlNameIndex.Query(paramName))
-	_, exist, err := settings.Insert(txn, old.WithStatus(reconciler.StatusDone()))
+	old, _, found := settings.Get(txn, tables.SysctlNameIndex.Query(paramName))
+	_, exist, err := settings.Insert(txn, old.Clone().SetStatus(reconciler.StatusDone()))
 	txn.Commit()
 
 	assert.True(t, found)

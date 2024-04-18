@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -482,8 +482,8 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	devices, err := tables.NewDeviceTable()
 	require.NoError(t, err)
 
-	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs, devices}, statedb.NewMetrics())
-	require.NoError(t, err)
+	db := statedb.New()
+	require.NoError(t, db.RegisterTable(devices, nodeAddrs), "RegisterTable")
 
 	_, err = NewHeaderfileWriter(WriterParams{
 		DB:                 db,

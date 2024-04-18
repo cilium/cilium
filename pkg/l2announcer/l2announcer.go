@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +37,6 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -52,7 +52,7 @@ func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset) (re
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicyList](
+	lw := utils.ListerWatcherFromTyped(
 		cs.CiliumV2alpha1().CiliumL2AnnouncementPolicies(),
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw, resource.WithMetric("CiliumL2AnnouncementPolicy")), nil
@@ -883,7 +883,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 
 	svcKey := serviceKey(ss.svc)
 
-	entriesIter, _ := tbl.Get(txn, tables.L2AnnounceOriginIndex.Query(svcKey))
+	entriesIter := tbl.List(txn, tables.L2AnnounceOriginIndex.Query(svcKey))
 
 	// If we are not the leader, we should not have any proxy entries for the service.
 	if !ss.currentlyLeader {
@@ -971,7 +971,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 		}
 
 		entry := desiredEntries[key]
-		existing, _, _ := tbl.First(txn, tables.L2AnnounceIDIndex.Query(tables.L2AnnounceKey{
+		existing, _, _ := tbl.Get(txn, tables.L2AnnounceIDIndex.Query(tables.L2AnnounceKey{
 			IP:               entry.IP,
 			NetworkInterface: entry.NetworkInterface,
 		}))

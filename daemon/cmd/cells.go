@@ -4,7 +4,10 @@
 package cmd
 
 import (
+	"net/http"
+
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
@@ -227,7 +230,7 @@ var (
 	)
 )
 
-func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec *server.Spec) {
+func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.DB, swaggerSpec *server.Spec) {
 	s.EnabledListeners = []string{"unix"}
 	s.SocketPath = cfg.SocketPath
 	s.ReadTimeout = apiTimeout
@@ -251,4 +254,12 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec 
 		}
 	}
 	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
+
+	s.ConfigureAPI()
+
+	// Add the /statedb HTTP handler
+	mux := http.NewServeMux()
+	mux.Handle("/", s.GetHandler())
+	mux.Handle("/statedb/", http.StripPrefix("/statedb", db.HTTPHandler()))
+	s.SetHandler(mux)
 }

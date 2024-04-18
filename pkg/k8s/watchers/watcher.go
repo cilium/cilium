@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -52,7 +53,6 @@ import (
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 

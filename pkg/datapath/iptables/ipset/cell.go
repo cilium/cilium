@@ -9,12 +9,13 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -60,13 +61,15 @@ type config struct {
 	NodeIPSetNeeded bool
 }
 
-func newReconcilerConfig(ops *ops) reconciler.Config[*tables.IPSetEntry] {
+func newReconcilerConfig(ops *ops, tbl statedb.RWTable[*tables.IPSetEntry]) reconciler.Config[*tables.IPSetEntry] {
 	return reconciler.Config[*tables.IPSetEntry]{
+		Table:                     tbl,
 		FullReconcilationInterval: 30 * time.Minute,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   5 * time.Second,
 		GetObjectStatus:           (*tables.IPSetEntry).GetStatus,
-		WithObjectStatus:          (*tables.IPSetEntry).WithStatus,
+		SetObjectStatus:           (*tables.IPSetEntry).SetStatus,
+		CloneObject:               (*tables.IPSetEntry).Clone,
 		Operations:                ops,
 		BatchOperations:           ops,
 
@@ -76,6 +79,6 @@ func newReconcilerConfig(ops *ops) reconciler.Config[*tables.IPSetEntry] {
 		IncrementalRoundSize: 100,
 
 		// Set the rate limiter to accumulate a batch of entries to reconcile.
-		RateLimiter: rate.NewLimiter(10*time.Millisecond, 1),
+		RateLimiter: rate.NewLimiter(rate.Every(10*time.Millisecond), 1),
 	}
 }

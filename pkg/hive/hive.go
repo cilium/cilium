@@ -12,6 +12,7 @@ import (
 	upstream "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
@@ -20,8 +21,6 @@ import (
 	healthTypes "github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 type (
@@ -44,9 +43,10 @@ func New(cells ...cell.Cell) *Hive {
 		healthv2.Cell,
 		job.Cell,
 		statedb.Cell,
-		reconciler.Cell,
 
 		cell.Provide(
+			NewStateDBMetrics,
+			NewStateDBReconcilerMetrics,
 			func() logrus.FieldLogger { return logging.DefaultLogger },
 			func(provider healthTypes.Provider) cell.Health {
 				return provider.ForModule(nil)
@@ -61,10 +61,16 @@ func New(cells ...cell.Cell) *Hive {
 			return hp.ForModule(fmid)
 		},
 	}
+	modulePrivateProviders := []cell.ModulePrivateProvider{
+		jobGroupProvider,
+		func(db *statedb.DB, mid cell.ModuleID) statedb.Handle {
+			return db.NewHandle(string(mid))
+		},
+	}
 	return upstream.NewWithOptions(
 		upstream.Options{
 			EnvPrefix:              "CILIUM_",
-			ModulePrivateProviders: []cell.ModulePrivateProvider{jobGroupProvider},
+			ModulePrivateProviders: modulePrivateProviders,
 			ModuleDecorators:       moduleDecorators,
 			DecodeHooks:            decodeHooks,
 			StartTimeout:           5 * time.Minute,

@@ -8,6 +8,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"golang.org/x/sys/unix"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -25,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
