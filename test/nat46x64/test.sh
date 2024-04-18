@@ -30,6 +30,13 @@ function trace_offset {
     >&2 echo -e "\e[92m[${CMD}:${line_no}]\t$*\e[0m"
 }
 
+function fatal_offset {
+    local line_no=$1
+    shift
+    >&2 echo -e "\e[31m[${CMD}:${line_no}]\t$*\e[0m"
+    exit 1
+}
+
 # $1 - Text to represent the install, used for logging
 # $2+ - configuration options to pass to Cilium on startup
 function cilium_install {
@@ -118,6 +125,13 @@ function assert_maglev_maps_sane {
     fi
 }
 
+function assert_connectivity_ok {
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${1}" \
+        || fatal_offset "${BASH_LINENO[*]}" "Failed connection from localhost to $1 (attempt $i/10)"
+    done
+}
+
 function test_services {
     LB_VIP="$1"
     LB_VIP_SVC="$2"
@@ -148,9 +162,7 @@ function test_services {
     ip "${LB_VIP_FAM}" r a "${LB_VIP}/${LB_VIP_SUBNET}" via "$LB_NODE_IP"
 
     # Issue 10 requests to LB
-    for i in $(seq 1 10); do
-        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-    done
+    assert_connectivity_ok "${LB_VIP_SVC}"
 
     cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
 
@@ -162,19 +174,14 @@ function test_services {
 
     [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
 
-    cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
-
     # Check that curl still works after restore
-    for i in $(seq 1 10); do
-        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-    done
-
-    cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
+    cilium_install "$TXT_TC__MAGLEV" $CFG_TC__MAGLEV[@]
+    assert_connectivity_ok "${LB_VIP_SVC}"
 
     # Check that curl also works for random selection
-    for i in $(seq 1 10); do
-        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-    done
+    cilium_install "$TXT_TC__RANDOM" $CFG_TC__RANDOM[@]
+    cilium_install "$TXT_TC__RANDOM" "$CFG_TC__RANDOM"
+    assert_connectivity_ok "${LB_VIP_SVC}"
 
     # Add another same-protocol service and reuse backend (using $LB_ALT_FAM)
 
@@ -191,32 +198,16 @@ function test_services {
                     | head -n1)
     ip "${LB_ALT_FAM}" r a "${LB_ALT}/${LB_ALT_SUBNET}" via "$LB_NODE_IP"
 
-    # Issue 10 requests to LB1
-    for i in $(seq 1 10); do
-        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-    done
-
+    # Issue 10 requests to LB1, then LB2
+    assert_connectivity_ok "${LB_VIP_SVC}"
     wait_service_ready "${LB_ALT_SVC}"
-
-    # Issue 10 requests to LB2
-    for i in $(seq 1 10); do
-        curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
-    done
+    assert_connectivity_ok "${LB_ALT_SVC}"
 
     # Check if restore for both is proper and that this also works
     # under nat46x64-gateway enabled.
-
-    cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
-
-    # Issue 10 requests to LB1
-    for i in $(seq 1 10); do
-        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-    done
-
-    # Issue 10 requests to LB2
-    for i in $(seq 1 10); do
-        curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
-    done
+    cilium_install "$TXT_TC__MAGLEV" $CFG_TC__MAGLEV[@]
+    assert_connectivity_ok "${LB_VIP_SVC}"
+    assert_connectivity_ok "${LB_ALT_SVC}"
 
     ${CILIUM_EXEC} cilium-dbg service delete 1
     ${CILIUM_EXEC} cilium-dbg service delete 2
