@@ -18,7 +18,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,8 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -393,7 +392,7 @@ func TestOpsPruneEnabled(t *testing.T) {
 	fakeLogger := logrus.New()
 	fakeLogger.SetOutput(io.Discard)
 
-	db, _ := statedb.NewDB(nil, statedb.NewMetrics())
+	db := statedb.New()
 	table, _ := statedb.NewTable("ipsets", tables.IPSetEntryIndex)
 	require.NoError(t, db.RegisterTable(table))
 
@@ -535,10 +534,6 @@ func BenchmarkManager(b *testing.B) {
 	)
 
 	hive := hive.New(
-		statedb.Cell,
-		job.Cell,
-		reconciler.Cell,
-
 		cell.Module(
 			"ipset-manager-test",
 			"ipset-manager-test",

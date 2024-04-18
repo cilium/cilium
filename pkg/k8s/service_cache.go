@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -28,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // ServiceCacheCell initializes the service cache holds the list of known services
@@ -324,8 +324,15 @@ func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, 
 func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) ServiceID {
 	var addrs []netip.Addr
 	if s.nodeAddrs != nil {
-		iter, _ := s.nodeAddrs.Get(s.db.ReadTxn(), datapathTables.NodeAddressNodePortIndex.Query(true))
-		addrs = statedb.Collect(statedb.Map(iter, datapathTables.NodeAddress.GetAddr))
+		addrs = statedb.Collect(
+			statedb.Map(
+				// Get all addresses for which NodePort=true
+				s.nodeAddrs.List(
+					s.db.ReadTxn(),
+					datapathTables.NodeAddressNodePortIndex.Query(true)),
+				datapathTables.NodeAddress.GetAddr,
+			),
+		)
 	}
 
 	svcID, newService := ParseService(k8sSvc, addrs)

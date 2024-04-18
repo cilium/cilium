@@ -6,9 +6,10 @@ package tables
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/reconciler"
+
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -47,9 +48,13 @@ func (dq *BandwidthQDisc) GetStatus() reconciler.Status {
 	return dq.Status
 }
 
-func (dq *BandwidthQDisc) WithStatus(s reconciler.Status) *BandwidthQDisc {
+func (dq *BandwidthQDisc) SetStatus(s reconciler.Status) *BandwidthQDisc {
+	dq.Status = s
+	return dq
+}
+
+func (dq *BandwidthQDisc) Clone() *BandwidthQDisc {
 	dq2 := *dq
-	dq2.Status = s
 	return &dq2
 }
 
@@ -67,7 +72,7 @@ var (
 )
 
 func NewBandwidthQDiscTable(db *statedb.DB) (statedb.RWTable[*BandwidthQDisc], error) {
-	tbl, err := statedb.NewTable[*BandwidthQDisc](
+	tbl, err := statedb.NewTable(
 		BandwidthQDiscTableName,
 		BandwidthQDiscIndex,
 	)

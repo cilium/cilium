@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -87,23 +87,23 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.Health) err
 
 	tbl := p.params.L2AnnouncementTable
 	txn := p.params.StateDB.WriteTxn(tbl)
-	tracker, err := tbl.DeleteTracker(txn, "l2-responder-reconciler")
+	changes, err := tbl.Changes(txn)
 	if err != nil {
 		txn.Abort()
 		return fmt.Errorf("delete tracker: %w", err)
 	}
 	txn.Commit()
 
-	defer tracker.Close()
+	defer changes.Close()
 
 	// At startup, do an initial full reconciliation
-	_, err = p.fullReconciliation()
+	err = p.fullReconciliation(p.params.StateDB.ReadTxn())
 	if err != nil {
 		log.WithError(err).Error("Error(s) while reconciling l2 responder map")
 	}
 
 	for ctx.Err() == nil {
-		p.cycle(ctx, tracker, ticker.C)
+		p.cycle(ctx, changes, ticker.C)
 	}
 
 	return nil
@@ -111,17 +111,15 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.Health) err
 
 func (p *l2ResponderReconciler) cycle(
 	ctx context.Context,
-	tracker *statedb.DeleteTracker[*tables.L2AnnounceEntry],
+	changes statedb.ChangeIterator[*tables.L2AnnounceEntry],
 	fullReconciliation <-chan time.Time,
 ) {
 	arMap := p.params.L2ResponderMap
-	rtx := p.params.StateDB.ReadTxn()
 	log := p.params.Logger
 
 	lr := cachingLinkResolver{nl: p.params.NetLink}
 
-	// Partial reconciliation
-	invalid, err := tracker.IterateWithError(rtx, func(e *tables.L2AnnounceEntry, deleted bool, rev uint64) error {
+	process := func(e *tables.L2AnnounceEntry, deleted bool) error {
 		// Ignore IPv6 addresses, L2 is IPv4 only
 		if e.IP.Is6() {
 			return nil
@@ -152,17 +150,25 @@ func (p *l2ResponderReconciler) cycle(
 		}
 
 		return nil
-	})
-	if err != nil {
-		log.WithError(err).Error("error during partial reconciliation")
 	}
+
+	// Partial reconciliation
+	for change, _, ok := changes.Next(); ok; change, _, ok = changes.Next() {
+		err := process(change.Object, change.Deleted)
+		if err != nil {
+			log.WithError(err).Error("error during partial reconciliation")
+			break
+		}
+	}
+
+	txn := p.params.StateDB.ReadTxn()
 
 	select {
 	case <-ctx.Done():
 		// Shutdown
 		return
 
-	case <-invalid:
+	case <-changes.Watch(txn):
 		// There are pending changes in the table, return from the cycle
 
 	case <-fullReconciliation:
@@ -170,29 +176,25 @@ func (p *l2ResponderReconciler) cycle(
 
 		// The existing `iter` is the result of a `All` query, so this will return all
 		// entries in the table for full reconciliation.
-		newRev, err := p.fullReconciliation()
+		err := p.fullReconciliation(txn)
 		if err != nil {
 			log.WithError(err).Error("Error(s) while full reconciling l2 responder map")
 		}
-		tracker.Mark(newRev)
-
 	}
 }
 
-func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) {
+func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err error) {
 	var errs error
 
 	log := p.params.Logger
 	tbl := p.params.L2AnnouncementTable
-	db := p.params.StateDB
 	arMap := p.params.L2ResponderMap
 	lr := cachingLinkResolver{nl: p.params.NetLink}
 
 	log.Debug("l2 announcer table full reconciliation")
 
 	// Get all desired entries in the table
-	rtx := db.ReadTxn()
-	iter, _ := tbl.All(rtx)
+	iter, _ := tbl.All(txn)
 
 	// Prepare index for desired entries based on map key
 	type desiredEntry struct {
@@ -257,7 +259,7 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 		}
 	}
 
-	return maxRev, errs
+	return errs
 }
 
 // If the given IP and network interface index does not yet exist in the l2 responder map,

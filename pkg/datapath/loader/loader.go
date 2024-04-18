@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -132,8 +132,8 @@ func NewLoaderForTest(tb testing.TB) *loader {
 	require.NoError(tb, err, "NewNodeAddressTable")
 	devices, err := tables.NewDeviceTable()
 	require.NoError(tb, err, "NewDeviceTable")
-	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs, devices}, statedb.NewMetrics())
-	require.NoError(tb, err, "NewDB")
+	db := statedb.New()
+	require.NoError(tb, db.RegisterTable(nodeAddrs, devices), "RegisterTable")
 	return newLoader(Params{
 		Config:    DefaultConfig,
 		DB:        db,
@@ -223,14 +223,14 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 
 	// Try to find suitable masquerade address first from the given interface.
 	txn := l.db.ReadTxn()
-	iter, _ := l.nodeAddrs.Get(
+	iter := l.nodeAddrs.List(
 		txn,
 		tables.NodeAddressDeviceNameIndex.Query(ifName),
 	)
 	if !find(iter) {
 		// No suitable masquerade addresses were found for this device. Try the fallback
 		// addresses.
-		iter, _ = l.nodeAddrs.Get(
+		iter = l.nodeAddrs.List(
 			txn,
 			tables.NodeAddressDeviceNameIndex.Query(tables.WildcardDeviceName),
 		)

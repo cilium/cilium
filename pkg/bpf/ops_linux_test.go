@@ -6,20 +6,21 @@ package bpf
 import (
 	"context"
 	"encoding"
+	"errors"
 	"testing"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -66,14 +67,11 @@ func Test_MapOps(t *testing.T) {
 	obj := &TestObject{Key: TestKey{1}, Value: TestValue{2}}
 
 	// Test Update() and Delete()
-	changed := false
-	err = ops.Update(ctx, nil, obj, &changed)
+	err = ops.Update(ctx, nil, obj)
 	assert.NoError(t, err, "Update")
-	assert.True(t, changed, "should have changed on first update")
 
-	err = ops.Update(ctx, nil, obj, &changed)
+	err = ops.Update(ctx, nil, obj)
 	assert.NoError(t, err, "Update")
-	assert.False(t, changed, "no change on second update")
 
 	v, err := testMap.Lookup(&TestKey{1})
 	assert.NoError(t, err, "Lookup")
@@ -118,26 +116,7 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 	)
 	err := exampleMap.OpenOrCreate()
 	require.NoError(t, err)
-	defer exampleMap.Close()
-
-	// Create the map operations and the reconciler configuration.
-	ops := NewMapOps[*TestObject](exampleMap)
-	config := reconciler.Config[*TestObject]{
-		FullReconcilationInterval: time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   10 * time.Second,
-		IncrementalRoundSize:      1000,
-		GetObjectStatus: func(obj *TestObject) reconciler.Status {
-			return obj.Status
-		},
-		WithObjectStatus: func(obj *TestObject, s reconciler.Status) *TestObject {
-			obj2 := *obj
-			obj2.Status = s
-			return &obj2
-		},
-		Operations:      ops,
-		BatchOperations: nil,
-	}
+	t.Cleanup(func() { exampleMap.Close() })
 
 	// Create the table containing the desired state of the map.
 	keyIndex := statedb.Index[*TestObject, uint32]{
@@ -150,6 +129,29 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 	}
 	table, err := statedb.NewTable("example", keyIndex)
 	require.NoError(t, err, "NewTable")
+
+	// Create the map operations and the reconciler configuration.
+	ops := NewMapOps[*TestObject](exampleMap)
+	config := reconciler.Config[*TestObject]{
+		Table:                     table,
+		FullReconcilationInterval: time.Minute,
+		RetryBackoffMinDuration:   100 * time.Millisecond,
+		RetryBackoffMaxDuration:   10 * time.Second,
+		IncrementalRoundSize:      1000,
+		GetObjectStatus: func(obj *TestObject) reconciler.Status {
+			return obj.Status
+		},
+		SetObjectStatus: func(obj *TestObject, s reconciler.Status) *TestObject {
+			obj.Status = s
+			return obj
+		},
+		CloneObject: func(obj *TestObject) *TestObject {
+			obj2 := *obj
+			return &obj2
+		},
+		Operations:      ops,
+		BatchOperations: nil,
+	}
 
 	// Silence the hive log output.
 	oldLogLevel := logging.DefaultLogger.GetLevel()
@@ -165,11 +167,13 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 			"example",
 			"Example",
 
-			cell.Provide(
-				func(db_ *statedb.DB) (statedb.RWTable[*TestObject], error) {
+			cell.Invoke(
+				func(db_ *statedb.DB) error {
 					db = db_
-					return table, db.RegisterTable(table)
+					return db.RegisterTable(table)
 				},
+			),
+			cell.Provide(
 				func() reconciler.Config[*TestObject] {
 					return config
 				},
@@ -201,7 +205,7 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 	txn.Commit()
 
 	for {
-		obj, _, watch, ok := table.FirstWatch(db.ReadTxn(), keyIndex.Query(1))
+		obj, _, watch, ok := table.GetWatch(db.ReadTxn(), keyIndex.Query(1))
 		if ok {
 			if obj.Status.Kind == reconciler.StatusKindDone {
 				// The object has been reconciled.
@@ -219,15 +223,14 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 
 	// Mark the object for deletion
 	txn = db.WriteTxn(table)
-	table.Insert(txn, &TestObject{
-		Key:    TestKey{1},
-		Value:  TestValue{2},
-		Status: reconciler.StatusPendingDelete(),
+	table.Delete(txn, &TestObject{
+		Key:   TestKey{1},
+		Value: TestValue{2},
 	})
 	txn.Commit()
 
 	for {
-		obj, _, watch, ok := table.FirstWatch(db.ReadTxn(), keyIndex.Query(1))
+		obj, _, watch, ok := table.GetWatch(db.ReadTxn(), keyIndex.Query(1))
 		if !ok {
 			// The object has been successfully deleted.
 			break
@@ -237,6 +240,14 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 		<-watch
 	}
 
-	_, err = exampleMap.Lookup(&TestKey{1})
-	require.ErrorIs(t, err, ebpf.ErrKeyNotExist, "Lookup")
+	require.Eventually(
+		t,
+		func() bool {
+			_, err = exampleMap.Lookup(&TestKey{1})
+			return errors.Is(err, ebpf.ErrKeyNotExist)
+		},
+		time.Second,
+		100*time.Millisecond,
+		"Expected key to eventually be removed")
+
 }

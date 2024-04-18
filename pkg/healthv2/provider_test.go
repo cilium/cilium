@@ -12,8 +12,9 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/healthv2/types"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 func allStatus(db *statedb.DB, statusTable statedb.RWTable[types.Status]) []types.Status {
@@ -31,18 +32,7 @@ func allStatus(db *statedb.DB, statusTable statedb.RWTable[types.Status]) []type
 }
 
 func byLevel(db *statedb.DB, statusTable statedb.RWTable[types.Status], l types.Level) []types.Status {
-	ss := []types.Status{}
-	tx := db.ReadTxn()
-	q := LevelIndex.Query(l)
-	iter, _ := statusTable.Get(tx, q)
-	for {
-		s, _, ok := iter.Next()
-		if !ok {
-			break
-		}
-		ss = append(ss, s)
-	}
-	return ss
+	return statedb.Collect(statusTable.List(db.ReadTxn(), LevelIndex.Query(l)))
 }
 
 func TestProvider(t *testing.T) {

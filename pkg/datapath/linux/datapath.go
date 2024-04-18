@@ -4,13 +4,14 @@
 package linux
 
 import (
+	"github.com/cilium/statedb"
+
 	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The

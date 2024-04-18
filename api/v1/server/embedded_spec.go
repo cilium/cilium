@@ -1745,69 +1745,6 @@ func init() {
           }
         }
       }
-    },
-    "/statedb/dump": {
-      "get": {
-        "produces": [
-          "application/octet-stream"
-        ],
-        "tags": [
-          "statedb"
-        ],
-        "summary": "Dump StateDB contents",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "string",
-              "format": "binary"
-            }
-          }
-        }
-      }
-    },
-    "/statedb/query/{table}": {
-      "get": {
-        "produces": [
-          "application/octet-stream"
-        ],
-        "tags": [
-          "statedb"
-        ],
-        "summary": "Perform a query against a StateDB table",
-        "parameters": [
-          {
-            "$ref": "#/parameters/statedb-table"
-          },
-          {
-            "$ref": "#/parameters/statedb-index"
-          },
-          {
-            "$ref": "#/parameters/statedb-key"
-          },
-          {
-            "$ref": "#/parameters/statedb-lowerbound"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "string",
-              "format": "binary"
-            }
-          },
-          "400": {
-            "description": "Invalid parameters",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "404": {
-            "description": "Table or Index not found"
-          }
-        }
-      }
     }
   },
   "definitions": {
@@ -5512,34 +5449,6 @@ func init() {
       "name": "source",
       "in": "query"
     },
-    "statedb-index": {
-      "type": "string",
-      "description": "StateDB index name",
-      "name": "index",
-      "in": "query",
-      "required": true
-    },
-    "statedb-key": {
-      "type": "string",
-      "description": "Query key (base64 encoded)",
-      "name": "key",
-      "in": "query",
-      "required": true
-    },
-    "statedb-lowerbound": {
-      "type": "boolean",
-      "description": "If true perform a LowerBound search",
-      "name": "lowerbound",
-      "in": "query",
-      "required": true
-    },
-    "statedb-table": {
-      "type": "string",
-      "description": "StateDB table name",
-      "name": "table",
-      "in": "path",
-      "required": true
-    },
     "trace-selector": {
       "description": "Context to provide policy evaluation on",
       "name": "trace-selector",
@@ -7498,85 +7407,6 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
-          }
-        }
-      }
-    },
-    "/statedb/dump": {
-      "get": {
-        "produces": [
-          "application/octet-stream"
-        ],
-        "tags": [
-          "statedb"
-        ],
-        "summary": "Dump StateDB contents",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "string",
-              "format": "binary"
-            }
-          }
-        }
-      }
-    },
-    "/statedb/query/{table}": {
-      "get": {
-        "produces": [
-          "application/octet-stream"
-        ],
-        "tags": [
-          "statedb"
-        ],
-        "summary": "Perform a query against a StateDB table",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "StateDB table name",
-            "name": "table",
-            "in": "path",
-            "required": true
-          },
-          {
-            "type": "string",
-            "description": "StateDB index name",
-            "name": "index",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "description": "Query key (base64 encoded)",
-            "name": "key",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "boolean",
-            "description": "If true perform a LowerBound search",
-            "name": "lowerbound",
-            "in": "query",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "string",
-              "format": "binary"
-            }
-          },
-          "400": {
-            "description": "Invalid parameters",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "404": {
-            "description": "Table or Index not found"
           }
         }
       }
@@ -11820,34 +11650,6 @@ func init() {
       "description": "Source from which FQDN entries come from",
       "name": "source",
       "in": "query"
-    },
-    "statedb-index": {
-      "type": "string",
-      "description": "StateDB index name",
-      "name": "index",
-      "in": "query",
-      "required": true
-    },
-    "statedb-key": {
-      "type": "string",
-      "description": "Query key (base64 encoded)",
-      "name": "key",
-      "in": "query",
-      "required": true
-    },
-    "statedb-lowerbound": {
-      "type": "boolean",
-      "description": "If true perform a LowerBound search",
-      "name": "lowerbound",
-      "in": "query",
-      "required": true
-    },
-    "statedb-table": {
-      "type": "string",
-      "description": "StateDB table name",
-      "name": "table",
-      "in": "path",
-      "required": true
     },
     "trace-selector": {
       "description": "Context to provide policy evaluation on",

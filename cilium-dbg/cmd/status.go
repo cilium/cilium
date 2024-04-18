@@ -12,6 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
@@ -20,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/healthv2"
 	healthTypes "github.com/cilium/cilium/pkg/healthv2/types"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // statusCmd represents the daemon_status command
@@ -108,7 +109,7 @@ func statusDaemon() {
 			}
 		}
 		if healthEnabled {
-			table := statedb.NewRemoteTable[healthTypes.Status](client, "health")
+			table := newRemoteTable[healthTypes.Status]("health")
 			ss := []healthTypes.Status{}
 			iter, errChan := table.LowerBound(context.Background(), healthv2.PrimaryIndex.Query("agent"))
 

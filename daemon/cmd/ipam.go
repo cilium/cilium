@@ -9,6 +9,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/cilium/statedb"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/cidr"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -27,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -521,7 +522,10 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
 	iter, _ := d.nodeAddrs.All(d.db.ReadTxn())
-	addrs := statedb.Collect(iter)
+	addrs := statedb.Collect(
+		statedb.Filter(
+			iter,
+			func(addr tables.NodeAddress) bool { return addr.DeviceName != tables.WildcardDeviceName }))
 
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())

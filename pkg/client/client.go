@@ -128,43 +128,56 @@ func WithBasePath(basePath string) func(options *runtimeOptions) {
 	}
 }
 
+func NewTransport(host string) (*http.Transport, error) {
+	if host == "" {
+		host = DefaultSockPath()
+	}
+	schema, host, found := strings.Cut(host, "://")
+	if !found {
+		return nil, fmt.Errorf("invalid host format '%s'", host)
+	}
+	switch schema {
+	case "tcp":
+		if _, err := url.Parse("tcp://" + host); err != nil {
+			return nil, err
+		}
+		host = "http://" + host
+	case "unix":
+	}
+	return configureTransport(nil, schema, host), nil
+}
+
 func NewRuntime(opts ...func(options *runtimeOptions)) (*runtime_client.Runtime, error) {
 	r := runtimeOptions{}
 	for _, opt := range opts {
 		opt(&r)
 	}
 
-	host := r.host
-	if host == "" {
-		host = DefaultSockPath()
-	}
 	basePath := r.basePath
 	if basePath == "" {
 		basePath = clientapi.DefaultBasePath
 	}
 
-	tmp := strings.SplitN(host, "://", 2)
-	if len(tmp) != 2 {
-		return nil, fmt.Errorf("invalid host format '%s'", host)
+	host := r.host
+	if host == "" {
+		host = DefaultSockPath()
 	}
 
-	hostHeader := tmp[1]
-
-	switch tmp[0] {
-	case "tcp":
-		if _, err := url.Parse("tcp://" + tmp[1]); err != nil {
-			return nil, err
-		}
-		host = "http://" + tmp[1]
-	case "unix":
-		host = tmp[1]
+	_, hostHeader, found := strings.Cut(host, "://")
+	if !found {
+		return nil, fmt.Errorf("invalid host format '%s'", host)
+	}
+	if strings.HasPrefix(host, "unix") {
 		// For local communication (unix domain sockets), the hostname is not used. Leave
 		// Host header empty because otherwise it would be rejected by net/http client-side
 		// sanitization, see https://go.dev/issue/60374.
 		hostHeader = "localhost"
 	}
 
-	transport := configureTransport(nil, tmp[0], host)
+	transport, err := NewTransport(host)
+	if err != nil {
+		return nil, err
+	}
 	httpClient := &http.Client{Transport: transport}
 	clientTrans := runtime_client.NewWithClient(hostHeader, basePath,
 		clientapi.DefaultSchemes, httpClient)

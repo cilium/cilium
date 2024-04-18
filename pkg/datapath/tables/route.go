@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 )
 
 func NewRouteTable() (statedb.RWTable[*Route], error) {
-	return statedb.NewTable[*Route](
+	return statedb.NewTable(
 		"routes",
 		RouteIDIndex,
 		RouteLinkIndex,
@@ -115,7 +115,7 @@ func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex i
 	// Device has a default route when a route exists in the main table
 	// with a zero destination.
 	for _, prefix := range []netip.Prefix{zeroPrefixV4, zeroPrefixV6} {
-		r, _, _ := tbl.First(rxn, RouteIDIndex.Query(RouteID{
+		r, _, _ := tbl.Get(rxn, RouteIDIndex.Query(RouteID{
 			RT_TABLE_MAIN,
 			linkIndex,
 			prefix,

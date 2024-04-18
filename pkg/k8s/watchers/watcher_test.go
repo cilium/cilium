@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/checker"
@@ -26,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/statedb"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
@@ -110,9 +110,10 @@ func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.
 }
 
 func (s *K8sWatcherSuite) newDB(c *C) (*statedb.DB, statedb.Table[datapathTables.NodeAddress]) {
+	db := statedb.New()
 	nodeAddrs, err := datapathTables.NewNodeAddressTable()
 	c.Assert(err, IsNil)
-	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs}, statedb.NewMetrics())
+	err = db.RegisterTable(nodeAddrs)
 	c.Assert(err, IsNil)
 
 	txn := db.WriteTxn(nodeAddrs)
