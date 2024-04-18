@@ -20,9 +20,10 @@ func Enabled() bool {
 }
 
 // Log must be used to log any debug messages emitted per request/message/connection
-func Log(l *logrus.Entry, args ...interface{}) {
+func Log(f func() (l *logrus.Entry, msg string)) {
 	if perFlowDebug {
-		l.Debug(args...)
+		l, args := f()
+		l.Debug(args)
 	}
 }
 
