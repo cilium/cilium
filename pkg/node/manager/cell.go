@@ -55,6 +55,9 @@ type NodeManager interface {
 	// NodeDeleted is called when the store detects a deletion of a node
 	NodeDeleted(n types.Node)
 
+	// NodeSync is called when the store completes the initial nodes listing
+	NodeSync()
+
 	// ClusterSizeDependantInterval returns a time.Duration that is dependent on
 	// the cluster size, i.e. the number of nodes that have been discovered. This
 	// can be used to control sync intervals of shared or centralized resources to
