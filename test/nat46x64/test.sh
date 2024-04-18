@@ -80,6 +80,17 @@ function cleanup {
     force_cleanup
 }
 
+# $1 - target service, for example "[fd00:dead:beef:15:bad::1]:80"
+function wait_service_ready {
+    # Try and sleep until the LB2 comes up, seems to be no other way to detect when the service is ready.
+    set +e
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${1}" && break
+        sleep 1
+    done
+    set -e
+}
+
 force_cleanup 2>&1 >/dev/null
 initialize_docker_env
 trap cleanup EXIT
@@ -166,13 +177,7 @@ for i in $(seq 1 10); do
     curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
-# Try and sleep until the LB2 comes up, seems to be no other way to detect when the service is ready.
-set +e
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_ALT}]:80" && break
-    sleep 1
-done
-set -e
+wait_service_ready "[${LB_ALT}]:80"
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
