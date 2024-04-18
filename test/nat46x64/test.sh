@@ -7,6 +7,10 @@ IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
 CILIUM_EXEC="docker exec -t lb-node docker exec -t cilium-lb"
 
+CFG_COMMON=("--enable-ipv4=true" "--enable-ipv6=true" "--devices=eth0" \
+            "--datapath-mode=lb-only" "--bpf-lb-dsr-dispatch=ipip" \
+            "--bpf-lb-mode=snat")
+
 function cilium_install {
     docker exec -t lb-node docker rm -f cilium-lb || true
     docker exec -t lb-node \
@@ -16,12 +20,7 @@ function cilium_install {
             --privileged=true \
             --network=host \
             "quay.io/${IMG_OWNER}/cilium-ci:${IMG_TAG}" \
-            cilium-agent \
-            --enable-ipv4=true \
-            --enable-ipv6=true \
-            --devices=eth0 \
-            --datapath-mode=lb-only \
-            "$@"
+            cilium-agent "${CFG_COMMON[@]}" "$@"
     while ! ${CILIUM_EXEC} cilium-dbg status; do sleep 3; done
     sleep 1
 }
@@ -88,9 +87,7 @@ trap cleanup EXIT
 # Install Cilium as standalone L4LB (tc/Maglev/SNAT)
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=disabled
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
 WORKER_IP4=$(nsenter -t "$NGINX_PID" -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
@@ -121,9 +118,7 @@ done
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=native \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=native
 
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
@@ -136,9 +131,7 @@ ${CILIUM_EXEC} cilium-dbg bpf lb list
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=disabled
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
@@ -148,9 +141,7 @@ done
 # Install Cilium as standalone L4LB: tc/Random/SNAT
 cilium_install \
     --bpf-lb-algorithm=random \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=disabled
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
@@ -194,9 +185,7 @@ done
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat \
     --enable-nat46x64-gateway=true
 
 # Issue 10 requests to LB1
@@ -237,9 +226,7 @@ done
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=native \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=native
 
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
@@ -252,9 +239,7 @@ ${CILIUM_EXEC} cilium-dbg bpf lb list
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=disabled
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
@@ -264,9 +249,7 @@ done
 # Install Cilium as standalone L4LB: tc/Random/SNAT
 cilium_install \
     --bpf-lb-algorithm=random \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=disabled
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
@@ -302,9 +285,7 @@ done
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat \
     --enable-nat46x64-gateway=true
 
 # Issue 10 requests to LB1
@@ -326,25 +307,19 @@ ${CILIUM_EXEC} cilium-dbg service delete 2
 # Install Cilium as standalone L4LB & NAT46/64 GW: tc
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat \
     --enable-nat46x64-gateway=true
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: XDP
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=native \
-    --bpf-lb-mode=snat \
     --enable-nat46x64-gateway=true
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: restore
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
-    --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-acceleration=disabled
 
 # NAT test suite & PCAP recorder
 ################################
@@ -352,9 +327,7 @@ cilium_install \
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT/Recorder
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=native \
-    --bpf-lb-mode=snat \
     --enable-recorder=true
 
 # Trigger recompilation with 32 IPv4 filter masks
