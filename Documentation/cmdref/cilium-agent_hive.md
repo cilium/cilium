@@ -82,6 +82,8 @@ cilium-agent hive [flags]
       --metrics strings                                           Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
       --monitor-queue-size int                                    Size of the event queue when reading monitor events
       --multicast-enabled                                         Enables multicast in Cilium
+      --nat-map-stats-entries int                                 Number k top stats entries to store locally in statedb (default 32)
+      --nat-map-stats-interval duration                           Interval upon which nat maps are iterated for stats (default 30s)
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --pprof                                                     Enable serving pprof debugging API
       --pprof-address string                                      Address that pprof listens on (default "localhost")
