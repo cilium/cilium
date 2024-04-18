@@ -13,6 +13,8 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+var _ ServiceManager = &Service{}
+
 // ServiceManager provides an interface for service related operations.
 // It is implemented by service handler which main responsibility is to reflect
 // service-related changes into BPF maps used by datapath BPF programs.
