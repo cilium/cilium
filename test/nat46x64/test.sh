@@ -122,7 +122,6 @@ force_cleanup 2>&1 >/dev/null
 initialize_docker_env
 trap cleanup EXIT
 
-cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
 WORKER_IP4=$(nsenter -t "$NGINX_PID" -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
@@ -132,9 +131,19 @@ WORKER_IP6=$(nsenter -t "$NGINX_PID" -n ip -o -6 a s eth0 | awk '{print $4}' | c
 ################################
 
 LB_VIP="10.0.0.4"
+LB_VIP_SVC="$LB_VIP:80"
+LB_VIP_FAM="-4"
+LB_VIP_SUBNET="32"
+BACKEND_SVC="[${WORKER_IP6}]:80"
+LB_ALT="fd00:dead:beef:15:bad::1"
+LB_ALT_SVC="[${LB_ALT}]:80"
+LB_ALT_FAM="-6"
+LB_ALT_SUBNET="128"
+
+cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 ${CILIUM_EXEC} \
-    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "[${WORKER_IP6}]:80" --k8s-load-balancer
+    cilium-dbg service update --id 1 --frontend "${LB_VIP_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
 
 SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
 
@@ -142,12 +151,16 @@ ${CILIUM_EXEC} cilium-dbg bpf lb list
 
 assert_maglev_maps_sane
 
-LB_NODE_IP=$(docker exec -t lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
-ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
+LB_NODE_IP=$(docker exec -t lb-node \
+                ip -o "${LB_VIP_FAM}" a s eth0 \
+                | awk '{print $4}' \
+                | cut -d/ -f1 \
+                | head -n1)
+ip "${LB_VIP_FAM}" r a "${LB_VIP}/${LB_VIP_SUBNET}" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
+    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
 done
 
 cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
@@ -164,39 +177,41 @@ cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
+    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
 done
 
 cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
+    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
 done
 
 # Add another IPv6->IPv6 service and reuse backend
 
-LB_ALT="fd00:dead:beef:15:bad::1"
-
 ${CILIUM_EXEC} \
-    cilium-dbg service update --id 2 --frontend "[${LB_ALT}]:80" --backends "[${WORKER_IP6}]:80" --k8s-load-balancer
+    cilium-dbg service update --id 2 --frontend "${LB_ALT_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
 
 ${CILIUM_EXEC} cilium-dbg service list
 ${CILIUM_EXEC} cilium-dbg bpf lb list
 
-LB_NODE_IP=$(docker exec lb-node ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
-ip -6 r a "${LB_ALT}/128" via "$LB_NODE_IP"
+LB_NODE_IP=$(docker exec lb-node \
+                ip -o "${LB_ALT_FAM}" a s eth0 \
+                | awk '{print $4}' \
+                | cut -d/ -f1 \
+                | head -n1)
+ip "${LB_ALT_FAM}" r a "${LB_ALT}/${LB_ALT_SUBNET}" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
+    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
 done
 
-wait_service_ready "[${LB_ALT}]:80"
+wait_service_ready "${LB_ALT_SVC}"
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit 1)
+    curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
 done
 
 # Check if restore for both is proper and that this also works
@@ -206,12 +221,12 @@ cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
+    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -s -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit 1)
+    curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
 done
 
 ${CILIUM_EXEC} cilium-dbg service delete 1
