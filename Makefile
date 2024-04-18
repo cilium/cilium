@@ -324,12 +324,10 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 define generate_deepequal
 	$(GO) run github.com/cilium/deepequal-gen \
 	--input-dirs $(subst $(space),$(comma),$(1)) \
-	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	--go-header-file "$$PWD/hack/custom-boilerplate.go.txt" \
 	--output-file-base zz_generated.deepequal \
 	--output-base $(2)
 endef
-
-PROTOBUF_OUTPUT_DIR := $(subst github.com/cilium/cilium,,$(PWD))
 
 define generate_k8s_protobuf
 	$(GO) install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
@@ -342,12 +340,12 @@ define generate_k8s_protobuf
                                 -k8s.io/apimachinery/pkg/apis/meta/v1,$\
                                 -k8s.io/apimachinery/pkg/apis/meta/v1beta1'\
 		--drop-embedded-fields="github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1.TypeMeta" \
-		--proto-import="$(PWD)" \
-		--proto-import="$(PWD)/vendor" \
-		--proto-import="$(PWD)/tools/protobuf" \
+		--proto-import="$$PWD" \
+		--proto-import="$$PWD/vendor" \
+		--proto-import="$$PWD/tools/protobuf" \
 		--packages=$(subst $(newline),$(comma),$(1)) \
-		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
-		--output-dir="$(PROTOBUF_OUTPUT_DIR)"
+		--go-header-file "$$PWD/hack/custom-boilerplate.go.txt" \
+		--output-dir=$$GOPATH/src
 endef
 
 define K8S_PROTO_PACKAGES
@@ -361,7 +359,8 @@ github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr
 endef
 
-generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
+.PHONY: generate-k8s-api-local
+generate-k8s-api-local:
 	$(ASSERT_CILIUM_MODULE)
 
 	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
@@ -374,6 +373,11 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	$(QUIET) contrib/scripts/k8s-code-gen.sh "$(TMPDIR)"
 
 	$(QUIET) rm -rf "$(TMPDIR)"
+
+.PHONY: generate-k8s-api
+generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
+	contrib/scripts/builder.sh \
+		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
