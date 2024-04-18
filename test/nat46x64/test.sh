@@ -73,7 +73,25 @@ function cilium_install {
             --network=host \
             "quay.io/${IMG_OWNER}/cilium-ci:${IMG_TAG}" \
             cilium-agent "${CFG_COMMON[@]}" "$@"
-    while ! ${CILIUM_EXEC} cilium-dbg status; do sleep 3; done
+    result=1
+    for i in $(seq 1 10); do
+        if ${CILIUM_EXEC} cilium-dbg status --brief; then
+            result=0
+            break;
+        fi
+        if [ -z "$(docker exec lb-node docker ps -qf 'name=cilium-lb')" ]; then
+            # Early exit if cilium-agent is really just in trouble
+            result=1
+            break;
+        fi
+        sleep 3
+    done
+    if [ $result -ne 0 ]; then
+        ${CILIUM_EXEC} cilium-dbg status
+        containerID=$(docker exec lb-node docker inspect cilium-lb --format="{{ .Id }}")
+        docker exec lb-node docker logs "${containerID}"
+        fatal_offset "${BASH_LINENO[*]}" "Failed to install Cilium with $cfg_text"
+    fi
     sleep 1
 }
 
