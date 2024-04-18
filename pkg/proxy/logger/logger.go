@@ -190,37 +190,35 @@ func (lr *LogRecord) ApplyTags(tags ...LogTag) {
 }
 
 func (lr *LogRecord) getLogFields() *logrus.Entry {
-	fields := log.WithFields(logrus.Fields{
-		FieldType:    lr.Type,
-		FieldVerdict: lr.Verdict,
-		FieldMessage: lr.Info,
-	})
+	fields := make(logrus.Fields, 8) // at most 8 entries, avoid map grow
+
+	fields[FieldType] = lr.Type
+	fields[FieldVerdict] = lr.Verdict
+	fields[FieldMessage] = lr.Info
 
 	if lr.HTTP != nil {
-		fields = fields.WithFields(logrus.Fields{
-			FieldCode:     lr.HTTP.Code,
-			FieldMethod:   lr.HTTP.Method,
-			FieldURL:      lr.HTTP.URL,
-			FieldProtocol: lr.HTTP.Protocol,
-			FieldHeader:   lr.HTTP.Headers,
-		})
+		fields[FieldCode] = lr.HTTP.Code
+		fields[FieldMethod] = lr.HTTP.Method
+		fields[FieldURL] = lr.HTTP.URL
+		fields[FieldProtocol] = lr.HTTP.Protocol
+		fields[FieldHeader] = lr.HTTP.Headers
 	}
 
 	if lr.Kafka != nil {
-		fields = fields.WithFields(logrus.Fields{
-			FieldCode:               lr.Kafka.ErrorCode,
-			FieldKafkaAPIKey:        lr.Kafka.APIKey,
-			FieldKafkaAPIVersion:    lr.Kafka.APIVersion,
-			FieldKafkaCorrelationID: lr.Kafka.CorrelationID,
-		})
+		fields[FieldCode] = lr.Kafka.ErrorCode
+		fields[FieldKafkaAPIKey] = lr.Kafka.APIKey
+		fields[FieldKafkaAPIVersion] = lr.Kafka.APIVersion
+		fields[FieldKafkaCorrelationID] = lr.Kafka.CorrelationID
 	}
 
-	return fields
+	return log.WithFields(fields)
 }
 
 // Log logs a record to the logfile and flushes the buffer
 func (lr *LogRecord) Log() {
-	flowdebug.Log(lr.getLogFields(), "Logging flow record")
+	flowdebug.Log(func() (*logrus.Entry, string) {
+		return lr.getLogFields(), "Logging flow record"
+	})
 
 	logMutex.Lock()
 	lr.Metadata = metadata

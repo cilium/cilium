@@ -147,8 +147,9 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			continue
 		}
 
-		flowdebug.Log(log.WithFields(logrus.Fields{}),
-			fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String()))
+		flowdebug.Log(func() (*logrus.Entry, string) {
+			return log, fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String())
+		})
 
 		r := logRecord(&pblog)
 
