@@ -36,20 +36,31 @@ function assert_maglev_maps_sane {
     fi
 }
 
-# With Docker-in-Docker we create two nodes:
-#
-# * "lb-node" runs cilium in the LB-only mode.
-# * "nginx" runs the nginx server.
+function initialize_docker_env {
+    # With Docker-in-Docker we create two nodes:
+    #
+    # * "lb-node" runs cilium in the LB-only mode.
+    # * "nginx" runs the nginx server.
 
-docker network create --subnet="172.12.42.0/24,2001:db8:1::/64" --ipv6 cilium-l4lb
-docker run --privileged --name lb-node -d \
-    --network cilium-l4lb -v /lib/modules:/lib/modules \
-    docker:dind
-docker exec -t lb-node mount bpffs /sys/fs/bpf -t bpf
-docker run --name nginx -d --network cilium-l4lb nginx
+    docker network create --subnet="172.12.42.0/24,2001:db8:1::/64" --ipv6 cilium-l4lb
+    docker run --privileged --name lb-node -d \
+        --network cilium-l4lb -v /lib/modules:/lib/modules \
+        docker:dind
+    docker exec -t lb-node mount bpffs /sys/fs/bpf -t bpf
+    docker run --name nginx -d --network cilium-l4lb nginx
 
-# Wait until Docker is ready in the lb-node node
-while ! docker exec -t lb-node docker ps >/dev/null; do sleep 1; done
+    # Wait until Docker is ready in the lb-node node
+    while ! docker exec -t lb-node docker ps >/dev/null; do sleep 1; done
+
+    # Disable TX and RX csum offloading, as veth does not support it. Otherwise,
+    # the forwarded packets by the LB to the worker node will have invalid csums.
+    IFIDX=$(docker exec -i lb-node \
+        /bin/sh -c 'echo $(( $(ip -o l show eth0 | awk "{print $1}" | cut -d: -f1) ))')
+    LB_VETH_HOST=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
+    ethtool -K "$LB_VETH_HOST" rx off tx off
+}
+
+initialize_docker_env
 
 # Install Cilium as standalone L4LB (tc/Maglev/SNAT)
 cilium_install \
@@ -57,13 +68,6 @@ cilium_install \
     --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=disabled \
     --bpf-lb-mode=snat
-
-# Disable TX and RX csum offloading, as veth does not support it. Otherwise,
-# the forwarded packets by the LB to the worker node will have invalid csums.
-IFIDX=$(docker exec -i lb-node \
-    /bin/sh -c 'echo $(( $(ip -o l show eth0 | awk "{print $1}" | cut -d: -f1) ))')
-LB_VETH_HOST=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
-ethtool -K "$LB_VETH_HOST" rx off tx off
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
 WORKER_IP4=$(nsenter -t "$NGINX_PID" -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
