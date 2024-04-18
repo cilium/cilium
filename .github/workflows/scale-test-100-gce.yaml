@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '39 0 * * 1-5'
 
+# For testing uncomment following lines:
+  push:
+    branches:
+      - pr/marseel/test_metrics
+
 permissions:
   # To be able to access the repository with actions/checkout
   contents: read
@@ -112,8 +117,8 @@ jobs:
       - name: Clone ClusterLoader2
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: kubernetes/perf-tests
-          ref: 82036a7e9bdb803b5b133c2d83cfec710819f9ab # master
+          repository: marseel/perf-tests
+          ref: 50fbcc571b45b39cfc2b8da677ff77cd34e03088 # master
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
@@ -138,7 +143,7 @@ jobs:
           control_plane_size: n1-standard-8
           control_plane_count: 1
           node_size: e2-medium
-          node_count: 100
+          node_count: 10
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
 
@@ -184,6 +189,8 @@ jobs:
           export CL2_ENABLE_NETWORKPOLICIES=true
           export CL2_ALLOWED_SLOW_API_CALLS=1
           export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
+          export .CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
 
           # CL2 needs ssh access to control plane nodes
           gcloud compute config-ssh
@@ -194,7 +201,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
+            --nodes=10 \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
