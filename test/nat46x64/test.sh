@@ -123,6 +123,20 @@ function wait_service_ready {
     set -e
 }
 
+function configure_local_route {
+    LB_VIP_RT="$1"
+    LB_VIP_FAM="$2"
+
+    LB_NODE_IP=$(docker exec -t lb-node \
+                    ip -o "${LB_VIP_FAM}" a s eth0 \
+                    | awk '{print $4}' \
+                    | cut -d/ -f1 \
+                    | head -n1)
+    trace_offset "${BASH_LINENO[*]}" "Installing route: 'ip ${LB_VIP_FAM} r a ${LB_VIP_RT} via $LB_NODE_IP'"
+    ip "${LB_VIP_FAM}" r a "${LB_VIP_RT}" via "$LB_NODE_IP" \
+    || fatal "Failed to inject route into the localhost"
+}
+
 function assert_maglev_maps_sane {
     MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
     MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
@@ -160,17 +174,10 @@ function test_services {
     SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list | nl -bn)
 
     ${CILIUM_EXEC} cilium-dbg bpf lb list
-
     assert_maglev_maps_sane
 
-    LB_NODE_IP=$(docker exec -t lb-node \
-                    ip -o "${LB_VIP_FAM}" a s eth0 \
-                    | awk '{print $4}' \
-                    | cut -d/ -f1 \
-                    | head -n1)
-    ip "${LB_VIP_FAM}" r a "${LB_VIP}/${LB_VIP_SUBNET}" via "$LB_NODE_IP"
-
     trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
+    configure_local_route "${LB_VIP}/${LB_VIP_SUBNET}" "${LB_VIP_FAM}"
     assert_connectivity_ok "${LB_VIP_SVC}"
 
     cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
@@ -209,12 +216,7 @@ function test_services {
     ${CILIUM_EXEC} cilium-dbg service list
     ${CILIUM_EXEC} cilium-dbg bpf lb list
 
-    LB_NODE_IP=$(docker exec lb-node \
-                    ip -o "${LB_ALT_FAM}" a s eth0 \
-                    | awk '{print $4}' \
-                    | cut -d/ -f1 \
-                    | head -n1)
-    ip "${LB_ALT_FAM}" r a "${LB_ALT}/${LB_ALT_SUBNET}" via "$LB_NODE_IP"
+    configure_local_route "${LB_ALT}/${LB_ALT_SUBNET}" "${LB_ALT_FAM}"
 
     trace "Checking connectivity via ${LB_VIP_SVC} -> ${BACKEND_SVC}"
     assert_connectivity_ok "${LB_VIP_SVC}"
