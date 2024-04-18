@@ -9,7 +9,7 @@ CILIUM_EXEC="docker exec -t lb-node docker exec -t cilium-lb"
 
 CFG_COMMON=("--enable-ipv4=true" "--enable-ipv6=true" "--devices=eth0" \
             "--datapath-mode=lb-only" "--bpf-lb-dsr-dispatch=ipip" \
-            "--bpf-lb-mode=snat")
+            "--bpf-lb-mode=snat" "--enable-nat46x64-gateway=true")
 
 function cilium_install {
     docker exec -t lb-node docker rm -f cilium-lb || true
@@ -190,8 +190,7 @@ done
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled \
-    --enable-nat46x64-gateway=true
+    --bpf-lb-acceleration=disabled
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
@@ -292,8 +291,7 @@ done
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled \
-    --enable-nat46x64-gateway=true
+    --bpf-lb-acceleration=disabled
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
@@ -314,14 +312,12 @@ ${CILIUM_EXEC} cilium-dbg service delete 2
 # Install Cilium as standalone L4LB & NAT46/64 GW: tc
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled \
-    --enable-nat46x64-gateway=true
+    --bpf-lb-acceleration=disabled
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: XDP
 cilium_install \
     --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=native \
-    --enable-nat46x64-gateway=true
+    --bpf-lb-acceleration=native
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: restore
 cilium_install \
