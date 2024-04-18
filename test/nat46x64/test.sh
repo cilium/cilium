@@ -135,11 +135,10 @@ function cleanup {
     if tty -s; then
         read -p "Hold the environment for debugging? [y/n]" -n 1 -r
         echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            return
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+            force_cleanup
         fi
     fi
-    force_cleanup
 }
 
 # $1 - target service, for example "[fd00:dead:beef:15:bad::1]:80"
@@ -408,4 +407,5 @@ ${CILIUM_EXEC} cilium-dbg recorder delete 1
 ${CILIUM_EXEC} cilium-dbg recorder delete 2
 trace_exec ${CILIUM_EXEC} cilium-dbg recorder list
 
+force_cleanup
 echo "YAY!"
