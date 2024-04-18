@@ -11,7 +11,32 @@ CFG_COMMON=("--enable-ipv4=true" "--enable-ipv6=true" "--devices=eth0" \
             "--datapath-mode=lb-only" "--bpf-lb-dsr-dispatch=ipip" \
             "--bpf-lb-mode=snat" "--enable-nat46x64-gateway=true")
 
+TXT_XDP_MAGLEV="Mode:XDP\tAlgorithm:Maglev\tRecorder:Disabled"
+CFG_XDP_MAGLEV=("--bpf-lb-acceleration=native" "--bpf-lb-algorithm=maglev")
+
+TXT_TC__MAGLEV="Mode:TC \tAlgorithm:Maglev\tRecorder:Disabled"
+CFG_TC__MAGLEV=("--bpf-lb-acceleration=disabled" "--bpf-lb-algorithm=maglev")
+
+TXT_TC__RANDOM="Mode:TC \tAlgorithm:Random\tRecorder:Disabled"
+CFG_TC__RANDOM=("--bpf-lb-acceleration=disabled" "--bpf-lb-algorithm=random")
+
+TXT_XDP_MAGLEV_RECORDER="Mode:XDP\tAlgorithm:Maglev\tRecorder:Enabled"
+
+CMD="$0"
+
+function trace_offset {
+    local line_no=$1
+    shift
+    >&2 echo -e "\e[92m[${CMD}:${line_no}]\t$*\e[0m"
+}
+
+# $1 - Text to represent the install, used for logging
+# $2+ - configuration options to pass to Cilium on startup
 function cilium_install {
+    local cfg_text=$1
+    shift
+
+    trace_offset "${BASH_LINENO[*]}" "Installing Cilium with $cfg_text"
     docker exec -t lb-node docker rm -f cilium-lb || true
     docker exec -t lb-node \
         docker run --name cilium-lb -td \
@@ -40,6 +65,8 @@ function initialize_docker_env {
     #
     # * "lb-node" runs cilium in the LB-only mode.
     # * "nginx" runs the nginx server.
+
+    trace_offset "${BASH_LINENO[*]}" "Initializing docker environment..."
 
     docker network create --subnet="172.12.42.0/24,2001:db8:1::/64" --ipv6 cilium-l4lb
     docker run --privileged --name lb-node -d \
@@ -95,10 +122,7 @@ force_cleanup 2>&1 >/dev/null
 initialize_docker_env
 trap cleanup EXIT
 
-# Install Cilium as standalone L4LB (tc/Maglev/SNAT)
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled
+cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
 WORKER_IP4=$(nsenter -t "$NGINX_PID" -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
@@ -126,10 +150,7 @@ for i in $(seq 1 10); do
     curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
-# Install Cilium as standalone L4LB: XDP/Maglev/SNAT
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=native
+cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
 
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
@@ -139,20 +160,14 @@ ${CILIUM_EXEC} cilium-dbg bpf lb list
 
 [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
 
-# Install Cilium as standalone L4LB: tc/Maglev/SNAT
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled
+cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
     curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit 1)
 done
 
-# Install Cilium as standalone L4LB: tc/Random/SNAT
-cilium_install \
-    --bpf-lb-algorithm=random \
-    --bpf-lb-acceleration=disabled
+cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
@@ -187,10 +202,7 @@ done
 # Check if restore for both is proper and that this also works
 # under nat46x64-gateway enabled.
 
-# Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled
+cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
@@ -227,10 +239,7 @@ for i in $(seq 1 10); do
     curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
-# Install Cilium as standalone L4LB: XDP/Maglev/SNAT
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=native
+cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
 
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
@@ -240,20 +249,14 @@ ${CILIUM_EXEC} cilium-dbg bpf lb list
 
 [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
 
-# Install Cilium as standalone L4LB: tc/Maglev/SNAT
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled
+cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
     curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
-# Install Cilium as standalone L4LB: tc/Random/SNAT
-cilium_install \
-    --bpf-lb-algorithm=random \
-    --bpf-lb-acceleration=disabled
+cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
@@ -288,10 +291,7 @@ done
 # Check if restore for both is proper and that this also works
 # under nat46x64-gateway enabled.
 
-# Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
-cilium_install \
-    --bpf-lb-algorithm=maglev \
-    --bpf-lb-acceleration=disabled
+cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
@@ -328,7 +328,7 @@ cilium_install \
 ################################
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT/Recorder
-cilium_install \
+cilium_install "$TXT_XDP_MAGLEV_RECORDER" \
     --bpf-lb-algorithm=maglev \
     --bpf-lb-acceleration=native \
     --enable-recorder=true
