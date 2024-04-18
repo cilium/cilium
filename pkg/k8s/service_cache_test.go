@@ -11,6 +11,7 @@ import (
 
 	check "github.com/cilium/checkmate"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	v1 "k8s.io/api/core/v1"
 
@@ -26,14 +27,16 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func (s *K8sSuite) newDB(c *check.C) (*statedb.DB, statedb.RWTable[datapathTables.NodeAddress]) {
+	db := statedb.New()
+
 	nodeAddrs, err := datapathTables.NewNodeAddressTable()
 	c.Assert(err, check.IsNil)
-	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs}, statedb.NewMetrics())
+
+	err = db.RegisterTable(nodeAddrs)
 	c.Assert(err, check.IsNil)
 
 	txn := db.WriteTxn(nodeAddrs)

@@ -10,10 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 type ops struct {
@@ -38,7 +39,7 @@ func (*ops) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*tables.Ban
 }
 
 // Update implements reconciler.Operations.
-func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.BandwidthQDisc, changed *bool) error {
+func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.BandwidthQDisc) error {
 	if !ops.isEnabled() {
 		// Probe results show that the system doesn't support BandwidthManager, so
 		// bail out.
@@ -69,10 +70,6 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 		if ok {
 			return nil
 		}
-	}
-
-	if changed != nil {
-		*changed = true
 	}
 
 	// We strictly want to avoid a down/up cycle on the device at

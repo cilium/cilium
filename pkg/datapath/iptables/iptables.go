@@ -17,6 +17,7 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -38,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )

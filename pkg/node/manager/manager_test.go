@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +34,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/statedb"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 

@@ -310,8 +310,6 @@ func (s *Server) Serve() error {
 
 // Start the server
 func (s *Server) Start(cell.HookContext) (err error) {
-	s.ConfigureAPI()
-
 	if !s.hasListeners {
 		if err = s.Listen(); err != nil {
 			return err
@@ -328,6 +326,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 			return errors.New("can't create the default handler, as no api is set")
 		}
 
+		s.ConfigureAPI()
 		s.SetHandler(s.api.Serve(nil))
 	}
 

@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // DeviceManager is a temporary compatibility bridge to keep DeviceManager uses as is and reuse its tests

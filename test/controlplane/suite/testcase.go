@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type trackerAndDecoder struct {

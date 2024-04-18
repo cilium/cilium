@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
@@ -38,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )

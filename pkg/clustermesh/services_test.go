@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -32,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -66,10 +66,13 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 
 	require.NoError(tb, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName))
 
+	db := statedb.New()
+
 	nodeAddrs, err := datapathTables.NewNodeAddressTable()
 	require.Nil(tb, err)
-	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs}, statedb.NewMetrics())
-	require.Nil(tb, err)
+
+	err = db.RegisterTable(nodeAddrs)
+	require.NoError(tb, err)
 
 	s.svcCache = k8s.NewServiceCache(db, nodeAddrs)
 

@@ -5,11 +5,12 @@ package sysctl
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -46,14 +47,17 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 
 func newReconcilerConfig(
 	ops reconciler.Operations[*tables.Sysctl],
+	tbl statedb.RWTable[*tables.Sysctl],
 ) reconciler.Config[*tables.Sysctl] {
 	return reconciler.Config[*tables.Sysctl]{
+		Table:                     tbl,
 		FullReconcilationInterval: 10 * time.Second,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   5 * time.Second,
 		IncrementalRoundSize:      100,
 		GetObjectStatus:           (*tables.Sysctl).GetStatus,
-		WithObjectStatus:          (*tables.Sysctl).WithStatus,
+		SetObjectStatus:           (*tables.Sysctl).SetStatus,
+		CloneObject:               (*tables.Sysctl).Clone,
 		Operations:                ops,
 	}
 }

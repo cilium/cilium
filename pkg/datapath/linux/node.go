@@ -20,6 +20,8 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
@@ -42,7 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 

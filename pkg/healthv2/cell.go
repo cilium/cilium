@@ -6,9 +6,10 @@ package healthv2
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
+
 	"github.com/cilium/cilium/pkg/healthv2/types"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 var Cell = cell.Module(

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -38,7 +39,6 @@ import (
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )

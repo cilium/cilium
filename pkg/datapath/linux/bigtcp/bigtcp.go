@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
 const (

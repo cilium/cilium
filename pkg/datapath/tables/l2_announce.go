@@ -7,9 +7,10 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
+
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 type L2AnnounceKey struct {
@@ -59,7 +60,7 @@ var (
 )
 
 func NewL2AnnounceTable() (statedb.RWTable[*L2AnnounceEntry], error) {
-	return statedb.NewTable[*L2AnnounceEntry](
+	return statedb.NewTable(
 		"l2-announce",
 		L2AnnounceIDIndex,
 		L2AnnounceOriginIndex,

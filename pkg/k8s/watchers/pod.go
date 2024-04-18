@@ -629,7 +629,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				}
 				nodeAddrAll = []netip.Addr{ip.MustAddrFromIP(feIP)}
 			} else {
-				iter, _ := k.nodeAddrs.Get(k.db.ReadTxn(), tables.NodeAddressNodePortIndex.Query(true))
+				iter := k.nodeAddrs.List(k.db.ReadTxn(), tables.NodeAddressNodePortIndex.Query(true))
 				for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
 					nodeAddrAll = append(nodeAddrAll, addr.Addr)
 				}

@@ -4,9 +4,9 @@
 package tables
 
 import (
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/reconciler"
 )
 
 var (
@@ -19,13 +19,13 @@ var (
 		Unique:  true,
 	}
 
-	SysctlStatusIndex = reconciler.NewStatusIndex[*Sysctl]((*Sysctl).GetStatus)
+	SysctlStatusIndex = reconciler.NewStatusIndex((*Sysctl).GetStatus)
 
 	SysctlTableName = "sysctl-settings"
 )
 
 func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], statedb.Index[*Sysctl, reconciler.StatusKind], error) {
-	tbl, err := statedb.NewTable[*Sysctl](
+	tbl, err := statedb.NewTable(
 		SysctlTableName,
 		SysctlNameIndex,
 		SysctlStatusIndex,
@@ -53,16 +53,16 @@ type Sysctl struct {
 	Status reconciler.Status
 }
 
+func (s *Sysctl) Clone() *Sysctl {
+	s2 := *s
+	return &s2
+}
+
 func (s *Sysctl) GetStatus() reconciler.Status {
 	return s.Status
 }
 
-func (s *Sysctl) WithStatus(newStatus reconciler.Status) *Sysctl {
-	return &Sysctl{
-		Name:      s.Name,
-		Val:       s.Val,
-		IgnoreErr: s.IgnoreErr,
-		Warn:      s.Warn,
-		Status:    newStatus,
-	}
+func (s *Sysctl) SetStatus(newStatus reconciler.Status) *Sysctl {
+	s.Status = newStatus
+	return s
 }

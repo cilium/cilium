@@ -16,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
@@ -84,7 +85,6 @@ import (
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
