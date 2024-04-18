@@ -35,12 +35,11 @@ var (
 )
 
 const (
-	LabelKeyPolicyDerivedFrom   = "io.cilium.policy.derived-from"
-	LabelAllowLocalHostIngress  = "allow-localhost-ingress"
-	LabelAllowRemoteHostIngress = "allow-remotehost-ingress"
-	LabelAllowAnyIngress        = "allow-any-ingress"
-	LabelAllowAnyEgress         = "allow-any-egress"
-	LabelVisibilityAnnotation   = "visibility-annotation"
+	LabelKeyPolicyDerivedFrom  = "io.cilium.policy.derived-from"
+	LabelAllowLocalHostIngress = "allow-localhost-ingress"
+	LabelAllowAnyIngress       = "allow-any-ingress"
+	LabelAllowAnyEgress        = "allow-any-egress"
+	LabelVisibilityAnnotation  = "visibility-annotation"
 
 	// Using largest possible port value since it has the lowest priority
 	unrealizedRedirectPort = uint16(65535)
