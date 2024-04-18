@@ -30,11 +30,19 @@ function trace_offset {
     >&2 echo -e "\e[92m[${CMD}:${line_no}]\t$*\e[0m"
 }
 
+function trace {
+    trace_offset "${BASH_LINENO[*]}"  "$@"
+}
+
 function fatal_offset {
     local line_no=$1
     shift
     >&2 echo -e "\e[31m[${CMD}:${line_no}]\t$*\e[0m"
     exit 1
+}
+
+function fatal {
+    fatal_offset "${BASH_LINENO[*]}"  "$@"
 }
 
 # $1 - Text to represent the install, used for logging
@@ -119,9 +127,8 @@ function assert_maglev_maps_sane {
     MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
     MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
     if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
-        echo "Invalid content of Maglev table!"
         ${CILIUM_EXEC} cilium-dbg bpf lb maglev list
-        exit 1
+        fatal_offset "${BASH_LINENO[*]}" "Invalid content of Maglev table!"
     fi
 }
 
@@ -145,10 +152,12 @@ function test_services {
 
     cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
+    trace "Configuring service ${LB_VIP_SVC} -> ${BACKEND_SVC}"
     ${CILIUM_EXEC} \
-        cilium-dbg service update --id 1 --frontend "${LB_VIP_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
+        cilium-dbg service update --id 1 --frontend "${LB_VIP_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer \
+        || fatal "Unable to configure service"
 
-    SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
+    SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list | nl -bn)
 
     ${CILIUM_EXEC} cilium-dbg bpf lb list
 
@@ -161,32 +170,41 @@ function test_services {
                     | head -n1)
     ip "${LB_VIP_FAM}" r a "${LB_VIP}/${LB_VIP_SUBNET}" via "$LB_NODE_IP"
 
-    # Issue 10 requests to LB
+    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
     assert_connectivity_ok "${LB_VIP_SVC}"
 
     cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
 
     # Check that restoration went fine. Note that we currently cannot do runtime test
     # as veth + XDP is broken when switching protocols. Needs something bare metal.
-    SVC_AFTER=$(${CILIUM_EXEC} cilium-dbg service list)
+    SVC_AFTER=$(${CILIUM_EXEC} cilium-dbg service list | nl -bn)
 
     ${CILIUM_EXEC} cilium-dbg bpf lb list
 
-    [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
+    trace "Validating service restore after restart for service ${LB_VIP_SVC} -> ${BACKEND_SVC}"
+    if [ "$SVC_BEFORE" != "$SVC_AFTER" ]; then
+        fatal "Service ${LB_VIP_SVC} was not restored correctly\n" \
+              "Before:\n" \
+              "$SVC_BEFORE\n" \
+              "After:\n" \
+              "$SVC_AFTER\n"
+    fi
 
     # Check that curl still works after restore
-    cilium_install "$TXT_TC__MAGLEV" $CFG_TC__MAGLEV[@]
+    cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
+    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
     assert_connectivity_ok "${LB_VIP_SVC}"
 
     # Check that curl also works for random selection
-    cilium_install "$TXT_TC__RANDOM" $CFG_TC__RANDOM[@]
-    cilium_install "$TXT_TC__RANDOM" "$CFG_TC__RANDOM"
+    cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
+    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Random"
     assert_connectivity_ok "${LB_VIP_SVC}"
 
     # Add another same-protocol service and reuse backend (using $LB_ALT_FAM)
-
+    trace "Configuring service ${LB_ALT_SVC} -> ${BACKEND_SVC}"
     ${CILIUM_EXEC} \
-        cilium-dbg service update --id 2 --frontend "${LB_ALT_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
+        cilium-dbg service update --id 2 --frontend "${LB_ALT_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer \
+        || fatal "Unable to configure service"
 
     ${CILIUM_EXEC} cilium-dbg service list
     ${CILIUM_EXEC} cilium-dbg bpf lb list
@@ -198,14 +216,14 @@ function test_services {
                     | head -n1)
     ip "${LB_ALT_FAM}" r a "${LB_ALT}/${LB_ALT_SUBNET}" via "$LB_NODE_IP"
 
-    # Issue 10 requests to LB1, then LB2
+    trace "Checking connectivity via ${LB_VIP_SVC} -> ${BACKEND_SVC}"
     assert_connectivity_ok "${LB_VIP_SVC}"
     wait_service_ready "${LB_ALT_SVC}"
+    trace "Checking connectivity via ${LB_ALT_SVC} -> ${BACKEND_SVC}"
     assert_connectivity_ok "${LB_ALT_SVC}"
 
-    # Check if restore for both is proper and that this also works
-    # under nat46x64-gateway enabled.
-    cilium_install "$TXT_TC__MAGLEV" $CFG_TC__MAGLEV[@]
+    cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
+    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
     assert_connectivity_ok "${LB_VIP_SVC}"
     assert_connectivity_ok "${LB_ALT_SVC}"
 
