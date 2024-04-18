@@ -346,7 +346,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.extraVolumes | list | `[]` | Additional envoy volumes. |
 | envoy.healthPort | int | `9878` | TCP port for the health API. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:39a8c05091870b98ea65cb19331b2e0c06e59834fcc95e10631624ae1e561860","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.29.4-7358b6402193a155ea3450f2bb1de8e69006732a","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:7fcc55ed1b73e4333f8a21d82d38ca603ebd0d8d85fe1ad1c95b9af3a5e30ae9","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.29.4-801c612e442298b3be55f1a1089c44386570880d","useDigest":true}` | Envoy container image. |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
 | envoy.log.format | string | `"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"` | The format string to use for laying out the log message metadata of Envoy. |
