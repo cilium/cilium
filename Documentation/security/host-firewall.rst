@@ -15,7 +15,7 @@ security policies for Kubernetes nodes.
 
 .. admonition:: Video
   :class: attention
-  
+
   You can also watch a video of Cilium's host firewall in action on
   `eCHO Episode 40: Cilium Host Firewall <https://www.youtube.com/watch?v=GLLLcz398K0&t=288s>`__.
 
@@ -33,8 +33,8 @@ Deploy Cilium release via Helm:
       --set hostFirewall.enabled=true          \\
       --set devices='{ethX,ethY}'
 
-The ``devices`` flag refers to the network devices Cilium is configured on such
-as ``eth0``. Omitting this option leads Cilium to auto-detect what interfaces
+The ``devices`` flag refers to the network devices Cilium is configured on,
+such as ``eth0``. If you omit this option, Cilium auto-detects what interfaces
 the host firewall applies to.
 
 At this point, the Cilium-managed nodes are ready to enforce network policies.
@@ -43,9 +43,9 @@ At this point, the Cilium-managed nodes are ready to enforce network policies.
 Attach a Label to the Node
 ==========================
 
-In this guide, we will apply host policies only to nodes with the label
-``node-access=ssh``. We thus first need to attach that label to a node in the
-cluster.
+In this guide, host policies only apply to nodes with the label
+``node-access=ssh``. Therefore, you first need to attach this label to a node
+in the cluster:
 
 .. code-block:: shell-session
 
@@ -62,10 +62,16 @@ Particular care must be taken to ensure that when host policies are imported,
 Cilium does not block access to the nodes or break the cluster's normal
 behavior (for example by blocking communication with ``kube-apiserver``).
 
-To avoid such issues, we can switch the host firewall in audit mode, to
-validate the impact of host policies before enforcing them. When Policy Audit
-Mode is enabled, no network policy is enforced so this setting is *not
-recommended for production deployment*.
+To avoid such issues, switch the host firewall in audit mode and validate the
+impact of host policies before enforcing them.
+
+.. warning::
+
+   When Policy Audit Mode is enabled, no network policy is enforced so this
+   setting is not recommended for production deployment.
+
+Enable and check status for the Policy Audit Mode on the host endpoint for a
+given node with the following commands:
 
 .. code-block:: shell-session
 
@@ -76,19 +82,21 @@ recommended for production deployment*.
     $ kexec cilium-dbg endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
     Endpoint 3353 configuration updated successfully
     $ kexec cilium-dbg endpoint config $HOST_EP_ID | grep PolicyAuditMode
-    PolicyAuditMode          Enabled
+    PolicyAuditMode        : Enabled
 
 
 Apply a Host Network Policy
 ===========================
 
-`HostPolicies` match on node labels using a :ref:`NodeSelector` to identify the
-nodes to which the policy applies. The following policy applies to all nodes.
+:ref:`HostPolicies` match on node labels using a :ref:`NodeSelector` to
+identify the nodes to which the policies applies. They apply only to the host
+namespace, including host-networking pods. They don't apply to communications
+between pods or between pods and the outside of the cluster, except if those
+pods are host-networking pods.
+
+The following policy applies to all nodes with the ``node-access=ssh`` label.
 It allows communications from outside the cluster only for TCP/22 and for ICMP
 echo requests. All communications from the cluster to the hosts are allowed.
-
-Host policies don't apply to communications between pods or between pods and
-the outside of the cluster, except if those pods are host-networking pods.
 
 .. literalinclude:: ../../examples/policies/host/demo-host-policy.yaml
 
@@ -100,8 +108,8 @@ To apply this policy, run:
     ciliumclusterwidenetworkpolicy.cilium.io/demo-host-policy created
 
 The host is represented as a special endpoint, with label ``reserved:host``, in
-the output of command ``cilium-dbg endpoint list``. You can therefore inspect the
-status of the policy using that command.
+the output of command ``cilium-dbg endpoint list``. Use this command to inspect
+the status of host policies:
 
 .. code-block:: shell-session
 
@@ -116,15 +124,18 @@ status of the policy using that command.
                                                                reserved:host
     3362       Disabled           Disabled          4          reserved:health                                   f00d::a0b:0:0:49cf   10.16.87.66    ready
 
+In this example, one can observe that policy enforcement on the host endpoint
+is in audit mode for ingress traffic, and disabled for egress traffic.
+
 
 Adjust the Host Policy to Your Environment
 ==========================================
 
-As long as the host endpoint is running in audit mode, communications
-disallowed by the policy won't be dropped. They will however be reported by
-``cilium-dbg monitor`` as ``action audit``. The audit mode thus allows you to
-adjust the host policy to your environment, to avoid unexpected connection
-breakages.
+As long as the host endpoint runs in audit mode, communications disallowed by
+the policy are not dropped. Nevertheless, they are reported by ``cilium-dbg
+monitor``, as ``action audit``. With these reports, the audit mode allows you
+to adjust the host policy to your environment in order to avoid unexpected
+connection breakages.
 
 .. code-block:: shell-session
 
@@ -133,28 +144,28 @@ breakages.
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 6, ingress, action allow, match L3-Only, 192.168.60.12:37278 -> 192.168.60.11:2379 tcp SYN
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action audit, match none, 10.0.2.2:47500 -> 10.0.2.15:6443 tcp SYN
 
-For details on how to derive the network policies from the output of ``cilium
-monitor``, please refer to `observe_policy_verdicts` and
-`create_network_policy` in the `policy_verdicts` guide.
+For details on deriving the network policies from the output of ``cilium
+monitor``, refer to `observe_policy_verdicts` and `create_network_policy` in
+the `policy_verdicts` guide.
 
-In particular, `Entities based` rules are convenient for example to allow
-communication to entire classes of destinations, such as all remotes nodes
-(``remote-node``) or the entire cluster (``cluster``).
+Note that `Entities based` rules are convenient when combined with host
+policies, for example to allow communication to entire classes of destinations,
+such as all remotes nodes (``remote-node``) or the entire cluster
+(``cluster``).
 
 .. warning::
 
     Make sure that none of the communications required to access the cluster or
-    for the cluster to work properly are denied. They should appear as ``action
-    allow``.
+    for the cluster to work properly are denied. Ensure they all appear as
+    ``action allow`` before disabling the audit mode.
 
-
+.. _disable_policy_audit_mode:
 
 Disable Policy Audit Mode
 =========================
 
-Once you are confident all required communication to the host from outside the
-cluster are allowed, you can disable policy audit mode to enforce the host
-policy.
+Once you are confident all required communications to the host from outside the
+cluster are allowed, disable the policy audit mode to enforce the host policy:
 
 .. code-block:: shell-session
 
@@ -177,7 +188,8 @@ Ingress host policies should now appear as enforced:
     3362       Disabled           Disabled          4          reserved:health                                   f00d::a0b:0:0:49cf   10.16.87.66    ready
 
 
-Communications not explicitly allowed by the host policy will now be dropped:
+Communications that are not explicitly allowed by the host policy are now
+dropped:
 
 .. code-block:: shell-session
 
@@ -185,7 +197,7 @@ Communications not explicitly allowed by the host policy will now be dropped:
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action deny, match none, 10.0.2.2:49038 -> 10.0.2.15:21 tcp SYN
 
 
-Clean Up
+Clean up
 ========
 
 .. code-block:: shell-session

@@ -133,8 +133,8 @@ provided. If both ingress and egress are omitted, the rule has no effect.
 endpointSelector / nodeSelector
   Selects the endpoints or nodes which the policy rules apply to. The policy
   rules will be applied to all endpoints which match the labels specified in
-  the selector. See the `LabelSelector` and :ref:`NodeSelector` sections for
-  additional details.
+  the selector. For additional details, see the :ref:`EndpointSelector` and
+  :ref:`NodeSelector` sections.
 
 ingress
   List of rules which must apply at ingress of the endpoint, i.e. to all
@@ -155,26 +155,27 @@ description
   Description is a string which is not interpreted by Cilium. It can be used to
   describe the intent and scope of the rule in a human readable form.
 
-.. _label_selector:
-.. _LabelSelector:
 .. _EndpointSelector:
 
 Endpoint Selector
 -----------------
 
-The Endpoint Selector is based on the `Kubernetes LabelSelector
-<https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`_.
-It is called Endpoint Selector because it only applies to labels associated
-with an `endpoints`.
+The Endpoint Selector is based on the `Kubernetes LabelSelector`_. It is called
+Endpoint Selector because it only applies to labels associated with an
+:ref:`Endpoint <endpoint>`.
 
 .. _NodeSelector:
 
 Node Selector
 -------------
 
-The Node Selector is also based on the `LabelSelector`, although rather than
-matching on labels associated with an `endpoints`, it instead applies to labels
-associated with a node in the cluster.
+Like the :ref:`Endpoint Selector <EndpointSelector>`, the Node Selector is
+based on the `Kubernetes LabelSelector`_, although rather than
+matching on labels associated with Endpoints, it applies to labels associated
+with :ref:`Nodes <node>` in the cluster.
 
-Node Selectors can only be used in `CiliumClusterwideNetworkPolicy`. See
-`HostPolicies` for details on the scope of node-level policies.
+Node Selectors can only be used in :ref:`CiliumClusterwideNetworkPolicies
+<CiliumClusterwideNetworkPolicy>`. For details on the scope of node-level
+policies, see :ref:`HostPolicies`.
+
+.. _Kubernetes LabelSelector: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors

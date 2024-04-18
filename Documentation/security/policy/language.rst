@@ -1253,29 +1253,27 @@ external traffic to your cluster.
 Host Policies
 =============
 
-Host policies take the form of a `CiliumClusterwideNetworkPolicy` with a
-:ref:`NodeSelector` instead of an `EndpointSelector`. Host policies can have
-layer 3 and layer 4 rules on both ingress and egress. They cannot have layer
-7 rules.
+Host policies take the form of a :ref:`CiliumClusterwideNetworkPolicy` with a
+:ref:`NodeSelector` instead of an :ref:`EndpointSelector`. Host policies can
+have layer 3 and layer 4 rules on both ingress and egress. They cannot have
+layer 7 rules.
 
 Host policies apply to all the nodes selected by their :ref:`NodeSelector`. In
 each selected node, they apply only to the host namespace, including
-host-networking pods. They therefore don't apply to communications between
+host-networking pods. They don't apply to communications between
 non-host-networking pods and locations outside of the cluster.
 
 Installation of Host Policies requires the addition of the following ``helm``
 flags when installing Cilium:
 
-* ``--set devices='{interface}'`` where ``interface`` refers to the
-  network device Cilium is configured on such as ``eth0``. Omitting this option
-  leads Cilium to auto-detect what interface the host firewall applies to.
+* ``--set devices='{interface}'`` where ``interface`` refers to the network
+  device Cilium is configured on, for example ``eth0``. If you omit this
+  option, Cilium auto-detects what interface the host firewall applies to.
 * ``--set hostFirewall.enabled=true``
 
-The following policy will allow ingress traffic for any node with the label
-``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240
-(health checks), as well as UDP port 8472 (VXLAN).
-
-Replace the ``port:`` value with ports used in your environment.
+As an example, the following policy allows ingress traffic for any node with
+the label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379
+(etcd), and 4240 (health checks), as well as UDP port 8472 (VXLAN).
 
 .. only:: html
 
@@ -1288,23 +1286,50 @@ Replace the ``port:`` value with ports used in your environment.
 
         .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
 
+To reuse this policy, replace the ``port:`` values with ports used in your
+environment.
+
 Troubleshooting Host Policies
 -----------------------------
 
-If you're having troubles with Host Policies please ensure the ``helm`` options
-listed above were applied during installation. To verify that your policy has
-been applied, you can run ``kubectl get CiliumClusterwideNetworkPolicy -o yaml``
-to validate the policy was accepted.
+If you have troubles with Host Policies, try the following steps:
 
-If policies don't seem to be applied to your nodes, verify the ``nodeSelector``
-is labeled correctly in your environment. In the example configuration, you can
-run ``kubectl get nodes -o wide|grep type=ingress-worker`` to verify labels
-match the policy.
+- Ensure the ``helm`` options listed in :ref:`the Host Policies description
+  <HostPolicies>` were applied during installation.
 
-You can verify the policy was applied by running ``kubectl exec -n $CILIUM_NAMESPACE cilium-xxxx -- cilium-dbg policy get``
-for the Cilium agent pod. Verify that the host is selected by the policy using
-``cilium-dbg endpoint list`` and look for the endpoint with ``reserved:host`` as the
-label and ensure that policy is enabled in the selected direction. Ensure the
-traffic is arriving on the device visible on the ``NodePort`` field of the
-``cilium-dbg status list`` output. Use ``cilium-dbg monitor`` with ``--related-to`` and
-the endpoint ID of the ``reserved:host`` endpoint to view traffic.
+- To verify that your policy has been accepted and applied by the Cilium agent,
+  run ``kubectl get CiliumClusterwideNetworkPolicy -o yaml`` and make sure the
+  policy is listed.
+
+- If policies don't seem to be applied to your nodes, verify the
+  ``nodeSelector`` is labeled correctly in your environment. In the example
+  configuration, you can run ``kubectl get nodes -o
+  custom-columns=NAME:.metadata.name,LABELS:.metadata.labels | grep
+  type:ingress-worker`` to verify labels match the policy.
+
+To troubleshoot policies for a given node, try the following steps. For all
+steps, run ``cilium-dbg`` in the relevant namespace, on the Cilium agent pod
+for the node, for example with:
+
+.. code-block:: shell-session
+
+   $ kubectl exec -n $CILIUM_NAMESPACE $CILIUM_POD_NAME -- cilium-dbg ...
+
+Retrieve the endpoint ID for the host endpoint on the node with ``cilium-dbg
+endpoint get -l reserved:host -o jsonpath='{[0].id}'``. Use this ID to replace
+``$HOST_EP_ID`` in the next steps:
+
+- If policies are applied, but not enforced for the node, check the status of
+  the policy audit mode with ``cilium-dbg endpoint config $HOST_EP_ID | grep
+  PolicyAuditMode``. If necessary, :ref:`disable the audit mode
+  <disable_policy_audit_mode>`.
+
+- Run ``cilium-dbg endpoint list``, and look for the host endpoint, with
+  ``$HOST_EP_ID`` and the ``reserved:host`` label. Ensure that policy is
+  enabled in the selected direction.
+
+- Run ``cilium-dbg status list`` and check the devices listed in the ``Host
+  firewall`` field. Verify that traffic actually reaches the listed devices.
+
+- Use ``cilium-dbg monitor`` with ``--related-to $HOST_EP_ID`` to examine
+  traffic for the host endpoint.

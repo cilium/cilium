@@ -288,6 +288,8 @@ of labels and then query the key-value store to derive the identity. Depending
 on whether the set of labels has been queried before, either a new identity
 will be created, or the identity of the initial query will be returned.
 
+.. _node:
+
 Node
 ====
 
