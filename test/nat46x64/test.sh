@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
 PS4='+[\t] '
-set -eux
+set -eu
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
+V=${V:-"0"} # Verbosity. 0 = quiet, 1 = loud
+if [ "$V" != "0" ]; then
+    set -x
+fi
+
 CILIUM_EXEC="docker exec -t lb-node docker exec -t cilium-lb"
 
 CFG_COMMON=("--enable-ipv4=true" "--enable-ipv6=true" "--devices=eth0" \
@@ -30,7 +35,14 @@ function trace_offset {
     >&2 echo -e "\e[92m[${CMD}:${line_no}]\t$*\e[0m"
 }
 
-function trace {
+function trace_exec {
+    out=$($@ | nl -bn)
+    if [ "$V" != "0" ]; then
+        trace_offset "${BASH_LINENO[*]}"  "Executing $*:\n$out"
+    fi
+}
+
+function info {
     trace_offset "${BASH_LINENO[*]}"  "$@"
 }
 
@@ -166,17 +178,17 @@ function test_services {
 
     cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
 
-    trace "Configuring service ${LB_VIP_SVC} -> ${BACKEND_SVC}"
+    info "Configuring service ${LB_VIP_SVC} -> ${BACKEND_SVC}"
     ${CILIUM_EXEC} \
         cilium-dbg service update --id 1 --frontend "${LB_VIP_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer \
         || fatal "Unable to configure service"
 
     SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list | nl -bn)
 
-    ${CILIUM_EXEC} cilium-dbg bpf lb list
+    trace_exec "${CILIUM_EXEC} cilium-dbg bpf lb list"
     assert_maglev_maps_sane
 
-    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
+    info "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
     configure_local_route "${LB_VIP}/${LB_VIP_SUBNET}" "${LB_VIP_FAM}"
     assert_connectivity_ok "${LB_VIP_SVC}"
 
@@ -185,10 +197,9 @@ function test_services {
     # Check that restoration went fine. Note that we currently cannot do runtime test
     # as veth + XDP is broken when switching protocols. Needs something bare metal.
     SVC_AFTER=$(${CILIUM_EXEC} cilium-dbg service list | nl -bn)
+    trace_exec "${CILIUM_EXEC} cilium-dbg bpf lb list"
 
-    ${CILIUM_EXEC} cilium-dbg bpf lb list
-
-    trace "Validating service restore after restart for service ${LB_VIP_SVC} -> ${BACKEND_SVC}"
+    info "Validating service restore after restart for service ${LB_VIP_SVC} -> ${BACKEND_SVC}"
     if [ "$SVC_BEFORE" != "$SVC_AFTER" ]; then
         fatal "Service ${LB_VIP_SVC} was not restored correctly\n" \
               "Before:\n" \
@@ -197,35 +208,32 @@ function test_services {
               "$SVC_AFTER\n"
     fi
 
-    # Check that curl still works after restore
     cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
-    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
+    info "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
     assert_connectivity_ok "${LB_VIP_SVC}"
 
     # Check that curl also works for random selection
     cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
-    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Random"
+    info "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Random"
     assert_connectivity_ok "${LB_VIP_SVC}"
 
     # Add another same-protocol service and reuse backend (using $LB_ALT_FAM)
-    trace "Configuring service ${LB_ALT_SVC} -> ${BACKEND_SVC}"
+    info "Configuring service ${LB_ALT_SVC} -> ${BACKEND_SVC}"
     ${CILIUM_EXEC} \
         cilium-dbg service update --id 2 --frontend "${LB_ALT_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer \
         || fatal "Unable to configure service"
-
-    ${CILIUM_EXEC} cilium-dbg service list
-    ${CILIUM_EXEC} cilium-dbg bpf lb list
-
+    trace_exec "${CILIUM_EXEC} cilium-dbg service list"
+    trace_exec "${CILIUM_EXEC} cilium-dbg bpf lb list"
     configure_local_route "${LB_ALT}/${LB_ALT_SUBNET}" "${LB_ALT_FAM}"
 
-    trace "Checking connectivity via ${LB_VIP_SVC} -> ${BACKEND_SVC}"
+    info "Checking connectivity via ${LB_VIP_SVC} -> ${BACKEND_SVC}"
     assert_connectivity_ok "${LB_VIP_SVC}"
     wait_service_ready "${LB_ALT_SVC}"
-    trace "Checking connectivity via ${LB_ALT_SVC} -> ${BACKEND_SVC}"
+    info "Checking connectivity via ${LB_ALT_SVC} -> ${BACKEND_SVC}"
     assert_connectivity_ok "${LB_ALT_SVC}"
 
     cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
-    trace "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
+    info "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
     assert_connectivity_ok "${LB_VIP_SVC}"
     assert_connectivity_ok "${LB_ALT_SVC}"
 
