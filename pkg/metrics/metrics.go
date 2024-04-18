@@ -412,6 +412,10 @@ var (
 	// ServicesEventsCount counts the number of services
 	ServicesEventsCount = NoOpCounterVec
 
+	// ServiceProgrammingDuration the execution duration of the service handler in milliseconds.
+	// The metric reflects the time it took to program the service.
+	ServiceProgrammingDuration = NoOpObserverVec
+
 	// Errors and warnings
 
 	// ErrorsWarnings is the number of errors and warnings in cilium-agent instances
@@ -673,6 +677,7 @@ type LegacyMetrics struct {
 	ConntrackDumpResets              metric.Vec[metric.Counter]
 	SignalsHandled                   metric.Vec[metric.Counter]
 	ServicesEventsCount              metric.Vec[metric.Counter]
+	ServiceProgrammingDuration       metric.Vec[metric.Observer]
 	ErrorsWarnings                   metric.Vec[metric.Counter]
 	ControllerRuns                   metric.Vec[metric.Counter]
 	ControllerRunsDuration           metric.Vec[metric.Observer]
@@ -980,6 +985,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "services_events_total",
 			Help:       "Number of services events labeled by action type",
 		}, []string{LabelAction}),
+
+		ServiceProgrammingDuration: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_service_programming_duration_seconds",
+			Namespace:  Namespace,
+			Name:       "service_programming_duration_seconds",
+			Help:       "The execution duration of the service handler.",
+		}, []string{LabelScope, LabelAction}),
 
 		ErrorsWarnings: newErrorsWarningsMetric(),
 
@@ -1367,6 +1379,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ConntrackDumpResets = lm.ConntrackDumpResets
 	SignalsHandled = lm.SignalsHandled
 	ServicesEventsCount = lm.ServicesEventsCount
+	ServiceProgrammingDuration = lm.ServiceProgrammingDuration
 	ErrorsWarnings = lm.ErrorsWarnings
 	ControllerRuns = lm.ControllerRuns
 	ControllerRunsDuration = lm.ControllerRunsDuration

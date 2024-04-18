@@ -6,6 +6,11 @@ package watchers
 import (
 	"context"
 	"errors"
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/cache"
+	k8s_metrics "k8s.io/client-go/tools/metrics"
+	"k8s.io/client-go/util/workqueue"
 	"net"
 	"net/netip"
 	"net/url"
@@ -13,12 +18,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/cache"
-	k8s_metrics "k8s.io/client-go/tools/metrics"
-	"k8s.io/client-go/util/workqueue"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -535,7 +534,11 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 
 func (k *K8sWatcher) k8sServiceHandler() {
 	eventHandler := func(event k8s.ServiceEvent) {
-		defer event.SWG.Done()
+		startTime := time.Now()
+		defer func() {
+			event.SWG.Done()
+			k.K8sServiceEventProcessed(event.Action.String(), event.Service.String(), startTime)
+		}()
 
 		svc := event.Service
 
@@ -889,6 +892,12 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 	metrics.KubernetesEventReceived.WithLabelValues(scope, action, validStr, equalStr).Inc()
 
 	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
+}
+
+// K8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
+func (k *K8sWatcher) K8sServiceEventProcessed(action string, scope string, startTime time.Time) {
+	duration := time.Now().Sub(startTime)
+	metrics.ServiceProgrammingDuration.WithLabelValues(scope, action).Observe(duration.Seconds())
 }
 
 // initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
