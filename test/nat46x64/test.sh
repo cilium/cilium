@@ -279,6 +279,8 @@ for i in $(seq 1 10); do
     curl -s -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit 1)
 done
 
+wait_service_ready "${LB_ALT}:80"
+
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
     curl -s -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit 1)
