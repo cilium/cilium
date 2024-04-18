@@ -86,6 +86,8 @@ func (m *StatefulSession) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for Strict
+
 	if len(errors) > 0 {
 		return StatefulSessionMultiError(errors)
 	}

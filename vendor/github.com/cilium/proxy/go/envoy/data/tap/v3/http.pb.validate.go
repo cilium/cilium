@@ -115,6 +115,35 @@ func (m *HttpBufferedTrace) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetDownstreamConnection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpBufferedTraceValidationError{
+					field:  "DownstreamConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpBufferedTraceValidationError{
+					field:  "DownstreamConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDownstreamConnection()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpBufferedTraceValidationError{
+				field:  "DownstreamConnection",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return HttpBufferedTraceMultiError(errors)
 	}
@@ -667,6 +696,35 @@ func (m *HttpBufferedTrace_Message) validate(all bool) error {
 			}
 		}
 
+	}
+
+	if all {
+		switch v := interface{}(m.GetHeadersReceivedTime()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpBufferedTrace_MessageValidationError{
+					field:  "HeadersReceivedTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpBufferedTrace_MessageValidationError{
+					field:  "HeadersReceivedTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHeadersReceivedTime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpBufferedTrace_MessageValidationError{
+				field:  "HeadersReceivedTime",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
 
 	if len(errors) > 0 {
