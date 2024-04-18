@@ -384,6 +384,24 @@ ${CILIUM_EXEC} \
     cilium-dbg recorder update --id 2 --caplen 100 \
         --filters="$(printf '%s,' "${RECORDER_FILTERS_IPV6[@]}" | sed 's/,*$//')"
 
+info "Checking the list of filters in IPv4 recorder ID:1"
+if [ $(${CILIUM_EXEC} cilium-dbg bpf recorder list | grep "ID:1" | wc -l) -ne ${#RECORDER_FILTERS_IPV4[@]} ]; then
+    echo "Expected filters:"
+    echo "${RECORDER_FILTERS_IPV4[@]}" | nl -bn
+    echo "Found filters:"
+    ${CILIUM_EXEC} cilium-dbg bpf recorder list | nl -bn
+    fatal "Recorder filters did not match expected list"
+fi
+
+info "Checking the list of filters in IPv6 recorder ID:2"
+if [ $(${CILIUM_EXEC} cilium-dbg bpf recorder list | grep "ID:2" | wc -l) -ne ${#RECORDER_FILTERS_IPV6[@]} ]; then
+    echo "Expected filters:"
+    echo "${RECORDER_FILTERS_IPV6[@]}" | nl -bn
+    echo "Found filters:"
+    ${CILIUM_EXEC} cilium-dbg bpf recorder list | nl -bn
+    fatal "Recorder filters did not match expected list"
+fi
+
 trace_exec ${CILIUM_EXEC} cilium-dbg recorder list
 trace_exec ${CILIUM_EXEC} cilium-dbg bpf recorder list
 ${CILIUM_EXEC} cilium-dbg recorder delete 1
