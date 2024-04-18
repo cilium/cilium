@@ -74,4 +74,8 @@ type ServiceManager interface {
 
 	// UpsertService inserts or updates the given service.
 	UpsertService(*lb.SVC) (bool, lb.ID, error)
+
+	// TerminateUDPConnectionsToBackend terminates UDP connections to the passed
+	// backend with address when socket-LB is enabled.
+	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr)
 }

@@ -13,11 +13,17 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var opSupported = true
 
-func (s *Service) destroyConnectionsToBackend(be *lb.Backend) {
+func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
+	// With socket-lb, existing client applications can continue to connect to
+	// deleted backends. Destroy any client sockets connected to the deleted backend.
+	if !(option.Config.EnableSocketLB || option.Config.BPFSocketLBHostnsOnly) {
+		return
+	}
 	if !opSupported {
 		return
 	}
@@ -25,17 +31,17 @@ func (s *Service) destroyConnectionsToBackend(be *lb.Backend) {
 		family   uint8
 		protocol uint8
 	)
-	ip := net.IP(be.L3n4Addr.AddrCluster.Addr().AsSlice())
-	l4Addr := be.L3n4Addr.L4Addr
+	ip := net.IP(l3n4Addr.AddrCluster.Addr().AsSlice())
+	l4Addr := l3n4Addr.L4Addr
 
-	switch be.L3n4Addr.Protocol {
+	switch l3n4Addr.Protocol {
 	case lb.UDP:
 		protocol = unix.IPPROTO_UDP
 	default:
 		return
 	}
-	log.Debugf("handling connections to deleted backend %v", be.L3n4Addr)
-	if be.L3n4Addr.IsIPv6() {
+	log.Debugf("handling udp connections to deleted backend %v", l3n4Addr)
+	if l3n4Addr.IsIPv6() {
 		family = syscall.AF_INET6
 	} else {
 		family = syscall.AF_INET

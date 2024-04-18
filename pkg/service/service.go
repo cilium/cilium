@@ -1559,11 +1559,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 				Debug("Removing obsolete backend")
 		}
 		s.lbmap.DeleteBackendByID(id)
-		// With socket-lb, existing client applications can continue to connect to
-		// deleted backends. Destroy any client sockets connected to the backend.
-		if option.Config.EnableSocketLB || option.Config.BPFSocketLBHostnsOnly {
-			s.destroyConnectionsToBackend(be)
-		}
+		s.TerminateUDPConnectionsToBackend(&be.L3n4Addr)
 	}
 
 	return nil
