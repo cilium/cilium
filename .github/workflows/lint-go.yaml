@@ -133,13 +133,6 @@ jobs:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
-      - name: Install protobuf dependencies
-        env:
-          PROTOBUF_VERSION: 3.12.4
-        run: |
-          curl -Lo protoc-$PROTOBUF_VERSION-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOBUF_VERSION/protoc-$PROTOBUF_VERSION-linux-x86_64.zip
-          unzip protoc-$PROTOBUF_VERSION-linux-x86_64.zip
-          sudo chmod +x bin/protoc && sudo cp bin/protoc /usr/local/bin
       - name: Check k8s generated files
         run: |
           # Set GOBIN to ensure 'go install' binaries end up in the same directory
