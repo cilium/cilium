@@ -166,6 +166,11 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
 
+      - name: Install tparse
+        timeout-minutes: 15
+        run: |
+          go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
+
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
@@ -256,7 +261,9 @@ jobs:
               --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
               --report-output report.yaml \
               -test.run "TestConformance" \
-              -test.skip "${{ steps.vars.outputs.skipped_tests }}"
+              -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
+              -json \
+            | tparse -progress
           else
             GATEWAY_API_CONFORMANCE_TESTS=1 go test \
               -p 4 \
@@ -266,7 +273,9 @@ jobs:
               --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
               --allow-crds-mismatch \
               -test.run "TestConformance" \
-              -test.skip "${{ steps.vars.outputs.skipped_tests }}"
+              -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
+              -json \
+            | tparse -progress
           fi
 
       - name: Upload report artifacts
