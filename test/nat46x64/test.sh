@@ -38,12 +38,12 @@ function trace_offset {
 function trace_exec {
     out=$($@ | nl -bn)
     if [ "$V" != "0" ]; then
-        trace_offset "${BASH_LINENO[*]}"  "Executing $*:\n$out"
+        trace_offset "${BASH_LINENO[0]}"  "Executing $*:\n$out"
     fi
 }
 
 function info {
-    trace_offset "${BASH_LINENO[*]}"  "$@"
+    trace_offset "${BASH_LINENO[0]}"  "$@"
 }
 
 function fatal_offset {
@@ -54,7 +54,7 @@ function fatal_offset {
 }
 
 function fatal {
-    fatal_offset "${BASH_LINENO[*]}"  "$@"
+    fatal_offset "${BASH_LINENO[0]}"  "$@"
 }
 
 # $1 - Text to represent the install, used for logging
@@ -63,7 +63,7 @@ function cilium_install {
     local cfg_text=$1
     shift
 
-    trace_offset "${BASH_LINENO[*]}" "Installing Cilium with $cfg_text"
+    trace_offset "${BASH_LINENO[0]}" "Installing Cilium with $cfg_text"
     docker exec -t lb-node docker rm -f cilium-lb || true
     docker exec -t lb-node \
         docker run --name cilium-lb -td \
@@ -90,7 +90,7 @@ function cilium_install {
         ${CILIUM_EXEC} cilium-dbg status
         containerID=$(docker exec lb-node docker inspect cilium-lb --format="{{ .Id }}")
         docker exec lb-node docker logs "${containerID}"
-        fatal_offset "${BASH_LINENO[*]}" "Failed to install Cilium with $cfg_text"
+        fatal_offset "${BASH_LINENO[0]}" "Failed to install Cilium with $cfg_text"
     fi
     sleep 1
 }
@@ -101,7 +101,7 @@ function initialize_docker_env {
     # * "lb-node" runs cilium in the LB-only mode.
     # * "nginx" runs the nginx server.
 
-    trace_offset "${BASH_LINENO[*]}" "Initializing docker environment..."
+    trace_offset "${BASH_LINENO[0]}" "Initializing docker environment..."
 
     docker network create --subnet="172.12.42.0/24,2001:db8:1::/64" --ipv6 cilium-l4lb
     docker run --privileged --name lb-node -d \
@@ -162,7 +162,7 @@ function configure_local_route {
                     | awk '{print $4}' \
                     | cut -d/ -f1 \
                     | head -n1)
-    trace_offset "${BASH_LINENO[*]}" "Installing route: 'ip ${LB_VIP_FAM} r a ${LB_VIP_RT} via $LB_NODE_IP'"
+    trace_offset "${BASH_LINENO[0]}" "Installing route: 'ip ${LB_VIP_FAM} r a ${LB_VIP_RT} via $LB_NODE_IP'"
     ip "${LB_VIP_FAM}" r a "${LB_VIP_RT}" via "$LB_NODE_IP" \
     || fatal "Failed to inject route into the localhost"
 }
@@ -172,14 +172,14 @@ function assert_maglev_maps_sane {
     MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
     if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
         ${CILIUM_EXEC} cilium-dbg bpf lb maglev list
-        fatal_offset "${BASH_LINENO[*]}" "Invalid content of Maglev table!"
+        fatal_offset "${BASH_LINENO[0]}" "Invalid content of Maglev table!"
     fi
 }
 
 function assert_connectivity_ok {
     for i in $(seq 1 10); do
         curl -s -o /dev/null "${1}" \
-        || fatal_offset "${BASH_LINENO[*]}" "Failed connection from localhost to $1 (attempt $i/10)"
+        || fatal_offset "${BASH_LINENO[0]}" "Failed connection from localhost to $1 (attempt $i/10)"
     done
 }
 
