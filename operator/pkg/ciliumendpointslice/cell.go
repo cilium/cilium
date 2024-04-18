@@ -68,7 +68,7 @@ type Config struct {
 
 var defaultConfig = Config{
 	CESMaxCEPsInCES:             100,
-	CESSlicingMode:              "cesSliceModeIdentity",
+	CESSlicingMode:              "cesSliceModeFCFS",
 	CESWriteQPSLimit:            10,
 	CESWriteQPSBurst:            20,
 	CESEnableDynamicRateLimit:   false,
