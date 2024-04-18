@@ -298,6 +298,76 @@ test_services "$LB_VIP" "$LB_VIP_SVC" "$LB_VIP_FAM" "128" "$BACKEND_SVC" \
 # NAT test suite & PCAP recorder
 ################################
 
+RECORDER_FILTERS_IPV4=("2.2.2.2/0 0 1.1.1.1/32 80 TCP" \
+                       "2.2.2.2/1 0 1.1.1.1/32 80 TCP" \
+                       "2.2.2.2/2 0 1.1.1.1/31 80 TCP" \
+                       "2.2.2.2/3 0 1.1.1.1/30 80 TCP" \
+                       "2.2.2.2/4 0 1.1.1.1/29 80 TCP" \
+                       "2.2.2.2/5 0 1.1.1.1/28 80 TCP" \
+                       "2.2.2.2/6 0 1.1.1.1/27 80 TCP" \
+                       "2.2.2.2/7 0 1.1.1.1/26 80 TCP" \
+                       "2.2.2.2/8 0 1.1.1.1/25 80 TCP" \
+                       "2.2.2.2/9 0 1.1.1.1/24 80 TCP" \
+                       "2.2.2.2/10 0 1.1.1.1/23 80 TCP" \
+                       "2.2.2.2/11 0 1.1.1.1/22 80 TCP" \
+                       "2.2.2.2/12 0 1.1.1.1/21 80 TCP" \
+                       "2.2.2.2/13 0 1.1.1.1/20 80 TCP" \
+                       "2.2.2.2/14 0 1.1.1.1/19 80 TCP" \
+                       "2.2.2.2/15 0 1.1.1.1/18 80 TCP" \
+                       "2.2.2.2/16 0 1.1.1.1/17 80 TCP" \
+                       "2.2.2.2/17 0 1.1.1.1/16 80 TCP" \
+                       "2.2.2.2/18 0 1.1.1.1/15 80 TCP" \
+                       "2.2.2.2/19 0 1.1.1.1/14 80 TCP" \
+                       "2.2.2.2/20 0 1.1.1.1/13 80 TCP" \
+                       "2.2.2.2/21 0 1.1.1.1/12 80 TCP" \
+                       "2.2.2.2/22 0 1.1.1.1/11 80 TCP" \
+                       "2.2.2.2/23 0 1.1.1.1/10 80 TCP" \
+                       "2.2.2.2/24 0 1.1.1.1/9 80 TCP" \
+                       "2.2.2.2/25 0 1.1.1.1/8 80 TCP" \
+                       "2.2.2.2/26 0 1.1.1.1/7 80 TCP" \
+                       "2.2.2.2/27 0 1.1.1.1/6 80 TCP" \
+                       "2.2.2.2/28 0 1.1.1.1/5 80 TCP" \
+                       "2.2.2.2/29 0 1.1.1.1/4 80 TCP" \
+                       "2.2.2.2/30 0 1.1.1.1/3 80 TCP" \
+                       "2.2.2.2/31 0 1.1.1.1/2 80 TCP" \
+                       "2.2.2.2/32 0 1.1.1.1/1 80 TCP" \
+                       "2.2.2.2/32 0 1.1.1.1/0 80 TCP")
+
+RECORDER_FILTERS_IPV6=("f00d::1/0 80 cafe::/128 0 UDP" \
+                       "f00d::1/1 80 cafe::/127 0 UDP" \
+                       "f00d::1/2 80 cafe::/126 0 UDP" \
+                       "f00d::1/3 80 cafe::/125 0 UDP" \
+                       "f00d::1/4 80 cafe::/124 0 UDP" \
+                       "f00d::1/5 80 cafe::/123 0 UDP" \
+                       "f00d::1/6 80 cafe::/122 0 UDP" \
+                       "f00d::1/7 80 cafe::/121 0 UDP" \
+                       "f00d::1/8 80 cafe::/120 0 UDP" \
+                       "f00d::1/9 80 cafe::/119 0 UDP" \
+                       "f00d::1/10 80 cafe::/118 0 UDP" \
+                       "f00d::1/11 80 cafe::/117 0 UDP" \
+                       "f00d::1/12 80 cafe::/116 0 UDP" \
+                       "f00d::1/13 80 cafe::/115 0 UDP" \
+                       "f00d::1/14 80 cafe::/114 0 UDP" \
+                       "f00d::1/15 80 cafe::/113 0 UDP" \
+                       "f00d::1/16 80 cafe::/112 0 UDP" \
+                       "f00d::1/17 80 cafe::/111 0 UDP" \
+                       "f00d::1/18 80 cafe::/110 0 UDP" \
+                       "f00d::1/19 80 cafe::/109 0 UDP" \
+                       "f00d::1/20 80 cafe::/108 0 UDP" \
+                       "f00d::1/21 80 cafe::/107 0 UDP" \
+                       "f00d::1/22 80 cafe::/106 0 UDP" \
+                       "f00d::1/23 80 cafe::/105 0 UDP" \
+                       "f00d::1/24 80 cafe::/104 0 UDP" \
+                       "f00d::1/25 80 cafe::/103 0 UDP" \
+                       "f00d::1/26 80 cafe::/102 0 UDP" \
+                       "f00d::1/27 80 cafe::/101 0 UDP" \
+                       "f00d::1/28 80 cafe::/100 0 UDP" \
+                       "f00d::1/29 80 cafe::/99 0 UDP" \
+                       "f00d::1/30 80 cafe::/98 0 UDP" \
+                       "f00d::1/31 80 cafe::/97 0 UDP" \
+                       "f00d::1/32 80 cafe::/96 0 UDP" \
+                       "f00d::1/32 80 cafe::/0 0 UDP")
+
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT/Recorder
 cilium_install "$TXT_XDP_MAGLEV_RECORDER" \
     --bpf-lb-algorithm=maglev \
@@ -307,83 +377,17 @@ cilium_install "$TXT_XDP_MAGLEV_RECORDER" \
 # Trigger recompilation with 32 IPv4 filter masks
 ${CILIUM_EXEC} \
     cilium-dbg recorder update --id 1 --caplen 100 \
-        --filters="2.2.2.2/0 0 1.1.1.1/32 80 TCP,\
-2.2.2.2/1 0 1.1.1.1/32 80 TCP,\
-2.2.2.2/2 0 1.1.1.1/31 80 TCP,\
-2.2.2.2/3 0 1.1.1.1/30 80 TCP,\
-2.2.2.2/4 0 1.1.1.1/29 80 TCP,\
-2.2.2.2/5 0 1.1.1.1/28 80 TCP,\
-2.2.2.2/6 0 1.1.1.1/27 80 TCP,\
-2.2.2.2/7 0 1.1.1.1/26 80 TCP,\
-2.2.2.2/8 0 1.1.1.1/25 80 TCP,\
-2.2.2.2/9 0 1.1.1.1/24 80 TCP,\
-2.2.2.2/10 0 1.1.1.1/23 80 TCP,\
-2.2.2.2/11 0 1.1.1.1/22 80 TCP,\
-2.2.2.2/12 0 1.1.1.1/21 80 TCP,\
-2.2.2.2/13 0 1.1.1.1/20 80 TCP,\
-2.2.2.2/14 0 1.1.1.1/19 80 TCP,\
-2.2.2.2/15 0 1.1.1.1/18 80 TCP,\
-2.2.2.2/16 0 1.1.1.1/17 80 TCP,\
-2.2.2.2/17 0 1.1.1.1/16 80 TCP,\
-2.2.2.2/18 0 1.1.1.1/15 80 TCP,\
-2.2.2.2/19 0 1.1.1.1/14 80 TCP,\
-2.2.2.2/20 0 1.1.1.1/13 80 TCP,\
-2.2.2.2/21 0 1.1.1.1/12 80 TCP,\
-2.2.2.2/22 0 1.1.1.1/11 80 TCP,\
-2.2.2.2/23 0 1.1.1.1/10 80 TCP,\
-2.2.2.2/24 0 1.1.1.1/9 80 TCP,\
-2.2.2.2/25 0 1.1.1.1/8 80 TCP,\
-2.2.2.2/26 0 1.1.1.1/7 80 TCP,\
-2.2.2.2/27 0 1.1.1.1/6 80 TCP,\
-2.2.2.2/28 0 1.1.1.1/5 80 TCP,\
-2.2.2.2/29 0 1.1.1.1/4 80 TCP,\
-2.2.2.2/30 0 1.1.1.1/3 80 TCP,\
-2.2.2.2/31 0 1.1.1.1/2 80 TCP,\
-2.2.2.2/32 0 1.1.1.1/1 80 TCP,\
-2.2.2.2/32 0 1.1.1.1/0 80 TCP"
+        --filters="$(printf '%s,' "${RECORDER_FILTERS_IPV4[@]}" | sed 's/,*$//')"
 
 # Trigger recompilation with 32 IPv6 filter masks
 ${CILIUM_EXEC} \
     cilium-dbg recorder update --id 2 --caplen 100 \
-        --filters="f00d::1/0 80 cafe::/128 0 UDP,\
-f00d::1/1 80 cafe::/127 0 UDP,\
-f00d::1/2 80 cafe::/126 0 UDP,\
-f00d::1/3 80 cafe::/125 0 UDP,\
-f00d::1/4 80 cafe::/124 0 UDP,\
-f00d::1/5 80 cafe::/123 0 UDP,\
-f00d::1/6 80 cafe::/122 0 UDP,\
-f00d::1/7 80 cafe::/121 0 UDP,\
-f00d::1/8 80 cafe::/120 0 UDP,\
-f00d::1/9 80 cafe::/119 0 UDP,\
-f00d::1/10 80 cafe::/118 0 UDP,\
-f00d::1/11 80 cafe::/117 0 UDP,\
-f00d::1/12 80 cafe::/116 0 UDP,\
-f00d::1/13 80 cafe::/115 0 UDP,\
-f00d::1/14 80 cafe::/114 0 UDP,\
-f00d::1/15 80 cafe::/113 0 UDP,\
-f00d::1/16 80 cafe::/112 0 UDP,\
-f00d::1/17 80 cafe::/111 0 UDP,\
-f00d::1/18 80 cafe::/110 0 UDP,\
-f00d::1/19 80 cafe::/109 0 UDP,\
-f00d::1/20 80 cafe::/108 0 UDP,\
-f00d::1/21 80 cafe::/107 0 UDP,\
-f00d::1/22 80 cafe::/106 0 UDP,\
-f00d::1/23 80 cafe::/105 0 UDP,\
-f00d::1/24 80 cafe::/104 0 UDP,\
-f00d::1/25 80 cafe::/103 0 UDP,\
-f00d::1/26 80 cafe::/102 0 UDP,\
-f00d::1/27 80 cafe::/101 0 UDP,\
-f00d::1/28 80 cafe::/100 0 UDP,\
-f00d::1/29 80 cafe::/99 0 UDP,\
-f00d::1/30 80 cafe::/98 0 UDP,\
-f00d::1/31 80 cafe::/97 0 UDP,\
-f00d::1/32 80 cafe::/96 0 UDP,\
-f00d::1/32 80 cafe::/0 0 UDP"
+        --filters="$(printf '%s,' "${RECORDER_FILTERS_IPV6[@]}" | sed 's/,*$//')"
 
-${CILIUM_EXEC} cilium-dbg recorder list
-${CILIUM_EXEC} cilium-dbg bpf recorder list
+trace_exec ${CILIUM_EXEC} cilium-dbg recorder list
+trace_exec ${CILIUM_EXEC} cilium-dbg bpf recorder list
 ${CILIUM_EXEC} cilium-dbg recorder delete 1
 ${CILIUM_EXEC} cilium-dbg recorder delete 2
-${CILIUM_EXEC} cilium-dbg recorder list
+trace_exec ${CILIUM_EXEC} cilium-dbg recorder list
 
 echo "YAY!"
