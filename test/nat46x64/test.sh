@@ -50,16 +50,6 @@ function cilium_install {
     sleep 1
 }
 
-function assert_maglev_maps_sane {
-    MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
-    MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
-    if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
-        echo "Invalid content of Maglev table!"
-        ${CILIUM_EXEC} cilium-dbg bpf lb maglev list
-        exit 1
-    fi
-}
-
 function initialize_docker_env {
     # With Docker-in-Docker we create two nodes:
     #
@@ -118,10 +108,123 @@ function wait_service_ready {
     set -e
 }
 
+function assert_maglev_maps_sane {
+    MAG_V4=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
+    MAG_V6=$(${CILIUM_EXEC} cilium-dbg bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
+    if [ -n "$MAG_V4" ] || [ -z "$MAG_V6" ]; then
+        echo "Invalid content of Maglev table!"
+        ${CILIUM_EXEC} cilium-dbg bpf lb maglev list
+        exit 1
+    fi
+}
+
+function test_services {
+    LB_VIP="$1"
+    LB_VIP_SVC="$2"
+    LB_VIP_FAM="$3"
+    LB_VIP_SUBNET="$4"
+    BACKEND_SVC="$5"
+    LB_ALT="$6"
+    LB_ALT_SVC="$7"
+    LB_ALT_FAM="$8"
+    LB_ALT_SUBNET="$9"
+
+    cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
+
+    ${CILIUM_EXEC} \
+        cilium-dbg service update --id 1 --frontend "${LB_VIP_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
+
+    SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
+
+    ${CILIUM_EXEC} cilium-dbg bpf lb list
+
+    assert_maglev_maps_sane
+
+    LB_NODE_IP=$(docker exec -t lb-node \
+                    ip -o "${LB_VIP_FAM}" a s eth0 \
+                    | awk '{print $4}' \
+                    | cut -d/ -f1 \
+                    | head -n1)
+    ip "${LB_VIP_FAM}" r a "${LB_VIP}/${LB_VIP_SUBNET}" via "$LB_NODE_IP"
+
+    # Issue 10 requests to LB
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
+    done
+
+    cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
+
+    # Check that restoration went fine. Note that we currently cannot do runtime test
+    # as veth + XDP is broken when switching protocols. Needs something bare metal.
+    SVC_AFTER=$(${CILIUM_EXEC} cilium-dbg service list)
+
+    ${CILIUM_EXEC} cilium-dbg bpf lb list
+
+    [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
+
+    cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
+
+    # Check that curl still works after restore
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
+    done
+
+    cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
+
+    # Check that curl also works for random selection
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
+    done
+
+    # Add another same-protocol service and reuse backend (using $LB_ALT_FAM)
+
+    ${CILIUM_EXEC} \
+        cilium-dbg service update --id 2 --frontend "${LB_ALT_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
+
+    ${CILIUM_EXEC} cilium-dbg service list
+    ${CILIUM_EXEC} cilium-dbg bpf lb list
+
+    LB_NODE_IP=$(docker exec lb-node \
+                    ip -o "${LB_ALT_FAM}" a s eth0 \
+                    | awk '{print $4}' \
+                    | cut -d/ -f1 \
+                    | head -n1)
+    ip "${LB_ALT_FAM}" r a "${LB_ALT}/${LB_ALT_SUBNET}" via "$LB_NODE_IP"
+
+    # Issue 10 requests to LB1
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
+    done
+
+    wait_service_ready "${LB_ALT_SVC}"
+
+    # Issue 10 requests to LB2
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
+    done
+
+    # Check if restore for both is proper and that this also works
+    # under nat46x64-gateway enabled.
+
+    cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
+
+    # Issue 10 requests to LB1
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
+    done
+
+    # Issue 10 requests to LB2
+    for i in $(seq 1 10); do
+        curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
+    done
+
+    ${CILIUM_EXEC} cilium-dbg service delete 1
+    ${CILIUM_EXEC} cilium-dbg service delete 2
+}
+
 force_cleanup 2>&1 >/dev/null
 initialize_docker_env
 trap cleanup EXIT
-
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
 WORKER_IP4=$(nsenter -t "$NGINX_PID" -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
@@ -133,104 +236,13 @@ WORKER_IP6=$(nsenter -t "$NGINX_PID" -n ip -o -6 a s eth0 | awk '{print $4}' | c
 LB_VIP="10.0.0.4"
 LB_VIP_SVC="$LB_VIP:80"
 LB_VIP_FAM="-4"
-LB_VIP_SUBNET="32"
 BACKEND_SVC="[${WORKER_IP6}]:80"
 LB_ALT="fd00:dead:beef:15:bad::1"
 LB_ALT_SVC="[${LB_ALT}]:80"
 LB_ALT_FAM="-6"
-LB_ALT_SUBNET="128"
 
-cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
-
-${CILIUM_EXEC} \
-    cilium-dbg service update --id 1 --frontend "${LB_VIP_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
-
-SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
-
-${CILIUM_EXEC} cilium-dbg bpf lb list
-
-assert_maglev_maps_sane
-
-LB_NODE_IP=$(docker exec -t lb-node \
-                ip -o "${LB_VIP_FAM}" a s eth0 \
-                | awk '{print $4}' \
-                | cut -d/ -f1 \
-                | head -n1)
-ip "${LB_VIP_FAM}" r a "${LB_VIP}/${LB_VIP_SUBNET}" via "$LB_NODE_IP"
-
-# Issue 10 requests to LB
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-done
-
-cilium_install "$TXT_XDP_MAGLEV" ${CFG_XDP_MAGLEV[@]}
-
-# Check that restoration went fine. Note that we currently cannot do runtime test
-# as veth + XDP is broken when switching protocols. Needs something bare metal.
-SVC_AFTER=$(${CILIUM_EXEC} cilium-dbg service list)
-
-${CILIUM_EXEC} cilium-dbg bpf lb list
-
-[ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
-
-cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
-
-# Check that curl still works after restore
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-done
-
-cilium_install "$TXT_TC__RANDOM" ${CFG_TC__RANDOM[@]}
-
-# Check that curl also works for random selection
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-done
-
-# Add another IPv6->IPv6 service and reuse backend
-
-${CILIUM_EXEC} \
-    cilium-dbg service update --id 2 --frontend "${LB_ALT_SVC}" --backends "${BACKEND_SVC}" --k8s-load-balancer
-
-${CILIUM_EXEC} cilium-dbg service list
-${CILIUM_EXEC} cilium-dbg bpf lb list
-
-LB_NODE_IP=$(docker exec lb-node \
-                ip -o "${LB_ALT_FAM}" a s eth0 \
-                | awk '{print $4}' \
-                | cut -d/ -f1 \
-                | head -n1)
-ip "${LB_ALT_FAM}" r a "${LB_ALT}/${LB_ALT_SUBNET}" via "$LB_NODE_IP"
-
-# Issue 10 requests to LB1
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-done
-
-wait_service_ready "${LB_ALT_SVC}"
-
-# Issue 10 requests to LB2
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
-done
-
-# Check if restore for both is proper and that this also works
-# under nat46x64-gateway enabled.
-
-cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
-
-# Issue 10 requests to LB1
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_VIP_SVC}" || (echo "Failed $i"; exit 1)
-done
-
-# Issue 10 requests to LB2
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "${LB_ALT_SVC}" || (echo "Failed $i"; exit 1)
-done
-
-${CILIUM_EXEC} cilium-dbg service delete 1
-${CILIUM_EXEC} cilium-dbg service delete 2
+test_services "$LB_VIP" "$LB_VIP_SVC" "$LB_VIP_FAM" "32" "$BACKEND_SVC" \
+              "$LB_ALT" "$LB_ALT_SVC" "$LB_ALT_FAM" "128"
 
 # NAT 6->4 test suite (services)
 ################################
