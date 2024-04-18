@@ -60,7 +60,30 @@ function initialize_docker_env {
     ethtool -K "$LB_VETH_HOST" rx off tx off
 }
 
+function force_cleanup {
+    ${CILIUM_EXEC} cilium-dbg service delete 1 || true
+    ${CILIUM_EXEC} cilium-dbg service delete 2 || true
+    ip -4 r d "10.0.0.4/32" || true
+    ip -6 r d "fd00:cafe::1" || true
+    docker rm -f lb-node || true
+    docker rm -f nginx || true
+    docker network rm cilium-l4lb || true
+}
+
+function cleanup {
+    if tty -s; then
+        read -p "Hold the environment for debugging? [y/n]" -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            return
+        fi
+    fi
+    force_cleanup
+}
+
+force_cleanup 2>&1 >/dev/null
 initialize_docker_env
+trap cleanup EXIT
 
 # Install Cilium as standalone L4LB (tc/Maglev/SNAT)
 cilium_install \
@@ -415,10 +438,5 @@ ${CILIUM_EXEC} cilium-dbg bpf recorder list
 ${CILIUM_EXEC} cilium-dbg recorder delete 1
 ${CILIUM_EXEC} cilium-dbg recorder delete 2
 ${CILIUM_EXEC} cilium-dbg recorder list
-
-# cleanup
-docker rm -f lb-node
-docker rm -f nginx
-docker network rm cilium-l4lb
 
 echo "YAY!"
