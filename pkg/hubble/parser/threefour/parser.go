@@ -174,7 +174,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		if !tn.OriginalIP().IsUnspecified() {
 			// Ignore invalid IP - getters will handle invalid value.
 			srcIP, _ = ippkg.AddrFromIP(tn.OriginalIP())
-			ip.Source = srcIP.String()
+			// On SNAT the trace notification has OrigIP set to the pre
+			// translation IP and the source IP parsed from the header is the
+			// post translation IP. The check is here because sometimes we get
+			// trace notifications with OrigIP set to the header's IP
+			// (pre-translation events?)
+			if ip.GetSource() != srcIP.String() {
+				ip.SourceXlated = ip.GetSource()
+				ip.Source = srcIP.String()
+			}
 		}
 
 		ip.Encrypted = tn.IsEncrypted()
