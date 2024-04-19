@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -24,6 +25,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -44,7 +46,8 @@ func (s *ManagerSuite) SetUpSuite(c *C) {
 }
 
 type fakeSvcManager struct {
-	upsertEvents chan *lb.SVC
+	upsertEvents            chan *lb.SVC
+	destroyConnectionEvents chan lb.L3n4Addr
 }
 
 func (f *fakeSvcManager) DeleteService(lb.L3n4Addr) (bool, error) {
@@ -56,6 +59,12 @@ func (f *fakeSvcManager) UpsertService(s *lb.SVC) (bool, lb.ID, error) {
 		f.upsertEvents <- s
 	}
 	return true, 1, nil
+}
+
+func (f *fakeSvcManager) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
+	if f.destroyConnectionEvents != nil {
+		f.destroyConnectionEvents <- *l3n4Addr
+	}
 }
 
 type fakePodResource struct {
@@ -844,6 +853,120 @@ func (m *ManagerSuite) TestManager_OnAddRedirectPolicy(c *C) {
 
 	// Add an endpoint for the policy selected pod.
 	m.rpm.EndpointCreated(ep)
+
+	wg.Wait()
+}
+
+// Tests connections to deleted LRP backend pods getting terminated.
+func (m *ManagerSuite) TestManager_OnDeletePod(c *C) {
+	option.Config.EnableSocketLB = true
+	// Create an unbuffered channel so that the test blocks on unexpected events.
+	events := make(chan lb.L3n4Addr)
+	m.rpm.svcManager = &fakeSvcManager{destroyConnectionEvents: events}
+	labels := map[string]string{"test": "foo-bar-term"}
+	podUDP := &slimcorev1.Pod{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo-be",
+			Namespace: "ns1",
+			Labels:    labels,
+		},
+		Spec: slimcorev1.PodSpec{
+			Containers: []slimcorev1.Container{
+				{
+					Ports: []slimcorev1.ContainerPort{
+						{
+							Name:          portName1,
+							ContainerPort: pod2Port1,
+							Protocol:      pod2Proto2,
+						},
+						{
+							Name:          portName2,
+							ContainerPort: pod2Port2,
+							Protocol:      pod2Proto2,
+						},
+					},
+				},
+			},
+		},
+		Status: slimcorev1.PodStatus{
+			PodIP:      pod2IP1.IP,
+			PodIPs:     []slimcorev1.PodIP{pod2IP1},
+			Conditions: []slimcorev1.PodCondition{podReady},
+		},
+	}
+	beUDPP1 := bePortInfo{
+		l4Addr: lb.L4Addr{
+			Protocol: udpStr,
+			Port:     uint16(podUDP.Spec.Containers[0].Ports[0].ContainerPort),
+		},
+		name: portName1,
+	}
+	beUDPP2 := bePortInfo{
+		l4Addr: lb.L4Addr{
+			Protocol: udpStr,
+			Port:     uint16(podUDP.Spec.Containers[0].Ports[1].ContainerPort),
+		},
+		name: portName2,
+	}
+	beAddrs := sets.New[lb.L3n4Addr]()
+	beAddrs.Insert(lb.L3n4Addr{
+		AddrCluster: cmtypes.MustParseAddrCluster(podUDP.Status.PodIP), L4Addr: beUDPP1.l4Addr})
+	beAddrs.Insert(lb.L3n4Addr{
+		AddrCluster: cmtypes.MustParseAddrCluster(podUDP.Status.PodIP), L4Addr: beUDPP2.l4Addr})
+	pc := LRPConfig{
+		id: k8s.ServiceID{
+			Name:      "test-foo",
+			Namespace: "ns1",
+		},
+		lrpType:      lrpConfigTypeAddr,
+		frontendType: addrFrontendNamedPorts,
+		frontendMappings: []*feMapping{{
+			feAddr:      fe2,
+			podBackends: nil,
+			fePort:      beUDPP1.name,
+		}, {
+			feAddr:      fe2,
+			podBackends: nil,
+			fePort:      beUDPP2.name,
+		}},
+		backendSelector: api.EndpointSelector{
+			LabelSelector: &slim_metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+		},
+		backendPorts: []bePortInfo{beUDPP1, beUDPP2},
+		backendPortsByPortName: map[string]*bePortInfo{
+			beUDPP1.name: &beUDPP1,
+			beUDPP2.name: &beUDPP2,
+		},
+	}
+
+	// Add an LRP.
+	added, err := m.rpm.AddRedirectPolicy(pc)
+
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	// Add LRP selected pod with UDP ports.
+	m.rpm.OnAddPod(podUDP)
+	// Assert connection termination events asynchronously.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	got := 0
+	go func() {
+		for {
+			addr := <-events
+			if beAddrs.Has(addr) {
+				got++
+			}
+			if got == beAddrs.Len() {
+				wg.Done()
+				break
+			}
+		}
+	}()
+	// Delete the pod.
+	m.rpm.OnDeletePod(podUDP)
 
 	wg.Wait()
 }
