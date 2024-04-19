@@ -170,18 +170,14 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary := decodeLayers(p.packet)
-	if tn != nil {
+	if tn != nil && ip != nil {
 		if !tn.OriginalIP().IsUnspecified() {
 			// Ignore invalid IP - getters will handle invalid value.
 			srcIP, _ = ippkg.AddrFromIP(tn.OriginalIP())
-			if ip != nil {
-				ip.Source = srcIP.String()
-			}
+			ip.Source = srcIP.String()
 		}
 
-		if ip != nil {
-			ip.Encrypted = tn.IsEncrypted()
-		}
+		ip.Encrypted = tn.IsEncrypted()
 	}
 
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
