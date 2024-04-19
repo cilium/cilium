@@ -21,6 +21,10 @@ func destinationIP(ev *v1.Event) string {
 	return ev.GetFlow().GetIP().GetDestination()
 }
 
+func sourceIPXlated(ev *v1.Event) string {
+	return ev.GetFlow().GetIP().GetSourceXlated()
+}
+
 func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error) {
 	// IP filter can either be an exact match (e.g. "1.1.1.1") or a CIDR range
 	// (e.g. "1.1.1.0/24"). Put them into 2 separate lists here.
@@ -84,6 +88,14 @@ func (f *IPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]
 
 	if ff.GetDestinationIp() != nil {
 		ipf, err := filterByIPs(ff.GetDestinationIp(), destinationIP)
+		if err != nil {
+			return nil, err
+		}
+		fs = append(fs, ipf)
+	}
+
+	if ff.GetSourceIpXlated() != nil {
+		ipf, err := filterByIPs(ff.GetSourceIpXlated(), sourceIPXlated)
 		if err != nil {
 			return nil, err
 		}

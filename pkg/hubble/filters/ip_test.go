@@ -63,6 +63,32 @@ func TestIPFilter(t *testing.T) {
 			},
 		},
 		{
+			name: "snat ip",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{SourceIpXlated: []string{"2.2.2.2", "9bf2:8d06:6d34:da3b::33c5"}},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "2.2.2.3", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "2.2.2.2", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "9bf2:8d06:6d34:da3b::33c5"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: "ff02::1:ff00:b3e5"}}},
+				},
+			},
+			want: []bool{
+				false,
+				false,
+				false,
+				true,
+				false,
+				false,
+				true,
+			},
+		},
+		{
 			name: "source and destination ip",
 			args: args{
 				f: []*flowpb.FlowFilter{
@@ -76,6 +102,30 @@ func TestIPFilter(t *testing.T) {
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
+				},
+			},
+			want: []bool{
+				true,
+				false,
+				true,
+				false,
+			},
+		},
+		{
+			name: "source and snat and destination ip",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceIp:       []string{"1.1.1.1", "f00d::a10:0:0:9195"},
+						SourceIpXlated: []string{"2.2.2.2", "9bf2:8d06:6d34:da3b::33c5"},
+						DestinationIp:  []string{"10.0.0.2", "ff02::1:ff00:b3e5"},
+					},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "2.2.2.2", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: "ff02::1:ff00:b3e5"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", SourceXlated: "ff02::1:ff00:b3e5", Destination: "9bf2:8d06:6d34:da3b::33c5"}}},
 				},
 			},
 			want: []bool{
@@ -145,6 +195,15 @@ func TestIPFilter(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "invalid snat ip filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{SourceIpXlated: []string{""}},
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "source cidr",
 			args: args{
 				f: []*flowpb.FlowFilter{{SourceIp: []string{"1.1.1.0/24", "f00d::/16"}}},
@@ -181,6 +240,26 @@ func TestIPFilter(t *testing.T) {
 			},
 		},
 		{
+			name: "snat cidr",
+			args: args{
+				f: []*flowpb.FlowFilter{{SourceIpXlated: []string{"1.1.1.0/24", "9bf2::/16"}}},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "1.1.1.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "1.1.2.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "1.1.1.2", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: "f00d::a10:0:0:9195"}}},
+				},
+			},
+			want: []bool{
+				false,
+				false,
+				true,
+				false,
+				true,
+			},
+		},
+		{
 			name: "invalid source cidr filter",
 			args: args{
 				f: []*flowpb.FlowFilter{
@@ -196,6 +275,16 @@ func TestIPFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{
 					{DestinationIp: []string{"1.1.1.1/1234"}},
 					{DestinationIp: []string{"2001::/1234"}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid snat cidr filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{SourceIpXlated: []string{"1.1.1.1/1234"}},
+					{SourceIpXlated: []string{"2001::/1234"}},
 				},
 			},
 			wantErr: true,
