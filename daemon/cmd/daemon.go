@@ -884,10 +884,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	err = d.restoreOldEndpoints(restoredEndpoints, true)
-	if err != nil {
-		log.WithError(err).Error("Unable to restore existing endpoints")
-	}
+	d.restoreOldEndpoints(restoredEndpoints)
 	bootstrapStats.restore.End(true)
 
 	// We must do this after IPAM because we must wait until the
