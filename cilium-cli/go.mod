@@ -16,7 +16,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/charts v0.0.0-20240412005400-642475010da3
 	github.com/cilium/cilium v1.16.0-pre.1
-	github.com/cilium/hubble v0.13.2
+	github.com/cilium/hubble v0.13.3
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/go-openapi/strfmt v0.23.0
