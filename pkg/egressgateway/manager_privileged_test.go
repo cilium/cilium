@@ -124,7 +124,7 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 	var err error
 	k.manager, err = newEgressGatewayManager(Params{
 		Lifecycle:         lc,
-		Config:            Config{true, 1 * time.Millisecond},
+		Config:            Config{1 * time.Millisecond},
 		DaemonConfig:      &option.DaemonConfig{},
 		IdentityAllocator: identityAllocator,
 		PolicyMap:         policyMap,

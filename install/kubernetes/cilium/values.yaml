@@ -1808,8 +1808,6 @@ egressGateway:
   # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
   # cluster.
   enabled: false
-  # -- Deprecated without a replacement necessary.
-  installRoutes: false
   # -- Time between triggers of egress gateway state reconciliations
   reconciliationTriggerInterval: 1s
   # -- Maximum number of entries in egress gateway policy map

@@ -68,23 +68,16 @@ const (
 )
 
 type Config struct {
-	// Install egress gateway IP rules and routes in order to properly steer
-	// egress gateway traffic to the correct ENI interface
-	InstallEgressGatewayRoutes bool
-
 	// Default amount of time between triggers of egress gateway state
 	// reconciliations are invoked
 	EgressGatewayReconciliationTriggerInterval time.Duration
 }
 
 var defaultConfig = Config{
-	InstallEgressGatewayRoutes:                 false,
 	EgressGatewayReconciliationTriggerInterval: 1 * time.Second,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("install-egress-gateway-routes", def.InstallEgressGatewayRoutes, "Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface")
-	flags.MarkDeprecated("install-egress-gateway-routes", "This option is deprecated, has no effect, and will be removed in v1.16")
 	flags.Duration("egress-gateway-reconciliation-trigger-interval", def.EgressGatewayReconciliationTriggerInterval, "Time between triggers of egress gateway state reconciliations")
 }
 
