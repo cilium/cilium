@@ -17,7 +17,7 @@ package model
 
 import (
 	"bytes"
-	"sort"
+	"slices"
 	"strconv"
 )
 
@@ -28,7 +28,7 @@ func (l LabelSet) String() string {
 	for name := range l {
 		labelNames = append(labelNames, string(name))
 	}
-	sort.Strings(labelNames)
+	slices.Sort(labelNames)
 	var bytea [1024]byte // On stack to avoid memory allocation while building the output.
 	b := bytes.NewBuffer(bytea[:0])
 	b.WriteByte('{')
