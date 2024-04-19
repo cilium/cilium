@@ -119,7 +119,12 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: kubernetes/perf-tests
-          ref: 82036a7e9bdb803b5b133c2d83cfec710819f9ab # master
+          # Avoid using renovate to update this dependency because: (1)
+          # perf-tests does not tag or release, so renovate will pull
+          # all updates to the default branch and (2) continually
+          # updating CL2 may impact the stability of the scale test
+          # results.
+          ref: 920c39ef245a81bd8fb39d7fecf39eb35820d9ef
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
