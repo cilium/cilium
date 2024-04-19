@@ -104,7 +104,7 @@ func removeToProxyRoutesIPv6() error {
 var (
 	// Routing rule for traffic from ingress proxy.
 	fromIngressProxyRule = route.Rule{
-		Priority: linux_defaults.RulePriorityFromProxyIngress,
+		Priority: linux_defaults.RulePriorityFromProxy,
 		Mark:     linux_defaults.MagicMarkIngress,
 		Mask:     linux_defaults.MagicMarkHostMask,
 		Table:    linux_defaults.RouteTableFromProxy,
