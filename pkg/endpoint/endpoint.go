@@ -717,28 +717,11 @@ func (e *Endpoint) GetNodeMAC() mac.MAC {
 	return e.nodeMAC
 }
 
-// ConntrackName returns the name suffix for the endpoint-specific bpf
-// conntrack map, which is a 5-digit endpoint ID, or "global" when the
-// global map should be used.
-func (e *Endpoint) ConntrackName() string {
-	e.unconditionalRLock()
-	defer e.runlock()
-	return e.conntrackName()
-}
-
 // ConntrackNameLocked returns the name suffix for the endpoint-specific bpf
 // conntrack map, which is a 5-digit endpoint ID, or "global" when the
 // global map should be used.
 // Must be called with the endpoint locked.
 func (e *Endpoint) ConntrackNameLocked() string {
-	return e.conntrackName()
-}
-
-// ConntrackName returns the name suffix for the endpoint-specific bpf
-// conntrack map, which is a 5-digit endpoint ID, or "global" when the
-// global map should be used.
-// Must be called with the endpoint locked.
-func (e *Endpoint) conntrackName() string {
 	if e.ConntrackLocalLocked() {
 		return fmt.Sprintf("%05d", int(e.ID))
 	}
@@ -1254,7 +1237,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	}
 
 	if e.ConntrackLocalLocked() {
-		ctmap.CloseLocalMaps(e.conntrackName())
+		ctmap.CloseLocalMaps(e.ConntrackNameLocked())
 	} else if !e.isProperty(PropertyFakeEndpoint) {
 		e.scrubIPsInConntrackTableLocked()
 	}
