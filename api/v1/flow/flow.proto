@@ -535,7 +535,7 @@ message FlowFilter {
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
     // only applicable to Verdict = DROPPED (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
-    repeated DropReason drop_reason_desc = 35;
+    repeated DropReason drop_reason_desc = 33;
     // event_type is the list of event types to filter on
     repeated EventTypeFilter event_type = 6;
     // http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
@@ -593,7 +593,7 @@ message FlowFilter {
       // Using CEL has performance cost compared to other filters, so prefer
       // using non-CEL filters when possible, and try to specify CEL filters
       // last in the list of FlowFilters.
-      repeated string cel_expression = 33;
+      repeated string cel_expression = 1;
     }
     // experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
