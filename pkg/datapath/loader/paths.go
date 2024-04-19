@@ -5,6 +5,7 @@ package loader
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 
@@ -26,7 +27,12 @@ func bpffsDevicesDir(base string) string {
 // base is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
 func bpffsDeviceDir(base string, device netlink.Link) string {
-	return filepath.Join(bpffsDevicesDir(base), device.Attrs().Name)
+	// If a device name contains a "." we must sanitize the string to satisfy bpffs directory path
+	// requirements. The string of a directory path on bpffs is not allowed to contain any "." characters.
+	// By replacing "." with "-", we circurmvent this limitation. This also introduces a small
+	// risk of naming collisions, e.g "eth-0" and "eth.0" would translate to the same bpffs directory.
+	// The probability of this happening in practice should be very small.
+	return filepath.Join(bpffsDevicesDir(base), strings.ReplaceAll(device.Attrs().Name, ".", "-"))
 }
 
 // bpffsDeviceLinksDir returns the bpffs path to the per-device links directory,
