@@ -74,8 +74,8 @@ github.com/cilium/cilium v1.16.0-pre.1 h1:I4UQ694tw6Fb5NYzyFEF7fN1txocUPxUsvLhrY
 github.com/cilium/cilium v1.16.0-pre.1/go.mod h1:VUOQG/wojRePU8s4Xzd7KmS/vu2HE0jv/GjiwuFZzPM=
 github.com/cilium/ebpf v0.13.2 h1:uhLimLX+jF9BTPPvoCUYh/mBeoONkjgaJ9w9fn0mRj4=
 github.com/cilium/ebpf v0.13.2/go.mod h1:DHp1WyrLeiBh19Cf/tfiSMhqheEiK8fXFZ4No0P1Hso=
-github.com/cilium/hubble v0.13.2 h1:WecdQMW+Iz0+mQ56uLYmbfI6bnW0o0PZzmYl18ppd9E=
-github.com/cilium/hubble v0.13.2/go.mod h1:fGcbUFXQq0TK9veIlXAaE46pvWSLD8WZQuRdO5KGMhA=
+github.com/cilium/hubble v0.13.3 h1:M/D8xba/+4refWv50fdIe/6sYV4E7CAWi+/fGUcUcDc=
+github.com/cilium/hubble v0.13.3/go.mod h1:zPr7aDtV6LlSbE0m7J5brNNj8p8Sh/+ykt8BFMOtGis=
 github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018 h1:R/QlThqx099hS6req1k2Q87fvLSRgCEicQGate9vxO4=
 github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018/go.mod h1:p044XccCmONGIUbx3bJ7qvHXK0RcrdvIvbTGiu/RjUA=
 github.com/cilium/stream v0.0.0-20240226091623-f979d32855f8 h1:j6VF1s6gz3etRH5ObCr0UUyJblP9cK5fbgkQTz8fTRA=

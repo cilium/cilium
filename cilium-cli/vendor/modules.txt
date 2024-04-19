@@ -233,7 +233,7 @@ github.com/cilium/ebpf/internal/sysenc
 github.com/cilium/ebpf/internal/tracefs
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
-# github.com/cilium/hubble v0.13.2
+# github.com/cilium/hubble v0.13.3
 ## explicit; go 1.21.8
 github.com/cilium/hubble/pkg/printer
 # github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018
