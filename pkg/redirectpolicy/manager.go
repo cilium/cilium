@@ -43,6 +43,7 @@ var (
 type svcManager interface {
 	DeleteService(frontend lb.L3n4Addr) (bool, error)
 	UpsertService(*lb.SVC) (bool, lb.ID, error)
+	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr)
 }
 
 type svcCache interface {
@@ -562,6 +563,8 @@ func (rpm *Manager) updateConfigSvcFrontend(config *LRPConfig, frontends ...*fro
 }
 
 func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
+	l3nL4Addrs := sets.New[*lb.L3n4Addr]()
+
 	for _, fe := range config.frontendMappings {
 		newBes := make([]backend, 0, len(fe.podBackends))
 		for _, be := range fe.podBackends {
@@ -569,6 +572,7 @@ func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
 			// order same.
 			if be.podID != podID {
 				newBes = append(newBes, be)
+				continue
 			}
 			if config.skipRedirectFromBackend {
 				if be.AddrCluster.Is4() {
@@ -577,9 +581,13 @@ func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
 					rpm.skipLBMap.DeleteLB6ByNetnsCookie(be.podNetnsCookie)
 				}
 			}
+			l3nL4Addrs.Insert(&be.L3n4Addr)
 		}
 		fe.podBackends = newBes
 		rpm.notifyPolicyBackendDelete(config, fe)
+	}
+	for _, addr := range l3nL4Addrs.UnsortedList() {
+		rpm.svcManager.TerminateUDPConnectionsToBackend(addr)
 	}
 }
 
