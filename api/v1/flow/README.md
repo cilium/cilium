@@ -451,6 +451,7 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogReco
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source | [string](#string) |  |  |
+| source_xlated | [string](#string) |  | source_xlated is the post translation source IP when the flow was SNATed (and in that case source is the the original source IP). |
 | destination | [string](#string) |  |  |
 | ipVersion | [IPVersion](#flow-IPVersion) |  |  |
 | encrypted | [bool](#bool) |  | This field indicates whether the TraceReasonEncryptMask is set or not. https://github.com/cilium/cilium/blob/ba0ed147bd5bb342f67b1794c2ad13c6e99d5236/pkg/monitor/datapath_trace.go#L27 |
