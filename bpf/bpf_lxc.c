@@ -1170,13 +1170,9 @@ ct_recreate4:
 			goto skip_egress_gateway;
 
 		/* Send the packet to egress gateway node through a tunnel. */
-		ret = __encap_and_redirect_lxc(ctx, gateway_ip, 0,
-					       SECLABEL_IPV4,
-					       *dst_sec_identity, &trace);
-		if (ret == CTX_ACT_OK)
-			goto encrypt_to_stack;
-
-		return ret;
+		return __encap_and_redirect_lxc(ctx, gateway_ip, 0,
+						SECLABEL_IPV4,
+						*dst_sec_identity, &trace);
 	}
 skip_egress_gateway:
 #endif
@@ -1321,7 +1317,7 @@ pass_to_stack:
 #endif
 	}
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY_COMMON) || defined(ENABLE_HIGH_SCALE_IPCACHE)
+#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity, 0, 0,
