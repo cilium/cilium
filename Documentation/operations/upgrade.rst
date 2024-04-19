@@ -330,6 +330,7 @@ Removed Options
   now always happens asynchronously, therefore making this timeout obsolete.
 * The deprecated flag ``enable-remote-node-identity`` has been removed.
   More information can be found in the following Helm upgrade notes.
+* The deprecated flag ``install-egress-gateway-routes`` has been removed.
 
 Helm Options
 ~~~~~~~~~~~~

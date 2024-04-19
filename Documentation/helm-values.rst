@@ -936,10 +936,6 @@
      - Enables egress gateway to redirect and SNAT the traffic that leaves the cluster.
      - bool
      - ``false``
-   * - :spelling:ignore:`egressGateway.installRoutes`
-     - Deprecated without a replacement necessary.
-     - bool
-     - ``false``
    * - :spelling:ignore:`egressGateway.reconciliationTriggerInterval`
      - Time between triggers of egress gateway state reconciliations
      - string
