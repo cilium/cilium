@@ -70,9 +70,9 @@ const (
 	// the proxy package for redirecting inbound packets to the proxy.
 	RulePriorityToProxyIngress = 9
 
-	// RulePriorityFromProxyIngress is the priority of the routing rule installed by
-	// the proxy package for redirecting inbound packets from the proxy.
-	RulePriorityFromProxyIngress = 10
+	// RulePriorityFromProxy is the priority of the routing rule installed by
+	// the proxy package for redirecting packets from the proxy.
+	RulePriorityFromProxy = 10
 
 	// RulePriorityIngress is the priority of the rule used for ingress routing
 	// of endpoints. This priority is after encryption and proxy rules, and
