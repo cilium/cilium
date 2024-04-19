@@ -239,7 +239,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		scopedLog.Debug("Restoring endpoint")
 		ep.LogStatusOK(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
-		ep.SetDefaultConfiguration(true)
+		ep.SetDefaultConfiguration()
 		ep.SetProxy(d.l7Proxy)
 		ep.SkipStateClean()
 
