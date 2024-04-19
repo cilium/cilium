@@ -272,6 +272,9 @@ message TCP {
 
 message IP {
     string source = 1;
+    // source_xlated is the post translation source IP when the flow was SNATed
+    // (and in that case source is the the original source IP).
+    string source_xlated = 5;
     string destination = 2;
     IPVersion ipVersion = 3;
     // This field indicates whether the TraceReasonEncryptMask is set or not.

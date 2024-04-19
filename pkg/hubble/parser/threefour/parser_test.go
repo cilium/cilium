@@ -161,6 +161,7 @@ func TestL34Decode(t *testing.T) {
 
 	assert.Equal(t, []string{"host-192.168.60.11"}, f.GetSourceNames())
 	assert.Equal(t, "192.168.60.11", f.GetIP().GetSource())
+	assert.Equal(t, "", f.GetIP().GetSourceXlated())
 	assert.Equal(t, flowpb.TraceReason_ESTABLISHED, f.GetTraceReason())
 	assert.True(t, f.GetIP().GetEncrypted())
 	assert.Equal(t, uint32(6443), f.L4.GetTCP().GetSourcePort())
@@ -236,6 +237,7 @@ func TestL34Decode(t *testing.T) {
 	// second packet is ICMPv6 and the flags should be totally wiped out
 	assert.Equal(t, []string(nil), f.GetSourceNames())
 	assert.Equal(t, "ff02::1:ff00:b3e5", f.GetIP().GetSource())
+	assert.Equal(t, "", f.GetIP().GetSourceXlated())
 	assert.Equal(t, &flowpb.ICMPv6{Type: 135}, f.L4.GetICMPv6())
 	assert.Equal(t, "", f.GetSource().GetPodName())
 	assert.Equal(t, "", f.GetSource().GetNamespace())
@@ -1109,6 +1111,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
 	assert.Equal(t, f.IP.Source, "10.0.0.2")
+	assert.Empty(t, f.IP.SourceXlated)
 
 	v1 := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
@@ -1122,6 +1125,21 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
 	assert.Equal(t, f.IP.Source, "1.1.1.1")
+	assert.Equal(t, f.IP.SourceXlated, "10.0.0.2")
+
+	v1 = monitor.TraceNotifyV1{
+		TraceNotifyV0: monitor.TraceNotifyV0{
+			Type:    byte(monitorAPI.MessageTypeTrace),
+			Version: monitor.TraceNotifyVersion1,
+		},
+		OrigIP: [16]byte{10, 0, 0, 2},
+	}
+	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &layers.TCP{})
+	require.NoError(t, err)
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, f.IP.Source, "10.0.0.2")
+	assert.Empty(t, f.IP.SourceXlated)
 }
 
 func TestICMP(t *testing.T) {
