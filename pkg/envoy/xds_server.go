@@ -21,6 +21,7 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
+	envoy_upstream_codec "github.com/cilium/proxy/go/envoy/extensions/filters/http/upstream_codec/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
@@ -333,7 +334,17 @@ func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
 	}
 }
 
+func GetUpstreamCodecFilter() *envoy_config_http.HttpFilter {
+	return &envoy_config_http.HttpFilter{
+		Name: "envoy.filters.http.upstream_codec",
+		ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+			TypedConfig: toAny(&envoy_upstream_codec.UpstreamCodec{}),
+		},
+	}
+}
+
 func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngress bool) *envoy_config_listener.FilterChain {
+
 	requestTimeout := int64(option.Config.HTTPRequestTimeout) // seconds
 	idleTimeout := int64(option.Config.HTTPIdleTimeout)       // seconds
 	maxGRPCTimeout := int64(option.Config.HTTPMaxGRPCTimeout) // seconds
