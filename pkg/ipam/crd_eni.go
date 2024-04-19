@@ -136,19 +136,19 @@ func waitForNetlinkDevices(configByMac configMap) (linkByMac linkMap, err error)
 	for try := 0; try < waitForNetlinkDevicesMaxTries; try++ {
 		links, err := netlink.LinkList()
 		if err != nil {
-			return nil, fmt.Errorf("failed to obtain eni link list: %w", err)
-		}
-
-		linkByMac = linkMap{}
-		for _, link := range links {
-			mac := link.Attrs().HardwareAddr.String()
-			if _, ok := configByMac[mac]; ok {
-				linkByMac[mac] = link
+			log.WithError(err).Error("failed to obtain eni link list")
+		} else {
+			linkByMac = linkMap{}
+			for _, link := range links {
+				mac := link.Attrs().HardwareAddr.String()
+				if _, ok := configByMac[mac]; ok {
+					linkByMac[mac] = link
+				}
 			}
-		}
 
-		if len(linkByMac) == len(configByMac) {
-			return linkByMac, nil
+			if len(linkByMac) == len(configByMac) {
+				return linkByMac, nil
+			}
 		}
 
 		sleep := backoff.CalculateDuration(
