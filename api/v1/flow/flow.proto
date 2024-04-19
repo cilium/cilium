@@ -499,6 +499,10 @@ message FlowFilter {
     // specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
     // "1.1.1.0/24").
     repeated string source_ip = 1;
+    // source_ip_xlated filters by a list IPs. Each of the IPs can be specified
+    // as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
+    // "1.1.1.0/24").
+    repeated string source_ip_xlated = 34;
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
     // The pod name can be omitted to only filter by namespace
