@@ -630,7 +630,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			return
 		}
 
-		log.Infof("Got lock lease ID %x", ls.Lease())
+		ec.logger.Infof("Got lock lease ID %x", ls.Lease())
 		close(errorChan)
 	}()
 
@@ -684,7 +684,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			select {
 			case _, ok := <-watcher.Events:
 				if !ok {
-					log.Debug("Stopping heartbeat watcher")
+					ec.logger.Debug("Stopping heartbeat watcher")
 					watcher.Stop()
 					return
 				}
@@ -698,7 +698,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 				ec.RWMutex.Lock()
 				ec.lastHeartbeat = time.Now()
 				ec.RWMutex.Unlock()
-				log.Debug("Received update notification of heartbeat")
+				ec.logger.Debug("Received update notification of heartbeat")
 			case <-ctx.Done():
 				return
 			}
