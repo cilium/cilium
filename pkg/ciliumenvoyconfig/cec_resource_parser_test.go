@@ -15,9 +15,11 @@ import (
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http_healthcheck "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
+	envoy_upstream_codec "github.com/cilium/proxy/go/envoy/extensions/filters/http/upstream_codec/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,6 +76,108 @@ func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
 		delete(m.ports, name)
 	}
 	return nil
+}
+
+func TestUpstreamInject(t *testing.T) {
+	//
+	// Empty options
+	//
+	var opts envoy_upstreams_http_v3.HttpProtocolOptions
+	changed, err := injectCiliumUpstreamL7Filter(&opts, false)
+	assert.Nil(t, err)
+	assert.True(t, changed)
+	assert.NotNil(t, opts.HttpFilters)
+	assert.Len(t, opts.HttpFilters, 2)
+	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
+	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
+	assert.Equal(t, "envoy.filters.http.upstream_codec", opts.HttpFilters[1].Name)
+	assert.Equal(t, upstreamCodecFilterTypeURL, opts.HttpFilters[1].GetTypedConfig().TypeUrl)
+	//
+	// Check injected UpstreamProtocolOptions
+	//
+	assert.NotNil(t, opts.GetUseDownstreamProtocolConfig()) // no ALPN support
+
+	// already present
+	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
+	assert.Nil(t, err)
+	assert.False(t, changed)
+	assert.NotNil(t, opts.HttpFilters)
+	assert.Len(t, opts.HttpFilters, 2)
+	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
+	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
+	assert.Equal(t, "envoy.filters.http.upstream_codec", opts.HttpFilters[1].Name)
+	assert.Equal(t, upstreamCodecFilterTypeURL, opts.HttpFilters[1].GetTypedConfig().TypeUrl)
+	//
+	// Existing Upstream protocol options are not overridden
+	//
+	assert.NotNil(t, opts.GetUseDownstreamProtocolConfig())
+
+	// missing codec
+	opts = envoy_upstreams_http_v3.HttpProtocolOptions{
+		HttpFilters: []*envoy_config_http.HttpFilter{
+			{
+				Name: "cilium.l7policy",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&cilium.L7Policy{}),
+				},
+			},
+		},
+	}
+	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
+	assert.Nil(t, err)
+	assert.True(t, changed)
+	assert.NotNil(t, opts.HttpFilters)
+	assert.Len(t, opts.HttpFilters, 2)
+	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
+	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
+	assert.Equal(t, "envoy.filters.http.upstream_codec", opts.HttpFilters[1].Name)
+	assert.Equal(t, upstreamCodecFilterTypeURL, opts.HttpFilters[1].GetTypedConfig().TypeUrl)
+	assert.NotNil(t, opts.GetAutoConfig()) // with ALPN support
+
+	// codec present
+	opts = envoy_upstreams_http_v3.HttpProtocolOptions{
+		HttpFilters: []*envoy_config_http.HttpFilter{
+			{
+				Name: "envoy.filters.http.upstream_codec",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_upstream_codec.UpstreamCodec{}),
+				},
+			},
+		},
+	}
+	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
+	assert.Nil(t, err)
+	assert.True(t, changed)
+	assert.NotNil(t, opts.HttpFilters)
+	assert.Len(t, opts.HttpFilters, 2)
+	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
+	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
+	assert.Equal(t, "envoy.filters.http.upstream_codec", opts.HttpFilters[1].Name)
+	assert.Equal(t, upstreamCodecFilterTypeURL, opts.HttpFilters[1].GetTypedConfig().TypeUrl)
+	assert.NotNil(t, opts.GetAutoConfig()) // with ALPN support
+
+	// wrong order
+	// codec present
+	opts = envoy_upstreams_http_v3.HttpProtocolOptions{
+		HttpFilters: []*envoy_config_http.HttpFilter{
+			{
+				Name: "envoy.filters.http.upstream_codec",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_upstream_codec.UpstreamCodec{}),
+				},
+			},
+			{
+				Name: "cilium.l7policy",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&cilium.L7Policy{}),
+				},
+			},
+		},
+	}
+	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
+	assert.NotNil(t, err)
+	assert.False(t, changed)
+	assert.ErrorContains(t, err, "filter after codec filter: name:\"cilium.l7policy\"")
 }
 
 var xds1 = `version_info: "0"
@@ -776,6 +880,11 @@ spec:
     # Comment out the following line to test on v6 networks
     dns_lookup_family: V4_ONLY
     lb_policy: ROUND_ROBIN
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http2_protocol_options: {}
     load_assignment:
       cluster_name: default/service_google
       endpoints:
@@ -867,6 +976,18 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.NotNil(t, addr.GetSocketAddress())
 	assert.Equal(t, "www.google.com", addr.GetSocketAddress().GetAddress())
 	assert.Equal(t, uint32(443), addr.GetSocketAddress().GetPortValue())
+	//
+	// Check upstream filters (injected for L7 LB)
+	//
+	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions)
+	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType])
+	opts := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+	assert.Nil(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(opts))
+	assert.NotNil(t, opts.HttpFilters)
+	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
+	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
+	assert.Equal(t, "envoy.filters.http.upstream_codec", opts.HttpFilters[1].Name)
+	assert.Equal(t, upstreamCodecFilterTypeURL, opts.HttpFilters[1].GetTypedConfig().TypeUrl)
 }
 
 func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
