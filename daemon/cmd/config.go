@@ -6,17 +6,21 @@ package cmd
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // ConfigModifyEvent is a wrapper around the parameters for configModify.
@@ -143,6 +147,39 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	return api.Error(PatchConfigFailureCode, msg)
 }
 
+// getIPLocalReservedPorts returns a comma-separated list of ports which
+// we need to reserve in the container network namespace.
+// These ports are typically used in the host network namespace and thus can
+// conflict when running with DNS transparent proxy mode.
+// This is a workaround for cilium/cilium#31535
+func getIPLocalReservedPorts(d *Daemon) string {
+	if option.Config.ContainerIPLocalReservedPorts != defaults.ContainerIPLocalReservedPortsAuto {
+		return option.Config.ContainerIPLocalReservedPorts
+	}
+
+	if !option.Config.DNSProxyEnableTransparentMode {
+		return "" // no ports to reserve
+	}
+
+	// Reserves the WireGuard port. This is usually part of the ephemeral port
+	// range and thus may conflict with the ephemeral source port of DNS clients
+	// in the container network namespace.
+	var ports []string
+	if option.Config.EnableWireguard {
+		ports = append(ports, strconv.Itoa(wgTypes.ListenPort))
+	}
+
+	// Reserves the tunnel port. This is not part of the ephemeral port range by
+	// default, but is user configurable and thus should be included regardless.
+	// The Linux kernel documentation explicitly allows to reserve ports which
+	// are not part of the ephemeral port range, in which case this is a no-op.
+	if option.Config.TunnelExists() {
+		ports = append(ports, fmt.Sprintf("%d", option.Config.TunnelPort))
+	}
+
+	return strings.Join(ports, ",")
+}
+
 type getConfig struct {
 	daemon *Daemon
 }
@@ -201,6 +238,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
 		GROMaxSize:                  int64(d.bigTCPConfig.GetGROMaxSize()),
 		GSOMaxSize:                  int64(d.bigTCPConfig.GetGSOMaxSize()),
+		IPLocalReservedPorts:        getIPLocalReservedPorts(d),
 	}
 
 	cfg := &models.DaemonConfiguration{
