@@ -80,27 +80,51 @@ jobs:
             hubble: "false"
 
           - index: 5
+            name: "native-wireguard"
+            mode: "gke"
+            encryption: "wireguard"
+            hubble: "false"
+
+          - index: 6
+            name: "tunnel-wireguard"
+            mode: "tunnel"
+            encryption: "wireguard"
+            hubble: "false"
+
+          - index: 7
             name: "native-hubble"
             mode: "gke"
             encryption: "none"
             hubble: "true"
 
-          - index: 6
+          - index: 8
             name: "tunnel-hubble"
             mode: "tunnel"
             encryption: "none"
             hubble: "true"
 
-          - index: 7
+          - index: 9
             name: "native-ipsec-hubble"
             mode: "gke"
             encryption: "ipsec"
             hubble: "true"
 
-          - index: 8
+          - index: 10
             name: "tunnel-ipsec-hubble"
             mode: "tunnel"
             encryption: "ipsec"
+            hubble: "true"
+
+          - index: 11
+            name: "native-wireguard-hubble"
+            mode: "gke"
+            encryption: "wireguard"
+            hubble: "true"
+
+          - index: 12
+            name: "tunnel-wireguard-hubble"
+            mode: "tunnel"
+            encryption: "wireguard"
             hubble: "true"
 
     steps:
@@ -160,6 +184,10 @@ jobs:
 
           if [ "${{ matrix.encryption }}" = "ipsec" ] ; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
+          fi
+
+          if [ "${{ matrix.encryption }}" = "wireguard" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
           fi
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
