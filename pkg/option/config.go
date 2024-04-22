@@ -367,6 +367,10 @@ const (
 	// to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = "install-no-conntrack-iptables-rules"
 
+	// ContainerIPLocalReservedPorts instructs the Cilium CNI plugin to reserve
+	// the provided comma-separated list of ports in the container network namespace
+	ContainerIPLocalReservedPorts = "container-ip-local-reserved-ports"
+
 	// IPv6NodeAddr is the IPv6 address of node
 	IPv6NodeAddr = "ipv6-node"
 
@@ -2234,6 +2238,10 @@ type DaemonConfig struct {
 	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules bool
 
+	// ContainerIPLocalReservedPorts instructs the Cilium CNI plugin to reserve
+	// the provided comma-separated list of ports in the container network namespace
+	ContainerIPLocalReservedPorts string
+
 	// EnableCustomCalls enables tail call hooks for user-defined custom
 	// eBPF programs, typically used to collect custom per-endpoint
 	// metrics.
@@ -2709,6 +2717,18 @@ func (c *DaemonConfig) validateHubbleRedact() error {
 	return nil
 }
 
+func (c *DaemonConfig) validateContainerIPLocalReservedPorts() error {
+	if c.ContainerIPLocalReservedPorts == "" || c.ContainerIPLocalReservedPorts == defaults.ContainerIPLocalReservedPortsAuto {
+		return nil
+	}
+
+	if regexp.MustCompile(`^(\d+(-\d+)?)(,\d+(-\d+)?)*$`).MatchString(c.ContainerIPLocalReservedPorts) {
+		return nil
+	}
+
+	return fmt.Errorf("Invalid comma separated list of of ranges for %s option", ContainerIPLocalReservedPorts)
+}
+
 // Validate validates the daemon configuration
 func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
@@ -2796,6 +2816,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	}
 
 	if err := c.validatePolicyCIDRMatchMode(); err != nil {
+		return err
+	}
+
+	if err := c.validateContainerIPLocalReservedPorts(); err != nil {
 		return err
 	}
 
@@ -3043,6 +3067,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
+	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPAnnouncePodCIDR = vp.GetBool(BGPAnnouncePodCIDR)
