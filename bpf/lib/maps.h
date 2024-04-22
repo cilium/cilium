@@ -44,14 +44,20 @@ static __always_inline __must_check int
 tail_call_policy_dynamic(struct __ctx_buff *ctx, __u16 endpoint_id)
 {
 	tail_call_dynamic(ctx, &POLICY_CALL_MAP, endpoint_id);
-	return DROP_MISSED_TAIL_CALL;
+	/* When forwarding from a BPF program to some endpoint,
+	 * there are inherent races that can result in the endpoint's
+	 * policy program being unavailable (eg. if the endpoint is
+	 * terminating).
+	 */
+	return DROP_EP_NOT_READY;
 }
 
 static __always_inline __must_check int
 tail_call_policy_static(struct __ctx_buff *ctx, __u16 endpoint_id)
 {
 	tail_call_static(ctx, POLICY_CALL_MAP, endpoint_id);
-	return DROP_MISSED_TAIL_CALL;
+	/* see above */
+	return DROP_EP_NOT_READY;
 }
 #endif /* SKIP_POLICY_MAP */
 
