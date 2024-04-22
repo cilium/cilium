@@ -5,6 +5,8 @@
 package types
 
 const (
+	// ListenPort is the port on which the WireGuard tunnel device listens on
+	ListenPort = 51871
 	// IfaceName is the name of the WireGuard tunnel device
 	IfaceName = "cilium_wg0"
 	// PrivKeyFilename is the name of the WireGuard private key file
