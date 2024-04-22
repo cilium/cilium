@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -108,13 +109,16 @@ func configureHealthRouting(routes []route.Route, dev string) error {
 }
 
 // configureHealthInterface is meant to be run inside the health service netns
-func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet, sysctl sysctl.Sysctl) error {
+func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return err
 	}
 
 	if ip6Addr == nil {
+		// Use the direct sysctl without reconciliation of errors since we're in a different
+		// network namespace and thus can't use the normal sysctl API.
+		sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), option.Config.ProcFs)
 		name := fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", ifName)
 		// Ignore the error; if IPv6 is completely disabled
 		// then it's okay if we can't write the sysctl.
@@ -284,7 +288,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	if err := ns.Do(func() error {
-		return configureHealthInterface(epIfaceName, ip4Address, ip6Address, sysctl)
+		return configureHealthInterface(epIfaceName, ip4Address, ip6Address)
 	}); err != nil {
 		return nil, fmt.Errorf("failed configure health interface %q: %w", epIfaceName, err)
 	}
