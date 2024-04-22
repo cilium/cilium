@@ -2644,6 +2644,9 @@ definitions:
       GROIPv4MaxSize:
         description: Maximum IPv4 GRO size on workload facing devices
         type: integer
+      ipLocalReservedPorts:
+        description: Comma-separated list of IP ports should be reserved in the workload network namespace
+        type: string
   DatapathMode:
     description: Datapath mode
     type: string
