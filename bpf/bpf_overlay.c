@@ -306,7 +306,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			return tail_call_internal(ctx,
 						  CILIUM_CALL_MULTICAST_EP_DELIVERY,
 						  ext_err);
-		}
 	}
 #endif /* ENABLE_MULTICAST */
 
