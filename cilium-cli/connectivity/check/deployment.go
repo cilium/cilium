@@ -881,18 +881,19 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
 			if err != nil {
 				ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
-				containerPort := 8080
+				// in case if test concurrency is > 1 port must be unique for each test namespace
+				port := ct.Params().ExternalDeploymentPort
 				echoExternalDeployment := newDeployment(deploymentParameters{
 					Name:           echoExternalNodeDeploymentName,
 					Kind:           kindEchoExternalNodeName,
-					Port:           containerPort,
-					NamedPort:      "http-8080",
-					HostPort:       8080,
+					Port:           port,
+					NamedPort:      fmt.Sprintf("http-%d", port),
+					HostPort:       port,
 					Image:          ct.params.JSONMockImage,
 					Labels:         map[string]string{"external": "echo"},
 					Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
 					NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
-					ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+					ReadinessProbe: newLocalReadinessProbe(port, "/"),
 					HostNetwork:    true,
 					Tolerations: []corev1.Toleration{
 						{Operator: corev1.TolerationOpExists},
@@ -1241,7 +1242,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				K8sClient: ct.client,
 				Pod:       pod.DeepCopy(),
 				scheme:    "http",
-				port:      8080, // listen port of the echo server inside the container
+				port:      uint32(ct.Params().ExternalDeploymentPort), // listen port of the echo server inside the container
 			}
 		}
 	}

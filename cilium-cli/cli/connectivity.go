@@ -5,7 +5,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -24,8 +23,6 @@ import (
 	"github.com/cilium/cilium-cli/sysdump"
 )
 
-var errInternal = errors.New("encountered internal error, exiting")
-
 func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connectivity",
@@ -40,7 +37,8 @@ func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 }
 
 var params = check.Parameters{
-	Writer: os.Stdout,
+	ExternalDeploymentPort: 8080,
+	Writer:                 os.Stdout,
 	SysdumpOptions: sysdump.Options{
 		LargeSysdumpAbortTimeout: sysdump.DefaultLargeSysdumpAbortTimeout,
 		LargeSysdumpThreshold:    sysdump.DefaultLargeSysdumpThreshold,
@@ -70,8 +68,7 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Instantiate the test harness.
-		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion)
+		connTests, err := newConnectivityTests(params)
 		if err != nil {
 			return err
 		}
@@ -86,33 +83,10 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 
 		go func() {
 			<-ctx.Done()
-			cc.Logf("Cancellation request (%s) received, cancelling tests...", context.Cause(ctx))
+			connTests[0].Logf("Cancellation request (%s) received, cancelling tests...", context.Cause(ctx))
 		}()
 
-		done := make(chan struct{})
-		var finished bool
-
-		// Execute connectivity.Run() in its own goroutine, it might call Fatal()
-		// and end the goroutine without returning.
-		go func() {
-			defer func() { done <- struct{}{} }()
-			err = connectivity.Run(ctx, cc, hooks)
-
-			// If Fatal() was called in the test suite, the statement below won't fire.
-			finished = true
-		}()
-		<-done
-
-		if !finished {
-			// Exit with a non-zero return code.
-			return errInternal
-		}
-
-		if err != nil {
-			return fmt.Errorf("connectivity test failed: %w", err)
-		}
-
-		return nil
+		return connectivity.Run(ctx, params, connTests, hooks)
 	}
 }
 
@@ -240,4 +214,31 @@ func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.StringToStringVar(&params.NodeSelector, "node-selector", map[string]string{}, "Restrict connectivity pods to nodes matching this label")
 	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
+}
+
+func newConnectivityTests(params check.Parameters) ([]*check.ConnectivityTest, error) {
+	if params.TestConcurrency < 1 {
+		fmt.Printf("--test-concurrency parameter value is invalid [%d], using 1 instead\n", params.TestConcurrency)
+		params.TestConcurrency = 1
+	}
+	if params.TestConcurrency < 2 {
+		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion)
+		if err != nil {
+			return nil, err
+		}
+		return []*check.ConnectivityTest{cc}, nil
+	}
+
+	connTests := make([]*check.ConnectivityTest, 0, params.TestConcurrency)
+	for i := 0; i < params.TestConcurrency; i++ {
+		params := params
+		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
+		params.ExternalDeploymentPort += i
+		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion)
+		if err != nil {
+			return nil, err
+		}
+		connTests = append(connTests, cc)
+	}
+	return connTests, nil
 }
