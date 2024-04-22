@@ -5,6 +5,9 @@ package connectivity
 
 import (
 	"context"
+	"errors"
+
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/cilium/cilium-cli/connectivity/builder"
 	"github.com/cilium/cilium-cli/connectivity/check"
@@ -17,47 +20,64 @@ type Hooks interface {
 	AddConnectivityTests(ct *check.ConnectivityTest) error
 }
 
-func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
-	if err := ct.SetupAndValidate(ctx, extra); err != nil {
+func Run(ctx context.Context, params check.Parameters, connTests []*check.ConnectivityTest, extra Hooks) error {
+	if err := setupConnectivityTests(ctx, connTests, extra); err != nil {
 		return err
 	}
 
-	ct.Infof("Cilium version: %v", ct.CiliumVersion)
+	connTests[0].Infof("Cilium version: %v", connTests[0].CiliumVersion)
 
-	if ct.Params().Perf {
-		if err := builder.NetworkPerformanceTests(ct); err != nil {
+	suiteBuilders, err := builder.GetTestSuites(params)
+	if err != nil {
+		return err
+	}
+	for i := range suiteBuilders {
+		if err := suiteBuilders[i](connTests, extra.AddConnectivityTests); err != nil {
 			return err
 		}
-		return ct.Run(ctx)
-	}
-
-	if ct.Params().IncludeConnDisruptTest {
-		if err := builder.ConnDisruptTests(ct); err != nil {
+		if err := runConnectivityTests(ctx, connTests); err != nil {
 			return err
 		}
-		if ct.Params().ConnDisruptTestSetup {
-			// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
-			// will be used by another invocation of "cli connectivity test" (with
-			// include --include-conn-disrupt-test"
-			return ct.Run(ctx)
+		for j := range connTests {
+			connTests[j].Cleanup()
 		}
 	}
+	return nil
+}
 
-	if err := builder.ConcurrentTests(ct); err != nil {
+func setupConnectivityTests(ctx context.Context, connTest []*check.ConnectivityTest, hooks Hooks) error {
+	var meg multierror.Group
+	for i := range connTest {
+		id := i
+		meg.Go(func() error {
+			return connTest[id].SetupAndValidate(ctx, hooks)
+		})
+	}
+	return meg.Wait().ErrorOrNil()
+}
+
+func runConnectivityTests(ctx context.Context, connTests []*check.ConnectivityTest) error {
+	finish := make([]bool, len(connTests))
+	var meg multierror.Group
+	for i := range connTests {
+		id := i
+		// Execute connectivity.Run() in its own goroutine, it might call Fatal()
+		// and end the goroutine without returning.
+		meg.Go(func() error {
+			err := connTests[id].Run(ctx)
+			// If Fatal() was called in the test suite, the statement below won't fire.
+			finish[id] = true
+			return err
+		})
+	}
+	if err := meg.Wait().ErrorOrNil(); err != nil {
 		return err
 	}
-
-	if err := builder.SequentialTests(ct); err != nil {
-		return err
+	for i := 0; i < len(connTests); i++ {
+		if !finish[i] {
+			// Exit with a non-zero return code.
+			return errors.New("encountered internal error, exiting")
+		}
 	}
-
-	if err := extra.AddConnectivityTests(ct); err != nil {
-		return err
-	}
-
-	if err := builder.FinalTests(ct); err != nil {
-		return err
-	}
-
-	return ct.Run(ctx)
+	return nil
 }
