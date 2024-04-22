@@ -17,14 +17,16 @@ import (
 // enters the deleted_terminating state. Otherwise, the EC2 Fleet enters the
 // deleted_running state, and the instances continue to run until they are
 // interrupted or you terminate them manually. For instant fleets, EC2 Fleet must
-// terminate the instances when the fleet is deleted. A deleted instant fleet with
-// running instances is not supported. Restrictions
-//   - You can delete up to 25 instant fleets in a single request. If you exceed
-//     this number, no instant fleets are deleted and an error is returned. There is
-//     no restriction on the number of fleets of type maintain or request that can be
-//     deleted in a single request.
-//   - Up to 1000 instances can be terminated in a single request to delete instant
-//     fleets.
+// terminate the instances when the fleet is deleted. Up to 1000 instances can be
+// terminated in a single request to delete instant fleets. A deleted instant
+// fleet with running instances is not supported. Restrictions
+//   - You can delete up to 25 fleets of type instant in a single request.
+//   - You can delete up to 100 fleets of type maintain or request in a single
+//     request.
+//   - You can delete up to 125 fleets in a single request, provided you do not
+//     exceed the quota for each fleet type, as specified above.
+//   - If you exceed the specified number of fleets to delete, no fleets are
+//     deleted.
 //
 // For more information, see Delete an EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#delete-fleet)
 // in the Amazon EC2 User Guide.
@@ -45,7 +47,8 @@ func (c *Client) DeleteFleets(ctx context.Context, params *DeleteFleetsInput, op
 
 type DeleteFleetsInput struct {
 
-	// The IDs of the EC2 Fleets.
+	// The IDs of the EC2 Fleets. Constraints: In a single request, you can specify up
+	// to 25 instant fleet IDs and up to 100 maintain or request fleet IDs.
 	//
 	// This member is required.
 	FleetIds []string

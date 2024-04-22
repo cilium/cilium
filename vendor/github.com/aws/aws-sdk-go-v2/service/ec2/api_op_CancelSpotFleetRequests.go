@@ -17,7 +17,9 @@ import (
 // terminate the instances, the Spot Fleet request enters the cancelled_terminating
 // state. Otherwise, the Spot Fleet request enters the cancelled_running state and
 // the instances continue to run until they are interrupted or you terminate them
-// manually.
+// manually. Restrictions
+//   - You can delete up to 100 fleets in a single request. If you exceed the
+//     specified number, no fleets are deleted.
 func (c *Client) CancelSpotFleetRequests(ctx context.Context, params *CancelSpotFleetRequestsInput, optFns ...func(*Options)) (*CancelSpotFleetRequestsOutput, error) {
 	if params == nil {
 		params = &CancelSpotFleetRequestsInput{}
@@ -36,7 +38,8 @@ func (c *Client) CancelSpotFleetRequests(ctx context.Context, params *CancelSpot
 // Contains the parameters for CancelSpotFleetRequests.
 type CancelSpotFleetRequestsInput struct {
 
-	// The IDs of the Spot Fleet requests.
+	// The IDs of the Spot Fleet requests. Constraint: You can specify up to 100 IDs
+	// in a single request.
 	//
 	// This member is required.
 	SpotFleetRequestIds []string
