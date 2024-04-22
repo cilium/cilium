@@ -16,6 +16,7 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 type fakeWgClient struct{}
@@ -77,7 +78,7 @@ func newTestAgent(ctx context.Context) (*Agent, *ipcache.IPCache) {
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},
 		ipCache:          ipCache,
-		listenPort:       listenPort,
+		listenPort:       types.ListenPort,
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
