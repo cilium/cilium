@@ -23,6 +23,7 @@ type Parameters struct {
 	AssumeCiliumVersion   string
 	CiliumNamespace       string
 	TestNamespace         string
+	TestConcurrency       int
 	SingleNode            bool
 	PrintFlows            bool
 	ForceDeploy           bool
