@@ -197,6 +197,9 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 
 	cmd.Flags().DurationVar(&params.Timeout, "timeout", defaults.ConnectivityTestSuiteTimeout, "Maximum time to allow the connectivity test suite to take")
 
+	cmd.Flags().IntVar(&params.TestConcurrency, "test-concurrency", 1, "Count of namespaces to perform the connectivity tests in parallel (value <= 0 will be treated as 1)")
+	_ = cmd.Flags().MarkHidden("test-concurrency")
+
 	hooks.AddConnectivityTestFlags(cmd.Flags())
 
 	registerCommonFlags(cmd.Flags())
