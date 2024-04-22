@@ -604,13 +604,8 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 		if err = ns.Do(func() error {
 			if ipv6IsEnabled(ipam) {
-				param := "net.ipv6.conf.all.disable_ipv6"
-				if err != nil {
-					logger.WithError(err).WithField(logfields.SysParamName, param).Warn("invalid sysctl parameter")
-				} else {
-					if err := sysctl.Disable(param); err != nil {
-						logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
-					}
+				if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
+					logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
 				}
 			}
 			macAddrStr, err = configureIface(ipam, epConf.IfName(), state)
