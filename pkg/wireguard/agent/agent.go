@@ -45,10 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-const (
-	listenPort = 51871
-)
-
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "wireguard")
 
 // wireguardClient is an interface to mock wgctrl.Client
@@ -98,7 +94,7 @@ func NewAgent(privKeyPath string) (*Agent, error) {
 	return &Agent{
 		wgClient:   wgClient,
 		privKey:    key,
-		listenPort: listenPort,
+		listenPort: types.ListenPort,
 
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
@@ -402,9 +398,9 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 
 	ep := ""
 	if option.Config.EnableIPv4 && nodeIPv4 != nil {
-		ep = net.JoinHostPort(nodeIPv4.String(), strconv.Itoa(listenPort))
+		ep = net.JoinHostPort(nodeIPv4.String(), strconv.Itoa(types.ListenPort))
 	} else if option.Config.EnableIPv6 && nodeIPv6 != nil {
-		ep = net.JoinHostPort(nodeIPv6.String(), strconv.Itoa(listenPort))
+		ep = net.JoinHostPort(nodeIPv6.String(), strconv.Itoa(types.ListenPort))
 	} else {
 		return fmt.Errorf("missing node IP for node %q", nodeName)
 	}
