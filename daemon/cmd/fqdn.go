@@ -467,10 +467,15 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.
+	//
+	// Restrict label enrichment time to 10ms; we don't want to block DNS
+	// requests because an identity isn't in the local cache yet.
+	logContext, lcncl := context.WithTimeout(d.ctx, 10*time.Millisecond)
+	defer lcncl()
 	record := logger.NewLogRecord(flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(addrInfo),
+		logger.LogTags.Addressing(logContext, addrInfo),
 		logger.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
 			IPs:               responseIPs,

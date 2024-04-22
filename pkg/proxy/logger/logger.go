@@ -4,6 +4,7 @@
 package logger
 
 import (
+	"context"
 	"net/netip"
 
 	"github.com/sirupsen/logrus"
@@ -137,7 +138,7 @@ type AddressingInfo struct {
 
 // Addressing attaches addressing information about the source and destination
 // to the logrecord
-func (logTags) Addressing(i AddressingInfo) LogTag {
+func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 	return func(lr *LogRecord) {
 		lr.SourceEndpoint.ID = i.SrcEPID
 		if i.SrcSecIdentity != nil {
@@ -154,7 +155,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			}
 
 			lr.SourceEndpoint.Port = addrPort.Port()
-			endpointInfoRegistry.FillEndpointInfo(&lr.SourceEndpoint, addrPort.Addr())
+			endpointInfoRegistry.FillEndpointInfo(ctx, &lr.SourceEndpoint, addrPort.Addr())
 		}
 
 		lr.DestinationEndpoint.ID = i.DstEPID
@@ -168,7 +169,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 		addrPort, err = netip.ParseAddrPort(i.DstIPPort)
 		if err == nil {
 			lr.DestinationEndpoint.Port = addrPort.Port()
-			endpointInfoRegistry.FillEndpointInfo(&lr.DestinationEndpoint, addrPort.Addr())
+			endpointInfoRegistry.FillEndpointInfo(ctx, &lr.DestinationEndpoint, addrPort.Addr())
 		}
 	}
 }
@@ -287,5 +288,5 @@ type EndpointInfoRegistry interface {
 	//  - info.IPv6           (if 'ip' is not IPv4)
 	//  - info.Identity       (defaults to WORLD if not known)
 	//  - info.Labels         (only if identity is found)
-	FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr)
+	FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr)
 }

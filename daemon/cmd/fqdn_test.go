@@ -86,7 +86,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 
 type dummyInfoRegistry struct{}
 
-func (*dummyInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr) {
+func (*dummyInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr) {
 }
 
 type dummySelectorCacheUser struct{}
