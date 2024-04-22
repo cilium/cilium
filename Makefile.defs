@@ -68,7 +68,7 @@ export KUBECTL ?= kubectl
 
 # Till the self-hosted renovate PR #30185 is merged, we might need to run the below
 # command locally for any version update.
-# make generate-api generate-health-api generate-hubble-api generate-operator-api
+# make generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api
 # renovate: datasource=docker depName=quay.io/goswagger/swagger
 SWAGGER_VERSION := v0.30.5
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
