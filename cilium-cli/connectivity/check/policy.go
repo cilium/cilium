@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -454,11 +455,18 @@ func sumMap(m map[string]int) int {
 	return sum
 }
 
+// policyApplyDeleteLock guarantees that only one connectivity test instance
+// can apply or delete policies in case of connectivity test concurrency > 1
+var policyApplyDeleteLock = sync.Mutex{}
+
 // applyPolicies applies all the Test's registered network policies.
 func (t *Test) applyPolicies(ctx context.Context) error {
 	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
 		return nil
 	}
+
+	policyApplyDeleteLock.Lock()
+	defer policyApplyDeleteLock.Unlock()
 
 	// Get current policy revisions in all Cilium pods.
 	revisions, err := t.Context().getCiliumPolicyRevisions(ctx)
@@ -570,6 +578,9 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
 		return nil
 	}
+
+	policyApplyDeleteLock.Lock()
+	defer policyApplyDeleteLock.Unlock()
 
 	// Get current policy revisions in all Cilium pods.
 	revs, err := t.Context().getCiliumPolicyRevisions(ctx)
