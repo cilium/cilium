@@ -1202,8 +1202,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	if (is_defined(IS_BPF_HOST))
-		ctx_snat_done_set(ctx);
+	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
@@ -2740,8 +2739,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	if (is_defined(IS_BPF_HOST))
-		ctx_snat_done_set(ctx);
+	/* This is also needed for from-overlay, to avoid a second SNAT by
+	 * to-overlay or to-netdev.
+	 */
+	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
