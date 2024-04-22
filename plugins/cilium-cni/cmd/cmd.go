@@ -398,6 +398,30 @@ func setupLogging(n *types.NetConf) error {
 	return nil
 }
 
+func reserveLocalIPPorts(conf *models.DaemonConfigurationStatus, sysctl sysctl.Sysctl) error {
+	if conf.IPLocalReservedPorts == "" {
+		return nil
+	}
+
+	// Note: This setting applies to IPv4 and IPv6
+	const param = "net.ipv4.ip_local_reserved_ports"
+	var reserved = conf.IPLocalReservedPorts
+
+	// Append our reserved ports to the ones which might already be reserved.
+	existing, err := sysctl.Read(param)
+	if err != nil {
+		return err
+	}
+
+	// Merging the two sets of ports. Note that the kernel merges any redundant
+	// ports or port ranges for us, so we do not have to check if `existing`
+	// and `reserved` contain any overlapping ports.
+	if existing != "" {
+		reserved = existing + "," + reserved
+	}
+	return sysctl.Write(param, reserved)
+}
+
 func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
@@ -604,6 +628,10 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 		if err = ns.Do(func() error {
 			if ipv6IsEnabled(ipam) {
+				if err := reserveLocalIPPorts(conf, sysctl); err != nil {
+					logger.WithError(err).Warn("unable to reserve local ip ports")
+				}
+
 				if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
 					logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
 				}
