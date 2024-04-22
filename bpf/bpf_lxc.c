@@ -813,6 +813,13 @@ struct {
 	__uint(max_entries, 1);
 } CT_TAIL_CALL_BUFFER4 __section_maps_btf;
 
+# define printk2(fmt, ...)					\
+		({						\
+			const char ____fmt[] = fmt;		\
+			trace_printk(____fmt, sizeof(____fmt),	\
+				     ##__VA_ARGS__);		\
+		})
+
 /* Handle egress IPv4 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
@@ -852,7 +859,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		return DROP_INVALID;
 
 	has_l4_header = ipv4_has_l4_header(ip4);
-
+	
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
 	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id);
@@ -946,8 +953,13 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 					   auth_type);
 	}
 
-	if (verdict != CTX_ACT_OK)
+	
+	printk2("handle_ipv4_from_lxc egress verdict for packet to port %d was: %d", tuple->dport, verdict);
+	if (verdict != CTX_ACT_OK) {
+		printk2("egress verdict was not CTX_ACT_OK");
 		return verdict;
+	}
+	printk2("skipping egress policy");
 
 skip_policy_enforcement:
 #if defined(ENABLE_L7_LB)
@@ -2063,8 +2075,11 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		break;
 	}
 
-	if (IS_ERR(ret))
+	printk2("ingress policy verdict was: %d", ret);
+	if (IS_ERR(ret)) {
+		printk2("ingress policy verdict was drop");
 		goto drop_err;
+	}
 
 	/* Store meta: essential for proxy ingress, see bpf_host.c */
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
@@ -2082,7 +2097,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 			       REASON_MISSED_CUSTOM_CALL);
 	}
 #endif
-
+	printk2("returning ingress verdict");
 	return ret;
 
 drop_err:
