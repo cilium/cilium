@@ -2683,6 +2683,10 @@ func init() {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
         },
+        "ipLocalReservedPorts": {
+          "description": "Comma-separated list of IP ports should be reserved in the workload network namespace",
+          "type": "string"
+        },
         "ipam-mode": {
           "description": "Configured IPAM mode",
           "type": "string"
@@ -8482,6 +8486,10 @@ func init() {
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
+        },
+        "ipLocalReservedPorts": {
+          "description": "Comma-separated list of IP ports should be reserved in the workload network namespace",
+          "type": "string"
         },
         "ipam-mode": {
           "description": "Configured IPAM mode",
