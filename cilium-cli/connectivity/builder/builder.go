@@ -79,23 +79,87 @@ type testBuilder interface {
 	build(ct *check.ConnectivityTest, templates map[string]string)
 }
 
-// NetworkPerformanceTests builds the network performance connectivity tests.
-func NetworkPerformanceTests(ct *check.ConnectivityTest) error {
-	return getTests(ct, []testBuilder{networkPerf{}})
+// GetTestSuites returns a slice of functions, that when invoked, result in a
+// collection of tests being built. These functions use helper methods to add various
+// collections of test builders depending upon the provided parameters.
+func GetTestSuites(params check.Parameters) ([]func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error, error) {
+	switch {
+	case params.Perf:
+		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, _ func(ct *check.ConnectivityTest) error) error {
+				return networkPerformanceTests(connTests[0])
+			},
+		}, nil
+	case params.IncludeConnDisruptTest && params.ConnDisruptTestSetup:
+		// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
+		// will be used by another invocation of "cli connectivity test"
+		// with include --include-conn-disrupt-test"
+		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, _ func(ct *check.ConnectivityTest) error) error {
+				return connDisruptTests(connTests[0])
+			},
+		}, nil
+	case params.TestConcurrency > 1:
+		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, _ func(ct *check.ConnectivityTest) error) error {
+				if connTests[0].Params().IncludeConnDisruptTest {
+					if err := connDisruptTests(connTests[0]); err != nil {
+						return err
+					}
+				}
+				return concurrentTests(connTests)
+			},
+			func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error {
+				if err := sequentialTests(connTests[0]); err != nil {
+					return err
+				}
+				if err := extraTests(connTests[0]); err != nil {
+					return err
+				}
+				return finalTests(connTests[0])
+			},
+		}, nil
+	default: // fallback to the sequential run
+		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error {
+				if connTests[0].Params().IncludeConnDisruptTest {
+					if err := connDisruptTests(connTests[0]); err != nil {
+						return err
+					}
+				}
+				if err := concurrentTests(connTests); err != nil {
+					return err
+				}
+				if err := sequentialTests(connTests[0]); err != nil {
+					return err
+				}
+				if err := extraTests(connTests[0]); err != nil {
+					return err
+				}
+				return finalTests(connTests[0])
+			},
+		}, nil
+	}
 }
 
-// ConnDisruptTests builds the conn disrupt connectivity tests.
-func ConnDisruptTests(ct *check.ConnectivityTest) error {
+// networkPerformanceTests injects the network performance connectivity tests.
+func networkPerformanceTests(ct *check.ConnectivityTest) error {
+	tests := []testBuilder{networkPerf{}}
+	return injectTests(tests, ct)
+}
+
+// connDisruptTests injects the conn-disrupt connectivity tests.
+func connDisruptTests(ct *check.ConnectivityTest) error {
 	tests := []testBuilder{
 		noInterruptedConnections{},
 		noIpsecXfrmErrors{},
 	}
-	return getTests(ct, tests)
+	return injectTests(tests, ct)
 }
 
-// ConcurrentTests builds the all connectivity tests that can be run concurrently.
+// concurrentTests injects the all connectivity tests that can be run concurrently.
 // Each test should be run in a separate namespace.
-func ConcurrentTests(ct *check.ConnectivityTest) error {
+func concurrentTests(connTests []*check.ConnectivityTest) error {
 	tests := []testBuilder{
 		noUnexpectedPacketDrops{},
 		noPolicies{},
@@ -173,21 +237,21 @@ func ConcurrentTests(ct *check.ConnectivityTest) error {
 		podToControlplaneHostCidr{},
 		podToK8sOnControlplaneCidr{},
 	}
-	return getTests(ct, tests)
+	return injectTests(tests, connTests...)
 }
 
-// SequentialTests builds the all connectivity tests that must be run sequentially.
-func SequentialTests(ct *check.ConnectivityTest) error {
+// sequentialTests injects the all connectivity tests that must be run sequentially.
+func sequentialTests(ct *check.ConnectivityTest) error {
 	tests := []testBuilder{
 		hostFirewallIngress{},
 		hostFirewallEgress{},
 	}
-	return getTests(ct, tests)
+	return injectTests(tests, ct)
 }
 
-// FinalTests builds the all connectivity tests that must be run as the last tests sequentially.
-func FinalTests(ct *check.ConnectivityTest) error {
-	return getTests(ct, []testBuilder{checkLogErrors{}})
+// finalTests injects the all connectivity tests that must be run as the last tests sequentially.
+func finalTests(ct *check.ConnectivityTest) error {
+	return injectTests([]testBuilder{checkLogErrors{}}, ct)
 }
 
 func renderTemplates(param check.Parameters) (map[string]string, error) {
@@ -220,14 +284,24 @@ func renderTemplates(param check.Parameters) (map[string]string, error) {
 	return renderedTemplates, nil
 }
 
-func getTests(ct *check.ConnectivityTest, tests []testBuilder) error {
-	templates, err := renderTemplates(ct.Params())
-	if err != nil {
-		return err
-	}
-
+func injectTests(tests []testBuilder, connTests ...*check.ConnectivityTest) error {
+	// templates must be compiled per test namespace due to
+	// namespace specific placeholders in the network policies
+	templates := make(map[string]map[string]string, len(connTests))
+	id := 0
 	for i := range tests {
-		tests[i].build(ct, templates)
+		if _, ok := templates[connTests[id].Params().TestNamespace]; !ok {
+			nsTemplates, err := renderTemplates(connTests[id].Params())
+			if err != nil {
+				return err
+			}
+			templates[connTests[id].Params().TestNamespace] = nsTemplates
+		}
+		tests[i].build(connTests[id], templates[connTests[id].Params().TestNamespace])
+		id++
+		if id == len(connTests) {
+			id = 0
+		}
 	}
 	return nil
 }
