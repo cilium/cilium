@@ -37,6 +37,9 @@ import (
 // and holds all resources belonging to it. It implements interface
 // ConnectivityTest and is instantiated once at the start of the program,
 type ConnectivityTest struct {
+	// ConnectivityTest instance unique identifier
+	id int
+
 	// Client connected to a Kubernetes cluster.
 	client       *k8s.Client
 	hubbleClient observer.ObserverClient
@@ -355,6 +358,10 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 		return err
 	}
 
+	if len(ct.tests) == 0 {
+		return nil
+	}
+
 	ct.Debug("Registered connectivity tests:")
 	for _, t := range ct.tests {
 		ct.Debugf("  %s", t)
@@ -422,6 +429,14 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 
 	// Report the test results.
 	return ct.report()
+}
+
+// Cleanup cleans test related fields.
+// So, ConnectivityTest instance can be re-used.
+func (ct *ConnectivityTest) Cleanup() {
+	ct.testNames = make(map[string]struct{})
+	ct.tests = make([]*Test, 0)
+	ct.lastFlowTimestamps = make(map[string]time.Time)
 }
 
 // skip marks the Test as skipped.
