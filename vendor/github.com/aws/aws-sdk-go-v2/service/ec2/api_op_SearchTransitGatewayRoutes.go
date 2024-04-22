@@ -62,7 +62,8 @@ type SearchTransitGatewayRoutesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The maximum number of routes to return.
+	// The maximum number of routes to return. If a value is not provided, the default
+	// is 1000.
 	MaxResults *int32
 
 	noSmithyDocumentSerde

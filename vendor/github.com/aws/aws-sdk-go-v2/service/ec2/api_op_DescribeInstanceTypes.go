@@ -11,8 +11,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the details of the instance types that are offered in a location. The
-// results can be filtered by the attributes of the instance types.
+// Describes the specified instance types. By default, all instance types for the
+// current Region are described. Alternatively, you can filter the results.
 func (c *Client) DescribeInstanceTypes(ctx context.Context, params *DescribeInstanceTypesInput, optFns ...func(*Options)) (*DescribeInstanceTypesOutput, error) {
 	if params == nil {
 		params = &DescribeInstanceTypesInput{}
@@ -130,8 +130,7 @@ type DescribeInstanceTypesInput struct {
 	//   be configured for the instance type. For example, "1" or "1,2".
 	Filters []types.Filter
 
-	// The instance types. For more information, see Instance types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
-	// in the Amazon EC2 User Guide.
+	// The instance types.
 	InstanceTypes []types.InstanceType
 
 	// The maximum number of items to return for this request. To get the next page of
@@ -149,8 +148,7 @@ type DescribeInstanceTypesInput struct {
 
 type DescribeInstanceTypesOutput struct {
 
-	// The instance type. For more information, see Instance types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
-	// in the Amazon EC2 User Guide.
+	// The instance type.
 	InstanceTypes []types.InstanceTypeInfo
 
 	// The token to include in another request to get the next page of items. This
