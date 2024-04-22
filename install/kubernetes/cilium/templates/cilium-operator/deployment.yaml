@@ -173,7 +173,9 @@ spec:
         ports:
         - name: prometheus
           containerPort: {{ .Values.operator.prometheus.port }}
+        {{- if .Values.operator.hostNetwork }}
           hostPort: {{ .Values.operator.prometheus.port }}
+        {{- end }}
           protocol: TCP
         {{- end }}
         livenessProbe:
