@@ -1233,3 +1233,93 @@ func Test_parseEventBufferTupleString(t *testing.T) {
 	c, err = ParseEventBufferTupleString("enabled,123,x")
 	assert.Error(err)
 }
+
+func TestDaemonConfig_validateContainerIPLocalReservedPorts(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name:    "default",
+			value:   "auto",
+			wantErr: assert.NoError,
+		},
+		{
+			name:    "empty",
+			value:   "",
+			wantErr: assert.NoError,
+		},
+		{
+			name:    "single port",
+			value:   "1000",
+			wantErr: assert.NoError,
+		},
+		{
+			name:    "single range",
+			value:   "1000-2000",
+			wantErr: assert.NoError,
+		},
+		{
+			name:    "port list",
+			value:   "1000,2000",
+			wantErr: assert.NoError,
+		},
+		{
+			name:    "port range list",
+			value:   "1000-1001,2000-2002",
+			wantErr: assert.NoError,
+		},
+		{
+			name:    "mixed",
+			value:   "1000,2000-2002,3000,4000-4004",
+			wantErr: assert.NoError,
+		},
+		{
+			name:    "trailing comma",
+			value:   "1,2,3,",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "leading comma",
+			value:   ",1,2,3",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "invalid range",
+			value:   "-",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "invalid range end",
+			value:   "1000-",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "invalid range start",
+			value:   "-1000",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "invalid port",
+			value:   "foo",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "too many commas",
+			value:   "1000,,2000",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "invalid second value",
+			value:   "1000,-",
+			wantErr: assert.Error,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &DaemonConfig{ContainerIPLocalReservedPorts: tt.value}
+			tt.wantErr(t, c.validateContainerIPLocalReservedPorts(), "validateContainerIPLocalReservedPorts()")
+		})
+	}
+}
