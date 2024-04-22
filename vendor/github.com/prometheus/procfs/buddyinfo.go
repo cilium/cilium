@@ -74,7 +74,7 @@ func parseBuddyInfo(r io.Reader) ([]BuddyInfo, error) {
 		for i := 0; i < arraySize; i++ {
 			sizes[i], err = strconv.ParseFloat(parts[i+4], 64)
 			if err != nil {
-				return nil, fmt.Errorf("%s: Invalid valid in buddyinfo: %f: %w", ErrFileParse, sizes[i], err)
+				return nil, fmt.Errorf("%w: Invalid valid in buddyinfo: %f: %w", ErrFileParse, sizes[i], err)
 			}
 		}
 

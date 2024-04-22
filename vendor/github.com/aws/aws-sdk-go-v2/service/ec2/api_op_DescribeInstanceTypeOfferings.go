@@ -11,9 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Returns a list of all instance types offered. The results can be filtered by
-// location (Region or Availability Zone). If no location is specified, the
-// instance types offered in the current Region are returned.
+// Lists the instance types that are offered for the specified location. If no
+// location is specified, the default is to list the instance types that are
+// offered in the current Region.
 func (c *Client) DescribeInstanceTypeOfferings(ctx context.Context, params *DescribeInstanceTypeOfferingsInput, optFns ...func(*Options)) (*DescribeInstanceTypeOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeInstanceTypeOfferingsInput{}
@@ -38,13 +38,23 @@ type DescribeInstanceTypeOfferingsInput struct {
 	DryRun *bool
 
 	// One or more filters. Filter names and values are case-sensitive.
-	//   - location - This depends on the location type. For example, if the location
-	//   type is region (default), the location is the Region code (for example,
-	//   us-east-2 .)
-	//   - instance-type - The instance type. For example, c5.2xlarge .
+	//   - instance-type - The instance type. For a list of possible values, see
+	//   Instance (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Instance.html)
+	//   .
+	//   - location - The location. For a list of possible identifiers, see Regions
+	//   and Zones (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
+	//   .
 	Filters []types.Filter
 
 	// The location type.
+	//   - availability-zone - The Availability Zone. When you specify a location
+	//   filter, it must be an Availability Zone for the current Region.
+	//   - availability-zone-id - The AZ ID. When you specify a location filter, it
+	//   must be an AZ ID for the current Region.
+	//   - outpost - The Outpost ARN. When you specify a location filter, it must be an
+	//   Outpost ARN for the current Region.
+	//   - region - The current Region. If you specify a location filter, it must match
+	//   the current Region.
 	LocationType types.LocationType
 
 	// The maximum number of items to return for this request. To get the next page of
@@ -62,7 +72,7 @@ type DescribeInstanceTypeOfferingsInput struct {
 
 type DescribeInstanceTypeOfferingsOutput struct {
 
-	// The instance types offered.
+	// The instance types offered in the location.
 	InstanceTypeOfferings []types.InstanceTypeOffering
 
 	// The token to include in another request to get the next page of items. This

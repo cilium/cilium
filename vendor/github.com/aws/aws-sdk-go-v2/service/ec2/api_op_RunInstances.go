@@ -146,22 +146,14 @@ type RunInstancesInput struct {
 	// apply when using an EBS-optimized instance. Default: false
 	EbsOptimized *bool
 
-	// Deprecated. Amazon Elastic Graphics reached end of life on January 8, 2024. For
-	// workloads that require graphics acceleration, we recommend that you use Amazon
-	// EC2 G4ad, G4dn, or G5 instances.
+	// An elastic GPU to associate with the instance. Amazon Elastic Graphics reached
+	// end of life on January 8, 2024.
 	ElasticGpuSpecification []types.ElasticGpuSpecification
 
-	// An elastic inference accelerator to associate with the instance. Elastic
-	// inference accelerators are a resource you can attach to your Amazon EC2
-	// instances to accelerate your Deep Learning (DL) inference workloads. You cannot
-	// specify accelerators from different generations in the same request. Starting
-	// April 15, 2023, Amazon Web Services will not onboard new customers to Amazon
-	// Elastic Inference (EI), and will help current customers migrate their workloads
-	// to options that offer better price and performance. After April 15, 2023, new
-	// customers will not be able to launch instances with Amazon EI accelerators in
-	// Amazon SageMaker, Amazon ECS, or Amazon EC2. However, customers who have used
-	// Amazon EI at least once during the past 30-day period are considered current
-	// customers and will be able to continue using the service.
+	// An elastic inference accelerator to associate with the instance. Amazon Elastic
+	// Inference (EI) is no longer available to new customers. For more information,
+	// see Amazon Elastic Inference FAQs (http://aws.amazon.com/machine-learning/elastic-inference/faqs/)
+	// .
 	ElasticInferenceAccelerators []types.ElasticInferenceAccelerator
 
 	// If you’re launching an instance into a dual-stack or IPv6-only subnet, you can
@@ -258,9 +250,7 @@ type RunInstancesInput struct {
 	// Specifies whether detailed monitoring is enabled for the instance.
 	Monitoring *types.RunInstancesMonitoringEnabled
 
-	// The network interfaces to associate with the instance. If you specify a network
-	// interface, you must specify any security groups and subnets as part of the
-	// network interface.
+	// The network interfaces to associate with the instance.
 	NetworkInterfaces []types.InstanceNetworkInterfaceSpecification
 
 	// The placement for the instance.
@@ -291,16 +281,18 @@ type RunInstancesInput struct {
 	// The IDs of the security groups. You can create a security group using
 	// CreateSecurityGroup (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSecurityGroup.html)
 	// . If you specify a network interface, you must specify any security groups as
-	// part of the network interface.
+	// part of the network interface instead of using this parameter.
 	SecurityGroupIds []string
 
 	// [Default VPC] The names of the security groups. If you specify a network
-	// interface, you must specify any security groups as part of the network
-	// interface. Default: Amazon EC2 uses the default security group.
+	// interface, you must specify any security groups as part of the network interface
+	// instead of using this parameter. Default: Amazon EC2 uses the default security
+	// group.
 	SecurityGroups []string
 
 	// The ID of the subnet to launch the instance into. If you specify a network
-	// interface, you must specify any subnets as part of the network interface.
+	// interface, you must specify any subnets as part of the network interface instead
+	// of using this parameter.
 	SubnetId *string
 
 	// The tags to apply to the resources that are created during instance launch. You

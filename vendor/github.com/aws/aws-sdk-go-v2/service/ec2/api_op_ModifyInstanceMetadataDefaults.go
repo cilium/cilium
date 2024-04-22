@@ -13,9 +13,10 @@ import (
 
 // Modifies the default instance metadata service (IMDS) settings at the account
 // level in the specified Amazon Web Services  Region. To remove a parameter's
-// account-level default setting, specify no-preference . At instance launch, the
-// value will come from the AMI, or from the launch parameter if specified. For
-// more information, see Order of precedence for instance metadata options (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence)
+// account-level default setting, specify no-preference . If an account-level
+// setting is cleared with no-preference , then the instance launch considers the
+// other instance metadata settings. For more information, see Order of precedence
+// for instance metadata options (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence)
 // in the Amazon EC2 User Guide.
 func (c *Client) ModifyInstanceMetadataDefaults(ctx context.Context, params *ModifyInstanceMetadataDefaultsInput, optFns ...func(*Options)) (*ModifyInstanceMetadataDefaultsOutput, error) {
 	if params == nil {
@@ -44,8 +45,9 @@ type ModifyInstanceMetadataDefaultsInput struct {
 	// instance metadata can't be accessed.
 	HttpEndpoint types.DefaultInstanceMetadataEndpointState
 
-	// The maximum number of hops that the metadata token can travel. Minimum: 1
-	// Maximum: 64
+	// The maximum number of hops that the metadata token can travel. To indicate no
+	// preference, specify -1 . Possible values: Integers from 1 to 64 , and -1 to
+	// indicate no preference
 	HttpPutResponseHopLimit *int32
 
 	// Indicates whether IMDSv2 is required.
