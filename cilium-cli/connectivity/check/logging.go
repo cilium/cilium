@@ -64,7 +64,7 @@ func (ct *ConnectivityTest) Headerf(format string, a ...interface{}) {
 	fmt.Fprintf(ct.params.Writer, "\n"+format+"\n", a...)
 }
 
-// Timestamps logs the current timestamp.
+// Timestamp logs the current timestamp.
 func (ct *ConnectivityTest) Timestamp() {
 	if ct.timestamp() {
 		fmt.Fprint(ct.params.Writer, timestamp())
