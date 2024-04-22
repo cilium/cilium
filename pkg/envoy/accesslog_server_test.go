@@ -4,6 +4,7 @@
 package envoy
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -55,7 +56,7 @@ func TestKafkaLogNoTopic(t *testing.T) {
 	node.WithTestLocalNodeStore(func() {
 		notifier := &testNotifier{}
 		logger.SetNotifier(notifier)
-		logRecord(&cilium.LogEntry{
+		logRecord(context.Background(), &cilium.LogEntry{
 			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 				CorrelationId: 76541,
 				ErrorCode:     42,
@@ -73,7 +74,7 @@ func TestKafkaLogSingleTopic(t *testing.T) {
 	node.WithTestLocalNodeStore(func() {
 		notifier := &testNotifier{}
 		logger.SetNotifier(notifier)
-		logRecord(&cilium.LogEntry{
+		logRecord(context.Background(), &cilium.LogEntry{
 			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 				CorrelationId: 76541,
 				ErrorCode:     42,
@@ -94,7 +95,7 @@ func TestKafkaLogMultipleTopics(t *testing.T) {
 	node.WithTestLocalNodeStore(func() {
 		notifier := &testNotifier{}
 		logger.SetNotifier(notifier)
-		logRecord(&cilium.LogEntry{
+		logRecord(context.Background(), &cilium.LogEntry{
 			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 				CorrelationId: 76541,
 				ErrorCode:     42,

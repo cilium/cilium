@@ -42,7 +42,9 @@ func NewEndpointInfoRegistry(ipc *ipcache.IPCache, endpointManager endpointmanag
 
 // FillEndpointInfo fills in as much information as possible from the provided information.
 // It will populate empty fields on a best-effort basis.
-func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr) {
+// Resolving security labels may require accessing the kvstore; labelLookupTimeout sets
+// the timeout.
+func (r *endpointInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr) {
 	if addr.IsValid() {
 		if addr.Is4() {
 			info.IPv4 = addr.String()
@@ -92,7 +94,9 @@ func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ad
 
 	// Look up security labels if not provided
 	if info.Labels == nil {
-		identity := r.identityAllocator.LookupIdentityByID(context.TODO(), identity.NumericIdentity(info.Identity))
+		// The allocator should already have this in cache, but it may fall back to a
+		// remote read if missing. So, provide the context.
+		identity := r.identityAllocator.LookupIdentityByID(ctx, identity.NumericIdentity(info.Identity))
 		if identity != nil {
 			info.Labels = identity.LabelArray
 		}
