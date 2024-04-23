@@ -67,6 +67,10 @@ spec:
         command:
         - /usr/bin/cilium-envoy-starter
         args:
+        {{- if .Values.envoy.securityContext.capabilities.keepCapNetBindService }}
+        - '--keep-cap-net-bind-service'
+        {{- end }}
+        - '--'
         - '-c /var/run/cilium/envoy/bootstrap-config.json'
         - '--base-id {{ int .Values.envoy.baseID }}'
         {{- if and (.Values.debug.enabled) (hasKey .Values.debug "verbose") (.Values.debug.verbose) (has "envoy" ( splitList " " .Values.debug.verbose )) }}

@@ -1254,6 +1254,8 @@ data:
   envoy-log: {{ .Values.envoy.log.path | quote }}
 {{- end }}
 
+  envoy-keep-cap-netbindservice: {{ .Values.envoy.securityContext.capabilities.keepCapNetBindService | quote }}
+
 {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
   max-connected-clusters: {{ .Values.clustermesh.maxConnectedClusters | quote }}
 {{- end }}
