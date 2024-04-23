@@ -42,6 +42,8 @@ var Cell = cell.Module(
 	HealthAPIEndpointsCell,
 	health.HealthAPIServerCell,
 
+	APIServerCell,
+
 	kvstore.Cell(kvstore.EtcdBackendName),
 	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
 		return &kvstore.ExtraOptions{
