@@ -12,6 +12,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -35,6 +37,9 @@ type remoteCluster struct {
 	services   reflector
 	identities reflector
 	ipcache    reflector
+
+	// status is the function which fills the common part of the status.
+	status common.StatusFunc
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -155,6 +160,28 @@ func (rc *remoteCluster) waitForConnection(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (rc *remoteCluster) Status() *models.RemoteCluster {
+	status := rc.status()
+
+	status.NumNodes = int64(rc.nodes.watcher.NumEntries())
+	status.NumSharedServices = int64(rc.services.watcher.NumEntries())
+	status.NumIdentities = int64(rc.identities.watcher.NumEntries())
+	status.NumEndpoints = int64(rc.ipcache.watcher.NumEntries())
+
+	status.Synced = &models.RemoteClusterSynced{
+		Nodes:      rc.nodes.watcher.Synced(),
+		Services:   rc.services.watcher.Synced(),
+		Identities: rc.identities.watcher.Synced(),
+		Endpoints:  rc.ipcache.watcher.Synced(),
+	}
+
+	status.Ready = status.Ready &&
+		status.Synced.Nodes && status.Synced.Services &&
+		status.Synced.Identities && status.Synced.Endpoints
+
+	return status
 }
 
 type reflector struct {
