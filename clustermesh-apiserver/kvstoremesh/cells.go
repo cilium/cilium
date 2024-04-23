@@ -35,6 +35,8 @@ var Cell = cell.Module(
 	gops.Cell(defaults.GopsPortKVStoreMesh),
 	cmmetrics.Cell,
 
+	APIServerCell,
+
 	kvstore.Cell(kvstore.EtcdBackendName),
 	cell.Provide(func() *kvstore.ExtraOptions { return nil }),
 	kvstoremesh.Cell,
