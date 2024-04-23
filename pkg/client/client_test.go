@@ -52,8 +52,8 @@ func (cs *ClientTestSuite) TestClusterReadiness(c *C) {
 }
 
 func (cs *ClientTestSuite) TestNumReadyClusters(c *C) {
-	c.Assert(numReadyClusters(&models.ClusterMeshStatus{}), Equals, 0)
-	c.Assert(numReadyClusters(&models.ClusterMeshStatus{
-		Clusters: []*models.RemoteCluster{{Ready: true}, {Ready: true}, {Ready: false}},
-	}), Equals, 2)
+	c.Assert(NumReadyClusters(nil), Equals, 0)
+	c.Assert(NumReadyClusters(
+		[]*models.RemoteCluster{{Ready: true}, {Ready: true}, {Ready: false}},
+	), Equals, 2)
 }
