@@ -101,14 +101,8 @@ jobs:
         run: |
           cd /tmp/generated/azure
 
-          # Use complete matrix in case of scheduled run
-          # main -> event_name = schedule
-          # other stable branches -> PR-number starting with v (e.g. v1.14)
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
-            jq '{ "include": [ .include[] | select(.disabled==null) ] }' azure.json > /tmp/matrix.json
-          else
-            jq '{ "include": [ .include[] | select(.default) ] }' azure.json > /tmp/matrix.json
-          fi
+
+          jq '{ "include": [ .include[] | select(.disabled==null) ] }' azure.json > /tmp/matrix.json
 
           echo "Generated matrix:"
           cat /tmp/matrix.json
