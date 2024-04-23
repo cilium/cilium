@@ -924,33 +924,6 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 	return minVersion, nil
 }
 
-// UninstallResources deletes all k8s resources created by the connectivity tests.
-func (ct *ConnectivityTest) UninstallResources(ctx context.Context, wait bool) {
-	ct.Logf("🔥 Deleting pods in %s namespace...", ct.params.TestNamespace)
-	ct.client.DeletePodCollection(ctx, ct.params.TestNamespace, metav1.DeleteOptions{}, metav1.ListOptions{})
-
-	ct.Logf("🔥 Deleting %s namespace...", ct.params.TestNamespace)
-	ct.client.DeleteNamespace(ctx, ct.params.TestNamespace, metav1.DeleteOptions{})
-
-	// If test Pods are not deleted prior to uninstalling Cilium then the CNI deletes
-	// may be queued by cilium-cni. This can cause error to be logged when re-installing
-	// Cilium later.
-	// Thus we wait for all cilium-test Pods to fully terminate before proceeding.
-	if wait {
-		ct.Logf("⌛ Waiting for %s namespace to be terminated...", ct.params.TestNamespace)
-		for {
-			// Wait for the test namespace to be terminated. Subsequent connectivity checks would fail
-			// if the test namespace is in Terminating state.
-			_, err := ct.client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
-			if err == nil {
-				time.Sleep(defaults.WaitRetryInterval)
-			} else {
-				break
-			}
-		}
-	}
-}
-
 func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
 	cmd := []string{
 		"curl",
