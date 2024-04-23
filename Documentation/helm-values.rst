@@ -2119,7 +2119,7 @@
    * - :spelling:ignore:`ingressController.hostNetwork.sharedListenerPort`
      - Configure a specific port on the host network that gets used for the shared listener.
      - int
-     - ``80``
+     - ``8080``
    * - :spelling:ignore:`ingressController.ingressLBAnnotationPrefixes`
      - IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
      - list
