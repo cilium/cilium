@@ -188,6 +188,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
+      # Let's set azure-cli version to 2.58.0 as we are probably hitting this issue
+      # https://github.com/Azure/login/issues/372#issuecomment-2056289617
+      # This is temporary fix until 2.60.0 is released
+      - name: Install Azure CLI
+        uses: azure/CLI@v2
+        with:
+          azcliversion: 2.58.0
+          inlineScript: |
+            az --version
+
       - name: Create AKS cluster
         run: |
           # Create group
