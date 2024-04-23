@@ -4,7 +4,9 @@
 package kvstoremesh
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -12,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -129,7 +132,7 @@ func (km *KVStoreMesh) Stop(cell.HookContext) error {
 	return nil
 }
 
-func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common.RemoteCluster {
+func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	synced := newSynced()
@@ -145,6 +148,7 @@ func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common
 		services:     newReflector(km.backend, name, serviceStore.ServiceStorePrefix, km.storeFactory, synced.resources),
 		identities:   newReflector(km.backend, name, identityCache.IdentitiesPath, km.storeFactory, synced.resources),
 		ipcache:      newReflector(km.backend, name, ipcache.IPIdentitiesPath, km.storeFactory, synced.resources),
+		status:       status,
 		storeFactory: km.storeFactory,
 		synced:       synced,
 		readyTimeout: km.config.PerClusterReadyTimeout,
@@ -192,4 +196,21 @@ func (km *KVStoreMesh) synced(ctx context.Context, syncCallback func(context.Con
 	}
 
 	return nil
+}
+
+// Status returns the status of the ClusterMesh subsystem
+func (km *KVStoreMesh) status() []*models.RemoteCluster {
+	var clusters []*models.RemoteCluster
+
+	km.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
+		rc := rci.(*remoteCluster)
+		clusters = append(clusters, rc.Status())
+		return nil
+	})
+
+	// Sort the remote clusters information to ensure consistent ordering.
+	slices.SortFunc(clusters,
+		func(a, b *models.RemoteCluster) int { return cmp.Compare(a.Name, b.Name) })
+
+	return clusters
 }
