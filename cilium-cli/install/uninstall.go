@@ -13,6 +13,8 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 type UninstallParameters struct {
@@ -42,6 +44,33 @@ func NewK8sUninstaller(client k8sInstallerImplementation, p UninstallParameters)
 
 func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
+}
+
+// DeleteTestNamespace deletes all pods in the test namespace and then deletes the namespace itself.
+func (k *K8sUninstaller) DeleteTestNamespace(ctx context.Context) {
+	k.Log("🔥 Deleting pods in %s namespace...", k.params.TestNamespace)
+	k.client.DeletePodCollection(ctx, k.params.TestNamespace, metav1.DeleteOptions{}, metav1.ListOptions{})
+
+	k.Log("🔥 Deleting %s namespace...", k.params.TestNamespace)
+	k.client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})
+
+	// If test Pods are not deleted prior to uninstalling Cilium then the CNI deletes
+	// may be queued by cilium-cni. This can cause error to be logged when re-installing
+	// Cilium later.
+	// Thus we wait for all cilium-test Pods to fully terminate before proceeding.
+	if k.params.Wait {
+		k.Log("⌛ Waiting for %s namespace to be terminated...", k.params.TestNamespace)
+		for {
+			// Wait for the test namespace to be terminated. Subsequent connectivity checks would fail
+			// if the test namespace is in Terminating state.
+			_, err := k.client.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
+			if err == nil {
+				time.Sleep(defaults.WaitRetryInterval)
+			} else {
+				break
+			}
+		}
+	}
 }
 
 func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *action.Configuration) error {
