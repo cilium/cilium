@@ -1108,9 +1108,9 @@ func TestGetSharedListenerPorts(t *testing.T) {
 			desc:                     "external loadbalancer with port 0",
 			hostNetworkEnabled:       true,
 			hostNetworkSharedPort:    0,
-			expectedPassthroughPort:  80,
-			expectedInsecureHTTPPort: 80,
-			expectedSecureHTTPPort:   80,
+			expectedPassthroughPort:  8080,
+			expectedInsecureHTTPPort: 8080,
+			expectedSecureHTTPPort:   8080,
 		},
 		{
 			desc:                     "external loadbalancer with port 55555",
@@ -1169,9 +1169,9 @@ func TestGetDedicatedListenerPorts(t *testing.T) {
 			ingressAnnotations: map[string]string{
 				"ingress.cilium.io/host-listener-port": "0",
 			},
-			expectedPassthroughPort:  80,
-			expectedInsecureHTTPPort: 80,
-			expectedSecureHTTPPort:   80,
+			expectedPassthroughPort:  8080,
+			expectedInsecureHTTPPort: 8080,
+			expectedSecureHTTPPort:   8080,
 		},
 		{
 			desc:               "hostnetwork with invalid value",
@@ -1179,9 +1179,9 @@ func TestGetDedicatedListenerPorts(t *testing.T) {
 			ingressAnnotations: map[string]string{
 				"ingress.cilium.io/host-listener-port": "invalid",
 			},
-			expectedPassthroughPort:  80,
-			expectedInsecureHTTPPort: 80,
-			expectedSecureHTTPPort:   80,
+			expectedPassthroughPort:  8080,
+			expectedInsecureHTTPPort: 8080,
+			expectedSecureHTTPPort:   8080,
 		},
 	}
 	for _, tC := range testCases {
