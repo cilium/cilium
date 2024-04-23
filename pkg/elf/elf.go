@@ -173,12 +173,15 @@ processSymbols:
 		if value == nil {
 			for _, prefix := range ignoredPrefixes {
 				if strings.HasPrefix(name, prefix) {
+					scopedLog.Info("Ignoring substitution")
 					continue processSymbols
 				}
 			}
 			scopedLog.Warning("Skipping symbol substitution")
 			continue processSymbols
 		}
+
+		scopedLog.Info("value", value)
 
 		// Encode the value at the given offset in the destination file.
 		if err := elf.writeValue(w, symbol.offset, value); err != nil {
