@@ -15,7 +15,6 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium-cli/install"
@@ -105,18 +104,8 @@ func newCmdUninstallWithHelm() *cobra.Command {
 			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
 
-			cc, err := check.NewConnectivityTest(k8sClient, check.Parameters{
-				CiliumNamespace: namespace,
-				TestNamespace:   params.TestNamespace,
-				FlowValidation:  check.FlowValidationModeDisabled,
-				Writer:          os.Stdout,
-			}, defaults.CLIVersion)
-			if err != nil {
-				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s\n", err)
-			} else {
-				cc.UninstallResources(ctx, params.Wait)
-			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
+			uninstaller.DeleteTestNamespace(ctx)
 			var hubbleParams = hubble.Parameters{
 				Writer:          os.Stdout,
 				Wait:            true,
