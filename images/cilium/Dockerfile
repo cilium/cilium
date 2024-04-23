@@ -3,7 +3,7 @@
 
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:bcf26b2fb0be1bccdb0bacf0c29fcb5530eb5997@sha256:45e22e685599cfdfbf9d2f0fce9635b3fc599f97c23dc541351d637e9563127c
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:0615d2db1a5616db6ebe0d467da69bfc2b552427@sha256:60d433ea2d8cbe9712205323fe00cfd76a210ef0115216dbdd9f22603136e9a4
-ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.29.4-fe3f52ea52e1a28e4c2cd295b0884fd697bb9e69@sha256:f48e6e65252f2ff53e8ae91e6521c2ae9ed747e8998e1b9dfc83a2664de3dc35
+ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.29.4-174c6af504235ce8f4ce998f98cac88c50202d29@sha256:3c5494946d3d72873d0a40408dba95ed35ee9ed39fbbe46ea031cfbf21c8bc7e
 
 # cilium-envoy from github.com/cilium/proxy
 #
