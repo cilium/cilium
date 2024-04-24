@@ -459,6 +459,12 @@ func TestAttachRemoveTCProgram(t *testing.T) {
 	})
 }
 
+func TestRemoveTCFiltersError(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	require.NoError(t, removeTCFilters("missing", directionToParent(dirIngress)))
+}
+
 func TestSetupIPIPDevices(t *testing.T) {
 	testutils.PrivilegedTest(t)
 

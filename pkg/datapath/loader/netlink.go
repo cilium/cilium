@@ -333,6 +333,10 @@ func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName, bpffsDir s
 // Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via tcDir.
 func removeTCFilters(ifName string, tcDir uint32) error {
 	link, err := netlink.LinkByName(ifName)
+	if errors.As(err, &netlink.LinkNotFoundError{}) {
+		// No interface, no filters to remove.
+		return nil
+	}
 	if err != nil {
 		return err
 	}
