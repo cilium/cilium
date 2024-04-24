@@ -18,6 +18,8 @@ import (
 	kvstoreEtcdInit "github.com/cilium/cilium/pkg/kvstore/etcdinit"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -38,6 +40,10 @@ func NewCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "etcdinit",
 		Short: "Initialise an etcd data directory for use by the etcd sidecar of clustermesh-apiserver",
+		PreRun: func(cmd *cobra.Command, args []string) {
+			option.LogRegisteredOptions(vp, log)
+			log.Infof("Cilium ClusterMesh etcd init %s", version.Version)
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			err := InitEtcdLocal()
 			// The error has already been handled and logged by InitEtcdLocal. We just use it to determine the exit code
