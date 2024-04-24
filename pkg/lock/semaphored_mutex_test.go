@@ -4,14 +4,10 @@
 package lock
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
 )
 
-type SemaphoredMutexSuite struct{}
-
-var _ = Suite(&SemaphoredMutexSuite{})
-
-func (s *SemaphoredMutexSuite) TestLock(c *C) {
+func TestSemaphoredMutex(t *testing.T) {
 	lock1 := NewSemaphoredMutex()
 	lock1.Lock()
 	lock1.Unlock()
