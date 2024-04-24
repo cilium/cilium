@@ -5,16 +5,12 @@ package bpf
 
 import (
 	"net"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-type BPFTestSuite struct{}
-
-var _ = Suite(&BPFTestSuite{})
-
-func (s *BPFTestSuite) TestEndpointKeyToString(c *C) {
+func TestEndpointKeyToString(t *testing.T) {
 	tests := []struct {
 		ip string
 	}{
@@ -27,6 +23,6 @@ func (s *BPFTestSuite) TestEndpointKeyToString(c *C) {
 	for _, tt := range tests {
 		ip := net.ParseIP(tt.ip)
 		k := NewEndpointKey(ip, 0)
-		c.Assert(k.ToIP().String(), Equals, tt.ip)
+		require.Equal(t, tt.ip, k.ToIP().String())
 	}
 }
