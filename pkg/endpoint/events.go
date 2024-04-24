@@ -237,7 +237,7 @@ func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
 			return
 		}
 		e.getLogger().Debug("creating visibility policy")
-		nvp, err = policy.NewVisibilityPolicy(proxyVisibility)
+		nvp, err = policy.NewVisibilityPolicy(proxyVisibility, e.K8sNamespace, e.K8sPodName)
 		if err != nil {
 			e.getLogger().WithError(err).Warning("unable to parse annotations into visibility policy; disabling visibility policy for endpoint")
 			e.visibilityPolicy = &policy.VisibilityPolicy{
