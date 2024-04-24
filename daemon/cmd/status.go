@@ -1079,6 +1079,25 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 				}
 			},
 		},
+		{
+			Name: "cni-config",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if d.cniConfigManager == nil {
+					return nil, nil
+				}
+				return d.cniConfigManager.Status(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.Status); ok {
+						d.statusResponse.CniFile = s
+					}
+				}
+			},
+		},
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
