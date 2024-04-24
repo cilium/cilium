@@ -258,6 +258,23 @@ function test_services {
     ${CILIUM_EXEC} cilium-dbg service delete 2
 }
 
+# Check whether the list of filters matches the expected list.
+#
+# $1 - ID
+# $@ - Filters
+function check_recorder_list {
+    ID=$1
+    shift
+    num_filters=$#
+    if [ $(${CILIUM_EXEC} cilium-dbg bpf recorder list | grep "ID:${ID}" | wc -l) -ne "$num_filters" ]; then
+        echo "Expected filters:"
+        echo "$@" | nl -bn
+        echo "Found filters:"
+        ${CILIUM_EXEC} cilium-dbg bpf recorder list | nl -bn
+        fatal "Recorder filters did not match expected list"
+    fi
+}
+
 force_cleanup 2>&1 >/dev/null
 initialize_docker_env
 trap cleanup EXIT
@@ -383,23 +400,8 @@ ${CILIUM_EXEC} \
     cilium-dbg recorder update --id 2 --caplen 100 \
         --filters="$(printf '%s,' "${RECORDER_FILTERS_IPV6[@]}" | sed 's/,*$//')"
 
-info "Checking the list of filters in IPv4 recorder ID:1"
-if [ $(${CILIUM_EXEC} cilium-dbg bpf recorder list | grep "ID:1" | wc -l) -ne ${#RECORDER_FILTERS_IPV4[@]} ]; then
-    echo "Expected filters:"
-    echo "${RECORDER_FILTERS_IPV4[@]}" | nl -bn
-    echo "Found filters:"
-    ${CILIUM_EXEC} cilium-dbg bpf recorder list | nl -bn
-    fatal "Recorder filters did not match expected list"
-fi
-
-info "Checking the list of filters in IPv6 recorder ID:2"
-if [ $(${CILIUM_EXEC} cilium-dbg bpf recorder list | grep "ID:2" | wc -l) -ne ${#RECORDER_FILTERS_IPV6[@]} ]; then
-    echo "Expected filters:"
-    echo "${RECORDER_FILTERS_IPV6[@]}" | nl -bn
-    echo "Found filters:"
-    ${CILIUM_EXEC} cilium-dbg bpf recorder list | nl -bn
-    fatal "Recorder filters did not match expected list"
-fi
+check_recorder_list 1 "${RECORDER_FILTERS_IPV4[@]}"
+check_recorder_list 2 "${RECORDER_FILTERS_IPV6[@]}"
 
 trace_exec ${CILIUM_EXEC} cilium-dbg recorder list
 trace_exec ${CILIUM_EXEC} cilium-dbg bpf recorder list
