@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -70,7 +69,7 @@ type k8sImplementation interface {
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time) (string, error)
 }
 
 func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
@@ -544,10 +543,11 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 			}
 			status.HelmChartVersion = release.Chart.Metadata.Version
 			return nil
-		}})
+		},
+	})
 
 	// for the sake of sanity, don't get pod logs more than once
-	var agentLogsOnce = sync.Once{}
+	agentLogsOnce := sync.Once{}
 	err := k.podStatus(ctx, status, defaults.AgentDaemonSetName, defaults.AgentPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
 		if pod.Status.Phase == corev1.PodRunning {
 			// extract container status
@@ -591,7 +591,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 									dyingGasp = strings.TrimSpace(terminated.Message)
 								} else {
 									agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
-										logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute), nil)
+										logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute))
 										if err == nil && logs != "" {
 											dyingGasp = strings.TrimSpace(logs)
 										}
@@ -621,7 +621,6 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 			})
 		}
 	})
-
 	if err != nil {
 		status.CollectionError(err)
 	}
