@@ -6,13 +6,12 @@ package counter
 import (
 	"net"
 	"net/netip"
+	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
+func TestReferenceTracker(t *testing.T) {
 	v4Prefixes := []netip.Prefix{
 		netip.MustParsePrefix("0.0.0.0/0"),
 		netip.MustParsePrefix("192.0.0.0/15"),
@@ -36,9 +35,9 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	}
 	// New prefixes are added (return true)
 	changed, err := result.Add(v4Prefixes)
-	c.Assert(err, IsNil)
-	c.Assert(changed, Equals, true)
-	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, expectedPrefixLengths, result.v4)
 
 	// When we add the prefixes again, we should increase the reference
 	// counts appropriately
@@ -47,9 +46,9 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	}
 	// This time, there are no new prefix lengths (return false).
 	changed, err = result.Add(v4Prefixes)
-	c.Assert(err, IsNil)
-	c.Assert(changed, Equals, false)
-	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Equal(t, expectedPrefixLengths, result.v4)
 
 	// Delete the /15 prefix and see that it is removed and doesn't affect
 	// other counts
@@ -57,34 +56,34 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 		netip.MustParsePrefix("192.0.0.0/15"),
 	}
 	expectedPrefixLengths[15]--
-	c.Assert(result.Delete(prefixes15), Equals, false)
-	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
+	require.False(t, result.Delete(prefixes15))
+	require.Equal(t, expectedPrefixLengths, result.v4)
 
 	// Delete some prefix lengths
 	for k, v := range v4PrefixesLengths {
 		expectedPrefixLengths[k] -= v
 	}
 	// No change in prefix lengths; each 'prefixes' was referenced twice.
-	c.Assert(result.Delete(v4Prefixes), Equals, false)
-	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
+	require.False(t, result.Delete(v4Prefixes))
+	require.Equal(t, expectedPrefixLengths, result.v4)
 
 	// Re-add the /32 prefix and see that it is added back properly.
 	expectedPrefixLengths[15]++
 	changed, err = result.Add(prefixes15)
-	c.Assert(err, IsNil)
-	c.Assert(changed, Equals, false)
-	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Equal(t, expectedPrefixLengths, result.v4)
 
 	// When removing the 'prefixes' again, return true and the set of
 	// prefixes should be empty
-	c.Assert(result.Delete(v4Prefixes), Equals, true)
-	c.Assert(result.v4, checker.DeepEquals, IntCounter{})
+	require.True(t, result.Delete(v4Prefixes))
+	require.Equal(t, IntCounter{}, result.v4)
 
 	// Add back the v4 prefixes while we add v6 prefixes.
 	changed, err = result.Add(v4Prefixes)
-	c.Assert(err, IsNil)
-	c.Assert(changed, Equals, true)
-	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, expectedPrefixLengths, result.v4)
 
 	v6Prefixes := []netip.Prefix{
 		netip.MustParsePrefix("::/0"),
@@ -106,44 +105,44 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 		expectedPrefixLengths[k] = v
 	}
 	changed, err = result.Add(v6Prefixes)
-	c.Assert(err, IsNil)
-	c.Assert(changed, Equals, true)
-	c.Assert(result.v6, checker.DeepEquals, expectedPrefixLengths)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, expectedPrefixLengths, result.v6)
 
 	// Add the v6 prefixes again (changed: false)
 	for k, v := range v6PrefixesLengths {
 		expectedPrefixLengths[k] += v
 	}
 	changed, err = result.Add(v6Prefixes)
-	c.Assert(err, IsNil)
-	c.Assert(changed, Equals, false)
-	c.Assert(result.v6, checker.DeepEquals, expectedPrefixLengths)
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Equal(t, expectedPrefixLengths, result.v6)
 
 	// Now, remove them (changed: false)
 	for k, v := range v6PrefixesLengths {
 		expectedPrefixLengths[k] -= v
 	}
-	c.Assert(result.Delete(v6Prefixes), Equals, false)
-	c.Assert(result.v6, checker.DeepEquals, expectedPrefixLengths)
+	require.False(t, result.Delete(v6Prefixes))
+	require.Equal(t, expectedPrefixLengths, result.v6)
 
 	// Delete them again (changed: true)
-	c.Assert(result.Delete(v6Prefixes), Equals, true)
-	c.Assert(result.v6, checker.DeepEquals, IntCounter{})
+	require.True(t, result.Delete(v6Prefixes))
+	require.Equal(t, IntCounter{}, result.v6)
 
 	// Our v4 prefixes should still be here, unchanged
 	expectedPrefixLengths = make(map[int]int, len(v4PrefixesLengths))
 	for k, v := range v4PrefixesLengths {
 		expectedPrefixLengths[k] += v
 	}
-	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
+	require.Equal(t, expectedPrefixLengths, result.v4)
 }
 
-func (cs *CounterTestSuite) TestCheckLimits(c *C) {
+func TestCheckLimits(t *testing.T) {
 	result := NewPrefixLengthCounter(4, 4)
-	c.Assert(checkLimits(0, 4, result.maxUniquePrefixes4), IsNil)
-	c.Assert(checkLimits(0, 5, result.maxUniquePrefixes4), NotNil)
-	c.Assert(checkLimits(0, 4, result.maxUniquePrefixes6), IsNil)
-	c.Assert(checkLimits(0, 5, result.maxUniquePrefixes6), NotNil)
+	require.Nil(t, checkLimits(0, 4, result.maxUniquePrefixes4))
+	require.NotNil(t, checkLimits(0, 5, result.maxUniquePrefixes4))
+	require.Nil(t, checkLimits(0, 4, result.maxUniquePrefixes6))
+	require.NotNil(t, checkLimits(0, 5, result.maxUniquePrefixes6))
 
 	prefixes := []netip.Prefix{
 		netip.MustParsePrefix("0.0.0.0/0"),
@@ -152,15 +151,15 @@ func (cs *CounterTestSuite) TestCheckLimits(c *C) {
 		netip.MustParsePrefix("192.0.2.3/32"),
 	}
 	changed, err := result.Add(prefixes)
-	c.Assert(err, IsNil)
-	c.Assert(changed, Equals, true)
+	require.NoError(t, err)
+	require.True(t, changed)
 
 	changed, err = result.Add([]netip.Prefix{netip.MustParsePrefix("192.0.0.0/8")})
-	c.Assert(err, NotNil)
-	c.Assert(changed, Equals, false)
+	require.Error(t, err)
+	require.False(t, changed)
 }
 
-func (cs *CounterTestSuite) TestToBPFData(c *C) {
+func TestToBPFData(t *testing.T) {
 	result := NewPrefixLengthCounter(42, 32)
 
 	prefixes := []string{
@@ -175,17 +174,17 @@ func (cs *CounterTestSuite) TestToBPFData(c *C) {
 	}
 
 	_, err := result.Add(prefixesToAdd)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	s6, s4 := result.ToBPFData()
-	c.Assert(s6, checker.DeepEquals, []int{})
-	c.Assert(s4, checker.DeepEquals, []int{32, 24, 20})
+	require.Equal(t, []int{}, s6)
+	require.Equal(t, []int{32, 24, 20}, s4)
 }
 
-func (cs *CounterTestSuite) TestDefaultPrefixLengthCounter(c *C) {
+func TestDefaultPrefixLengthCounter(t *testing.T) {
 	result := DefaultPrefixLengthCounter()
-	c.Assert(result.v4[0], Equals, 1)
-	c.Assert(result.v6[0], Equals, 1)
-	c.Assert(result.v4[net.IPv4len*8], Equals, 1)
-	c.Assert(result.v6[net.IPv6len*8], Equals, 1)
+	require.Equal(t, 1, result.v4[0])
+	require.Equal(t, 1, result.v6[0])
+	require.Equal(t, 1, result.v4[net.IPv4len*8])
+	require.Equal(t, 1, result.v6[net.IPv6len*8])
 }
