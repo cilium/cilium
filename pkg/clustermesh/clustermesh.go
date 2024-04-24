@@ -4,8 +4,10 @@
 package clustermesh
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -236,6 +238,10 @@ func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
 		status.Clusters = append(status.Clusters, rc.Status())
 		return nil
 	})
+
+	// Sort the remote clusters status to ensure consistent ordering.
+	slices.SortFunc(status.Clusters,
+		func(a, b *models.RemoteCluster) int { return cmp.Compare(a.Name, b.Name) })
 
 	return
 }
