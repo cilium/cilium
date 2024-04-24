@@ -7,56 +7,49 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	check "github.com/cilium/checkmate"
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/operator/option"
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type ENILimitsSuite struct{}
-
-var _ = check.Suite(&ENILimitsSuite{})
-
-func (e *ENILimitsSuite) TestGet(c *check.C) {
+func TestGet(t *testing.T) {
 	option.Config.AWSInstanceLimitMapping = map[string]string{"a2.custom2": "4,5,6"}
 
 	_, ok := Get("unknown")
-	c.Assert(ok, check.Equals, false)
+	require.False(t, ok)
 
 	l, ok := Get("m3.large")
-	c.Assert(ok, check.Equals, true)
-	c.Assert(l.Adapters, check.Not(check.Equals), 0)
-	c.Assert(l.IPv4, check.Not(check.Equals), 0)
-	c.Assert(l.HypervisorType, check.Equals, "xen")
+	require.True(t, ok)
+	require.NotEqual(t, l.Adapters, 0)
+	require.NotEqual(t, l.IPv4, 0)
+	require.Equal(t, "xen", l.HypervisorType)
 
 	UpdateFromUserDefinedMappings(option.Config.AWSInstanceLimitMapping)
 	l, ok = Get("a2.custom2")
-	c.Assert(ok, check.Equals, true)
-	c.Assert(l.Adapters, check.Equals, 4)
-	c.Assert(l.IPv4, check.Equals, 5)
-	c.Assert(l.IPv6, check.Equals, 6)
+	require.True(t, ok)
+	require.Equal(t, 4, l.Adapters)
+	require.Equal(t, 5, l.IPv4)
+	require.Equal(t, 6, l.IPv6)
 }
 
-func (e *ENILimitsSuite) TestUpdateFromUserDefinedMappings(c *check.C) {
+func TestUpdateFromUserDefinedMappings(t *testing.T) {
 	m1 := map[string]string{"a1.medium": "2,4,100"}
 
 	err := UpdateFromUserDefinedMappings(m1)
-	c.Assert(err, check.Equals, nil)
+	require.NoError(t, err)
 
 	limit, ok := Get("a1.medium")
-	c.Assert(ok, check.Equals, true)
-	c.Assert(limit.Adapters, check.Equals, 2)
-	c.Assert(limit.IPv4, check.Equals, 4)
-	c.Assert(limit.IPv6, check.Equals, 100)
+	require.True(t, ok)
+	require.Equal(t, 2, limit.Adapters)
+	require.Equal(t, 4, limit.IPv4)
+	require.Equal(t, 100, limit.IPv6)
 }
 
-func (e *ENILimitsSuite) TestParseLimitString(c *check.C) {
+func TestParseLimitString(t *testing.T) {
 	limitString1 := "4,5 ,6"
 	limitString2 := "4,5,a"
 	limitString3 := "4,5"
@@ -65,31 +58,35 @@ func (e *ENILimitsSuite) TestParseLimitString(c *check.C) {
 	limitString6 := ""
 
 	limit, err := parseLimitString(limitString1)
-	c.Assert(err, check.Equals, nil)
-	c.Assert(limit.Adapters, check.Equals, 4)
-	c.Assert(limit.IPv4, check.Equals, 5)
-	c.Assert(limit.IPv6, check.Equals, 6)
+	require.NoError(t, err)
+	require.Equal(t, 4, limit.Adapters)
+	require.Equal(t, 5, limit.IPv4)
+	require.Equal(t, 6, limit.IPv6)
 
 	limit, err = parseLimitString(limitString2)
-	c.Assert(err, check.Not(check.Equals), nil)
+	require.Error(t, err)
 
 	limit, err = parseLimitString(limitString3)
-	c.Assert(err.Error(), check.Equals, "invalid limit value")
-	c.Assert(limit.Adapters, check.Not(check.Equals), 4)
-	c.Assert(limit.IPv4, check.Not(check.Equals), 5)
-	c.Assert(limit.IPv6, check.Equals, 0)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid limit value")
+	require.NotEqual(t, limit.Adapters, 4)
+	require.NotEqual(t, limit.IPv4, 5)
+	require.Equal(t, limit.IPv6, 0)
 
 	limit, err = parseLimitString(limitString4)
-	c.Assert(err.Error(), check.Equals, "invalid limit value")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid limit value")
 
 	limit, err = parseLimitString(limitString5)
-	c.Assert(err.Error(), check.Equals, "invalid limit value")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid limit value")
 
 	limit, err = parseLimitString(limitString6)
-	c.Assert(err.Error(), check.Equals, "invalid limit value")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid limit value")
 }
 
-func (e *ENILimitsSuite) TestUpdateFromEC2API(c *check.C) {
+func TestUpdateFromEC2API(t *testing.T) {
 	instanceTypes := []ec2_types.InstanceTypeInfo{
 		{
 			Hypervisor:   ec2_types.InstanceTypeHypervisorXen,
@@ -106,8 +103,8 @@ func (e *ENILimitsSuite) TestUpdateFromEC2API(c *check.C) {
 	UpdateFromEC2API(context.Background(), api)
 
 	limit, ok := Get("newinstance.medium")
-	c.Assert(ok, check.Equals, true)
-	c.Assert(limit.Adapters, check.Equals, 8)
-	c.Assert(limit.IPv4, check.Equals, 30)
-	c.Assert(limit.IPv6, check.Equals, 30)
+	require.True(t, ok)
+	require.Equal(t, 8, limit.Adapters)
+	require.Equal(t, 30, limit.IPv4)
+	require.Equal(t, 30, limit.IPv6)
 }
