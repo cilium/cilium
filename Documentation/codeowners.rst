@@ -73,14 +73,11 @@ repository in the Cilium project:
   Provide recommendations about the types, names and labels for metrics to
   follow best practices. This includes considering the cardinality impact of
   metrics being added or extended.
+- `@cilium/release-managers <https://github.com/orgs/cilium/teams/release-managers>`__:
+  Review files related to releases like AUTHORS and VERSION.
 - `@cilium/security <https://github.com/orgs/cilium/teams/security>`__:
   Provide feedback on changes that could have security implications for Cilium,
   and maintain security-related documentation.
-- `@cilium/tophat <https://github.com/orgs/cilium/teams/tophat>`__:
-  Top Hat duties rotate between the committer group from week to week, and
-  they may assist in maintenance, triage and backporting duties across
-  different Cilium repositories. Catch-all for code not otherwise owned by a
-  team.
 - `@cilium/vendor <https://github.com/orgs/cilium/teams/vendor>`__:
   Review vendor updates for software dependencies to check for any potential
   upstream breakages / incompatibilities. Discourage the use of unofficial
