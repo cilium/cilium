@@ -5,20 +5,16 @@ package cmd
 
 import (
 	"encoding/json"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 )
-
-type BPFNatListSuite struct{}
-
-var _ = Suite(&BPFNatListSuite{})
 
 var (
 	natKey4 = nat.NatKey4{
@@ -69,7 +65,7 @@ type natRecord6 struct {
 	Value *nat.NatEntry6
 }
 
-func (s *BPFNatListSuite) TestDumpNat4(c *C) {
+func TestDumpNat4(t *testing.T) {
 	natMaps := []nat.NatMap{
 		mockmaps.NewNatMockMap(
 			[]nat.NatMapRecord{
@@ -93,11 +89,11 @@ func (s *BPFNatListSuite) TestDumpNat4(c *C) {
 		),
 	}
 
-	rawDump := dumpAndRead(natMaps, dumpNat, c)
+	rawDump := dumpAndRead(t, natMaps, dumpNat)
 
 	var natDump []natRecord4
 	err := json.Unmarshal([]byte(rawDump), &natDump)
-	c.Assert(err, IsNil, Commentf("invalid JSON output: '%s', '%s'", err, rawDump))
+	require.NoError(t, err, "invalid JSON output: '%s', '%s'", err, rawDump)
 
 	// JSON output may reorder the entries, but in our case they are all
 	// the same.
@@ -105,10 +101,10 @@ func (s *BPFNatListSuite) TestDumpNat4(c *C) {
 		Key:   &nat.NatKey4{TupleKey4Global: tuple.TupleKey4Global{TupleKey4: natDump[0].Key}},
 		Value: natDump[0].Value,
 	}
-	c.Assert(natRecordDump, checker.DeepEquals, natMaps[0].(*mockmaps.NatMockMap).Entries[0])
+	require.Equal(t, natRecordDump, natMaps[0].(*mockmaps.NatMockMap).Entries[0])
 }
 
-func (s *BPFNatListSuite) TestDumpNat6(c *C) {
+func TestDumpNat6(t *testing.T) {
 	natMaps := []nat.NatMap{
 		mockmaps.NewNatMockMap(
 			[]nat.NatMapRecord{
@@ -132,11 +128,11 @@ func (s *BPFNatListSuite) TestDumpNat6(c *C) {
 		),
 	}
 
-	rawDump := dumpAndRead(natMaps, dumpNat, c)
+	rawDump := dumpAndRead(t, natMaps, dumpNat)
 
 	var natDump []natRecord6
 	err := json.Unmarshal([]byte(rawDump), &natDump)
-	c.Assert(err, IsNil, Commentf("invalid JSON output: '%s', '%s'", err, rawDump))
+	require.NoError(t, err, "invalid JSON output: '%s', '%s'", err, rawDump)
 
 	// JSON output may reorder the entries, but in our case they are all
 	// the same.
@@ -144,5 +140,5 @@ func (s *BPFNatListSuite) TestDumpNat6(c *C) {
 		Key:   &nat.NatKey6{TupleKey6Global: tuple.TupleKey6Global{TupleKey6: natDump[0].Key}},
 		Value: natDump[0].Value,
 	}
-	c.Assert(natRecordDump, checker.DeepEquals, natMaps[0].(*mockmaps.NatMockMap).Entries[0])
+	require.Equal(t, natRecordDump, natMaps[0].(*mockmaps.NatMockMap).Entries[0])
 }

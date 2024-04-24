@@ -7,75 +7,71 @@ import (
 	"bytes"
 	"path"
 	"sort"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-type CMDHelpersSuite struct{}
-
-var _ = Suite(&CMDHelpersSuite{})
-
-func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
+func TestExpandNestedJSON(t *testing.T) {
 	buf := bytes.NewBufferString("not json at all")
 	res, err := expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `not json at all`)
+	require.NoError(t, err)
+	require.EqualValues(t, "not json at all", res.String())
 
 	buf = bytes.NewBufferString(`{\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `{\n\"notEscapedJson\": \"foo\"}`)
+	require.NoError(t, err)
+	require.EqualValues(t, `{\n\"notEscapedJson\": \"foo\"}`, res.String())
 
 	buf = bytes.NewBufferString(`nonjson={\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `nonjson={\n\"notEscapedJson\": \"foo\"}`)
+	require.NoError(t, err)
+	require.EqualValues(t, `nonjson={\n\"notEscapedJson\": \"foo\"}`, res.String())
 
 	buf = bytes.NewBufferString(`nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`)
+	require.NoError(t, err)
+	require.EqualValues(t, `nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`, res.String())
 
 	buf = bytes.NewBufferString(`{"foo": ["{\n  \"port\": 8080,\n  \"protocol\": \"TCP\"\n}"]}`)
 	res, err = expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `{"foo": [{
+	require.NoError(t, err)
+	require.EqualValues(t, `{"foo": [{
   "port": 8080,
   "protocol": "TCP"
-}]}`)
+}]}`, res.String())
 
 	buf = bytes.NewBufferString(`"foo": [
   "bar:baz/alice={\"bob\":{\"charlie\":4}}\n"
 ]`)
 	res, err = expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `"foo": [
+	require.NoError(t, err)
+	require.EqualValues(t, `"foo": [
   bar:baz/alice={
 				  "bob": {
 				    "charlie": 4
 				  }
 				}
 
-]`)
+]`, res.String())
 
 	buf = bytes.NewBufferString(`"foo": [
   "bar:baz/alice={\n\"bob\":\n{\n\"charlie\":\n4\n}\n}\n"
 ]`)
 	res, err = expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `"foo": [
+	require.NoError(t, err)
+	require.EqualValues(t, `"foo": [
   bar:baz/alice={
 				  "bob": {
 				    "charlie": 4
 				  }
 				}
 
-]`)
+]`, res.String())
 
 	buf = bytes.NewBufferString(`[
   {
@@ -288,8 +284,8 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
   }
 ]`)
 	res, err = expandNestedJSON(*buf)
-	c.Assert(err, IsNil)
-	c.Assert(res.String(), Equals, `[
+	require.NoError(t, err)
+	require.EqualValues(t, `[
   {
     "id": 2669,
     "spec": {
@@ -528,11 +524,11 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
       "state": "ready"
     }
   }
-]`)
+]`, res.String())
 
 }
 
-func (s *CMDHelpersSuite) TestParseTrafficString(c *C) {
+func TestParseTrafficString(t *testing.T) {
 
 	validIngressCases := []string{"ingress", "Ingress", "InGrEss"}
 	validEgressCases := []string{"egress", "Egress", "EGrEss"}
@@ -541,23 +537,22 @@ func (s *CMDHelpersSuite) TestParseTrafficString(c *C) {
 
 	for _, validCase := range validIngressCases {
 		ingressDir, err := parseTrafficString(validCase)
-		c.Assert(ingressDir, Equals, trafficdirection.Ingress)
-		c.Assert(err, IsNil)
+		require.NoError(t, err)
+		require.Equal(t, trafficdirection.Ingress, ingressDir)
 	}
 
 	for _, validCase := range validEgressCases {
 		egressDir, err := parseTrafficString(validCase)
-		c.Assert(egressDir, Equals, trafficdirection.Egress)
-		c.Assert(err, IsNil)
+		require.NoError(t, err)
+		require.Equal(t, trafficdirection.Egress, egressDir)
 	}
 
 	invalid, err := parseTrafficString(invalidStr)
-	c.Assert(invalid, Equals, trafficdirection.Invalid)
-	c.Assert(err, Not(IsNil))
-
+	require.Error(t, err)
+	require.Equal(t, trafficdirection.Invalid, invalid)
 }
 
-func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
+func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 	sortProtos := func(ints []uint8) {
 		sort.Slice(ints, func(i, j int) bool {
 			return ints[i] < ints[j]
@@ -652,18 +647,18 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		args, err := parsePolicyUpdateArgsHelper(tt.args, tt.isDeny)
 
 		if tt.invalid {
-			c.Assert(err, NotNil)
+			require.Error(t, err)
 		} else {
-			c.Assert(err, IsNil)
-
-			c.Assert(path.Base(args.path), Equals, tt.mapBaseName)
-			c.Assert(args.trafficDirection, Equals, tt.trafficDirection)
-			c.Assert(args.label, Equals, tt.peerLbl)
-			c.Assert(args.port, Equals, tt.port)
+			require.NoError(t, err)
+			require.Equal(t, args.isDeny, tt.isDeny)
+			require.Equal(t, path.Base(args.path), tt.mapBaseName)
+			require.Equal(t, args.trafficDirection, tt.trafficDirection)
+			require.Equal(t, args.label, tt.peerLbl)
+			require.Equal(t, args.port, tt.port)
 
 			sortProtos(args.protocols)
 			sortProtos(tt.protos)
-			c.Assert(args.protocols, checker.DeepEquals, tt.protos)
+			require.Equal(t, args.protocols, tt.protos)
 		}
 	}
 }
