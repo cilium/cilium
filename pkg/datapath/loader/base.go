@@ -35,10 +35,6 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-// firstInitialization is true when Reinitialize() is called for the first
-// time. It can only be accessed when GetCompilationLock() is being held.
-var firstInitialization = true
-
 const (
 	// netdevHeaderFileName is the name of the header file used for bpf_host.c and bpf_overlay.c.
 	netdevHeaderFileName = "netdev_config.h"
@@ -335,7 +331,6 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
-	defer func() { firstInitialization = false }()
 
 	l.init()
 
@@ -456,11 +451,6 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 
 		if err := l.reinitializeIPSec(ctx); err != nil {
 			return err
-		}
-
-		if firstInitialization {
-			// Start a background worker to reinitialize IPsec if links change.
-			l.reloadIPSecOnLinkChanges()
 		}
 	}
 
