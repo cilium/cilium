@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -12,11 +11,15 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,12 +43,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..).
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 )
@@ -282,7 +279,6 @@ func (c *Client) GetRaw(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 	return string(response), nil
-
 }
 
 func (c *Client) CreatePod(ctx context.Context, namespace string, pod *corev1.Pod, opts metav1.CreateOptions) (*corev1.Pod, error) {
@@ -305,12 +301,7 @@ func (c *Client) PodLogs(namespace, name string, opts *corev1.PodLogOptions) *re
 	return c.Clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
 }
 
-// separator for locating the start of the next log message. Sometimes
-// logs may span multiple lines, locate the timestamp, log level and
-// msg that always start a new log message
-var logSplitter = regexp.MustCompile(`\r?\n[^ ]+ level=[[:alpha:]]+ msg=`)
-
-func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error) {
+func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time) (string, error) {
 	opts := &corev1.PodLogOptions{
 		Container:  defaults.AgentContainerName,
 		Timestamps: true,
@@ -323,37 +314,12 @@ func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since ti
 	}
 	defer podLogs.Close()
 
-	buf := new(bytes.Buffer)
-	scanner := bufio.NewScanner(podLogs)
-	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		// find the full log line separator
-		loc := logSplitter.FindIndex(data)
-		if loc != nil {
-			// Locate '\n', advance just past it
-			nl := loc[0] + bytes.IndexByte(data[loc[0]:loc[1]], '\n') + 1
-			return nl, data[:nl], nil
-		} else if atEOF {
-			// EOF, return all we have
-			return len(data), data, nil
-		}
-		// Nothing to return
-		return 0, nil, nil
-	})
-
-	for scanner.Scan() {
-		if filter != nil && !filter.Match(scanner.Bytes()) {
-			continue
-		}
-		buf.Write(scanner.Bytes())
-	}
-	err = scanner.Err()
+	log, err := io.ReadAll(podLogs)
 	if err != nil {
-		err = fmt.Errorf("error reading cilium-agent logs for %s/%s: %w", namespace, pod, err)
+		return "", fmt.Errorf("error reading log: %w", err)
 	}
-	return buf.String(), err
+
+	return string(log), nil
 }
 
 func (c *Client) ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error) {
@@ -916,7 +882,6 @@ func (c *Client) GetHelmValues(_ context.Context, releaseName string, namespace 
 		return "", fmt.Errorf("unable to parse helm values from release %s: %w", releaseName, err)
 	}
 	return valuesBuf.String(), nil
-
 }
 
 // GetHelmMetadata is the function for cilium cli sysdump to collect the helm metadata from the release directly
@@ -942,7 +907,6 @@ func (c *Client) GetHelmMetadata(_ context.Context, releaseName string, namespac
 		return "", fmt.Errorf("unable to parse helm metas from release %s: %w", releaseName, err)
 	}
 	return buf.String(), nil
-
 }
 
 // CreateEphemeralContainer will create a EphemeralContainer (debug container) in the specified pod.
