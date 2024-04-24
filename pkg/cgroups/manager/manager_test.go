@@ -7,23 +7,13 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type ManagerSuite struct {
-	mm *CgroupManager
-}
-
-var _ = Suite(&ManagerSuite{})
 
 type cgroupMock struct {
 	cgroupIds map[string]uint64
@@ -135,7 +125,7 @@ func newCgroupManagerTest(pMock providerMock, cg cgroup) *CgroupManager {
 	return initManager(pMock, cg, 0)
 }
 
-func (m *ManagerSuite) SetUpTest(c *C) {
+func setup(tb testing.TB) {
 	option.Config.EnableSocketLBTracing = true
 	nodetypes.SetName("n1")
 }
@@ -144,7 +134,9 @@ func getFullPath(path string) string {
 	return cgroupRoot + path
 }
 
-func (m *ManagerSuite) TestGetPodMetadataOnPodAdd(c *C) {
+func TestGetPodMetadataOnPodAdd(t *testing.T) {
+	setup(t)
+
 	c1CId := uint64(1234)
 	c2CId := uint64(4567)
 	c3CId := uint64(2345)
@@ -176,13 +168,16 @@ func (m *ManagerSuite) TestGetPodMetadataOnPodAdd(c *C) {
 	}
 
 	for _, tc := range tests {
-		mm.OnAddPod(tc.input)
+		t.Run(tc.input.Name, func(t *testing.T) {
+			mm.OnAddPod(tc.input)
 
-		got := mm.GetPodMetadataForContainer(tc.cgrpId)
-		c.Assert(got, checker.Equals, tc.want)
+			got := mm.GetPodMetadataForContainer(tc.cgrpId)
+			require.Equal(t, tc.want, got)
+		})
 	}
 }
-func (m *ManagerSuite) TestGetPodMetadataOnPodUpdate(c *C) {
+
+func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 	c3CId := uint64(2345)
 	c1CId := uint64(1234)
 	cgMock := cgroupMock{cgroupIds: map[string]uint64{
@@ -203,41 +198,38 @@ func (m *ManagerSuite) TestGetPodMetadataOnPodUpdate(c *C) {
 
 	// No pod added yet, so no pod metadata.
 	got := mm.GetPodMetadataForContainer(c3CId)
-	c.Assert(got, checker.Equals, (*PodMetadata)(nil))
+	require.Nil(t, got)
 
 	// Add pod, and check for pod metadata for their containers.
 	mm.OnAddPod(pod3)
 
 	got = mm.GetPodMetadataForContainer(c3CId)
-	c.Assert(got, checker.Equals, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs})
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
 
 	// Update pod, and check for pod metadata for their containers.
 	mm.OnUpdatePod(pod1, newPod)
 
 	got1 := mm.GetPodMetadataForContainer(c3CId)
 	got2 := mm.GetPodMetadataForContainer(c1CId)
-	c.Assert(got1, checker.Equals, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs})
-	c.Assert(got2, checker.Equals, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs})
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got1)
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got2)
 }
 
-func (m *ManagerSuite) TestGetPodMetadataOnManagerDisabled(c *C) {
+func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 	// Disable the feature flag.
 	option.Config.EnableSocketLBTracing = false
-	m.mm = newCgroupManagerTest(providerMock{}, cgroupMock{})
+	mm := newCgroupManagerTest(providerMock{}, cgroupMock{})
 	c1CId := uint64(1234)
 
-	m.mm.OnAddPod(pod1)
+	mm.OnAddPod(pod1)
 
-	got := m.mm.GetPodMetadataForContainer(c1CId)
-
-	c.Assert(got, checker.Equals, (*PodMetadata)(nil))
+	got := mm.GetPodMetadataForContainer(c1CId)
+	require.Nil(t, got)
 
 	// Enable the feature flag, but the cgroup base path validation fails.
 	option.Config.EnableSocketLBTracing = true
-	m.mm.OnAddPod(pod1)
+	mm.OnAddPod(pod1)
 
-	got = m.mm.GetPodMetadataForContainer(c1CId)
-
-	c.Assert(got, checker.Equals, (*PodMetadata)(nil))
-
+	got = mm.GetPodMetadataForContainer(c1CId)
+	require.Nil(t, got)
 }
