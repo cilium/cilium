@@ -8,37 +8,28 @@ import (
 	"errors"
 	"testing"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type MockSuite struct{}
-
-var _ = check.Suite(&MockSuite{})
-
-func (e *MockSuite) TestMock(c *check.C) {
+func TestMock(t *testing.T) {
 	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr.MustParseCIDR("10.0.0.0/16"), AvailableAddresses: 65534}
 	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
-	c.Assert(api, check.Not(check.IsNil))
+	require.NotNil(t, api)
 
 	instances, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
-	c.Assert(err, check.IsNil)
-	c.Assert(instances.NumInstances(), check.Equals, 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, instances.NumInstances())
 
 	vnets, subnets, err := api.GetVpcsAndSubnets(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(len(vnets), check.Equals, 1)
-	c.Assert(vnets["v-1"], checker.DeepEquals, &ipamTypes.VirtualNetwork{ID: "v-1"})
-	c.Assert(len(subnets), check.Equals, 1)
-	c.Assert(subnets["s-1"], checker.DeepEquals, subnet)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(vnets))
+	require.Equal(t, &ipamTypes.VirtualNetwork{ID: "v-1"}, vnets["v-1"])
+	require.Equal(t, 1, len(subnets))
+	require.Equal(t, subnet, subnets["s-1"])
 
 	ifaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11"
 	instances = ipamTypes.NewInstanceMap()
@@ -49,26 +40,26 @@ func (e *MockSuite) TestMock(c *check.C) {
 	})
 	api.UpdateInstances(instances)
 	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
-	c.Assert(err, check.IsNil)
-	c.Assert(instances.NumInstances(), check.Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, instances.NumInstances())
 	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
-		c.Assert(instanceID, check.Equals, "vm1")
-		c.Assert(interfaceID, check.Equals, ifaceID)
+		require.Equal(t, "vm1", instanceID)
+		require.Equal(t, ifaceID, interfaceID)
 		return nil
 	})
 
 	err = api.AssignPrivateIpAddressesVMSS(context.Background(), "vm1", "vmss1", "s-1", "eth0", 2)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
-	c.Assert(err, check.IsNil)
-	c.Assert(instances.NumInstances(), check.Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, instances.NumInstances())
 	instances.ForeachInterface("", func(instanceID, interfaceID string, revision ipamTypes.InterfaceRevision) error {
-		c.Assert(instanceID, check.Equals, "vm1")
-		c.Assert(interfaceID, check.Equals, ifaceID)
+		require.Equal(t, "vm1", instanceID)
+		require.Equal(t, ifaceID, interfaceID)
 
 		iface, ok := revision.Resource.(*types.AzureInterface)
-		c.Assert(ok, check.Equals, true)
-		c.Assert(len(iface.Addresses), check.Equals, 2)
+		require.True(t, ok)
+		require.Equal(t, 2, len(iface.Addresses))
 		return nil
 	})
 
@@ -79,41 +70,41 @@ func (e *MockSuite) TestMock(c *check.C) {
 	vmInstances.Update("vm2", ipamTypes.InterfaceRevision{
 		Resource: resource.DeepCopy(),
 	})
-	c.Assert(err, check.IsNil)
-	c.Assert(vmInstances.NumInstances(), check.Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, vmInstances.NumInstances())
 	vmInstances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
-		c.Assert(instanceID, check.Equals, "vm2")
-		c.Assert(interfaceID, check.Equals, vmIfaceID)
+		require.Equal(t, "vm2", instanceID)
+		require.Equal(t, vmIfaceID, interfaceID)
 		return nil
 	})
 
 }
 
-func (e *MockSuite) TestSetMockError(c *check.C) {
+func TestSetMockError(t *testing.T) {
 	api := NewAPI([]*ipamTypes.Subnet{}, []*ipamTypes.VirtualNetwork{})
-	c.Assert(api, check.Not(check.IsNil))
+	require.NotNil(t, api)
 
 	mockError := errors.New("error")
 
 	api.SetMockError(GetInstances, mockError)
 	_, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
-	c.Assert(err, check.Equals, mockError)
+	require.ErrorIs(t, err, mockError)
 
 	api.SetMockError(GetVpcsAndSubnets, mockError)
 	_, _, err = api.GetVpcsAndSubnets(context.Background())
-	c.Assert(err, check.Equals, mockError)
+	require.ErrorIs(t, err, mockError)
 
 	api.SetMockError(AssignPrivateIpAddressesVMSS, mockError)
 	err = api.AssignPrivateIpAddressesVMSS(context.Background(), "vmss1", "i-1", "s-1", "eth0", 0)
-	c.Assert(err, check.Equals, mockError)
+	require.ErrorIs(t, err, mockError)
 }
 
-func (e *MockSuite) TestSetLimiter(c *check.C) {
+func TestSetLimiter(t *testing.T) {
 	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr.MustParseCIDR("10.0.0.0/16"), AvailableAddresses: 100}
 	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
-	c.Assert(api, check.Not(check.IsNil))
+	require.NotNil(t, api)
 
 	api.SetLimiter(10.0, 2)
 	_, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 }

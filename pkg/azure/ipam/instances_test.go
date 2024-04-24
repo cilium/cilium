@@ -5,8 +5,9 @@ package ipam
 
 import (
 	"context"
+	"testing"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
@@ -163,26 +164,26 @@ func iteration2(api *apimock.API, mngr *InstancesManager) {
 	mngr.Resync(context.TODO())
 }
 
-func (e *IPAMSuite) TestGetVpcsAndSubnets(c *check.C) {
+func TestGetVpcsAndSubnets(t *testing.T) {
 	api := apimock.NewAPI(subnets, vnets)
-	c.Assert(api, check.Not(check.IsNil))
+	require.NotNil(t, api)
 
 	mngr := NewInstancesManager(api)
-	c.Assert(mngr, check.Not(check.IsNil))
+	require.NotNil(t, mngr)
 
-	c.Assert(mngr.subnets["subnet-1"], check.IsNil)
-	c.Assert(mngr.subnets["subnet-2"], check.IsNil)
-	c.Assert(mngr.subnets["subnet-3"], check.IsNil)
+	require.Nil(t, mngr.subnets["subnet-1"])
+	require.Nil(t, mngr.subnets["subnet-2"])
+	require.Nil(t, mngr.subnets["subnet-3"])
 
 	iteration1(api, mngr)
 
-	c.Assert(mngr.subnets["subnet-1"], check.Not(check.IsNil))
-	c.Assert(mngr.subnets["subnet-2"], check.Not(check.IsNil))
-	c.Assert(mngr.subnets["subnet-3"], check.IsNil)
+	require.NotNil(t, mngr.subnets["subnet-1"])
+	require.NotNil(t, mngr.subnets["subnet-2"])
+	require.Nil(t, mngr.subnets["subnet-3"])
 
 	iteration2(api, mngr)
 
-	c.Assert(mngr.subnets["subnet-1"], check.Not(check.IsNil))
-	c.Assert(mngr.subnets["subnet-2"], check.Not(check.IsNil))
-	c.Assert(mngr.subnets["subnet-3"], check.Not(check.IsNil))
+	require.NotNil(t, mngr.subnets["subnet-1"])
+	require.NotNil(t, mngr.subnets["subnet-2"])
+	require.NotNil(t, mngr.subnets["subnet-3"])
 }
