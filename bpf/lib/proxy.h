@@ -18,6 +18,7 @@ assign_socket_tcp(struct __ctx_buff *ctx,
 	int result = DROP_PROXY_LOOKUP_FAILED;
 	struct bpf_sock *sk;
 	__u32 dbg_ctx;
+	__u32 family;
 
 	sk = skc_lookup_tcp(ctx, tuple, len, BPF_F_CURRENT_NETNS, 0);
 	if (!sk)
@@ -28,7 +29,8 @@ assign_socket_tcp(struct __ctx_buff *ctx,
 	if (established && sk->state == BPF_TCP_LISTEN)
 		goto release;
 
-	dbg_ctx = sk->family << 16 | ctx->protocol;
+	family = sk->family;
+	dbg_ctx = family << 16 | ctx->protocol;
 	result = sk_assign(ctx, sk, 0);
 	cilium_dbg(ctx, DBG_SK_ASSIGN, -result, dbg_ctx);
 	if (result == 0)
@@ -49,12 +51,14 @@ assign_socket_udp(struct __ctx_buff *ctx,
 	int result = DROP_PROXY_LOOKUP_FAILED;
 	struct bpf_sock *sk;
 	__u32 dbg_ctx;
+	__u32 family;
 
 	sk = sk_lookup_udp(ctx, tuple, len, BPF_F_CURRENT_NETNS, 0);
 	if (!sk)
 		goto out;
 
-	dbg_ctx = sk->family << 16 | ctx->protocol;
+	family = sk->family;
+	dbg_ctx = family << 16 | ctx->protocol;
 	result = sk_assign(ctx, sk, 0);
 	cilium_dbg(ctx, DBG_SK_ASSIGN, -result, dbg_ctx);
 	if (result == 0)
