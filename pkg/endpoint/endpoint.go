@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -47,7 +48,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
@@ -1192,10 +1192,6 @@ type DeleteConfig struct {
 // DeleteConfig and the restore logic must opt-out of it.
 func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errs := []error{}
-
-	if !e.isProperty(PropertyFakeEndpoint) {
-		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
-	}
 
 	// Remove policy references from shared policy structures
 	e.desiredPolicy.Detach()
@@ -2450,17 +2446,6 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	}
 	e.setState(StateDisconnecting, "Deleting endpoint")
 
-	// If dry mode is enabled, no changes to BPF maps are performed
-	if !e.isProperty(PropertyFakeEndpoint) {
-		if errs2 := lxcmap.DeleteElement(e); errs2 != nil {
-			errs = append(errs, errs2...)
-		}
-
-		if errs2 := e.deleteMaps(); errs2 != nil {
-			errs = append(errs, errs2...)
-		}
-	}
-
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 		e.getLogger().WithFields(logrus.Fields{
 			"ep":     e.GetID(),
@@ -2490,6 +2475,24 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}
 	}
 
+	// If dry mode is enabled, no changes to system state are made.
+	if !e.isProperty(PropertyFakeEndpoint) {
+		// Set the Endpoint's interface down to prevent it from passing any traffic
+		// after its tc filters are removed.
+		if err := e.setDown(); err != nil {
+			errs = append(errs, err)
+		}
+
+		// Detach the endpoint program from any tc(x) hooks.
+		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
+
+		// Delete the endpoint's entries from the global cilium_(egress)call_policy
+		// maps and remove per-endpoint cilium_calls_ and cilium_policy_ map pins.
+		if err := e.deleteMaps(); err != nil {
+			errs = append(errs, err...)
+		}
+	}
+
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
@@ -2503,6 +2506,21 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	cancel()
 
 	return errs
+}
+
+// setDown sets the Endpoint's underlying interface down. If the interface
+// cannot be retrieved, returns nil.
+func (e *Endpoint) setDown() error {
+	link, err := netlink.LinkByName(e.HostInterface())
+	if errors.As(err, &netlink.LinkNotFoundError{}) {
+		// No interface, nothing to do.
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("setting interface %s down: %w", e.HostInterface(), err)
+	}
+
+	return netlink.LinkSetDown(link)
 }
 
 // WaitForFirstRegeneration waits for the endpoint to complete its first full regeneration.
