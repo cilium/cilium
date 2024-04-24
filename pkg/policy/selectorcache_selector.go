@@ -109,7 +109,7 @@ type CachedSelectionUser interface {
 // new identitySelectors are pre-populated from the set of currently
 // known identities.
 //
-// 2. When reachacble identities appear or disappear, either via local
+// 2. When reachable identities appear or disappear, either via local
 // allocation (CIDRs), or via the KV-store (remote endpoints). In this
 // case all existing identitySelectors are walked through and their
 // cached selections are updated as necessary.
