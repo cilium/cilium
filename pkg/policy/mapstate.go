@@ -281,6 +281,24 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 	return ok
 }
 
+// HasSameOwners returns true if both MapStateEntries
+// have the same owners as one another (which means that
+// one of the entries is redundant).
+func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
+	if e == nil && bEntry == nil {
+		return true
+	}
+	if len(e.owners) != len(bEntry.owners) {
+		return false
+	}
+	for _, owner := range e.owners {
+		if _, ok := bEntry.owners[owner]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 var worldNets = map[identity.NumericIdentity][]*net.IPNet{
 	identity.ReservedIdentityWorld: {
 		{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
@@ -393,6 +411,7 @@ func (msA *mapState) Equals(msB MapState) bool {
 // '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
 // For use in debugging.
 func (obtained *mapState) Diff(_ *testing.T, expected MapState) (res string) {
+	res += "Missing (-), Unexpected (+):\n"
 	expected.ForEach(func(kE Key, vE MapStateEntry) bool {
 		if vO, ok := obtained.Get(kE); ok {
 			if !(&vO).DatapathEqual(&vE) {
@@ -867,12 +886,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				return true
 			}
 
-			if (newKey.Identity == k.Identity ||
-				identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
-				k.DestPort == 0 && k.Nexthdr == 0 &&
-				!v.HasDependent(newKey) {
+			if !v.HasDependent(newKey) && v.HasSameOwners(&newEntry) &&
+				(k.PortProtoIsEqual(newKey) || k.PortProtoIsBroader(newKey)) &&
+				(newKey.Identity == k.Identity ||
+					identityIsSupersetOf(k.Identity, newKey.Identity, identities)) {
 				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
-				// the iterated-deny-entry is an L3-only policy then we
+				// the iterated-deny-entry has a broader (or equal) port-protocol and
+				// the ownership between the entries is the same then we
 				// should not insert the new entry (as long as it is not one
 				// of the special L4-only denies we created to cover the special
 				// case of a superset-allow with a more specific port-protocol).
@@ -881,12 +901,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// but there *may* be performance tradeoffs.
 				bailed = true
 				return false
-			} else if (newKey.Identity == k.Identity ||
-				identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
-				newKey.DestPort == 0 && newKey.Nexthdr == 0 &&
-				!newEntry.HasDependent(k) {
+			} else if !newEntry.HasDependent(k) && newEntry.HasSameOwners(&v) &&
+				(newKey.PortProtoIsEqual(k) || newKey.PortProtoIsBroader(k)) &&
+				(newKey.Identity == k.Identity ||
+					identityIsSupersetOf(newKey.Identity, k.Identity, identities)) {
 				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
-				// the new-entry is an L3-only policy then we
+				// the new-entry has a broader (or equal) port-protocol and
+				// the ownership between the entries is the same then we
 				// should delete the iterated-deny-entry (as long as it is not one
 				// of the special L4-only denies we created to cover the special
 				// case of a superset-allow with a more specific port-protocol).
