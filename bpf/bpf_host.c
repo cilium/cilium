@@ -1082,9 +1082,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #if defined(ENABLE_L7_LB)
 		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 			/* extracted identity is actually the endpoint ID */
-			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, identity);
-			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
-						      CTX_ACT_DROP, METRIC_EGRESS);
+			ret = tail_call_egress_policy(ctx, (__u16)identity);
+			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+						      METRIC_EGRESS);
 		}
 #endif
 
@@ -1375,9 +1375,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		__u32 lxc_id = get_epid(ctx);
 
 		ctx->mark = 0;
-		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
-		return send_drop_notify_error(ctx, src_sec_identity,
-					      DROP_MISSED_TAIL_CALL,
+		ret = tail_call_egress_policy(ctx, (__u16)lxc_id);
+		return send_drop_notify_error(ctx, src_sec_identity, ret,
 					      CTX_ACT_DROP, METRIC_EGRESS);
 	}
 #endif
