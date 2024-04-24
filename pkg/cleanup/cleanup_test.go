@@ -7,19 +7,10 @@ import (
 	"sync"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type CleanupTestSuite struct{}
-
-var _ = Suite(&CleanupTestSuite{})
-
-func (cts *CleanupTestSuite) TestHandleCleanup(c *C) {
+func TestHandleCleanup(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	ch := make(chan struct{})
 	i := 0
@@ -28,5 +19,5 @@ func (cts *CleanupTestSuite) TestHandleCleanup(c *C) {
 	})
 	close(ch)
 	wg.Wait()
-	c.Assert(i, Equals, 1)
+	require.Equal(t, 1, i)
 }
