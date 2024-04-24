@@ -1778,7 +1778,7 @@ type DaemonConfig struct {
 
 	// KVstoreMaxConsecutiveQuorumErrors is the maximum number of acceptable
 	// kvstore consecutive quorum errors before the agent assumes permanent failure
-	KVstoreMaxConsecutiveQuorumErrors int
+	KVstoreMaxConsecutiveQuorumErrors uint
 
 	// KVstorePeriodicSync is the time interval in which periodic
 	// synchronization with the kvstore occurs
@@ -2958,7 +2958,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
 	c.KVstorePeriodicSync = vp.GetDuration(KVstorePeriodicSync)
 	c.KVstoreConnectivityTimeout = vp.GetDuration(KVstoreConnectivityTimeout)
-	c.KVstoreMaxConsecutiveQuorumErrors = vp.GetInt(KVstoreMaxConsecutiveQuorumErrorsName)
+	c.KVstoreMaxConsecutiveQuorumErrors = vp.GetUint(KVstoreMaxConsecutiveQuorumErrorsName)
 	c.LabelPrefixFile = vp.GetString(LabelPrefixFile)
 	c.Labels = vp.GetStringSlice(Labels)
 	c.LibDir = vp.GetString(LibDir)
