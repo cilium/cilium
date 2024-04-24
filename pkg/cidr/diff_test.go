@@ -4,12 +4,13 @@
 package cidr
 
 import (
-	check "github.com/cilium/checkmate"
+	"fmt"
+	"testing"
 
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *CidrTestSuite) TestDiffIPNetLists(c *check.C) {
+func TestDiffIPNetLists(t *testing.T) {
 	net1 := MustParseCIDR("1.1.1.1/32")
 	net2 := MustParseCIDR("1.1.1.1/24")
 	net3 := MustParseCIDR("cafe::1/128")
@@ -31,9 +32,11 @@ func (s *CidrTestSuite) TestDiffIPNetLists(c *check.C) {
 		{old: []*CIDR{net1, net2, net3, net4}, new: []*CIDR{net1, net2, net3, net4}, add: nil, remove: nil},
 	}
 
-	for i, t := range expectations {
-		add, remove := DiffCIDRLists(t.old, t.new)
-		c.Assert(add, checker.DeepEquals, t.add, check.Commentf("test index: %d", i))
-		c.Assert(remove, checker.DeepEquals, t.remove, check.Commentf("test index: %d", i))
+	for i, tt := range expectations {
+		t.Run(fmt.Sprintf("Test index %d", i), func(t *testing.T) {
+			add, remove := DiffCIDRLists(tt.old, tt.new)
+			require.Equal(t, tt.add, add)
+			require.Equal(t, tt.remove, remove)
+		})
 	}
 }
