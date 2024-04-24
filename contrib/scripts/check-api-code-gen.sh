@@ -22,6 +22,7 @@ rm -fr api/v1/health/models/
 find api/v1/health/server/* -not -name 'configure_cilium_health_api.go' \
                             -delete
 
+# Remove api/v1/kvstoremesh generated code
 rm -fr api/v1/kvstoremesh/client
 find api/v1/kvstoremesh/models/* -not -name 'doc.go' \
                                  -not -name 'zz_generated.deepcopy.go' \
