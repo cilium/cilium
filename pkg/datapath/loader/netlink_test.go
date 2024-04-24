@@ -131,3 +131,9 @@ func TestAddHostDeviceAddr(t *testing.T) {
 		return nil
 	})
 }
+
+func TestRemoveTCFiltersError(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	require.NoError(t, RemoveTCFilters("missing", directionToParent(dirIngress)))
+}
