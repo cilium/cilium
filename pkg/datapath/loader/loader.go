@@ -657,13 +657,29 @@ func (l *Loader) Unload(ep datapath.Endpoint) {
 		}
 	}
 
+	log := log.WithField(logfields.EndpointID, ep.StringID())
+
+	// Remove legacy tc attachments.
+	if err := removeTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_INGRESS); err != nil {
+		log.WithError(err).Errorf("Removing ingress filter from interface %s", ep.InterfaceName())
+	}
+	if err := removeTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS); err != nil {
+		log.WithError(err).Errorf("Removing egress filter from interface %s", ep.InterfaceName())
+	}
+
 	// If Cilium and the kernel support tcx to attach TC programs to the
 	// endpoint's veth device, its bpf_link object is pinned to a per-endpoint
-	// bpffs directory. When the endpoint gets deleted, removing the whole
-	// directory cleans up any pinned maps and links.
-	bpffsPath := bpffsEndpointDir(bpf.CiliumPath(), ep)
-	if err := bpf.Remove(bpffsPath); err != nil {
-		log.WithError(err).WithField(logfields.EndpointID, ep.StringID())
+	// bpffs directory. When the endpoint gets deleted, we can remove the whole
+	// directory to clean up any leftover pinned links and maps.
+
+	// Remove the links directory first to avoid removing program arrays before
+	// the entrypoints are detached.
+	if err := bpf.Remove(bpffsEndpointLinksDir(bpf.CiliumPath(), ep)); err != nil {
+		log.WithError(err)
+	}
+	// Finally, remove the endpoint's top-level directory.
+	if err := bpf.Remove(bpffsEndpointDir(bpf.CiliumPath(), ep)); err != nil {
+		log.WithError(err)
 	}
 }
 
