@@ -4,8 +4,7 @@
 #ifndef __LIB_ENDIAN_H_
 #define __LIB_ENDIAN_H_
 
-#include <bpf/ctx/ctx.h>
-#include <bpf/api.h>
+#include <linux/byteorder.h>
 
 #define ___bpf_mvb(x, b, n, m) ((__u##b)(x) << (b-(n+1)*8) >> (b-8) << (m*8))
 

@@ -29,7 +29,6 @@ struct {
 } METRICS_MAP __section_maps_btf;
 
 
-#ifndef SKIP_POLICY_MAP
 /* Global map to jump into policy enforcement of receiving endpoint */
 struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
@@ -53,9 +52,7 @@ tail_call_policy_static(struct __ctx_buff *ctx, __u16 endpoint_id)
 	tail_call_static(ctx, POLICY_CALL_MAP, endpoint_id);
 	return DROP_MISSED_TAIL_CALL;
 }
-#endif /* SKIP_POLICY_MAP */
 
-#ifdef ENABLE_L7_LB
 /* Global map to jump into policy enforcement of sending endpoint */
 struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
@@ -65,9 +62,7 @@ struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
-#endif
 
-#ifdef ENABLE_BANDWIDTH_MANAGER
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct edt_id);
@@ -76,9 +71,7 @@ struct {
 	__uint(max_entries, THROTTLE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } THROTTLE_MAP __section_maps_btf;
-#endif /* ENABLE_BANDWIDTH_MANAGER */
 
-#ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
@@ -88,9 +81,7 @@ struct {
 	__uint(max_entries, POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } POLICY_MAP __section_maps_btf;
-#endif
 
-#ifdef AUTH_MAP
 /* Global auth map for enforcing authentication policy */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -100,9 +91,7 @@ struct {
 	__uint(max_entries, AUTH_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } AUTH_MAP __section_maps_btf;
-#endif
 
-#ifdef CONFIG_MAP
 /*
  * CONFIG_MAP is an array containing runtime configuration information to the
  * bpf datapath.  Each element in the array is a 64-bit integer, meaning of
@@ -115,9 +104,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CONFIG_MAP_SIZE);
 } CONFIG_MAP __section_maps_btf;
-#endif
 
-#ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
 struct bpf_elf_map __section_maps CALLS_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
@@ -127,9 +114,6 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_CALL_SIZE,
 };
-#endif /* SKIP_CALLS_MAP */
-
-#ifdef HAVE_ENCAP
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -140,9 +124,6 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } TUNNEL_MAP __section_maps_btf;
 
-#endif
-
-#if defined(ENABLE_CUSTOM_CALLS) && defined(CUSTOM_CALLS_MAP)
 /* Private per-EP map for tail calls to user-defined programs.
  * CUSTOM_CALLS_MAP is a per-EP map name, only defined for programs that need
  * to use the map, so we do not want to compile this definition if
@@ -161,7 +142,6 @@ struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
 #define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
 #define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
 #define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
-#endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
 
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
@@ -239,7 +219,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } L2_RESPONDER_MAP4 __section_maps_btf;
 
-#ifdef ENABLE_EGRESS_GATEWAY
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key);
@@ -248,9 +227,7 @@ struct {
 	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } EGRESS_POLICY_MAP __section_maps_btf;
-#endif /* ENABLE_EGRESS_GATEWAY */
 
-#ifdef ENABLE_SRV6
 # define SRV6_VRF_MAP(IP_FAMILY)				\
 struct {						\
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);		\
@@ -280,11 +257,9 @@ struct {										\
 	__uint(max_entries, SRV6_STATE_MAP_SIZE);					\
 } SRV6_STATE_MAP ## IP_FAMILY __section_maps_btf;
 
-# ifdef ENABLE_IPV4
 SRV6_VRF_MAP(4)
 SRV6_POLICY_MAP(4)
 SRV6_STATE_MAP(4)
-# endif /* ENABLE_IPV4 */
 
 SRV6_VRF_MAP(6)
 SRV6_POLICY_MAP(6)
@@ -298,9 +273,7 @@ struct {
     __uint(max_entries, SRV6_SID_MAP_SIZE);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } SRV6_SID_MAP __section_maps_btf;
-#endif /* ENABLE_SRV6 */
 
-#ifdef ENABLE_VTEP
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct vtep_key);
@@ -309,14 +282,12 @@ struct {
 	__uint(max_entries, VTEP_MAP_SIZE);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } VTEP_MAP __section_maps_btf;
-#endif /* ENABLE_VTEP */
 
 struct world_cidrs_key4 {
 	struct bpf_lpm_trie_key lpm_key;
 	__u32 ip;
 } __packed;
 
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct world_cidrs_key4);
@@ -325,9 +296,7 @@ struct {
 	__uint(max_entries, WORLD_CIDRS4_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } WORLD_CIDRS4_MAP __section_maps_btf;
-#endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
-#ifndef SKIP_CALLS_MAP
 static __always_inline __must_check int
 tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 {
@@ -337,5 +306,5 @@ tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 		*ext_err = (__s8)index;
 	return DROP_MISSED_TAIL_CALL;
 }
-#endif /* SKIP_CALLS_MAP */
+
 #endif

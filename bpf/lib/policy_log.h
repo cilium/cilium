@@ -15,8 +15,6 @@
 
 #include "common.h"
 
-#ifdef POLICY_VERDICT_NOTIFY
-
 #ifndef POLICY_VERDICT_LOG_FILTER
 DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define POLICY_VERDICT_LOG_FILTER fetch_u32(POLICY_VERDICT_LOG_FILTER)
@@ -57,6 +55,9 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
 	struct policy_verdict_notify msg;
 
+	if (!is_defined(POLICY_VERDICT_NOTIFY))
+		return;
+
 	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
 		return;
 
@@ -81,16 +82,5 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
-#else
-static __always_inline void
-send_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused,
-			   __u32 remote_label __maybe_unused, __u16 dst_port __maybe_unused,
-			   __u8 proto __maybe_unused, __u8 dir __maybe_unused,
-			   __u8 is_ipv6 __maybe_unused, int verdict __maybe_unused,
-			   __u16 proxy_port __maybe_unused,
-			   __u8 match_type __maybe_unused, __u8 is_audited __maybe_unused,
-			   __u8 auth_type __maybe_unused)
-{
-}
-#endif /* POLICY_VERDICT_NOTIFY */
+
 #endif /* __LIB_POLICY_LOG__*/

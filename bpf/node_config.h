@@ -74,6 +74,13 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
 #define NODEPORT_PORT_MAX_NAT 43835
 
+#ifndef ENCAP4_IFINDEX
+# define ENCAP4_IFINDEX 0
+#endif
+#ifndef ENCAP6_IFINDEX
+# define ENCAP6_IFINDEX 0
+#endif
+
 #define CT_CONNECTION_LIFETIME_TCP	21600
 #define CT_CONNECTION_LIFETIME_NONTCP	60
 #define CT_SERVICE_LIFETIME_TCP		21600
@@ -97,46 +104,30 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 # define L2_ANNOUNCEMENTS_MAX_LIVENESS 3000000000ULL
 #endif
 
-#ifdef ENABLE_IPV4
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
 #define IPV4_ENCRYPT_IFACE 0xfffff50a
-# ifdef ENABLE_MASQUERADE_IPV4
-#  define IPV4_SNAT_EXCLUSION_DST_CIDR 0xffff0000
-#  define IPV4_SNAT_EXCLUSION_DST_CIDR_LEN 16
-# endif /* ENABLE_MASQUERADE_IPV4 */
-#ifdef ENABLE_NODEPORT
+#define IPV4_SNAT_EXCLUSION_DST_CIDR 0xffff0000
+#define IPV4_SNAT_EXCLUSION_DST_CIDR_LEN 16
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
 #define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
-#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 #define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
-#endif
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
-#endif /* ENABLE_NODEPORT */
 #define CAPTURE4_RULES cilium_capture4_rules
 #define CAPTURE4_SIZE 16384
-# ifdef ENABLE_HIGH_SCALE_IPCACHE
-#  define IPV4_NATIVE_ROUTING_CIDR 0xffff0000
-#  define IPV4_NATIVE_ROUTING_CIDR_LEN 16
-# endif /* ENABLE_HIGH_SCALE_IPCACHE */
-#endif /* ENABLE_IPV4 */
+#define IPV4_NATIVE_ROUTING_CIDR 0xffff0000
+#define IPV4_NATIVE_ROUTING_CIDR_LEN 16
 
-#ifdef ENABLE_IPV6
-# ifdef ENABLE_MASQUERADE_IPV6
-#  define IPV6_SNAT_EXCLUSION_DST_CIDR      { .addr = { 0xfa, 0xce, 0xff, 0xff, 0xff, 0x0 } }
-#  define IPV6_SNAT_EXCLUSION_DST_CIDR_MASK { .addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0x0 } }
-# endif /* ENABLE_MASQUERADE_IPV6 */
-#ifdef ENABLE_NODEPORT
+#define IPV6_SNAT_EXCLUSION_DST_CIDR      { .addr = { 0xfa, 0xce, 0xff, 0xff, 0xff, 0x0 } }
+#define IPV6_SNAT_EXCLUSION_DST_CIDR_MASK { .addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0x0 } }
 #define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
 #define PER_CLUSTER_SNAT_MAPPING_IPV6 test_cilium_per_cluster_snat_v6_external
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
-#endif /* ENABLE_NODEPORT */
 #define CAPTURE6_RULES cilium_capture6_rules
 #define CAPTURE6_SIZE 16384
-#endif /* ENABLE_IPV6 */
 
 #define EGRESS_POLICY_MAP test_cilium_egress_gw_policy_v4
 #define SRV6_VRF_MAP4 test_cilium_srv6_vrf_v4
@@ -214,7 +205,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
-#if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT_46X64)
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
 #define CT_MAP_ANY6 test_cilium_ct_any6_65535
 #define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
@@ -229,64 +219,46 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define POLICY_ACCOUNTING
 #define LB4_HEALTH_MAP test_cilium_lb4_health
 #define LB6_HEALTH_MAP test_cilium_lb6_health
-#endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
-# define WORLD_CIDRS4_MAP test_cilium_world_cidrs4
-# define WORLD_CIDRS4_MAP_SIZE 16384
-#endif /* ENABLE_HIGH_SCALE_IPCACHE */
+#define WORLD_CIDRS4_MAP test_cilium_world_cidrs4
+#define WORLD_CIDRS4_MAP_SIZE 16384
 
-#ifdef ENABLE_NODEPORT
-#ifdef ENABLE_IPV4
 #define NODEPORT_NEIGH4 test_cilium_neigh4
-#endif
-#ifdef ENABLE_IPV6
 #define NODEPORT_NEIGH6 test_cilium_neigh6
-#endif
-#endif
 
-#ifdef ENABLE_NODEPORT
+#ifndef DIRECT_ROUTING_DEV_IFINDEX
 # define DIRECT_ROUTING_DEV_IFINDEX 0
-# ifdef ENABLE_IPV4
-#  ifndef IPV4_DIRECT_ROUTING
-#   define IPV4_DIRECT_ROUTING 0
-#  endif
-#  define IPV4_RSS_PREFIX IPV4_DIRECT_ROUTING
-#  define IPV4_RSS_PREFIX_BITS 32
-# endif
-# ifdef ENABLE_IPV6
-#  ifndef IPV6_DIRECT_ROUTING
-#   define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#  endif
-#  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
-#  define IPV6_RSS_PREFIX_BITS 128
-# endif
 #endif
+#ifndef IPV4_DIRECT_ROUTING
+# define IPV4_DIRECT_ROUTING 0
+#endif
+#define IPV4_RSS_PREFIX IPV4_DIRECT_ROUTING
+#define IPV4_RSS_PREFIX_BITS 32
+#ifndef IPV6_DIRECT_ROUTING
+# define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, \
+					 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#endif
+#define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
+#define IPV6_RSS_PREFIX_BITS 128
 
 #ifndef IS_L3_DEV
 # define IS_L3_DEV(ifindex) false
 #endif
 
-#ifdef ENABLE_SRC_RANGE_CHECK
-# define LB4_SRC_RANGE_MAP	test_cilium_lb4_source_range
-# define LB4_SRC_RANGE_MAP_SIZE	1000
-# define LB6_SRC_RANGE_MAP	test_cilium_lb6_source_range
-# define LB6_SRC_RANGE_MAP_SIZE	1000
-#endif
+#define LB4_SRC_RANGE_MAP	test_cilium_lb4_source_range
+#define LB4_SRC_RANGE_MAP_SIZE	1000
+#define LB6_SRC_RANGE_MAP	test_cilium_lb6_source_range
+#define LB6_SRC_RANGE_MAP_SIZE	1000
 
+#define LB_SELECTION_RANDOM	1
+#define LB_SELECTION_MAGLEV	2
+#define LB_SELECTION_FIRST	3
 #ifndef LB_SELECTION
-# define LB_SELECTION_RANDOM	1
-# define LB_SELECTION_MAGLEV	2
-# define LB_SELECTION_FIRST	3
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
-#ifdef ENABLE_WIREGUARD
-# define WG_IFINDEX	42
-#endif
+#define WG_IFINDEX	42
 
-#ifdef ENABLE_VTEP
-# define VTEP_MASK 0xffffff
-#endif
+#define VTEP_MASK 0xffffff
 
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
 case 116: \
@@ -329,5 +301,12 @@ return false;
 #endif
 
 #define CALLS_MAP test_cilium_calls_65535
+
+#define STRICT_IPV4_NET_SIZE 24
+#define STRICT_IPV4_NET (10 << 24) | (0 << 16) | (0 << 8) | 0
+
+#ifndef ENCAP_IFINDEX
+#define ENCAP_IFINDEX 0
+#endif
 
 #endif /* __NODE_CONFIG__ */

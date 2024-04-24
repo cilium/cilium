@@ -20,7 +20,6 @@
 #include "utils.h"
 #include "metrics.h"
 
-#ifdef DROP_NOTIFY
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -111,29 +110,22 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	if (dst_id != 0 && (!__builtin_constant_p(direction) || direction != METRIC_INGRESS))
 		__throw_build_bug();
 
+	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
+
+	if (!is_defined(ENABLE_DROP_NOTIFY))
+		return exitcode;
+
 	ctx_store_meta(ctx, 0, src);
 	ctx_store_meta(ctx, 1, dst);
 	ctx_store_meta(ctx, 2, reason);
 	ctx_store_meta(ctx, 3, dst_id);
 	ctx_store_meta(ctx, 4, exitcode | file << 8 | line << 16);
 
-	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
 	ret = tail_call_internal(ctx, CILIUM_CALL_DROP_NOTIFY, NULL);
 	/* ignore the returned error, use caller-provided exitcode */
 
 	return exitcode;
 }
-#else
-static __always_inline
-int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
-		      struct __ctx_buff *ctx, __u32 src __maybe_unused,
-		      __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
-		      __u32 reason, __u32 exitcode, enum metric_dir direction)
-{
-	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
-	return exitcode;
-}
-#endif /* DROP_NOTIFY */
 
 /*
  * The following macros are required in order to pass source file/line

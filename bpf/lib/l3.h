@@ -25,7 +25,6 @@
 #  endif
 #endif
 
-#ifdef ENABLE_IPV6
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
 				   __u8 __maybe_unused direction)
@@ -48,7 +47,6 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_IPV6 */
 
 static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
@@ -69,7 +67,6 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 	return CTX_ACT_OK;
 }
 
-#ifndef SKIP_POLICY_MAP
 static __always_inline int
 l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 		  __u32 magic __maybe_unused,
@@ -128,7 +125,6 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 #endif
 }
 
-#ifdef ENABLE_IPV6
 /* Performs IPv6 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.
  * Depending on the configuration, it may also enforce ingress policies for the
@@ -153,7 +149,6 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
 				 false, from_tunnel, 0);
 }
-#endif /* ENABLE_IPV6 */
 
 /* Performs IPv4 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.
@@ -181,6 +176,5 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
 				 hairpin_flow, from_tunnel, cluster_id);
 }
-#endif /* SKIP_POLICY_MAP */
 
 #endif

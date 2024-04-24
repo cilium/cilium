@@ -13,6 +13,8 @@
 
 #include "common.h"
 #include <bpf/ctx/skb.h>
+#include <linux/if_packet.h>
+#include <bpf/tailcall.h>
 #include "pktgen.h"
 #define ROUTER_IP
 #define SECLABEL

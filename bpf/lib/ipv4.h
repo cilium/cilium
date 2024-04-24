@@ -26,7 +26,6 @@ struct ipv4_frag_l4ports {
 	__be16	dport;
 } __packed;
 
-#ifdef ENABLE_IPV4_FRAGMENTS
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_frag_id);
@@ -34,7 +33,6 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES);
 } IPV4_FRAG_DATAGRAMS_MAP __section_maps_btf;
-#endif
 
 static __always_inline int
 ipv4_csum_update_by_value(struct __ctx_buff *ctx, int l3_off, __u64 old_val,
@@ -112,7 +110,6 @@ static __always_inline bool ipv4_is_in_subnet(__be32 addr,
 	return (addr & bpf_htonl(~((1 << (32 - prefixlen)) - 1))) == subnet;
 }
 
-#ifdef ENABLE_IPV4_FRAGMENTS
 static __always_inline int
 ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 		      struct ipv4_frag_l4ports *ports)
@@ -177,7 +174,6 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 
 	return 0;
 }
-#endif
 
 static __always_inline int
 ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,

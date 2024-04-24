@@ -10,8 +10,6 @@
 
 #include "maps.h"
 
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
-
 /* EGRESS_STATIC_PREFIX represents the size in bits of the static prefix part of
  * an egress policy key (i.e. the source IP).
  */
@@ -56,7 +54,6 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	return fib_do_redirect(ctx, true, &fib_params, false, ext_err, &oif);
 }
 
-#ifdef ENABLE_EGRESS_GATEWAY
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
@@ -67,7 +64,6 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 	};
 	return map_lookup_elem(&EGRESS_POLICY_MAP, &key);
 }
-#endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline int
 egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
@@ -203,5 +199,4 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 	return false;
 }
 
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 #endif /* __LIB_EGRESS_GATEWAY_H_ */

@@ -10,7 +10,6 @@
 #include "common.h"
 #include "eth.h"
 
-#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV6)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, union v6addr);	/* ipv6 addr */
@@ -43,17 +42,12 @@ static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 
 static __always_inline union macaddr *neigh_lookup_ip6(const union v6addr *addr)
 {
+	if (!is_defined(ENABLE_NODEPORT) || !is_defined(ENABLE_IPV6))
+		return NULL;
+
 	return map_lookup_elem(&NODEPORT_NEIGH6, addr);
 }
-#else
-static __always_inline union macaddr *
-neigh_lookup_ip6(const union v6addr *addr __maybe_unused)
-{
-	return NULL;
-}
-#endif /* ENABLE_NODEPORT && ENABLE_IPV6 */
 
-#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV4)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __be32);		/* ipv4 addr */
@@ -86,13 +80,10 @@ static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 
 static __always_inline union macaddr *neigh_lookup_ip4(const __be32 *addr)
 {
+	if (!is_defined(ENABLE_NODEPORT) || !is_defined(ENABLE_IPV4))
+		return NULL;
+
 	return map_lookup_elem(&NODEPORT_NEIGH4, addr);
 }
-#else
-static __always_inline union macaddr *
-neigh_lookup_ip4(const __be32 *addr __maybe_unused)
-{
-	return NULL;
-}
-#endif /* ENABLE_NODEPORT && ENABLE_IPV4 */
+
 #endif /* __LIB_NEIGH_H_ */

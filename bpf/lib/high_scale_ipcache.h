@@ -6,7 +6,6 @@
 
 #include "maps.h"
 
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
 /* WORLD_CIDR_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
  * world_cidrs_key4.
  */
@@ -24,7 +23,7 @@ world_cidrs_lookup4(__u32 addr)
 		.ip = addr,
 	};
 
-	key.ip &= GET_PREFIX(V4_CACHE_KEY_LEN);
+	key.ip &= 0xffffffff; /* GET_PREFIX(V4_CACHE_KEY_LEN); */
 	matches = map_lookup_elem(&WORLD_CIDRS4_MAP, &key);
 	return matches != NULL;
 }
@@ -132,5 +131,4 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 
 	return ctx_redirect(ctx, ENCAP_IFINDEX, BPF_F_INGRESS);
 }
-#endif /* ENABLE_HIGH_SCALE_IPCACHE */
 #endif /* __LIB_HIGH_SCALE_IPCACHE_H_ */

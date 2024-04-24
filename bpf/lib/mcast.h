@@ -46,8 +46,6 @@ struct mcast_subscriber_v4 {
 	__u8  flags;
 };
 
-#ifdef ENABLE_MULTICAST
-
 #define MCAST_MAX_GROUP 1024
 #define MCAST_MAX_SUBSCRIBERS 1024
 /* used to bound iteration of group records within an igmpv3 membership report */
@@ -442,5 +440,4 @@ int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
 				METRIC_INGRESS);
 }
 
-#endif /* ENABLE_MULTICAST */
 #endif /* ___LIB_MCAST_H_ */

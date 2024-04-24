@@ -34,7 +34,6 @@ enum ct_entry_type {
 	CT_ENTRY_SVC		= (1 << 2),
 };
 
-#ifdef ENABLE_IPV4
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -42,9 +41,7 @@ struct ct_buffer4 {
 	int ret;
 	int l4_off;
 };
-#endif
 
-#ifdef ENABLE_IPV6
 struct ct_buffer6 {
 	struct ipv6_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -52,7 +49,6 @@ struct ct_buffer6 {
 	int ret;
 	int l4_off;
 };
-#endif
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
 {
@@ -1047,7 +1043,6 @@ err_ct_fill_up:
 	return DROP_CT_CREATE_FAILED;
 }
 
-#ifndef DISABLE_LOOPBACK_LB
 static __always_inline bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 			      __u16 *rev_nat_index)
@@ -1066,7 +1061,6 @@ ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 
 	return false;
 }
-#endif
 
 static __always_inline bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,

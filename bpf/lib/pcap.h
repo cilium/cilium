@@ -7,7 +7,6 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
-#ifdef ENABLE_CAPTURE
 #include "common.h"
 #include "time_cache.h"
 #include "lb.h"
@@ -458,6 +457,9 @@ cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
 	__u16 cap_len;
 	__u16 rule_id;
 
+	if (!is_defined(ENABLE_CAPTURE))
+		return;
+
 	if (cilium_capture_candidate(ctx, &rule_id, &cap_len))
 		__cilium_capture_in(ctx, rule_id, cap_len);
 }
@@ -468,6 +470,9 @@ cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 	__u32 cap_len;
 	__u16 rule_id;
 
+	if (!is_defined(ENABLE_CAPTURE))
+		return;
+
 	/* cilium_capture_out() is always paired with cilium_capture_in(), so
 	 * we can rely on previous cached result on whether to push the pkt
 	 * to the RB or not.
@@ -476,17 +481,5 @@ cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 		__cilium_capture_out(ctx, rule_id, cap_len);
 }
 
-#else /* ENABLE_CAPTURE */
 
-static __always_inline void
-cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
-{
-}
-
-static __always_inline void
-cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
-{
-}
-
-#endif /* ENABLE_CAPTURE */
 #endif /* __LIB_PCAP_H_ */

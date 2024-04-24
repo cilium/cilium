@@ -9,8 +9,6 @@
 #include "lib/identity.h"
 
 #include "maps.h"
-
-#ifdef ENABLE_SRV6
 struct srv6_srh {
 	struct ipv6_rt_hdr rthdr;
 	__u8 first_segment;
@@ -18,8 +16,6 @@ struct srv6_srh {
 	__u16 reserved;
 	struct in6_addr segments[0];
 };
-
-# ifdef ENABLE_IPV4
 
 /* SRV6_VRF_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
  * srv6_vrf_key4.
@@ -58,7 +54,6 @@ srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 	};
 	return map_lookup_elem(&SRV6_POLICY_MAP4, &key);
 }
-# endif /* ENABLE_IPV4 */
 
 /* SRV6_VRF_STATIC_PREFIX6 gets sizeof non-IP, non-prefix part of
  * srv6_vrf_key6.
@@ -121,7 +116,6 @@ is_srv6_packet(const struct ipv6hdr *ip6)
 	       ip6->nexthdr == IPPROTO_IPV6;
 }
 
-# ifndef SKIP_SRV6_HANDLING
 static __always_inline int
 srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		   __u8 nexthdr, union v6addr *saddr, struct in6_addr *sid)
@@ -291,14 +285,12 @@ srv6_create_state_entry(struct __ctx_buff *ctx)
 	return 0;
 }
 
-#  ifdef ENABLE_IPV4
 static __always_inline struct srv6_ipv6_2tuple *
 srv6_lookup_state_entry4(struct iphdr *ip4)
 {
 	return map_lookup_elem(&SRV6_STATE_MAP4,
 			       (struct srv6_ipv4_2tuple *)&ip4->saddr);
 }
-#  endif /* ENABLE_IPV4 */
 
 static __always_inline struct srv6_ipv6_2tuple *
 srv6_lookup_state_entry6(struct ipv6hdr *ip6)
@@ -371,9 +363,9 @@ srv6_handling6(struct __ctx_buff *ctx, union v6addr *src_sid,
 }
 
 static __always_inline int
-srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
+srv6_handling(struct __ctx_buff *ctx, struct in6_addr __maybe_unused *dst_sid)
 {
-	void *data, *data_end;
+	void *__maybe_unused data, *__maybe_unused data_end;
 	__u16 inner_proto;
 	union v6addr router_ip;
 
@@ -517,6 +509,4 @@ int tail_srv6_reply(struct __ctx_buff *ctx)
 					      METRIC_EGRESS);
 	return CTX_ACT_OK;
 }
-# endif /* SKIP_SRV6_HANDLING */
-#endif /* ENABLE_SRV6 */
 #endif /* __LIB_SRV6_H_ */

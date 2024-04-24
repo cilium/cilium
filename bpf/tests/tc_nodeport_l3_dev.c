@@ -5,6 +5,7 @@
 
 #include <bpf/ctx/skb.h>
 #include <bpf/helpers_skb.h>
+#include <bpf/tailcall.h>
 #include "pktgen.h"
 
 #define ETH_HLEN		0

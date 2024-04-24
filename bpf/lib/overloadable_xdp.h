@@ -155,7 +155,6 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
 }
 
-#ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		   __u32 daddr, __u32 seclabel __maybe_unused,
@@ -266,6 +265,5 @@ ctx_set_tunnel_opt(struct xdp_md *ctx, void *opt, __u32 opt_len)
 
 	return 0;
 }
-#endif /* HAVE_ENCAP */
 
 #endif /* __LIB_OVERLOADABLE_XDP_H_ */

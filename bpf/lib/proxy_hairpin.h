@@ -14,8 +14,6 @@
 #include "csum.h"
 #include "l4.h"
 
-#if defined(HOST_IFINDEX_MAC) && defined(HOST_IFINDEX)
-
 /** Redirect to the proxy by hairpinning the packet out the incoming
  *  interface.
  *
@@ -61,23 +59,17 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 	return ctx_redirect(ctx, HOST_IFINDEX, 0);
 }
 
-#ifdef ENABLE_IPV4
 static __always_inline int
 ctx_redirect_to_proxy_hairpin_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 				   __be16 proxy_port)
 {
 	return ctx_redirect_to_proxy_hairpin(ctx, ip4, proxy_port);
 }
-#endif
 
-#ifdef ENABLE_IPV6
 static __always_inline int
 ctx_redirect_to_proxy_hairpin_ipv6(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	return ctx_redirect_to_proxy_hairpin(ctx, NULL, proxy_port);
 }
-#endif
-
-#endif /* HOST_IFINDEX_MAC && HOST_IFINDEX */
 
 #endif /* __LIB_PROXY_HAIRPIN_H_ */

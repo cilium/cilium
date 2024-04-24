@@ -12,6 +12,8 @@
 #define IDENTITY_MAX 255
 #endif
 
+#define ENCAP_IFINDEX 1
+
 #include "common.h"
 
 #include <bpf/ctx/skb.h>

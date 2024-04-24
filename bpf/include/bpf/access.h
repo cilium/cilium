@@ -6,7 +6,6 @@
 
 #include "compiler.h"
 
-#if defined(__bpf__)
 static __always_inline __maybe_unused __u32
 map_array_get_32(const __u32 *array, __u32 index, const __u32 limit)
 {
@@ -31,7 +30,5 @@ map_array_get_32(const __u32 *array, __u32 index, const __u32 limit)
 
 	return datum;
 }
-#else
-# define map_array_get_32(array, index, limit)	__throw_build_bug()
-#endif /* __bpf__ */
+
 #endif /* __BPF_ACCESS_H_ */

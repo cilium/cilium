@@ -4,18 +4,11 @@
 #ifndef __LIB_HOST_FIREWALL_H_
 #define __LIB_HOST_FIREWALL_H_
 
-/* Only compile in if host firewall is enabled and file is included from
- * bpf_host.
- */
-#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-
 #include "auth.h"
 #include "policy.h"
 #include "policy_log.h"
 #include "trace.h"
 
-# ifdef ENABLE_IPV6
-#  ifndef ENABLE_MASQUERADE_IPV6
 static __always_inline int
 ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 					 enum ct_status ct_ret, __s8 *ext_err)
@@ -39,7 +32,6 @@ ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_
 
 	return CTX_ACT_OK;
 }
-#  endif /* ENABLE_MASQUERADE_IPV6 */
 
 static __always_inline bool
 ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
@@ -294,10 +286,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, trace, ext_err);
 }
-# endif /* ENABLE_IPV6 */
 
-# ifdef ENABLE_IPV4
-#  ifndef ENABLE_MASQUERADE_IPV4
 static __always_inline int
 ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 					 enum ct_status ct_ret, __s8 *ext_err)
@@ -321,7 +310,6 @@ ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_
 
 	return CTX_ACT_OK;
 }
-#  endif /* ENABLE_MASQUERADE_IPV4 */
 
 static __always_inline bool
 ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
@@ -572,6 +560,4 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, trace, ext_err);
 }
-# endif /* ENABLE_IPV4 */
-#endif /* ENABLE_HOST_FIREWALL && IS_BPF_HOST */
 #endif /* __LIB_HOST_FIREWALL_H_ */

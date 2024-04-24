@@ -137,30 +137,44 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
 
-	if option.Config.EnableIPv6 {
-		extraMacrosMap["ROUTER_IP"] = routerIP.String()
-		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
+	if routerIP == nil {
+		routerIP = net.ParseIP("::")
 	}
+	extraMacrosMap["ROUTER_IP"] = routerIP.String()
+	fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
 
+	var (
+		ipv4GW, loopbackIPv4 net.IP
+		ipv4Range            *cidr.CIDR
+	)
 	if option.Config.EnableIPv4 {
-		ipv4GW := node.GetInternalIPv4Router()
-		loopbackIPv4 := node.GetIPv4Loopback()
-		ipv4Range := node.GetIPv4AllocRange()
-		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
-		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(loopbackIPv4))
-		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(ipv4Range.Mask)))
-
-		if option.Config.EnableIPv4FragmentsTracking {
-			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
-			cDefinesMap["IPV4_FRAG_DATAGRAMS_MAP"] = fragmap.MapName
-			cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
+		ipv4GW = node.GetInternalIPv4Router()
+		loopbackIPv4 = node.GetIPv4Loopback()
+		ipv4Range = node.GetIPv4AllocRange()
+	} else {
+		_, net, _ := net.ParseCIDR("0.0.0.0/0")
+		ipv4GW = []byte{0, 0, 0, 0}
+		loopbackIPv4 = []byte{0, 0, 0, 0}
+		ipv4Range = &cidr.CIDR{
+			IPNet: net,
 		}
 	}
 
-	if option.Config.EnableIPv6 {
-		extraMacrosMap["HOST_IP"] = hostIP.String()
-		fw.WriteString(defineIPv6("HOST_IP", hostIP))
+	cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
+	cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(loopbackIPv4))
+	cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(ipv4Range.Mask)))
+
+	if option.Config.EnableIPv4FragmentsTracking {
+		cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
 	}
+	cDefinesMap["IPV4_FRAG_DATAGRAMS_MAP"] = fragmap.MapName
+	cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
+
+	if !option.Config.EnableIPv6 {
+		hostIP = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	}
+	extraMacrosMap["HOST_IP"] = hostIP.String()
+	fw.WriteString(defineIPv6("HOST_IP", hostIP))
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
 	cDefinesMap["WORLD_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorld))
@@ -246,9 +260,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["EVENTS_MAP"] = eventsmap.MapName
 	cDefinesMap["SIGNAL_MAP"] = signalmap.MapName
 	cDefinesMap["POLICY_CALL_MAP"] = policymap.PolicyCallMapName
-	if option.Config.EnableEnvoyConfig {
-		cDefinesMap["POLICY_EGRESSCALL_MAP"] = policymap.PolicyEgressCallMapName
-	}
+	cDefinesMap["POLICY_EGRESSCALL_MAP"] = policymap.PolicyEgressCallMapName
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
 	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
 	cDefinesMap["LB6_BACKEND_MAP"] = "cilium_lb6_backends_v3"
@@ -263,14 +275,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableSessionAffinity {
 		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
-		cDefinesMap["LB_AFFINITY_MATCH_MAP"] = lbmap.AffinityMatchMapName
-		if option.Config.EnableIPv4 {
-			cDefinesMap["LB4_AFFINITY_MAP"] = lbmap.Affinity4MapName
-		}
-		if option.Config.EnableIPv6 {
-			cDefinesMap["LB6_AFFINITY_MAP"] = lbmap.Affinity6MapName
-		}
 	}
+	cDefinesMap["LB_AFFINITY_MATCH_MAP"] = lbmap.AffinityMatchMapName
+	cDefinesMap["LB4_AFFINITY_MAP"] = lbmap.Affinity4MapName
+	cDefinesMap["LB6_AFFINITY_MAP"] = lbmap.Affinity6MapName
 
 	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.MtuConfig.GetDeviceMTU())
@@ -302,18 +310,21 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	wgIfindex := uint32(0)
 	if option.Config.EnableWireguard {
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
-		ifindex, err := link.GetIfIndex(wgtypes.IfaceName)
+
+		var err error
+		wgIfindex, err = link.GetIfIndex(wgtypes.IfaceName)
 		if err != nil {
 			return err
 		}
-		cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 
 		if option.Config.EncryptNode {
 			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
 		}
 	}
+	cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", wgIfindex)
 
 	if option.Config.ServiceNoBackendResponse == option.ServiceNoBackendResponseReject {
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
@@ -321,32 +332,36 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableL2Announcements {
 		cDefinesMap["ENABLE_L2_ANNOUNCEMENTS"] = "1"
-		// If the agent is down for longer than the lease duration, stop responding
-		cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
+	// If the agent is down for longer than the lease duration, stop responding
+	cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 
 	if option.Config.EnableEncryptionStrictMode {
 		cDefinesMap["ENCRYPTION_STRICT_MODE"] = "1"
+	}
 
-		// when parsing the user input we only accept ipv4 addresses
-		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictModeCIDR.Addr()))
-		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictModeCIDR.Bits())
+	// when parsing the user input we only accept ipv4 addresses
+	strictEncryptionModeCIDR := option.Config.EncryptionStrictModeCIDR
+	if strictEncryptionModeCIDR.Addr().AsSlice() == nil {
+		strictEncryptionModeCIDR = netip.MustParsePrefix("0.0.0.0/32")
+	}
+	cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(strictEncryptionModeCIDR.Addr()))
+	cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", strictEncryptionModeCIDR.Bits())
 
-		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(node.GetIPv4()))
+	cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(node.GetIPv4()))
 
-		ipv4Interface, ok := netip.AddrFromSlice(node.GetIPv4().To4())
-		if !ok {
-			return fmt.Errorf("unable to parse node IPv4 address %s", node.GetIPv4())
-		}
+	ipv4Interface, ok := netip.AddrFromSlice(node.GetIPv4().To4())
+	if !ok {
+		return fmt.Errorf("unable to parse node IPv4 address %s", node.GetIPv4())
+	}
 
-		if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
-			if !option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
-				return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
+	if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
+		if !option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
+			return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
 				This will cause the node to drop all traffic.
 				Please either disable encryption or set --encryption-strict-mode-allow-dynamic-lookup=true`)
-			}
-			cDefinesMap["STRICT_IPV4_OVERLAPPING_CIDR"] = "1"
 		}
+		cDefinesMap["STRICT_IPV4_OVERLAPPING_CIDR"] = "1"
 	}
 
 	if option.Config.EnableBPFTProxy {
@@ -401,67 +416,83 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NAT_46X64_PREFIX_2"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_3"] = "0"
 
+	cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
+
+	cDefinesMap["CAPTURE4_RULES"] = recorder.MapNameWcard4
+	cDefinesMap["CAPTURE4_SIZE"] = fmt.Sprintf("%d", recorder.MapSize)
+	cDefinesMap["CAPTURE6_RULES"] = recorder.MapNameWcard6
+	cDefinesMap["CAPTURE6_SIZE"] = fmt.Sprintf("%d", recorder.MapSize)
+
+	cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
+	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
+	cDefinesMap["LB4_HEALTH_MAP"] = lbmap.HealthProbe4MapName
+
+	cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
+	cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
+	cDefinesMap["LB6_HEALTH_MAP"] = lbmap.HealthProbe6MapName
+
+	base := option.Config.IPv6NAT46x64CIDRBase.AsSlice()
+	cDefinesMap["NAT_46X64_PREFIX_0"] = fmt.Sprintf("%d", base[0])
+	cDefinesMap["NAT_46X64_PREFIX_1"] = fmt.Sprintf("%d", base[1])
+	cDefinesMap["NAT_46X64_PREFIX_2"] = fmt.Sprintf("%d", base[2])
+	cDefinesMap["NAT_46X64_PREFIX_3"] = fmt.Sprintf("%d", base[3])
+
 	if option.Config.EnableNodePort {
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
 		if option.Config.EnableMKE && option.Config.EnableSocketLB {
 			cDefinesMap["ENABLE_MKE"] = "1"
-			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
 		if option.Config.EnableRecorder {
 			cDefinesMap["ENABLE_CAPTURE"] = "1"
-			if option.Config.EnableIPv4 {
-				cDefinesMap["CAPTURE4_RULES"] = recorder.MapNameWcard4
-				cDefinesMap["CAPTURE4_SIZE"] = fmt.Sprintf("%d", recorder.MapSize)
-			}
-			if option.Config.EnableIPv6 {
-				cDefinesMap["CAPTURE6_RULES"] = recorder.MapNameWcard6
-				cDefinesMap["CAPTURE6_SIZE"] = fmt.Sprintf("%d", recorder.MapSize)
-			}
 		}
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
-		if option.Config.EnableIPv4 {
-			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
-			cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
-			if option.Config.EnableHealthDatapath {
-				cDefinesMap["LB4_HEALTH_MAP"] = lbmap.HealthProbe4MapName
-			}
-		}
-		if option.Config.EnableIPv6 {
-			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
-			cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
-			if option.Config.EnableHealthDatapath {
-				cDefinesMap["LB6_HEALTH_MAP"] = lbmap.HealthProbe6MapName
-			}
-		}
 		if option.Config.EnableNat46X64Gateway {
 			cDefinesMap["ENABLE_NAT_46X64_GATEWAY"] = "1"
-			base := option.Config.IPv6NAT46x64CIDRBase.AsSlice()
-			cDefinesMap["NAT_46X64_PREFIX_0"] = fmt.Sprintf("%d", base[0])
-			cDefinesMap["NAT_46X64_PREFIX_1"] = fmt.Sprintf("%d", base[1])
-			cDefinesMap["NAT_46X64_PREFIX_2"] = fmt.Sprintf("%d", base[2])
-			cDefinesMap["NAT_46X64_PREFIX_3"] = fmt.Sprintf("%d", base[3])
 		}
 		if option.Config.NodePortNat46X64 {
 			cDefinesMap["ENABLE_NAT_46X64"] = "1"
 		}
-		const (
-			dsrEncapInv = iota
-			dsrEncapNone
-			dsrEncapIPIP
-			dsrEncapGeneve
-		)
-		const (
-			dsrL4XlateInv = iota
-			dsrL4XlateFrontend
-			dsrL4XlateBackend
-		)
-		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
-		cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
-		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
-		cDefinesMap["DSR_XLATE_FRONTEND"] = fmt.Sprintf("%d", dsrL4XlateFrontend)
-		cDefinesMap["DSR_XLATE_BACKEND"] = fmt.Sprintf("%d", dsrL4XlateBackend)
+	}
+
+	const (
+		dsrEncapInv = iota
+		dsrEncapNone
+		dsrEncapIPIP
+		dsrEncapGeneve
+	)
+	const (
+		dsrL4XlateInv = iota
+		dsrL4XlateFrontend
+		dsrL4XlateBackend
+	)
+	cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
+	cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
+	cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
+	cDefinesMap["DSR_XLATE_FRONTEND"] = fmt.Sprintf("%d", dsrL4XlateFrontend)
+	cDefinesMap["DSR_XLATE_BACKEND"] = fmt.Sprintf("%d", dsrL4XlateBackend)
+
+	cDefinesMap["DSR_ENCAP_MODE"] = "DSR_ENCAP_NONE"
+	cDefinesMap["DSR_XLATE_MODE"] = "0"
+	cDefinesMap["IPV4_RSS_PREFIX"] = "0"
+	cDefinesMap["IPV4_RSS_PREFIX_BITS"] = "32"
+	cDefinesMap["IPV6_RSS_PREFIX_BITS"] = "128"
+
+	cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName
+	cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] =
+		fmt.Sprintf("%d", lbmap.SourceRange4Map.MaxEntries())
+	cDefinesMap["LB6_SRC_RANGE_MAP"] = lbmap.SourceRange6MapName
+	cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] =
+		fmt.Sprintf("%d", lbmap.SourceRange6Map.MaxEntries())
+	cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
+	cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
+	cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
+	cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
+
+	var ipv6RSSPrefix net.IP
+
+	if option.Config.EnableNodePort {
 		if option.Config.LoadBalancerUsesDSR() {
 			cDefinesMap["ENABLE_DSR"] = "1"
 			if option.Config.EnablePMTUDiscovery {
@@ -503,13 +534,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.EnableIPv6 {
 			if option.Config.LoadBalancerRSSv6CIDR != "" {
-				ipv6 := option.Config.LoadBalancerRSSv6.IP
+				ipv6RSSPrefix = option.Config.LoadBalancerRSSv6.IP
 				ones, _ := option.Config.LoadBalancerRSSv6.Mask.Size()
-				extraMacrosMap["IPV6_RSS_PREFIX"] = ipv6.String()
-				fw.WriteString(FmtDefineAddress("IPV6_RSS_PREFIX", ipv6))
 				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
 			} else {
-				cDefinesMap["IPV6_RSS_PREFIX"] = "IPV6_DIRECT_ROUTING"
 				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = "128"
 			}
 		}
@@ -521,22 +549,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
-			if option.Config.EnableIPv4 {
-				cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName
-				cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] =
-					fmt.Sprintf("%d", lbmap.SourceRange4Map.MaxEntries())
-			}
-			if option.Config.EnableIPv6 {
-				cDefinesMap["LB6_SRC_RANGE_MAP"] = lbmap.SourceRange6MapName
-				cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] =
-					fmt.Sprintf("%d", lbmap.SourceRange6Map.MaxEntries())
-			}
 		}
+	}
 
-		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
-		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
-		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
-		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
+	if ipv6RSSPrefix == nil {
+		cDefinesMap["IPV6_RSS_PREFIX"] = "IPV6_DIRECT_ROUTING"
+	} else {
+		extraMacrosMap["IPV6_RSS_PREFIX"] = ipv6RSSPrefix.String()
+		fw.WriteString(FmtDefineAddress("IPV6_RSS_PREFIX", ipv6RSSPrefix))
 	}
 
 	macByIfIndexMacro, isL3DevMacro, err := devMacros(nativeDevices)
@@ -549,24 +569,24 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	const (
 		selectionRandom = iota + 1
 		selectionMaglev
+		selectionFirst
 	)
 	cDefinesMap["LB_SELECTION_RANDOM"] = fmt.Sprintf("%d", selectionRandom)
 	cDefinesMap["LB_SELECTION_MAGLEV"] = fmt.Sprintf("%d", selectionMaglev)
-	if option.Config.NodePortAlg == option.NodePortAlgRandom {
-		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
-	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+	cDefinesMap["LB_SELECTION_FIRST"] = fmt.Sprintf("%d", selectionFirst)
+	cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
+	if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
-		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", option.Config.MaglevTableSize)
-		if option.Config.EnableIPv6 {
-			cDefinesMap["LB6_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter6MapName
-		}
-		if option.Config.EnableIPv4 {
-			cDefinesMap["LB4_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter4MapName
-		}
 	}
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
+	cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", option.Config.MaglevTableSize)
+	cDefinesMap["LB6_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter6MapName
+	cDefinesMap["LB4_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter4MapName
 
+	var directRoutingIPv6 = net.ParseIP("::")
+	cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
+	cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = "0"
 	if option.Config.DirectRoutingDeviceRequired() {
 		if option.Config.EnableIPv4 {
 			ifindex, ip, ok := h.nodeAddressing.IPv4().DirectRouting()
@@ -578,30 +598,28 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 		}
 		if option.Config.EnableIPv6 {
-			ifindex, ip, ok := h.nodeAddressing.IPv6().DirectRouting()
+			var ifindex int
+			ifindex, directRoutingIPv6, ok = h.nodeAddressing.IPv6().DirectRouting()
 			if !ok {
 				return fmt.Errorf("IPv6 direct routing device not found")
 			}
-			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip))
 			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 		}
 	} else {
-		var directRoutingIPv6 net.IP
 		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = "0"
 		if option.Config.EnableIPv4 {
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
 		}
-		if option.Config.EnableIPv6 {
-			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
-		}
 	}
+
+	extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
+	fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
 
 	if option.Config.EnableHostFirewall {
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
 
+	cDefinesMap["IPV4_ENCRYPT_IFACE"] = "0"
 	if option.Config.EnableIPSec {
 		nodeAddress := node.GetIPv4()
 		if nodeAddress == nil {
@@ -612,17 +630,18 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 	}
 
+	cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
+	cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
+	cDefinesMap["SNAT_MAPPING_IPV6"] = nat.MapNameSnat6Global
+	cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
+	cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
+	cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] = "0"
+	cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = "32"
+	cDefinesMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = "0"
+	cDefinesMap["IPV6_SNAT_EXCLUSION_DST_CIDR_LEN"] = "128"
+	cDefinesMap["IP_MASQ_AGENT_IPV6"] = ipmasq.MapNameIPv6
+
 	if option.Config.EnableNodePort {
-		if option.Config.EnableIPv4 {
-			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
-			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
-		}
-
-		if option.Config.EnableIPv6 {
-			cDefinesMap["SNAT_MAPPING_IPV6"] = nat.MapNameSnat6Global
-			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
-		}
-
 		if option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4Masquerade {
 				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
@@ -631,7 +650,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				var excludeCIDR *cidr.CIDR
 				if option.Config.EnableIPMasqAgent {
 					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
-					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
 
 					// native-routing-cidr is optional with ip-masq-agent and may be nil
 					excludeCIDR = option.Config.GetIPv4NativeRoutingCIDR()
@@ -652,7 +670,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				var excludeCIDR *cidr.CIDR
 				if option.Config.EnableIPMasqAgent {
 					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
-					cDefinesMap["IP_MASQ_AGENT_IPV6"] = ipmasq.MapNameIPv6
 
 					excludeCIDR = option.Config.GetIPv6NativeRoutingCIDR()
 				} else {
@@ -667,9 +684,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				}
 			}
 		}
-
-		ctmap.WriteBPFMacros(fw, nil)
 	}
+
+	ctmap.WriteBPFMacros(fw, nil)
 
 	if option.Config.AllowICMPFragNeeded {
 		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
@@ -691,12 +708,15 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_CUSTOM_CALLS"] = "1"
 	}
 
+	cDefinesMap["VTEP_MAP"] = vtep.Name
+	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
+	vtepCidrMask := option.Config.VtepCidrMask
+	if vtepCidrMask == nil {
+		vtepCidrMask = net.ParseIP("0.0.0.0")
+	}
+	cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(vtepCidrMask))
 	if option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
-		cDefinesMap["VTEP_MAP"] = vtep.Name
-		cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
-		cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask)))
-
 	}
 
 	vlanFilter, err := vlanFilterMacros(nativeDevices)
@@ -755,6 +775,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	cDefinesMap["ENCAP4_IFINDEX"] = "0"
+	cDefinesMap["ENCAP6_IFINDEX"] = "0"
 	if option.Config.EnableHealthDatapath {
 		if option.Config.IPv4Enabled() {
 			ipip4, err := netlink.LinkByName(defaults.IPIPv4Device)

@@ -10,7 +10,6 @@
 #error "Proxy redirection is only supported from skb context"
 #endif
 
-#ifdef ENABLE_TPROXY
 static __always_inline int
 assign_socket_tcp(struct __ctx_buff *ctx,
 		  struct bpf_sock_tuple *tuple, __u32 len, bool established)
@@ -157,16 +156,12 @@ out:										\
 	return result;								\
 }
 
-#ifdef ENABLE_IPV4
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress4, struct ipv4_ct_tuple, ipv4,
 		DBG_SK_LOOKUP4, daddr, saddr)
-#endif
-#ifdef ENABLE_IPV6
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
 		DBG_SK_LOOKUP6, daddr[3], saddr[3])
-#endif
+
 #undef CTX_REDIRECT_FN
-#endif /* ENABLE_TPROXY */
 
 /**
  * __ctx_redirect_to_proxy configures the ctx with the proxy mark and proxy
@@ -237,25 +232,20 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 	return result;
 }
 
-#ifdef ENABLE_IPV4
 static __always_inline int
 ctx_redirect_to_proxy4(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 		       __be16 proxy_port, bool from_host __maybe_unused)
 {
 	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, true);
 }
-#endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_IPV6
 static __always_inline int
 ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 		       __be16 proxy_port, bool from_host __maybe_unused)
 {
 	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, false);
 }
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_TPROXY
 #define IP_TUPLE_EXTRACT_FN(NAME, PREFIX)				\
 /**									\
  * extract_tuple4 / extract_tuple6					\
@@ -279,13 +269,8 @@ NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 	return CTX_ACT_OK;						\
 }
 
-#ifdef ENABLE_IPV4
 IP_TUPLE_EXTRACT_FN(extract_tuple4, ipv4)
-#endif /* ENABLE_IPV4 */
-#ifdef ENABLE_IPV6
 IP_TUPLE_EXTRACT_FN(extract_tuple6, ipv6)
-#endif /* ENABLE_IPV6 */
-#endif /* ENABLE_TPROXY */
 
 /**
  * ctx_redirect_to_proxy_first() applies changes to the context to forward

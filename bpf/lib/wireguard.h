@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifdef ENABLE_WIREGUARD
-
 #ifndef __WIREGUARD_H_
 #define __WIREGUARD_H_
 
@@ -21,7 +19,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 {
 	struct remote_endpoint_info *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
-	void *data, *data_end;
+	void *__maybe_unused data, *__maybe_unused data_end;
 	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
@@ -162,14 +160,12 @@ out:
 	return CTX_ACT_OK;
 }
 
-#ifdef ENCRYPTION_STRICT_MODE
-
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
 strict_allow(struct __ctx_buff *ctx) {
 	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
 	bool __maybe_unused in_strict_cidr = false;
-	void *data, *data_end;
+	void *__maybe_unused data, *__maybe_unused data_end;
 #ifdef ENABLE_IPV4
 	struct iphdr *ip4;
 #endif
@@ -212,8 +208,4 @@ strict_allow(struct __ctx_buff *ctx) {
 	}
 }
 
-#endif /* ENCRYPTION_STRICT_MODE */
-
 #endif /* __WIREGUARD_H_ */
-
-#endif /* ENABLE_WIREGUARD */

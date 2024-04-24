@@ -69,9 +69,6 @@
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
-#ifdef ENABLE_PER_PACKET_LB
-
-#ifdef ENABLE_IPV4
 static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
 						       __s8 *ext_err)
 {
@@ -123,9 +120,7 @@ skip_service_lookup:
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
 }
-#endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_IPV6
 static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
 						       __s8 *ext_err)
 {
@@ -180,15 +175,12 @@ skip_service_lookup:
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
 }
-#endif /* ENABLE_IPV6 */
 
-#endif
 
 #if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
 #endif
 
-#ifdef ENABLE_IPV4
 static __always_inline void *
 select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 	       struct ipv4_ct_tuple *tuple)
@@ -202,9 +194,7 @@ select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 #endif
 	return get_cluster_ct_map4(tuple, cluster_id);
 }
-#endif
 
-#if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 					      enum ct_dir dir, __u32 reason,
 					      __s8 ext_err)
@@ -247,7 +237,7 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 	return send_drop_notify_ext(ctx, src_label, dst, dst_id, reason,
 				    ext_err, CTX_ACT_DROP, m_dir);
 }
-#endif /* ENABLE_IPV4 || ENABLE_IPV6 */
+
 
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 __section_tail(CILIUM_MAP_CALLS, ID)						\
@@ -342,7 +332,6 @@ int NAME(struct __ctx_buff *ctx)						\
 	return ret;								\
 }
 
-#ifdef ENABLE_CUSTOM_CALLS
 /* Encode return value and identity into cb buffer. This is used before
  * executing tail calls to custom programs. "ret" is the return value supposed
  * to be returned to the kernel, needed by the callee to preserve the datapath
@@ -367,9 +356,7 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 	ctx_store_meta(ctx, CB_CUSTOM_CALLS, custom_meta);
 	return 0;
 }
-#endif
 
-#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -803,9 +790,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -1447,7 +1432,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
 }
 #endif /* ENABLE_ARP_RESPONDER */
-#endif /* ENABLE_IPV4 */
+
 
 /* Attachment/entry point is ingress for veth.
  * It corresponds to packets leaving the container.
@@ -1506,7 +1491,6 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_label,
 	    struct ipv6_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
@@ -1826,9 +1810,7 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 		1, CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint)
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_label,
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
@@ -2280,7 +2262,7 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
 		1, CILIUM_CALL_IPV4_TO_ENDPOINT, tail_ipv4_to_endpoint)
-#endif /* ENABLE_IPV4 */
+
 
 /* Handle policy decisions as the packet makes its way towards the endpoint.
  * Previously, the packet may have come from another local endpoint, another

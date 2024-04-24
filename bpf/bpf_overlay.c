@@ -43,7 +43,6 @@
 
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
 
-#ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
@@ -178,9 +177,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
 #ifdef HOST_IFINDEX
@@ -202,7 +199,6 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 #endif
 }
 
-#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 							__u32 src_sec_identity,
 							__s8 *ext_err)
@@ -271,7 +267,6 @@ int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
-#endif
 
 static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 				       __u32 *identity,
@@ -528,12 +523,9 @@ pass_to_stack:
 }
 #endif /* ENABLE_VTEP */
 
-#endif /* ENABLE_IPV4 */
-
-#ifdef ENABLE_IPSEC
-static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
+static __always_inline __maybe_unused bool is_esp(struct __ctx_buff __maybe_unused *ctx, __u16 proto)
 {
-	void *data, *data_end;
+	void __maybe_unused *data, __maybe_unused *data_end;
 	__u8 protocol = 0;
 	struct ipv6hdr *ip6 __maybe_unused;
 	struct iphdr *ip4 __maybe_unused;
@@ -559,7 +551,6 @@ static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
 
 	return protocol == IPPROTO_ESP;
 }
-#endif /* ENABLE_IPSEC */
 
 /* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
  * entering the node via the tunnel.

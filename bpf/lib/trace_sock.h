@@ -50,7 +50,6 @@ struct ip {
 	} __packed;
 };
 
-#ifdef TRACE_SOCK_NOTIFY
 struct trace_sock_notify {
 	__u8 type;
 	__u8 xlate_point;
@@ -83,6 +82,9 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
 
+	if (!is_defined(TRACE_SOCK_NOTIFY))
+		return;
+
 	if (is_defined(HAVE_CGROUP_ID))
 		cgroup_id = get_current_cgroup_id();
 
@@ -109,6 +111,9 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
 
+	if (!is_defined(TRACE_SOCK_NOTIFY))
+		return;
+
 	if (is_defined(HAVE_CGROUP_ID))
 		cgroup_id = get_current_cgroup_id();
 	msg = (typeof(msg)){
@@ -124,20 +129,5 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 
 	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
-#else
-static __always_inline void
-send_trace_sock_notify4(struct __ctx_sock *ctx __maybe_unused,
-			enum xlate_point xlate_point __maybe_unused,
-			__u32 dst_ip __maybe_unused, __u16 dst_port __maybe_unused)
-{
-}
 
-static __always_inline void
-send_trace_sock_notify6(struct __ctx_sock *ctx __maybe_unused,
-			enum xlate_point xlate_point __maybe_unused,
-			union v6addr *dst_addr __maybe_unused,
-			__u16 dst_port __maybe_unused)
-{
-}
-#endif /* TRACE_SOCK_NOTIFY */
 #endif /* __LIB_TRACE_SOCK__ */

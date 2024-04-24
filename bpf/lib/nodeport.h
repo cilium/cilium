@@ -32,7 +32,6 @@
 #define nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, tuple, tunnel_endpoint, src_sec_identity, \
 		dst_sec_identity) -1
 
-#ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
 	struct ipv6_opt_hdr hdr;
@@ -63,7 +62,6 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 # endif
 }
 
-#ifdef HAVE_ENCAP
 static __always_inline int
 nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			  __be32 dst_ip, __u32 src_sec_identity, __u32 dst_sec_identity,
@@ -78,7 +76,6 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 				   ct_reason, monitor, ifindex);
 }
 
-# if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int
 nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			      __be32 dst_ip, __u32 src_sec_identity, __u32 dst_sec_identity,
@@ -93,8 +90,6 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 				       src_sec_identity, dst_sec_identity, NOT_VTEP_DST,
 				       opt, opt_len, ct_reason, monitor, ifindex);
 }
-# endif
-#endif /* HAVE_ENCAP */
 
 static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
 {
@@ -138,7 +133,6 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	}
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
 	return nodeport_uses_dsr(tuple->nexthdr);
@@ -228,8 +222,6 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_DSR
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 static __always_inline void rss_gen_src6(union v6addr *src,
 					 const union v6addr *client,
 					 __be32 l4_hint)
@@ -298,7 +290,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	return 0;
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+
 static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					const union v6addr *svc_addr,
@@ -351,7 +343,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 	return 0;
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+
 static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 struct ipv6hdr *ip6,
 						 const union v6addr *svc_addr,
@@ -434,7 +426,6 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 					 TRACE_PAYLOAD_LEN,
 					 ifindex);
 }
-#endif /* DSR_ENCAP_MODE */
 
 static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 				       struct dsr_opt_v6 *dsr_opt, bool *found)
@@ -811,7 +802,6 @@ create_ct:
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_DSR */
 
 static __always_inline struct lb6_reverse_nat *
 nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
@@ -1629,9 +1619,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple)
 {
 	return nodeport_uses_dsr(tuple->nexthdr);
@@ -1734,8 +1722,6 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_DSR
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
 {
 	const __u32 bits = 32 - IPV4_RSS_PREFIX_BITS;
@@ -1804,7 +1790,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 		return DROP_CSUM_L3;
 	return 0;
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+
 static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4, __be32 svc_addr,
 					__be16 svc_port, __be16 *ohead)
@@ -1862,7 +1848,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 
 	return 0;
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+
 static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_off __maybe_unused,
 						 struct iphdr *ip4, __be32 svc_addr,
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
@@ -2023,7 +2009,6 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 					 TRACE_PAYLOAD_LEN,
 					 ifindex);
 }
-#endif /* DSR_ENCAP_MODE */
 
 static __always_inline int
 nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
@@ -2364,7 +2349,7 @@ create_ct:
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_DSR */
+
 
 static __always_inline struct lb4_reverse_nat *
 nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
@@ -3248,9 +3233,6 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	return ret;
 }
 
-#endif /* ENABLE_IPV4 */
-
-#ifdef ENABLE_HEALTH_CHECK
 static __always_inline int
 health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 		__u32 seclabel)
@@ -3298,14 +3280,18 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 static __always_inline int
 lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 {
+#if __ctx_is == __ctx_xdp
+		__throw_build_bug();
+#else
 	void *data __maybe_unused, *data_end __maybe_unused;
 	__sock_cookie key __maybe_unused;
 	int ret __maybe_unused;
 	__u16 proto = 0;
 
 	if ((ctx->mark & MARK_MAGIC_HEALTH_IPIP_DONE) ==
-	    MARK_MAGIC_HEALTH_IPIP_DONE)
+	MARK_MAGIC_HEALTH_IPIP_DONE)
 		return CTX_ACT_OK;
+
 	validate_ethertype(ctx, &proto);
 	switch (proto) {
 #if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
@@ -3341,8 +3327,8 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 	default:
 		return CTX_ACT_OK;
 	}
+#endif
 }
-#endif /* ENABLE_HEALTH_CHECK */
 
 static __always_inline int
 handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
@@ -3390,5 +3376,4 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
 	return ret;
 }
 
-#endif /* ENABLE_NODEPORT */
 #endif /* __NODEPORT_H_ */

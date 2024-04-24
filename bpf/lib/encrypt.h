@@ -44,8 +44,6 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 #endif /* ENABLE_IPSEC */
 }
 
-#ifdef ENABLE_IPSEC
-# ifdef ENABLE_IPV4
 static __always_inline __u16
 lookup_ip4_node_id(__u32 ip4)
 {
@@ -61,9 +59,7 @@ lookup_ip4_node_id(__u32 ip4)
 		return 0;
 	return node_value->id;
 }
-# endif /* ENABLE_IPV4 */
 
-# ifdef ENABLE_IPV6
 static __always_inline __u16
 lookup_ip6_node_id(const union v6addr *ip6)
 {
@@ -79,7 +75,6 @@ lookup_ip6_node_id(const union v6addr *ip6)
 		return 0;
 	return node_value->id;
 }
-# endif /* ENABLE_IPV6 */
 
 static __always_inline void
 set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
@@ -123,7 +118,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 static __always_inline int
 do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 {
-	void *data, *data_end;
+	void *__maybe_unused data, *__maybe_unused data_end;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted;
@@ -133,6 +128,9 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #ifdef ENABLE_IPV4
 	struct iphdr *ip4;
 #endif
+
+	if (!is_defined(ENABLE_IPSEC))
+		return CTX_ACT_OK;
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 
@@ -192,7 +190,6 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #endif /* ENABLE_ROUTING */
 }
 
-#if defined(ENABLE_ENCRYPTED_OVERLAY)
 /* Sets the encryption mark on an overlay (VXLAN) packet and redirects the
  * packet to the ingress side of it's associated ifindex.
  *
@@ -266,14 +263,6 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx, void *data,
 
 	return ret;
 }
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
 
-#else
-static __always_inline int
-do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
-{
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_IPSEC */
 #endif /* __LIB_ENCRYPT_H_ */
 

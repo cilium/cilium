@@ -9,18 +9,10 @@
 #ifndef ___EP_CONFIG____
 #define ___EP_CONFIG____
 
+#include "lib/static_data.h"
+
 #ifndef LXC_IP
-#define LXC_IP_1 bpf_cpu_to_be64( \
-		(__u64)(0xbe) << 56 | (__u64)(0xef) << 48 | \
-		(__u64)(0x00) << 40 | (__u64)(0x00) << 32 | \
-		(__u64)(0x00) << 24 | (__u64)(0x00) << 16 | \
-		(__u64)(0x00) << 8  | (__u64)(0x01))
-#define LXC_IP_2 bpf_cpu_to_be64( \
-		(__u64)(0x00) << 56 | (__u64)(0x00) << 48 | \
-		(__u64)(0x00) << 40 | (__u64)(0x01) << 32 | \
-		(__u64)(0x01) << 24 | (__u64)(0x65) << 16 | \
-		(__u64)(0x82) << 8  | (__u64)(0xbc))
-#define LXC_IP { { LXC_IP_1, LXC_IP_2 } }
+DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
 #endif /* LXC_IP */
 
 #ifndef LXC_IPV4
@@ -87,25 +79,3 @@
 #define DIRECT_ROUTING_DEV_IFINDEX 0
 
 #endif /* ___EP_CONFIG____ */
-
-#ifndef NODE_MAC
-#define NODE_MAC_1 (0xde) << 24 | (0xad) << 16 | (0xbe) << 8 | (0xef)
-#define NODE_MAC_2 (0xc0) << 8 | (0xde)
-#define NODE_MAC { { NODE_MAC_1, NODE_MAC_2 } }
-#endif
-
-#ifndef ROUTER_IP
-#define ROUTER_IP_1 bpf_htonl((0xbe) << 24 | (0xef) << 16 | (0) << 8 | (0))
-#define ROUTER_IP_2 bpf_htonl((0) << 24 | (0) << 16 | (0) << 8 | (0x01))
-#define ROUTER_IP_3 bpf_htonl((0) << 24 | (0) << 16 | (0) << 8 | (0x01))
-#define ROUTER_IP_4 bpf_htonl((0x0) << 24 | (0x1) << 16 | (0x0) << 8 | (0x0))
-#define ROUTER_IP { { ROUTER_IP_1, ROUTER_IP_2, ROUTER_IP_3, ROUTER_IP_4 } }
-#endif
-
-#ifndef HOST_IP
-#define HOST_IP_1 bpf_htonl((0xbe) << 24 | (0xef) << 16 | (0) << 8 | (0))
-#define HOST_IP_2 bpf_htonl((0) << 24 | (0) << 16 | (0) << 8 | (0x01))
-#define HOST_IP_3 bpf_htonl((0) << 24 | (0) << 16 | (0xa) << 8 | (0x00))
-#define HOST_IP_4 bpf_htonl((0x2) << 24 | (0xf) << 16 | (0xff) << 8 | (0xff))
-#define HOST_IP { { HOST_IP_1, HOST_IP_2, HOST_IP_3, HOST_IP_4 } }
-#endif

@@ -16,7 +16,6 @@
 
 #include "high_scale_ipcache.h"
 
-#ifdef HAVE_ENCAP
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
@@ -104,7 +103,6 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 					      dstid, trace);
 }
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 /* encap_and_redirect_lxc adds IPSec metadata (if enabled) and returns the packet
  * so that it can be passed to the IP stack. Without IPSec the packet is
  * typically redirected to the output tunnel device and ctx will not be seen by
@@ -175,7 +173,6 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, 0, seclabel, 0,
 					      trace);
 }
-#endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
 static __always_inline __be16
 tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)
@@ -201,7 +198,6 @@ tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 #endif
 }
 
-#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int
 __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			__u32 tunnel_endpoint,
@@ -253,6 +249,5 @@ set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 
 	gopt->port = port;
 }
-#endif
-#endif /* HAVE_ENCAP */
+
 #endif /* __LIB_ENCAP_H_ */

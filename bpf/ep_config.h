@@ -44,6 +44,7 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
+
 #define DROP_NOTIFY
 #define TRACE_NOTIFY
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535

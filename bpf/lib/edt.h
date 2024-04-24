@@ -13,16 +13,22 @@
 /* From XDP layer, we neither go through an egress hook nor qdisc
  * from here, hence nothing to be set.
  */
-#if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
-static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
-					      __u32 aggregate)
+static __always_inline void edt_set_aggregate(struct __ctx_buff __maybe_unused *ctx,
+					      __u32 __maybe_unused aggregate)
 {
+#if __ctx_is == __ctx_xdp
+	return;
+#else
 	/* 16 bit as current used aggregate, and preserved in host ns. */
 	ctx->queue_mapping = aggregate;
+#endif
 }
 
-static __always_inline __u32 edt_get_aggregate(struct __ctx_buff *ctx)
+static __always_inline __u32 edt_get_aggregate(struct __ctx_buff __maybe_unused *ctx)
 {
+#if __ctx_is == __ctx_xdp
+	return 0;
+#else
 	__u32 aggregate = ctx->queue_mapping;
 
 	/* We need to reset queue mapping here such that new mapping will
@@ -31,10 +37,14 @@ static __always_inline __u32 edt_get_aggregate(struct __ctx_buff *ctx)
 	ctx->queue_mapping = 0;
 
 	return aggregate;
+#endif
 }
 
-static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
+static __always_inline int edt_sched_departure(struct __ctx_buff __maybe_unused *ctx)
 {
+#if __ctx_is == __ctx_xdp
+	return CTX_ACT_OK;
+#else
 	__u64 delay, now, t, t_next;
 	struct edt_id aggregate;
 	struct edt_info *info;
@@ -74,12 +84,7 @@ static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
 	WRITE_ONCE(info->t_last, t_next);
 	ctx->tstamp = t_next;
 	return CTX_ACT_OK;
+#endif
 }
-#else
-static __always_inline void
-edt_set_aggregate(struct __ctx_buff *ctx __maybe_unused,
-		  __u32 aggregate __maybe_unused)
-{
-}
-#endif /* ENABLE_BANDWIDTH_MANAGER */
+
 #endif /* __EDT_H_ */

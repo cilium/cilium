@@ -179,7 +179,6 @@ ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 #endif
 }
 
-#ifdef ENABLE_HOST_FIREWALL
 static __always_inline void
 ctx_skip_host_fw_set(struct __sk_buff *ctx)
 {
@@ -194,7 +193,6 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 	ctx->tc_index &= ~TC_INDEX_F_SKIP_HOST_FIREWALL;
 	return tc_index & TC_INDEX_F_SKIP_HOST_FIREWALL;
 }
-#endif /* ENABLE_HOST_FIREWALL */
 
 static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
 							 __u32 off)
@@ -248,7 +246,6 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;
 }
 
-#ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 		   __be16 src_port __maybe_unused, __u32 node_id,
@@ -287,6 +284,5 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 
 	return CTX_ACT_REDIRECT;
 }
-#endif /* HAVE_ENCAP */
 
 #endif /* __LIB_OVERLOADABLE_SKB_H_ */

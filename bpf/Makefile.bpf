@@ -7,6 +7,9 @@ CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc
 # eBPF verifier enforces unaligned access checks where necessary, so don't
 # let clang complain too early.
 CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
+CLANG_FLAGS += -Wno-unused-function
+#CLANG_FLAGS += -Wno-unused-variable
+#CLANG_FLAGS += -Wno-unused-parameter
 CLANG_FLAGS += -Wno-address-of-packed-member
 CLANG_FLAGS += -Wno-unknown-warning-option
 CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end

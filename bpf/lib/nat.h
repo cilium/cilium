@@ -100,7 +100,6 @@ struct ipv4_nat_target {
 	bool needs_ct;
 };
 
-#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
@@ -109,7 +108,6 @@ struct {
 	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
 } SNAT_MAPPING_IPV4 __section_maps_btf;
 
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct per_cluster_snat_mapping_ipv4_inner_map {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
@@ -139,9 +137,7 @@ struct {
 	},
 };
 #endif
-#endif
 
-#ifdef ENABLE_IP_MASQ_AGENT_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lpm_v4_key);
@@ -150,7 +146,6 @@ struct {
 	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } IP_MASQ_AGENT_IPV4 __section_maps_btf;
-#endif
 
 static __always_inline void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
@@ -758,6 +753,9 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	__u16 port_off;
 	int ret;
 
+	if (!is_defined(ENABLE_IPV4) || !is_defined(ENABLE_NODEPORT))
+		return CTX_ACT_OK;
+
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
 	switch (tuple->nexthdr) {
@@ -889,6 +887,9 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	__u16 port_off = 0;
 	int ret;
 
+	if (!is_defined(ENABLE_IPV4) || !is_defined(ENABLE_NODEPORT))
+		return CTX_ACT_OK;
+
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -957,21 +958,6 @@ rewrite:
 				       tuple.daddr, state->to_daddr, IPV4_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
 }
-#else
-static __always_inline __maybe_unused
-int snat_v4_nat(struct __ctx_buff *ctx __maybe_unused,
-		const struct ipv4_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-
-static __always_inline __maybe_unused
-int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
-		    const struct ipv4_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-#endif
 
 struct ipv6_nat_entry {
 	struct nat_entry common;
@@ -996,7 +982,6 @@ struct ipv6_nat_target {
 	bool needs_ct;
 };
 
-#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
@@ -1005,7 +990,6 @@ struct {
 	__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
 } SNAT_MAPPING_IPV6 __section_maps_btf;
 
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
 	__type(key, __u32);
@@ -1019,9 +1003,7 @@ struct {
 		__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
 	});
 } PER_CLUSTER_SNAT_MAPPING_IPV6 __section_maps_btf;
-#endif
 
-#ifdef ENABLE_IP_MASQ_AGENT_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lpm_v6_key);
@@ -1030,7 +1012,6 @@ struct {
 	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } IP_MASQ_AGENT_IPV6 __section_maps_btf;
-#endif
 
 static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
@@ -1442,6 +1423,9 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, int off,
 	} l4hdr;
 	__u16 port_off;
 
+	if (!is_defined(ENABLE_IPV6) || !is_defined(ENABLE_NODEPORT))
+		return CTX_ACT_OK;
+
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
 	switch (tuple->nexthdr) {
@@ -1586,6 +1570,9 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		__be16 dport;
 	} l4hdr;
 
+	if (!is_defined(ENABLE_IPV6) || !is_defined(ENABLE_NODEPORT))
+		return CTX_ACT_OK;
+
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1657,23 +1644,7 @@ rewrite:
 				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
 }
-#else
-static __always_inline __maybe_unused
-int snat_v6_nat(struct __ctx_buff *ctx __maybe_unused,
-		const struct ipv6_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
 
-static __always_inline __maybe_unused
-int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
-		    const struct ipv6_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-#endif
-
-#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline int
 snat_remap_rfc8215(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
 {
@@ -1712,16 +1683,12 @@ snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 {
 	struct ipv6_ct_tuple tuple6;
 
+	if (!is_defined(ENABLE_IPV6) || !is_defined(ENABLE_NODEPORT))
+		return false;
+
 	memset(&tuple6, 0, sizeof(tuple6));
 	build_v4_in_v6(&tuple6.saddr, tuple4->saddr);
 	return __snat_v6_has_v4_complete(&tuple6, tuple4);
 }
-#else
-static __always_inline bool
-snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
-{
-	return false;
-}
-#endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
 
 #endif /* __LIB_NAT__ */

@@ -3,9 +3,6 @@
 
 #pragma once
 
-#include <bpf/ctx/ctx.h>
-#include <bpf/api.h>
-
 #include "endian.h"
 
 /* Declare a global configuration variable that can be modified at runtime,

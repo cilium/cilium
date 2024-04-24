@@ -247,12 +247,10 @@ static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
 				 match_type, audited, ext_err, proxy_port);
 }
 
-#ifdef HAVE_ENCAP
 static __always_inline bool is_encap(__u16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP && dport == bpf_htons(TUNNEL_PORT);
 }
-#endif
 
 static __always_inline int
 policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,

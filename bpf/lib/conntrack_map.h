@@ -7,9 +7,6 @@
 #include "common.h"
 #include "config.h"
 
-#if defined(CT_MAP_TCP4) && defined(CT_MAP_TCP6)
-
-#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
@@ -26,7 +23,6 @@ struct {
 	__uint(max_entries, CT_MAP_SIZE_ANY);
 } CT_MAP_ANY6 __section_maps_btf;
 
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 /*
  * Per-cluster conntrack map
  *
@@ -66,7 +62,6 @@ struct {
 		__uint(max_entries, CT_MAP_SIZE_ANY);
 	});
 } PER_CLUSTER_CT_ANY6 __section_maps_btf;
-#endif
 
 static __always_inline void *
 get_ct_map6(const struct ipv6_ct_tuple *tuple)
@@ -101,9 +96,7 @@ get_cluster_ct_any_map6(__u32 cluster_id __maybe_unused)
 #endif
 	return &CT_MAP_ANY6;
 }
-#endif
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
@@ -120,7 +113,6 @@ struct {
 	__uint(max_entries, CT_MAP_SIZE_ANY);
 } CT_MAP_ANY4 __section_maps_btf;
 
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct per_cluster_ct_map4_inner_map {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv4_ct_tuple);
@@ -170,7 +162,6 @@ struct {
 	},
 };
 #endif
-#endif
 
 static __always_inline void *
 get_ct_map4(const struct ipv4_ct_tuple *tuple)
@@ -205,6 +196,5 @@ get_cluster_ct_any_map4(__u32 cluster_id __maybe_unused)
 #endif
 	return &CT_MAP_ANY4;
 }
-#endif
-#endif
+
 #endif /* __LIB_CONNTRACK_MAP_H_ */

@@ -62,7 +62,6 @@ static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __may
 	VLAN_FILTER(ifindex, vlan_id);
 }
 
-#if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
@@ -78,18 +77,19 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 	return CTX_ACT_OK;
 }
 
-#define SECCTX_FROM_IPCACHE_OK	2
-#ifndef SECCTX_FROM_IPCACHE
-# define SECCTX_FROM_IPCACHE	0
-#endif
-
 static __always_inline bool identity_from_ipcache_ok(void)
 {
+	#define SECCTX_FROM_IPCACHE_OK 2
+
+	#if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
+	#ifndef SECCTX_FROM_IPCACHE
+	#define SECCTX_FROM_IPCACHE	0
+	#endif
+	#endif
+
 	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;
 }
-#endif
 
-#ifdef ENABLE_IPV6
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		   __u32 srcid_from_ipcache, __u32 *sec_identity,
@@ -481,7 +481,6 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 	return tail_handle_ipv6(ctx, 0, false);
 }
 
-# ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
 handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		      struct trace_ctx *trace, __s8 *ext_err)
@@ -514,10 +513,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	/* to-netdev is attached to the egress path of the native device. */
 	return ipv6_host_policy_egress(ctx, srcid, ipcache_srcid, ip6, trace, ext_err);
 }
-#endif /* ENABLE_HOST_FIREWALL */
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		   __u32 srcid_from_proxy, __u32 *sec_identity,
@@ -937,7 +933,6 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 	return tail_handle_ipv4(ctx, 0, false);
 }
 
-#ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
 handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		      struct trace_ctx *trace, __s8 *ext_err)
@@ -957,10 +952,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	 */
 	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, ip4, trace, ext_err);
 }
-#endif /* ENABLE_HOST_FIREWALL */
-#endif /* ENABLE_IPV4 */
 
-#if defined(ENABLE_IPSEC) && defined(TUNNEL_MODE)
 static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
 {
 	struct trace_ctx trace = {
@@ -968,7 +960,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 		.monitor = 0,
 	};
 	struct remote_endpoint_info *ep = NULL;
-	void *data, *data_end;
+	void __maybe_unused *data, __maybe_unused *data_end;
 	struct ipv6hdr *ip6 __maybe_unused;
 	struct iphdr *ip4 __maybe_unused;
 	__u16 proto;
@@ -1000,9 +992,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 	return encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, 0,
 					      src_id, 0, &trace);
 }
-#endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
-#ifdef ENABLE_L2_ANNOUNCEMENTS
 static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 {
 	union macaddr mac = NODE_MAC;
@@ -1042,7 +1032,6 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 
 	return ret;
 };
-#endif
 
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
@@ -1308,7 +1297,6 @@ int cil_from_host(struct __ctx_buff *ctx)
 	return handle_netdev(ctx, true);
 }
 
-#if defined(ENABLE_ENCRYPTED_OVERLAY)
 /*
  * If the traffic should be encrypted then CTX_ACT_REDIRECT is returned.
  * Unless an error occurred, and the caller can return this code to TC.
@@ -1331,7 +1319,6 @@ static __always_inline int do_encrypt_overlay(struct __ctx_buff *ctx)
 
 	return ret;
 };
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
 
 /*
  * to-netdev is attached as a tc egress filter to one or more physical devices
@@ -1609,8 +1596,6 @@ out:
 	return ret;
 }
 
-#if defined(ENABLE_HOST_FIREWALL)
-#ifdef ENABLE_IPV6
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
 static __always_inline
 int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
@@ -1629,9 +1614,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
 static __always_inline
 int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
@@ -1650,7 +1633,6 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV4 */
 
 static __always_inline int
 /* Handles packet from a local endpoint entering the host namespace. Applies
@@ -1710,14 +1692,14 @@ out:
  * control back to bpf_lxc.
  */
 static __always_inline int
-from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
+from_host_to_lxc(struct __ctx_buff *ctx, __s8 __maybe_unused *ext_err)
 {
-	struct trace_ctx trace = {
+	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
 	int ret = CTX_ACT_OK;
-	void *data, *data_end;
+	void __maybe_unused *data, __maybe_unused *data_end;
 	struct iphdr *ip4 __maybe_unused;
 	struct ipv6hdr *ip6 __maybe_unused;
 	__u16 proto = 0;
@@ -1790,6 +1772,5 @@ int handle_lxc_traffic(struct __ctx_buff *ctx)
 
 	return to_host_from_lxc(ctx);
 }
-#endif /* ENABLE_HOST_FIREWALL */
 
 BPF_LICENSE("Dual BSD/GPL");

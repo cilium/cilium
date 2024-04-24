@@ -98,6 +98,7 @@ var (
 	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
 		"-nostdinc", fmt.Sprintf("-D__NR_CPUS__=%d", common.GetNumPossibleCPUs(log)),
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
+		"-Wno-unused-variable", "-Wno-unused-function",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",
 		"-Wno-gnu-variable-sized-type-not-at-end",
