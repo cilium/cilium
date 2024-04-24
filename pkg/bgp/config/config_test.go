@@ -8,31 +8,24 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type BGPConfigTestSuite struct{}
-
-var _ = Suite(&BGPConfigTestSuite{})
-
-func (s *BGPConfigTestSuite) TestParse(c *C) {
+func TestParse(t *testing.T) {
 	config, err := Parse(strings.NewReader(yaml))
-	c.Assert(err, IsNil)
-	c.Assert(config, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, config)
 
 	config, err = Parse(strings.NewReader(json))
-	c.Assert(err, IsNil)
-	c.Assert(config, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, config)
 
 	config, err = Parse(strings.NewReader(`{"json":"random"}`))
 	// Usually we use ErrorMatches here, but the error string has newlines
 	// which makes the regex matching fail.
-	c.Assert(strings.HasPrefix(err.Error(), "failed to parse MetalLB config:"), Equals, true)
-	c.Assert(config, IsNil)
+	require.Error(t, err)
+	require.True(t, strings.HasPrefix(err.Error(), "failed to parse MetalLB config:"))
+	require.Nil(t, config)
 }
 
 const (
