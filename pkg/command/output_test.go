@@ -6,16 +6,10 @@ package command
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-type CMDHelpersSuite struct{}
-
-var _ = Suite(&CMDHelpersSuite{})
-
-func (s *CMDHelpersSuite) TestDumpJSON(c *C) {
+func TestDumpJSON(t *testing.T) {
 	type sampleData struct {
 		ID   int
 		Name string
@@ -27,18 +21,18 @@ func (s *CMDHelpersSuite) TestDumpJSON(c *C) {
 	}
 
 	err := dumpJSON(tt, "")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	err = dumpJSON(tt, "{.Id}")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	err = dumpJSON(tt, "{{.Id}}")
 	if err == nil {
-		c.Fatalf("Dumpjson jsonpath no error with invalid path '%s'", err)
+		t.Fatalf("Dumpjson jsonpath no error with invalid path '%s'", err)
 	}
 }
 
-func (s *CMDHelpersSuite) TestDumpYAML(c *C) {
+func TestDumpYAML(t *testing.T) {
 	type sampleData struct {
 		ID   int
 		Name string
@@ -50,5 +44,5 @@ func (s *CMDHelpersSuite) TestDumpYAML(c *C) {
 	}
 
 	err := dumpYAML(tt)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 }
