@@ -427,40 +427,6 @@ func (s *SSHMeta) GetFullPath(name string) string {
 	return fmt.Sprintf("%s%s", s.ManifestsPath(), name)
 }
 
-// PolicyEndpointsSummary returns the count of whether policy enforcement is
-// enabled, disabled, and the total number of endpoints, and an error if the
-// Cilium endpoint metadata cannot be retrieved via the API.
-func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
-	result := map[string]int{
-		Enabled:  0,
-		Disabled: 0,
-		Total:    0,
-	}
-
-	res := s.ListEndpoints()
-	if !res.WasSuccessful() {
-		return nil, fmt.Errorf("was not able to list endpoints: %s", res.CombineOutput().String())
-	}
-
-	endpoints, err := res.Filter("{ [?(@.status.labels.security-relevant[0]!='reserved:health')].status.policy.realized.policy-enabled }")
-
-	if err != nil {
-		return result, fmt.Errorf(`cannot filter for "policy-enabled" from output of "cilium endpoint list"`)
-	}
-	status := strings.Split(endpoints.String(), " ")
-	for _, kind := range status {
-		switch models.EndpointPolicyEnabled(kind) {
-		case models.EndpointPolicyEnabledBoth, models.EndpointPolicyEnabledEgress,
-			models.EndpointPolicyEnabledIngress:
-			result[Enabled]++
-		case OptionNone:
-			result[Disabled]++
-		}
-		result[Total]++
-	}
-	return result, nil
-}
-
 // SetPolicyEnforcement sets the PolicyEnforcement configuration value for the
 // Cilium agent to the provided status.
 func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
