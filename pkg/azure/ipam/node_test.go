@@ -4,12 +4,14 @@
 package ipam
 
 import (
-	check "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/azure/types"
 )
 
-func (e *IPAMSuite) TestGetMaximumAllocatableIPv4(c *check.C) {
+func TestGetMaximumAllocatableIPv4(t *testing.T) {
 	n := &Node{}
-	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, types.InterfaceAddressLimit)
+	require.Equal(t, n.GetMaximumAllocatableIPv4(), types.InterfaceAddressLimit)
 }
