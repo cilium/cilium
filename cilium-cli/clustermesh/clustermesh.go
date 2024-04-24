@@ -15,7 +15,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -75,7 +74,7 @@ type k8sClusterMeshImplementation interface {
 	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time) (string, error)
 }
 
 type K8sClusterMesh struct {
