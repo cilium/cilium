@@ -2461,9 +2461,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: a superset a L3L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 80, 6, insertA},
 		{"deny-allow: b superset a L3L4, b L3L4", worldIPID, worldSubnetID, true, false, 80, 6, 80, 6, insertBoth},
 
-		// deny-deny insertions: Note: We do not delete all redundant deny-deny insertions that we could.
-		// We only delete entries redundant to L3-only port protocols, all other port-protocol supersets
-		// *do not* have this effect.
+		// deny-deny insertions: Note: We do delete all redundant deny-deny insertions.
 		{"deny-deny: a superset a|b L3-only", worldSubnetID, worldIPID, true, true, 0, 0, 0, 0, insertA},
 		{"deny-deny: b superset a|b L3-only", worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 0, insertB},
 		{"deny-deny: a superset a L3-only, b L4", worldSubnetID, worldIPID, true, true, 0, 0, 0, 6, insertA},
@@ -2472,17 +2470,17 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-deny: b superset a L3-only, b L3L4", worldSubnetID, reservedWorldID, true, true, 0, 0, 80, 6, insertBoth},
 		{"deny-deny: a superset a L4, b L3-only", worldSubnetID, worldIPID, true, true, 0, 6, 0, 0, insertBoth},
 		{"deny-deny: b superset a L4, b L3-only", worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 0, insertB},
-		{"deny-deny: a superset a L4, b L4", worldSubnetID, worldIPID, true, true, 0, 6, 0, 6, canDeleteBInsertsBoth},
-		{"deny-deny: b superset a L4, b L4", worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 6, canDeleteAInsertsBoth},
-		{"deny-deny: a superset a L4, b L3L4", worldSubnetID, worldIPID, true, true, 0, 6, 80, 6, canDeleteBInsertsBoth},
+		{"deny-deny: a superset a L4, b L4", worldSubnetID, worldIPID, true, true, 0, 6, 0, 6, insertA},
+		{"deny-deny: b superset a L4, b L4", worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 6, insertB},
+		{"deny-deny: a superset a L4, b L3L4", worldSubnetID, worldIPID, true, true, 0, 6, 80, 6, insertA},
 		{"deny-deny: b superset a L4, b L3L4", worldSubnetID, reservedWorldID, true, true, 0, 6, 80, 6, insertBoth},
 		{"deny-deny: a superset a L3L4, b L3-only", worldSubnetID, worldIPID, true, true, 80, 6, 0, 0, insertBoth},
 		{"deny-deny: b superset a L3L4, b L3-only", worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 0, insertB},
 		{"deny-deny: a superset a L3L4, b L4", worldSubnetID, worldIPID, true, true, 80, 6, 0, 6, insertBoth},
-		{"deny-deny: b superset a L3L4, b L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 6, canDeleteAInsertsBoth},
-		{"deny-deny: a superset a L3L4, b L3L4", worldSubnetID, worldIPID, true, true, 80, 6, 80, 6, canDeleteBInsertsBoth},
-		{"deny-deny: b superset a L3L4, b L3L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 80, 6, canDeleteAInsertsBoth},
-		// allow-allow insertions do not need to be tests as they will all be inserted
+		{"deny-deny: b superset a L3L4, b L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 6, insertB},
+		{"deny-deny: a superset a L3L4, b L3L4", worldSubnetID, worldIPID, true, true, 80, 6, 80, 6, insertA},
+		{"deny-deny: b superset a L3L4, b L3L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 80, 6, insertB},
+		// allow-allow insertions do not need tests as their affect on one another does not matter.
 	}
 	for _, tt := range tests {
 		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
@@ -2534,7 +2532,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
-		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (MapState):\n%s", tt.name, expectedKeys.Diff(nil, outcomeKeys))
+		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (MapState):\n%s", tt.name, outcomeKeys.Diff(nil, expectedKeys))
 	}
 	// Now test all cases with different traffic directions.
 	// This should result in both entries being inserted with
