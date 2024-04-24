@@ -5,9 +5,6 @@ package eni
 
 import (
 	"net"
-	"testing"
-
-	check "github.com/cilium/checkmate"
 
 	apimock "github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
@@ -15,14 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type ENISuite struct{}
-
-var _ = check.Suite(&ENISuite{})
 
 var (
 	_, subnet0, _ = net.ParseCIDR("1.1.0.0/24")
