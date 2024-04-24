@@ -2417,10 +2417,9 @@ int cil_to_container(struct __ctx_buff *ctx)
 		trace = TRACE_FROM_PROXY;
 #if defined(ENABLE_L7_LB)
 	else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, identity);
+		ret = tail_call_egress_policy(ctx, (__u16)identity);
 		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
-					DROP_MISSED_TAIL_CALL, CTX_ACT_DROP,
-					METRIC_INGRESS);
+					ret, CTX_ACT_DROP, METRIC_INGRESS);
 	}
 #endif
 
