@@ -59,13 +59,12 @@ jobs:
 
       - name: Check if build works for every commit
         run: |
-          PR_COMMITS_API_JSON=$(curl \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            ${{ github.event.pull_request.commits_url }})
-          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
-          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "contrib/scripts/builder.sh make build -j $(nproc)" $PR_PARENT_SHA
+          set -eu -o pipefail
+          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          for commit in $COMMITS ; do
+            git checkout $commit || exit 1
+            contrib/scripts/builder.sh make build -j $(nproc) || exit 1
+          done
 
       - name: Check bpf code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -79,13 +78,12 @@ jobs:
       - name: Check if datapath build works for every commit
         if: steps.bpf-tree.outputs.src == 'true'
         run: |
-          PR_COMMITS_API_JSON=$(curl \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            ${{ github.event.pull_request.commits_url }})
-          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
-          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "contrib/scripts/builder.sh make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
+          set -eu -o pipefail
+          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          for commit in $COMMITS ; do
+            git checkout $commit || exit 1
+            contrib/scripts/builder.sh make -C bpf build_all -j $(nproc) || exit 1
+          done
 
       - name: Check test code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -100,13 +98,12 @@ jobs:
       - name: Check if ginkgo test suite build works for every commit
         if: steps.test-tree.outputs.src == 'true'
         run: |
-         PR_COMMITS_API_JSON=$(curl \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            ${{ github.event.pull_request.commits_url }})
-          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
-          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)" $PR_PARENT_SHA
+          set -eu -o pipefail
+          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          for commit in $COMMITS ; do
+            git checkout $commit || exit 1
+            (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
+          done
 
       - name: Failed commit during the build
         if: ${{ failure() }}
