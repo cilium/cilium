@@ -4,15 +4,15 @@
 package cmd
 
 import (
+	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni/fake"
-	"github.com/cilium/cilium/pkg/checker"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -21,11 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-type GetNodesSuite struct {
-}
-
-var _ = Suite(&GetNodesSuite{})
 
 var (
 	nm         manager.NodeManager
@@ -37,18 +32,18 @@ var (
 	}
 )
 
-func (g *GetNodesSuite) SetUpTest(c *C) {
+func setup(t *testing.T) {
+	var err error
+	nm, err = manager.New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, manager.NewNodeMetrics(), cell.TestScope())
+	require.NoError(t, err)
+
 	option.Config.IPv4ServiceRange = AutoCIDR
 	option.Config.IPv6ServiceRange = AutoCIDR
 }
 
-func (g *GetNodesSuite) SetUpSuite(c *C) {
-	var err error
-	nm, err = manager.New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, manager.NewNodeMetrics(), cell.TestScope())
-	c.Assert(err, IsNil)
-}
+func Test_getNodesHandle(t *testing.T) {
+	setup(t)
 
-func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 	// Set seed so we can have the same pseudorandom client IDs.
 	// The seed is set to 0 for each unit test.
 	randGen.Seed(0)
@@ -366,23 +361,24 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 	}
 
 	for _, tt := range tests {
-		c.Log(tt.name)
-		randGen.Seed(0)
-		args := tt.setupArgs()
-		want := tt.setupWanted()
-		h := &getNodes{clients: args.clients}
-		responder := h.Handle(args.daemon, args.params)
-		c.Assert(len(h.clients), checker.DeepEquals, len(want.clients))
-		for k, v := range h.clients {
-			wantClient, ok := want.clients[k]
-			c.Assert(ok, Equals, true)
-			c.Assert(v.ClusterNodeStatus, checker.DeepEquals, wantClient.ClusterNodeStatus)
-		}
-		c.Assert(responder, checker.DeepEquals, middleware.Responder(want.responder))
+		t.Run(tt.name, func(t *testing.T) {
+			randGen.Seed(0)
+			args := tt.setupArgs()
+			want := tt.setupWanted()
+			h := &getNodes{clients: args.clients}
+			responder := h.Handle(args.daemon, args.params)
+			require.Len(t, want.clients, len(h.clients))
+			for k, v := range h.clients {
+				wantClient, ok := want.clients[k]
+				require.True(t, ok)
+				require.Equal(t, wantClient.ClusterNodeStatus, v.ClusterNodeStatus)
+			}
+			require.Equal(t, middleware.Responder(want.responder), responder)
+		})
 	}
 }
 
-func (g *GetNodesSuite) Test_cleanupClients(c *C) {
+func Test_cleanupClients(t *testing.T) {
 	now := time.Now()
 	type args struct {
 		clients map[int64]*clusterNodesClient
@@ -419,15 +415,16 @@ func (g *GetNodesSuite) Test_cleanupClients(c *C) {
 	}
 
 	for _, tt := range tests {
-		c.Log(tt.name)
-		args := tt.setupArgs()
-		want := tt.setupWanted()
-		h := &getNodes{clients: args.clients}
-		lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
-		h.cleanupClients(
-			&Daemon{
-				nodeDiscovery: nodediscovery.NewNodeDiscovery(nm, nil, nil, lnc, &fake.FakeCNIConfigManager{}),
-			})
-		c.Assert(h.clients, checker.DeepEquals, want.clients)
+		t.Run(tt.name, func(t *testing.T) {
+			args := tt.setupArgs()
+			want := tt.setupWanted()
+			h := &getNodes{clients: args.clients}
+			lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
+			h.cleanupClients(
+				&Daemon{
+					nodeDiscovery: nodediscovery.NewNodeDiscovery(nm, nil, nil, lnc, &fake.FakeCNIConfigManager{}),
+				})
+			require.EqualValues(t, want.clients, h.clients)
+		})
 	}
 }
