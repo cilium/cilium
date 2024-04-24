@@ -9,22 +9,14 @@ import (
 	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type BackoffSuite struct{}
-
-var _ = check.Suite(&BackoffSuite{})
-
-func (b *BackoffSuite) TestJitter(c *check.C) {
+func TestJitter(t *testing.T) {
 	var prev time.Duration
 	for i := 0; i < 100; i++ {
 		current := CalculateDuration(time.Second, time.Minute, 2.0, true, 1)
-		c.Assert(current, check.Not(check.Equals), prev)
+		require.NotEqual(t, prev, current)
 		prev = current
 	}
 }
@@ -44,15 +36,15 @@ func (f *fakeNodeManager) ClusterSizeDependantInterval(baseInterval time.Duratio
 	return time.Duration(int64(waitNanoseconds))
 }
 
-func (b *BackoffSuite) TestNewNodeManager(c *check.C) {
+func TestNewNodeManager(t *testing.T) {
 	mgr := NewNodeManager(func(baseInterval time.Duration) time.Duration { return 2 * baseInterval })
-	c.Assert(mgr.ClusterSizeDependantInterval(1*time.Second), check.Equals, 2*time.Second)
+	require.Equal(t, 2*time.Second, mgr.ClusterSizeDependantInterval(1*time.Second))
 
 	mgr = NewNodeManager(nil)
-	c.Assert(mgr.ClusterSizeDependantInterval(1*time.Second), check.Equals, 1*time.Second)
+	require.Equal(t, 1*time.Second, mgr.ClusterSizeDependantInterval(1*time.Second))
 }
 
-func (b *BackoffSuite) TestClusterSizeDependantInterval(c *check.C) {
+func TestClusterSizeDependantInterval(t *testing.T) {
 	var (
 		nnodes      = 0
 		nodeManager = fakeNodeManager{
@@ -79,7 +71,7 @@ func (b *BackoffSuite) TestClusterSizeDependantInterval(c *check.C) {
 	}
 }
 
-func (b *BackoffSuite) TestJitterDistribution(c *check.C) {
+func TestJitterDistribution(t *testing.T) {
 	nodeBackoff := &Exponential{
 		Min:    time.Second,
 		Factor: 2.0,
