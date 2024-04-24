@@ -4,6 +4,7 @@
 package fake
 
 import (
+	"github.com/cilium/cilium/api/v1/models"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -23,5 +24,9 @@ func (c *FakeCNIConfigManager) ExternalRoutingEnabled() bool {
 }
 
 func (f *FakeCNIConfigManager) GetCustomNetConf() *cnitypes.NetConf {
+	return nil
+}
+
+func (f *FakeCNIConfigManager) Status() *models.Status {
 	return nil
 }
