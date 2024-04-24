@@ -6,19 +6,10 @@ package checker
 import (
 	"testing"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type CheckerSuite struct{}
-
-var _ = check.Suite(&CheckerSuite{})
-
-func (s *CheckerSuite) TestDeepEqualsCheck(c *check.C) {
+func TestDeepEqualsCheck(t *testing.T) {
 	names := []string{"a", "b"}
 	type args struct {
 		params []interface{}
@@ -73,15 +64,15 @@ func (s *CheckerSuite) TestDeepEqualsCheck(c *check.C) {
 	}
 	for _, tt := range tests {
 		equal, err := DeepEquals.Check(tt.args.params, names)
-		c.Assert(equal, check.Equals, tt.want)
-		c.Assert(equal, check.Equals, err == "")
+		require.Equal(t, tt.want, equal)
+		require.Equal(t, equal, err == "")
 	}
 
 	equal, err := DeepEquals.Check([]interface{}{1, 1}, []string{"a"})
-	c.Assert(equal, check.Equals, false)
-	c.Assert(err, check.NotNil)
+	require.False(t, equal)
+	require.NotNil(t, err)
 
 	equal, err = DeepEquals.Check([]interface{}{1}, []string{"a"})
-	c.Assert(equal, check.Equals, false)
-	c.Assert(err, check.NotNil)
+	require.False(t, equal)
+	require.NotNil(t, err)
 }
