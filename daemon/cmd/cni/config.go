@@ -12,6 +12,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"text/template"
 
 	"github.com/containernetworking/cni/libcni"
@@ -21,6 +22,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/time"
@@ -42,6 +44,8 @@ type cniConfigManager struct {
 
 	// watcher watches for changes in the CNI configuration directory
 	watcher *fsnotify.Watcher
+
+	status atomic.Pointer[models.Status]
 }
 
 // GetMTU returns the MTU as written in the CNI configuration file.
@@ -57,6 +61,10 @@ func (c *cniConfigManager) GetMTU() int {
 // GetChainingMode returns the configured chaining mode.
 func (c *cniConfigManager) GetChainingMode() string {
 	return c.config.CNIChainingMode
+}
+
+func (c *cniConfigManager) Status() *models.Status {
+	return c.status.Load()
 }
 
 // ExternalRoutingEnabled returns true if the chained plugin implements routing
@@ -177,6 +185,10 @@ var cniControllerGroup = controller.NewGroup("write-cni-file")
 // - debug -- Whether or not the CNI plugin binary should be verbose
 func (c *cniConfigManager) Start(cell.HookContext) error {
 	if c.config.WriteCNIConfWhenReady == "" {
+		c.status.Store(&models.Status{
+			Msg:   "CNI configuration management disabled",
+			State: models.StatusStateDisabled,
+		})
 		return nil
 	}
 
@@ -259,9 +271,23 @@ func (c *cniConfigManager) watchForDirectoryChanges() {
 
 // setupCNIConfFile tries to render and write the CNI configuration file to disk.
 // Returns error on failure.
-func (c *cniConfigManager) setupCNIConfFile() error {
+func (c *cniConfigManager) setupCNIConfFile() (err error) {
 	var contents []byte
-	var err error
+	dest := path.Join(c.cniConfDir, c.cniConfFile)
+
+	defer func() {
+		if err != nil {
+			c.status.Store(&models.Status{
+				Msg:   fmt.Sprintf("failed to write CNI configuration file %s: %v", dest, err),
+				State: models.StatusStateFailure,
+			})
+		} else {
+			c.status.Store(&models.Status{
+				Msg:   fmt.Sprintf("successfully wrote CNI configuration file to %s", dest),
+				State: models.StatusStateOk,
+			})
+		}
+	}()
 
 	// generate CNI config, either by reading a user-supplied
 	// template file or rendering our own.
@@ -282,8 +308,6 @@ func (c *cniConfigManager) setupCNIConfFile() error {
 	if err != nil {
 		return fmt.Errorf("failed to create the dir %s of the CNI configuration file: %w", c.cniConfDir, err)
 	}
-
-	dest := path.Join(c.cniConfDir, c.cniConfFile)
 
 	// Check to see if existing file is the same; if so, do nothing
 	existingContents, err := os.ReadFile(dest)

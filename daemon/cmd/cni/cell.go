@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
@@ -42,6 +43,10 @@ type CNIConfigManager interface {
 
 	// GetChainingMode returns the configured CNI chaining mode
 	GetChainingMode() string
+
+	// Status returns the status of the CNI manager.
+	// Cannot return nil.
+	Status() *models.Status
 
 	GetCustomNetConf() *cnitypes.NetConf
 
@@ -85,12 +90,19 @@ func newConfigManager(log logrus.FieldLogger, cfg Config, debug bool) *cniConfig
 		cfg.CNIChainingMode = "none"
 	}
 
+	s := models.Status{
+		Msg:   "CNI controller not started",
+		State: models.StatusStateFailure,
+	}
+
 	c := &cniConfigManager{
 		config:     cfg,
 		debug:      debug,
 		log:        log,
 		controller: controller.NewManager(),
 	}
+
+	c.status.Store(&s)
 
 	c.cniConfDir, c.cniConfFile = path.Split(cfg.WriteCNIConfWhenReady)
 	c.ctx, c.doneFunc = context.WithCancel(context.Background())
