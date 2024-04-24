@@ -974,51 +974,63 @@ func (e *Endpoint) InitMap() error {
 	return policymap.Create(e.policyMapPath())
 }
 
-// deleteMaps releases references to all BPF maps associated with this
-// endpoint.
+// deleteMaps deletes the endpoint's entry from the global
+// cilium_(egress)call_policy maps and removes endpoint-specific cilium_calls_,
+// cilium_policy_ and cilium_ct{4,6}_ map pins.
 //
-// For each error that occurs while releasing these references, an error is
-// added to the resulting error slice which is returned.
-//
-// Returns nil on success.
+// Call this after the endpoint's tc hook has been detached.
 func (e *Endpoint) deleteMaps() []error {
 	var errors []error
 
-	maps := map[string]string{
-		"policy": e.policyMapPath(),
-		"calls":  e.callsMapPath(),
+	// Remove the endpoint from cilium_lxc. After this point, ip->epID lookups
+	// will fail, causing packets to/from the Pod to be dropped in many cases,
+	// stopping packet evaluation.
+	if err := lxcmap.DeleteElement(e); err != nil {
+		errors = append(errors, err...)
 	}
-	if !e.isHost {
-		maps["custom"] = e.customCallsMapPath()
+
+	// Remove the policy tail call entry for the endpoint. This will disable
+	// policy evaluation for the endpoint and will result in missing tail calls if
+	// e.g. bpf_host or bpf_overlay call into the endpoint's policy program.
+	if err := policymap.RemoveGlobalMapping(uint32(e.ID), option.Config.EnableEnvoyConfig); err != nil {
+		errors = append(errors, fmt.Errorf("removing endpoint program from global policy map: %w", err))
 	}
-	for name, path := range maps {
-		if err := os.RemoveAll(path); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove %s map file %s: %w", name, path, err))
+
+	// Remove rate limit from bandwidth manager map.
+	if e.bps != 0 {
+		if err := e.owner.Datapath().BandwidthManager().DeleteEndpointBandwidthLimit(e.ID); err != nil {
+			errors = append(errors, fmt.Errorf("removing endpoint from bandwidth manager map: %w", err))
 		}
 	}
 
 	if e.ConntrackLocalLocked() {
-		// Remove local connection tracking maps
+		// Remove endpoint-specific CT map pins.
 		for _, m := range ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6) {
 			ctPath, err := m.Path()
-			if err == nil {
-				err = os.RemoveAll(ctPath)
-			}
 			if err != nil {
-				errors = append(errors, fmt.Errorf("unable to remove CT map %s: %w", ctPath, err))
+				errors = append(errors, fmt.Errorf("getting path for CT map pin %s: %w", m.Name(), err))
+				continue
+			}
+			if err := os.RemoveAll(ctPath); err != nil {
+				errors = append(errors, fmt.Errorf("removing CT map pin %s: %w", ctPath, err))
 			}
 		}
 	}
 
-	// Remove handle_policy() tail call entry for EP
-	if err := policymap.RemoveGlobalMapping(uint32(e.ID), option.Config.EnableEnvoyConfig); err != nil {
-		errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %w", err))
+	// Remove program array pins as the last step. This permanently invalidates
+	// the endpoint programs' state, because removing a program array map pin
+	// removes the map's entries even if the map is still referenced by any live
+	// bpf programs, potentially resulting in missed tail calls if any packets are
+	// still in flight.
+	if err := os.RemoveAll(e.policyMapPath()); err != nil {
+		errors = append(errors, fmt.Errorf("removing policy map pin for endpoint %s: %w", e.StringID(), err))
 	}
-
-	// Remove rate-limit from bandwidth manager map.
-	if e.bps != 0 {
-		if err := e.owner.Datapath().BandwidthManager().DeleteEndpointBandwidthLimit(e.ID); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remote endpoint from bandwidth manager map: %w", err))
+	if err := os.RemoveAll(e.callsMapPath()); err != nil {
+		errors = append(errors, fmt.Errorf("removing calls map pin for endpoint %s: %w", e.StringID(), err))
+	}
+	if !e.isHost {
+		if err := os.RemoveAll(e.customCallsMapPath()); err != nil {
+			errors = append(errors, fmt.Errorf("removing custom calls map pin for endpoint %s: %w", e.StringID(), err))
 		}
 	}
 
