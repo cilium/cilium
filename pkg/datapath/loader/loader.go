@@ -527,6 +527,16 @@ func (l *Loader) Unload(ep datapath.Endpoint) {
 			removeEndpointRoute(ep, *iputil.AddrToIPNet(ip))
 		}
 	}
+
+	log := log.WithField(logfields.EndpointID, ep.StringID())
+
+	// Remove tc attachments.
+	if err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_INGRESS); err != nil {
+		log.WithError(err).Errorf("Removing ingress filter from interface %s", ep.InterfaceName())
+	}
+	if err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS); err != nil {
+		log.WithError(err).Errorf("Removing egress filter from interface %s", ep.InterfaceName())
+	}
 }
 
 // EndpointHash hashes the specified endpoint configuration with the current
