@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
+	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -188,6 +189,7 @@ type Daemon struct {
 	wireguardAgent  *wireguard.Agent
 	orchestrator    datapath.Orchestrator
 	iptablesManager datapath.IptablesManager
+	hubble          *hubblecell.Hubble
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -401,6 +403,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
 		iptablesManager:   params.IPTablesManager,
+		hubble:            params.Hubble,
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them

@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -291,6 +292,9 @@ var (
 
 		// Allows agent to monitor the configuration drift and publish drift metric
 		driftchecker.Cell,
+
+		// Runs the Hubble servers and Hubble metrics.
+		hubble.Cell,
 	)
 )
 
