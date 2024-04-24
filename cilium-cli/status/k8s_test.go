@@ -6,7 +6,6 @@ package status
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"testing"
 	"time"
 
@@ -144,7 +143,7 @@ func (c *k8sStatusMockClient) ListCiliumEndpoints(_ context.Context, _ string, o
 	return c.ciliumEndpointList[options.LabelSelector], nil
 }
 
-func (c *k8sStatusMockClient) CiliumLogs(_ context.Context, _, _ string, _ time.Time, _ *regexp.Regexp) (string, error) {
+func (c *k8sStatusMockClient) CiliumLogs(_ context.Context, _, _ string, _ time.Time) (string, error) {
 	return "[error] a sample cilium-agent error message", nil
 }
 
