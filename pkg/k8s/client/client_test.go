@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -25,16 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type K8sClientSuite struct{}
-
-var _ = Suite(&K8sClientSuite{})
-
-func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
+func Test_runHeartbeat(t *testing.T) {
 	// k8s api server never replied back in the expected time. We should close all connections
 	k8smetrics.LastSuccessInteraction.Reset()
 	time.Sleep(2 * time.Millisecond)
@@ -67,7 +58,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 		}
 	},
 		5*time.Second)
-	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
+	require.NoError(t, err, "Heartbeat should have closed all connections")
 	testCtxCancel()
 
 	// There are some connectivity issues, cilium is trying to reach kube-apiserver
@@ -106,7 +97,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 		}
 	},
 		5*time.Second)
-	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
+	require.NoError(t, err, "Heartbeat should have closed all connections")
 	testCtxCancel()
 
 	// Cilium is successfully talking with kube-apiserver, we should not do
@@ -122,14 +113,14 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 		},
 		10*time.Millisecond,
 		func() {
-			c.Error("This should not have been called!")
+			t.Error("This should not have been called!")
 		},
 	)
 
 	select {
 	case <-time.After(20 * time.Millisecond):
 	case <-called:
-		c.Error("Heartbeat should have closed all connections")
+		t.Error("Heartbeat should have closed all connections")
 	}
 
 	// Cilium had the last interaction with kube-apiserver a long time ago.
@@ -146,7 +137,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 		},
 		10*time.Millisecond,
 		func() {
-			c.Error("This should not have been called!")
+			t.Error("This should not have been called!")
 		},
 	)
 
@@ -161,7 +152,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 		}
 	},
 		5*time.Second)
-	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
+	require.NoError(t, err, "Heartbeat should have closed all connections")
 
 	// Cilium had the last interaction with kube-apiserver a long time ago.
 	// We should perform a heartbeat but the heart beat will return
@@ -196,10 +187,10 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 		}
 	},
 		5*time.Second)
-	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
+	require.NoError(t, err, "Heartbeat should have closed all connections")
 }
 
-func (s *K8sClientSuite) Test_client(c *C) {
+func Test_client(t *testing.T) {
 	var requests lock.Map[string, *http.Request]
 	getRequest := func(k string) *http.Request {
 		v, _ := requests.Load(k)
@@ -238,37 +229,37 @@ func (s *K8sClientSuite) Test_client(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	c.Assert(hive.Start(ctx), IsNil)
+	require.NoError(t, hive.Start(ctx))
 
 	// Check that we see the connection probe and version check
-	c.Assert(getRequest("/api/v1/namespaces/kube-system"), NotNil)
-	c.Assert(getRequest("/version"), NotNil)
+	require.NotNil(t, getRequest("/api/v1/namespaces/kube-system"))
+	require.NotNil(t, getRequest("/version"))
 	semVer := k8sversion.Version()
-	c.Assert(semVer.Minor, Equals, uint64(99))
+	require.Equal(t, uint64(99), semVer.Minor)
 
 	// Wait until heartbeat has been seen to check that heartbeats are
 	// running.
 	err := testutils.WaitUntil(
 		func() bool { return getRequest("/healthz") != nil },
 		time.Second)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	// Test that all different clientsets are wired correctly.
 	_, err = clientset.CoreV1().Pods("test").Get(context.TODO(), "pod", metav1.GetOptions{})
-	c.Assert(err, IsNil)
-	c.Assert(getRequest("/api/v1/namespaces/test/pods/pod"), NotNil)
+	require.NoError(t, err)
+	require.NotNil(t, getRequest("/api/v1/namespaces/test/pods/pod"))
 
 	_, err = clientset.Slim().CoreV1().Pods("test").Get(context.TODO(), "slim-pod", metav1.GetOptions{})
-	c.Assert(err, IsNil)
-	c.Assert(getRequest("/api/v1/namespaces/test/pods/slim-pod"), NotNil)
+	require.NoError(t, err)
+	require.NotNil(t, getRequest("/api/v1/namespaces/test/pods/slim-pod"))
 
 	_, err = clientset.ExtensionsV1beta1().DaemonSets("test").Get(context.TODO(), "ds", metav1.GetOptions{})
-	c.Assert(err, IsNil)
-	c.Assert(getRequest("/apis/extensions/v1beta1/namespaces/test/daemonsets/ds"), NotNil)
+	require.NoError(t, err)
+	require.NotNil(t, getRequest("/apis/extensions/v1beta1/namespaces/test/daemonsets/ds"))
 
 	_, err = clientset.CiliumV2().CiliumEndpoints("test").Get(context.TODO(), "ces", metav1.GetOptions{})
-	c.Assert(err, IsNil)
-	c.Assert(getRequest("/apis/cilium.io/v2/namespaces/test/ciliumendpoints/ces"), NotNil)
+	require.NoError(t, err)
+	require.NotNil(t, getRequest("/apis/cilium.io/v2/namespaces/test/ciliumendpoints/ces"))
 
-	c.Assert(hive.Stop(ctx), IsNil)
+	require.NoError(t, hive.Stop(ctx))
 }
