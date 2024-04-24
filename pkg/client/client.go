@@ -427,7 +427,12 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "ClusterMesh:\t%d/%d clusters ready, %d global-services\n",
 			NumReadyClusters(sr.ClusterMesh.Clusters), len(sr.ClusterMesh.Clusters), sr.ClusterMesh.NumGlobalServices)
 
-		FormatStatusResponseRemoteClusters(w, sr.ClusterMesh.Clusters, sd.AllClusters)
+		verbosity := RemoteClustersStatusNotReadyOnly
+		if sd.AllClusters {
+			verbosity = RemoteClustersStatusVerbose
+		}
+
+		FormatStatusResponseRemoteClusters(w, sr.ClusterMesh.Clusters, verbosity)
 	}
 
 	if sr.IPV4BigTCP != nil {
@@ -770,13 +775,30 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	}
 }
 
-func FormatStatusResponseRemoteClusters(w io.Writer, clusters []*models.RemoteCluster, verbose bool) {
+// RemoteClustersStatusVerbosity specifies the verbosity when formatting the remote clusters status information.
+type RemoteClustersStatusVerbosity uint
+
+const (
+	// RemoteClustersStatusVerbose outputs all remote clusters information.
+	RemoteClustersStatusVerbose RemoteClustersStatusVerbosity = iota
+	// RemoteClustersStatusBrief outputs a one-line summary only for ready clusters.
+	RemoteClustersStatusBrief
+	// RemoteClustersStatusNotReadyOnly outputs the remote clusters information for non-ready clusters only.
+	RemoteClustersStatusNotReadyOnly
+)
+
+func FormatStatusResponseRemoteClusters(w io.Writer, clusters []*models.RemoteCluster, verbosity RemoteClustersStatusVerbosity) {
 	for _, cluster := range clusters {
-		if verbose || !cluster.Ready {
+		if verbosity != RemoteClustersStatusNotReadyOnly || !cluster.Ready {
 			fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d failures (last: %s)\n",
 				cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
 				cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices,
 				cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))
+
+			if verbosity == RemoteClustersStatusBrief && cluster.Ready {
+				continue
+			}
+
 			fmt.Fprintf(w, "   └  %s\n", cluster.Status)
 
 			fmt.Fprint(w, "   └  remote configuration: ")
