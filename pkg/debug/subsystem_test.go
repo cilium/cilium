@@ -6,19 +6,8 @@ package debug
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type DebugTestSuite struct{}
-
-var _ = Suite(&DebugTestSuite{})
 
 type debugObj struct{}
 
@@ -26,32 +15,32 @@ func (d *debugObj) DebugStatus() string {
 	return "test3"
 }
 
-func (s *DebugTestSuite) TestSubsystem(c *C) {
+func TestSubsystem(t *testing.T) {
 	sf := newStatusFunctions()
-	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{})
+	require.Equal(t, StatusMap{}, sf.collectStatus())
 
 	sf = newStatusFunctions()
 	sf.register("foo", func() string { return "test1" })
-	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
+	require.Equal(t, StatusMap{
 		"foo": "test1",
-	})
+	}, sf.collectStatus())
 
 	sf.register("bar", func() string { return "test2" })
-	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
+	require.Equal(t, StatusMap{
 		"foo": "test1",
 		"bar": "test2",
-	})
+	}, sf.collectStatus())
 
 	sf.register("bar", func() string { return "test2" })
-	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
+	require.Equal(t, StatusMap{
 		"foo": "test1",
 		"bar": "test2",
-	})
+	}, sf.collectStatus())
 
 	sf.registerStatusObject("baz", &debugObj{})
-	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
+	require.Equal(t, StatusMap{
 		"foo": "test1",
 		"bar": "test2",
 		"baz": "test3",
-	})
+	}, sf.collectStatus())
 }
