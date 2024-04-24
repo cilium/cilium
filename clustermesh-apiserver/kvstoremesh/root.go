@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/version"
 )
 
 var (
@@ -37,6 +38,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 				log.Logger.SetLevel(logrus.DebugLevel)
 			}
 			option.LogRegisteredOptions(h.Viper(), log)
+			log.Infof("Cilium KVStoreMesh %s", version.Version)
 		},
 	}
 
