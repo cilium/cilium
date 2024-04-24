@@ -5,11 +5,12 @@ package exec
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -18,54 +19,49 @@ const (
 	timeout = 250 * time.Millisecond
 )
 
-// Hook up gocheck into the "go test" runner.
-type ExecTestSuite struct{}
-
 var (
-	_      = Suite(&ExecTestSuite{})
 	fooLog = logging.DefaultLogger.WithField("foo", "bar")
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (s *ExecTestSuite) TestWithTimeout(c *C) {
+func TestWithTimeout(t *testing.T) {
 	cmd := WithTimeout(timeout, "sleep", "inf")
 	err := cmd.Start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	err = cmd.Wait()
-	c.Assert(err, ErrorMatches, "signal: killed")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "signal: killed")
 }
 
-func (s *ExecTestSuite) TestWithCancel(c *C) {
+func TestWithCancel(t *testing.T) {
 	cmd, cancel := WithCancel(context.Background(), "sleep", "inf")
-	c.Assert(cancel, NotNil)
+	require.NotNil(t, cancel)
 	err := cmd.Start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	cancel()
 }
 
-func (s *ExecTestSuite) TestCanceled(c *C) {
+func TestCanceled(t *testing.T) {
 	cmd, cancel := WithCancel(context.Background(), "sleep", "inf")
-	c.Assert(cancel, NotNil)
+	require.NotNil(t, cancel)
 	cancel()
 	_, err := cmd.CombinedOutput(fooLog, true)
-	c.Assert(err, ErrorMatches, ".*: context canceled")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "context canceled")
 }
 
-func (s *ExecTestSuite) TestCombinedOutput(c *C) {
+func TestCombinedOutput(t *testing.T) {
 	cmd := CommandContext(context.Background(), "echo", "foo")
 	out, err := cmd.CombinedOutput(fooLog, true)
-	c.Assert(err, IsNil)
-	c.Assert(string(out), Equals, "foo\n")
+	require.NoError(t, err)
+	require.Equal(t, "foo\n", string(out))
 }
 
-func (s *ExecTestSuite) TestCombinedOutputFailedTimeout(c *C) {
+func TestCombinedOutputFailedTimeout(t *testing.T) {
 	cmd := WithTimeout(timeout, "sleep", "inf")
 	time.Sleep(timeout)
 	_, err := cmd.CombinedOutput(fooLog, true)
-	c.Assert(err, ErrorMatches, "Command execution failed for .*: context deadline exceeded")
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "context deadline exceeded"))
 }
 
 // LoggingHook is a simple hook which saves Warn messages to a slice of strings.
