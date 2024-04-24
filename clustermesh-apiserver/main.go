@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	"github.com/cilium/cilium/clustermesh-apiserver/etcdinit"
 	"github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh"
+	"github.com/cilium/cilium/clustermesh-apiserver/version"
 	"github.com/cilium/cilium/pkg/hive"
 )
 
@@ -22,6 +23,7 @@ func main() {
 	}
 
 	cmd.AddCommand(
+		version.NewCmd(),
 		// etcd init does not use the Hive framework, because it's a "one and done" process that doesn't spawn a service
 		// or server, or perform any waiting for connections.
 		etcdinit.NewCmd(),
