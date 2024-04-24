@@ -6,9 +6,10 @@ package eni
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/alibabacloud/api/mock"
@@ -29,7 +30,8 @@ var (
 	metricsapi = metricsmock.NewMockMetrics()
 )
 
-func (e *ENISuite) SetUpTest(c *check.C) {
+func setup(tb testing.TB) {
+	tb.Helper()
 	limits.Update(map[string]ipamTypes.Limits{
 		"ecs.g7ne.large":    {Adapters: 3, IPv4: 10, IPv6: 0},
 		"ecs.g7ne.24xlarge": {Adapters: 15, IPv4: 50, IPv6: 0},
@@ -38,41 +40,45 @@ func (e *ENISuite) SetUpTest(c *check.C) {
 
 	metricsapi = metricsmock.NewMockMetrics()
 	alibabaAPI = mock.NewAPI(subnets, vpcs, securityGroups)
-	c.Assert(alibabaAPI, check.Not(check.IsNil))
+	require.NotNil(tb, alibabaAPI)
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances = NewInstancesManager(alibabaAPI)
-	c.Assert(instances, check.Not(check.IsNil))
+	require.NotNil(tb, instances)
+
+	tb.Cleanup(func() {
+		metricsapi = nil
+		alibabaAPI = nil
+		instances = nil
+	})
 }
 
-func (e *ENISuite) TearDownTest(c *check.C) {
-	metricsapi = nil
-	alibabaAPI = nil
-	instances = nil
-}
+func TestGetMaximumAllocatableIPv4(t *testing.T) {
+	setup(t)
 
-func (e *ENISuite) TestGetMaximumAllocatableIPv4(c *check.C) {
 	n := &Node{}
 	n.k8sObj = newCiliumNode("node", "i-1", "ecs.g7ne.24xlarge", "cn-hangzhou-i", "vpc-1")
-	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, 700)
+	require.Equal(t, n.GetMaximumAllocatableIPv4(), 700)
 }
 
-func (e *ENISuite) TestCreateInterface(c *check.C) {
+func TestCreateInterface(t *testing.T) {
+	setup(t)
+
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(context.TODO())
 
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
-	c.Assert(err, check.IsNil)
-	c.Assert(mngr, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
 
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	mngr.Upsert(newCiliumNode("node2", "i-2", "ecs.g7ne.large", "cn-hangzhou-h", "vpc-1"))
 	names := mngr.GetNames()
-	c.Assert(len(names), check.Equals, 2)
+	require.Len(t, names, 2)
 
 	err = testutils.WaitUntil(func() bool {
 		return mngr.InstancesAPIIsReady()
 	}, 10*time.Second)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 
 	instances.ForeachInstance("i-1", func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
 		e, ok := rev.Resource.(*eniTypes.ENI)
@@ -81,9 +87,9 @@ func (e *ENISuite) TestCreateInterface(c *check.C) {
 		}
 		switch e.Type {
 		case eniTypes.ENITypeSecondary:
-			c.Assert(utils.GetENIIndexFromTags(e.Tags), check.Equals, 1)
+			require.Equal(t, utils.GetENIIndexFromTags(e.Tags), 1)
 		case eniTypes.ENITypePrimary:
-			c.Assert(utils.GetENIIndexFromTags(e.Tags), check.Equals, 0)
+			require.Equal(t, utils.GetENIIndexFromTags(e.Tags), 0)
 		}
 		return nil
 	})
@@ -94,8 +100,8 @@ func (e *ENISuite) TestCreateInterface(c *check.C) {
 		},
 		EmptyInterfaceSlots: 2,
 	}, log)
-	c.Assert(err, check.IsNil)
-	c.Assert(toAlloc, check.Equals, 10)
+	require.NoError(t, err)
+	require.Equal(t, toAlloc, 10)
 
 	toAlloc, _, err = mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
 		IPv4: ipam.IPAllocationAction{
@@ -103,17 +109,19 @@ func (e *ENISuite) TestCreateInterface(c *check.C) {
 		},
 		EmptyInterfaceSlots: 1,
 	}, log)
-	c.Assert(err, check.IsNil)
-	c.Assert(toAlloc, check.Equals, 10)
+	require.NoError(t, err)
+	require.Equal(t, toAlloc, 10)
 }
 
-func (e *ENISuite) TestCandidateAndEmtpyInterfaces(c *check.C) {
+func TestCandidateAndEmptyInterfaces(t *testing.T) {
+	setup(t)
+
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(context.TODO())
 
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
-	c.Assert(err, check.IsNil)
-	c.Assert(mngr, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
 	// Set PreAllocate as 1
 	cn := newCiliumNodeWithIpamParams("node3", "i-3", "ecs.g8m.small", "cn-hangzhou-h", "vpc-1", 1, 0, 0)
 	cn.Spec.AlibabaCloud.VSwitches = []string{"vsw-2"}
@@ -122,33 +130,35 @@ func (e *ENISuite) TestCandidateAndEmtpyInterfaces(c *check.C) {
 	n := &Node{}
 	n.k8sObj = cn
 	// Primary ENI excluded, max allocatable = 3 ( 1 (ENI) * 3 (IPv4/ENI) )
-	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, 3)
+	require.Equal(t, n.GetMaximumAllocatableIPv4(), 3)
 
 	// Wait for IPs to become available
-	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
+	require.Eventually(t, func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second, 1*time.Second)
 
 	node3 := mngr.Get("node3")
 	a, err := node3.Ops().PrepareIPAllocation(log)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	// 1 ENI attached, 1/3 IPs allocated, 0 empty slots left
-	c.Assert(a.IPv4.InterfaceCandidates, check.Equals, 1)
-	c.Assert(a.EmptyInterfaceSlots, check.Equals, 0)
-	c.Assert(node3.Stats().IPv4.AvailableIPs, check.Equals, 1)
+	require.Equal(t, a.IPv4.InterfaceCandidates, 1)
+	require.Equal(t, a.EmptyInterfaceSlots, 0)
+	require.Equal(t, 1, node3.Stats().IPv4.AvailableIPs)
 }
 
-func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
+func TestPrepareIPAllocation(t *testing.T) {
+	setup(t)
+
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(context.TODO())
 
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
-	c.Assert(err, check.IsNil)
-	c.Assert(mngr, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
 	mngr.SetInstancesAPIReadiness(false) // to avoid the manager background jobs starting and racing us.
 
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
-	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, check.Equals, 2, check.Commentf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
+	require.NoError(t, err)
+	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
 
 	// create one eni
 	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
@@ -157,16 +167,16 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 		},
 		EmptyInterfaceSlots: 2,
 	}, log)
-	c.Assert(err, check.IsNil)
-	c.Assert(toAlloc, check.Equals, 10)
+	require.NoError(t, err)
+	require.Equal(t, toAlloc, 10)
 
 	// one eni left
 	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
-	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, check.Equals, 1, check.Commentf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
+	require.NoError(t, err)
+	require.Equal(t, 1, a.EmptyInterfaceSlots, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
 }
 
-func (e *ENISuite) TestNode_allocENIIndex(c *check.C) {
+func TestNode_allocENIIndex(t *testing.T) {
 	n := Node{enis: map[string]eniTypes.ENI{
 		"eni-1": {
 			InstanceID: "eni-1",
@@ -175,8 +185,8 @@ func (e *ENISuite) TestNode_allocENIIndex(c *check.C) {
 		},
 	}}
 	index, err := n.allocENIIndex()
-	c.Assert(err, check.IsNil)
-	c.Assert(index, check.Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, index, 1)
 
 	n.enis["eni-2"] = eniTypes.ENI{
 		InstanceID: "eni-2",
@@ -184,8 +194,8 @@ func (e *ENISuite) TestNode_allocENIIndex(c *check.C) {
 		Tags:       map[string]string{"cilium-eni-index": "1"},
 	}
 	index, err = n.allocENIIndex()
-	c.Assert(err, check.IsNil)
-	c.Assert(index, check.Equals, 2)
+	require.NoError(t, err)
+	require.Equal(t, index, 2)
 }
 
 type k8sMock struct{}
