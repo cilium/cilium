@@ -731,8 +731,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"enableRuntimeDeviceDetection": "true",
-					"devices":                      "",
+					"devices": "",
 				})
 
 				res := kubectl.ApplyDefault(demoYAML)

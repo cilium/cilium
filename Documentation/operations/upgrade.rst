@@ -329,6 +329,15 @@ Annotations:
   from policy-selected node-local backends destined to the policy's frontend, back to the
   node-local backends. To override this behavior, which is enabled by default, create
   local redirect policies with the ``skipRedirectFromBackend`` flag set to ``false``.
+* Detection and reconfiguration on changes to native network devices and their addresses is now
+  the default. Cilium will now load the native device BPF program onto devices that appear after
+  Cilium has started. NodePort services are now available on addresses assigned after Cilium has
+  started. The set of addresses to use for NodePort can be configured with the Helm option 
+  ``nodePort.addresses``.
+  The related Helm option ``enableRuntimeDeviceDetection`` has been deprecated and will be
+  removed in future release. The devices and the addresses Cilium considers the node's addresses
+  can be inspected with the ``cilium-dbg statedb devices`` and ``cilium-dbg statedb node-addresses``
+  commands.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -361,6 +370,9 @@ Helm Options
 * The clustermesh-apiserver ``podSecurityContext`` and ``securityContext`` settings now
   default to drop all capabilities and run as non-root user.
 * Deprecated Helm option ``containerRuntime.integration`` is removed. If you are using crio, please check :ref:`crio-instructions`.
+* Helm option ``enableRuntimeDeviceDetection`` is now deprecated and is a no-op.
+* The IP addresses on which to expose NodePort services can now be configured with ``nodePort.addresses``. Prior to this, Cilium only
+  exposed NodePort services on the first (preferably private) IPv4 and IPv6 address of each device.
 
 Added Metrics
 ~~~~~~~~~~~~~

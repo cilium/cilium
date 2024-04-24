@@ -46,20 +46,11 @@ type deviceReloader struct {
 // changes have not yet propagated to the NodeAddress changes. Components which depend on both need
 // to live with this fact and come up with component-specific strategies to deal with it.
 func registerDeviceReloader(lc cell.Lifecycle, p deviceReloaderParams) {
-	if !p.Config.EnableRuntimeDeviceDetection {
-		return
-	}
-
 	lc.Append(&deviceReloader{params: p})
 }
 
 // Start listening to changed devices if requested.
 func (d *deviceReloader) Start(ctx cell.HookContext) error {
-	if !d.params.Config.AreDevicesRequired() {
-		log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
-		return nil
-	}
-
 	// Force an initial reload by supplying a closed channel.
 	c := make(chan struct{})
 	close(c)
