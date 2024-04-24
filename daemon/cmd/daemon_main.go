@@ -59,6 +59,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
+	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1729,6 +1730,7 @@ type daemonParams struct {
 	IdentityManager     *identitymanager.IdentityManager
 	Orchestrator        datapath.Orchestrator
 	IPTablesManager     datapath.IptablesManager
+	Hubble              *hubblecell.Hubble
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {
