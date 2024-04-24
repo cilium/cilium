@@ -25,9 +25,9 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-// etcdBinaryLocation is hardcoded because we expect this command to be run inside a Cilium container that places the
+// EtcdBinaryLocation is hardcoded because we expect this command to be run inside a Cilium container that places the
 // etcd binary in a specific location.
-const etcdBinaryLocation = "/usr/bin/etcd"
+const EtcdBinaryLocation = "/usr/bin/etcd"
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "etcdinit")
@@ -126,14 +126,14 @@ func InitEtcdLocal() (returnErr error) {
 	}).
 		Info("Starting localhost-only etcd process")
 	// Specify the full path to the etcd binary to avoid any PATH search binary replacement nonsense
-	etcdCmd := exec.CommandContext(ctx, etcdBinaryLocation,
+	etcdCmd := exec.CommandContext(ctx, EtcdBinaryLocation,
 		fmt.Sprintf("--data-dir=%s", etcdDataDir),
 		fmt.Sprintf("--name=%s", etcdClusterName),
 		fmt.Sprintf("--listen-client-urls=%s", loopbackEndpoint),
 		fmt.Sprintf("--advertise-client-urls=%s", loopbackEndpoint),
 		fmt.Sprintf("--initial-cluster-token=%s", etcdInitialClusterToken),
 		"--initial-cluster-state=new")
-	log.WithField("etcdBinary", etcdBinaryLocation).
+	log.WithField("etcdBinary", EtcdBinaryLocation).
 		WithField("etcdFlags", etcdCmd.Args).
 		Debug("Executing etcd")
 
@@ -141,7 +141,7 @@ func InitEtcdLocal() (returnErr error) {
 	// it'll never complete of course.
 	err = etcdCmd.Start()
 	if err != nil {
-		log.WithField("etcdBinary", etcdBinaryLocation).
+		log.WithField("etcdBinary", EtcdBinaryLocation).
 			WithField("etcdFlags", etcdCmd.Args).
 			WithError(err).
 			Error("Failed to launch etcd process")
