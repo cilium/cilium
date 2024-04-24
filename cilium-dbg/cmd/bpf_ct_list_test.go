@@ -10,22 +10,15 @@ import (
 	"os"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 )
-
-func Test(t *testing.T) { TestingT(t) }
-
-type BPFCtListSuite struct{}
-
-var _ = Suite(&BPFCtListSuite{})
 
 var (
 	ctKey4 = ctmap.CtKey4{
@@ -72,12 +65,12 @@ type ctRecord6 struct {
 	Value ctmap.CtEntry
 }
 
-func dumpAndRead[T any](maps []T, dump func([]T, ...interface{}), c *C, args ...interface{}) string {
+func dumpAndRead[T any](t *testing.T, maps []T, dump func([]T, ...interface{}), args ...interface{}) string {
 	// dumpCt() prints to standard output. Let's redirect it to a pipe, and
 	// read the dump from there.
 	stdout := os.Stdout
 	readEnd, writeEnd, err := os.Pipe()
-	c.Assert(err, IsNil, Commentf("failed to create pipe: '%s'", err))
+	require.NoError(t, err, "failed to create pipe: '%s'", err)
 	os.Stdout = writeEnd
 	defer func() { os.Stdout = stdout }()
 
@@ -96,12 +89,12 @@ func dumpAndRead[T any](maps []T, dump func([]T, ...interface{}), c *C, args ...
 	// (for the assert)
 	os.Stdout = stdout
 	rawDump := <-channel
-	c.Assert(err, IsNil, Commentf("failed to read data: '%s'", err))
+	require.NoError(t, err, "failed to read data: '%s'", err)
 
 	return rawDump
 }
 
-func (s *BPFCtListSuite) TestDumpCt4(c *C) {
+func TestDumpCt4(t *testing.T) {
 	ctMaps := []ctmap.CtMap{
 		mockmaps.NewCtMockMap(
 			[]ctmap.CtMapRecord{
@@ -125,11 +118,11 @@ func (s *BPFCtListSuite) TestDumpCt4(c *C) {
 		),
 	}
 
-	rawDump := dumpAndRead(ctMaps, dumpCt, c, "")
+	rawDump := dumpAndRead(t, ctMaps, dumpCt, "")
 
 	var ctDump []ctRecord4
 	err := json.Unmarshal([]byte(rawDump), &ctDump)
-	c.Assert(err, IsNil, Commentf("invalid JSON output: '%s', '%s'", err, rawDump))
+	require.NoError(t, err, "invalid JSON output: '%s', '%s'", err, rawDump)
 
 	// JSON output may reorder the entries, but in our case they are all
 	// the same.
@@ -137,10 +130,10 @@ func (s *BPFCtListSuite) TestDumpCt4(c *C) {
 		Key:   &ctmap.CtKey4{TupleKey4: ctDump[0].Key},
 		Value: ctDump[0].Value,
 	}
-	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
+	require.Equal(t, ctRecordDump, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
 }
 
-func (s *BPFCtListSuite) TestDumpCt6(c *C) {
+func TestDumpCt6(t *testing.T) {
 	ctMaps := []ctmap.CtMap{
 		mockmaps.NewCtMockMap(
 			[]ctmap.CtMapRecord{
@@ -164,11 +157,11 @@ func (s *BPFCtListSuite) TestDumpCt6(c *C) {
 		),
 	}
 
-	rawDump := dumpAndRead(ctMaps, dumpCt, c, "")
+	rawDump := dumpAndRead(t, ctMaps, dumpCt, "")
 
 	var ctDump []ctRecord6
 	err := json.Unmarshal([]byte(rawDump), &ctDump)
-	c.Assert(err, IsNil, Commentf("invalid JSON output: '%s', '%s'", err, rawDump))
+	require.NoError(t, err, "invalid JSON output: '%s', '%s'", err, rawDump)
 
 	// JSON output may reorder the entries, but in our case they are all
 	// the same.
@@ -176,5 +169,5 @@ func (s *BPFCtListSuite) TestDumpCt6(c *C) {
 		Key:   &ctmap.CtKey6{TupleKey6: ctDump[0].Key},
 		Value: ctDump[0].Value,
 	}
-	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
+	require.Equal(t, ctRecordDump, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
 }

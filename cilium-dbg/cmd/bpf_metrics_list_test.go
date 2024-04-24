@@ -7,20 +7,16 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
-type BPFMetricsMapSuite struct{}
-
-var _ = Suite(&BPFMetricsMapSuite{})
-
-func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
+func TestDumpMetrics(t *testing.T) {
 	metricsMap := []*mockmaps.MetricsMockMap{
 		mockmaps.NewMetricsMockMap(
 			[]mockmaps.MetricsRecord{
@@ -98,19 +94,18 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 		},
 	}
 
-	rawDump := dumpAndRead(metricsMap, func(maps []*mockmaps.MetricsMockMap, args ...interface{}) {
+	rawDump := dumpAndRead(t, metricsMap, func(maps []*mockmaps.MetricsMockMap, args ...interface{}) {
 		for _, m := range maps {
 			listMetrics(m)
 		}
-	}, c)
+	})
 
 	var got jsonMetrics
 	err := json.Unmarshal([]byte(rawDump), &got)
-	c.Assert(err, IsNil, Commentf("invalid JSON output: '%s', '%s'", err, rawDump))
+	require.NoError(t, err, "invalid JSON output: '%s', '%s'", err, rawDump)
 
 	sort.Slice(got, func(i, j int) bool {
 		return got[i].Packets <= got[j].Packets
 	})
-
-	c.Assert(want, checker.DeepEquals, got)
+	require.EqualValues(t, want, got)
 }

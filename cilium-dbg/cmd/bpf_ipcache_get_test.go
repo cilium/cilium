@@ -6,17 +6,12 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-type BPFIPCacheGetSuite struct{}
-
-var _ = Suite(&BPFIPCacheGetSuite{})
-
-func (s *BPFIPCacheGetSuite) TestGetPrefix(c *C) {
+func TestGetPrefix(t *testing.T) {
 	tests := []struct {
 		ip     net.IP
 		prefix []byte
@@ -37,12 +32,12 @@ func (s *BPFIPCacheGetSuite) TestGetPrefix(c *C) {
 	for _, tt := range tests {
 		prefix := toBits(tt.prefix)
 		for maskSize := 0; maskSize <= tt.length; maskSize++ {
-			c.Assert(getPrefix(tt.ip, maskSize), checker.DeepEquals, prefix[:maskSize], Commentf("invalid prefix for %v/%v", tt.ip, maskSize))
+			require.Equal(t, getPrefix(tt.ip, maskSize), prefix[:maskSize], fmt.Sprintf("invalid prefix for %v/%v", tt.ip, maskSize))
 		}
 	}
 }
 
-func (s *BPFIPCacheGetSuite) TestGetLPMValue(c *C) {
+func TestGetLPMValue(t *testing.T) {
 	entries := map[string][]string{
 		"10.0.0.0/8":     {"2"},
 		"10.0.0.0/16":    {"9"},
@@ -71,12 +66,11 @@ func (s *BPFIPCacheGetSuite) TestGetLPMValue(c *C) {
 
 	for _, tt := range tests {
 		v, exists := getLPMValue(mustParseIP(tt.ip), entries)
-
-		c.Assert(exists, Equals, tt.hasIdentity, Commentf("No identity was found for ip '%s': wanted '%s'", tt.ip, tt.identity))
+		require.Equal(t, exists, tt.hasIdentity, fmt.Sprintf("No identity was found for ip '%s': wanted '%s'", tt.ip, tt.identity))
 
 		if exists {
 			identity := v.([]string)
-			c.Assert(identity, checker.DeepEquals, tt.identity, Commentf("Wrong identity was retrieved for ip %s", tt.ip))
+			require.EqualValues(t, identity, tt.identity, fmt.Sprintf("Wrong number of identities was retrieved for ip %s", tt.ip))
 		}
 	}
 }
