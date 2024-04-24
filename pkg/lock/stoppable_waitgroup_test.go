@@ -7,79 +7,76 @@ import (
 	"math/rand"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-type StoppableWaitGroupSuite struct{}
-
-var _ = Suite(&StoppableWaitGroupSuite{})
-
-func (s *SemaphoredMutexSuite) TestAdd(c *C) {
+func TestAdd(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(1))
+	require.Equal(t, int64(1), l.i.Load())
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 	close(l.noopAdd)
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 }
 
-func (s *SemaphoredMutexSuite) TestDone(c *C) {
+func TestDone(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
 	l.i.Store(4)
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(3))
+	require.Equal(t, int64(3), l.i.Load())
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 	close(l.noopAdd)
 	select {
 	case _, ok := <-l.noopDone:
 		// channel should not have been closed
-		c.Assert(ok, Equals, true)
+		require.True(t, ok)
 	default:
 	}
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(1))
+	require.Equal(t, int64(1), l.i.Load())
 	select {
 	case _, ok := <-l.noopDone:
 		// channel should not have been closed
-		c.Assert(ok, Equals, true)
+		require.True(t, ok)
 	default:
 	}
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(0))
+	require.Equal(t, int64(0), l.i.Load())
 	select {
 	case _, ok := <-l.noopDone:
-		c.Assert(ok, Equals, false)
+		require.False(t, ok)
 	default:
 		// channel should have been closed
-		c.Assert(false, Equals, true)
+		require.True(t, false)
 	}
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(0))
+	require.Equal(t, int64(0), l.i.Load())
 }
 
-func (s *SemaphoredMutexSuite) TestStop(c *C) {
+func TestStop(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(1))
+	require.Equal(t, int64(1), l.i.Load())
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 	l.Stop()
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 }
 
-func (s *SemaphoredMutexSuite) TestWait(c *C) {
+func TestWait(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
 	waitClosed := make(chan struct{})
@@ -89,69 +86,69 @@ func (s *SemaphoredMutexSuite) TestWait(c *C) {
 	}()
 
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(1))
+	require.Equal(t, int64(1), l.i.Load())
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 	l.Stop()
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(1))
+	require.Equal(t, int64(1), l.i.Load())
 	select {
 	case _, ok := <-waitClosed:
 		// channel should not have been closed
-		c.Assert(ok, Equals, true)
+		require.True(t, ok)
 	default:
 	}
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(0))
+	require.Equal(t, int64(0), l.i.Load())
 	select {
 	case _, ok := <-waitClosed:
 		// channel should have been closed
-		c.Assert(ok, Equals, false)
+		require.False(t, ok)
 	default:
 	}
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(0))
+	require.Equal(t, int64(0), l.i.Load())
 }
 
-func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
+func TestWaitChannel(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(1))
+	require.Equal(t, int64(1), l.i.Load())
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 	l.Stop()
 	l.Add()
-	c.Assert(l.i.Load(), Equals, int64(2))
+	require.Equal(t, int64(2), l.i.Load())
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(1))
+	require.Equal(t, int64(1), l.i.Load())
 	select {
 	case _, ok := <-l.WaitChannel():
 		// channel should not have been closed
-		c.Assert(ok, Equals, true)
+		require.True(t, ok)
 	default:
 	}
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(0))
+	require.Equal(t, int64(0), l.i.Load())
 	select {
 	case _, ok := <-l.WaitChannel():
 		// channel should have been closed
-		c.Assert(ok, Equals, false)
+		require.False(t, ok)
 	default:
 	}
 
 	l.Done()
-	c.Assert(l.i.Load(), Equals, int64(0))
+	require.Equal(t, int64(0), l.i.Load())
 }
 
-func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
+func TestParallelism(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
 	// Use math/rand instead of pkg/rand to avoid a test import cycle which

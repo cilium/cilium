@@ -5,20 +5,9 @@ package lock
 
 import (
 	"testing"
-
-	. "github.com/cilium/checkmate"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type LockSuite struct{}
-
-var _ = Suite(&LockSuite{})
-
-func (s *LockSuite) TestLock(c *C) {
+func TestLock(t *testing.T) {
 	var lock1 RWMutex
 	lock1.Lock()
 	lock1.Unlock()
@@ -31,7 +20,7 @@ func (s *LockSuite) TestLock(c *C) {
 	lock2.Unlock()
 }
 
-func (s *LockSuite) TestDebugLock(c *C) {
+func TestDebugLock(t *testing.T) {
 	var lock1 RWMutexDebug
 	lock1.Lock()
 	lock1.Unlock()
