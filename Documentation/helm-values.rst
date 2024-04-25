@@ -1296,6 +1296,14 @@
      - cilium-envoy update strategy ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
+   * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyEgress`
+     - Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
+     - int
+     - ``0``
+   * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyIngress`
+     - Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
+     - int
+     - ``0``
    * - :spelling:ignore:`envoyConfig.enabled`
      - Enable CiliumEnvoyConfig CRD CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
      - bool
