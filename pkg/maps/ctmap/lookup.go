@@ -166,7 +166,7 @@ func Lookup(epname string, srcAddr, dstAddr string, proto u8proto.U8proto, ingre
 // 'epname' is a 5-digit representation of the endpoint ID if local maps
 // are to be used, or "global" if global maps should be used.
 func Update(epname string, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool,
-	updateFn func(*CtEntry) error) error {
+	updateFn func(*CtEntry, bool) bool) error {
 	isGlobal := epname == "global"
 
 	key, ipv4, err := createTupleKey(isGlobal, srcAddr, dstAddr, proto, ingress)
@@ -179,18 +179,20 @@ func Update(epname string, srcAddr, dstAddr string, proto u8proto.U8proto, ingre
 		return err
 	}
 
+	exists := false
+	var entry *CtEntry
 	v, err := m.Lookup(key)
 	if err != nil || v == nil {
-		return err
+		entry = &CtEntry{}
+	} else {
+		exists = true
+		entry = v.(*CtEntry)
 	}
 
-	entry := v.(*CtEntry)
-	err = updateFn(entry)
-	if err != nil {
-		return err
+	if updateFn(entry, exists) {
+		return m.Update(key, entry)
 	}
-
-	return m.Update(key, entry)
+	return nil
 }
 
 func getMapWithName(epname string, ipv4 bool, proto u8proto.U8proto) *bpf.Map {

@@ -720,6 +720,15 @@ func (e *Endpoint) GetNodeMAC() mac.MAC {
 	return e.nodeMAC
 }
 
+// ConntrackName returns the name suffix for the endpoint-specific bpf
+// conntrack map, which is a 5-digit endpoint ID, or "global" when the
+// global map should be used.
+func (e *Endpoint) ConntrackName() string {
+	e.unconditionalRLock()
+	defer e.runlock()
+	return e.ConntrackNameLocked()
+}
+
 // ConntrackNameLocked returns the name suffix for the endpoint-specific bpf
 // conntrack map, which is a 5-digit endpoint ID, or "global" when the
 // global map should be used.

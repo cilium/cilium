@@ -32,11 +32,13 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -52,6 +54,8 @@ const (
 	// ProxyBindRetryInterval is how long to wait between attempts to bind to the
 	// proxy address:port
 	ProxyBindRetryInterval = ProxyBindTimeout / 5
+
+	DNSSourcePort = 1109
 )
 
 // DNSProxy is a L7 proxy for DNS traffic. It keeps a list of allowed DNS
@@ -932,9 +936,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
+	sourceID := ep.GetIdentity()
+
 	scopedLog = scopedLog.WithFields(logrus.Fields{
 		logfields.EndpointID: ep.StringID(),
-		logfields.Identity:   ep.GetIdentity(),
+		logfields.Identity:   sourceID,
 	})
 
 	targetServerIP, targetServerPortProto, targetServerAddrStr, err := p.lookupTargetDNSServer(w)
@@ -1017,7 +1023,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		Control: func(network, address string, c syscall.RawConn) error {
 			var soerr error
 			if err := c.Control(func(su uintptr) {
-				soerr = setSoMarks(int(su), ipFamily, ep.GetIdentity())
+				soerr = setSoMarks(int(su), ipFamily, sourceID)
 			}); err != nil {
 				return err
 			}
@@ -1032,8 +1038,43 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// - the destination is known to be outside of the cluster, or
 	// - is the local host
 	if option.Config.DNSProxyEnableTransparentMode && !ep.IsHost() && !epAddr.IsLoopback() && ep.ID != uint16(identity.ReservedIdentityHost) && targetServerID.IsCluster() && targetServerID != identity.ReservedIdentityHost {
-		dialer.LocalAddr = w.RemoteAddr()
-		key = protocol + "-" + epIPPort + "-" + targetServerAddrStr
+		var proto u8proto.U8proto
+		switch addr := w.RemoteAddr().(type) {
+		case *net.UDPAddr:
+			udpAddr := *addr
+			udpAddr.Port = DNSSourcePort
+			dialer.LocalAddr = &udpAddr
+			proto = u8proto.UDP
+		case *net.TCPAddr:
+			tcpAddr := *addr
+			tcpAddr.Port = DNSSourcePort
+			dialer.LocalAddr = &tcpAddr
+			proto = u8proto.TCP
+		}
+		srcAddr := dialer.LocalAddr.String()
+		dstAddr := targetServerAddrStr
+		key = protocol + "-" + dialer.LocalAddr.String() + "-" + targetServerAddrStr
+
+		// inject a CT entry so that the response gets back to us
+		err := ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, false,
+			func(entry *ctmap.CtEntry, exists bool) bool {
+				if !exists {
+					entry.SourceSecurityID = sourceID.Uint32()
+				}
+				if entry.Flags&ctmap.ProxyRedirect != 0 {
+					return false // no need to update
+				}
+				entry.Flags |= ctmap.ProxyRedirect
+				return true
+			})
+		if err != nil {
+			scopedLog.WithError(err).Error("Cannot insert CT entry for the request")
+			stat.Err = fmt.Errorf("Cannot insert CT entry for the request: %w", err)
+			stat.ProcessingTime.End(false)
+			p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, false, &stat)
+			p.sendRefused(scopedLog, w, request)
+			return
+		}
 	}
 
 	conf := &dns.Client{
