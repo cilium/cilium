@@ -5,6 +5,7 @@ package container
 
 import (
 	"cmp"
+	"encoding/json"
 	"slices"
 
 	"golang.org/x/exp/constraints"
@@ -42,6 +43,14 @@ func (s ImmSet[T]) Len() int {
 func (s ImmSet[T]) Has(x T) bool {
 	_, found := slices.BinarySearchFunc(s.xs, x, s.cmp)
 	return found
+}
+
+func (s *ImmSet[T]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.xs)
+}
+
+func (s *ImmSet[T]) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &s.xs)
 }
 
 func (s ImmSet[T]) Insert(xs ...T) ImmSet[T] {
