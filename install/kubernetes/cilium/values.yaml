@@ -3140,6 +3140,13 @@ clustermesh:
       #               if provided manually. Cluster mode is meaningful only when the same
       #               CA is shared across all clusters part of the mesh.
       authMode: legacy
+      # -- Allow users to provide their own certificates
+      # Users may need to provide their certificates using 
+      # a mechanism that requires they provide their own secrets.
+      # This setting does not apply to any of the auto-generated 
+      # mechanisms below, it only restricts the creation of secrets
+      # via the `tls-provided` templates.
+      enableSecrets: true
       # -- Configure automatic TLS certificates generation.
       # A Kubernetes CronJob is used the generate any
       # certificates not provided by the user at installation
