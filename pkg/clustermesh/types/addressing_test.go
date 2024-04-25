@@ -29,13 +29,32 @@ func TestParseAddrCluster(t *testing.T) {
 		{"invalid IPv6 address and valid cluster-id", "g::1@1", true},
 		{"valid IPv6 address and invalid cluster-id", "a::1@foo", true},
 		{"valid IPv6 address and enpty cluster-id", "a::1@", true},
+
+		{"unspecified IPv4 address", "0.0.0.0", false},
+		{"unspecified IPv6 address", "::", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseAddrCluster(tt.arg)
+			addr, err := ParseAddrCluster(tt.arg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseAddrCluster() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+
+			if !tt.wantErr {
+				buf, err := addr.MarshalJSON()
+				if err != nil {
+					t.Errorf("MarshalJSON() error = %s", err)
+				}
+				var addr2 AddrCluster
+				err = addr2.UnmarshalJSON(buf)
+				if err != nil {
+					t.Errorf("UnmarshalJSON() error = %s", err)
+				}
+				if addr2.String() != tt.arg {
+					t.Errorf("Expected unmarshalled address %q to equal original %q",
+						addr2.String(), addr.String())
+				}
 			}
 		})
 	}
@@ -44,6 +63,20 @@ func TestParseAddrCluster(t *testing.T) {
 	if MustParseAddrCluster("10.0.0.1") != MustParseAddrCluster("10.0.0.1@0") {
 		t.Errorf("ParseAddrCluster() returns different results for bare IP address and IP address with zero ClusterID")
 		return
+	}
+
+	// Zero-value AddrCluster can be marshalled and unmarshalled.
+	var zero, zero2 AddrCluster
+	buf, err := zero.MarshalJSON()
+	if err != nil {
+		t.Errorf("MarshalJSON() error = %s", err)
+	}
+	err = zero2.UnmarshalJSON(buf)
+	if err != nil {
+		t.Errorf("UnmarshalJSON() error = %s", err)
+	}
+	if zero.String() != zero2.String() {
+		t.Errorf("Expected %s to equal %s", zero, zero2)
 	}
 }
 
