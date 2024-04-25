@@ -246,9 +246,6 @@ const (
 	// nodes.
 	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
 
-	// IngressDefaultXffNumTrustedHops is the default XffNumTrustedHops value for Ingress.
-	IngressDefaultXffNumTrustedHops = "ingress-default-xff-num-trusted-hops"
-
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	// default values: k8s-app=kube-dns
 	PodRestartSelector = "pod-restart-selector"
@@ -445,11 +442,6 @@ type OperatorConfig struct {
 	// nodes.
 	SetCiliumIsUpCondition bool
 
-	// IngressProxyXffNumTrustedHops The number of additional ingress proxy hops from the right side of the
-	// HTTP header to trust when determining the origin client's IP address.
-	// The default is zero if this option is not specified.
-	IngressProxyXffNumTrustedHops uint32
-
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	PodRestartSelector string
 }
@@ -483,7 +475,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumNodeTaints = vp.GetBool(SetCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
-	c.IngressProxyXffNumTrustedHops = vp.GetUint32(IngressDefaultXffNumTrustedHops)
 	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)

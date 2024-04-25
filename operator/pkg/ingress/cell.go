@@ -60,6 +60,7 @@ type ingressConfig struct {
 	IngressHostnetworkEnabled            bool
 	IngressHostnetworkSharedListenerPort uint32
 	IngressHostnetworkNodelabelselector  string
+	IngressDefaultXffNumTrustedHops      uint32
 }
 
 func (r ingressConfig) Flags(flags *pflag.FlagSet) {
@@ -78,6 +79,7 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("ingress-hostnetwork-enabled", r.IngressHostnetworkEnabled, "Exposes ingress listeners on the host network.")
 	flags.Uint32("ingress-hostnetwork-shared-listener-port", r.IngressHostnetworkSharedListenerPort, "Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)")
 	flags.String("ingress-hostnetwork-nodelabelselector", r.IngressHostnetworkNodelabelselector, "Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
+	flags.Uint32("ingress-default-xff-num-trusted-hops", r.IngressDefaultXffNumTrustedHops, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 }
 
 type ingressParams struct {
@@ -110,7 +112,7 @@ func registerReconciler(params ingressParams) error {
 		translation.ParseNodeLabelSelector(params.IngressConfig.IngressHostnetworkNodelabelselector),
 		params.AgentConfig.EnableIPv4,
 		params.AgentConfig.EnableIPv6,
-		operatorOption.Config.IngressProxyXffNumTrustedHops,
+		params.IngressConfig.IngressDefaultXffNumTrustedHops,
 	)
 
 	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)
