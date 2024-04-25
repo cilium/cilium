@@ -49,8 +49,6 @@ linters-settings:
       - nilness
   goimports:
     local-prefixes: github.com/cilium/cilium/
-  unused:
-    go: "1.20"
   goheader:
     values:
       regexp:
