@@ -111,6 +111,22 @@ Adding a Layer 7 policy enables Layer 7 visibility. Notice that the Hubble outpu
 now includes flows ``to-proxy``, and also shows the HTTP protocol information at
 level 7 (for example ``HTTP/1.1 GET http://echo-service-1:8080/``)
 
+.. Note::
+
+    Note that Envoy may `sanitize some headers <https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/header_sanitizing#http-header-sanitizing>`_.
+
+    Instead, you can make Envoy trust previous hops and prevent Envoy from rewriting
+    some of these HTTP headers. Trust previous hops by setting Helm values
+    ``envoy.xffNumTrustedHopsL7PolicyIngress`` and ``envoy.xffNumTrustedHopsL7PolicyEgress``
+    to the number of hops to trust.
+
+    For an egress policy the previous hop is the source pod, whereas for an ingress policy
+    it can be either the source pod, the "egress policy transparent proxy", Cilium Ingress Controller,
+    Cilium Gateway API, or any other Ingress proxy or infrastructure.
+
+    Depending on your environment, you should consider the security implications of trusting
+    previous hops.
+
 Test Layer 7 Policy Enforcement
 ===============================
 

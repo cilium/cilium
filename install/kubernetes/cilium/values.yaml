@@ -2059,6 +2059,10 @@ envoy:
   # -- Set Envoy upstream HTTP idle connection timeout seconds.
   # Does not apply to connections with pending requests. Default 60s
   idleTimeoutDurationSeconds: 60
+  # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
+  xffNumTrustedHopsL7PolicyIngress: 0
+  # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
+  xffNumTrustedHopsL7PolicyEgress: 0
   # -- Envoy container image.
   image:
     # @schema
