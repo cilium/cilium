@@ -2064,6 +2064,12 @@
             }
           },
           "type": "object"
+        },
+        "xffNumTrustedHopsL7PolicyEgress": {
+          "type": "integer"
+        },
+        "xffNumTrustedHopsL7PolicyIngress": {
+          "type": "integer"
         }
       },
       "type": "object"

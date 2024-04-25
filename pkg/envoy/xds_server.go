@@ -201,15 +201,17 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 type xdsServerConfig struct {
-	envoySocketDir     string
-	proxyGID           int
-	httpRequestTimeout int
-	httpIdleTimeout    int
-	httpMaxGRPCTimeout int
-	httpRetryCount     int
-	httpRetryTimeout   int
-	httpNormalizePath  bool
-	useFullTLSContext  bool
+	envoySocketDir                string
+	proxyGID                      int
+	httpRequestTimeout            int
+	httpIdleTimeout               int
+	httpMaxGRPCTimeout            int
+	httpRetryCount                int
+	httpRetryTimeout              int
+	httpNormalizePath             bool
+	useFullTLSContext             bool
+	proxyXffNumTrustedHopsIngress uint32
+	proxyXffNumTrustedHopsEgress  uint32
 }
 
 // newXDSServer creates a new xDS GRPC server.
@@ -349,17 +351,22 @@ func GetCiliumHttpFilter() *envoy_config_http.HttpFilter {
 	}
 }
 
-func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy_config_listener.FilterChain {
+func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngress bool) *envoy_config_listener.FilterChain {
 	requestTimeout := int64(s.config.httpRequestTimeout) // seconds
 	idleTimeout := int64(s.config.httpIdleTimeout)       // seconds
 	maxGRPCTimeout := int64(s.config.httpMaxGRPCTimeout) // seconds
 	numRetries := uint32(s.config.httpRetryCount)
 	retryTimeout := int64(s.config.httpRetryTimeout) // seconds
+	xffNumTrustedHops := s.config.proxyXffNumTrustedHopsEgress
+	if isIngress {
+		xffNumTrustedHops = s.config.proxyXffNumTrustedHopsIngress
+	}
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
-		StatPrefix:       "proxy",
-		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-		SkipXffAppend:    true,
+		StatPrefix:        "proxy",
+		UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
+		SkipXffAppend:     true,
+		XffNumTrustedHops: xffNumTrustedHops,
 		HttpFilters: []*envoy_config_http.HttpFilter{
 			GetCiliumHttpFilter(),
 			{
@@ -933,10 +940,10 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 
 	// Add filter chains
 	if kind == policy.ParserTypeHTTP {
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false, isIngress))
 
 		// Add a TLS variant
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true, isIngress))
 	} else {
 		// Default TCP chain, takes care of all parsers in proxylib
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
