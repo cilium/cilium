@@ -2816,7 +2816,7 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		"The namespace Cilium is running in. If not provided then the --namespace global flag is used (if provided)")
 	cmd.Flags().StringVar(&options.CiliumOperatorNamespace,
 		optionPrefix+"cilium-operator-namespace", "",
-		"The namespace Cilium operator is running in")
+		"The namespace Cilium operator is running in. If not provided then the --namespace global flag is used (if provided)")
 	cmd.Flags().StringVar(&options.CiliumSPIRENamespace,
 		optionPrefix+"cilium-spire-namespace", "",
 		"The namespace Cilium SPIRE installation is running in")
