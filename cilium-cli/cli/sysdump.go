@@ -34,6 +34,9 @@ func newCmdSysdump(hooks sysdump.Hooks) *cobra.Command {
 			if sysdumpOptions.CiliumNamespace == "" && cmd.Flags().Changed("namespace") {
 				sysdumpOptions.CiliumNamespace = namespace
 			}
+			if sysdumpOptions.CiliumOperatorNamespace == "" && cmd.Flags().Changed("namespace") {
+				sysdumpOptions.CiliumOperatorNamespace = namespace
+			}
 			// Honor --helm-release-name global flag in case it is set and --cilium-helm-release-name is not set
 			if sysdumpOptions.CiliumHelmReleaseName == "" && cmd.Flags().Changed("helm-release-name") {
 				sysdumpOptions.CiliumHelmReleaseName = helmReleaseName
