@@ -41,8 +41,8 @@ export CILIUM_ETCD_OPERATOR_DIGEST:=sha256:04b8327f7f992693c2cb483b999041ed8f92e
 
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
 # renovate: datasource=docker depName=quay.io/cilium/startup-script
-export CILIUM_NODEINIT_VERSION:=62093c5c233ea914bfa26a10ba41f8780d9b737f
-export CILIUM_NODEINIT_DIGEST:=sha256:e1d442546e868db1a3289166c14011e0dbd32115b338b963e56f830972bc22a2
+export CILIUM_NODEINIT_VERSION:=19fb149fb3d5c7a37d3edfaf10a2be3ab7386661
+export CILIUM_NODEINIT_DIGEST:=sha256:820155cb3b7f00c8d61c1cffa68c44440906cb046bdbad8ff544f5deb1103456
 
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
 export CILIUM_ENVOY_VERSION:=v1.29.4-fe3f52ea52e1a28e4c2cd295b0884fd697bb9e69
