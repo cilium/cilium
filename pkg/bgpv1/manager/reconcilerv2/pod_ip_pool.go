@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -47,9 +48,12 @@ type PodIPPoolReconciler struct {
 	poolStore  store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]
 }
 
+// PoolAFPathsMap holds the desired paths per address family keyed by the pool name of the backing CiliumPodIPPool.
+type PoolAFPathsMap map[resource.Key]AFPathsMap
+
 // PodIPPoolReconcilerMetadata holds any announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
 type PodIPPoolReconcilerMetadata struct {
-	AFPaths AFPathsMap
+	PoolAFPaths PoolAFPathsMap
 }
 
 func NewPodIPPoolReconciler(in PodIPPoolReconcilerIn) PodIPPoolReconcilerOut {
@@ -85,23 +89,89 @@ func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 
 	lp := r.populateLocalPools(p.CiliumNode)
 
-	desiredFamilyAdverts, err := r.getDesiredPathsPerFamily(p, lp)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2alpha1api.BGPCiliumPodIPPoolAdvert)
 	if err != nil {
 		return err
 	}
 
-	// reconcile family advertisements
-	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{
-		Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
-		Ctx:          ctx,
-		Instance:     p.BGPInstance,
-		DesiredPaths: desiredFamilyAdverts,
-		CurrentPaths: r.getMetadata(p.BGPInstance).AFPaths,
-	})
+	return r.reconcilePaths(ctx, p, desiredPeerAdverts, lp)
+}
 
-	// We set the metadata even if there is an error to make sure metadata state matches underlying BGP instance state.
-	r.setMetadata(p.BGPInstance, PodIPPoolReconcilerMetadata{AFPaths: updatedAFPaths})
+func (r *PodIPPoolReconciler) reconcilePaths(ctx context.Context, p ReconcileParams, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) error {
+	poolsAFPaths, err := r.getDesiredPoolAFPaths(p, desiredPeerAdverts, lp)
+	if err != nil {
+		return err
+	}
+
+	metadata := r.getMetadata(p.BGPInstance)
+	for poolKey, desiredPoolAFPaths := range poolsAFPaths {
+		currentPoolAFPaths, exists := metadata.PoolAFPaths[poolKey]
+		if !exists && len(desiredPoolAFPaths) == 0 {
+			// No paths to reconcile for this pool.
+			continue
+		}
+
+		updatedPoolAFPaths, rErr := ReconcileAFPaths(&ReconcileAFPathsParams{
+			Logger: r.logger.WithFields(
+				logrus.Fields{
+					types.InstanceLogField:  p.DesiredConfig.Name,
+					types.PodIPPoolLogField: poolKey,
+				}),
+			Ctx:          ctx,
+			Instance:     p.BGPInstance,
+			DesiredPaths: desiredPoolAFPaths,
+			CurrentPaths: currentPoolAFPaths,
+		})
+
+		if rErr == nil && len(desiredPoolAFPaths) == 0 {
+			// No paths left for this pool.
+			delete(metadata.PoolAFPaths, poolKey)
+		} else {
+			metadata.PoolAFPaths[poolKey] = updatedPoolAFPaths
+		}
+		err = errors.Join(err, rErr)
+	}
+	r.setMetadata(p.BGPInstance, metadata)
 	return err
+}
+
+func (r *PodIPPoolReconciler) getDesiredPoolAFPaths(p ReconcileParams, desiredFamilyAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (PoolAFPathsMap, error) {
+	desiredPoolAFPaths := make(PoolAFPathsMap)
+
+	metadata := r.getMetadata(p.BGPInstance)
+
+	// check if any pool is deleted
+	for poolKey := range metadata.PoolAFPaths {
+		_, exists, err := r.poolStore.GetByKey(poolKey)
+		if err != nil {
+			return nil, err
+		}
+
+		if !exists {
+			// pool is deleted, mark it for removal
+			desiredPoolAFPaths[poolKey] = nil
+		}
+	}
+
+	pools, err := r.poolStore.List()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pool := range pools {
+		desiredPaths, err := r.getDesiredAFPaths(pool, desiredFamilyAdverts, lp)
+		if err != nil {
+			return nil, err
+		}
+
+		poolKey := resource.Key{
+			Name:      pool.Name,
+			Namespace: pool.Namespace,
+		}
+
+		desiredPoolAFPaths[poolKey] = desiredPaths
+	}
+	return desiredPoolAFPaths, nil
 }
 
 // populateLocalPools returns a map of allocated multi-pool IPAM CIDRs of the local CiliumNode,
@@ -127,32 +197,13 @@ func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2api.CiliumNode) ma
 	return lp
 }
 
-func (r *PodIPPoolReconciler) getDesiredPathsPerFamily(p ReconcileParams, lp map[string][]netip.Prefix) (AFPathsMap, error) {
-	// get per peer per family pod cidr advertisements
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2alpha1api.BGPCiliumPodIPPoolAdvert)
-	if err != nil {
-		return nil, err
-	}
-
-	// list of configured pools
-	configuredPools, err := r.poolStore.List()
-	if err != nil {
-		if errors.Is(err, store.ErrStoreUninitialized) {
-			r.logger.Error("BUG: CiliumPodIPPool store is not initialized")
-		}
-		return nil, err
-	}
-
+func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1api.CiliumPodIPPool, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (AFPathsMap, error) {
 	// Calculate desired paths per address family, collapsing per-peer advertisements into per-family advertisements.
 	desiredFamilyAdverts := make(AFPathsMap)
+
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
-			pathsPerFamily, exists := desiredFamilyAdverts[agentFamily]
-			if !exists {
-				pathsPerFamily = make(PathMap)
-				desiredFamilyAdverts[agentFamily] = pathsPerFamily
-			}
 
 			for _, advert := range familyAdverts {
 				// sanity check advertisement type
@@ -161,55 +212,38 @@ func (r *PodIPPoolReconciler) getDesiredPathsPerFamily(p ReconcileParams, lp map
 					continue
 				}
 
-				desiredPaths, err := getDesiredPoolPaths(agentFamily, configuredPools, advert, lp)
+				// check if the pool selector matches the advertisement
+				poolSelector, err := slim_metav1.LabelSelectorAsSelector(advert.Selector)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to convert label selector: %w", err)
 				}
 
-				for _, path := range desiredPaths {
-					// Note : we add pool prefix to the desiredPaths map for each peer. We could optimize this by storing
-					// already evaluated pools per family in a map and skipping them if they are already evaluated.
-					pathsPerFamily[path.NLRI.String()] = path
+				// Ignore non matching pool.
+				if !poolSelector.Matches(podIPPoolLabelSet(pool)) {
+					continue
+				}
+
+				if prefixes, exists := lp[pool.Name]; exists {
+					// on the local node we have this pool configured.
+					// add the prefixes to the desiredPaths.
+					for _, prefix := range prefixes {
+						path := types.NewPathForPrefix(prefix)
+						path.Family = agentFamily
+
+						// we only add path corresponding to the family of the prefix.
+						if agentFamily.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
+							addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
+						}
+						if agentFamily.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
+							addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
+						}
+					}
 				}
 			}
 		}
 	}
 
 	return desiredFamilyAdverts, nil
-}
-
-func getDesiredPoolPaths(family types.Family, pools []*v2alpha1api.CiliumPodIPPool, advert v2alpha1api.BGPAdvertisement, lp map[string][]netip.Prefix) ([]*types.Path, error) {
-	var desiredPaths []*types.Path
-	for _, pool := range pools {
-		// check if the pool selector matches the advertisement
-		poolSelector, err := slim_metav1.LabelSelectorAsSelector(advert.Selector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert label selector: %w", err)
-		}
-
-		// Ignore non matching pool.
-		if !poolSelector.Matches(podIPPoolLabelSet(pool)) {
-			continue
-		}
-
-		if prefixes, exists := lp[pool.Name]; exists {
-			// on the local node we have this pool configured.
-			// add the prefixes to the desiredPaths.
-			for _, prefix := range prefixes {
-				path := types.NewPathForPrefix(prefix)
-				path.Family = family
-
-				// we only add path corresponding to the family of the prefix.
-				if family.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
-					desiredPaths = append(desiredPaths, path)
-				}
-				if family.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
-					desiredPaths = append(desiredPaths, path)
-				}
-			}
-		}
-	}
-	return desiredPaths, nil
 }
 
 func podIPPoolLabelSet(pool *v2alpha1api.CiliumPodIPPool) labels.Labels {
@@ -225,7 +259,7 @@ func podIPPoolLabelSet(pool *v2alpha1api.CiliumPodIPPool) labels.Labels {
 func (r *PodIPPoolReconciler) getMetadata(i *instance.BGPInstance) PodIPPoolReconcilerMetadata {
 	if _, found := i.Metadata[r.Name()]; !found {
 		i.Metadata[r.Name()] = PodIPPoolReconcilerMetadata{
-			AFPaths: make(AFPathsMap),
+			PoolAFPaths: make(PoolAFPathsMap),
 		}
 	}
 	return i.Metadata[r.Name()].(PodIPPoolReconcilerMetadata)

@@ -400,15 +400,6 @@ func (r *ServiceReconciler) getServiceDesiredAFPaths(p ReconcileParams, svc *sli
 	return desiredFamilyAdverts, nil
 }
 
-func addPathToAFPathsMap(m AFPathsMap, fam types.Family, path *types.Path) {
-	pathsPerFamily, exists := m[fam]
-	if !exists {
-		pathsPerFamily = make(PathMap)
-		m[fam] = pathsPerFamily
-	}
-	pathsPerFamily[path.NLRI.String()] = path
-}
-
 func (r *ServiceReconciler) getServicePrefixes(svc *slim_corev1.Service, advert v2alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) ([]netip.Prefix, error) {
 	if advert.AdvertisementType != v2alpha1.BGPServiceAdvert {
 		return nil, fmt.Errorf("unexpected advertisement type: %s", advert.AdvertisementType)

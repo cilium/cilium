@@ -176,3 +176,12 @@ func reconcilePaths(params *reconcilePathsParams) (PathMap, error) {
 
 	return runningAdverts, nil
 }
+
+func addPathToAFPathsMap(m AFPathsMap, fam types.Family, path *types.Path) {
+	pathsPerFamily, exists := m[fam]
+	if !exists {
+		pathsPerFamily = make(PathMap)
+		m[fam] = pathsPerFamily
+	}
+	pathsPerFamily[path.NLRI.String()] = path
+}
