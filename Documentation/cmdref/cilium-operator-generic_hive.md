@@ -53,6 +53,7 @@ cilium-operator-generic hive [flags]
       --ingress-default-lb-mode string                       Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
       --ingress-default-secret-name string                   Default secret name for Ingress.
       --ingress-default-secret-namespace string              Default secret namespace for Ingress.
+      --ingress-default-xff-num-trusted-hops uint32          The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --ingress-hostnetwork-enabled                          Exposes ingress listeners on the host network.
       --ingress-hostnetwork-nodelabelselector string         Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --ingress-hostnetwork-shared-listener-port uint32      Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)
