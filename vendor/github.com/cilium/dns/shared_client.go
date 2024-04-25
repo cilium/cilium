@@ -232,10 +232,19 @@ func handler(wg *sync.WaitGroup, client *Client, conn *Conn, requests chan reque
 			// Due to birthday paradox and the fact that ID is uint16
 			// it's likely to happen with small number (~200) of concurrent requests
 			// which would result in goroutine leak as we would never close req.ch
-			if _, ok := waitingResponses[req.msg.Id]; ok {
-				req.ch <- sharedClientResponse{nil, 0, fmt.Errorf("duplicate request id %d", req.msg.Id)}
-				close(req.ch)
-				continue
+			if _, duplicate := waitingResponses[req.msg.Id]; duplicate {
+				// find next available ID
+				for id := req.msg.Id + 1; id != req.msg.Id; id++ {
+					if _, duplicate = waitingResponses[id]; !duplicate {
+						req.msg.Id = id
+						break
+					}
+				}
+				if duplicate {
+					req.ch <- sharedClientResponse{nil, 0, fmt.Errorf("duplicate request id %d", req.msg.Id)}
+					close(req.ch)
+					continue
+				}
 			}
 
 			err := client.SendContext(req.ctx, req.msg, conn, start)
