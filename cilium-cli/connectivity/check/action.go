@@ -279,6 +279,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	cmdStr := strings.Join(cmd, " ")
 
 	var output bytes.Buffer
+	var errOutput bytes.Buffer
 	var err error
 	// We retry the command in case of inconclusive results. The result is
 	// deemed inconclusive when the command succeeded, but we don't have any
@@ -289,7 +290,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	// This check currently only works because all our test commands expect an
 	// output.
 	for i := 1; i <= testCommandRetries; i++ {
-		output, err = pod.K8sClient.ExecInPod(ctx,
+		output, errOutput, err = pod.K8sClient.ExecInPodWithStderr(ctx,
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
 		a.cmdOutput = output.String()
 		// Check for inconclusive results.
@@ -330,8 +331,10 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		}
 	}
 	if showOutput {
-		a.test.Infof("%s output:", cmdName)
+		a.test.Infof("%s stdout:", cmdName)
 		a.test.Log(strings.TrimSpace(output.String()))
+		a.test.Infof("%s stderr:", cmdName)
+		a.test.Log(strings.TrimSpace(errOutput.String()))
 		a.test.Log()
 	}
 }
