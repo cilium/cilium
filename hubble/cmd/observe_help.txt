@@ -40,6 +40,7 @@ Selectors Flags:
 Filters Flags:
   -A, --all-namespaces filter[=true]        Show all flows in any Kubernetes namespace.
       --cluster filter                      Show all flows which match the cluster names (e.g. "test-cluster", "prod-*")
+      --drop-reason-desc filter             Show only flows which match this drop reason describe (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
       --fqdn filter                         Show all flows related to the given fully qualified domain name (e.g. "*.cilium.io").
       --from-all-namespaces filter[=true]   Show flows originating in any Kubernetes namespace.
       --from-fqdn filter                    Show all flows originating at the given fully qualified domain name (e.g. "*.cilium.io").
