@@ -19,6 +19,9 @@ bpf_clear_meta(struct __sk_buff *ctx)
 	WRITE_ONCE(ctx->cb[2], zero);
 	WRITE_ONCE(ctx->cb[3], zero);
 	WRITE_ONCE(ctx->cb[4], zero);
+
+	/* This needs to be cleared mainly for tcx. */
+	WRITE_ONCE(ctx->tc_classid, zero);
 }
 
 /**
