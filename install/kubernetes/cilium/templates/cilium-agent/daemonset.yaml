@@ -53,6 +53,7 @@ spec:
         cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
         {{- end }}
         {{- if not .Values.securityContext.privileged }}
+        {{- if semverCompare "<1.30.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
         # Set app AppArmor's profile to "unconfined". The value of this annotation
         # can be modified as long users know which profiles they have available
         # in AppArmor.
@@ -61,6 +62,7 @@ spec:
         {{- if .Values.cgroup.autoMount.enabled }}
         container.apparmor.security.beta.kubernetes.io/mount-cgroup: "unconfined"
         container.apparmor.security.beta.kubernetes.io/apply-sysctl-overwrites: "unconfined"
+        {{- end }}
         {{- end }}
         {{- end }}
         {{- with .Values.podAnnotations }}
@@ -80,6 +82,11 @@ spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /* K8s version lower than 1.30.0 don't support the "appArmorProfile" field, */}}
+      {{- /* thus we have to remove it. */}}
+      {{- if semverCompare "<1.30.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
+        {{- $_ := unset .Values.podSecurityContext "appArmorProfile" }}
       {{- end }}
       {{- with .Values.podSecurityContext }}
       securityContext:
