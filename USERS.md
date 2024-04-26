@@ -676,6 +676,12 @@ Users (Alphabetically)
       L: https://superorbital.io/
       Q: @jmcshane
 
+    * N: Syself
+      D: Syself uses Cilium as the CNI for Syself Autopilot, a managed Kubernetes platform
+      U: CNI, HostFirewall, Monitoring, CiliumClusterwideNetworkPolicy, Hubble
+      L: https://syself.com
+      Q: @sbaete
+
     * N: Talos
       D: Cilium is one of the supported CNI's in Talos
       U: Networking, NetworkPolicy, Hubble, BPF NodePort
