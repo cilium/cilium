@@ -333,17 +333,22 @@ func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
 	}
 }
 
-func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy_config_listener.FilterChain {
+func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngress bool) *envoy_config_listener.FilterChain {
 	requestTimeout := int64(option.Config.HTTPRequestTimeout) // seconds
 	idleTimeout := int64(option.Config.HTTPIdleTimeout)       // seconds
 	maxGRPCTimeout := int64(option.Config.HTTPMaxGRPCTimeout) // seconds
 	numRetries := uint32(option.Config.HTTPRetryCount)
-	retryTimeout := int64(option.Config.HTTPRetryTimeout) //seconds
+	retryTimeout := int64(option.Config.HTTPRetryTimeout) // seconds
+	xffNumTrustedHops := option.Config.ProxyXffNumTrustedHopsEgress
+	if isIngress {
+		xffNumTrustedHops = option.Config.ProxyXffNumTrustedHopsIngress
+	}
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
-		StatPrefix:       "proxy",
-		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-		SkipXffAppend:    true,
+		StatPrefix:        "proxy",
+		UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
+		SkipXffAppend:     true,
+		XffNumTrustedHops: xffNumTrustedHops,
 		HttpFilters: []*envoy_config_http.HttpFilter{
 			getCiliumHttpFilter(),
 			{
@@ -879,10 +884,10 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 
 	// Add filter chains
 	if kind == policy.ParserTypeHTTP {
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false, isIngress))
 
 		// Add a TLS variant
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true, isIngress))
 	} else {
 		// Default TCP chain, takes care of all parsers in proxylib
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
