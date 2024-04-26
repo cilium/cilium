@@ -52,7 +52,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20240412005400-642475010da3
+# github.com/cilium/charts v0.0.0-20240422153434-d93188bc52aa
 ## explicit; go 1.17
 github.com/cilium/charts
 # github.com/cilium/cilium v1.16.0-pre.1
