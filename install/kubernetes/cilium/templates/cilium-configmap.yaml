@@ -1227,6 +1227,7 @@ data:
   proxy-connect-timeout: {{ .Values.envoy.connectTimeoutSeconds | quote }}
   proxy-max-requests-per-connection: {{ .Values.envoy.maxRequestsPerConnection | quote }}
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
+  proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
 
   external-envoy-proxy: {{ .Values.envoy.enabled | quote }}
 
