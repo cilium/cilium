@@ -335,3 +335,12 @@ func TestHaveDeadCodeElimSupport(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHaveTCX(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "6.6", "tcx bpf_link")
+
+	if err := HaveTCX(); err != nil {
+		t.Fatal(err)
+	}
+}
