@@ -130,6 +130,7 @@ func DefaultFilters(log logrus.FieldLogger) []OnBuildFilter {
 		&UUIDFilter{},
 		&EventTypeFilter{},
 		&VerdictFilter{},
+		&DropReasonDescFilter{},
 		&ReplyFilter{},
 		&IdentityFilter{},
 		&ProtocolFilter{},

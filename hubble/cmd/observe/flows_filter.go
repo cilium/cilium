@@ -194,6 +194,7 @@ func newFlowFilter() *flowFilter {
 			{"service", "from-service"},
 			{"service", "to-service"},
 			{"verdict"},
+			{"drop-reason-desc"},
 			{"type"},
 			{"http-status"},
 			{"http-method"},
@@ -535,6 +536,17 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 		}
 		f.apply(func(f *flowpb.FlowFilter) {
 			f.Verdict = append(f.GetVerdict(), flowpb.Verdict(vv))
+		})
+	case "drop-reason-desc":
+		if val == "" {
+			return fmt.Errorf("empty --drop-reason-desc value")
+		}
+		v, ok := flowpb.DropReason_value[val]
+		if !ok {
+			return fmt.Errorf("invalid --drop-reason-desc value: %v", val)
+		}
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.DropReasonDesc = append(f.GetDropReasonDesc(), flowpb.DropReason(v))
 		})
 
 	case "http-status":

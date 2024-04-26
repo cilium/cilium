@@ -383,7 +383,9 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"verdict", ofilter,
 		fmt.Sprintf("Show only flows with this verdict [%s]", strings.Join(verdicts, ", ")),
 	))
-
+	filterFlags.Var(filterVar(
+		"drop-reason-desc", ofilter,
+		`Show only flows which match this drop reason describe (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")`))
 	filterFlags.Var(filterVar(
 		"http-status", ofilter,
 		`Show only flows which match this HTTP status code prefix (e.g. "404", "5+")`))
