@@ -199,8 +199,10 @@ func (c *cesManagerIdentity) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint,
 	if cesName, exists = c.mapping.getCESName(cepName); exists {
 		if c.cesToIdentity[cesName] != cep.IdentityID {
 			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName: cepName.string(),
-				logfields.CESName: cesName.string(),
+				logfields.CEPName:     cepName.string(),
+				logfields.CESName:     cesName.string(),
+				logfields.OldIdentity: c.cesToIdentity[cesName],
+				logfields.Identity:    cep.IdentityID,
 			}).Debug("CEP already mapped to CES but identity has changed")
 			removedFromCES = cesName
 			c.mapping.deleteCEP(cepName)
@@ -284,6 +286,16 @@ func (c *cesManagerIdentity) removeCESToIdentity(id int64, cesName CESName) {
 		delete(c.identityToCES, id)
 	}
 	delete(c.cesToIdentity, cesName)
+}
+
+// initializeMappingCEPtoCES overrides the same method on cesMgr and is used to
+// populate the local cache for the given CEP, including identity-related maps
+// specific to the cesManagerIdentity.
+func (c *cesManagerIdentity) initializeMappingCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ns string, ces CESName) {
+	cepName := GetCEPNameFromCCEP(cep, ns)
+	c.mapping.insertCEP(cepName, ces)
+	c.identityToCES[cep.IdentityID] = append(c.identityToCES[cep.IdentityID], ces)
+	c.cesToIdentity[ces] = cep.IdentityID
 }
 
 func (c *cesMgr) initializeMappingForCES(ces *cilium_v2.CiliumEndpointSlice) CESName {
