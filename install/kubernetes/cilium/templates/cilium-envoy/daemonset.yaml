@@ -35,10 +35,12 @@ spec:
         cilium.io/cilium-envoy-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-envoy/configmap.yaml") . | sha256sum | quote }}
         {{- end }}
         {{- if not .Values.envoy.securityContext.privileged }}
+        {{- if semverCompare "<1.30.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
         # Set app AppArmor's profile to "unconfined". The value of this annotation
         # can be modified as long users know which profiles they have available
         # in AppArmor.
         container.apparmor.security.beta.kubernetes.io/cilium-envoy: "unconfined"
+        {{- end }}
         {{- end }}
         {{- with .Values.envoy.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -55,6 +57,11 @@ spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /* K8s version lower than 1.30.0 don't support the "appArmorProfile" field, */}}
+      {{- /* thus we have to remove it. */}}
+      {{- if semverCompare "<1.30.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
+        {{- $_ := unset .Values.envoy.podSecurityContext "appArmorProfile" }}
       {{- end }}
       {{- with .Values.envoy.podSecurityContext }}
       securityContext:

@@ -1882,6 +1882,16 @@
           "type": "object"
         },
         "podSecurityContext": {
+          "properties": {
+            "appArmorProfile": {
+              "properties": {
+                "type": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "priorityClassName": {
@@ -3887,6 +3897,19 @@
         "podLabels": {
           "type": "object"
         },
+        "podSecurityContext": {
+          "properties": {
+            "appArmorProfile": {
+              "properties": {
+                "type": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "prestop": {
           "properties": {
             "postScript": {
@@ -4341,6 +4364,16 @@
       "type": "object"
     },
     "podSecurityContext": {
+      "properties": {
+        "appArmorProfile": {
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
       "type": "object"
     },
     "policyCIDRMatchMode": {
