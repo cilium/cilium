@@ -293,19 +293,6 @@ func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName, bpffsDir s
 		return errors.New("cannot attach a nil program")
 	}
 
-	// Remove tcx bpf_links created by newer versions of Cilium. They cannot be
-	// overwritten by netlink-based tc attachments, as tcx is a separate hook
-	// altogether. Remove the tcx link first to avoid tc programs being run twice
-	// for every packet. This cannot be done seamlessly and will cause a small
-	// window of connection interruption.
-	pin := filepath.Join(bpffsDir, progName)
-	if err := os.Remove(pin); err == nil {
-		log.WithField("device", link.Attrs().Name).WithField("pinPath", pin).
-			Info("Removed tcx link before legacy tc downgrade, possible connectivity interruption")
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
-	}
-
 	if err := replaceQdisc(link); err != nil {
 		return fmt.Errorf("replacing clsact qdisc for interface %s: %w", link.Attrs().Name, err)
 	}
@@ -325,6 +312,18 @@ func attachTCProgram(link netlink.Link, prog *ebpf.Program, progName, bpffsDir s
 
 	if err := netlink.FilterReplace(filter); err != nil {
 		return fmt.Errorf("replacing tc filter for interface %s: %w", link.Attrs().Name, err)
+	}
+
+	// Remove tcx bpf_links created by newer versions of Cilium. They cannot be
+	// overwritten by netlink-based tc attachments, as tcx is a separate hook
+	// altogether. As long as a tcx link is present, the legacy tc program will
+	// be skipped.
+	pin := filepath.Join(bpffsDir, progName)
+	if err := os.Remove(pin); err == nil {
+		log.WithField("device", link.Attrs().Name).WithField("pinPath", pin).
+			Info("Removed tcx link after legacy tc downgrade")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("unpinning tcx link %s after legacy tc downgrade: %w", pin, err)
 	}
 
 	return nil
