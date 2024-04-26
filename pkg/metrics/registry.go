@@ -139,6 +139,9 @@ func (r *Registry) Reinitialize() {
 	if r.params.DaemonConfig.DNSProxyConcurrencyLimit > 0 {
 		metricFlags = append(metricFlags, "+"+Namespace+"_"+SubsystemFQDN+"_semaphore_rejected_total")
 	}
+	if r.params.DaemonConfig.OperatorManagesGlobalIdentities {
+		metricFlags = append(metricFlags, "+"+Namespace+"_local_endpoint_id_reconcile_total")
+	}
 
 	for _, metricFlag := range metricFlags {
 		metricFlag = strings.TrimSpace(metricFlag)

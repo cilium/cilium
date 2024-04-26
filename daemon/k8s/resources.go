@@ -50,6 +50,7 @@ var (
 			k8s.CiliumEndpointSliceResource,
 			k8s.CiliumEnvoyConfigResource,
 			k8s.CiliumClusterwideEnvoyConfigResource,
+			k8s.CiliumIdentityResource,
 		),
 	)
 
@@ -166,6 +167,7 @@ type Resources struct {
 	CiliumCIDRGroups                 resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
 	CiliumSlimEndpoint               resource.Resource[*types.CiliumEndpoint]
 	CiliumEndpointSlice              resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice]
+	CiliumIdentityIdentity           resource.Resource[*cilium_api_v2.CiliumIdentity]
 	CiliumNode                       resource.Resource[*cilium_api_v2.CiliumNode]
 }
 

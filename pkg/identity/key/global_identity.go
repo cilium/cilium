@@ -9,11 +9,16 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 )
 
 const (
 	// MetadataKeyBackendKey is the key used to store the backend key.
 	MetadataKeyBackendKey = iota
+)
+
+var (
+	KeyFunc = (&GlobalIdentity{}).PutKeyFromMap
 )
 
 // GlobalIdentity is the structure used to store an identity
@@ -69,4 +74,16 @@ func (gi *GlobalIdentity) PutValue(key, value any) allocator.AllocatorKey {
 // Value returns the value stored in the metadata map.
 func (gi *GlobalIdentity) Value(key any) any {
 	return gi.metadata[key]
+}
+
+func GetCIDKeyFromK8sLabels(k8sLabels map[string]string) *GlobalIdentity {
+	lbls := labels.Map2Labels(k8sLabels, labels.LabelSourceK8s)
+	idLabels, _ := labelsfilter.Filter(lbls)
+	return &GlobalIdentity{LabelArray: idLabels.LabelArray()}
+}
+
+func GetCIDKeyFromSecurityLabels(secLabels map[string]string) *GlobalIdentity {
+	lbls := labels.Map2Labels(secLabels, "")
+	idLabels, _ := labelsfilter.Filter(lbls)
+	return &GlobalIdentity{LabelArray: idLabels.LabelArray()}
 }
