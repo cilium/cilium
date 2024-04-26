@@ -254,6 +254,7 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		cleanupTCFilters,
 		cleanupXDPs,
 		removeSocketLBPrograms,
+		removeCiliumBPFFS,
 	}
 	if !c.bpfOnly {
 		funcs = append(funcs, cleanupRoutesAndLinks)
@@ -593,4 +594,15 @@ func isCiliumXDP(progId uint32) (bool, error) {
 
 	return false, nil
 
+}
+
+func removeCiliumBPFFS() error {
+	path := bpf.CiliumPath()
+
+	if err := bpf.Remove(path); err != nil {
+		return err
+	}
+
+	fmt.Printf("removed all cilium bpffs objects under %s\n", path)
+	return nil
 }

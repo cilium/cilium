@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
@@ -106,7 +107,7 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 			// Skip Endpoints without BPF datapath
 			continue
 		}
-		loaded, err = d.datapath.Loader().DeviceHasTCProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
+		loaded, err = loader.DeviceHasSKBProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
 		if err != nil {
 			log.WithField(logfields.Endpoint, ep.HostInterface()).
 				WithField(logfields.EndpointID, ep.ID).
