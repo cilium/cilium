@@ -52,6 +52,7 @@ type replaceDatapathOptions struct {
 	programs []progDefinition // programs that we want to attach/replace
 	xdpMode  string           // XDP driver mode, only applies when attaching XDP programs
 	linkDir  string           // path to bpffs dir holding bpf_links for the device/endpoint
+	tcx      bool             // attempt attaching skb programs using tcx
 }
 
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
@@ -230,7 +231,7 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, xdpConfigModeToFlag(opts.xdpMode))
 		} else {
 			scopedLog.Debug("Attaching SKB program to interface")
-			err = attachSKBProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, directionToParent(prog.direction))
+			err = attachSKBProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, directionToParent(prog.direction), opts.tcx)
 		}
 
 		if err != nil {

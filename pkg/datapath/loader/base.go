@@ -223,6 +223,7 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 				elf:      networkObj,
 				programs: progs,
 				linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), device),
+				tcx:      option.Config.EnableTCX,
 			},
 		)
 		if err != nil {

@@ -4,6 +4,7 @@
 package loader
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,12 +12,33 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// attachSKBProgram attaches prog to device using legacy tc.
-func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32) error {
+// attachSKBProgram attaches prog to device using tcx if available and enabled,
+// or legacy tc as a fallback.
+func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
+	if tcxEnabled {
+		// Attach using tcx if available. This is seamless on interfaces with
+		// existing tc programs since attaching tcx disables legacy tc evaluation.
+		err := upsertTCXProgram(device, prog, progName, bpffsDir, parent)
+		if err == nil {
+			// Created tcx link, clean up any leftover legacy tc attachments.
+			if err := removeTCFilters(device, parent); err != nil {
+				return fmt.Errorf("legacy tc cleanup after attaching tcx program %s: %w", progName, err)
+			}
+
+			// Don't fall back to legacy tc.
+			return nil
+		}
+		if !errors.Is(err, link.ErrNotSupported) {
+			// Unrecoverable error, surface to the caller.
+			return fmt.Errorf("attaching tcx program %s: %w", progName, err)
+		}
+	}
+
 	// tcx not available or disabled, fall back to legacy tc.
 	if err := attachTCProgram(device, prog, progName, parent); err != nil {
 		return fmt.Errorf("attaching legacy tc program %s: %w", progName, err)
