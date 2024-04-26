@@ -215,8 +215,10 @@ extraConfig: {}
 annotations: {}
 
 # -- Security Context for cilium-agent pods.
-podSecurityContext: {}
-
+podSecurityContext:
+  # -- AppArmorProfile options for the `cilium-agent` and init containers
+  appArmorProfile:
+    type: "Unconfined"
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 
@@ -2123,8 +2125,10 @@ envoy:
   annotations: {}
 
   # -- Security Context for cilium-envoy pods.
-  podSecurityContext: {}
-
+  podSecurityContext:
+    # -- AppArmorProfile options for the `cilium-agent` and init containers
+    appArmorProfile:
+      type: "Unconfined"
   # -- Annotations to be added to envoy pods
   podAnnotations: {}
 
@@ -2745,7 +2749,11 @@ nodeinit:
 
   # -- Labels to be added to node-init pods.
   podLabels: {}
-
+  # -- Security Context for cilium-node-init pods.
+  podSecurityContext:
+    # -- AppArmorProfile options for the `cilium-node-init` and init containers
+    appArmorProfile:
+      type: "Unconfined"
   # -- nodeinit resource limits & requests
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:

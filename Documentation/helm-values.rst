@@ -1179,7 +1179,11 @@
    * - :spelling:ignore:`envoy.podSecurityContext`
      - Security Context for cilium-envoy pods.
      - object
-     - ``{}``
+     - ``{"appArmorProfile":{"type":"Unconfined"}}``
+   * - :spelling:ignore:`envoy.podSecurityContext.appArmorProfile`
+     - AppArmorProfile options for the ``cilium-agent`` and init containers
+     - object
+     - ``{"type":"Unconfined"}``
    * - :spelling:ignore:`envoy.priorityClassName`
      - The priority class to use for cilium-envoy.
      - string
@@ -2396,6 +2400,14 @@
      - Labels to be added to node-init pods.
      - object
      - ``{}``
+   * - :spelling:ignore:`nodeinit.podSecurityContext`
+     - Security Context for cilium-node-init pods.
+     - object
+     - ``{"appArmorProfile":{"type":"Unconfined"}}``
+   * - :spelling:ignore:`nodeinit.podSecurityContext.appArmorProfile`
+     - AppArmorProfile options for the ``cilium-node-init`` and init containers
+     - object
+     - ``{"type":"Unconfined"}``
    * - :spelling:ignore:`nodeinit.prestop`
      - prestop offers way to customize prestop nodeinit script (pre and post position)
      - object
@@ -2631,7 +2643,11 @@
    * - :spelling:ignore:`podSecurityContext`
      - Security Context for cilium-agent pods.
      - object
-     - ``{}``
+     - ``{"appArmorProfile":{"type":"Unconfined"}}``
+   * - :spelling:ignore:`podSecurityContext.appArmorProfile`
+     - AppArmorProfile options for the ``cilium-agent`` and init containers
+     - object
+     - ``{"type":"Unconfined"}``
    * - :spelling:ignore:`policyCIDRMatchMode`
      - policyCIDRMatchMode is a list of entities that may be selected by CIDR selector. The possible value is "nodes".
      - string
