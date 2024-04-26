@@ -166,10 +166,6 @@ func (f *FakeLoader) RestoreTemplates(stateDir string) error {
 	return nil
 }
 
-func (f *FakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
-	return false, nil
-}
-
 type FakeOrchestrator struct{}
 
 func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {

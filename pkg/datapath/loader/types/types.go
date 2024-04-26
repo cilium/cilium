@@ -18,7 +18,6 @@ type Loader interface {
 	CompileOrLoad(ctx context.Context, ep types.Endpoint, stats *metrics.SpanStat) error
 	CustomCallsMapPath(id uint16) string
 	DetachXDP(iface netlink.Link, bpffsBase, progName string) error
-	DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error)
 	ELFSubstitutions(ep types.Endpoint) (map[string]uint64, map[string]string)
 	EndpointHash(cfg types.EndpointConfiguration) (string, error)
 	HostDatapathInitialized() <-chan struct{}

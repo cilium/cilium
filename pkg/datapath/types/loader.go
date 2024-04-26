@@ -25,7 +25,6 @@ type Loader interface {
 	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
 	RestoreTemplates(stateDir string) error
-	DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error)
 }
 
 // PreFilter an interface for an XDP pre-filter.
