@@ -197,7 +197,7 @@ func (d *Daemon) launchHubble() {
 			"tls":     option.Config.HubbleMetricsServerTLSEnabled,
 		}).Info("Starting Hubble Metrics server")
 
-		err := metrics.InitMetrics(metrics.Registry, api.ParseMetricList(option.Config.HubbleMetrics), grpcMetrics)
+		err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(option.Config.HubbleMetrics), grpcMetrics)
 		if err != nil {
 			log.WithError(err).Error("Unable to setup metrics: %w", err)
 			return
