@@ -1574,6 +1574,7 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(
+		initKPROptions,
 		newDaemonPromise,
 		newRestorerPromise,
 		func() k8s.CacheStatus { return make(k8s.CacheStatus) },
@@ -1647,7 +1648,21 @@ type daemonParams struct {
 	CompilationLock     datapath.CompilationLock
 }
 
-func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
+func initKPROptions(tunnelCfg tunnel.Config) (*option.FinalDaemonConfig, error) {
+	// Prior to creating the daemonPromise, we do the first phase of kpr
+	// initialization.
+	// This looks at existing configuration to make any necessary option
+	// overrides related to kpr.
+	// Following this, probeKubeProxyReplacementOptions(...) and then
+	// finally finishKubeProxyReplacementInit(...)  are run inside newDeamon
+	// which is done at Hive runtime.
+	if err := initKubeProxyReplacementOptions(tunnelCfg); err != nil {
+		return nil, err
+	}
+	return (*option.FinalDaemonConfig)(option.Config), nil
+}
+
+func newDaemonPromise(params daemonParams, _ *option.FinalDaemonConfig) (promise.Promise[*Daemon], error) {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
@@ -1690,7 +1705,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			return nil
 		},
 	})
-	return daemonPromise
+	return daemonPromise, nil
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.

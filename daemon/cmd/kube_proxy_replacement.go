@@ -31,8 +31,10 @@ import (
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
-// initKubeProxyReplacementOptions will grok the global config and determine
+// initKubeProxyReplacementOptions will grok the daemon config and determine
 // if we strictly enforce a kube-proxy replacement.
+// Note: Runtime probing is performed separately in probeKubeProxyReplacementOptions.
+// This function should be run prior hive runtime.
 //
 // if we determine the config denotes a "strict" kube-proxy replacement, the
 // returned boolean will be true, when we detect a "non-strict" configuration the
@@ -40,7 +42,7 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.Config) error {
+func initKubeProxyReplacementOptions(tunnelConfig tunnel.Config) error {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
 		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
@@ -184,9 +186,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 				return fmt.Errorf("Failed to initialize maglev hash seeds: %w", err)
 			}
 		}
-	}
 
-	if option.Config.EnableNodePort {
 		if option.Config.TunnelingEnabled() && tunnelConfig.Protocol() == tunnel.VXLAN &&
 			option.Config.LoadBalancerUsesDSR() {
 			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, tunnel.VXLAN)
@@ -251,12 +251,16 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(sysctl)
+	return nil
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
 func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
+	if option.Config.DryMode {
+		return nil
+	}
+
 	if option.Config.EnableNodePort {
 		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")

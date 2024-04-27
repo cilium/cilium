@@ -37,10 +37,16 @@ func TestAgentCell(t *testing.T) {
 
 	logging.SetLogLevelToDebug()
 
+	h := hive.New(Agent)
+
+	NewAgentCmd(h)
+	option.Config.Populate(h.Viper())
+
 	// Populate config with default values normally set by Viper flag defaults
 	option.Config.IPv4ServiceRange = AutoCIDR
 	option.Config.IPv6ServiceRange = AutoCIDR
 
-	err := hive.New(Agent).Populate(hivetest.Logger(t))
+	err := h.Populate(hivetest.Logger(t))
+
 	assert.NoError(t, err, "Populate()")
 }

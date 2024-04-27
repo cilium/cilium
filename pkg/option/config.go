@@ -1356,6 +1356,14 @@ func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 	}
 }
 
+// FinalDaemonConfig is a alias for DaemonConfig used to differentiate what stage of daemon option init
+// the config is when it is provided.
+type FinalDaemonConfig DaemonConfig
+
+func (c *FinalDaemonConfig) NodePortEnabled() bool {
+	return c.EnableNodePort
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	CreationTime        time.Time
