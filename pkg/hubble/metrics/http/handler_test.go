@@ -21,7 +21,16 @@ func Test_httpHandler_Status(t *testing.T) {
 	plugin := httpPlugin{}
 	handler := plugin.NewHandler()
 	assert.Equal(t, handler.Status(), "")
-	options := map[string]string{"sourceContext": "namespace", "destinationContext": "identity"}
+	options := []*api.ContextOptionConfig{
+		{
+			Name:   "sourceContext",
+			Values: []string{"namespace"},
+		},
+		{
+			Name:   "destinationContext",
+			Values: []string{"identity"},
+		},
+	}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
 	assert.Equal(t, handler.Status(), "destination=identity,source=namespace,exemplars=false")
 }
@@ -30,7 +39,13 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	ctx := context.TODO()
 	plugin := httpPlugin{}
 	handler := plugin.NewHandler()
-	require.Error(t, handler.Init(prometheus.NewRegistry(), map[string]string{"destinationContext": "invalid"}))
+	options := []*api.ContextOptionConfig{
+		{
+			Name:   "destinationContext",
+			Values: []string{"invalid"},
+		},
+	}
+	require.Error(t, handler.Init(prometheus.NewRegistry(), options))
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
 	fp, ok := handler.(api.FlowProcessor)
 	require.True(t, ok)
@@ -101,12 +116,28 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 	ctx := context.TODO()
 	plugin := httpV2Plugin{}
 	handler := plugin.NewHandler()
-	require.Error(t, handler.Init(prometheus.NewRegistry(), map[string]string{"destinationContext": "invalid"}))
-	require.NoError(t, handler.Init(prometheus.NewRegistry(), map[string]string{
-		"sourceContext":      "pod",
-		"destinationContext": "pod",
-		"labelsContext":      "source_pod,destination_pod",
-	}))
+	options := []*api.ContextOptionConfig{
+		{
+			Name:   "destinationContext",
+			Values: []string{"invalid"},
+		},
+	}
+	require.Error(t, handler.Init(prometheus.NewRegistry(), options))
+	options = []*api.ContextOptionConfig{
+		{
+			Name:   "sourceContext",
+			Values: []string{"pod"},
+		},
+		{
+			Name:   "destinationContext",
+			Values: []string{"pod"},
+		},
+		{
+			Name:   "labelsContext",
+			Values: []string{"source_pod", "destination_pod"},
+		},
+	}
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
 
 	fp, ok := handler.(api.FlowProcessor)
 	require.True(t, ok)

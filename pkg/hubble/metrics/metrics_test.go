@@ -73,7 +73,7 @@ func ConfigureAndFetchMetrics(t *testing.T, testName string, metricCfg []string,
 		grpcMetrics := grpc_prometheus.NewServerMetrics()
 		InitMetrics(
 			reg,
-			api.ParseMetricList(metricCfg),
+			api.ParseStaticMetricsConfig(metricCfg),
 			grpcMetrics)
 
 		flow := &pb.Flow{

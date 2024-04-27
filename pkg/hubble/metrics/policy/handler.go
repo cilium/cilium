@@ -21,7 +21,7 @@ type policyHandler struct {
 	context  *api.ContextOptions
 }
 
-func (d *policyHandler) Init(registry *prometheus.Registry, options api.Options) error {
+func (d *policyHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
 	c, err := api.ParseContextOptions(options)
 	if err != nil {
 		return err

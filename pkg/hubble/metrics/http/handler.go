@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -26,14 +27,20 @@ type httpHandler struct {
 	registeredMetrics []*prometheus.MetricVec
 }
 
-func (h *httpHandler) Init(registry *prometheus.Registry, options api.Options) error {
+func (h *httpHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
 	c, err := api.ParseContextOptions(options)
 	if err != nil {
 		return err
 	}
 	h.context = c
-	if exemplars, ok := options["exemplars"]; ok && exemplars == "true" {
-		h.exemplars = true
+
+	for _, opt := range options {
+		if strings.ToLower(opt.Name) == "exemplars" {
+			if len(opt.Values) >= 1 && opt.Values[0] == "true" {
+				h.exemplars = true
+			}
+			break
+		}
 	}
 
 	if h.useV2 {

@@ -18,7 +18,7 @@ type icmpHandler struct {
 	context *api.ContextOptions
 }
 
-func (h *icmpHandler) Init(registry *prometheus.Registry, options api.Options) error {
+func (h *icmpHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
 	c, err := api.ParseContextOptions(options)
 	if err != nil {
 		return err
