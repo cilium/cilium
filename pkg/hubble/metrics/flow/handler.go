@@ -20,8 +20,8 @@ type flowHandler struct {
 	context *api.ContextOptions
 }
 
-func (h *flowHandler) Init(registry *prometheus.Registry, options api.Options) error {
-	c, err := api.ParseContextOptions(options)
+func (h *flowHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}

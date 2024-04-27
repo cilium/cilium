@@ -25,15 +25,15 @@ type dnsHandler struct {
 	responseTypes *prometheus.CounterVec
 }
 
-func (d *dnsHandler) Init(registry *prometheus.Registry, options api.Options) error {
-	c, err := api.ParseContextOptions(options)
+func (d *dnsHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
 	d.context = c
 
-	for key := range options {
-		switch strings.ToLower(key) {
+	for _, opt := range options.ContextOptionConfigs {
+		switch strings.ToLower(opt.Name) {
 		case "query":
 			d.includeQuery = true
 		case "ignoreaaaa":

@@ -1,0 +1,26 @@
+hubbleMetrics:
+  metrics:
+  - name: flow
+    contextOptions: 
+        - name: sourceEgressContext
+          values:
+            - pod
+        - name: destinationIngressContext
+          values:
+            - pod
+    includeFilters: 
+        - []
+    excludeFilters:
+        - source_pod: ["namespace1/"]
+        - destination_pod: ["kube-system/"]
+  - name: dns
+    contextOptions: 
+        - name: labelsContext
+          values:
+            - source_namespace
+            - source_pod
+        - name: destinationIngressContext
+          values:
+            - pod
+    includeFilters: 
+        - source_pod: ["namespace1/"]

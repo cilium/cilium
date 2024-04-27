@@ -24,24 +24,6 @@ const (
 	DefaultPrometheusNamespace = "hubble"
 )
 
-// Map is a set of metrics with their corresponding options
-type Map map[string]Options
-
-// ParseMetricList parses a slice of metric options and returns a map of
-// enabled metrics
-func ParseMetricList(enabledMetrics []string) (m Map) {
-	m = Map{}
-	for _, metric := range enabledMetrics {
-		s := strings.SplitN(metric, ":", 2)
-		if len(s) == 2 {
-			m[s[0]] = ParseOptions(s[1])
-		} else {
-			m[s[0]] = Options{}
-		}
-	}
-	return
-}
-
 // Handlers contains all the metrics handlers.
 type Handlers struct {
 	handlers       []Handler
@@ -72,7 +54,7 @@ type Handler interface {
 	// Init must initialize the metric handler by validating and parsing
 	// the options and then registering all required metrics with the
 	// specifies Prometheus registry
-	Init(registry *prometheus.Registry, options Options) error
+	Init(registry *prometheus.Registry, metricConfig *MetricConfig) error
 
 	// ListMetricVec returns an array of MetricVec used by a handler
 	ListMetricVec() []*prometheus.MetricVec
@@ -102,7 +84,7 @@ func NewHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in []Nam
 			handlers.flowProcessors = append(handlers.flowProcessors, fp)
 		}
 
-		if err := item.Handler.Init(registry, item.Options); err != nil {
+		if err := item.Handler.Init(registry, item.MetricConfig); err != nil {
 			return nil, fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
 		}
 
@@ -145,4 +127,102 @@ var registry = NewRegistry(
 // DefaultRegistry returns the default registry of all available metric plugins
 func DefaultRegistry() *Registry {
 	return registry
+}
+
+// FlowFilters is a slice of filters to include or exclude flows.
+type FlowFilters []*pb.FlowFilter
+
+type ContextValues []string
+
+// ContextOptions is a structure used for configuring Hubble metrics context options
+type ContextOptionConfig struct {
+	Name   string        `json:"name,omitempty" yaml:"name,omitempty"`
+	Values ContextValues `json:"values,omitempty" yaml:"values,omitempty"`
+}
+
+type ContextOptionConfigs []*ContextOptionConfig
+
+type MetricConfig struct {
+	Name                 string               `json:"name,omitempty" yaml:"name,omitempty"`
+	ContextOptionConfigs ContextOptionConfigs `json:"contextOptions,omitempty" yaml:"contextOptions,omitempty"`
+	IncludeFilters       FlowFilters          `json:"includeFilters,omitempty" yaml:"includeFilters,omitempty"`
+	ExcludeFilters       FlowFilters          `json:"excludeFilters,omitempty" yaml:"excludeFilters,omitempty"`
+}
+
+// DynamicMetricsConfig represents the structure used for configuring
+// Hubble metrics context options
+type DynamicMetricsConfig struct {
+	Metrics []*MetricConfig `json:"metrics,omitempty" yaml:"metrics,omitempty"`
+}
+
+func (d *DynamicMetricsConfig) GetMetricNames() map[string]struct{} {
+	metrics := make(map[string]struct{})
+	for _, m := range d.Metrics {
+		metrics[m.Name] = struct{}{}
+	}
+	return metrics
+}
+
+func ParseStaticMetricsConfig(enabledMetrics []string) (metricConfigs *DynamicMetricsConfig) {
+	metricConfigs = &DynamicMetricsConfig{}
+	for _, metric := range enabledMetrics {
+		s := strings.SplitN(metric, ":", 2)
+		config := &MetricConfig{
+			Name:                 s[0],
+			IncludeFilters:       FlowFilters{},
+			ExcludeFilters:       FlowFilters{},
+			ContextOptionConfigs: ContextOptionConfigs{},
+		}
+		if len(s) == 2 {
+			config.ContextOptionConfigs = parseOptionConfigs(s[1])
+		}
+		metricConfigs.Metrics = append(metricConfigs.Metrics, config)
+	}
+
+	return
+}
+
+func parseOptionConfigs(s string) (options ContextOptionConfigs) {
+	options = ContextOptionConfigs{}
+
+	for _, option := range strings.Split(s, ";") {
+		if option == "" {
+			continue
+		}
+
+		kv := strings.SplitN(option, "=", 2)
+		ctxOption := &ContextOptionConfig{
+			Name: kv[0],
+		}
+		if len(kv) == 2 {
+			ctxOption.Values = parseOptionValues(kv[1])
+		} else {
+			ctxOption.Values = []string{""}
+		}
+		options = append(options, ctxOption)
+	}
+
+	return
+}
+
+func parseOptionValues(s string) (values ContextValues) {
+	values = ContextValues{}
+
+	if strings.Contains(s, "|") {
+		for _, option := range strings.Split(s, "|") {
+			if option == "" {
+				continue
+			}
+			values = append(values, option)
+		}
+	} else {
+		// temporarily handling comma separated values for labels context
+		for _, option := range strings.Split(s, ",") {
+			if option == "" {
+				continue
+			}
+			values = append(values, option)
+		}
+	}
+	return
 }

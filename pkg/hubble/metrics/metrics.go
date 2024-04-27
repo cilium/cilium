@@ -85,7 +85,7 @@ func ProcessPodDeletion(pod *slim_corev1.Pod) error {
 	return nil
 }
 
-func initMetricHandlers(enabled api.Map) (*api.Handlers, error) {
+func initMetricHandlers(enabled *api.DynamicMetricsConfig) (*api.Handlers, error) {
 	return api.DefaultRegistry().ConfigureHandlers(registry, enabled)
 }
 
@@ -133,7 +133,7 @@ func initPodDeletionHandler() {
 }
 
 // initMetrics initializes the metrics system
-func initMetrics(address string, metricsTLSConfig *certloader.WatchedServerConfig, enabled api.Map, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) (<-chan error, error) {
+func initMetrics(address string, metricsTLSConfig *certloader.WatchedServerConfig, enabled *api.DynamicMetricsConfig, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) (<-chan error, error) {
 	e, err := initMetricHandlers(enabled)
 	if err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func initMetrics(address string, metricsTLSConfig *certloader.WatchedServerConfi
 // EnableMetrics starts the metrics server with a given list of metrics. This is the
 // function Cilium uses to configure Hubble metrics in embedded mode.
 func EnableMetrics(log logrus.FieldLogger, metricsServer string, metricsTLSConfig *certloader.WatchedServerConfig, m []string, grpcMetrics *grpc_prometheus.ServerMetrics, enableOpenMetrics bool) error {
-	errChan, err := initMetrics(metricsServer, metricsTLSConfig, api.ParseMetricList(m), grpcMetrics, enableOpenMetrics)
+	errChan, err := initMetrics(metricsServer, metricsTLSConfig, api.ParseStaticMetricsConfig(m), grpcMetrics, enableOpenMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup metrics: %w", err)
 	}
