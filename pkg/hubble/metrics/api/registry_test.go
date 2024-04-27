@@ -39,7 +39,7 @@ type testHandler struct {
 	ListMetricCalled int
 }
 
-func (t *testHandler) Init(registry *prometheus.Registry, options Options) error {
+func (t *testHandler) Init(registry *prometheus.Registry, options []*ContextOptionConfig) error {
 	t.InitCalled++
 	return nil
 }
@@ -96,7 +96,8 @@ func TestRegister(t *testing.T) {
 
 		r.Register("test", &testPlugin{handler: handler})
 
-		handlers, err := r.ConfigureHandlers(nil, Map{})
+		//exhaustruct:ignore
+		handlers, err := r.ConfigureHandlers(nil, &Config{})
 		assert.EqualValues(t, err, nil)
 		assert.EqualValues(t, len(handlers.handlers), 0)
 	})
@@ -104,14 +105,34 @@ func TestRegister(t *testing.T) {
 	t.Run("Should register handler", func(t *testing.T) {
 
 		promRegistry := prometheus.NewRegistry()
-		opts, _ := ParseContextOptions(Options{"sourceContext": "pod", "destinationContext": "pod"})
+		options := []*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"pod"},
+			},
+		}
+		opts, _ := ParseContextOptions(options)
 		initHandlers(t, opts, promRegistry, log)
 	})
 
 	t.Run("Should remove metrics series with ContextPod", func(t *testing.T) {
 
 		promRegistry := prometheus.NewRegistry()
-		opts, _ := ParseContextOptions(Options{"sourceContext": "pod", "destinationContext": "pod"})
+		options := []*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"pod"},
+			},
+		}
+		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
 		handlers.ProcessFlow(context.TODO(), flow1)
@@ -144,7 +165,17 @@ func TestRegister(t *testing.T) {
 	t.Run("Should not remove metrics series with ContextWorkloadName", func(t *testing.T) {
 
 		promRegistry := prometheus.NewRegistry()
-		opts, _ := ParseContextOptions(Options{"sourceContext": "workload-name", "destinationContext": "workload-name"})
+		options := []*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"workload-name"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"workload-name"},
+			},
+		}
+		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
 		handlers.ProcessFlow(context.TODO(), flow1)
@@ -177,7 +208,13 @@ func TestRegister(t *testing.T) {
 	t.Run("Should remove metrics series with LabelsContext", func(t *testing.T) {
 
 		promRegistry := prometheus.NewRegistry()
-		opts, _ := ParseContextOptions(Options{"labelsContext": "source_pod,source_namespace,destination_pod,destination_namespace"})
+		options := []*ContextOptionConfig{
+			{
+				Name:   "labelsContext",
+				Values: []string{"source_pod", "source_namespace", "destination_pod", "destination_namespace"},
+			},
+		}
+		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
 		handlers.ProcessFlow(context.TODO(), flow1)
@@ -210,7 +247,13 @@ func TestRegister(t *testing.T) {
 	t.Run("Should not remove metrics series with LabelsContext without namespace", func(t *testing.T) {
 
 		promRegistry := prometheus.NewRegistry()
-		opts, _ := ParseContextOptions(Options{"labelsContext": "source_pod,destination_pod"})
+		options := []*ContextOptionConfig{
+			{
+				Name:   "labelsContext",
+				Values: []string{"source_pod", "destination_pod"},
+			},
+		}
+		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
 		handlers.ProcessFlow(context.TODO(), flow1)
@@ -256,8 +299,15 @@ func initHandlers(t *testing.T, opts *ContextOptions, promRegistry *prometheus.R
 	handler.counter = counter
 
 	r.Register("test", &testPlugin{handler: handler})
-
-	handlers, err := r.ConfigureHandlers(nil, Map{"test": Options{}})
+	cfg := &Config{
+		Metrics: []*MetricConfig{
+			{
+				Name:                 "test",
+				ContextOptionConfigs: []*ContextOptionConfig{},
+			},
+		},
+	}
+	handlers, err := r.ConfigureHandlers(nil, cfg)
 	assert.EqualValues(t, err, nil)
 	assert.EqualValues(t, len(handlers.handlers), 1)
 	assert.EqualValues(t, handlers.handlers[0].(*testHandler).InitCalled, 1)

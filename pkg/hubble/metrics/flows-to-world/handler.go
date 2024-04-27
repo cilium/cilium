@@ -30,14 +30,14 @@ type flowsToWorldHandler struct {
 	synOnly      bool
 }
 
-func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Options) error {
+func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
 	c, err := api.ParseContextOptions(options)
 	if err != nil {
 		return err
 	}
 	h.context = c
-	for key := range options {
-		switch strings.ToLower(key) {
+	for _, opt := range options {
+		switch strings.ToLower(opt.Name) {
 		case "any-drop":
 			h.anyDrop = true
 		case "port":
