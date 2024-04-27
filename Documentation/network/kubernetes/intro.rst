@@ -78,6 +78,5 @@ The Kubernetes documentation contains more background on the `Kubernetes
 Networking Model
 <https://kubernetes.io/docs/concepts/cluster-administration/networking/>`_ and
 `Kubernetes Network Plugins
-<https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_
-.
+<https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_.
 
