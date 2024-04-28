@@ -9,80 +9,71 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type SpanStatTestSuite struct{}
-
-var _ = Suite(&SpanStatTestSuite{})
-
-func (s *SpanStatTestSuite) TestSpanStatStart(c *C) {
+func TestSpanStatStart(t *testing.T) {
 	span1 := Start()
 	span1.EndError(nil)
-	c.Assert(span1.Total(), Not(Equals), time.Duration(0))
+	require.NotEqual(t, time.Duration(0), span1.Total())
 }
 
-func (s *SpanStatTestSuite) TestSpanStat(c *C) {
+func TestSpanStat(t *testing.T) {
 	span1 := SpanStat{}
 
 	// no spans measured yet
-	c.Assert(span1.Total(), Equals, time.Duration(0))
-	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
-	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
+	require.Equal(t, time.Duration(0), span1.Total())
+	require.Equal(t, time.Duration(0), span1.SuccessTotal())
+	require.Equal(t, time.Duration(0), span1.FailureTotal())
 
 	// End() without Start()
 	span1.End(true)
-	c.Assert(span1.Total(), Equals, time.Duration(0))
-	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
-	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
+	require.Equal(t, time.Duration(0), span1.Total())
+	require.Equal(t, time.Duration(0), span1.SuccessTotal())
+	require.Equal(t, time.Duration(0), span1.FailureTotal())
 
 	// Start() but no end yet
 	span1.Start()
-	c.Assert(span1.Total(), Equals, time.Duration(0))
-	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
-	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
+	require.Equal(t, time.Duration(0), span1.Total())
+	require.Equal(t, time.Duration(0), span1.SuccessTotal())
+	require.Equal(t, time.Duration(0), span1.FailureTotal())
 
 	// First span measured with End()
 	span1.End(true)
 	spanTotal1 := span1.Total()
 	spanSuccessTotal1 := span1.SuccessTotal()
 	spanFailureTotal1 := span1.FailureTotal()
-	c.Assert(span1.Total(), Not(Equals), time.Duration(0))
-	c.Assert(span1.SuccessTotal(), Not(Equals), time.Duration(0))
-	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
-	c.Assert(span1.Total(), Equals, span1.SuccessTotal()+span1.FailureTotal())
+	require.NotEqual(t, time.Duration(0), span1.Total())
+	require.NotEqual(t, time.Duration(0), span1.SuccessTotal())
+	require.Equal(t, time.Duration(0), span1.FailureTotal())
+	require.Equal(t, span1.Total(), span1.SuccessTotal()+span1.FailureTotal())
 
 	// End() without a prior Start(), no change
 	span1.End(true)
-	c.Assert(span1.Total(), Equals, spanTotal1)
-	c.Assert(span1.SuccessTotal(), Equals, spanSuccessTotal1)
-	c.Assert(span1.FailureTotal(), Equals, spanFailureTotal1)
+	require.Equal(t, spanTotal1, span1.Total())
+	require.Equal(t, spanSuccessTotal1, span1.SuccessTotal())
+	require.Equal(t, spanFailureTotal1, span1.FailureTotal())
 
 	span1.Start()
 	time.Sleep(time.Millisecond * 100)
 	span1.End(false) // ensure second measure is different from first.
-	c.Assert(span1.Total(), Not(Equals), spanTotal1)
-	c.Assert(span1.SuccessTotal(), Equals, spanSuccessTotal1)
-	c.Assert(span1.FailureTotal(), Not(Equals), spanFailureTotal1)
-	c.Assert(span1.Total(), Equals, span1.SuccessTotal()+span1.FailureTotal())
+	require.NotEqual(t, spanTotal1, span1.Total())
+	require.Equal(t, spanSuccessTotal1, span1.SuccessTotal())
+	require.NotEqual(t, spanFailureTotal1, span1.FailureTotal())
+	require.Equal(t, span1.Total(), span1.SuccessTotal()+span1.FailureTotal())
 
 	span1.Reset()
-	c.Assert(span1.Total(), Equals, time.Duration(0))
-	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
-	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
+	require.Equal(t, time.Duration(0), span1.Total())
+	require.Equal(t, time.Duration(0), span1.SuccessTotal())
+	require.Equal(t, time.Duration(0), span1.FailureTotal())
 }
 
-func (s *SpanStatTestSuite) TestSpanStatSeconds(c *C) {
+func TestSpanStatSeconds(t *testing.T) {
 	span1 := Start()
-	c.Assert(span1.Seconds(), Not(Equals), float64(0))
+	require.NotEqual(t, float64(0), span1.Seconds())
 }
 
-func (s *SpanStatTestSuite) TestSpanStatSecondsRaceCondition(c *C) {
+func TestSpanStatSecondsRaceCondition(t *testing.T) {
 	span1 := Start()
 	var wg sync.WaitGroup
 
@@ -90,7 +81,7 @@ func (s *SpanStatTestSuite) TestSpanStatSecondsRaceCondition(c *C) {
 		wg.Add(1)
 		go func(span *SpanStat) {
 			defer wg.Done()
-			c.Assert(span1.Seconds(), Not(Equals), float64(0))
+			require.NotEqual(t, float64(0), span1.Seconds())
 		}(span1)
 	}
 	wg.Wait()
@@ -172,11 +163,10 @@ func TestSpanStatRaceCondition(t *testing.T) {
 				wg.Add(1)
 				go func(span *SpanStat) {
 					defer wg.Done()
-					assert.NotEqual(t, tt.fields.runFunc(span), float64(0))
+					require.NotEqual(t, tt.fields.runFunc(span), float64(0))
 				}(span)
 			}
 			wg.Wait()
 		})
 	}
-
 }
