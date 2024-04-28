@@ -7,48 +7,38 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
+func TestNeedsDelay(t *testing.T) {
+	tr := &Trigger{params: Parameters{}}
 
-type TriggerTestSuite struct{}
+	needsDelay, _ := tr.needsDelay()
+	require.Equal(t, false, needsDelay)
 
-var _ = Suite(&TriggerTestSuite{})
+	tr.params.MinInterval = time.Second
 
-func (s *TriggerTestSuite) TestNeedsDelay(c *C) {
-	t := &Trigger{params: Parameters{}}
+	tr.lastTrigger = time.Now().Add(time.Second * -2)
+	needsDelay, _ = tr.needsDelay()
+	require.Equal(t, false, needsDelay)
 
-	needsDelay, _ := t.needsDelay()
-	c.Assert(needsDelay, Equals, false)
-
-	t.params.MinInterval = time.Second
-
-	t.lastTrigger = time.Now().Add(time.Second * -2)
-	needsDelay, _ = t.needsDelay()
-	c.Assert(needsDelay, Equals, false)
-
-	t.lastTrigger = time.Now().Add(time.Millisecond * -900)
-	needsDelay, _ = t.needsDelay()
-	c.Assert(needsDelay, Equals, true)
+	tr.lastTrigger = time.Now().Add(time.Millisecond * -900)
+	needsDelay, _ = tr.needsDelay()
+	require.Equal(t, true, needsDelay)
 	time.Sleep(time.Millisecond * 200)
-	needsDelay, _ = t.needsDelay()
-	c.Assert(needsDelay, Equals, false)
+	needsDelay, _ = tr.needsDelay()
+	require.Equal(t, false, needsDelay)
 }
 
-// TestMinInterval ensures that the MinInterval parameter is being respected
-func (s *TriggerTestSuite) TestMinInterval(c *C) {
+func TestMinInterval(t *testing.T) {
 	var (
 		mutex     lock.Mutex
 		triggered int
 	)
 
-	t, err := NewTrigger(Parameters{
+	tr, err := NewTrigger(Parameters{
 		TriggerFunc: func(reasons []string) {
 			mutex.Lock()
 			triggered++
@@ -57,33 +47,29 @@ func (s *TriggerTestSuite) TestMinInterval(c *C) {
 		MinInterval:   time.Millisecond * 500,
 		sleepInterval: time.Millisecond,
 	})
-	c.Assert(err, IsNil)
-	c.Assert(t, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, tr)
 
-	// Trigger multiple times and sleep in between to guarantee that the
-	// background routine probed in the meantime
 	for i := 0; i < 5; i++ {
-		t.Trigger()
+		tr.Trigger()
 		time.Sleep(time.Millisecond * 20)
 	}
 
 	mutex.Lock()
 	triggeredCopy := triggered
 	mutex.Unlock()
-	c.Assert(triggeredCopy, Equals, 1)
+	require.Equal(t, 1, triggeredCopy)
 
-	t.Shutdown()
+	tr.Shutdown()
 }
 
-// TestLongTrigger tests that a trigger that takes a second is only invoked
-// once even though triggers are occurring in the background
-func (s *TriggerTestSuite) TestLongTrigger(c *C) {
+func TestLongTrigger(t *testing.T) {
 	var (
 		mutex     lock.Mutex
 		triggered int
 	)
 
-	t, err := NewTrigger(Parameters{
+	tr, err := NewTrigger(Parameters{
 		TriggerFunc: func(reasons []string) {
 			mutex.Lock()
 			triggered++
@@ -92,45 +78,43 @@ func (s *TriggerTestSuite) TestLongTrigger(c *C) {
 		},
 		sleepInterval: time.Millisecond,
 	})
-	c.Assert(err, IsNil)
-	c.Assert(t, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, tr)
 
-	// Trigger multiple times and sleep in between to guarantee that the
-	// background routine probed in the meantime
 	for i := 0; i < 5; i++ {
-		t.Trigger()
+		tr.Trigger()
 		time.Sleep(time.Millisecond * 20)
 	}
 
 	mutex.Lock()
 	triggeredCopy := triggered
 	mutex.Unlock()
-	c.Assert(triggeredCopy, Equals, 1)
+	require.Equal(t, 1, triggeredCopy)
 
-	t.Shutdown()
+	tr.Shutdown()
 }
 
-func (s *TriggerTestSuite) TestShutdownFunc(c *C) {
+func TestShutdownFunc(t *testing.T) {
 	done := make(chan struct{})
-	t, err := NewTrigger(Parameters{
+	tr, err := NewTrigger(Parameters{
 		TriggerFunc: func(reasons []string) {},
 		ShutdownFunc: func() {
 			close(done)
 		},
 	})
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
-	t.Trigger()
+	tr.Trigger()
 	select {
 	case <-done:
-		c.Errorf("shutdown func called unexpectedly")
+		t.Errorf("shutdown func called unexpectedly")
 	default:
 	}
 
-	t.Shutdown()
+	tr.Shutdown()
 	select {
 	case <-done:
 	case <-time.After(10 * time.Second):
-		c.Errorf("timed out while waiting for shutdown func")
+		t.Errorf("timed out while waiting for shutdown func")
 	}
 }
