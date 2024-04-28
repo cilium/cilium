@@ -7,21 +7,10 @@ import (
 	"errors"
 	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type RevertTestSuite struct{}
-
-var _ = Suite(&RevertTestSuite{})
-
-func (s *RevertTestSuite) TestRevertStack(c *C) {
+func TestRevertStack(t *testing.T) {
 	expectedContent := []string{"lmao", "ayy", "bar", "foo"}
 	content := make([]string, 0, 4)
 	rStack := RevertStack{}
@@ -44,12 +33,12 @@ func (s *RevertTestSuite) TestRevertStack(c *C) {
 	})
 
 	err := rStack.Revert()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
-	c.Assert(content, checker.DeepEquals, expectedContent)
+	require.Equal(t, expectedContent, content)
 }
 
-func (s *RevertTestSuite) TestRevertStackError(c *C) {
+func TestRevertStackError(t *testing.T) {
 	var firstFuncCalled, secondFuncCalled, thirdFuncCalled bool
 	rStack := RevertStack{}
 
@@ -67,9 +56,10 @@ func (s *RevertTestSuite) TestRevertStackError(c *C) {
 	})
 
 	err := rStack.Revert()
-	c.Assert(err, ErrorMatches, "failed to execute revert function; skipping 1 revert functions: 2nd function failed")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to execute revert function; skipping 1 revert functions: 2nd function failed")
 
-	c.Assert(firstFuncCalled, Equals, false)
-	c.Assert(secondFuncCalled, Equals, true)
-	c.Assert(thirdFuncCalled, Equals, true)
+	require.Equal(t, firstFuncCalled, false)
+	require.Equal(t, secondFuncCalled, true)
+	require.Equal(t, thirdFuncCalled, true)
 }

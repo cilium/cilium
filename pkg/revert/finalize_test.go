@@ -4,12 +4,12 @@
 package revert
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
 
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *RevertTestSuite) TestFinalizeList(c *C) {
+func TestFinalizeList(t *testing.T) {
 	expectedContent := []string{"foo", "bar", "ayy", "lmao"}
 	content := make([]string, 0, 4)
 	fList := FinalizeList{}
@@ -28,5 +28,5 @@ func (s *RevertTestSuite) TestFinalizeList(c *C) {
 	})
 	fList.Finalize()
 
-	c.Assert(content, checker.DeepEquals, expectedContent)
+	require.Equal(t, expectedContent, content)
 }
