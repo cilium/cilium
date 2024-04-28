@@ -4,58 +4,60 @@
 package allocator
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/idpool"
 )
 
-func (s *AllocatorSuite) TestLocalKeys(c *C) {
+func TestLocalKeys(t *testing.T) {
 	k := newLocalKeys()
 	key, val := TestAllocatorKey("foo"), idpool.ID(200)
 	key2, val2 := TestAllocatorKey("bar"), idpool.ID(300)
 
 	v := k.use(key.GetKey())
-	c.Assert(v, Equals, idpool.NoID)
+	require.Equal(t, idpool.NoID, v)
 
 	v, firstUse, err := k.allocate(key.GetKey(), key, val) // refcnt=1
-	c.Assert(err, IsNil)
-	c.Assert(v, Equals, val)
-	c.Assert(firstUse, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, val, v)
+	require.True(t, firstUse)
 
-	c.Assert(k.verify(key.GetKey()), IsNil)
+	require.Nil(t, k.verify(key.GetKey()))
 
 	v = k.use(key.GetKey()) // refcnt=2
-	c.Assert(v, Equals, val)
+	require.Equal(t, val, v)
 	k.release(key.GetKey()) // refcnt=1
 
 	v, firstUse, err = k.allocate(key.GetKey(), key, val) // refcnt=2
-	c.Assert(err, IsNil)
-	c.Assert(v, Equals, val)
-	c.Assert(firstUse, Equals, false)
+	require.NoError(t, err)
+	require.Equal(t, val, v)
+	require.False(t, firstUse)
 
 	v, firstUse, err = k.allocate(key2.GetKey(), key2, val2) // refcnt=1
-	c.Assert(err, IsNil)
-	c.Assert(v, Equals, val2)
-	c.Assert(firstUse, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, val2, v)
+	require.True(t, firstUse)
 
 	// only one of the two keys is verified yet
 	ids := k.getVerifiedIDs()
-	c.Assert(len(ids), Equals, 1)
+	require.Equal(t, 1, len(ids))
 
 	// allocate with different value must fail
 	_, _, err = k.allocate(key2.GetKey(), key2, val)
-	c.Assert(err, Not(IsNil))
+	require.Error(t, err)
 
 	k.release(key.GetKey()) // refcnt=1
 	v = k.use(key.GetKey()) // refcnt=2
-	c.Assert(v, Equals, val)
+	require.Equal(t, val, v)
 
 	k.release(key.GetKey()) // refcnt=1
 	k.release(key.GetKey()) // refcnt=0
 	v = k.use(key.GetKey())
-	c.Assert(v, Equals, idpool.NoID)
+	require.Equal(t, idpool.NoID, v)
 
 	k.release(key2.GetKey()) // refcnt=0
 	v = k.use(key2.GetKey())
-	c.Assert(v, Equals, idpool.NoID)
+	require.Equal(t, idpool.NoID, v)
 }
