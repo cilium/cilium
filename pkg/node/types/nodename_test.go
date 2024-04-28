@@ -5,22 +5,23 @@ package types
 
 import (
 	"os"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *NodeSuite) TestHostname(c *C) {
+func TestHostname(t *testing.T) {
 	h, err := os.Hostname()
 
 	// Unmodified node-name value is either os.Hostname if available or
 	// "localhost" otherwise
 	if err != nil {
-		c.Assert(GetName(), Equals, "localhost")
+		require.Equal(t, "localhost", GetName())
 	} else {
-		c.Assert(GetName(), Equals, h)
+		require.Equal(t, h, GetName())
 	}
 
 	newName := "foo.domain"
 	SetName(newName)
-	c.Assert(GetName(), Equals, newName)
+	require.Equal(t, newName, GetName())
 }

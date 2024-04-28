@@ -13,12 +13,11 @@ import (
 	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -37,14 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type managerTestSuite struct{}
-
-var _ = check.Suite(&managerTestSuite{})
 
 type nodeEvent struct {
 	event  string
@@ -229,18 +220,17 @@ func (n *signalNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeCo
 	return nil
 }
 
-func (s *managerTestSuite) SetUpSuite(c *check.C) {
-}
-
-func (s *managerTestSuite) SetUpTest(c *check.C) {
+func setup(tb testing.TB) {
 	node.SetTestLocalNodeStore()
+
+	tb.Cleanup(func() {
+		node.UnsetTestLocalNodeStore()
+	})
 }
 
-func (s *managerTestSuite) TearDownTest(c *check.C) {
-	node.UnsetTestLocalNodeStore()
-}
+func TestNodeLifecycle(t *testing.T) {
+	setup(t)
 
-func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp := newSignalNodeHandler()
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
@@ -249,7 +239,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	mngr.Subscribe(dp)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{Name: "node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
@@ -261,13 +251,13 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1)
+		require.Equal(t, n1, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeAdd() event for node1")
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 
 	n2 := nodeTypes.Node{Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
@@ -280,40 +270,42 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n2)
+		require.Equal(t, n2, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeUpdate() event for node2")
+		t.Errorf("timeout while waiting for NodeUpdate() event for node2")
 	}
 
 	nodes := mngr.GetNodes()
 	n, ok := nodes[n1.Identity()]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(n, checker.DeepEquals, n1)
+	require.True(t, ok)
+	require.Equal(t, n1, n)
 
 	mngr.NodeDeleted(n1)
 	select {
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1)
+		require.Equal(t, n1, nodeEvent)
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeDelete() event for node1")
+		t.Errorf("timeout while waiting for NodeDelete() event for node1")
 	}
 	nodes = mngr.GetNodes()
 	_, ok = nodes[n1.Identity()]
-	c.Assert(ok, check.Equals, false)
+	require.False(t, ok)
 
 	err = mngr.Stop(context.TODO())
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 }
 
-func (s *managerTestSuite) TestMultipleSources(c *check.C) {
+func TestMultipleSources(t *testing.T) {
+	setup(t)
+
 	dp := newSignalNodeHandler()
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
@@ -321,7 +313,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
@@ -334,13 +326,13 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	mngr.NodeUpdated(n1k8s)
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1k8s)
+		require.Equal(t, n1k8s, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeAdd() event for node1")
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 
 	// agent can overwrite kubernetes
@@ -353,24 +345,24 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	mngr.NodeUpdated(n1agent)
 	select {
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1agent)
+		require.Equal(t, n1agent, nodeEvent)
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeUpdate() event for node1")
+		t.Errorf("timeout while waiting for NodeUpdate() event for node1")
 	}
 
 	// kubernetes cannot overwrite local node
 	mngr.NodeUpdated(n1k8s)
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(100 * time.Millisecond):
 	}
 
@@ -378,55 +370,57 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	mngr.NodeDeleted(n1k8s)
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(100 * time.Millisecond):
 	}
 
 	mngr.NodeDeleted(n1agent)
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1agent)
+		require.Equal(t, n1agent, nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeDelete() event for node1")
+		t.Errorf("timeout while waiting for NodeDelete() event for node1")
 	}
 }
 
-func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
+func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(b, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
-	c.ResetTimer()
-	for i := 0; i < c.N; i++ {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeUpdated(n)
 	}
 
-	for i := 0; i < c.N; i++ {
+	for i := 0; i < b.N; i++ {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeDeleted(n)
 	}
-	c.StopTimer()
+	b.StopTimer()
 }
 
-func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
+func TestClusterSizeDependantInterval(t *testing.T) {
+	setup(t)
+
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
@@ -441,12 +435,12 @@ func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 		}}
 		mngr.NodeUpdated(n)
 		newInterval := mngr.ClusterSizeDependantInterval(time.Minute)
-		c.Assert(newInterval > prevInterval, check.Equals, true)
+		assert.Greater(t, newInterval, prevInterval)
 	}
 }
 
-func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
-	c.Skip("GH-6751 Test is disabled due to being unstable")
+func TestBackgroundSync(t *testing.T) {
+	t.Skip("GH-6751 Test is disabled due to being unstable")
 
 	// set the base background sync interval to a very low value so the
 	// background sync runs aggressively
@@ -460,7 +454,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	mngr.Subscribe(signalNodeHandler)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
 
 	numNodes := 4096
@@ -481,7 +475,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 					return
 				}
 			case <-timer.After(time.Second * 5):
-				c.Errorf("Timeout while waiting for NodeValidateImplementation() to be called")
+				t.Errorf("Timeout while waiting for NodeValidateImplementation() to be called")
 			}
 		}
 	}()
@@ -499,12 +493,12 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	allNodeValidateCallsReceived.Wait()
 }
 
-func (s *managerTestSuite) TestIpcache(c *check.C) {
+func TestIpcache(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
@@ -521,28 +515,28 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
+		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
+		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		t.Errorf("unexected ipcache interaction %+v", event)
 	default:
 	}
 
@@ -550,38 +544,38 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
+		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
+		t.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		t.Errorf("unexected ipcache interaction %+v", event)
 	default:
 	}
 }
 
-func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
+func TestIpcacheHealthIP(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
@@ -598,28 +592,28 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.4")
+		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.4")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::4")
+		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::4")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		t.Errorf("unexected ipcache interaction %+v", event)
 	default:
 	}
 
@@ -627,38 +621,40 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.4")
+		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.4")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP f00d::4")
+		t.Errorf("timeout while waiting for ipcache delete for IP f00d::4")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		t.Errorf("unexected ipcache interaction %+v", event)
 	default:
 	}
 }
 
-func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
+func TestNodeEncryption(t *testing.T) {
+	setup(t)
+
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{EncryptNode: true, EnableIPSec: true}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
@@ -675,28 +671,28 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
+		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
+		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		t.Errorf("unexected ipcache interaction %+v", event)
 	default:
 	}
 
@@ -704,33 +700,33 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
+		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)})
+		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
+		t.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
 	}
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		t.Errorf("unexected ipcache interaction %+v", event)
 	default:
 	}
 }
 
-func (s *managerTestSuite) TestNode(c *check.C) {
+func TestNode(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	ipcacheExpect := func(eventType, ipStr string) {
 		select {
@@ -739,12 +735,9 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 			if strings.Contains(ipStr, ":") {
 				b = 128
 			}
-			if !c.Check(event, checker.DeepEquals, nodeEvent{event: eventType, prefix: netip.PrefixFrom(netip.MustParseAddr(ipStr), b)}) {
-				// Panic just to get a stack trace so you can find the source of the problem
-				panic("assertion failed")
-			}
+			require.Equal(t, nodeEvent{event: eventType, prefix: netip.PrefixFrom(netip.MustParseAddr(ipStr), b)}, event)
 		case <-time.After(5 * time.Second):
-			c.Errorf("timeout while waiting for ipcache upsert for IP %s", ipStr)
+			t.Errorf("timeout while waiting for ipcache upsert for IP %s", ipStr)
 		}
 	}
 
@@ -754,7 +747,7 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
@@ -779,13 +772,13 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1)
+		require.Equal(t, n1, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeAdd() event for node1")
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 
 	ipcacheExpect("upsert", "192.0.2.1")
@@ -811,13 +804,13 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, *n1V2)
+		require.Equal(t, *n1V2, nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeUpdate() event for node2")
+		t.Errorf("timeout while waiting for NodeUpdate() event for node2")
 	}
 
 	ipcacheExpect("upsert", "192.0.2.10")
@@ -831,16 +824,16 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("Received unexpected event %s", event)
+		t.Errorf("Received unexpected event %+v", event)
 	case <-time.After(1 * time.Second):
 	}
 
 	nodes := mngr.GetNodes()
-	c.Assert(len(nodes), check.Equals, 1)
+	require.Len(t, nodes, 1)
 	n, ok := nodes[n1.Identity()]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	// Needs to be the same as n2
-	c.Assert(n, checker.DeepEquals, *n1V2)
+	require.Equal(t, *n1V2, n)
 }
 
 func TestNodeManagerEmitStatus(t *testing.T) {
@@ -940,7 +933,7 @@ func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup
 	return wg
 }
 
-func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
+func TestNodeWithSameInternalIP(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	allocator := testidentity.NewMockIdentityAllocator(nil)
 	ipcache := ipcache.NewIPCache(&ipcache.Configuration{
@@ -956,7 +949,7 @@ func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{LocalRouterIPv4: "169.254.4.6"}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
@@ -983,13 +976,13 @@ func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1)
+		require.Equal(t, n1, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeAdd() event for node1")
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 
 	n2 := nodeTypes.Node{
@@ -1015,20 +1008,20 @@ func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n2)
+		require.Equal(t, n2, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeAdd() event for node1")
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 }
 
 // TestNodeIpset tests that the ipset entries on the node are updated correctly
 // when a node is updated or removed.
 // It is inspired from TestNode() in manager_test.go.
-func (s *managerTestSuite) TestNodeIpset(c *check.C) {
+func TestNodeIpset(t *testing.T) {
 	ipsetExpect := func(ipsetMgr *ipsetMock, ip string, expected bool) {
 		setName := ipset.CiliumNodeIPSetV6
 		if v4 := net.ParseIP(ip).To4(); v4 != nil {
@@ -1036,13 +1029,13 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 		}
 
 		found, err := ipsetContains(ipsetMgr, setName, strings.ToLower(ip))
-		c.Assert(err, check.IsNil)
+		require.NoError(t, err)
 
 		if found && !expected {
-			c.Errorf("ipset %s contains IP %s but it should not", setName, ip)
+			t.Errorf("ipset %s contains IP %s but it should not", setName, ip)
 		}
 		if !found && expected {
-			c.Errorf("ipset %s does not contain expected IP %s", setName, ip)
+			t.Errorf("ipset %s does not contain expected IP %s", setName, ip)
 		}
 	}
 
@@ -1057,7 +1050,7 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 		EnableIPv4Masquerade: true,
 	}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h)
 	mngr.Subscribe(dp)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
 
 	n1 := nodeTypes.Node{
@@ -1089,13 +1082,13 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1)
+		require.Equal(t, n1, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeAdd() event")
+		t.Errorf("timeout while waiting for NodeAdd() event")
 	}
 
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
@@ -1122,13 +1115,13 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n2)
+		require.Equal(t, n2, nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeAdd() event")
+		t.Errorf("timeout while waiting for NodeAdd() event")
 	}
 
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
@@ -1141,13 +1134,13 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1)
+		require.Equal(t, n1, nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeUpdate() event")
+		t.Errorf("timeout while waiting for NodeUpdate() event")
 	}
 
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
@@ -1158,13 +1151,13 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 	mngr.NodeDeleted(n1)
 	select {
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1)
+		require.Equal(t, n1, nodeEvent)
 	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeDelete() event")
+		t.Errorf("timeout while waiting for NodeDelete() event")
 	}
 
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
