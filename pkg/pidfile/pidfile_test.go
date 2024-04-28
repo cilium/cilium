@@ -9,78 +9,69 @@ import (
 	"os/exec"
 	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	path = "/tmp/cilium-test-pidfile"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type PidfileTestSuite struct{}
-
-var _ = Suite(&PidfileTestSuite{})
-
-func (s *PidfileTestSuite) TestWrite(c *C) {
+func TestWrite(t *testing.T) {
 	err := Write(path)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer Remove(path)
 
 	content, err := os.ReadFile(path)
-	c.Assert(err, IsNil)
-	c.Assert(content, checker.DeepEquals, []byte(fmt.Sprintf("%d\n", os.Getpid())))
+	require.NoError(t, err)
+	require.Equal(t, content, []byte(fmt.Sprintf("%d\n", os.Getpid())))
 }
 
-func (s *PidfileTestSuite) TestKill(c *C) {
+func TestKill(t *testing.T) {
 	cmd := exec.Command("sleep", "inf")
 	err := cmd.Start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	err = write(path, cmd.Process.Pid)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer Remove(path)
 
 	pid, err := Kill(path)
-	c.Assert(err, IsNil)
-	c.Assert(pid, Not(Equals), 0)
+	require.NoError(t, err)
+	require.NotEqual(t, pid, 0)
 
 	err = cmd.Wait()
-	c.Assert(err, ErrorMatches, "signal: killed")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "signal: killed")
 }
 
-func (s *PidfileTestSuite) TestKillAlreadyFinished(c *C) {
+func TestKillAlreadyFinished(t *testing.T) {
 	cmd := exec.Command("sleep", "0")
 	err := cmd.Start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	err = write(path, cmd.Process.Pid)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer Remove(path)
 
 	err = cmd.Wait()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	pid, err := Kill(path)
-	c.Assert(err, IsNil)
-	c.Assert(pid, Equals, 0)
+	require.NoError(t, err)
+	require.Equal(t, pid, 0)
 }
 
-func (s *PidfileTestSuite) TestKillPidfileNotExist(c *C) {
+func TestKillPidfileNotExist(t *testing.T) {
 	_, err := Kill("/tmp/cilium-foo-bar-some-not-existing-file")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 }
 
-func (s *PidfileTestSuite) TestKillFailedParsePid(c *C) {
+func TestKillFailedParsePid(t *testing.T) {
 	err := os.WriteFile(path, []byte("foobar\n"), 0644)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer Remove(path)
 
 	_, err = Kill(path)
-	c.Assert(err, ErrorMatches, "failed to parse pid .*")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to parse pid")
 }
