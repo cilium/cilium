@@ -8,22 +8,21 @@ package node
 import (
 	"fmt"
 	"net"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type NodePrivilegedSuite struct{}
-
-var _ = Suite(&NodePrivilegedSuite{})
-
-func (s *NodePrivilegedSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setUpSuite(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 }
 
-func (s *NodePrivilegedSuite) Test_firstGlobalV4Addr(c *C) {
+func Test_firstGlobalV4Addr(t *testing.T) {
+	setUpSuite(t)
+
 	testCases := []struct {
 		name           string
 		ipsOnInterface []string
@@ -64,14 +63,11 @@ func (s *NodePrivilegedSuite) Test_firstGlobalV4Addr(c *C) {
 	const ifName = "dummy_iface"
 	for _, tc := range testCases {
 		err := setupDummyDevice(ifName, tc.ipsOnInterface...)
-		c.Assert(err, IsNil)
+		require.NoError(t, err)
 
 		got, err := firstGlobalV4Addr(ifName, net.ParseIP(tc.preferredIP), tc.preferPublic)
-		if err != nil {
-			c.Error(err)
-		} else {
-			c.Check(tc.want, Equals, got.String())
-		}
+		require.NoError(t, err)
+		require.Equal(t, tc.want, got.String())
 		removeDevice(ifName)
 	}
 }

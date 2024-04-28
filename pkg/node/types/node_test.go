@@ -8,12 +8,11 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -21,16 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type NodeSuite struct{}
-
-var _ = Suite(&NodeSuite{})
-
-func (s *NodeSuite) TestGetNodeIP(c *C) {
+func TestGetNodeIP(t *testing.T) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
@@ -39,36 +29,35 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	}
 	ip := n.GetNodeIP(false)
 	// Return the only IP present
-	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeExternalIP
-	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeInternalIP
-	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("198.51.100.2"))
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), Type: addressing.NodeExternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeExternalIP and IPv6
-	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("2001:DB8::1"))
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeInternalIP and IPv6
-	c.Assert(ip.Equal(net.ParseIP("2001:DB8::2")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("2001:DB8::2"))
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// Should still return NodeInternalIP and IPv4
-	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
-
+	require.Equal(t, ip, net.ParseIP("198.51.100.2"))
 }
 
-func (s *NodeSuite) TestGetIPByType(c *C) {
+func TestGetIPByType(t *testing.T) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
@@ -77,14 +66,14 @@ func (s *NodeSuite) TestGetIPByType(c *C) {
 	}
 
 	ip := n.GetIPByType(addressing.NodeInternalIP, false)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 
 	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
 	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 
 	n = Node{
 		Name: "node-2",
@@ -94,14 +83,14 @@ func (s *NodeSuite) TestGetIPByType(c *C) {
 	}
 
 	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 
 	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, false)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, true)
-	c.Assert(ip.Equal(net.ParseIP("f00b::1")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("f00b::1"))
 
 	n = Node{
 		Name: "node-3",
@@ -112,17 +101,17 @@ func (s *NodeSuite) TestGetIPByType(c *C) {
 	}
 
 	ip = n.GetIPByType(addressing.NodeInternalIP, false)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	c.Assert(ip, IsNil)
+	require.Nil(t, ip)
 
 	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	c.Assert(ip.Equal(net.ParseIP("192.42.0.3")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("192.42.0.3"))
 	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	c.Assert(ip.Equal(net.ParseIP("f00d::1")), Equals, true)
+	require.Equal(t, ip, net.ParseIP("f00d::1"))
 }
 
-func (s *NodeSuite) TestParseCiliumNode(c *C) {
+func TestParseCiliumNode(t *testing.T) {
 	nodeResource := &ciliumv2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
 		Spec: ciliumv2.NodeSpec{
@@ -156,7 +145,7 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 	}
 
 	n := ParseCiliumNode(nodeResource)
-	c.Assert(n, checker.DeepEquals, Node{
+	require.Equal(t, Node{
 		Name:   "foo",
 		Source: source.CustomResource,
 		IPAddresses: []Address{
@@ -175,10 +164,10 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
 		IPv6IngressIP:           net.ParseIP("c0de::2"),
 		NodeIdentity:            uint32(12345),
-	})
+	}, n)
 }
 
-func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
+func TestNode_ToCiliumNode(t *testing.T) {
 	nodeResource := Node{
 		Name:   "foo",
 		Source: source.CustomResource,
@@ -205,7 +194,7 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 	}
 
 	n := nodeResource.ToCiliumNode()
-	c.Assert(n, checker.DeepEquals, &ciliumv2.CiliumNode{
+	require.Equal(t, &ciliumv2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "",
@@ -241,7 +230,7 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 			},
 			NodeIdentity: uint64(12345),
 		},
-	})
+	}, n)
 }
 
 func TestClusterServiceValidate(t *testing.T) {
