@@ -6,50 +6,48 @@ package safetime
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 type SafetimeSuite struct {
 	out    *bytes.Buffer // stores log output
 	logger *logrus.Entry
 }
 
-var _ = Suite(&SafetimeSuite{})
-
-func (s *SafetimeSuite) SetUpTest(c *C) {
+func (s *SafetimeSuite) SetUpTest(t *testing.T) {
 	s.out = &bytes.Buffer{}
 	logger := logrus.New()
 	logger.Out = s.out
 	s.logger = logrus.NewEntry(logger)
 }
 
-func (s *SafetimeSuite) TestNegativeDuration(c *C) {
+func TestNegativeDuration(t *testing.T) {
+	s := SafetimeSuite{}
+	s.SetUpTest(t)
+
 	future := time.Now().Add(time.Second)
 	d, ok := TimeSinceSafe(future, s.logger)
 
-	c.Assert(ok, Equals, false)
-	c.Assert(d, Equals, time.Duration(0))
+	require.False(t, ok)
+	require.Equal(t, time.Duration(0), d)
 	fmt.Println(s.out.String())
-	c.Assert(strings.Contains(s.out.String(), "BUG: negative duration"), Equals, true)
+	require.Contains(t, s.out.String(), "BUG: negative duration")
 }
 
-func (s *SafetimeSuite) TestNonNegativeDuration(c *C) {
+func TestNonNegativeDuration(t *testing.T) {
+	s := SafetimeSuite{}
+	s.SetUpTest(t)
+
 	// To prevent the test case from being flaky on machines with invalid
 	// CLOCK_MONOTONIC:
 	past := time.Now().Add(-10 * time.Second)
 	d, ok := TimeSinceSafe(past, s.logger)
 
-	c.Assert(ok, Equals, true)
-	c.Assert(d > time.Duration(0), Equals, true)
-	c.Assert(len(s.out.String()) == 0, Equals, true)
+	require.True(t, ok)
+	require.Greater(t, int64(d), int64(time.Duration(0)))
+	require.Equal(t, 0, len(s.out.String()))
 }
