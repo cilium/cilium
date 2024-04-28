@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,14 +28,6 @@ import (
 const (
 	testPrefix = "test-prefix"
 )
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type AllocatorSuite struct{}
-
-var _ = Suite(&AllocatorSuite{})
 
 type dummyBackend struct {
 	mutex      lock.RWMutex
@@ -229,19 +220,19 @@ func randomTestName() string {
 	return fmt.Sprintf("%s%s", testPrefix, rand.String(12))
 }
 
-func (s *AllocatorSuite) TestSelectID(c *C) {
+func TestSelectID(t *testing.T) {
 	minID, maxID := idpool.ID(1), idpool.ID(5)
 	backend := newDummyBackend()
 	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID))
-	c.Assert(err, IsNil)
-	c.Assert(a, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, a)
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
 		id, val, unmaskedID := a.selectAvailableID()
-		c.Assert(id, Not(Equals), idpool.NoID)
-		c.Assert(val, Equals, id.String())
-		c.Assert(id, Equals, unmaskedID)
+		require.NotEqual(t, idpool.NoID, id)
+		require.Equal(t, id.String(), val)
+		require.Equal(t, unmaskedID, id)
 		a.mainCache.mutex.Lock()
 		a.mainCache.cache[id] = TestAllocatorKey(fmt.Sprintf("key-%d", i))
 		a.mainCache.mutex.Unlock()
@@ -249,35 +240,35 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 
 	// we should be out of IDs
 	id, val, unmaskedID := a.selectAvailableID()
-	c.Assert(id, Equals, idpool.ID(0))
-	c.Assert(id, Equals, unmaskedID)
-	c.Assert(val, Equals, "")
+	require.Equal(t, idpool.ID(0), id)
+	require.Equal(t, unmaskedID, id)
+	require.Equal(t, "", val)
 }
 
-func (s *AllocatorSuite) TestPrefixMask(c *C) {
+func TestPrefixMask(t *testing.T) {
 	minID, maxID := idpool.ID(1), idpool.ID(5)
 	backend := newDummyBackend()
 	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithPrefixMask(1<<16))
-	c.Assert(err, IsNil)
-	c.Assert(a, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, a)
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
 		id, val, unmaskedID := a.selectAvailableID()
-		c.Assert(id, Not(Equals), idpool.NoID)
-		c.Assert(id>>16, Equals, idpool.ID(1))
-		c.Assert(id, Not(Equals), unmaskedID)
-		c.Assert(val, Equals, id.String())
+		require.NotEqual(t, idpool.NoID, id)
+		require.Equal(t, idpool.ID(1), id>>16)
+		require.NotEqual(t, unmaskedID, id)
+		require.Equal(t, id.String(), val)
 	}
 
 	a.Delete()
 }
 
-func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
+func testAllocator(t *testing.T, maxID idpool.ID) {
 	backend := newDummyBackend()
 	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
-	c.Assert(err, IsNil)
-	c.Assert(allocator, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, allocator)
 
 	// remove any keys which might be leftover
 	allocator.DeleteAllKeys()
@@ -286,13 +277,13 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
-		c.Assert(err, IsNil)
-		c.Assert(id, Not(Equals), 0)
-		c.Assert(new, Equals, true)
-		c.Assert(firstUse, Equals, true)
+		require.NoError(t, err)
+		require.NotEqual(t, 0, id)
+		require.True(t, new)
+		require.True(t, firstUse)
 
 		// refcnt must be 1
-		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
+		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
 	}
 
 	saved := allocator.backoffTemplate.Factor
@@ -300,9 +291,9 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 
 	// we should be out of id space here
 	_, new, firstUse, err := allocator.Allocate(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", maxID+1)))
-	c.Assert(err, Not(IsNil))
-	c.Assert(new, Equals, false)
-	c.Assert(firstUse, Equals, false)
+	require.Error(t, err)
+	require.False(t, new)
+	require.False(t, firstUse)
 
 	allocator.backoffTemplate.Factor = saved
 
@@ -310,34 +301,34 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
-		c.Assert(err, IsNil)
-		c.Assert(id, Not(Equals), 0)
-		c.Assert(new, Equals, false)
-		c.Assert(firstUse, Equals, false)
+		require.NoError(t, err)
+		require.NotEqual(t, 0, id)
+		require.False(t, new)
+		require.False(t, firstUse)
 
 		// refcnt must now be 2
-		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(2))
+		require.Equal(t, uint64(2), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
 	}
 
 	// Create a 2nd allocator, refill it
 	allocator2, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
-	c.Assert(err, IsNil)
-	c.Assert(allocator2, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, allocator2)
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, firstUse, err := allocator2.Allocate(context.Background(), key)
-		c.Assert(err, IsNil)
-		c.Assert(id, Not(Equals), 0)
-		c.Assert(new, Equals, false)
-		c.Assert(firstUse, Equals, true)
+		require.NoError(t, err)
+		require.NotEqual(t, 0, id)
+		require.False(t, new)
+		require.True(t, firstUse)
 
 		localKey := allocator2.localKeys.keys[allocator.encodeKey(key)]
-		c.Assert(localKey, Not(IsNil))
+		require.NotNil(t, localKey)
 
 		// refcnt in the 2nd allocator is 1
-		c.Assert(localKey.refcnt, Equals, uint64(1))
+		require.Equal(t, uint64(1), localKey.refcnt)
 
 		allocator2.Release(context.Background(), key)
 	}
@@ -350,7 +341,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	// refcnt should be back to 1
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
+		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
 	}
 
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
@@ -365,7 +356,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)], IsNil)
+		require.NotContains(t, allocator.localKeys.keys, allocator.encodeKey(key))
 	}
 
 	// running the GC should evict all entries
@@ -376,8 +367,8 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	allocator2.Delete()
 }
 
-func (s *AllocatorSuite) TestAllocateCached(c *C) {
-	testAllocator(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
+func TestAllocateCached(t *testing.T) {
+	testAllocator(t, idpool.ID(256)) // enable use of local cache
 }
 
 func TestObserveAllocatorChanges(t *testing.T) {
