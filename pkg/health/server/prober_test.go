@@ -10,18 +10,11 @@ import (
 	"sort"
 	"testing"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	ciliumModels "github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/checker"
 )
-
-func Test(t *testing.T) { check.TestingT(t) }
-
-type HealthServerTestSuite struct{}
-
-var _ = check.Suite(&HealthServerTestSuite{})
 
 func makeHealthNode(nodeIdx, healthIdx int) (healthNode, net.IP, net.IP) {
 	nodeIP := fmt.Sprintf("192.0.2.%d", nodeIdx)
@@ -85,7 +78,7 @@ func sortNodes(nodes map[string][]*net.IPAddr) map[string][]*net.IPAddr {
 	return nodes
 }
 
-func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
+func TestProbersetNodes(t *testing.T) {
 	node1, node1IP, node1HealthIP := makeHealthNode(1, 1)
 	newNodes := nodeMap{
 		ipString(node1.Name): node1,
@@ -101,7 +94,7 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 			IP: node1HealthIP,
 		}},
 	}
-	c.Assert(sortNodes(nodes), checker.DeepEquals, sortNodes(expected))
+	require.Equal(t, sortNodes(expected), sortNodes(nodes))
 
 	// Update the health IP and observe that it is updated.
 	// Note that update consists of delete and add in setNodes().
@@ -118,13 +111,13 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 			IP: node1HealthIP,
 		}},
 	}
-	c.Assert(sortNodes(nodes), checker.DeepEquals, sortNodes(expected))
+	require.Equal(t, sortNodes(expected), sortNodes(nodes))
 
 	// Remove the nodes; they shouldn't be there any more
 	prober.setNodes(nil, modifiedNodes)
 	nodes = prober.getIPsByNode()
 	expected = map[string][]*net.IPAddr{}
-	c.Assert(sortNodes(nodes), checker.DeepEquals, sortNodes(expected))
+	require.Equal(t, sortNodes(expected), sortNodes(nodes))
 
 	// Add back two nodes
 	node2, node2IP, node2HealthIP := makeHealthNode(2, 20)
@@ -146,7 +139,7 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 			IP: node2HealthIP,
 		}},
 	}
-	c.Assert(sortNodes(nodes), checker.DeepEquals, sortNodes(expected))
+	require.Equal(t, sortNodes(expected), sortNodes(nodes))
 	// Set result of probing before updating the nodes.
 	// The result should not be deleted after node update.
 	if elem, ok := prober.results[ipString(node1.NodeElement.PrimaryAddress.IPV4.IP)]; ok {
@@ -154,7 +147,7 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 			Status: "Some status",
 		}
 	} else {
-		c.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPV4.IP)
+		t.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPV4.IP)
 	}
 	// Update node 1. Node 2 should remain unaffected.
 	modifiedNodesOld := nodeMap{
@@ -171,13 +164,13 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 	}, {
 		IP: node1HealthIP,
 	}}
-	c.Assert(sortNodes(nodes), checker.DeepEquals, sortNodes(expected))
+	require.Equal(t, sortNodes(expected), sortNodes(nodes))
 	if elem, ok := prober.results[ipString(node1.NodeElement.PrimaryAddress.IPV4.IP)]; !ok {
-		c.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPV4.IP)
+		t.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPV4.IP)
 	} else {
 		// Check that status was not removed when updating node
-		c.Assert(elem.Icmp, check.NotNil)
-		c.Assert(elem.Icmp.Status, checker.Equals, "Some status")
+		require.NotNil(t, elem.Icmp)
+		require.Equal(t, "Some status", elem.Icmp.Status)
 	}
 
 	// Remove node 1. Again, Node 2 should remain.
@@ -193,7 +186,7 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 			IP: node2HealthIP,
 		}},
 	}
-	c.Assert(sortNodes(nodes), checker.DeepEquals, sortNodes(expected))
+	require.Equal(t, sortNodes(expected), sortNodes(nodes))
 
 	// check if primary node is nil (it shouldn't show up)
 	node3, _, node3HealthIP := makeHealthNodeNil(1, 1)
@@ -207,7 +200,7 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 			IP: node3HealthIP,
 		}},
 	}
-	c.Assert(sortNodes(nodes3), checker.DeepEquals, sortNodes(expected3))
+	require.Equal(t, sortNodes(expected3), sortNodes(nodes3))
 
 	// node4 has a PrimaryAddress with IPV4 enabled but an empty IP address.
 	// It should not show up in the prober.
@@ -232,5 +225,5 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 			IP: node4HealthIP,
 		}},
 	}
-	c.Assert(sortNodes(nodes4), checker.DeepEquals, sortNodes(expected4))
+	require.Equal(t, sortNodes(expected4), sortNodes(nodes4))
 }
