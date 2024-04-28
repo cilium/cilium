@@ -10,15 +10,11 @@ import (
 	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 )
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
 
 type ipMasqMapMock struct {
 	lock.RWMutex
@@ -136,227 +132,235 @@ type IPMasqTestSuite struct {
 	configFilePath string
 }
 
-var _ = check.Suite(&IPMasqTestSuite{})
-
-func (i *IPMasqTestSuite) SetUpTest(c *check.C) {
+func setUpTest(tb testing.TB) *IPMasqTestSuite {
+	i := &IPMasqTestSuite{}
 	i.ipMasqMap = &ipMasqMapMock{
 		cidrsIPv4: map[string]net.IPNet{},
 		cidrsIPv6: map[string]net.IPNet{},
 	}
 
 	configFile, err := os.CreateTemp("", "ipmasq-test")
-	c.Assert(err, check.IsNil)
+	require.NoError(tb, err)
 	i.configFilePath = configFile.Name()
 
 	agent, err := newIPMasqAgent(i.configFilePath, i.ipMasqMap)
-	c.Assert(err, check.IsNil)
+	require.NoError(tb, err)
 	i.ipMasqAgent = agent
+
+	tb.Cleanup(func() {
+		i.ipMasqAgent.Stop()
+		os.Remove(i.configFilePath)
+	})
+
+	return i
 }
 
-func (i *IPMasqTestSuite) TearDownTest(c *check.C) {
-	i.ipMasqAgent.Stop()
-	os.Remove(i.configFilePath)
-}
-
-func (i *IPMasqTestSuite) writeConfig(cfg string, c *check.C) {
+func (i *IPMasqTestSuite) writeConfig(t *testing.T, cfg string) {
 	err := os.WriteFile(i.configFilePath, []byte(cfg), 0644)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 }
 
-func (i *IPMasqTestSuite) TestUpdateIPv4(c *check.C) {
+func TestUpdateIPv4(t *testing.T) {
+	i := setUpTest(t)
+
 	i.ipMasqMap.ipv4Enabled = true
 	i.ipMasqMap.ipv6Enabled = false
 	i.ipMasqAgent.Start()
-	i.writeConfig("nonMasqueradeCIDRs:\n- 1.1.1.1/32\n- 2.2.2.2/16", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 1.1.1.1/32\n- 2.2.2.2/16")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 3)
+	require.Len(t, ipnets, 3)
 	_, ok := ipnets["1.1.1.1/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["2.2.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
+
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write new config
-	i.writeConfig("nonMasqueradeCIDRs:\n- 8.8.0.0/16\n- 2.2.2.2/16", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 8.8.0.0/16\n- 2.2.2.2/16")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 3)
+	require.Len(t, ipnets, 3)
 	_, ok = ipnets["8.8.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["2.2.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write config with no CIDRs
-	i.writeConfig("nonMasqueradeCIDRs:\n", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 1)
+	require.Len(t, ipnets, 1)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write new config in JSON
-	i.writeConfig(`{"nonMasqueradeCIDRs": ["8.8.0.0/16", "1.1.2.3/16"], "masqLinkLocal": true}`, c)
+	i.writeConfig(t, `{"nonMasqueradeCIDRs": ["8.8.0.0/16", "1.1.2.3/16"], "masqLinkLocal": true}`)
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	require.Len(t, ipnets, 2)
 	_, ok = ipnets["8.8.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["1.1.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Delete file, should remove the CIDRs and add default nonMasq CIDRs
 	err := os.Remove(i.configFilePath)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	time.Sleep(300 * time.Millisecond)
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, len(defaultNonMasqCIDRs)+1)
+	require.Len(t, ipnets, len(defaultNonMasqCIDRs)+1)
 	for cidrStr := range defaultNonMasqCIDRs {
 		_, ok := ipnets[cidrStr]
-		c.Assert(ok, check.Equals, true)
+		require.True(t, ok)
 	}
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 }
 
-func (i *IPMasqTestSuite) TestUpdateIPv6(c *check.C) {
+func TestUpdateIPv6(t *testing.T) {
+	i := setUpTest(t)
+
 	i.ipMasqMap.ipv4Enabled = false
 	i.ipMasqMap.ipv6Enabled = true
 	i.ipMasqAgent.Start()
-	i.writeConfig("nonMasqueradeCIDRs:\n- 1:1:1:1::/64\n- 2:2::/32", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 1:1:1:1::/64\n- 2:2::/32")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 3)
+	require.Len(t, ipnets, 3)
 	_, ok := ipnets["1:1:1:1::/64"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["2:2::/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write new config
-	i.writeConfig("nonMasqueradeCIDRs:\n- 8:8:8:8::/64\n- 2:2::/32", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 8:8:8:8::/64\n- 2:2::/32")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 3)
+	require.Len(t, ipnets, 3)
 	_, ok = ipnets["8:8:8:8::/64"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["2:2::/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write config with no CIDRs
-	i.writeConfig("nonMasqueradeCIDRs:\n", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 1)
+	require.Len(t, ipnets, 1)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write new config in JSON
-	i.writeConfig(`{"nonMasqueradeCIDRs": ["8:8:8:8::/64", "1:2:3:4::/64"], "masqLinkLocalIPv6": true}`, c)
+	i.writeConfig(t, `{"nonMasqueradeCIDRs": ["8:8:8:8::/64", "1:2:3:4::/64"], "masqLinkLocalIPv6": true}`)
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	require.Len(t, ipnets, 2)
 	_, ok = ipnets["8:8:8:8::/64"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["1:2:3:4::/64"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Delete file, should remove the CIDRs and add default nonMasq CIDRs
 	err := os.Remove(i.configFilePath)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	time.Sleep(300 * time.Millisecond)
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 1)
+	require.Len(t, ipnets, 1)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 }
 
-func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
+func TestUpdate(t *testing.T) {
+	i := setUpTest(t)
 	i.ipMasqMap.ipv4Enabled = true
 	i.ipMasqMap.ipv6Enabled = true
 	i.ipMasqAgent.Start()
-	i.writeConfig("nonMasqueradeCIDRs:\n- 1.1.1.1/32\n- 2:2::/32", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 1.1.1.1/32\n- 2:2::/32")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 4)
+	require.Len(t, ipnets, 4)
 	_, ok := ipnets["1.1.1.1/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["2:2::/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write new config
-	i.writeConfig("nonMasqueradeCIDRs:\n- 8:8:8:8::/64\n- 2.2.0.0/16", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 8:8:8:8::/64\n- 2.2.0.0/16")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 4)
+	require.Len(t, ipnets, 4)
 	_, ok = ipnets["8:8:8:8::/64"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["2.2.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write config with no CIDRs
-	i.writeConfig("nonMasqueradeCIDRs:\n", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n")
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	require.Len(t, ipnets, 2)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Write new config in JSON
-	i.writeConfig(`{"nonMasqueradeCIDRs": ["1.2.3.4/32", "1:2:3:4::/64"], "masqLinkLocalIPv6": true}`, c)
+	i.writeConfig(t, `{"nonMasqueradeCIDRs": ["1.2.3.4/32", "1:2:3:4::/64"], "masqLinkLocalIPv6": true}`)
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 3)
+	require.Len(t, ipnets, 3)
 	_, ok = ipnets["1.2.3.4/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["1:2:3:4::/64"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Delete file, should remove the CIDRs and add default nonMasq CIDRs
 	err := os.Remove(i.configFilePath)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	time.Sleep(300 * time.Millisecond)
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, len(defaultNonMasqCIDRs)+1+1)
+	require.Len(t, ipnets, len(defaultNonMasqCIDRs)+1+1)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 }
 
-func (i *IPMasqTestSuite) TestRestoreIPv4(c *check.C) {
+func TestRestoreIPv4(t *testing.T) {
 	var err error
 
+	i := setUpTest(t)
 	i.ipMasqMap.ipv4Enabled = true
 	i.ipMasqMap.ipv6Enabled = false
 	i.ipMasqAgent.Start()
@@ -367,19 +371,19 @@ func (i *IPMasqTestSuite) TestRestoreIPv4(c *check.C) {
 	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
 	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
 	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
-	i.writeConfig("nonMasqueradeCIDRs:\n- 4.4.0.0/16", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4.4.0.0/16")
 
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	require.Len(t, ipnets, 2)
 	_, ok := ipnets["4.4.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Now stop the goroutine, and also remove the maps. It should bootstrap from
 	// the config
@@ -390,20 +394,21 @@ func (i *IPMasqTestSuite) TestRestoreIPv4(c *check.C) {
 		ipv6Enabled: false,
 	}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
-	i.writeConfig("nonMasqueradeCIDRs:\n- 3.3.0.0/16\nmasqLinkLocal: true", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 3.3.0.0/16\nmasqLinkLocal: true")
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 1)
+	require.Len(t, ipnets, 1)
 	_, ok = ipnets["3.3.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 }
 
-func (i *IPMasqTestSuite) TestRestoreIPv6(c *check.C) {
+func TestRestoreIPv6(t *testing.T) {
 	var err error
 
+	i := setUpTest(t)
 	i.ipMasqMap.ipv4Enabled = false
 	i.ipMasqMap.ipv6Enabled = true
 	i.ipMasqAgent.Start()
@@ -414,19 +419,19 @@ func (i *IPMasqTestSuite) TestRestoreIPv6(c *check.C) {
 	i.ipMasqMap.cidrsIPv6[cidr.String()] = *cidr
 	_, cidr, _ = net.ParseCIDR("4:4::/32")
 	i.ipMasqMap.cidrsIPv6[cidr.String()] = *cidr
-	i.writeConfig("nonMasqueradeCIDRs:\n- 4:4::/32", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4:4::/32")
 
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	require.Len(t, ipnets, 2)
 	_, ok := ipnets["4:4::/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Now stop the goroutine, and also remove the maps. It should bootstrap from
 	// the config
@@ -437,20 +442,21 @@ func (i *IPMasqTestSuite) TestRestoreIPv6(c *check.C) {
 		ipv6Enabled: true,
 	}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
-	i.writeConfig("nonMasqueradeCIDRs:\n- 3:3::/96\nmasqLinkLocalIPv6: true", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 3:3::/96\nmasqLinkLocalIPv6: true")
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 1)
+	require.Len(t, ipnets, 1)
 	_, ok = ipnets["3:3::/96"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 }
 
-func (i *IPMasqTestSuite) TestRestore(c *check.C) {
+func TestRestore(t *testing.T) {
 	var err error
 
+	i := setUpTest(t)
 	i.ipMasqMap.ipv4Enabled = true
 	i.ipMasqMap.ipv6Enabled = true
 	i.ipMasqAgent.Start()
@@ -465,23 +471,23 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
 	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
 	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
-	i.writeConfig("nonMasqueradeCIDRs:\n- 4.4.0.0/16\n- 4:4::/32", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4.4.0.0/16\n- 4:4::/32")
 
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 4)
+	require.Len(t, ipnets, 4)
 	_, ok := ipnets["4.4.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["4:4::/32"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv4Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets[linkLocalCIDRIPv6Str]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 
 	// Now stop the goroutine, and also remove the maps. It should bootstrap from
 	// the config
@@ -493,15 +499,15 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 		ipv6Enabled: true,
 	}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
-	i.writeConfig("nonMasqueradeCIDRs:\n- 3.3.0.0/16\n- 3:3:3:3::/96\nmasqLinkLocal: true\nmasqLinkLocalIPv6: true", c)
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 3.3.0.0/16\n- 3:3:3:3::/96\nmasqLinkLocal: true\nmasqLinkLocalIPv6: true")
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	require.Len(t, ipnets, 2)
 	_, ok = ipnets["3.3.0.0/16"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 	_, ok = ipnets["3:3:3:3::/96"]
-	c.Assert(ok, check.Equals, true)
+	require.True(t, ok)
 }
