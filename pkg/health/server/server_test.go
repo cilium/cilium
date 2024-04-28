@@ -5,19 +5,16 @@ package server
 
 import (
 	"strings"
+	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/require"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
-
-type ServerTestSuite struct{}
-
-var _ = Suite(&ServerTestSuite{})
 
 var sampleSingleClusterConnectivity = &healthReport{
 	nodes: []*healthModels.NodeStatus{
@@ -222,7 +219,7 @@ cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_
 `,
 }
 
-func (s *ServerTestSuite) Test_server_getClusterNodeName(c *C) {
+func Test_server_getClusterNodeName(t *testing.T) {
 	tests := []struct {
 		name                string
 		fullName            string
@@ -250,14 +247,15 @@ func (s *ServerTestSuite) Test_server_getClusterNodeName(c *C) {
 	}
 
 	for _, tt := range tests {
-		c.Log("Test :", tt.name)
-		clusterName, nodeName := getClusterNodeName(tt.fullName)
-		c.Assert(clusterName, Equals, tt.expectedClusterName)
-		c.Assert(nodeName, Equals, tt.expectedNodeName)
+		t.Run(tt.name, func(t *testing.T) {
+			clusterName, nodeName := getClusterNodeName(tt.fullName)
+			require.Equal(t, tt.expectedClusterName, clusterName)
+			require.Equal(t, tt.expectedNodeName, nodeName)
+		})
 	}
 }
 
-func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
+func Test_server_collectNodeConnectivityMetrics(t *testing.T) {
 	tests := []struct {
 		name           string
 		localStatus    *healthModels.SelfStatus
@@ -309,29 +307,29 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 	}
 
 	for _, tt := range tests {
-		c.Log("Test :", tt.name)
+		t.Run(tt.name, func(t *testing.T) {
+			metrics.NewLegacyMetrics()
+			tt.metric().SetEnabled(true)
+			collector := tt.metric().(prometheus.Collector)
+			s := &Server{
+				connectivity: tt.connectivity,
+				localStatus:  tt.localStatus,
+			}
+			s.collectNodeConnectivityMetrics()
 
-		metrics.NewLegacyMetrics()
-		tt.metric().SetEnabled(true)
-		collector := tt.metric().(prometheus.Collector)
-		s := &Server{
-			connectivity: tt.connectivity,
-			localStatus:  tt.localStatus,
-		}
-		s.collectNodeConnectivityMetrics()
+			// perform static checks such as prometheus naming convention, number of labels matching, etc
+			lintProblems, err := testutil.CollectAndLint(collector)
+			require.NoError(t, err)
+			require.Empty(t, lintProblems)
 
-		// perform static checks such as prometheus naming convention, number of labels matching, etc
-		lintProblems, err := testutil.CollectAndLint(collector)
-		c.Assert(err, IsNil)
-		c.Assert(lintProblems, HasLen, 0)
+			// check the number of metrics
+			count := testutil.CollectAndCount(collector)
+			require.Equal(t, tt.expectedCount, count)
 
-		// check the number of metrics
-		count := testutil.CollectAndCount(collector)
-		c.Assert(count, Equals, tt.expectedCount)
-
-		// compare the metric output
-		err = testutil.CollectAndCompare(collector, strings.NewReader(tt.expectedMetric))
-		c.Assert(err, IsNil)
+			// compare the metric output
+			err = testutil.CollectAndCompare(collector, strings.NewReader(tt.expectedMetric))
+			require.NoError(t, err)
+		})
 	}
 
 }

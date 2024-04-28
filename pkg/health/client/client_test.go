@@ -7,22 +7,12 @@ import (
 	"io"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/health/models"
-	"github.com/cilium/cilium/pkg/checker"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type ClientTestSuite struct{}
-
-var _ = Suite(&ClientTestSuite{})
-
-func (s *ClientTestSuite) TestConnectivityStatusType(c *C) {
+func TestConnectivityStatusType(t *testing.T) {
 	tests := []struct {
 		cst         ConnectivityStatusType
 		expectedStr string
@@ -45,11 +35,13 @@ func (s *ClientTestSuite) TestConnectivityStatusType(c *C) {
 		},
 	}
 	for _, tc := range tests {
-		c.Assert(tc.cst.String(), Equals, tc.expectedStr)
+		t.Run(tc.expectedStr, func(t *testing.T) {
+			require.Equal(t, tc.expectedStr, tc.cst.String())
+		})
 	}
 }
 
-func (s *ClientTestSuite) TestGetConnectivityStatusType(c *C) {
+func TestGetConnectivityStatusType(t *testing.T) {
 	tests := []struct {
 		cs                 *models.ConnectivityStatus
 		expectedStatusType ConnectivityStatusType
@@ -68,11 +60,13 @@ func (s *ClientTestSuite) TestGetConnectivityStatusType(c *C) {
 		},
 	}
 	for _, tc := range tests {
-		c.Assert(GetConnectivityStatusType(tc.cs), Equals, tc.expectedStatusType)
+		t.Run(tc.expectedStatusType.String(), func(t *testing.T) {
+			require.Equal(t, tc.expectedStatusType, GetConnectivityStatusType(tc.cs))
+		})
 	}
 }
 
-func (s *ClientTestSuite) TestGetPathConnectivityStatusType(c *C) {
+func TestGetPathConnectivityStatusType(t *testing.T) {
 	tests := []struct {
 		cp                 *models.PathStatus
 		expectedStatusType ConnectivityStatusType
@@ -142,11 +136,13 @@ func (s *ClientTestSuite) TestGetPathConnectivityStatusType(c *C) {
 		},
 	}
 	for _, tc := range tests {
-		c.Assert(GetPathConnectivityStatusType(tc.cp), Equals, tc.expectedStatusType)
+		t.Run(tc.expectedStatusType.String(), func(t *testing.T) {
+			require.Equal(t, tc.expectedStatusType, GetPathConnectivityStatusType(tc.cp))
+		})
 	}
 }
 
-func (s *ClientTestSuite) TestFormatNodeStatus(c *C) {
+func TestFormatNodeStatus(t *testing.T) {
 	// This test generates permutations of models.NodeStatus and sees whether
 	// the calls to formatNodeStatus panic; the result of this test being
 	// successful is whether the test does not panic.
@@ -242,13 +238,13 @@ func (s *ClientTestSuite) TestFormatNodeStatus(c *C) {
 	}
 }
 
-func (s *ClientTestSuite) TestGetHostPrimaryAddress(c *C) {
+func TestGetHostPrimaryAddress(t *testing.T) {
 	nilHostNS := &models.NodeStatus{
 		Host: nil,
 	}
 
 	pathStatus := GetHostPrimaryAddress(nilHostNS)
-	c.Assert(pathStatus, IsNil)
+	require.Nil(t, pathStatus)
 
 	nilPrimaryAddressNS := &models.NodeStatus{
 		Host: &models.HostStatus{
@@ -257,7 +253,7 @@ func (s *ClientTestSuite) TestGetHostPrimaryAddress(c *C) {
 	}
 
 	pathStatus = GetHostPrimaryAddress(nilPrimaryAddressNS)
-	c.Assert(pathStatus, IsNil)
+	require.Nil(t, pathStatus)
 
 	primaryAddressNS := &models.NodeStatus{
 		Host: &models.HostStatus{
@@ -266,16 +262,16 @@ func (s *ClientTestSuite) TestGetHostPrimaryAddress(c *C) {
 	}
 
 	pathStatus = GetHostPrimaryAddress(primaryAddressNS)
-	c.Assert(pathStatus, Not(IsNil))
+	require.NotNil(t, pathStatus)
 }
 
-func (s *ClientTestSuite) TestGetPrimaryAddressIP(c *C) {
+func TestGetPrimaryAddressIP(t *testing.T) {
 	nilHostNS := &models.NodeStatus{
 		Host: nil,
 	}
 
 	pathStatus := getPrimaryAddressIP(nilHostNS)
-	c.Assert(pathStatus, Equals, ipUnavailable)
+	require.Equal(t, ipUnavailable, pathStatus)
 
 	nilPrimaryAddressNS := &models.NodeStatus{
 		Host: &models.HostStatus{
@@ -284,7 +280,7 @@ func (s *ClientTestSuite) TestGetPrimaryAddressIP(c *C) {
 	}
 
 	pathStatus = getPrimaryAddressIP(nilPrimaryAddressNS)
-	c.Assert(pathStatus, Equals, ipUnavailable)
+	require.Equal(t, ipUnavailable, pathStatus)
 
 	primaryAddressNS := &models.NodeStatus{
 		Host: &models.HostStatus{
@@ -293,10 +289,10 @@ func (s *ClientTestSuite) TestGetPrimaryAddressIP(c *C) {
 	}
 
 	pathStatus = getPrimaryAddressIP(primaryAddressNS)
-	c.Assert(pathStatus, Equals, "")
+	require.Empty(t, pathStatus)
 }
 
-func (s *ClientTestSuite) TestGetAllEndpointAddresses(c *C) {
+func TestGetAllEndpointAddresses(t *testing.T) {
 	var (
 		primary    = models.PathStatus{IP: "1.1.1.1"}
 		secondary1 = models.PathStatus{IP: "2.2.2.2"}
@@ -328,6 +324,6 @@ func (s *ClientTestSuite) TestGetAllEndpointAddresses(c *C) {
 		},
 	}
 	for _, tc := range tests {
-		c.Assert(GetAllEndpointAddresses(tc.node), checker.DeepEquals, tc.expected)
+		require.Equal(t, tc.expected, GetAllEndpointAddresses(tc.node))
 	}
 }
