@@ -7,17 +7,10 @@ import (
 	"runtime"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type VersionSuite struct{}
-
-var _ = Suite(&VersionSuite{})
-
-func (vs *VersionSuite) TestStructIsSet(c *C) {
+func TestStructIsSet(t *testing.T) {
 	var versionDataList = []struct {
 		in  string
 		out CiliumVersion
@@ -77,16 +70,16 @@ func (vs *VersionSuite) TestStructIsSet(c *C) {
 
 	for _, tt := range versionDataList {
 		cver := FromString(tt.in)
-		c.Assert(cver.Version, Equals, tt.out.Version)
-		c.Assert(cver.Revision, Equals, tt.out.Revision)
-		c.Assert(cver.GoRuntimeVersion, Equals, tt.out.GoRuntimeVersion)
-		c.Assert(cver.Arch, Equals, tt.out.Arch)
-		c.Assert(cver.AuthorDate, Equals, tt.out.AuthorDate)
+		require.Equal(t, tt.out.Version, cver.Version)
+		require.Equal(t, tt.out.Revision, cver.Revision)
+		require.Equal(t, tt.out.GoRuntimeVersion, cver.GoRuntimeVersion)
+		require.Equal(t, tt.out.Arch, cver.Arch)
+		require.Equal(t, tt.out.AuthorDate, cver.AuthorDate)
 	}
 }
 
-func (vs *VersionSuite) TestVersionArchMatchesGOARCH(c *C) {
+func TestVersionArchMatchesGOARCH(t *testing.T) {
 	// var ciliumVersion is not set in tests, thus Version does not contain the cilium version,
 	// just check that GOOS/GOARCH are reported correctly, see #13122.
-	c.Assert(Version, Matches, ".* "+runtime.GOOS+"/"+runtime.GOARCH)
+	require.Regexp(t, ".* "+runtime.GOOS+"/"+runtime.GOARCH, Version)
 }
