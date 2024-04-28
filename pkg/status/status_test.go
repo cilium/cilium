@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -23,13 +23,8 @@ type StatusTestSuite struct {
 	mutex  lock.Mutex
 }
 
-var _ = Suite(&StatusTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (s *StatusTestSuite) SetUpTest(c *C) {
+func setUpTest(_ testing.TB) *StatusTestSuite {
+	s := &StatusTestSuite{}
 	s.mutex.Lock()
 	s.config = Config{
 		Interval:         10 * time.Millisecond,
@@ -37,6 +32,8 @@ func (s *StatusTestSuite) SetUpTest(c *C) {
 		FailureThreshold: 80 * time.Millisecond,
 	}
 	s.mutex.Unlock()
+
+	return s
 }
 
 func (s *StatusTestSuite) Config() (c Config) {
@@ -46,7 +43,9 @@ func (s *StatusTestSuite) Config() (c Config) {
 	return
 }
 
-func (s *StatusTestSuite) TestVariableProbeInterval(c *C) {
+func TestVariableProbeInterval(t *testing.T) {
+	s := setUpTest(t)
+
 	var runs, ok atomic.Uint64
 
 	p := []Probe{
@@ -81,12 +80,14 @@ func (s *StatusTestSuite) TestVariableProbeInterval(c *C) {
 
 	// wait for 5 probe intervals to occur with 1 millisecond interval
 	// until we reach success
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.NoError(t, testutils.WaitUntil(func() bool {
 		return ok.Load() >= 1
-	}, 1*time.Second), IsNil)
+	}, 1*time.Second))
 }
 
-func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
+func TestCollectorFailureTimeout(t *testing.T) {
+	s := setUpTest(t)
+
 	var ok atomic.Uint64
 
 	p := []Probe{
@@ -111,13 +112,15 @@ func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
 	defer collector.Close()
 
 	// wait for the failure timeout to kick in
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.NoError(t, testutils.WaitUntil(func() bool {
 		return ok.Load() >= 1
-	}, 1*time.Second), IsNil)
-	c.Assert(collector.GetStaleProbes(), HasLen, 1)
+	}, 1*time.Second))
+	require.Len(t, collector.GetStaleProbes(), 1)
 }
 
-func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
+func TestCollectorSuccess(t *testing.T) {
+	s := setUpTest(t)
+
 	var ok, errs atomic.Uint64
 	err := fmt.Errorf("error")
 
@@ -146,13 +149,15 @@ func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
 	defer collector.Close()
 
 	// wait for the probe to succeed 3 times and to return the error 3 times
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.NoError(t, testutils.WaitUntil(func() bool {
 		return ok.Load() >= 3 && errs.Load() >= 3
-	}, 1*time.Second), IsNil)
-	c.Assert(collector.GetStaleProbes(), HasLen, 0)
+	}, 1*time.Second))
+	require.Len(t, collector.GetStaleProbes(), 0)
 }
 
-func (s *StatusTestSuite) TestCollectorSuccessAfterTimeout(c *C) {
+func TestCollectorSuccessAfterTimeout(t *testing.T) {
+	s := setUpTest(t)
+
 	var ok, timeout atomic.Uint64
 
 	p := []Probe{
@@ -178,8 +183,8 @@ func (s *StatusTestSuite) TestCollectorSuccessAfterTimeout(c *C) {
 	defer collector.Close()
 
 	// wait for the probe to timeout (warning and failure) and then to succeed
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.NoError(t, testutils.WaitUntil(func() bool {
 		return timeout.Load() == 1 && ok.Load() > 0
-	}, 1*time.Second), IsNil)
-	c.Assert(collector.GetStaleProbes(), HasLen, 0)
+	}, 1*time.Second))
+	require.Len(t, collector.GetStaleProbes(), 0)
 }
