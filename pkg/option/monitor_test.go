@@ -5,70 +5,71 @@ package option
 
 import (
 	"strconv"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *OptionSuite) TestVerifyMonitorAggregationLevel(c *C) {
-	c.Assert(VerifyMonitorAggregationLevel("", ""), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "none"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "disabled"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "lowest"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "low"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "medium"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "max"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "maximum"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "LoW"), IsNil)
-	c.Assert(VerifyMonitorAggregationLevel("", "disable"), NotNil)
+func TestVerifyMonitorAggregationLevel(t *testing.T) {
+	require.Nil(t, VerifyMonitorAggregationLevel("", ""))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "none"))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "disabled"))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "lowest"))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "low"))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "medium"))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "max"))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "maximum"))
+	require.Nil(t, VerifyMonitorAggregationLevel("", "LoW"))
+	require.NotNil(t, VerifyMonitorAggregationLevel("", "disable"))
 }
 
-func (s *OptionSuite) TestParseMonitorAggregationLevel(c *C) {
+func TestParseMonitorAggregationLevel(t *testing.T) {
 	level, err := ParseMonitorAggregationLevel("2")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelLow)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelLow, level)
 
 	_, err = ParseMonitorAggregationLevel(strconv.Itoa(int(MonitorAggregationLevelMax) + 1))
-	c.Assert(err, NotNil)
+	require.Error(t, err)
 
 	_, err = ParseMonitorAggregationLevel("-1")
-	c.Assert(err, NotNil)
+	require.Error(t, err)
 
 	_, err = ParseMonitorAggregationLevel("foo")
-	c.Assert(err, NotNil)
+	require.Error(t, err)
 
 	level, err = ParseMonitorAggregationLevel("")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelNone)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelNone, level)
 
 	level, err = ParseMonitorAggregationLevel("none")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelNone)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelNone, level)
 
 	level, err = ParseMonitorAggregationLevel("disabled")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelNone)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelNone, level)
 
 	level, err = ParseMonitorAggregationLevel("lowest")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelLowest)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelLowest, level)
 
 	level, err = ParseMonitorAggregationLevel("low")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelLow)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelLow, level)
 
 	level, err = ParseMonitorAggregationLevel("medium")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelMedium)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelMedium, level)
 
 	level, err = ParseMonitorAggregationLevel("max")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelMax)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelMax, level)
 
 	level, err = ParseMonitorAggregationLevel("maximum")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelMax)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelMax, level)
 
 	level, err = ParseMonitorAggregationLevel("LOW")
-	c.Assert(err, IsNil)
-	c.Assert(level, Equals, MonitorAggregationLevelLow)
+	require.NoError(t, err)
+	require.Equal(t, MonitorAggregationLevelLow, level)
 }
