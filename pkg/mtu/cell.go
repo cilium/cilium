@@ -33,6 +33,7 @@ type mtuParams struct {
 	IPsec        types.IPsecKeyCustodian
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
+	Config       *option.FinalDaemonConfig
 }
 
 func newForCell(lc cell.Lifecycle, p mtuParams) MTU {
@@ -57,7 +58,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams) MTU {
 				option.Config.EnableIPSec,
 				p.TunnelConfig.ShouldAdaptMTU(),
 				option.Config.EnableWireguard,
-				option.Config.EnableHighScaleIPcache && option.Config.EnableNodePort,
+				option.Config.EnableHighScaleIPcache && p.Config.NodePortEnabled(),
 				configuredMTU,
 				externalIP,
 			)
