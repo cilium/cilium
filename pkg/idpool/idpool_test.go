@@ -5,66 +5,55 @@ package idpool
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type IDPoolTestSuite struct{}
-
-var _ = Suite(&IDPoolTestSuite{})
-
-func (s *IDPoolTestSuite) TestLeaseAvailableID(c *C) {
+func TestLeaseAvailableID(t *testing.T) {
 	minID, maxID := 1, 5
 	p := NewIDPool(ID(minID), ID(maxID))
 
-	leaseAllIDs(p, minID, maxID, c)
+	leaseAllIDs(p, minID, maxID, t)
 }
 
-func (s *IDPoolTestSuite) TestInsertIDs(c *C) {
+func TestInsertIDs(t *testing.T) {
 	minID, maxID := 2, 6
 	p := NewIDPool(ID(minID), ID(maxID))
 
 	// Insert IDs beyond minID, maxID range.
 	for i := minID - 1; i <= maxID+1; i++ {
-		c.Assert(p.Insert(ID(i)), Equals, i < minID || i > maxID)
-		c.Assert(p.Insert(ID(i)), Equals, false)
+		require.Equal(t, i < minID || i > maxID, p.Insert(ID(i)))
+		require.False(t, p.Insert(ID(i)))
 	}
 
-	leaseAllIDs(p, minID-1, maxID+1, c)
+	leaseAllIDs(p, minID-1, maxID+1, t)
 }
 
-func (s *IDPoolTestSuite) TestInsertRemoveIDs(c *C) {
+func TestInsertRemoveIDs(t *testing.T) {
 	minID, maxID := 1, 5
 	p := NewIDPool(ID(minID), ID(maxID))
 
 	// Remove all IDs.
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p.Remove(ID(i)), Equals, true)
-		c.Assert(p.Remove(ID(i)), Equals, false)
+		require.True(t, p.Remove(ID(i)))
+		require.False(t, p.Remove(ID(i)))
 	}
 	// We should be out of IDs.
 	id := p.LeaseAvailableID()
-	c.Assert(id, Equals, NoID)
+	require.Equal(t, NoID, id)
 
 	// Re-insert all IDs.
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p.Insert(ID(i)), Equals, true)
-		c.Assert(p.Insert(ID(i)), Equals, false)
+		require.True(t, p.Insert(ID(i)))
+		require.False(t, p.Insert(ID(i)))
 	}
 
 	// Remove odd-numbered IDs.
 	for i := minID; i <= maxID; i++ {
 		if i%2 != 0 {
-			c.Assert(p.Remove(ID(i)), Equals, true)
+			require.True(t, p.Remove(ID(i)))
 		}
 	}
 
@@ -74,147 +63,146 @@ func (s *IDPoolTestSuite) TestInsertRemoveIDs(c *C) {
 	for i := minID; i <= maxID; i++ {
 		if i%2 == 0 {
 			id := p.LeaseAvailableID()
-			c.Assert(id, Not(Equals), NoID)
+			require.NotEqual(t, NoID, id)
 			actualIDs = append(actualIDs, int(id))
 			evenIDs = append(evenIDs, i)
 		}
 	}
 	// We should be out of IDs.
 	id = p.LeaseAvailableID()
-	c.Assert(id, Equals, NoID)
+	require.Equal(t, NoID, id)
 
-	sort.Ints(actualIDs)
-	c.Assert(actualIDs, checker.DeepEquals, evenIDs)
+	require.ElementsMatch(t, evenIDs, actualIDs)
 }
 
-func (s *IDPoolTestSuite) TestReleaseID(c *C) {
+func TestReleaseID(t *testing.T) {
 	minID, maxID := 1, 5
 	p := NewIDPool(ID(minID), ID(maxID))
 
 	// Lease all ids and release them.
 	for i := minID; i <= maxID; i++ {
 		id := p.LeaseAvailableID()
-		c.Assert(id, Not(Equals), NoID)
+		require.NotEqual(t, NoID, id)
 	}
 	// We should be out of IDs.
 	id := p.LeaseAvailableID()
-	c.Assert(id, Equals, NoID)
+	require.Equal(t, NoID, id)
 
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p.Release(ID(i)), Equals, true)
-		c.Assert(p.Release(ID(i)), Equals, false)
+		require.True(t, p.Release(ID(i)))
+		require.False(t, p.Release(ID(i)))
 	}
 
 	// Lease all ids. This time, remove them before
 	// releasing them.
-	leaseAllIDs(p, minID, maxID, c)
+	leaseAllIDs(p, minID, maxID, t)
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p.Remove(ID(i)), Equals, false)
+		require.False(t, p.Remove(ID(i)))
 	}
 	// Release should not have any effect.
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p.Release(ID(i)), Equals, false)
+		require.False(t, p.Release(ID(i)))
 	}
 }
 
-func (s *IDPoolTestSuite) TestOperationsOnAvailableIDs(c *C) {
+func TestOperationsOnAvailableIDs(t *testing.T) {
 	minID, maxID := 1, 5
 
 	// Leasing available IDs should move its state to leased.
 	p0 := NewIDPool(ID(minID), ID(maxID))
-	leaseAllIDs(p0, minID, maxID, c)
+	leaseAllIDs(p0, minID, maxID, t)
 	// Check all IDs are in leased state.
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p0.Release(ID(i)), Equals, true)
+		require.True(t, p0.Release(ID(i)))
 	}
-	leaseAllIDs(p0, minID, maxID, c)
+	leaseAllIDs(p0, minID, maxID, t)
 
 	// Releasing available IDs should not have any effect.
 	p1 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p1.Release(ID(i)), Equals, false)
+		require.False(t, p1.Release(ID(i)))
 	}
-	leaseAllIDs(p1, minID, maxID, c)
+	leaseAllIDs(p1, minID, maxID, t)
 
 	// Using available IDs should not have any effect.
 	p2 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p2.Use(ID(i)), Equals, false)
+		require.False(t, p2.Use(ID(i)))
 	}
-	leaseAllIDs(p2, minID, maxID, c)
+	leaseAllIDs(p2, minID, maxID, t)
 
 	// Inserting available IDs should not have any effect.
 	p3 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p3.Insert(ID(i)), Equals, false)
+		require.False(t, p3.Insert(ID(i)))
 	}
-	leaseAllIDs(p3, minID, maxID, c)
+	leaseAllIDs(p3, minID, maxID, t)
 
 	// Removing available IDs should make them unavailable.
 	p4 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p4.Remove(ID(i)), Equals, true)
+		require.True(t, p4.Remove(ID(i)))
 	}
-	leaseAllIDs(p4, minID, minID-1, c)
+	leaseAllIDs(p4, minID, minID-1, t)
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p4.Release(ID(i)), Equals, false)
+		require.False(t, p4.Release(ID(i)))
 	}
 }
 
-func (s *IDPoolTestSuite) TestOperationsOnLeasedIDs(c *C) {
+func TestOperationsOnLeasedIDs(t *testing.T) {
 	minID, maxID := 1, 5
 	var poolWithAllIDsLeased = func() *IDPool {
 		p := NewIDPool(ID(minID), ID(maxID))
-		leaseAllIDs(p, minID, maxID, c)
+		leaseAllIDs(p, minID, maxID, t)
 		return p
 	}
 
 	// Releasing leased IDs should make it available again.
 	p0 := poolWithAllIDsLeased()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p0.Release(ID(i)), Equals, true)
+		require.True(t, p0.Release(ID(i)))
 	}
-	leaseAllIDs(p0, minID, maxID, c)
+	leaseAllIDs(p0, minID, maxID, t)
 
 	// Using leased IDs should make it unavailable again.
 	p1 := poolWithAllIDsLeased()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p1.Use(ID(i)), Equals, true)
+		require.True(t, p1.Use(ID(i)))
 		// It should no longer be leased.
-		c.Assert(p1.Use(ID(i)), Equals, false)
+		require.False(t, p1.Use(ID(i)))
 	}
-	leaseAllIDs(p1, minID, minID-1, c)
+	leaseAllIDs(p1, minID, minID-1, t)
 
 	// Inserting leased IDs should not have any effect.
 	p2 := poolWithAllIDsLeased()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p2.Insert(ID(i)), Equals, false)
+		require.False(t, p2.Insert(ID(i)))
 	}
 	// The IDs should still be leased.
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p2.Release(ID(i)), Equals, true)
+		require.True(t, p2.Release(ID(i)))
 	}
-	leaseAllIDs(p2, minID, maxID, c)
+	leaseAllIDs(p2, minID, maxID, t)
 
 	// Removing leased IDs should make them unavailable.
 	p3 := poolWithAllIDsLeased()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p3.Remove(ID(i)), Equals, false)
+		require.False(t, p3.Remove(ID(i)))
 	}
 	// The IDs should not be leased anymore.
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p3.Use(ID(i)), Equals, false)
+		require.False(t, p3.Use(ID(i)))
 	}
 	// They should be unavailable.
-	leaseAllIDs(p3, minID, minID-1, c)
+	leaseAllIDs(p3, minID, minID-1, t)
 }
 
-func (s *IDPoolTestSuite) TestOperationsOnUnavailableIDs(c *C) {
+func TestOperationsOnUnavailableIDs(t *testing.T) {
 	minID, maxID := 1, 5
 	var poolWithAllIDsUnavailable = func() *IDPool {
 		p := NewIDPool(ID(minID), ID(maxID))
 		for i := minID; i <= maxID; i++ {
-			c.Assert(p.Remove(ID(i)), Equals, true)
+			require.True(t, p.Remove(ID(i)))
 		}
 		return p
 	}
@@ -222,92 +210,91 @@ func (s *IDPoolTestSuite) TestOperationsOnUnavailableIDs(c *C) {
 	// Releasing unavailable IDs should not have any effect.
 	p1 := poolWithAllIDsUnavailable()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p1.Release(ID(i)), Equals, false)
+		require.False(t, p1.Release(ID(i)))
 	}
-	leaseAllIDs(p1, minID, minID-1, c)
+	leaseAllIDs(p1, minID, minID-1, t)
 
 	// Using unavailable IDs should not have any effect.
 	p2 := poolWithAllIDsUnavailable()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p2.Use(ID(i)), Equals, false)
+		require.False(t, p2.Use(ID(i)))
 	}
-	leaseAllIDs(p2, minID, minID-1, c)
+	leaseAllIDs(p2, minID, minID-1, t)
 
 	// Inserting unavailable IDs should make them available.
 	p3 := poolWithAllIDsUnavailable()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p3.Insert(ID(i)), Equals, true)
+		require.True(t, p3.Insert(ID(i)))
 	}
 	// They should not be leased.
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p3.Use(ID(i)), Equals, false)
-		c.Assert(p3.Release(ID(i)), Equals, false)
+		require.False(t, p3.Use(ID(i)))
+		require.False(t, p3.Release(ID(i)))
 	}
-	leaseAllIDs(p3, minID, maxID, c)
+	leaseAllIDs(p3, minID, maxID, t)
 
 	// Removing unavailable IDs should not have any effect.
 	p4 := poolWithAllIDsUnavailable()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p4.Remove(ID(i)), Equals, false)
+		require.False(t, p4.Remove(ID(i)))
 	}
-	leaseAllIDs(p4, minID, minID-1, c)
+	leaseAllIDs(p4, minID, minID-1, t)
 }
 
-func leaseAllIDs(p *IDPool, minID int, maxID int, c *C) {
+func leaseAllIDs(p *IDPool, minID int, maxID int, t *testing.T) {
 	expected := make([]int, 0)
 	actual := make([]int, 0)
 	for i := minID; i <= maxID; i++ {
 		id := p.LeaseAvailableID()
-		c.Assert(id, Not(Equals), NoID)
+		require.NotEqual(t, NoID, id)
 		actual = append(actual, int(id))
 		expected = append(expected, i)
 	}
 	// We should be out of IDs.
 	id := p.LeaseAvailableID()
-	c.Assert(id, Equals, NoID)
+	require.Equal(t, NoID, id)
 
 	// Unique ids must have been leased.
-	sort.Ints(actual)
-	c.Assert(actual, checker.DeepEquals, expected)
+	require.ElementsMatch(t, actual, expected)
 }
 
-func (s *IDPoolTestSuite) BenchmarkRemoveIDs(c *C) {
-	minID, maxID := 1, c.N
+func BenchmarkRemoveIDs(b *testing.B) {
+	minID, maxID := 1, b.N
 	p := NewIDPool(ID(minID), ID(maxID))
 
-	c.ResetTimer()
+	b.ResetTimer()
 	for i := minID; i <= maxID; i++ {
-		c.Assert(p.Remove(ID(i)), Equals, true)
+		require.Equal(b, true, p.Remove(ID(i)))
 	}
 }
 
-func (s *IDPoolTestSuite) BenchmarkLeaseIDs(c *C) {
-	minID, maxID := 1, c.N
+func BenchmarkLeaseIDs(b *testing.B) {
+	minID, maxID := 1, b.N
 	p := NewIDPool(ID(minID), ID(maxID))
 
-	c.ResetTimer()
-	for i := 1; i <= c.N; i++ {
+	b.ResetTimer()
+	for i := 1; i <= b.N; i++ {
 		id := p.LeaseAvailableID()
-		c.Assert(p.Release(ID(id)), Equals, true)
+		require.Equal(b, true, p.Release(ID(id)))
 	}
 }
 
-func (s *IDPoolTestSuite) BenchmarkUseAndRelease(c *C) {
-	minID, maxID := 1, c.N
+func BenchmarkUseAndRelease(b *testing.B) {
+	minID, maxID := 1, b.N
 	p := NewIDPool(ID(minID), ID(maxID))
 
-	c.ResetTimer()
-	for i := 1; i <= c.N; i++ {
+	b.ResetTimer()
+	for i := 1; i <= b.N; i++ {
 		id := p.LeaseAvailableID()
-		c.Assert(p.Use(ID(id)), Equals, true)
+		require.Equal(b, true, p.Use(ID(id)))
 	}
 
-	for i := 1; i <= c.N; i++ {
-		c.Assert(p.Insert(ID(i)), Equals, true)
+	for i := 1; i <= b.N; i++ {
+		require.Equal(b, true, p.Insert(ID(i)))
 	}
 }
 
-func (s *IDPoolTestSuite) testAllocatedID(c *C, nGoRoutines int) {
+func testAllocatedID(t *testing.T, nGoRoutines int) {
 	bufferChannelSize := 100
 	minID, maxID := 1, 6000
 	if maxID-minID < nGoRoutines+bufferChannelSize {
@@ -327,7 +314,7 @@ func (s *IDPoolTestSuite) testAllocatedID(c *C, nGoRoutines int) {
 			for i := 1; i <= maxID; i++ {
 				id := p.AllocateID()
 				if id == NoID {
-					c.Error("ID expected to be allocated")
+					t.Error("ID expected to be allocated")
 				}
 				allocated <- id
 			}
@@ -342,7 +329,7 @@ func (s *IDPoolTestSuite) testAllocatedID(c *C, nGoRoutines int) {
 
 	for id := range allocated {
 		if p.Insert(id) != true {
-			c.Error("ID insertion failed")
+			t.Error("ID insertion failed")
 		}
 	}
 }

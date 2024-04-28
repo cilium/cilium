@@ -6,9 +6,9 @@
 package idpool
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
 )
 
-func (s *IDPoolTestSuite) TestAllocateID(c *C) {
-	s.testAllocatedID(c, 256)
+func TestAllocateID(t *testing.T) {
+	testAllocatedID(t, 256)
 }
