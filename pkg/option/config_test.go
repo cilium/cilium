@@ -12,37 +12,38 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
-func (s *OptionSuite) TestValidateIPv6ClusterAllocCIDR(c *C) {
+func TestValidateIPv6ClusterAllocCIDR(t *testing.T) {
 	valid1 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd::/64"}
-	c.Assert(valid1.validateIPv6ClusterAllocCIDR(), IsNil)
-	c.Assert(valid1.IPv6ClusterAllocCIDRBase, Equals, "fdfd::")
+
+	require.Nil(t, valid1.validateIPv6ClusterAllocCIDR())
+	require.Equal(t, "fdfd::", valid1.IPv6ClusterAllocCIDRBase)
 
 	valid2 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd:fdfd:fdfd:fdfd:aaaa::/64"}
-	c.Assert(valid2.validateIPv6ClusterAllocCIDR(), IsNil)
-	c.Assert(valid2.IPv6ClusterAllocCIDRBase, Equals, "fdfd:fdfd:fdfd:fdfd::")
+	require.Nil(t, valid2.validateIPv6ClusterAllocCIDR())
+	require.Equal(t, "fdfd:fdfd:fdfd:fdfd::", valid2.IPv6ClusterAllocCIDRBase)
 
 	invalid1 := &DaemonConfig{IPv6ClusterAllocCIDR: "foo"}
-	c.Assert(invalid1.validateIPv6ClusterAllocCIDR(), Not(IsNil))
+	require.NotNil(t, invalid1.validateIPv6ClusterAllocCIDR())
 
 	invalid2 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd"}
-	c.Assert(invalid2.validateIPv6ClusterAllocCIDR(), Not(IsNil))
+	require.NotNil(t, invalid2.validateIPv6ClusterAllocCIDR())
 
 	invalid3 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd::/32"}
-	c.Assert(invalid3.validateIPv6ClusterAllocCIDR(), Not(IsNil))
+	require.NotNil(t, invalid3.validateIPv6ClusterAllocCIDR())
 
 	invalid4 := &DaemonConfig{}
-	c.Assert(invalid4.validateIPv6ClusterAllocCIDR(), Not(IsNil))
+	require.NotNil(t, invalid4.validateIPv6ClusterAllocCIDR())
 }
 
 func TestGetEnvName(t *testing.T) {
@@ -106,17 +107,15 @@ func TestGetEnvName(t *testing.T) {
 	}
 }
 
-func (s *OptionSuite) TestReadDirConfig(c *C) {
+func TestReadDirConfig(t *testing.T) {
 	vp := viper.New()
 	var dirName string
 	type args struct {
 		dirName string
 	}
 	type want struct {
-		allSettings        map[string]interface{}
-		allSettingsChecker Checker
-		err                error
-		errChecker         Checker
+		allSettings map[string]interface{}
+		err         error
 	}
 	tests := []struct {
 		name        string
@@ -128,7 +127,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 		{
 			name: "empty configuration",
 			preTestRun: func() {
-				dirName = c.MkDir()
+				dirName = t.TempDir()
 
 				fs := flag.NewFlagSet("empty configuration", flag.ContinueOnError)
 				vp.BindPFlags(fs)
@@ -140,10 +139,8 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					allSettings:        map[string]interface{}{},
-					allSettingsChecker: DeepEquals,
-					err:                nil,
-					errChecker:         Equals,
+					allSettings: map[string]interface{}{},
+					err:         nil,
 				}
 			},
 			postTestRun: func() {
@@ -153,12 +150,12 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 		{
 			name: "single file configuration",
 			preTestRun: func() {
-				dirName = c.MkDir()
+				dirName = t.TempDir()
 
 				fullPath := filepath.Join(dirName, "test")
 				err := os.WriteFile(fullPath, []byte(`"1"
 `), os.FileMode(0644))
-				c.Assert(err, IsNil)
+				require.NoError(t, err)
 				fs := flag.NewFlagSet("single file configuration", flag.ContinueOnError)
 				fs.String("test", "", "")
 				BindEnv(vp, "test")
@@ -173,10 +170,8 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					allSettings:        map[string]interface{}{"test": `"1"`},
-					allSettingsChecker: DeepEquals,
-					err:                nil,
-					errChecker:         Equals,
+					allSettings: map[string]interface{}{"test": `"1"`},
+					err:         nil,
 				}
 			},
 			postTestRun: func() {
@@ -189,60 +184,60 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		m, err := ReadDirConfig(args.dirName)
-		c.Assert(err, want.errChecker, want.err, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, want.err, err, fmt.Sprintf("Test Name: %s", tt.name))
 		err = MergeConfig(vp, m)
-		c.Assert(err, IsNil)
-		c.Assert(vp.AllSettings(), want.allSettingsChecker, want.allSettings, Commentf("Test Name: %s", tt.name))
+		require.NoError(t, err)
+		assert.Equal(t, vp.AllSettings(), want.allSettings, fmt.Sprintf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
 
-func (s *OptionSuite) TestBindEnv(c *C) {
+func TestBindEnv(t *testing.T) {
 	vp := viper.New()
 	optName1 := "foo-bar"
 	os.Setenv("LEGACY_FOO_BAR", "legacy")
 	os.Setenv(getEnvName(optName1), "new")
 	BindEnvWithLegacyEnvFallback(vp, optName1, "LEGACY_FOO_BAR")
-	c.Assert(vp.GetString(optName1), Equals, "new")
+	require.Equal(t, "new", vp.GetString(optName1))
 
 	optName2 := "bar-foo"
 	BindEnvWithLegacyEnvFallback(vp, optName2, "LEGACY_FOO_BAR")
-	c.Assert(vp.GetString(optName2), Equals, "legacy")
+	require.Equal(t, "legacy", vp.GetString(optName2))
 }
 
-func (s *OptionSuite) TestEnabledFunctions(c *C) {
+func TestEnabledFunctions(t *testing.T) {
 	d := &DaemonConfig{}
-	c.Assert(d.IPv4Enabled(), Equals, false)
-	c.Assert(d.IPv6Enabled(), Equals, false)
-	c.Assert(d.SCTPEnabled(), Equals, false)
+	assert.False(t, d.IPv4Enabled())
+	assert.False(t, d.IPv6Enabled())
+	assert.False(t, d.SCTPEnabled())
 	d = &DaemonConfig{EnableIPv4: true}
-	c.Assert(d.IPv4Enabled(), Equals, true)
-	c.Assert(d.IPv6Enabled(), Equals, false)
-	c.Assert(d.SCTPEnabled(), Equals, false)
+	assert.True(t, d.IPv4Enabled())
+	assert.False(t, d.IPv6Enabled())
+	assert.False(t, d.SCTPEnabled())
 	d = &DaemonConfig{EnableIPv6: true}
-	c.Assert(d.IPv4Enabled(), Equals, false)
-	c.Assert(d.IPv6Enabled(), Equals, true)
-	c.Assert(d.SCTPEnabled(), Equals, false)
+	assert.False(t, d.IPv4Enabled())
+	assert.True(t, d.IPv6Enabled())
+	assert.False(t, d.SCTPEnabled())
 	d = &DaemonConfig{EnableSCTP: true}
-	c.Assert(d.IPv4Enabled(), Equals, false)
-	c.Assert(d.IPv6Enabled(), Equals, false)
-	c.Assert(d.SCTPEnabled(), Equals, true)
+	assert.False(t, d.IPv4Enabled())
+	assert.False(t, d.IPv6Enabled())
+	assert.True(t, d.SCTPEnabled())
 	d = &DaemonConfig{}
-	c.Assert(d.IPAMMode(), Equals, "")
+	require.Empty(t, d.IPAMMode())
 	d = &DaemonConfig{IPAM: ipamOption.IPAMENI}
-	c.Assert(d.IPAMMode(), Equals, ipamOption.IPAMENI)
+	require.Equal(t, ipamOption.IPAMENI, d.IPAMMode())
 }
 
-func (s *OptionSuite) TestLocalAddressExclusion(c *C) {
+func TestLocalAddressExclusion(t *testing.T) {
 	d := &DaemonConfig{}
 	err := d.parseExcludedLocalAddresses([]string{"1.1.1.1/32", "3.3.3.0/24", "f00d::1/128"})
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
-	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("1.1.1.1")), Equals, true)
-	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("1.1.1.2")), Equals, false)
-	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("3.3.3.1")), Equals, true)
-	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::1")), Equals, true)
-	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::2")), Equals, false)
+	require.True(t, d.IsExcludedLocalAddress(net.ParseIP("1.1.1.1")))
+	require.False(t, d.IsExcludedLocalAddress(net.ParseIP("1.1.1.2")))
+	require.True(t, d.IsExcludedLocalAddress(net.ParseIP("3.3.3.1")))
+	require.True(t, d.IsExcludedLocalAddress(net.ParseIP("f00d::1")))
+	require.False(t, d.IsExcludedLocalAddress(net.ParseIP("f00d::2")))
 }
 
 func TestCheckMapSizeLimits(t *testing.T) {
@@ -907,9 +902,9 @@ func Test_populateNodePortRange(t *testing.T) {
 	}
 }
 
-func (s *OptionSuite) TestGetDefaultMonitorQueueSize(c *C) {
-	c.Assert(getDefaultMonitorQueueSize(4), Equals, 4*defaults.MonitorQueueSizePerCPU)
-	c.Assert(getDefaultMonitorQueueSize(1000), Equals, defaults.MonitorQueueSizePerCPUMaximum)
+func TestGetDefaultMonitorQueueSize(t *testing.T) {
+	require.Equal(t, 4*defaults.MonitorQueueSizePerCPU, getDefaultMonitorQueueSize(4))
+	require.Equal(t, defaults.MonitorQueueSizePerCPUMaximum, getDefaultMonitorQueueSize(1000))
 }
 
 const (
@@ -1156,40 +1151,40 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 	}
 }
 
-func (s *OptionSuite) Test_backupFiles(c *C) {
-	tempDir := c.MkDir()
+func Test_backupFiles(t *testing.T) {
+	tempDir := t.TempDir()
 	fileNames := []string{"test.json", "test-1.json", "test-2.json"}
 
 	backupFiles(tempDir, fileNames)
 	files, err := os.ReadDir(tempDir)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	// No files should have been created
-	c.Assert(len(files), Equals, 0)
+	require.Len(t, files, 0)
 
 	_, err = os.Create(filepath.Join(tempDir, "test.json"))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	backupFiles(tempDir, fileNames)
 	files, err = os.ReadDir(tempDir)
-	c.Assert(err, IsNil)
-	c.Assert(len(files), Equals, 1)
-	c.Assert(files[0].Name(), Equals, "test-1.json")
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	require.Equal(t, "test-1.json", files[0].Name())
 
 	backupFiles(tempDir, fileNames)
 	files, err = os.ReadDir(tempDir)
-	c.Assert(err, IsNil)
-	c.Assert(len(files), Equals, 1)
-	c.Assert(files[0].Name(), Equals, "test-2.json")
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	require.Equal(t, "test-2.json", files[0].Name())
 
 	_, err = os.Create(filepath.Join(tempDir, "test.json"))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	backupFiles(tempDir, fileNames)
 	files, err = os.ReadDir(tempDir)
-	c.Assert(err, IsNil)
-	c.Assert(len(files), Equals, 2)
-	c.Assert(files[0].Name(), Equals, "test-1.json")
-	c.Assert(files[1].Name(), Equals, "test-2.json")
+	require.NoError(t, err)
+	require.Len(t, files, 2)
+	require.Equal(t, "test-1.json", files[0].Name())
+	require.Equal(t, "test-2.json", files[1].Name())
 }
 
 func Test_parseEventBufferTupleString(t *testing.T) {
