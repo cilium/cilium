@@ -6,31 +6,20 @@ package kvstore
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
+func TestGetLockPath(t *testing.T) {
+	testutils.IntegrationTest(t)
 
-// independentSuite tests are tests which can run without creating a backend
-type independentSuite struct{}
-
-var _ = Suite(&independentSuite{})
-
-func (s *independentSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
-}
-
-func (s *independentSuite) TestGetLockPath(c *C) {
 	const path = "foo/path"
-	c.Assert(getLockPath(path), Equals, path+".lock")
+	require.Equal(t, path+".lock", getLockPath(path))
 }
 
-func (s *independentSuite) TestValidateScopesFromKey(c *C) {
+func TestValidateScopesFromKey(t *testing.T) {
 	mockData := map[string]string{
 		"cilium/state/identities/v1/id": "identities/v1",
 		"cilium/state/identities/v1/value/Y29udGFpbmVyOmlkPWFwcDE7Y29udGFpbmVyOmlkLnNlcnZpY2UxPTs=": "identities/v1",
@@ -41,7 +30,7 @@ func (s *independentSuite) TestValidateScopesFromKey(c *C) {
 	}
 
 	for key, val := range mockData {
-		c.Assert(GetScopeFromKey(key), Equals, val)
+		require.Equal(t, val, GetScopeFromKey(key))
 	}
 }
 
