@@ -10,32 +10,23 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// Hook up gocheck into the "go test" runner.
-type ClientTestSuite struct{}
-
-var _ = Suite(&ClientTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (cs *ClientTestSuite) TestHint(c *C) {
+func TestHint(t *testing.T) {
 	var err error
-	c.Assert(Hint(err), IsNil)
+	require.Nil(t, Hint(err))
 
 	err = errors.New("foo bar")
-	c.Assert(Hint(err), ErrorMatches, "foo bar")
+	require.ErrorContains(t, Hint(err), "foo bar")
 
 	err = fmt.Errorf("ayy lmao")
-	c.Assert(Hint(err), ErrorMatches, "ayy lmao")
+	require.ErrorContains(t, Hint(err), "ayy lmao")
 
 	err = context.DeadlineExceeded
-	c.Assert(Hint(err), ErrorMatches, "Cilium API client timeout exceeded")
+	require.ErrorContains(t, Hint(err), "Cilium API client timeout exceeded")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
@@ -43,17 +34,15 @@ func (cs *ClientTestSuite) TestHint(c *C) {
 	<-ctx.Done()
 	err = ctx.Err()
 
-	c.Assert(Hint(err), ErrorMatches, "Cilium API client timeout exceeded")
+	require.ErrorContains(t, Hint(err), "Cilium API client timeout exceeded")
 }
 
-func (cs *ClientTestSuite) TestClusterReadiness(c *C) {
-	c.Assert(clusterReadiness(&models.RemoteCluster{Ready: true}), Equals, "ready")
-	c.Assert(clusterReadiness(&models.RemoteCluster{Ready: false}), Equals, "not-ready")
+func TestClusterReadiness(t *testing.T) {
+	require.Equal(t, "ready", clusterReadiness(&models.RemoteCluster{Ready: true}))
+	require.Equal(t, "not-ready", clusterReadiness(&models.RemoteCluster{Ready: false}))
 }
 
-func (cs *ClientTestSuite) TestNumReadyClusters(c *C) {
-	c.Assert(NumReadyClusters(nil), Equals, 0)
-	c.Assert(NumReadyClusters(
-		[]*models.RemoteCluster{{Ready: true}, {Ready: true}, {Ready: false}},
-	), Equals, 2)
+func TestNumReadyClusters(t *testing.T) {
+	require.Equal(t, 0, NumReadyClusters(nil))
+	require.Equal(t, 2, NumReadyClusters([]*models.RemoteCluster{{Ready: true}, {Ready: true}, {Ready: false}}))
 }
