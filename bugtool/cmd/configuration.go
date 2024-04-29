@@ -483,6 +483,17 @@ func k8sCommands(allCommands []string, pods []string) []string {
 		fmt.Sprintf("kubectl get cm cilium-config -n %s", k8sNamespace),
 	}
 
+	if len(pods) == 0 {
+		return append(allCommands, commands...)
+	}
+
+	commands = append(commands, k8sPerPodCommands(allCommands, pods)...)
+	return append(commands, k8sPodInfo(pods)...)
+}
+
+func k8sPerPodCommands(allCommands []string, pods []string) []string {
+	commands := make([]string, 0, len(pods)*len(allCommands))
+
 	// Prepare to run all the commands inside of the pod(s)
 	for _, pod := range pods {
 		for _, cmd := range allCommands {
@@ -497,7 +508,16 @@ func k8sCommands(allCommands []string, pods []string) []string {
 			}
 			commands = append(commands, cmd)
 		}
+	}
 
+	return commands
+}
+
+func k8sPodInfo(pods []string) []string {
+	// get current logs, previous logs and describe for each pod
+	commands := make([]string, 0, len(pods)*3)
+
+	for _, pod := range pods {
 		// Retrieve current version of pod logs
 		cmd := fmt.Sprintf("kubectl -n %s logs --timestamps %s", k8sNamespace, pod)
 		commands = append(commands, cmd)
@@ -508,11 +528,6 @@ func k8sCommands(allCommands []string, pods []string) []string {
 
 		cmd = fmt.Sprintf("kubectl -n %s describe pod %s", k8sNamespace, pod)
 		commands = append(commands, cmd)
-	}
-
-	if len(pods) == 0 {
-		allCommands = append(allCommands, commands...)
-		return allCommands
 	}
 
 	return commands
