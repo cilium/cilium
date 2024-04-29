@@ -402,14 +402,16 @@ func xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
 // conflicting XFRM state. This function removes the conflicting state and
 // prepares a defer callback to re-add it with proper logging.
 func xfrmTemporarilyRemoveState(scopedLog *logrus.Entry, state netlink.XfrmState, dir string) (error, func()) {
+	start := time.Now()
 	if err := netlink.XfrmStateDel(&state); err != nil {
 		return err, nil
 	}
-	scopedLog.Infof("Temporarily removed old XFRM %s state", dir)
 	return nil, func() {
 		if err := netlink.XfrmStateAdd(&state); err != nil {
 			scopedLog.WithError(err).Errorf("Failed to re-add old XFRM %s state", dir)
 		}
+		elapsed := time.Since(start)
+		scopedLog.WithField(logfields.Duration, elapsed).Infof("Temporarily removed old XFRM %s state", dir)
 	}
 }
 
