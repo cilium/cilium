@@ -515,6 +515,9 @@
         "disableExternalIPMitigation": {
           "type": "boolean"
         },
+        "enableTCX": {
+          "type": "boolean"
+        },
         "events": {
           "properties": {
             "drop": {
