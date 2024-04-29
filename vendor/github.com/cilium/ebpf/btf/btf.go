@@ -90,23 +90,7 @@ func (mt *mutableTypes) add(typ Type, typeIDs map[Type]TypeID) Type {
 	mt.mu.Lock()
 	defer mt.mu.Unlock()
 
-	return modifyGraphPreorder(typ, func(t Type) (Type, bool) {
-		cpy, ok := mt.copies[t]
-		if ok {
-			// This has been copied previously, no need to continue.
-			return cpy, false
-		}
-
-		cpy = t.copy()
-		mt.copies[t] = cpy
-
-		if id, ok := typeIDs[t]; ok {
-			mt.copiedTypeIDs[cpy] = id
-		}
-
-		// This is a new copy, keep copying children.
-		return cpy, true
-	})
+	return copyType(typ, typeIDs, mt.copies, mt.copiedTypeIDs)
 }
 
 // copy a set of mutable types.
@@ -122,17 +106,14 @@ func (mt *mutableTypes) copy() mutableTypes {
 	mt.mu.RLock()
 	defer mt.mu.RUnlock()
 
-	copies := make(map[Type]Type, len(mt.copies))
+	copiesOfCopies := make(map[Type]Type, len(mt.copies))
 	for orig, copy := range mt.copies {
 		// NB: We make a copy of copy, not orig, so that changes to mutable types
 		// are preserved.
-		copyOfCopy := mtCopy.add(copy, mt.copiedTypeIDs)
-		copies[orig] = copyOfCopy
+		copyOfCopy := copyType(copy, mt.copiedTypeIDs, copiesOfCopies, mtCopy.copiedTypeIDs)
+		mtCopy.copies[orig] = copyOfCopy
 	}
 
-	// mtCopy.copies is currently map[copy]copyOfCopy, replace it with
-	// map[orig]copyOfCopy.
-	mtCopy.copies = copies
 	return mtCopy
 }
 
@@ -582,7 +563,7 @@ func (s *Spec) TypeByID(id TypeID) (Type, error) {
 
 // TypeID returns the ID for a given Type.
 //
-// Returns an error wrapping ErrNoFound if the type isn't part of the Spec.
+// Returns an error wrapping [ErrNotFound] if the type isn't part of the Spec.
 func (s *Spec) TypeID(typ Type) (TypeID, error) {
 	return s.mutableTypes.typeID(typ)
 }

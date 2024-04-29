@@ -37,6 +37,11 @@ type ModifyNetworkInterfaceAttributeInput struct {
 	// This member is required.
 	NetworkInterfaceId *string
 
+	// Indicates whether to assign a public IPv4 address to a network interface. This
+	// option can be enabled for any network interface but will only apply to the
+	// primary network interface (eth0).
+	AssociatePublicIpAddress *bool
+
 	// Information about the interface attachment. If modifying the delete on
 	// termination attribute, you must specify the ID of the interface attachment.
 	Attachment *types.NetworkInterfaceAttachmentChanges
