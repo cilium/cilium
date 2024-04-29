@@ -156,7 +156,7 @@ type Test struct {
 	conditionFn func() bool
 
 	// List of functions to be called when Run() returns.
-	finalizers []func() error
+	finalizers []func(ctx context.Context) error
 }
 
 func (t *Test) String() string {
@@ -217,7 +217,7 @@ func (t *Test) setup(ctx context.Context) error {
 			return fmt.Errorf("installing static routes: %w", err)
 		}
 
-		t.finalizers = append(t.finalizers, func() error {
+		t.finalizers = append(t.finalizers, func(context.Context) error {
 			return t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "del")
 		})
 	}
@@ -290,11 +290,11 @@ func (t *Test) willRun() (bool, string) {
 
 // finalize runs all the Test's registered finalizers.
 // Failures encountered executing finalizers will fail the Test.
-func (t *Test) finalize() {
+func (t *Test) finalize(ctx context.Context) {
 	t.Debug("Finalizing Test", t.Name())
 
 	for _, f := range t.finalizers {
-		if err := f(); err != nil {
+		if err := f(ctx); err != nil {
 			t.Failf("Error finalizing '%s': %s", t.Name(), err)
 		}
 	}
@@ -311,7 +311,7 @@ func (t *Test) Run(ctx context.Context, index int) error {
 	// in which case this function executes as normal.
 	defer func() {
 		// Run all the Test's registered finalizers.
-		t.finalize()
+		t.finalize(ctx)
 	}()
 
 	if len(t.scenarios) == 0 {
@@ -792,7 +792,7 @@ func (t *Test) WithSetupFunc(f SetupFunc) *Test {
 }
 
 // WithFinalizer registers a finalizer to be executed when Run() returns.
-func (t *Test) WithFinalizer(f func() error) *Test {
+func (t *Test) WithFinalizer(f func(context.Context) error) *Test {
 	t.finalizers = append(t.finalizers, f)
 	return t
 }
