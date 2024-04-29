@@ -4,7 +4,9 @@
 package config
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type formatTestCase struct {
@@ -12,7 +14,7 @@ type formatTestCase struct {
 	output string
 }
 
-func (s *ConfigSuite) TestdefineIPv6(c *C) {
+func TestDefineIPv6(t *testing.T) {
 	tests := []formatTestCase{
 		{
 			input:  nil,
@@ -34,11 +36,11 @@ func (s *ConfigSuite) TestdefineIPv6(c *C) {
 	}
 
 	for _, test := range tests {
-		c.Assert(defineIPv6("foo", test.input), Equals, test.output)
+		require.Equal(t, test.output, defineIPv6("foo", test.input))
 	}
 }
 
-func (s *ConfigSuite) TestdefineMAC(c *C) {
+func TestDefineMAC(t *testing.T) {
 	tests := []formatTestCase{
 		{
 			input:  nil,
@@ -59,6 +61,6 @@ func (s *ConfigSuite) TestdefineMAC(c *C) {
 		},
 	}
 	for _, test := range tests {
-		c.Assert(defineMAC("foo", test.input), Equals, test.output)
+		require.Equal(t, test.output, defineMAC("foo", test.input))
 	}
 }
