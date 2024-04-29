@@ -11,20 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type LabelsSuite struct{}
-
-var _ = Suite(&LabelsSuite{})
 
 var (
 	// Elements are sorted by the key
@@ -74,24 +63,24 @@ func TestNewFrom(t *testing.T) {
 	}
 }
 
-func (s *LabelsSuite) TestSortMap(c *C) {
+func TestSortMap(t *testing.T) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
 	sortedMap := lbls.SortedList()
-	c.Assert(sortedMap, checker.DeepEquals, []byte(lblsString))
+	require.EqualValues(t, []byte(lblsString), sortedMap)
 }
 
-func (s *LabelsSuite) TestLabelArraySorted(c *C) {
+func TestLabelArraySorted(t *testing.T) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
 	str := ""
 	for _, l := range lbls.LabelArray() {
 		str += fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
 	}
-	c.Assert(str, checker.DeepEquals, lblsString)
+	require.EqualValues(t, lblsString, str)
 }
 
-func (s *LabelsSuite) TestMap2Labels(c *C) {
+func TestMap2Labels(t *testing.T) {
 	m := Map2Labels(map[string]string{
 		"k8s:foo":  "bar",
 		"k8s:foo2": "=bar2",
@@ -101,10 +90,10 @@ func (s *LabelsSuite) TestMap2Labels(c *C) {
 		`//=/`:     "",
 		`%`:        `%ed`,
 	}, LabelSourceUnspec)
-	c.Assert(m, checker.DeepEquals, lbls)
+	require.EqualValues(t, lbls, m)
 }
 
-func (s *LabelsSuite) TestMergeLabels(c *C) {
+func TestMergeLabels(t *testing.T) {
 	to := Labels{
 		"key1": NewLabel("key1", "value1", "source1"),
 		"key2": NewLabel("key2", "value3", "source4"),
@@ -118,10 +107,10 @@ func (s *LabelsSuite) TestMergeLabels(c *C) {
 	}
 	to.MergeLabels(from)
 	from["key1"] = NewLabel("key1", "changed", "source4")
-	c.Assert(to, checker.DeepEquals, want)
+	require.EqualValues(t, want, to)
 }
 
-func (s *LabelsSuite) TestParseLabel(c *C) {
+func TestParseLabel(t *testing.T) {
 	tests := []struct {
 		str string
 		out Label
@@ -148,7 +137,7 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 	}
 	for _, test := range tests {
 		lbl := ParseLabel(test.str)
-		c.Assert(lbl, checker.DeepEquals, test.out)
+		require.EqualValues(t, test.out, lbl)
 	}
 }
 
@@ -188,7 +177,7 @@ func BenchmarkParseLabel(b *testing.B) {
 	}
 }
 
-func (s *LabelsSuite) TestParseSelectLabel(c *C) {
+func TestParseSelectLabel(t *testing.T) {
 	tests := []struct {
 		str string
 		out Label
@@ -212,11 +201,11 @@ func (s *LabelsSuite) TestParseSelectLabel(c *C) {
 	}
 	for _, test := range tests {
 		lbl := ParseSelectLabel(test.str)
-		c.Assert(lbl, checker.DeepEquals, test.out)
+		require.EqualValues(t, test.out, lbl)
 	}
 }
 
-func (s *LabelsSuite) TestLabel(c *C) {
+func TestLabel(t *testing.T) {
 	var label Label
 
 	longLabel := `{"source": "kubernetes", "key": "io.kubernetes.pod.name", "value": "foo"}`
@@ -224,41 +213,41 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	shortLabel := `"web"`
 
 	err := json.Unmarshal([]byte(longLabel), &label)
-	c.Assert(err, Equals, nil)
-	c.Assert(label.Source, Equals, "kubernetes")
-	c.Assert(label.Value, Equals, "foo")
+	require.Equal(t, nil, err)
+	require.Equal(t, "kubernetes", label.Source)
+	require.Equal(t, "foo", label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(invLabel), &label)
-	c.Assert(err, Not(Equals), nil)
+	require.NotEqual(t, nil, err)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(shortLabel), &label)
-	c.Assert(err, Equals, nil)
-	c.Assert(label.Source, Equals, LabelSourceUnspec)
-	c.Assert(label.Value, Equals, "")
+	require.Equal(t, nil, err)
+	require.Equal(t, LabelSourceUnspec, label.Source)
+	require.Equal(t, "", label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(""), &label)
-	c.Assert(err, Not(Equals), nil)
+	require.NotEqual(t, nil, err)
 }
 
-func (s *LabelsSuite) TestLabelCompare(c *C) {
+func TestLabelCompare(t *testing.T) {
 	a1 := NewLabel(".", "", "")
 	a2 := NewLabel(".", "", "")
 	b1 := NewLabel("bar", "", LabelSourceUnspec)
 	c1 := NewLabel("bar", "", "kubernetes")
 	d1 := NewLabel("", "", "")
 
-	c.Assert(a1.Equals(&a2), Equals, true)
-	c.Assert(a2.Equals(&a1), Equals, true)
-	c.Assert(a1.Equals(&b1), Equals, false)
-	c.Assert(a1.Equals(&c1), Equals, false)
-	c.Assert(a1.Equals(&d1), Equals, false)
-	c.Assert(b1.Equals(&c1), Equals, false)
+	require.Equal(t, true, a1.Equals(&a2))
+	require.Equal(t, true, a2.Equals(&a1))
+	require.Equal(t, false, a1.Equals(&b1))
+	require.Equal(t, false, a1.Equals(&c1))
+	require.Equal(t, false, a1.Equals(&d1))
+	require.Equal(t, false, b1.Equals(&c1))
 }
 
-func (s *LabelsSuite) TestLabelParseKey(c *C) {
+func TestLabelParseKey(t *testing.T) {
 	tests := []struct {
 		str string
 		out string
@@ -283,11 +272,11 @@ func (s *LabelsSuite) TestLabelParseKey(c *C) {
 	}
 	for _, test := range tests {
 		lbl := GetExtendedKeyFrom(test.str)
-		c.Assert(lbl, checker.DeepEquals, test.out)
+		require.EqualValues(t, test.out, lbl)
 	}
 }
 
-func (s *LabelsSuite) TestLabelsCompare(c *C) {
+func TestLabelsCompare(t *testing.T) {
 	la11 := NewLabel("a", "1", "src1")
 	la12 := NewLabel("a", "1", "src2")
 	la22 := NewLabel("a", "2", "src2")
@@ -300,18 +289,18 @@ func (s *LabelsSuite) TestLabelsCompare(c *C) {
 	lblsLa22 := Labels{la22.Key: la22}
 	lblsLb22 := Labels{lb22.Key: lb22}
 
-	c.Assert(lblsAll.Equals(lblsAll), Equals, true)
-	c.Assert(lblsAll.Equals(lblsFewer), Equals, false)
-	c.Assert(lblsFewer.Equals(lblsAll), Equals, false)
-	c.Assert(lblsLa11.Equals(lblsLa12), Equals, false)
-	c.Assert(lblsLa12.Equals(lblsLa11), Equals, false)
-	c.Assert(lblsLa12.Equals(lblsLa22), Equals, false)
-	c.Assert(lblsLa22.Equals(lblsLa12), Equals, false)
-	c.Assert(lblsLa22.Equals(lblsLb22), Equals, false)
-	c.Assert(lblsLb22.Equals(lblsLa22), Equals, false)
+	require.Equal(t, true, lblsAll.Equals(lblsAll))
+	require.Equal(t, false, lblsAll.Equals(lblsFewer))
+	require.Equal(t, false, lblsFewer.Equals(lblsAll))
+	require.Equal(t, false, lblsLa11.Equals(lblsLa12))
+	require.Equal(t, false, lblsLa12.Equals(lblsLa11))
+	require.Equal(t, false, lblsLa12.Equals(lblsLa22))
+	require.Equal(t, false, lblsLa22.Equals(lblsLa12))
+	require.Equal(t, false, lblsLa22.Equals(lblsLb22))
+	require.Equal(t, false, lblsLb22.Equals(lblsLa22))
 }
 
-func (s *LabelsSuite) TestLabelsK8sStringMap(c *C) {
+func TestLabelsK8sStringMap(t *testing.T) {
 	laKa1 := NewLabel("a", "1", LabelSourceK8s)
 	laUa1 := NewLabel("a", "1", LabelSourceUnspec)
 	laCa2 := NewLabel("a", "2", LabelSourceContainer)
@@ -329,15 +318,15 @@ func (s *LabelsSuite) TestLabelsK8sStringMap(c *C) {
 	lblsAll := Labels{laKa1.Key: laKa1, laUa1.Key: laUa1, laCa2.Key: laCa2, lbAb2.Key: lbAb2, lbRb2.Key: lbRb2}
 	lblsFewer := Labels{laKa1.Key: laKa1, laCa2.Key: laCa2, lbAb2.Key: lbAb2, lbRb2.Key: lbRb2}
 
-	c.Assert(lblsKa1.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
-	c.Assert(lblsUa1.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
-	c.Assert(lblsCa2.K8sStringMap(), checker.Equals, map[string]string{"container.a": "2"})
-	c.Assert(lblsNa3.K8sStringMap(), checker.Equals, map[string]string{"cni.a": "3"})
-	c.Assert(lblsAb2.K8sStringMap(), checker.Equals, map[string]string{"b": "2"})
-	c.Assert(lblsRb2.K8sStringMap(), checker.Equals, map[string]string{"reserved.b": "2"})
-	c.Assert(lblsOverlap.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
+	require.Equal(t, map[string]string{"a": "1"}, lblsKa1.K8sStringMap())
+	require.Equal(t, map[string]string{"a": "1"}, lblsUa1.K8sStringMap())
+	require.Equal(t, map[string]string{"container.a": "2"}, lblsCa2.K8sStringMap())
+	require.Equal(t, map[string]string{"cni.a": "3"}, lblsNa3.K8sStringMap())
+	require.Equal(t, map[string]string{"b": "2"}, lblsAb2.K8sStringMap())
+	require.Equal(t, map[string]string{"reserved.b": "2"}, lblsRb2.K8sStringMap())
+	require.Equal(t, map[string]string{"a": "1"}, lblsOverlap.K8sStringMap())
 
-	c.Assert(lblsFewer.K8sStringMap(), checker.Equals, lblsAll.K8sStringMap())
+	require.Equal(t, lblsAll.K8sStringMap(), lblsFewer.K8sStringMap())
 
 	// Unfortunately Labels key does not contain the source, which
 	// makes the last entry with the same key, but maybe from
@@ -346,7 +335,7 @@ func (s *LabelsSuite) TestLabelsK8sStringMap(c *C) {
 	// label insertion order. In this example, "a" from container
 	// overwrites "a" from K8s and "a" from Unspec, and "b" from
 	// reserved overwrites "b" from any.
-	c.Assert(lblsAll.K8sStringMap(), checker.Equals, map[string]string{"container.a": "2", "reserved.b": "2"})
+	require.Equal(t, map[string]string{"container.a": "2", "reserved.b": "2"}, lblsAll.K8sStringMap())
 }
 
 func TestLabels_Has(t *testing.T) {
