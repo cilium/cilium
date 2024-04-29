@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/prometheus/procfs"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -393,6 +394,18 @@ func xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
 // conflicting XFRM state. This function removes the conflicting state and
 // prepares a defer callback to re-add it with proper logging.
 func xfrmTemporarilyRemoveState(scopedLog *logrus.Entry, state netlink.XfrmState, dir string) (error, func()) {
+	stats, err := procfs.NewXfrmStat()
+	errorCnt := 0
+	if err != nil {
+		log.WithError(err).Error("Error while getting XFRM stats before state removal")
+	} else {
+		if dir == "IN" {
+			errorCnt = stats.XfrmInNoStates
+		} else {
+			errorCnt = stats.XfrmOutNoStates
+		}
+	}
+
 	start := time.Now()
 	if err := netlink.XfrmStateDel(&state); err != nil {
 		return err, nil
@@ -402,7 +415,19 @@ func xfrmTemporarilyRemoveState(scopedLog *logrus.Entry, state netlink.XfrmState
 			scopedLog.WithError(err).Errorf("Failed to re-add old XFRM %s state", dir)
 		}
 		elapsed := time.Since(start)
-		scopedLog.WithField(logfields.Duration, elapsed).Infof("Temporarily removed old XFRM %s state", dir)
+
+		stats, err := procfs.NewXfrmStat()
+		if err != nil {
+			log.WithError(err).Error("Error while getting XFRM stats after state removal")
+			errorCnt = 0
+		} else {
+			if dir == "IN" {
+				errorCnt = stats.XfrmInNoStates - errorCnt
+			} else {
+				errorCnt = stats.XfrmOutNoStates - errorCnt
+			}
+		}
+		scopedLog.WithField(logfields.Duration, elapsed).Infof("Temporarily removed old XFRM %s state (%d packets dropped)", dir, errorCnt)
 	}
 }
 
