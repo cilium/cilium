@@ -6,22 +6,13 @@ package policy
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type PolicyTestSuite struct{}
-
-var _ = Suite(&PolicyTestSuite{})
-
-func (ds *PolicyTestSuite) TestSearchContextString(c *C) {
+func TestSearchContextString(t *testing.T) {
 	for expected, sc := range map[string]SearchContext{
 		"From: [unspec:a, unspec:b, unspec:c] => To: [unspec:d, unspec:e, unspec:f] Ports: [HTTP/TCP, HTTPs/TCP]": {
 			Trace: 1,
@@ -68,7 +59,7 @@ func (ds *PolicyTestSuite) TestSearchContextString(c *C) {
 		},
 	} {
 		str := sc.String()
-		c.Assert(str, Equals, expected)
+		require.Equal(t, expected, str)
 	}
 }
 
@@ -80,7 +71,7 @@ func BenchmarkSearchContextString(b *testing.B) {
 			{
 				Trace: 1,
 				Depth: 0,
-				From:  labels.ParseLabelArray("a", "c", "b"),
+				From:  labels.ParseLabelArray("a", "t", "b"),
 				To:    labels.ParseLabelArray("d", "e", "f"),
 				DPorts: []*models.Port{
 					{
@@ -99,7 +90,7 @@ func BenchmarkSearchContextString(b *testing.B) {
 			{
 				Trace: 1,
 				Depth: 0,
-				From:  labels.ParseLabelArray("a", "c", "b"),
+				From:  labels.ParseLabelArray("a", "t", "b"),
 				To:    labels.ParseLabelArray("d", "e", "f"),
 				DPorts: []*models.Port{
 					{
