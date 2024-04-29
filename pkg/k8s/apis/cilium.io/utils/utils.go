@@ -140,6 +140,11 @@ func parseToCiliumIngressCommonRule(namespace string, es api.EndpointSelector, i
 		copy(retRule.FromEntities, ing.FromEntities)
 	}
 
+	if ing.FromGroups != nil {
+		retRule.FromGroups = make([]api.Groups, len(ing.FromGroups))
+		copy(retRule.FromGroups, ing.FromGroups)
+	}
+
 	return retRule
 }
 
