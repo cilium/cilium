@@ -199,11 +199,18 @@ func runTool() {
 
 	k8sPods := getVerifyCiliumPods()
 
-	var commands []string
+	commands := defaultCommands(confDir, cmdDir, k8sPods)
+
 	if dryRunMode {
-		dryRun(configPath, k8sPods, confDir, cmdDir)
+		dryRun(configPath, commands)
 		fmt.Fprintf(os.Stderr, "Configuration file at %s\n", configPath)
 		return
+	}
+
+	// Check if there is a non-empty user supplied configuration
+	if config, _ := loadConfigFile(configPath); config != nil && len(config.Commands) > 0 {
+		// All of of the commands run are from the configuration file
+		commands = config.Commands
 	}
 
 	if getPProf {
@@ -231,17 +238,7 @@ func runTool() {
 			}
 		}
 
-		// Check if there is a user supplied configuration
-		if config, _ := loadConfigFile(configPath); config != nil {
-			// All of of the commands run are from the configuration file
-			commands = config.Commands
-		}
-		if len(commands) == 0 {
-			// Found no configuration file or empty so fall back to default commands.
-			commands = defaultCommands(confDir, cmdDir, k8sPods)
-		}
 		defer printDisclaimer()
-
 		runAll(commands, cmdDir, k8sPods)
 
 		if excludeObjectFiles {
@@ -276,9 +273,8 @@ func runTool() {
 
 // dryRun creates the configuration file to show the user what would have been run.
 // The same file can be used to modify what will be run by the bugtool.
-func dryRun(configPath string, k8sPods []string, confDir, cmdDir string) {
-	_, err := setupDefaultConfig(configPath, k8sPods, confDir, cmdDir)
-	if err != nil {
+func dryRun(configPath string, commands []string) {
+	if err := save(&BugtoolConfiguration{commands}, configPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s", err)
 		os.Exit(1)
 	}
