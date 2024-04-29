@@ -51,6 +51,10 @@ var DevicesControllerCell = cell.Module(
 		tables.NewDeviceTable,
 		tables.NewRouteTable,
 	),
+	cell.Invoke(
+		statedb.RegisterTable[*tables.Device],
+		statedb.RegisterTable[*tables.Route],
+	),
 
 	cell.Provide(
 		newDevicesController,
@@ -98,7 +102,7 @@ type devicesControllerParams struct {
 
 	Config      DevicesConfig
 	Log         logrus.FieldLogger
-	DB          *statedb.DB
+	DB          statedb.Handle
 	DeviceTable statedb.RWTable[*tables.Device]
 	RouteTable  statedb.RWTable[*tables.Route]
 
@@ -123,10 +127,6 @@ type devicesController struct {
 }
 
 func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route]) {
-	p.DB.RegisterTable(
-		p.DeviceTable,
-		p.RouteTable,
-	)
 	dc := &devicesController{
 		params:          p,
 		initialized:     make(chan struct{}),
