@@ -13,28 +13,19 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-type ELFTestSuite struct{}
-
-var _ = Suite(&ELFTestSuite{})
-
-func (s *ELFTestSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
+func setup(tb testing.TB) {
+	testutils.IntegrationTest(tb)
 }
 
 var baseObjPath = filepath.Join("..", "..", "test", "bpf", "elf-demo.o")
 
 const elfObjCopy = "elf-demo-copy.o"
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 func hash(path string) ([]byte, error) {
 	f, err := os.Open(path)
@@ -69,37 +60,37 @@ func compareFiles(path1, path2 string) error {
 	return nil
 }
 
-func (s *ELFTestSuite) TestWrite(c *C) {
+func TestWrite(t *testing.T) {
+	setup(t)
+
 	tmpDir, err := os.MkdirTemp("", "cilium_")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	elf, err := Open(baseObjPath)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer elf.Close()
 
-	validOptions := IsNil
-	notValidOptions := Not(validOptions)
 	type testOption struct {
 		description  string
 		key          string
 		kind         symbolKind
 		intValue     uint64
 		strValue     string
-		elfValid     Checker
+		wantErr      bool
 		elfChangeErr error
 	}
 	testOptions := []testOption{
 		{
 			description: "test direct copy",
-			elfValid:    validOptions,
+			wantErr:     false,
 		},
 		{
 			description:  "test constant substitution 1",
 			key:          "FOO",
 			kind:         symbolData,
 			intValue:     42,
-			elfValid:     validOptions,
+			wantErr:      false,
 			elfChangeErr: errDifferentFiles,
 		},
 		{
@@ -107,7 +98,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 			key:          "BAR",
 			kind:         symbolData,
 			intValue:     42,
-			elfValid:     validOptions,
+			wantErr:      false,
 			elfChangeErr: errDifferentFiles,
 		},
 		{
@@ -115,7 +106,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 			key:          "test_cilium_calls_4278124286",
 			kind:         symbolString,
 			strValue:     "test_cilium_calls_0000000042",
-			elfValid:     validOptions,
+			wantErr:      false,
 			elfChangeErr: errDifferentFiles,
 		},
 		{
@@ -123,7 +114,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 			key:         "test_cilium_calls_4278124286",
 			kind:        symbolString,
 			strValue:    "test_cilium_calls_00",
-			elfValid:    notValidOptions,
+			wantErr:     true,
 		},
 	}
 
@@ -133,7 +124,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 			key:          fmt.Sprintf("GLOBAL_IPV6_%d", i),
 			kind:         symbolData,
 			intValue:     42,
-			elfValid:     validOptions,
+			wantErr:      false,
 			elfChangeErr: errDifferentFiles,
 		})
 	}
@@ -144,13 +135,13 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 			key:          fmt.Sprintf("LOCAL_MAC_%d", i),
 			kind:         symbolData,
 			intValue:     42,
-			elfValid:     validOptions,
+			wantErr:      false,
 			elfChangeErr: errDifferentFiles,
 		})
 	}
 
 	for i, test := range testOptions {
-		c.Logf("%s", test.description)
+		t.Logf("%s", test.description)
 
 		// Create the copy of the ELF with an optional substitution
 		intOptions := make(map[string]uint64)
@@ -163,34 +154,34 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		}
 		objectCopy := filepath.Join(tmpDir, fmt.Sprintf("%d_%s", i, elfObjCopy))
 		err = elf.Write(objectCopy, intOptions, strOptions)
-		c.Assert(err, test.elfValid)
-		if test.elfValid == notValidOptions {
+		require.True(t, test.wantErr == (err != nil), "unexpected error: %v", err)
+		if test.wantErr {
 			continue
 		}
 
 		// Ensure the ELF can be parsed by the loader.
 		_, err := ebpf.LoadCollectionSpec(objectCopy)
-		c.Assert(err, IsNil)
+		require.NoError(t, err)
 
 		err = compareFiles(baseObjPath, objectCopy)
-		c.Assert(err, Equals, test.elfChangeErr)
+		require.Equal(t, test.elfChangeErr, err)
 
 		// Test that the written ELF matches expectations
 		modifiedElf, err := Open(objectCopy)
-		c.Assert(err, IsNil)
+		require.NoError(t, err)
 		defer modifiedElf.Close()
 
 		switch test.kind {
 		case symbolData:
 			value, err := modifiedElf.readOption(test.key)
-			c.Assert(err, IsNil)
-			c.Assert(value, Equals, test.intValue)
+			require.NoError(t, err)
+			require.Equal(t, test.intValue, value)
 		case symbolString:
 			err := modifiedElf.findString(test.strValue)
-			c.Assert(err, IsNil)
+			require.NoError(t, err)
 		default:
 			_, err = modifiedElf.readOption("unknown")
-			c.Assert(err, NotNil)
+			require.Error(t, err)
 		}
 		modifiedElf.Close()
 	}
@@ -198,6 +189,8 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 
 // BenchmarkWriteELF benchmarks writing a very simple elf demo program.
 func BenchmarkWriteELF(b *testing.B) {
+	setup(b)
+
 	tmpDir, err := os.MkdirTemp("", "cilium_")
 	if err != nil {
 		b.Fatal(err)
