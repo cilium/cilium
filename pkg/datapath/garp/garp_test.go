@@ -10,34 +10,25 @@ import (
 	"net/netip"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/mdlayher/arp"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type garpSuite struct{}
-
-var _ = Suite(&garpSuite{})
-
-func (s *garpSuite) TestGARPCell(c *C) {
-	testutils.PrivilegedTest(c)
+func TestGARPCell(t *testing.T) {
+	testutils.PrivilegedTest(t)
 
 	testIfaceName := "lo"
 	testGARPCell := func(garpSender Sender) error {
 		s, _ := garpSender.(*sender)
-		c.Assert(s, NotNil)
-		c.Assert(s.iface.Name, Equals, testIfaceName)
+		require.NotNil(t, s)
+		require.Equal(t, testIfaceName, s.iface.Name)
 
-		c.Logf("iface: %+v", s.iface)
+		t.Logf("iface: %+v", s.iface)
 
 		// Here we just want to make sure that the Send method works,
 		// not that the gratuitous arp actually appears as expected. To
@@ -50,7 +41,7 @@ func (s *garpSuite) TestGARPCell(c *C) {
 			return nil
 		}
 
-		c.Fatal(err)
+		t.Fatal(err)
 		return nil
 	}
 
@@ -64,7 +55,7 @@ func (s *garpSuite) TestGARPCell(c *C) {
 	))
 	hive.AddConfigOverride(h, func(cfg *Config) { cfg.L2PodAnnouncementsInterface = testIfaceName })
 
-	if err := h.Populate(hivetest.Logger(c)); err != nil {
-		c.Fatalf("Failed to populate: %s", err)
+	if err := h.Populate(hivetest.Logger(t)); err != nil {
+		t.Fatalf("Failed to populate: %s", err)
 	}
 }

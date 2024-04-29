@@ -7,21 +7,11 @@ import (
 	"sort"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
-
-// Hook up gocheck into the "go test" runner.
-type MapTestSuite struct{}
-
-var _ = Suite(&MapTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 type testEPManager struct {
 	endpoints       map[uint16]struct{}
@@ -63,7 +53,7 @@ func newTestBWManager() types.BandwidthManager {
 	return &fakeTypes.BandwidthManager{}
 }
 
-func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
+func TestCollectStaleMapGarbage(t *testing.T) {
 
 	testCases := []struct {
 		name            string
@@ -191,22 +181,23 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 	}
 
 	for _, tt := range testCases {
-		c.Log(tt.name)
-		testEPManager := newTestEPManager()
-		bwManager := newTestBWManager()
-		sweeper := NewMapSweeper(testEPManager, bwManager)
+		t.Run(tt.name, func(t *testing.T) {
+			testEPManager := newTestEPManager()
+			bwManager := newTestBWManager()
+			sweeper := NewMapSweeper(testEPManager, bwManager)
 
-		for _, ep := range tt.endpoints {
-			testEPManager.addEndpoint(ep)
-		}
-		for _, path := range tt.paths {
-			err := sweeper.walk(path, nil, nil)
-			c.Assert(err, IsNil)
-		}
-		sort.Strings(tt.removedPaths)
-		sort.Strings(testEPManager.removedPaths)
-		sort.Ints(tt.removedMappings)
-		sort.Ints(testEPManager.removedMappings)
-		c.Assert(testEPManager.removedPaths, checker.DeepEquals, tt.removedPaths)
+			for _, ep := range tt.endpoints {
+				testEPManager.addEndpoint(ep)
+			}
+			for _, path := range tt.paths {
+				err := sweeper.walk(path, nil, nil)
+				require.Nil(t, err)
+			}
+			sort.Strings(tt.removedPaths)
+			sort.Strings(testEPManager.removedPaths)
+			sort.Ints(tt.removedMappings)
+			sort.Ints(testEPManager.removedMappings)
+			require.EqualValues(t, tt.removedPaths, testEPManager.removedPaths)
+		})
 	}
 }
