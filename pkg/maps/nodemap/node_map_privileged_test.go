@@ -7,34 +7,26 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-type NodeMapTestSuite struct{}
-
-var _ = Suite(&NodeMapTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (k *NodeMapTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setupNodeMapSuite(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+	require.Nil(tb, err)
 }
 
-func (k *NodeMapTestSuite) TestNodeMap(c *C) {
+func TestNodeMap(t *testing.T) {
+	setupNodeMapSuite(t)
 	nodeMap := newMap("test_cilium_node_map", defaultConfig)
 	err := nodeMap.init()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	defer nodeMap.bpfMap.Unpin()
 
 	bpfNodeIDMap := map[uint16]string{}
@@ -47,24 +39,24 @@ func (k *NodeMapTestSuite) TestNodeMap(c *C) {
 	}
 
 	err = nodeMap.IterateWithCallback(toMap)
-	c.Assert(err, IsNil)
-	c.Assert(bpfNodeIDMap, HasLen, 0)
+	require.Nil(t, err)
+	require.Equal(t, 0, len(bpfNodeIDMap))
 
 	err = nodeMap.Update(net.ParseIP("10.1.0.0"), 10)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	err = nodeMap.Update(net.ParseIP("10.1.0.1"), 20)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	err = nodeMap.IterateWithCallback(toMap)
-	c.Assert(err, IsNil)
-	c.Assert(bpfNodeIDMap, HasLen, 2)
+	require.Nil(t, err)
+	require.Equal(t, 2, len(bpfNodeIDMap))
 
 	err = nodeMap.Delete(net.ParseIP("10.1.0.0"))
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	err = nodeMap.IterateWithCallback(toMap)
-	c.Assert(err, IsNil)
-	c.Assert(bpfNodeIDMap, HasLen, 1)
+	require.Nil(t, err)
+	require.Equal(t, 1, len(bpfNodeIDMap))
 }

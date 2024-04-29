@@ -6,117 +6,96 @@ package policymap
 import (
 	"errors"
 	"os"
+	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var testMap = newMap("cilium_policy_test")
-
-type PolicyMapPrivilegedTestSuite struct {
-	teardown func() error
-}
-
-var _ = Suite(&PolicyMapPrivilegedTestSuite{})
-
-func (pm *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
+	testutils.PrivilegedTest(tb)
 
 	bpf.CheckOrMountFS("")
 
 	if err := rlimit.RemoveMemlock(); err != nil {
-		c.Fatal(err)
+		tb.Fatal(err)
 	}
+
+	testMap := newMap("cilium_policy_test")
 
 	_ = os.RemoveAll(bpf.MapPath("cilium_policy_test"))
-	if err := testMap.OpenOrCreate(); err != nil {
-		c.Fatal("Failed to create map:", err)
-	}
+	err := testMap.CreateUnpinned()
+	require.NoError(tb, err)
 
-	pm.teardown = func() error {
-		testMap.Close()
+	tb.Cleanup(func() {
+		err := testMap.DeleteAll()
+		require.NoError(tb, err)
+	})
 
-		path, err := testMap.Path()
-		if err != nil {
-			return err
-		}
-
-		return os.Remove(path)
-	}
+	return testMap
 }
 
-func (pm *PolicyMapPrivilegedTestSuite) TearDownSuite(c *C) {
-	if pm.teardown != nil {
-		if err := pm.teardown(); err != nil {
-			c.Fatal(err)
-		}
-	}
-}
-
-func (pm *PolicyMapPrivilegedTestSuite) TearDownTest(c *C) {
-	testMap.DeleteAll()
-}
-
-func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
-	c.Assert(testMap, NotNil)
+func TestPolicyMapDumpToSlice(t *testing.T) {
+	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
 	fooEntry := newKey(1, 1, 1, 1)
 	err := testMap.AllowKey(fooEntry, 0, 0)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	dump, err := testMap.DumpToSlice()
-	c.Assert(err, IsNil)
-	c.Assert(len(dump), Equals, 1)
+	require.Nil(t, err)
+	require.Equal(t, 1, len(dump))
 
-	c.Assert(dump[0].Key, checker.DeepEquals, fooEntry)
+	require.EqualValues(t, fooEntry, dump[0].Key)
 
 	// Special case: allow-all entry
 	barEntry := newKey(0, 0, 0, 0)
 	err = testMap.AllowKey(barEntry, 0, 0)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	dump, err = testMap.DumpToSlice()
-	c.Assert(err, IsNil)
-	c.Assert(len(dump), Equals, 2)
+	require.Nil(t, err)
+	require.Equal(t, 2, len(dump))
 }
 
-func (pm *PolicyMapPrivilegedTestSuite) TestDeleteNonexistentKey(c *C) {
+func TestDeleteNonexistentKey(t *testing.T) {
+	testMap := setupPolicyMapPrivilegedTestSuite(t)
+
 	key := newKey(27, 80, u8proto.TCP, trafficdirection.Ingress)
 	err := testMap.Map.Delete(&key)
-	c.Assert(err, Not(IsNil))
+	require.NotNil(t, err)
 	var errno unix.Errno
-	c.Assert(errors.As(err, &errno), Equals, true)
-	c.Assert(errno, Equals, unix.ENOENT)
+	require.Equal(t, true, errors.As(err, &errno))
+	require.Equal(t, unix.ENOENT, errno)
 }
 
-func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
-	c.Assert(testMap, NotNil)
+func TestDenyPolicyMapDumpToSlice(t *testing.T) {
+	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
 	fooKey := newKey(1, 1, 1, 1)
 	fooEntry := newDenyEntry(fooKey)
 	err := testMap.DenyKey(fooKey)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	dump, err := testMap.DumpToSlice()
-	c.Assert(err, IsNil)
-	c.Assert(len(dump), Equals, 1)
+	require.Nil(t, err)
+	require.Equal(t, 1, len(dump))
 
-	c.Assert(dump[0].Key, checker.DeepEquals, fooKey)
-	c.Assert(dump[0].PolicyEntry, checker.DeepEquals, fooEntry)
+	require.EqualValues(t, fooKey, dump[0].Key)
+	require.EqualValues(t, fooEntry, dump[0].PolicyEntry)
 
 	// Special case: deny-all entry
 	barKey := newKey(0, 0, 0, 0)
 	err = testMap.DenyKey(barKey)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	dump, err = testMap.DumpToSlice()
-	c.Assert(err, IsNil)
-	c.Assert(len(dump), Equals, 2)
+	require.Nil(t, err)
+	require.Equal(t, 2, len(dump))
 }
