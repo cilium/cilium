@@ -11,10 +11,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -67,8 +66,8 @@ var testConfigurationCRD = &option.DaemonConfig{
 	IPAM:                    ipamOption.IPAMCRD,
 }
 
-func newFakeNodeStore(conf *option.DaemonConfig, c *C) *nodeStore {
-	t, err := trigger.NewTrigger(trigger.Parameters{
+func newFakeNodeStore(conf *option.DaemonConfig, t *testing.T) *nodeStore {
+	tr, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "fake-crd-allocator-node-refresher",
 		MinInterval: 3 * time.Second,
 		TriggerFunc: func(reasons []string) {},
@@ -80,12 +79,12 @@ func newFakeNodeStore(conf *option.DaemonConfig, c *C) *nodeStore {
 		allocators:         []*crdAllocator{},
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
-		refreshTrigger:     t,
+		refreshTrigger:     tr,
 	}
 	return store
 }
 
-func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
+func TestMarkForReleaseNoAllocate(t *testing.T) {
 	cn := newCiliumNode("node1", 4, 4, 0)
 	dummyResource := ipamTypes.AllocationIP{Resource: "foo"}
 	for i := 1; i <= 4; i++ {
@@ -95,7 +94,7 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	conf := testConfigurationCRD
 	initNodeStore.Do(func() {
-		sharedNodeStore = newFakeNodeStore(conf, c)
+		sharedNodeStore = newFakeNodeStore(conf, t)
 		sharedNodeStore.ownNode = cn
 	})
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
@@ -106,7 +105,7 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 	for i := 1; i <= 3; i++ {
 		epipv4 := netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))
 		_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), fmt.Sprintf("test%d", i), PoolDefault())
-		c.Assert(err, IsNil)
+		require.Nil(t, err)
 	}
 
 	// Update 1.1.1.4 as marked for release like operator would.
@@ -114,13 +113,13 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 	// Attempts to allocate 1.1.1.4 should fail, since it's already marked for release
 	epipv4 := netip.MustParseAddr("1.1.1.4")
 	_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), "test", PoolDefault())
-	c.Assert(err, NotNil)
+	require.Error(t, err)
 	// Call agent's CRD update function. status for 1.1.1.4 should change from marked for release to ready for release
 	sharedNodeStore.updateLocalNodeResource(cn)
-	c.Assert(string(cn.Status.IPAM.ReleaseIPs["1.1.1.4"]), checker.Equals, ipamOption.IPAMReadyForRelease)
+	require.Equal(t, ipamOption.IPAMReadyForRelease, string(cn.Status.IPAM.ReleaseIPs["1.1.1.4"]))
 
 	// Verify that 1.1.1.3 is denied for release, since it's already in use
 	cn.Status.IPAM.ReleaseIPs["1.1.1.3"] = ipamOption.IPAMMarkForRelease
 	sharedNodeStore.updateLocalNodeResource(cn)
-	c.Assert(string(cn.Status.IPAM.ReleaseIPs["1.1.1.3"]), checker.Equals, ipamOption.IPAMDoNotRelease)
+	require.Equal(t, ipamOption.IPAMDoNotRelease, string(cn.Status.IPAM.ReleaseIPs["1.1.1.3"]))
 }
