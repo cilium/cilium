@@ -24,10 +24,11 @@ var Cell = cell.Module(
 type serviceManagerParams struct {
 	cell.In
 
-	Datapath     types.Datapath
-	MonitorAgent monitorAgent.Agent
+	NodeNeighbors types.NodeNeighbors
+	Datapath      types.Datapath
+	MonitorAgent  monitorAgent.Agent
 }
 
 func newServiceManager(params serviceManagerParams) ServiceManager {
-	return NewService(params.MonitorAgent, params.Datapath.LBMap(), params.Datapath.NodeNeighbors())
+	return NewService(params.MonitorAgent, params.Datapath.LBMap(), params.NodeNeighbors)
 }

@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -85,7 +84,6 @@ type linuxNodeHandler struct {
 
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 	enableEncapsulation    func(node *nodeTypes.Node) bool
-	nodeNeighborQueue      datapath.NodeNeighborEnqueuer
 }
 
 var (
@@ -99,14 +97,13 @@ var (
 func NewNodeHandler(
 	tunnelConfig dpTunnel.Config,
 	nodeMap nodemap.MapV2,
-	nodeManager manager.NodeManager,
 ) (datapath.NodeHandler, datapath.NodeIDHandler, datapath.NodeNeighbors) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(datapathConfig, nodeMap, nodeManager)
+	handler := newNodeHandler(datapathConfig, nodeMap)
 	return handler, handler, handler
 }
 
@@ -115,7 +112,6 @@ func NewNodeHandler(
 func newNodeHandler(
 	datapathConfig DatapathConfiguration,
 	nodeMap nodemap.MapV2,
-	nbq datapath.NodeNeighborEnqueuer,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		datapathConfig:         datapathConfig,
@@ -132,7 +128,6 @@ func newNodeHandler(
 		nodeIPsByIDs:           map[uint16]string{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
-		nodeNeighborQueue:      nbq,
 		ipsecUpdateNeeded:      map[nodeTypes.Identity]bool{},
 	}
 }
@@ -879,7 +874,8 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 }
 
 func (n *linuxNodeHandler) InsertMiscNeighbor(newNode *nodeTypes.Node) {
-	n.nodeNeighborQueue.Enqueue(newNode, false)
+	// FIXME how should this work
+	n.insertNeighbor(context.TODO(), newNode, false)
 }
 
 func (n *linuxNodeHandler) deleteNeighborCommon(nextHopStr string) {
@@ -970,11 +966,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	if n.nodeConfig.EnableIPSec {
 		errs = errors.Join(errs, n.enableIPsec(oldNode, newNode, remoteNodeID))
 		newKey = newNode.EncryptionKey
-	}
-
-	if n.enableNeighDiscovery && !newNode.IsLocal() {
-		// If neighbor discovery is enabled, enqueue the request so we can monitor/report call health.
-		n.nodeNeighborQueue.Enqueue(newNode, false)
 	}
 
 	// Local node update
