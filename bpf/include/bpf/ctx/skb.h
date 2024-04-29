@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_CTX_SKB_H_
-#define __BPF_CTX_SKB_H_
+#pragma once
 
 #define __section_entry __section("tc")
 
@@ -153,5 +152,3 @@ ctx_get_ingress_ifindex(const struct __sk_buff *ctx)
 {
 	return ctx->ingress_ifindex;
 }
-
-#endif /* __BPF_CTX_SKB_H_ */

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_HELPERS__
-#define __BPF_HELPERS__
+#pragma once
 
 #include <linux/bpf.h>
 
@@ -112,5 +111,3 @@ static inline int try_set_retval(int retval __maybe_unused)
 	return 0;
 #endif
 }
-
-#endif /* __BPF_HELPERS__ */

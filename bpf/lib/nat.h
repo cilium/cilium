@@ -2,8 +2,7 @@
 /* Copyright Authors of Cilium */
 
 /* Simple NAT engine in BPF. */
-#ifndef __LIB_NAT__
-#define __LIB_NAT__
+#pragma once
 
 #include <linux/icmp.h>
 #include <linux/tcp.h>
@@ -1723,5 +1722,3 @@ snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
 	return false;
 }
 #endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
-
-#endif /* __LIB_NAT__ */

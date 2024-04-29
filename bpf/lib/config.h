@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
-#ifndef _H_LIB_CONFIG_H_
-#define _H_LIB_CONFIG_H_
+
+#pragma once
 
 /* Subset of kernel's include/linux/kconfig.h */
 
@@ -14,5 +14,3 @@
 #define is_defined(option)           __is_defined(option)
 
 #define __must_check		     __attribute__((warn_unused_result))
-
-#endif /* _H_LIB_CONFIG_H_ */

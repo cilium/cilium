@@ -22,8 +22,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#ifndef _LINUX_IF_ARP_H
-#define _LINUX_IF_ARP_H
+#pragma once
 
 #include <linux/types.h>
 
@@ -133,6 +132,3 @@ struct arphdr {
 #endif
 
 };
-
-
-#endif /* _LINUX_IF_ARP_H */

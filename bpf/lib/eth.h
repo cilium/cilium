@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_ETH__
-#define __LIB_ETH__
+#pragma once
 
 #include <linux/if_ether.h>
 
@@ -115,5 +114,3 @@ static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
 	return ctx_store_bytes(ctx, off + ETH_ALEN + ETH_ALEN,
 			       &proto, sizeof(proto), 0);
 }
-
-#endif /* __LIB_ETH__ */

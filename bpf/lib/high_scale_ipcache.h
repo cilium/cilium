@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_HIGH_SCALE_IPCACHE_H_
-#define __LIB_HIGH_SCALE_IPCACHE_H_
+#pragma once
 
 #include "maps.h"
 
@@ -133,4 +132,3 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	return ctx_redirect(ctx, ENCAP_IFINDEX, BPF_F_INGRESS);
 }
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
-#endif /* __LIB_HIGH_SCALE_IPCACHE_H_ */

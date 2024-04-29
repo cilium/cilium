@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_IPV4__
-#define __LIB_IPV4__
+#pragma once
 
 #include <linux/ip.h>
 
@@ -195,5 +194,3 @@ ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
 
 	return CTX_ACT_OK;
 }
-
-#endif /* __LIB_IPV4__ */

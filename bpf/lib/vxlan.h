@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_VXLAN_H_
-#define __LIB_VXLAN_H_
+#pragma once
 
 #include <linux/in.h>
 #include <linux/ip.h>
@@ -109,5 +108,3 @@ vxlan_rewrite_vni(void *ctx, const void *data, const void *data_end,
 
 	return true;
 }
-
-#endif /* __LIB_VXLAN_H_ */

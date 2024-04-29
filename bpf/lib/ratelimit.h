@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __RATELIMIT_H_
-#define __RATELIMIT_H_
+#pragma once
 
 #include "common.h"
 #include "bpf/helpers.h"
@@ -83,5 +82,3 @@ static inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 
 	return false;
 }
-
-#endif

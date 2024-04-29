@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_IDENTITY_H_
-#define __LIB_IDENTITY_H_
+#pragma once
 
 #include "dbg.h"
 
@@ -244,5 +243,3 @@ static __always_inline bool identity_is_local(__u32 identity)
 {
 	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
 }
-
-#endif

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_ENCAP_H_
-#define __LIB_ENCAP_H_
+#pragma once
 
 #include "common.h"
 #include "dbg.h"
@@ -256,4 +255,3 @@ set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 }
 #endif
 #endif /* HAVE_ENCAP */
-#endif /* __LIB_ENCAP_H_ */

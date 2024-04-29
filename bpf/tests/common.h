@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef ____BPF_TEST_COMMON____
-#define ____BPF_TEST_COMMON____
+#pragma once
 
 #include <linux/types.h>
 #include <linux/bpf.h>
@@ -276,5 +275,3 @@ test_result_cursor = 0;
 	} \
 	assert(sum == count); \
 })
-
-#endif /* ____BPF_TEST_COMMON____ */
