@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright Authors of the Linux kernel */
-#ifndef _LINUX_ICMPV6_H
-#define _LINUX_ICMPV6_H
+#pragma once
 
 #include <linux/types.h>
 #include <linux/in6.h>
@@ -163,6 +162,3 @@ struct icmp6_filter {
 #define MLD2_BLOCK_OLD_SOURCES	6
 
 #define MLD2_ALL_MCR_INIT { { { 0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0x16 } } }
-
-
-#endif /* _LINUX_ICMPV6_H */

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_TIME_H_
-#define __LIB_TIME_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -26,5 +25,3 @@
 	({ __u64 __x = (j) / KERNEL_HZ; __x; })
 #define bpf_sec_to_jiffies(s)	\
 	({ __u64 __x = (s) * KERNEL_HZ; __x; })
-
-#endif /* __LIB_TIME_H_ */

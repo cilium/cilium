@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __HASH_H_
-#define __HASH_H_
+#pragma once
 
 #include "common.h"
 #include "jhash.h"
@@ -33,5 +32,3 @@ static __always_inline __u32 hash_from_tuple_v6(const struct ipv6_ct_tuple *tupl
 	__jhash_final(a, b, c);
 	return c;
 }
-
-#endif /* __HASH_H_ */

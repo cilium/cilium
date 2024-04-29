@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
-#ifndef _H_LIB_CLUSTERMESH_H_
-#define _H_LIB_CLUSTERMESH_H_
+
+#pragma once
+
 #include "lib/utils.h"
 
 #define CLUSTER_ID_LOWER_MASK 0x000000FF
@@ -44,5 +45,3 @@ get_mark_magic_cluster_id_mask()
 {
 	return CLUSTER_ID_LOWER_MASK | get_cluster_id_upper_mask();
 }
-
-#endif

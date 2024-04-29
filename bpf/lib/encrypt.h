@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_ENCRYPT_H_
-#define __LIB_ENCRYPT_H_
+#pragma once
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -288,5 +287,3 @@ do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPSEC */
-#endif /* __LIB_ENCRYPT_H_ */
-

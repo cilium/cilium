@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_EGRESS_GATEWAY_H_
-#define __LIB_EGRESS_GATEWAY_H_
+#pragma once
 
 #include "lib/fib.h"
 #include "lib/identity.h"
@@ -257,4 +256,3 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 }
 
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
-#endif /* __LIB_EGRESS_GATEWAY_H_ */

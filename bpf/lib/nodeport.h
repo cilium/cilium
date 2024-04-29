@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __NODEPORT_H_
-#define __NODEPORT_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -3364,4 +3363,3 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
 }
 
 #endif /* ENABLE_NODEPORT */
-#endif /* __NODEPORT_H_ */

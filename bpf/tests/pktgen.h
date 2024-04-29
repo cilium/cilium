@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __TEST_PKTGEN__
-#define __TEST_PKTGEN__
+#pragma once
 
 #include <bpf/compiler.h>
 #include <bpf/builtins.h>
@@ -1086,5 +1085,3 @@ void pktgen__finish(const struct pktgen *builder)
 		}
 	}
 };
-
-#endif /* __TEST_PKTGEN__ */

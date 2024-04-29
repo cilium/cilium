@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_PROXY_H_
-#define __LIB_PROXY_H_
+#pragma once
 
 #include "conntrack.h"
 
@@ -385,4 +384,3 @@ static __always_inline bool tc_index_from_egress_proxy(struct __ctx_buff *ctx)
 
 	return tc_index & TC_INDEX_F_FROM_EGRESS_PROXY;
 }
-#endif /* __LIB_PROXY_H_ */

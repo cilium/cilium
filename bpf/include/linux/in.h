@@ -17,8 +17,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#ifndef _LINUX_IN_H
-#define _LINUX_IN_H
+#pragma once
 
 #include <linux/types.h>
 
@@ -208,5 +207,3 @@ struct in_addr {
 #define INADDR_ALLHOSTS_GROUP 	0xe0000001U	/* 224.0.0.1   */
 #define INADDR_ALLRTRS_GROUP    0xe0000002U	/* 224.0.0.2 */
 #define INADDR_MAX_LOCAL_GROUP  0xe00000ffU	/* 224.0.0.255 */
-
-#endif /* _LINUX_IN_H */

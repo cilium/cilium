@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifdef ENABLE_WIREGUARD
+#pragma once
 
-#ifndef __WIREGUARD_H_
-#define __WIREGUARD_H_
+#ifdef ENABLE_WIREGUARD
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -213,7 +212,5 @@ strict_allow(struct __ctx_buff *ctx) {
 }
 
 #endif /* ENCRYPTION_STRICT_MODE */
-
-#endif /* __WIREGUARD_H_ */
 
 #endif /* ENABLE_WIREGUARD */

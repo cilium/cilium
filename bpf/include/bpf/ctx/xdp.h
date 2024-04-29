@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_CTX_XDP_H_
-#define __BPF_CTX_XDP_H_
+#pragma once
 
 #include <linux/if_ether.h>
 #include <linux/byteorder.h>
@@ -457,4 +456,3 @@ ctx_get_ingress_ifindex(const struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;
 }
-#endif /* __BPF_CTX_XDP_H_ */

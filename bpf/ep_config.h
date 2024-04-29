@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#pragma once
+
 /*
  * This is just a dummy header with dummy values to allow for test
  * compilation without the full code generation engine backend.
  */
 #include "lib/utils.h"
-
-#ifndef ___EP_CONFIG____
-#define ___EP_CONFIG____
 
 DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
 
@@ -58,5 +57,3 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0
-
-#endif
