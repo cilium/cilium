@@ -126,73 +126,72 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"tc qdisc show",
 	}
 
-	if bpffsMountpoint := bpffsMountpoint(); bpffsMountpoint != "" {
-		commands = append(commands, []string{
-			// LB and CT map for debugging services; using bpftool for a reliable dump
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_auth_map", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_call_policy", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_calls_overlay_2", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_calls_xdp", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_capture_cache", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_runtime_config", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lxc", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_metrics", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_tunnel_map", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ktime_cache", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ipcache", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_events", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_signals", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_capture4_rules", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_capture6_rules", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_nodeport_neigh4", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_nodeport_neigh6", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_node_map", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_node_map_v2", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_source_range", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_source_range", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_maglev", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_maglev", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_health", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_reverse_sk", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_health", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_reverse_sk", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ipmasq_v4", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ipmasq_v6", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ipv4_frag_datagrams", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_throttle", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_encrypt_state", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_egress_gw_policy_v4", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_vrf_v4", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_vrf_v6", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_policy_v4", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_policy_v6", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_state_v4", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_state_v6", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_sid", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_services_v2", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_backends_v2", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_backends_v3", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_backends", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_reverse_nat", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ct4_global", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ct_any4_global", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_affinity", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_affinity", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb_affinity_match", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_services_v2", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_backends_v2", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_backends_v3", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_backends", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb6_reverse_nat", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ct6_global", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ct_any6_global", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_snat_v4_external", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_snat_v6_external", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_vtep_map", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_l2_responder_v4", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ratelimit", bpffsMountpoint),
-		}...)
+	// LB and CT map for debugging services; using bpftool for a reliable dump
+	bpfMapsPath := []string{
+		"tc/globals/cilium_auth_map",
+		"tc/globals/cilium_call_policy",
+		"tc/globals/cilium_calls_overlay_2",
+		"tc/globals/cilium_calls_xdp",
+		"tc/globals/cilium_capture_cache",
+		"tc/globals/cilium_runtime_config",
+		"tc/globals/cilium_lxc",
+		"tc/globals/cilium_metrics",
+		"tc/globals/cilium_tunnel_map",
+		"tc/globals/cilium_ktime_cache",
+		"tc/globals/cilium_ipcache",
+		"tc/globals/cilium_events",
+		"tc/globals/cilium_signals",
+		"tc/globals/cilium_capture4_rules",
+		"tc/globals/cilium_capture6_rules",
+		"tc/globals/cilium_nodeport_neigh4",
+		"tc/globals/cilium_nodeport_neigh6",
+		"tc/globals/cilium_node_map",
+		"tc/globals/cilium_node_map_v2",
+		"tc/globals/cilium_lb4_source_range",
+		"tc/globals/cilium_lb6_source_range",
+		"tc/globals/cilium_lb4_maglev",
+		"tc/globals/cilium_lb6_maglev",
+		"tc/globals/cilium_lb6_health",
+		"tc/globals/cilium_lb6_reverse_sk",
+		"tc/globals/cilium_lb4_health",
+		"tc/globals/cilium_lb4_reverse_sk",
+		"tc/globals/cilium_ipmasq_v4",
+		"tc/globals/cilium_ipmasq_v6",
+		"tc/globals/cilium_ipv4_frag_datagrams",
+		"tc/globals/cilium_throttle",
+		"tc/globals/cilium_encrypt_state",
+		"tc/globals/cilium_egress_gw_policy_v4",
+		"tc/globals/cilium_srv6_vrf_v4",
+		"tc/globals/cilium_srv6_vrf_v6",
+		"tc/globals/cilium_srv6_policy_v4",
+		"tc/globals/cilium_srv6_policy_v6",
+		"tc/globals/cilium_srv6_state_v4",
+		"tc/globals/cilium_srv6_state_v6",
+		"tc/globals/cilium_srv6_sid",
+		"tc/globals/cilium_lb4_services_v2",
+		"tc/globals/cilium_lb4_backends_v2",
+		"tc/globals/cilium_lb4_backends_v3",
+		"tc/globals/cilium_lb4_backends",
+		"tc/globals/cilium_lb4_reverse_nat",
+		"tc/globals/cilium_ct4_global",
+		"tc/globals/cilium_ct_any4_global",
+		"tc/globals/cilium_lb4_affinity",
+		"tc/globals/cilium_lb6_affinity",
+		"tc/globals/cilium_lb_affinity_match",
+		"tc/globals/cilium_lb6_services_v2",
+		"tc/globals/cilium_lb6_backends_v2",
+		"tc/globals/cilium_lb6_backends_v3",
+		"tc/globals/cilium_lb6_backends",
+		"tc/globals/cilium_lb6_reverse_nat",
+		"tc/globals/cilium_ct6_global",
+		"tc/globals/cilium_ct_any6_global",
+		"tc/globals/cilium_snat_v4_external",
+		"tc/globals/cilium_snat_v6_external",
+		"tc/globals/cilium_vtep_map",
+		"tc/globals/cilium_l2_responder_v4",
+		"tc/globals/cilium_ratelimit",
 	}
+	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
 
 	cgroup2fsMounts := cgroup2fsMounts()
 	for i := range cgroup2fsMounts {
@@ -226,6 +225,20 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	commands = append(commands, "cat -u /proc/net/xfrm_stat")
 
 	return k8sCommands(commands, k8sPods)
+}
+
+func bpfMapDumpCommands(mapPaths []string) []string {
+	bpffsMountpoint := bpffsMountpoint()
+	if bpffsMountpoint == "" {
+		return nil
+	}
+
+	commands := make([]string, 0, len(mapPaths))
+	for _, mapPath := range mapPaths {
+		commands = append(commands, "bpftool map dump pinned "+filepath.Join(bpffsMountpoint, mapPath))
+	}
+
+	return commands
 }
 
 func save(c *BugtoolConfiguration, path string) error {
