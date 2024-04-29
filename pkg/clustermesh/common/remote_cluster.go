@@ -146,6 +146,29 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
 					rc.makeEtcdOpts(), &extraOpts)
 
+				// Block until either an error is returned or
+				// the channel is closed due to success of the
+				// connection
+				rc.logger.Debugf("Waiting for connection to be established")
+
+				var err error
+				select {
+				case err = <-errChan:
+				case err = <-clusterLock.errors:
+				}
+
+				if err != nil {
+					if backend != nil {
+						backend.Close(ctx)
+					}
+					rc.logger.WithError(err).Warning("Unable to establish etcd connection to remote cluster")
+					return err
+				}
+
+				rc.mutex.Lock()
+				rc.backend = backend
+				rc.mutex.Unlock()
+
 				ctx, cancel := context.WithCancel(ctx)
 				rc.wg.Add(1)
 				go func() {
@@ -153,24 +176,6 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					cancel()
 					rc.wg.Done()
 				}()
-
-				// Block until either an error is returned or
-				// the channel is closed due to success of the
-				// connection
-				rc.logger.Debugf("Waiting for connection to be established")
-				err, isErr := <-errChan
-				if isErr {
-					if backend != nil {
-						backend.Close(ctx)
-					}
-					rc.logger.WithError(err).Warning("Unable to establish etcd connection to remote cluster")
-					cancel()
-					return err
-				}
-
-				rc.mutex.Lock()
-				rc.backend = backend
-				rc.mutex.Unlock()
 
 				rc.logger.WithField(logfields.EtcdClusterID, clusterLock.etcdClusterID.Load()).Info("Connection to remote cluster established")
 
