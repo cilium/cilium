@@ -391,6 +391,9 @@ const (
 	// EnableXDPPrefilter enables XDP-based prefiltering
 	EnableXDPPrefilter = "enable-xdp-prefilter"
 
+	// EnableTCX enables attaching endpoint programs using tcx if the kernel supports it
+	EnableTCX = "enable-tcx"
+
 	ProcFs = "procfs"
 
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
@@ -1367,6 +1370,7 @@ type DaemonConfig struct {
 	LBDevInheritIPAddr  string   // Device which IP addr used by bpf_host devices
 	EnableXDPPrefilter  bool     // Enable XDP-based prefiltering
 	XDPMode             string   // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	EnableTCX           bool     // Enable attaching endpoint programs using tcx if the kernel supports it
 	HostV4Addr          net.IP   // Host v4 address of the snooping device
 	HostV6Addr          net.IP   // Host v6 address of the snooping device
 	EncryptInterface    []string // Set of network facing interface to encrypt over
@@ -2930,6 +2934,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.WireguardPersistentKeepalive = vp.GetDuration(WireguardPersistentKeepalive)
 	c.EnableWellKnownIdentities = vp.GetBool(EnableWellKnownIdentities)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
+	c.EnableTCX = vp.GetBool(EnableTCX)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.EgressMasqueradeInterfaces = strings.Join(c.MasqueradeInterfaces, ",")

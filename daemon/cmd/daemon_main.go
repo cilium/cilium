@@ -705,6 +705,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
 	option.BindEnv(vp, option.EnableXDPPrefilter)
 
+	flags.Bool(option.EnableTCX, true, "Attach endpoint programs using tcx if supported by the kernel")
+	option.BindEnv(vp, option.EnableTCX)
+
 	flags.Bool(option.PreAllocateMapsName, defaults.PreAllocateMaps, "Enable BPF map pre-allocation")
 	option.BindEnv(vp, option.PreAllocateMapsName)
 
