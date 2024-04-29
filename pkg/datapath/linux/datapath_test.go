@@ -6,18 +6,10 @@ package linux
 import (
 	"testing"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type linuxTestSuite struct{}
-
-var _ = check.Suite(&linuxTestSuite{})
-
-func (s *linuxTestSuite) TestNewDatapath(c *check.C) {
+func TestNewDatapath(t *testing.T) {
 	dp := NewDatapath(DatapathParams{})
-	c.Assert(dp, check.Not(check.IsNil))
+	require.NotNil(t, dp)
 }

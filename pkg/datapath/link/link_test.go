@@ -6,25 +6,19 @@ package link
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type LinkSuite struct{}
-
-var _ = Suite(&LinkSuite{})
-
-func (s *LinkSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setup(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 }
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
+func TestDeleteByName(t *testing.T) {
+	setup(t)
 
-func (s *LinkSuite) TestDeleteByName(c *C) {
 	testCases := []struct {
 		name   string
 		create bool
@@ -41,14 +35,16 @@ func (s *LinkSuite) TestDeleteByName(c *C) {
 					Name: tc.name,
 				},
 			})
-			c.Assert(err, IsNil)
+			require.Nil(t, err)
 		}
 
-		c.Assert(DeleteByName(tc.name), IsNil)
+		require.Nil(t, DeleteByName(tc.name))
 	}
 }
 
-func (s *LinkSuite) TestRename(c *C) {
+func TestRename(t *testing.T) {
+	setup(t)
+
 	testCases := []struct {
 		curName     string
 		newName     string
@@ -77,14 +73,14 @@ func (s *LinkSuite) TestRename(c *C) {
 					Name: tc.curName,
 				},
 			})
-			c.Assert(err, IsNil)
+			require.Nil(t, err)
 		}
 
 		err = Rename(tc.curName, tc.newName)
 		if tc.expectError {
-			c.Assert(err, NotNil)
+			require.Error(t, err)
 		} else {
-			c.Assert(err, IsNil)
+			require.Nil(t, err)
 		}
 
 		DeleteByName(tc.newName)
