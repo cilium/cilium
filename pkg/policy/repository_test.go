@@ -9,12 +9,12 @@ import (
 	stdlog "log"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
+func TestComputePolicyEnforcementAndRules(t *testing.T) {
 
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
@@ -140,83 +140,83 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	combinedRule.Sanitize()
 
 	ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no rules are in repository"))
-	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no rules are in repository"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
+	require.Equal(t, false, ing, "ingress policy enforcement should not apply since no rules are in repository")
+	require.Equal(t, false, egr, "egress policy enforcement should not apply since no rules are in repository")
+	require.EqualValues(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
 	_, _, err := repo.Add(fooIngressRule1)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
-	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
-	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressRule1, Commentf("returned matching rules did not match"))
+	require.Equal(t, true, ing, "ingress policy enforcement should apply since ingress rule selects")
+	require.Equal(t, false, egr, "egress policy enforcement should not apply since no egress rules select")
+	require.EqualValues(t, fooIngressRule1, matchingRules[0].Rule, "returned matching rules did not match")
 
 	_, _, err = repo.Add(fooIngressRule2)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
-	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
-	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressRule1, Commentf("returned matching rules did not match"))
-	c.Assert(matchingRules[1].Rule, checker.DeepEquals, fooIngressRule2, Commentf("returned matching rules did not match"))
+	require.Equal(t, true, ing, "ingress policy enforcement should apply since ingress rule selects")
+	require.Equal(t, false, egr, "egress policy enforcement should not apply since no egress rules select")
+	require.EqualValues(t, fooIngressRule1, matchingRules[0].Rule, "returned matching rules did not match")
+	require.EqualValues(t, fooIngressRule2, matchingRules[1].Rule, "returned matching rules did not match")
 
 	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
-	c.Assert(numDeleted, Equals, 1)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.Equal(t, 1, numDeleted)
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
-	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
-	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressRule2, Commentf("returned matching rules did not match"))
+	require.Equal(t, true, ing, "ingress policy enforcement should apply since ingress rule selects")
+	require.Equal(t, false, egr, "egress policy enforcement should not apply since no egress rules select")
+	require.EqualValues(t, fooIngressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label})
-	c.Assert(numDeleted, Equals, 1)
+	require.Equal(t, 1, numDeleted)
 
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no rules are in repository"))
-	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no rules are in repository"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
+	require.Equal(t, false, ing, "ingress policy enforcement should not apply since no rules are in repository")
+	require.Equal(t, false, egr, "egress policy enforcement should not apply since no rules are in repository")
+	require.EqualValues(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
 	_, _, err = repo.Add(fooEgressRule1)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no ingress rules select"))
-	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules select"))
-	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooEgressRule1, Commentf("returned matching rules did not match"))
+	require.Equal(t, false, ing, "ingress policy enforcement should not apply since no ingress rules select")
+	require.Equal(t, true, egr, "egress policy enforcement should apply since egress rules select")
+	require.EqualValues(t, fooEgressRule1, matchingRules[0].Rule, "returned matching rules did not match")
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
-	c.Assert(numDeleted, Equals, 1)
+	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.Add(fooEgressRule2)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no ingress rules select"))
-	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules select"))
-	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooEgressRule2, Commentf("returned matching rules did not match"))
+	require.Equal(t, false, ing, "ingress policy enforcement should not apply since no ingress rules select")
+	require.Equal(t, true, egr, "egress policy enforcement should apply since egress rules select")
+	require.EqualValues(t, fooEgressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label})
-	c.Assert(numDeleted, Equals, 1)
+	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.Add(combinedRule)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
-	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules selects"))
-	c.Assert(matchingRules[0].Rule, checker.DeepEquals, combinedRule, Commentf("returned matching rules did not match"))
+	require.Equal(t, true, ing, "ingress policy enforcement should apply since ingress rule selects")
+	require.Equal(t, true, egr, "egress policy enforcement should apply since egress rules selects")
+	require.EqualValues(t, combinedRule, matchingRules[0].Rule, "returned matching rules did not match")
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{combinedLabel})
-	c.Assert(numDeleted, Equals, 1)
+	require.Equal(t, 1, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
-	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules selects"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
+	require.Equal(t, true, ing, "ingress policy enforcement should apply since ingress rule selects")
+	require.Equal(t, true, egr, "egress policy enforcement should apply since egress rules selects")
+	require.EqualValues(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
 	SetPolicyEnabled(option.NeverEnforce)
 	_, _, err = repo.Add(combinedRule)
-	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
-	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since policy enforcement is disabled "))
-	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since policy enforcement is disabled"))
-	c.Assert(matchingRules, IsNil, Commentf("no rules should be returned since policy enforcement is disabled"))
+	require.Equal(t, false, ing, "ingress policy enforcement should not apply since policy enforcement is disabled ")
+	require.Equal(t, false, egr, "egress policy enforcement should not apply since policy enforcement is disabled")
+	require.Nil(t, matchingRules, "no rules should be returned since policy enforcement is disabled")
 
 	// Test init identity.
 
@@ -225,31 +225,31 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	// endpoints with the reserved:init label. If no policy rules match
 	// reserved:init, this drops all ingress and egress traffic.
 	ingress, egress, matchingRules := repo.computePolicyEnforcementAndRules(initIdentity)
-	c.Assert(ingress, Equals, true)
-	c.Assert(egress, Equals, true)
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("no rules should be returned since policy enforcement is disabled"))
+	require.Equal(t, true, ingress)
+	require.Equal(t, true, egress)
+	require.EqualValues(t, ruleSlice{}, matchingRules, "no rules should be returned since policy enforcement is disabled")
 
 	// Check that the "always" and "never" modes are not affected.
 	SetPolicyEnabled(option.AlwaysEnforce)
 	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
-	c.Assert(ingress, Equals, true)
-	c.Assert(egress, Equals, true)
+	require.Equal(t, true, ingress)
+	require.Equal(t, true, egress)
 
 	SetPolicyEnabled(option.NeverEnforce)
 	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
-	c.Assert(ingress, Equals, false)
-	c.Assert(egress, Equals, false)
+	require.Equal(t, false, ingress)
+	require.Equal(t, false, egress)
 
 }
 
-func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
+func TestAddSearchDelete(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	// cannot add empty rule
 	rev, _, err := repo.Add(api.Rule{})
-	c.Assert(err, Not(IsNil))
-	c.Assert(rev, Equals, uint64(1))
+	require.NotNil(t, err)
+	require.Equal(t, uint64(1), rev)
 
 	lbls1 := labels.LabelArray{
 		labels.ParseLabel("tag1"),
@@ -274,60 +274,60 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	nextRevision := uint64(1)
 
-	c.Assert(repo.GetRevision(), Equals, nextRevision)
+	require.Equal(t, nextRevision, repo.GetRevision())
 	nextRevision++
 
 	// add rule1,rule2
 	rev, _, err = repo.Add(rule1)
-	c.Assert(err, IsNil)
-	c.Assert(rev, Equals, nextRevision)
+	require.Nil(t, err)
+	require.Equal(t, nextRevision, rev)
 	nextRevision++
 	rev, _, err = repo.Add(rule2)
-	c.Assert(err, IsNil)
-	c.Assert(rev, Equals, nextRevision)
+	require.Nil(t, err)
+	require.Equal(t, nextRevision, rev)
 	nextRevision++
 
 	// rule3 should not be in there yet
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{})
+	require.EqualValues(t, api.Rules{}, repo.SearchRLocked(lbls2))
 	repo.Mutex.RUnlock()
 
 	// add rule3
 	rev, _, err = repo.Add(rule3)
-	c.Assert(err, IsNil)
-	c.Assert(rev, Equals, nextRevision)
+	require.Nil(t, err)
+	require.Equal(t, nextRevision, rev)
 	nextRevision++
 
 	// search rule1,rule2
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls1), checker.DeepEquals, api.Rules{&rule1, &rule2})
-	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{&rule3})
+	require.EqualValues(t, api.Rules{&rule1, &rule2}, repo.SearchRLocked(lbls1))
+	require.EqualValues(t, api.Rules{&rule3}, repo.SearchRLocked(lbls2))
 	repo.Mutex.RUnlock()
 
 	// delete rule1, rule2
 	rev, n := repo.DeleteByLabels(lbls1)
-	c.Assert(n, Equals, 2)
-	c.Assert(rev, Equals, nextRevision)
+	require.Equal(t, 2, n)
+	require.Equal(t, nextRevision, rev)
 	nextRevision++
 
 	// delete rule1, rule2 again has no effect
 	rev, n = repo.DeleteByLabels(lbls1)
-	c.Assert(n, Equals, 0)
-	c.Assert(rev, Equals, nextRevision-1)
+	require.Equal(t, 0, n)
+	require.Equal(t, nextRevision-1, rev)
 
 	// rule3 can still be found
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{&rule3})
+	require.EqualValues(t, api.Rules{&rule3}, repo.SearchRLocked(lbls2))
 	repo.Mutex.RUnlock()
 
 	// delete rule3
 	rev, n = repo.DeleteByLabels(lbls2)
-	c.Assert(n, Equals, 1)
-	c.Assert(rev, Equals, nextRevision)
+	require.Equal(t, 1, n)
+	require.Equal(t, nextRevision, rev)
 
 	// rule1 is gone
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{})
+	require.EqualValues(t, api.Rules{}, repo.SearchRLocked(lbls2))
 	repo.Mutex.RUnlock()
 }
 
@@ -370,7 +370,7 @@ func BenchmarkParseLabel(b *testing.B) {
 	b.Log("found: ", cntFound)
 }
 
-func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
+func TestAllowsIngress(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -381,7 +381,7 @@ func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
 
 	repo.Mutex.RLock()
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsIngressRLocked(fooToBar), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fooToBar))
 	repo.Mutex.RUnlock()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
@@ -429,47 +429,47 @@ func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
 	}
 
 	_, _, err := repo.Add(rule1)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	_, _, err = repo.Add(rule2)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	_, _, err = repo.Add(rule3)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// foo=>bar is OK
-	c.Assert(repo.AllowsIngressRLocked(fooToBar), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(fooToBar))
 
 	// foo=>bar2 is OK
-	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar2"),
-	}), Equals, api.Allowed)
+	}))
 
 	// foo=>bar inside groupA is OK
-	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupA"),
 		To:   labels.ParseSelectLabelArray("bar", "groupA"),
-	}), Equals, api.Allowed)
+	}))
 
 	// groupB can't talk to groupA => Denied
-	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupB"),
 		To:   labels.ParseSelectLabelArray("bar", "groupA"),
-	}), Equals, api.Denied)
+	}))
 
 	// no restriction on groupB, unused label => OK
-	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupB"),
 		To:   labels.ParseSelectLabelArray("bar", "groupB"),
-	}), Equals, api.Allowed)
+	}))
 
 	// foo=>bar3, no rule => Denied
-	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar3"),
-	}), Equals, api.Denied)
+	}))
 }
 
-func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
+func TestAllowsEgress(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -480,7 +480,7 @@ func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 
 	repo.Mutex.RLock()
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsEgressRLocked(fooToBar), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(fooToBar))
 	repo.Mutex.RUnlock()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
@@ -527,31 +527,31 @@ func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 		Labels: tag1,
 	}
 	_, _, err := repo.Add(rule1)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	_, _, err = repo.Add(rule2)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	_, _, err = repo.Add(rule3)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// foo=>bar is OK
 	logBuffer := new(bytes.Buffer)
 	result := repo.AllowsEgressRLocked(fooToBar.WithLogger(logBuffer))
-	if equal, err := checker.DeepEqual(result, api.Allowed); !equal {
-		c.Logf("%s", logBuffer.String())
-		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	if !assert.EqualValues(t, api.Allowed, result) {
+		t.Logf("%s", logBuffer.String())
+		t.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
 
 	// foo=>bar2 is OK
-	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar2"),
-	}), Equals, api.Allowed)
+	}))
 
 	// foo=>bar inside groupA is OK
-	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupA"),
 		To:   labels.ParseSelectLabelArray("bar", "groupA"),
-	}), Equals, api.Allowed)
+	}))
 
 	buffer := new(bytes.Buffer)
 	// groupB can't talk to groupA => Denied
@@ -562,22 +562,22 @@ func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 		Trace:   TRACE_VERBOSE,
 	}
 	verdict := repo.AllowsEgressRLocked(ctx)
-	c.Assert(verdict, Equals, api.Denied)
+	require.Equal(t, api.Denied, verdict)
 
 	// no restriction on groupB, unused label => OK
-	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupB"),
 		To:   labels.ParseSelectLabelArray("bar", "groupB"),
-	}), Equals, api.Allowed)
+	}))
 
 	// foo=>bar3, no rule => Denied
-	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
+	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar3"),
-	}), Equals, api.Denied)
+	}))
 }
 
-func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
+func TestWildcardL3RulesIngress(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -601,7 +601,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.Add(l3Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	kafkaRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -626,7 +626,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	}
 	kafkaRule.Sanitize()
 	_, _, err = repo.Add(kafkaRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -650,7 +650,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.Add(httpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	l7Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -673,7 +673,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 		Labels: labelsL7,
 	}
 	_, _, err = repo.Add(l7Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
@@ -693,7 +693,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 		Labels: labelsICMP,
 	}
 	_, _, err = repo.Add(icmpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
@@ -714,7 +714,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 		Labels: labelsICMPv6,
 	}
 	_, _, err = repo.Add(icmpV6Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -724,7 +724,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
@@ -807,11 +807,11 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsL7}},
 		},
 	}
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	require.EqualValues(t, expectedPolicy, policy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
+func TestWildcardL4RulesIngress(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -842,7 +842,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 	}
 	l49092Rule.Sanitize()
 	_, _, err := repo.Add(l49092Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	kafkaRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -867,7 +867,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 	}
 	kafkaRule.Sanitize()
 	_, _, err = repo.Add(kafkaRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	l480Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -887,7 +887,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 	}
 	l480Rule.Sanitize()
 	_, _, err = repo.Add(l480Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -911,7 +911,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 		Labels: labelsL7HTTP,
 	}
 	_, _, err = repo.Add(httpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -921,7 +921,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": {
@@ -965,11 +965,11 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			},
 		},
 	}
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	require.EqualValues(t, expectedPolicy, policy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
+func TestL3DependentL4IngressFromRequires(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1001,7 +1001,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 	}
 	l480Rule.Sanitize()
 	_, _, err := repo.Add(l480Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -1011,7 +1011,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -1036,11 +1036,11 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 			},
 		},
 	}
-	c.Assert(policy, checker.Equals, expectedPolicy)
+	require.Equal(t, expectedPolicy, policy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
+func TestL3DependentL4EgressFromRequires(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1075,7 +1075,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	}
 	l480Rule.Sanitize()
 	_, _, err := repo.Add(l480Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1086,7 +1086,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -1129,13 +1129,13 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			},
 		},
 	}
-	if !c.Check(policy, checker.Equals, expectedPolicy) {
-		c.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
+	if !assert.Equal(t, expectedPolicy, policy) {
+		t.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
+func TestWildcardL3RulesEgress(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1162,7 +1162,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.Add(l3Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1187,7 +1187,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	}
 	dnsRule.Sanitize()
 	_, _, err = repo.Add(dnsRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1211,7 +1211,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.Add(httpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
@@ -1231,7 +1231,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 		Labels: labelsICMP,
 	}
 	_, _, err = repo.Add(icmpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
@@ -1252,7 +1252,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 		Labels: labelsICMPv6,
 	}
 	_, _, err = repo.Add(icmpV6Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1263,7 +1263,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// Traffic to bar1 should not be forwarded to the DNS or HTTP
 	// proxy at all, but if it is (e.g., for visibility, the
@@ -1333,14 +1333,14 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL4}},
 		},
 	}
-	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
-		c.Logf("%s", logBuffer.String())
-		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	if !assert.Equal(t, expectedPolicy, policy) {
+		t.Logf("%s", logBuffer.String())
+		t.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
+func TestWildcardL4RulesEgress(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1371,7 +1371,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	}
 	l453Rule.Sanitize()
 	_, _, err := repo.Add(l453Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1396,7 +1396,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	}
 	dnsRule.Sanitize()
 	_, _, err = repo.Add(dnsRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	l480Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1416,7 +1416,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	}
 	l480Rule.Sanitize()
 	_, _, err = repo.Add(l480Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1440,7 +1440,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 		Labels: labelsL7HTTP,
 	}
 	_, _, err = repo.Add(httpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1451,7 +1451,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
 	// the L3/L4 allow should pass it without an explicit L7 wildcard.
@@ -1497,14 +1497,14 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			},
 		},
 	}
-	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
-		c.Logf("%s", logBuffer.String())
-		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	if !assert.EqualValues(t, expectedPolicy, policy) {
+		t.Logf("%s", logBuffer.String())
+		t.Error("Resolved policy did not match expected")
 	}
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
+func TestWildcardCIDRRulesEgress(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1551,7 +1551,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 	}
 	l480Get.Sanitize()
 	_, _, err := repo.Add(l480Get)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1566,7 +1566,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 	}
 	l3Rule.Sanitize()
 	_, _, err = repo.Add(l3Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1577,7 +1577,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// Port 80 policy does not need the wildcard, as the "0" port policy will allow the traffic.
 	// HTTP rules can have side-effects, so they need to be retained even if shadowed by a wildcard.
@@ -1614,14 +1614,14 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}},
 		},
 	}
-	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
-		c.Logf("%s", logBuffer.String())
-		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	if !assert.EqualValues(t, expectedPolicy, policy) {
+		t.Logf("%s", logBuffer.String())
+		t.Error("Resolved policy did not match expected")
 	}
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
+func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1645,7 +1645,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.Add(l3Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	kafkaRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1670,7 +1670,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	}
 	kafkaRule.Sanitize()
 	_, _, err = repo.Add(kafkaRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1694,7 +1694,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.Add(httpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -1704,18 +1704,18 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	c.Assert(err, IsNil)
-	c.Assert(len(policy), Equals, 3)
+	require.Nil(t, err)
+	require.Equal(t, 3, len(policy))
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	c.Assert(len(policy["80/TCP"].PerSelectorPolicies), Equals, 1)
+	require.Equal(t, 1, len(policy["80/TCP"].PerSelectorPolicies))
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
-	c.Assert(cachedSelectorWorld, Not(IsNil))
+	require.NotNil(t, cachedSelectorWorld)
 
 	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
-	c.Assert(cachedSelectorWorldV4, Not(IsNil))
+	require.NotNil(t, cachedSelectorWorldV4)
 
 	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
-	c.Assert(cachedSelectorWorldV6, Not(IsNil))
+	require.NotNil(t, cachedSelectorWorldV6)
 
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
@@ -1769,11 +1769,11 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 		},
 	}
 
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	require.EqualValues(t, expectedPolicy, policy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
+func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1797,7 +1797,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.Add(l3Rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1822,7 +1822,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	}
 	dnsRule.Sanitize()
 	_, _, err = repo.Add(dnsRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1846,7 +1846,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.Add(httpRule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1856,18 +1856,18 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4EgressPolicy(ctx)
-	c.Assert(err, IsNil)
-	c.Assert(len(policy), Equals, 3)
+	require.Nil(t, err)
+	require.Equal(t, 3, len(policy))
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	c.Assert(len(policy["80/TCP"].PerSelectorPolicies), Equals, 1)
+	require.Equal(t, 1, len(policy["80/TCP"].PerSelectorPolicies))
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
-	c.Assert(cachedSelectorWorld, Not(IsNil))
+	require.NotNil(t, cachedSelectorWorld)
 
 	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
-	c.Assert(cachedSelectorWorldV4, Not(IsNil))
+	require.NotNil(t, cachedSelectorWorldV4)
 
 	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
-	c.Assert(cachedSelectorWorldV6, Not(IsNil))
+	require.NotNil(t, cachedSelectorWorldV6)
 
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
@@ -1921,11 +1921,11 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 		},
 	}
 
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	require.EqualValues(t, expectedPolicy, policy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
-func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
+func TestMinikubeGettingStarted(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -1944,8 +1944,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 
 	repo.Mutex.RLock()
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsIngressRLocked(fromApp2), Equals, api.Denied)
-	c.Assert(repo.AllowsIngressRLocked(fromApp3), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fromApp2))
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fromApp3))
 	repo.Mutex.RUnlock()
 
 	selFromApp2 := api.NewESFromLabels(
@@ -1971,7 +1971,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 			},
 		},
 	})
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	_, _, err = repo.Add(api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
@@ -1993,7 +1993,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 			},
 		},
 	})
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	_, _, err = repo.Add(api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
@@ -2015,7 +2015,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 			},
 		},
 	})
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
@@ -2023,10 +2023,10 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	// L4 from app2 is restricted
 	logBuffer := new(bytes.Buffer)
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(fromApp2.WithLogger(logBuffer))
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	cachedSelectorApp2 := testSelectorCache.FindCachedIdentitySelector(selFromApp2)
-	c.Assert(cachedSelectorApp2, Not(IsNil))
+	require.NotNil(t, cachedSelectorApp2)
 
 	expected := NewL4Policy(repo.GetRevision())
 	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
@@ -2044,9 +2044,9 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}},
 	}
 
-	if equal, err := checker.DeepEqual(l4IngressPolicy, expected.Ingress.PortRules); !equal {
-		c.Logf("%s", logBuffer.String())
-		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	if !assert.EqualValues(t, expected.Ingress.PortRules, l4IngressPolicy) {
+		t.Logf("%s", logBuffer.String())
+		t.Errorf("Resolved policy did not match expected")
 	}
 	l4IngressPolicy.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
@@ -2054,9 +2054,9 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	// L4 from app3 has no rules
 	expected = NewL4Policy(repo.GetRevision())
 	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
-	c.Assert(err, IsNil)
-	c.Assert(len(l4IngressPolicy), Equals, 0)
-	c.Assert(l4IngressPolicy, checker.Equals, expected.Ingress.PortRules)
+	require.Nil(t, err)
+	require.Equal(t, 0, len(l4IngressPolicy))
+	require.Equal(t, expected.Ingress.PortRules, l4IngressPolicy)
 	l4IngressPolicy.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 }
@@ -2098,7 +2098,7 @@ func buildRule(from, to, port string) api.Rule {
 	}
 }
 
-func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
+func (repo *Repository) checkTrace(t *testing.T, ctx *SearchContext, trace string,
 	expectedVerdict api.Decision) {
 
 	buffer := new(bytes.Buffer)
@@ -2109,11 +2109,11 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 	repo.Mutex.RUnlock()
 
 	expectedOut := "Tracing " + ctx.String() + "\n" + trace
-	c.Assert(buffer.String(), checker.DeepEquals, expectedOut)
-	c.Assert(verdict, Equals, expectedVerdict)
+	require.EqualValues(t, expectedOut, buffer.String())
+	require.Equal(t, expectedVerdict, verdict)
 }
 
-func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
+func TestPolicyTrace(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -2135,11 +2135,11 @@ Found no deny rule
 Ingress verdict: allowed
 `
 	ctx := buildSearchCtx("foo", "bar", 0)
-	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
+	repo.checkTrace(t, ctx, expectedOut, api.Allowed)
 
 	// foo=>bar:80 is OK
 	ctx = buildSearchCtx("foo", "bar", 80)
-	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
+	repo.checkTrace(t, ctx, expectedOut, api.Allowed)
 
 	// bar=>foo is Denied
 	ctx = buildSearchCtx("bar", "foo", 0)
@@ -2150,16 +2150,16 @@ Found no allow rule
 Found no deny rule
 Ingress verdict: denied
 `
-	repo.checkTrace(c, ctx, expectedOut, api.Denied)
+	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// bar=>foo:80 is also Denied by the same logic
 	ctx = buildSearchCtx("bar", "foo", 80)
-	repo.checkTrace(c, ctx, expectedOut, api.Denied)
+	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// Now, add extra rules to allow specifically baz=>bar on port 80
 	l4rule := buildRule("baz", "bar", "80")
 	_, _, err := repo.Add(l4rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// baz=>bar:80 is OK
 	ctx = buildSearchCtx("baz", "bar", 80)
@@ -2179,7 +2179,7 @@ Found allow rule
 Found no deny rule
 Ingress verdict: allowed
 `
-	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
+	repo.checkTrace(t, ctx, expectedOut, api.Allowed)
 
 	// bar=>bar:80 is Denied
 	ctx = buildSearchCtx("bar", "bar", 80)
@@ -2198,7 +2198,7 @@ Found no allow rule
 Found no deny rule
 Ingress verdict: denied
 `
-	repo.checkTrace(c, ctx, expectedOut, api.Denied)
+	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// Test that FromRequires "baz" drops "foo" traffic
 	l3rule = api.Rule{
@@ -2212,7 +2212,7 @@ Ingress verdict: denied
 		}},
 	}
 	_, _, err = repo.Add(l3rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// foo=>bar is now denied due to the FromRequires
 	ctx = buildSearchCtx("foo", "bar", 0)
@@ -2234,7 +2234,7 @@ Found no allow rule
 Found no deny rule
 Ingress verdict: denied
 `
-	repo.checkTrace(c, ctx, expectedOut, api.Denied)
+	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// baz=>bar is only denied because of the L4 policy
 	ctx = buildSearchCtx("baz", "bar", 0)
@@ -2258,19 +2258,19 @@ Found no allow rule
 Found no deny rule
 Ingress verdict: denied
 `
-	repo.checkTrace(c, ctx, expectedOut, api.Denied)
+	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// Should still be allowed with the new FromRequires constraint
 	ctx = buildSearchCtx("baz", "bar", 80)
 	repo.Mutex.RLock()
 	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
-	c.Assert(verdict, Equals, api.Allowed)
+	require.Equal(t, api.Allowed, verdict)
 }
 
-func (ds *PolicyTestSuite) TestremoveIdentityFromRuleCaches(c *C) {
+func TestRemoveIdentityFromRuleCaches(t *testing.T) {
 
-	testRepo := parseAndAddRules(c, api.Rules{&api.Rule{
+	testRepo := parseAndAddRules(t, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2291,24 +2291,24 @@ func (ds *PolicyTestSuite) TestremoveIdentityFromRuleCaches(c *C) {
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
-	c.Assert(addedRule.matches(selectedIdentity), Equals, true)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true})
+	require.Equal(t, true, addedRule.matches(selectedIdentity))
+	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true}, addedRule.metadata.IdentitySelected)
 
 	wg := testRepo.removeIdentityFromRuleCaches(selectedIdentity)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{})
+	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
 
-	c.Assert(addedRule.matches(notSelectedIdentity), Equals, false)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false})
+	require.Equal(t, false, addedRule.matches(notSelectedIdentity))
+	require.EqualValues(t, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false}, addedRule.metadata.IdentitySelected)
 
 	wg = testRepo.removeIdentityFromRuleCaches(notSelectedIdentity)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{})
+	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
 }
 
-func (ds *PolicyTestSuite) TestIterate(c *C) {
+func TestIterate(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
@@ -2320,7 +2320,7 @@ func (ds *PolicyTestSuite) TestIterate(c *C) {
 	}
 	repo.Iterate(countEgressRules)
 
-	c.Assert(numWithEgress, Equals, 0)
+	require.Equal(t, 0, numWithEgress)
 
 	numRules := 10
 	lbls := make([]labels.Label, 10)
@@ -2347,13 +2347,13 @@ func (ds *PolicyTestSuite) TestIterate(c *C) {
 				},
 			},
 		})
-		c.Assert(err, IsNil)
+		require.Nil(t, err)
 	}
 
 	numWithEgress = 0
 	repo.Iterate(countEgressRules)
 
-	c.Assert(numWithEgress, Equals, numRules)
+	require.Equal(t, numRules, numWithEgress)
 
 	numModified := 0
 	modifyRules := func(r *api.Rule) {
@@ -2365,27 +2365,27 @@ func (ds *PolicyTestSuite) TestIterate(c *C) {
 
 	repo.Iterate(modifyRules)
 
-	c.Assert(numModified, Equals, 2)
+	require.Equal(t, 2, numModified)
 
 	numWithEgress = 0
 	repo.Iterate(countEgressRules)
 
-	c.Assert(numWithEgress, Equals, numRules-numModified)
+	require.Equal(t, numRules-numModified, numWithEgress)
 
 	repo.Mutex.Lock()
 	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{lbls[0]})
 	repo.Mutex.Unlock()
-	c.Assert(numDeleted, Equals, 1)
+	require.Equal(t, 1, numDeleted)
 
 	numWithEgress = 0
 	repo.Iterate(countEgressRules)
 
-	c.Assert(numWithEgress, Equals, numRules-numModified-numDeleted)
+	require.Equal(t, numRules-numModified-numDeleted, numWithEgress)
 }
 
 // TestDefaultAllow covers the defaulting logic in determining an identity's default rule
 // in the presence or absence of rules that do not enable default-deny mode.
-func (ds *PolicyTestSuite) TestDefaultAllow(c *C) {
+func TestDefaultAllow(t *testing.T) {
 
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
@@ -2419,7 +2419,7 @@ func (ds *PolicyTestSuite) TestDefaultAllow(c *C) {
 		} else {
 			r.EnableDefaultDeny.Egress = &defaultDeny
 		}
-		c.Assert(r.Sanitize(), IsNil)
+		require.Nil(t, r.Sanitize())
 		return r
 	}
 
@@ -2484,13 +2484,13 @@ func (ds *PolicyTestSuite) TestDefaultAllow(c *C) {
 
 		for _, rule := range tc.rules {
 			_, _, err := repo.Add(rule)
-			c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+			require.NoError(t, err, "unable to add rule to policy repository")
 		}
 
 		ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
-		c.Assert(ing, Equals, tc.ingress, Commentf("case %d: ingress should match", i))
-		c.Assert(egr, Equals, tc.egress, Commentf("case %d: egress should match", i))
-		c.Assert(len(matchingRules), Equals, tc.ruleC, Commentf("case %d: rule count should match", i))
+		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
+		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
+		require.Equal(t, tc.ruleC, len(matchingRules), "case %d: rule count should match", i)
 	}
 
 	for i, tc := range egressCases {
@@ -2499,13 +2499,13 @@ func (ds *PolicyTestSuite) TestDefaultAllow(c *C) {
 
 		for _, rule := range tc.rules {
 			_, _, err := repo.Add(rule)
-			c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+			require.NoError(t, err, "unable to add rule to policy repository")
 		}
 
 		ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
-		c.Assert(ing, Equals, tc.ingress, Commentf("case %d: ingress should match", i))
-		c.Assert(egr, Equals, tc.egress, Commentf("case %d: egress should match", i))
-		c.Assert(len(matchingRules), Equals, tc.ruleC, Commentf("case %d: rule count should match", i))
+		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
+		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
+		require.Equal(t, tc.ruleC, len(matchingRules), "case %d: rule count should match", i)
 	}
 
 	// test all combinations of ingress + egress cases
@@ -2516,18 +2516,18 @@ func (ds *PolicyTestSuite) TestDefaultAllow(c *C) {
 
 			for _, rule := range etc.rules {
 				_, _, err := repo.Add(rule)
-				c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+				require.NoError(t, err, "unable to add rule to policy repository")
 			}
 
 			for _, rule := range itc.rules {
 				_, _, err := repo.Add(rule)
-				c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+				require.NoError(t, err, "unable to add rule to policy repository")
 			}
 
 			ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
-			c.Assert(ing, Equals, itc.ingress, Commentf("case ingress %d + egress %d: ingress should match", i, e))
-			c.Assert(egr, Equals, etc.egress, Commentf("case ingress %d + egress %d: egress should match", i, e))
-			c.Assert(len(matchingRules), Equals, itc.ruleC+etc.ruleC, Commentf("case ingress %d + egress %d: rule count should match", i, e))
+			require.Equal(t, itc.ingress, ing, "case ingress %d + egress %d: ingress should match", i, e)
+			require.Equal(t, etc.egress, egr, "case ingress %d + egress %d: egress should match", i, e)
+			require.Equal(t, itc.ruleC+etc.ruleC, len(matchingRules), "case ingress %d + egress %d: rule count should match", i, e)
 		}
 	}
 }

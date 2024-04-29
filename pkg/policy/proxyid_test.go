@@ -8,29 +8,29 @@ import (
 	"strconv"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *PolicyTestSuite) TestProxyID(c *C) {
+func TestProxyID(t *testing.T) {
 	id := ProxyID(123, true, "TCP", uint16(8080), "")
-	c.Assert("123:ingress:TCP:8080:", Equals, id)
+	require.Equal(t, id, "123:ingress:TCP:8080:")
 	endpointID, ingress, protocol, port, listener, err := ParseProxyID(id)
-	c.Assert(endpointID, Equals, uint16(123))
-	c.Assert(ingress, Equals, true)
-	c.Assert(protocol, Equals, "TCP")
-	c.Assert(port, Equals, uint16(8080))
-	c.Assert(listener, Equals, "")
-	c.Assert(err, IsNil)
+	require.Equal(t, uint16(123), endpointID)
+	require.True(t, ingress)
+	require.Equal(t, "TCP", protocol)
+	require.Equal(t, uint16(8080), port)
+	require.Equal(t, "", listener)
+	require.NoError(t, err)
 
 	id = ProxyID(321, false, "TCP", uint16(80), "myListener")
-	c.Assert("321:egress:TCP:80:myListener", Equals, id)
+	require.Equal(t, id, "321:egress:TCP:80:myListener")
 	endpointID, ingress, protocol, port, listener, err = ParseProxyID(id)
-	c.Assert(endpointID, Equals, uint16(321))
-	c.Assert(ingress, Equals, false)
-	c.Assert(protocol, Equals, "TCP")
-	c.Assert(port, Equals, uint16(80))
-	c.Assert(listener, Equals, "myListener")
-	c.Assert(err, IsNil)
+	require.Equal(t, uint16(321), endpointID)
+	require.Equal(t, false, ingress)
+	require.Equal(t, "TCP", protocol)
+	require.Equal(t, uint16(80), port)
+	require.Equal(t, "myListener", listener)
+	require.NoError(t, err)
 }
 
 func BenchmarkProxyID(b *testing.B) {

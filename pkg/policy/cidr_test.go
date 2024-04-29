@@ -5,15 +5,15 @@ package policy
 
 import (
 	"net/netip"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-func (ds *PolicyTestSuite) TestgetPrefixesFromCIDR(c *C) {
+func TestGetPrefixesFromCIDR(t *testing.T) {
 	inputToCIDRString := map[string]string{
 		"0.0.0.0/0":    "0.0.0.0/0",
 		"192.0.2.3":    "192.0.2.3/32",
@@ -31,10 +31,10 @@ func (ds *PolicyTestSuite) TestgetPrefixesFromCIDR(c *C) {
 		inputs = append(inputs, api.CIDR(ruleStr))
 	}
 	result := getPrefixesFromCIDR(inputs)
-	c.Assert(result, checker.DeepEquals, expected)
+	require.EqualValues(t, expected, result)
 }
 
-func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
+func TestGetCIDRPrefixes(t *testing.T) {
 	rules := api.Rules{
 		&api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -71,7 +71,7 @@ func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
 		cidr := netip.MustParsePrefix(ipStr)
 		expectedCIDRs = append(expectedCIDRs, cidr)
 	}
-	c.Assert(GetCIDRPrefixes(rules), checker.DeepEquals, expectedCIDRs)
+	require.EqualValues(t, expectedCIDRs, GetCIDRPrefixes(rules))
 
 	// Now, test with CIDRSets.
 	rules = api.Rules{
@@ -123,5 +123,5 @@ func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
 		cidr := netip.MustParsePrefix(ipStr)
 		expectedCIDRs = append(expectedCIDRs, cidr)
 	}
-	c.Assert(GetCIDRPrefixes(rules), checker.DeepEquals, expectedCIDRs)
+	require.EqualValues(t, expectedCIDRs, GetCIDRPrefixes(rules))
 }

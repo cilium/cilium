@@ -5,8 +5,9 @@ package policy
 
 import (
 	"sync"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
 )
@@ -31,17 +32,17 @@ func (d *DummyEndpoint) RLockAlive() error {
 func (d *DummyEndpoint) RUnlock() {
 }
 
-func (ds *PolicyTestSuite) TestNewEndpointSet(c *C) {
+func TestNewEndpointSet(t *testing.T) {
 	d := &DummyEndpoint{}
 	epSet := NewEndpointSet(map[Endpoint]struct{}{
 		d: {},
 	})
-	c.Assert(epSet.Len(), Equals, 1)
+	require.Equal(t, 1, epSet.Len())
 	epSet.Delete(d)
-	c.Assert(epSet.Len(), Equals, 0)
+	require.Equal(t, 0, epSet.Len())
 }
 
-func (ds *PolicyTestSuite) TestForEachGo(c *C) {
+func TestForEachGo(t *testing.T) {
 	var wg sync.WaitGroup
 
 	d0 := &DummyEndpoint{}
@@ -57,22 +58,22 @@ func (ds *PolicyTestSuite) TestForEachGo(c *C) {
 
 	wg.Wait()
 
-	c.Assert(d0.rev, Equals, uint64(100))
-	c.Assert(d1.rev, Equals, uint64(100))
+	require.Equal(t, uint64(100), d0.rev)
+	require.Equal(t, uint64(100), d1.rev)
 }
 
-func (ds *PolicyTestSuite) BenchmarkForEachGo(c *C) {
-	m := make(map[Endpoint]struct{}, c.N)
-	for i := uint64(0); i < uint64(c.N); i++ {
+func BenchmarkForEachGo(b *testing.B) {
+	m := make(map[Endpoint]struct{}, b.N)
+	for i := uint64(0); i < uint64(b.N); i++ {
 		m[&DummyEndpoint{rev: i}] = struct{}{}
 	}
 	epSet := NewEndpointSet(m)
 
-	c.StartTimer()
+	b.StartTimer()
 	var wg sync.WaitGroup
 	epSet.ForEachGo(&wg, func(e Endpoint) {
 		e.PolicyRevisionBumpEvent(100)
 	})
 	wg.Wait()
-	c.StopTimer()
+	b.StopTimer()
 }
