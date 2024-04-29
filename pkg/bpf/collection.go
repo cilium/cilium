@@ -234,6 +234,13 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
+type CollectionOptions struct {
+	ebpf.CollectionOptions
+
+	// Replacements for constants defined using the DECLARE_CONFIG macros.
+	Constants map[string]uint64
+}
+
 // LoadCollection loads the given spec into the kernel with the specified opts.
 //
 // The value given in ProgramOptions.LogSize is used as the starting point for
@@ -246,16 +253,20 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 // MapSpecs that differ (type/key/value/max/flags) from their pinned versions
 // will result in an ebpf.ErrMapIncompatible here and the map must be removed
 // before loading the CollectionSpec.
-func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*ebpf.Collection, error) {
+func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.Collection, error) {
 	if spec == nil {
 		return nil, errors.New("can't load nil CollectionSpec")
+	}
+
+	if opts == nil {
+		opts = &CollectionOptions{}
 	}
 
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
 	spec = spec.Copy()
 
-	if err := inlineGlobalData(spec); err != nil {
+	if err := inlineGlobalData(spec, opts.Constants); err != nil {
 		return nil, fmt.Errorf("inlining global data: %w", err)
 	}
 
@@ -275,7 +286,7 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 
 	attempt := 1
 	for {
-		coll, err := ebpf.NewCollectionWithOptions(spec, opts)
+		coll, err := ebpf.NewCollectionWithOptions(spec, opts.CollectionOptions)
 		if err == nil {
 			return coll, nil
 		}
@@ -357,20 +368,36 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
+// Must match the prefix used by the CONFIG macro in static_data.h.
+const constantPrefix = "__config_"
+
 // inlineGlobalData replaces all map loads from a global data section with
 // immediate dword loads, effectively performing those map lookups in the
 // loader. This is done for compatibility with kernels that don't support
 // global data maps yet.
 //
+// overrides allow changing the value of the inlined global data.
+//
 // This code interacts with the DECLARE_CONFIG macro in the BPF C code base.
-func inlineGlobalData(spec *ebpf.CollectionSpec) error {
-	vars, err := globalData(spec)
+func inlineGlobalData(spec *ebpf.CollectionSpec, overrides map[string]uint64) error {
+	offsets, values, err := globalData(spec)
 	if err != nil {
 		return err
 	}
-	if vars == nil {
-		// No static data, nothing to replace.
+	if offsets == nil {
+		// Most likely all references to global data have been compiled
+		// out.
 		return nil
+	}
+
+	for name, value := range overrides {
+		constName := constantPrefix + name
+
+		if _, ok := values[constName]; !ok {
+			return fmt.Errorf("can't override non-existent constant %q", name)
+		}
+
+		values[constName] = value
 	}
 
 	for _, prog := range spec.Programs {
@@ -390,14 +417,14 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 
 			// Look up the value of the variable stored at the Datasec offset pointed
 			// at by the instruction.
-			value, ok := vars[off]
+			v, ok := offsets[off]
 			if !ok {
 				return fmt.Errorf("no global constant found in %s at offset %d", globalDataMap, off)
 			}
 
 			// Replace the map load with an immediate load. Must be a dword load
 			// to match the instruction width of a map load.
-			r := asm.LoadImm(ins.Dst, int64(value), asm.DWord)
+			r := asm.LoadImm(ins.Dst, int64(values[v]), asm.DWord)
 
 			// Preserve metadata of the original instruction. Otherwise, a program's
 			// first instruction could be stripped of its func_info or Symbol
@@ -411,44 +438,43 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-type varOffsets map[uint32]uint64
-
 // globalData gets the contents of the first entry in the global data map
 // and removes it from the spec to prevent it from being created in the kernel.
-func globalData(spec *ebpf.CollectionSpec) (varOffsets, error) {
+func globalData(spec *ebpf.CollectionSpec) (offsets map[uint32]string, values map[string]uint64, _ error) {
 	dm := spec.Maps[globalDataMap]
 	if dm == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	if dl := len(dm.Contents); dl != 1 {
-		return nil, fmt.Errorf("expected one key in %s, found %d", globalDataMap, dl)
+		return nil, nil, fmt.Errorf("expected one key in %s, found %d", globalDataMap, dl)
 	}
 
 	ds, ok := dm.Value.(*btf.Datasec)
 	if !ok {
-		return nil, fmt.Errorf("no BTF datasec found for %s", globalDataMap)
+		return nil, nil, fmt.Errorf("no BTF datasec found for %s", globalDataMap)
 	}
 
 	data, ok := (dm.Contents[0].Value).([]byte)
 	if !ok {
-		return nil, fmt.Errorf("expected %s value to be a byte slice, got: %T",
+		return nil, nil, fmt.Errorf("expected %s value to be a byte slice, got: %T",
 			globalDataMap, dm.Contents[0].Value)
 	}
 
 	// Slice up the binary contents of the global data map according to the
 	// variables described in its Datasec.
-	out := make(varOffsets)
+	values = make(map[string]uint64)
+	offsets = make(map[uint32]string)
 	buf := make([]byte, 8)
 	for _, vsi := range ds.Vars {
-		_, ok := vsi.Type.(*btf.Var)
+		v, ok := vsi.Type.(*btf.Var)
 		if !ok {
 			// VarSecInfo.Type can be a Func.
 			continue
 		}
 
-		if _, ok := out[vsi.Offset]; ok {
-			return nil, fmt.Errorf("duplicate VarSecInfo for offset %d", vsi.Offset)
+		if _, ok := offsets[vsi.Offset]; ok {
+			return nil, nil, fmt.Errorf("duplicate VarSecInfo for offset %d", vsi.Offset)
 		}
 
 		copy(buf, data[vsi.Offset:vsi.Offset+vsi.Size])
@@ -464,15 +490,16 @@ func globalData(spec *ebpf.CollectionSpec) (varOffsets, error) {
 		case 1:
 			value = uint64(buf[0])
 		default:
-			return nil, fmt.Errorf("invalid variable size %d", vsi.Size)
+			return nil, nil, fmt.Errorf("invalid variable size %d", vsi.Size)
 		}
 
 		// Emit the variable's value by its offset in the datasec.
-		out[vsi.Offset] = value
+		offsets[vsi.Offset] = v.Name
+		values[v.Name] = value
 	}
 
 	// Remove the map definition to skip loading it into the kernel.
 	delete(spec.Maps, globalDataMap)
 
-	return out, nil
+	return offsets, values, nil
 }

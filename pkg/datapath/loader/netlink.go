@@ -148,14 +148,16 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 	// bpffs in the process.
 	finalize := func() {}
 	pinPath := bpf.TCGlobalsPath()
-	collOpts := ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{PinPath: pinPath},
+	collOpts := bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: pinPath},
+		},
 	}
 	if err := bpf.MkdirBPF(pinPath); err != nil {
 		return nil, fmt.Errorf("creating bpffs pin path: %w", err)
 	}
 	l.Debug("Loading Collection into kernel")
-	coll, err := bpf.LoadCollection(spec, collOpts)
+	coll, err := bpf.LoadCollection(spec, &collOpts)
 	if errors.Is(err, ebpf.ErrMapIncompatible) {
 		// Temporarily rename bpffs pins of maps whose definitions have changed in
 		// a new version of a datapath ELF.
@@ -173,7 +175,7 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 
 		// Retry loading the Collection after starting map migration.
 		l.Debug("Retrying loading Collection into kernel after map migration")
-		coll, err = bpf.LoadCollection(spec, collOpts)
+		coll, err = bpf.LoadCollection(spec, &collOpts)
 	}
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
