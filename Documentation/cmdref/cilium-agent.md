@@ -161,6 +161,7 @@ cilium-agent [flags]
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-session-affinity                                   Enable support for service session affinity
       --enable-svc-source-range-check                             Enable check of service source ranges (currently, only for LoadBalancer) (default true)
+      --enable-tcx                                                Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                            Enable tracing while determining policy (debugging)
       --enable-unreachable-routes                                 Add unreachable routes on pod deletion
       --enable-vtep                                               Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
