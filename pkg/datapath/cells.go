@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -150,6 +151,9 @@ var Cell = cell.Module(
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
 	cell.Provide(node.NewNodeIDApiHandler),
+	cell.Invoke(func(h types.NodeHandler, nm nodeManager.NodeManager) {
+		nm.Subscribe(h)
+	}),
 
 	// Provides Active Connection Tracking metrics based on counts of
 	// opened (from BPF ACT map), closed (from BPF ACT map), and failed

@@ -84,7 +84,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	}
 	log := hivetest.Logger(t)
 
-	nodeHandler := newNodeHandler(log, dpConfig, nil, new(mockEnqueuer))
+	nodeHandler := newNodeHandler(log, dpConfig, nil)
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")

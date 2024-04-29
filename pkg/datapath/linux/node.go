@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
@@ -93,7 +92,6 @@ type linuxNodeHandler struct {
 
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 	enableEncapsulation    func(node *nodeTypes.Node) bool
-	nodeNeighborQueue      datapath.NodeNeighborEnqueuer
 }
 
 var (
@@ -109,16 +107,13 @@ func NewNodeHandler(
 	log *slog.Logger,
 	tunnelConfig dpTunnel.Config,
 	nodeMap nodemap.MapV2,
-	nodeManager manager.NodeManager,
 ) (datapath.NodeHandler, datapath.NodeIDHandler, datapath.NodeNeighbors) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, nodeManager)
-
-	nodeManager.Subscribe(handler)
+	handler := newNodeHandler(log, datapathConfig, nodeMap)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
@@ -136,7 +131,6 @@ func newNodeHandler(
 	log *slog.Logger,
 	datapathConfig DatapathConfiguration,
 	nodeMap nodemap.MapV2,
-	nbq datapath.NodeNeighborEnqueuer,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                    log,
@@ -154,7 +148,6 @@ func newNodeHandler(
 		nodeIPsByIDs:           map[uint16]sets.Set[string]{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(log),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
-		nodeNeighborQueue:      nbq,
 		ipsecUpdateNeeded:      map[nodeTypes.Identity]bool{},
 	}
 }
@@ -936,7 +929,9 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 }
 
 func (n *linuxNodeHandler) InsertMiscNeighbor(newNode *nodeTypes.Node) {
-	n.nodeNeighborQueue.Enqueue(newNode, false)
+	// FIXME: pkg/service/service.go calls into here to start neigh discovery
+	// for a backend. Figure out a better way to do this.
+	panic("FIXME")
 }
 
 func (n *linuxNodeHandler) deleteNeighborCommon(nextHopStr string) {
@@ -1028,11 +1023,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	if n.nodeConfig.EnableIPSec {
 		errs = errors.Join(errs, n.enableIPsec(oldNode, newNode, nodeID))
 		newKey = newNode.EncryptionKey
-	}
-
-	if n.enableNeighDiscovery && !newNode.IsLocal() {
-		// If neighbor discovery is enabled, enqueue the request so we can monitor/report call health.
-		n.nodeNeighborQueue.Enqueue(newNode, false)
 	}
 
 	// Local node update

@@ -7,13 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -32,9 +30,9 @@ func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	option.Config.IPv4ServiceRange = "auto"
 	option.Config.IPv6ServiceRange = "auto"
 
-	h, _ := cell.NewSimpleHealth()
-	nm, err := New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h)
-	require.NoError(tb, err)
+	nm := newFixture(tb, NodeManagerParams{
+		DaemonConfig: fakeConfig,
+	})
 
 	g := &GetNodesSuite{
 		nm: nm,

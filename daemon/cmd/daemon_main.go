@@ -1871,21 +1871,14 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
-	// Watches for node neighbors link updates.
-	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(params.NodeNeighbors)
-
 	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		if !params.NodeNeighbors.NodeNeighDiscoveryEnabled() {
+		if !d.nodeNeighbors.NodeNeighDiscoveryEnabled() {
 			// Remove all non-GC'ed neighbor entries that might have previously set
 			// by a Cilium instance.
-			params.NodeNeighbors.NodeCleanNeighbors(false)
+			d.nodeNeighbors.NodeCleanNeighbors(false)
 		} else {
 			// If we came from an agent upgrade, migrate entries.
-			params.NodeNeighbors.NodeCleanNeighbors(true)
-			// Start periodical refresh of the neighbor table from the agent if needed.
-			if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-				d.nodeDiscovery.Manager.StartNeighborRefresh(params.NodeNeighbors)
-			}
+			d.nodeNeighbors.NodeCleanNeighbors(true)
 		}
 	}
 

@@ -124,6 +124,8 @@ type Daemon struct {
 
 	loader datapath.Loader
 
+	nodeNeighbors datapath.NodeNeighbors
+
 	nodeAddressing datapath.NodeAddressing
 
 	// nodeDiscovery defines the node discovery logic of the agent
@@ -401,6 +403,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		hubble:            params.Hubble,
 		lrpManager:        params.LRPManager,
 		ctMapGC:           params.CTNATMapGC,
+		nodeNeighbors:     params.NodeNeighbors,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems

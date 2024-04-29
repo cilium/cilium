@@ -5,11 +5,14 @@ package manager
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -23,6 +26,14 @@ var Cell = cell.Module(
 	cell.Provide(newAllNodeManager),
 	cell.Provide(newGetClusterNodesRestAPIHandler),
 	metrics.Metric(NewNodeMetrics),
+
+	cell.ProvidePrivate(
+		func(ipc *ipcache.IPCache) IPCache { return ipc },
+		node.NewNodesTable,
+	),
+
+	// Provide Table[*Node] for all.
+	cell.Provide(statedb.RWTable[*types.Node].ToTable),
 )
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An
@@ -40,8 +51,6 @@ type Notifier interface {
 }
 
 type NodeManager interface {
-	datapath.NodeNeighborEnqueuer
-
 	Notifier
 
 	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
@@ -68,30 +77,24 @@ type NodeManager interface {
 	// can be used to control sync intervals of shared or centralized resources to
 	// avoid overloading these resources as the cluster grows.
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
-
-	// StartNeighborRefresh spawns a controller which refreshes neighbor table
-	// by sending arping periodically.
-	StartNeighborRefresh(nh datapath.NodeNeighbors)
-
-	// StartNodeNeighborLinkUpdater spawns a controller that watches a queue
-	// for node neighbor link updates.
-	StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors)
 }
 
-func newAllNodeManager(in struct {
+type NodeManagerParams struct {
 	cell.In
-	Lifecycle   cell.Lifecycle
-	IPCache     *ipcache.IPCache
-	IPSetMgr    ipset.Manager
-	IPSetFilter IPSetFilterFn `optional:"true"`
-	NodeMetrics *nodeMetrics
-	Health      cell.Health
-},
-) (NodeManager, error) {
-	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health)
-	if err != nil {
-		return nil, err
-	}
-	in.Lifecycle.Append(mngr)
-	return mngr, nil
+
+	Lifecycle     cell.Lifecycle
+	IPCache       IPCache
+	IPSetMgr      ipset.Manager
+	IPSetFilter   IPSetFilterFn `optional:"true"`
+	NodeMetrics   *nodeMetrics
+	DaemonConfig  *option.DaemonConfig
+	Health        cell.Health
+	DB            *statedb.DB
+	NodesTable    statedb.RWTable[*types.Node]
+	Jobs          job.Registry
+	NodeNeighbors datapath.NodeNeighbors
+}
+
+func newAllNodeManager(p NodeManagerParams) (NodeManager, error) {
+	return New(p)
 }
