@@ -1107,7 +1107,7 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 }
 
 func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context, client *k8s.Client) error {
-	ct.Logf("🔥 [%s] Deleting test-conn-disrupt deployments...", client.ClusterName())
+	ct.Debugf("🔥 [%s] Deleting test-conn-disrupt deployments...", client.ClusterName())
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
