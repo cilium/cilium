@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -16,10 +15,10 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-func (s *MonitorSuite) TestDecodeTraceNotifyV0(c *C) {
+func TestDecodeTraceNotifyV0(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	c.Assert(traceNotifyV0Len, Equals, 32)
+	require.Equal(t, 32, traceNotifyV0Len)
 
 	input := TraceNotifyV0{
 		Type:     0x00,
@@ -38,30 +37,30 @@ func (s *MonitorSuite) TestDecodeTraceNotifyV0(c *C) {
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	output := TraceNotify{}
 	err = DecodeTraceNotify(buf.Bytes(), &output)
-	c.Assert(err, IsNil)
-	c.Assert(output.Type, Equals, input.Type)
-	c.Assert(output.ObsPoint, Equals, input.ObsPoint)
-	c.Assert(output.Source, Equals, input.Source)
-	c.Assert(output.Hash, Equals, input.Hash)
-	c.Assert(output.OrigLen, Equals, input.OrigLen)
-	c.Assert(output.CapLen, Equals, input.CapLen)
-	c.Assert(output.Version, Equals, input.Version)
-	c.Assert(output.SrcLabel, Equals, input.SrcLabel)
-	c.Assert(output.DstLabel, Equals, input.DstLabel)
-	c.Assert(output.DstID, Equals, input.DstID)
-	c.Assert(output.Reason, Equals, input.Reason)
-	c.Assert(output.Flags, Equals, input.Flags)
-	c.Assert(output.Ifindex, Equals, input.Ifindex)
+	require.Nil(t, err)
+	require.Equal(t, input.Type, output.Type)
+	require.Equal(t, input.ObsPoint, output.ObsPoint)
+	require.Equal(t, input.Source, output.Source)
+	require.Equal(t, input.Hash, output.Hash)
+	require.Equal(t, input.OrigLen, output.OrigLen)
+	require.Equal(t, input.CapLen, output.CapLen)
+	require.Equal(t, input.Version, output.Version)
+	require.Equal(t, input.SrcLabel, output.SrcLabel)
+	require.Equal(t, input.DstLabel, output.DstLabel)
+	require.Equal(t, input.DstID, output.DstID)
+	require.Equal(t, input.Reason, output.Reason)
+	require.Equal(t, input.Flags, output.Flags)
+	require.Equal(t, input.Ifindex, output.Ifindex)
 }
 
-func (s *MonitorSuite) TestDecodeTraceNotifyV1(c *C) {
+func TestDecodeTraceNotifyV1(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	c.Assert(traceNotifyV1Len, Equals, 48)
+	require.Equal(t, 48, traceNotifyV1Len)
 
 	in := TraceNotifyV1{
 		TraceNotifyV0: TraceNotifyV0{
@@ -89,39 +88,39 @@ func (s *MonitorSuite) TestDecodeTraceNotifyV1(c *C) {
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, in)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	out := TraceNotify{}
 	err = DecodeTraceNotify(buf.Bytes(), &out)
-	c.Assert(err, IsNil)
-	c.Assert(out.Type, Equals, in.Type)
-	c.Assert(out.ObsPoint, Equals, in.ObsPoint)
-	c.Assert(out.Source, Equals, in.Source)
-	c.Assert(out.Hash, Equals, in.Hash)
-	c.Assert(out.OrigLen, Equals, in.OrigLen)
-	c.Assert(out.CapLen, Equals, in.CapLen)
-	c.Assert(out.Version, Equals, in.Version)
-	c.Assert(out.SrcLabel, Equals, in.SrcLabel)
-	c.Assert(out.DstLabel, Equals, in.DstLabel)
-	c.Assert(out.DstID, Equals, in.DstID)
-	c.Assert(out.Reason, Equals, in.Reason)
-	c.Assert(out.Flags, Equals, in.Flags)
-	c.Assert(out.Ifindex, Equals, in.Ifindex)
-	c.Assert(out.OrigIP, Equals, in.OrigIP)
+	require.Nil(t, err)
+	require.Equal(t, in.Type, out.Type)
+	require.Equal(t, in.ObsPoint, out.ObsPoint)
+	require.Equal(t, in.Source, out.Source)
+	require.Equal(t, in.Hash, out.Hash)
+	require.Equal(t, in.OrigLen, out.OrigLen)
+	require.Equal(t, in.CapLen, out.CapLen)
+	require.Equal(t, in.Version, out.Version)
+	require.Equal(t, in.SrcLabel, out.SrcLabel)
+	require.Equal(t, in.DstLabel, out.DstLabel)
+	require.Equal(t, in.DstID, out.DstID)
+	require.Equal(t, in.Reason, out.Reason)
+	require.Equal(t, in.Flags, out.Flags)
+	require.Equal(t, in.Ifindex, out.Ifindex)
+	require.Equal(t, in.OrigIP, out.OrigIP)
 }
 
-func (s *MonitorSuite) TestDecodeTraceNotifyErrors(c *C) {
+func TestDecodeTraceNotifyErrors(t *testing.T) {
 	tn := TraceNotify{}
 	err := DecodeTraceNotify([]byte{}, &tn)
-	c.Assert(err, NotNil)
-	c.Assert(err.Error(), Equals, "Unknown trace event")
+	require.Error(t, err)
+	require.Equal(t, "Unknown trace event", err.Error())
 
 	// invalid version
 	ev := make([]byte, traceNotifyV1Len)
 	ev[14] = 0xff
 	err = DecodeTraceNotify(ev, &tn)
-	c.Assert(err, NotNil)
-	c.Assert(err.Error(), Equals, "Unrecognized trace event (version 255)")
+	require.Error(t, err)
+	require.Equal(t, "Unrecognized trace event (version 255)", err.Error())
 }
 
 func TestIsEncrypted(t *testing.T) {
