@@ -25,11 +25,6 @@ type BugtoolConfiguration struct {
 	Commands []string `json:"commands"`
 }
 
-func setupDefaultConfig(path string, k8sPods []string, confDir, cmdDir string) (*BugtoolConfiguration, error) {
-	c := BugtoolConfiguration{defaultCommands(confDir, cmdDir, k8sPods)}
-	return &c, save(&c, path)
-}
-
 func bpffsMountpoint() string {
 	mountInfos, err := mountinfo.GetMountInfo()
 	if err != nil {
