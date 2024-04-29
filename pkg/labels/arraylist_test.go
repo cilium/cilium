@@ -4,12 +4,12 @@
 package labels
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
 
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *LabelsSuite) TestLabelArrayListEquals(c *C) {
+func TestLabelArrayListEquals(t *testing.T) {
 	list1 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
@@ -46,52 +46,52 @@ func (s *LabelsSuite) TestLabelArrayListEquals(c *C) {
 	list5 := LabelArrayList(nil)
 	list6 := LabelArrayList{}
 
-	c.Assert(list1.Equals(list1), Equals, true)
-	c.Assert(list1.Equals(list2), Equals, true)
-	c.Assert(list1.Equals(list3), Equals, false)
-	c.Assert(list1.Equals(list4), Equals, false)
-	c.Assert(list1.Equals(list5), Equals, false)
-	c.Assert(list1.Equals(list6), Equals, false)
+	require.Equal(t, true, list1.Equals(list1))
+	require.Equal(t, true, list1.Equals(list2))
+	require.Equal(t, false, list1.Equals(list3))
+	require.Equal(t, false, list1.Equals(list4))
+	require.Equal(t, false, list1.Equals(list5))
+	require.Equal(t, false, list1.Equals(list6))
 
-	c.Assert(list2.Equals(list1), Equals, true)
-	c.Assert(list2.Equals(list2), Equals, true)
-	c.Assert(list2.Equals(list3), Equals, false)
-	c.Assert(list2.Equals(list4), Equals, false)
-	c.Assert(list2.Equals(list5), Equals, false)
-	c.Assert(list2.Equals(list6), Equals, false)
+	require.Equal(t, true, list2.Equals(list1))
+	require.Equal(t, true, list2.Equals(list2))
+	require.Equal(t, false, list2.Equals(list3))
+	require.Equal(t, false, list2.Equals(list4))
+	require.Equal(t, false, list2.Equals(list5))
+	require.Equal(t, false, list2.Equals(list6))
 
-	c.Assert(list3.Equals(list1), Equals, false)
-	c.Assert(list3.Equals(list2), Equals, false)
-	c.Assert(list3.Equals(list3), Equals, true)
-	c.Assert(list3.Equals(list4), Equals, false)
-	c.Assert(list3.Equals(list5), Equals, false)
-	c.Assert(list3.Equals(list6), Equals, false)
+	require.Equal(t, false, list3.Equals(list1))
+	require.Equal(t, false, list3.Equals(list2))
+	require.Equal(t, true, list3.Equals(list3))
+	require.Equal(t, false, list3.Equals(list4))
+	require.Equal(t, false, list3.Equals(list5))
+	require.Equal(t, false, list3.Equals(list6))
 
-	c.Assert(list4.Equals(list1), Equals, false)
-	c.Assert(list4.Equals(list2), Equals, false)
-	c.Assert(list4.Equals(list3), Equals, false)
-	c.Assert(list4.Equals(list4), Equals, true)
-	c.Assert(list4.Equals(list5), Equals, false)
-	c.Assert(list4.Equals(list6), Equals, false)
+	require.Equal(t, false, list4.Equals(list1))
+	require.Equal(t, false, list4.Equals(list2))
+	require.Equal(t, false, list4.Equals(list3))
+	require.Equal(t, true, list4.Equals(list4))
+	require.Equal(t, false, list4.Equals(list5))
+	require.Equal(t, false, list4.Equals(list6))
 
-	c.Assert(list5.Equals(list1), Equals, false)
-	c.Assert(list5.Equals(list2), Equals, false)
-	c.Assert(list5.Equals(list3), Equals, false)
-	c.Assert(list5.Equals(list4), Equals, false)
-	c.Assert(list5.Equals(list5), Equals, true)
-	c.Assert(list5.Equals(list6), Equals, true)
+	require.Equal(t, false, list5.Equals(list1))
+	require.Equal(t, false, list5.Equals(list2))
+	require.Equal(t, false, list5.Equals(list3))
+	require.Equal(t, false, list5.Equals(list4))
+	require.Equal(t, true, list5.Equals(list5))
+	require.Equal(t, true, list5.Equals(list6))
 
-	c.Assert(list6.Equals(list1), Equals, false)
-	c.Assert(list6.Equals(list2), Equals, false)
-	c.Assert(list6.Equals(list3), Equals, false)
-	c.Assert(list6.Equals(list4), Equals, false)
-	c.Assert(list6.Equals(list5), Equals, true)
-	c.Assert(list6.Equals(list6), Equals, true)
+	require.Equal(t, false, list6.Equals(list1))
+	require.Equal(t, false, list6.Equals(list2))
+	require.Equal(t, false, list6.Equals(list3))
+	require.Equal(t, false, list6.Equals(list4))
+	require.Equal(t, true, list6.Equals(list5))
+	require.Equal(t, true, list6.Equals(list6))
 }
 
-func (s *LabelsSuite) TestLabelArrayListSort(c *C) {
-	c.Assert(LabelArrayList(nil).Sort(), checker.DeepEquals, LabelArrayList(nil))
-	c.Assert(LabelArrayList{}.Sort(), checker.DeepEquals, LabelArrayList{})
+func TestLabelArrayListSort(t *testing.T) {
+	require.EqualValues(t, LabelArrayList(nil), LabelArrayList(nil).Sort())
+	require.EqualValues(t, LabelArrayList{}, LabelArrayList{}.Sort())
 
 	list1 := LabelArrayList{
 		{
@@ -136,7 +136,7 @@ func (s *LabelsSuite) TestLabelArrayListSort(c *C) {
 		},
 	}
 
-	c.Assert(list1.Sort(), checker.DeepEquals, expected1)
+	require.EqualValues(t, expected1, list1.Sort())
 
 	list2 := LabelArrayList{
 		{
@@ -160,10 +160,10 @@ func (s *LabelsSuite) TestLabelArrayListSort(c *C) {
 			NewLabel("env", "devel", LabelSourceAny),
 		},
 	}
-	c.Assert(list2.Sort(), checker.DeepEquals, expected2)
+	require.EqualValues(t, expected2, list2.Sort())
 }
 
-func (s *LabelsSuite) TestLabelArrayListMergeSorted(c *C) {
+func TestLabelArrayListMergeSorted(t *testing.T) {
 	list1 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
@@ -248,14 +248,13 @@ func (s *LabelsSuite) TestLabelArrayListMergeSorted(c *C) {
 		a := tc.a.DeepCopy()
 		b := tc.b.DeepCopy()
 		a.Merge(b...)
-		c.Assert(a, checker.DeepEquals, tc.expected, Commentf(tc.name))
-		c.Assert(a, checker.DeepEquals, a.Sort(), Commentf(tc.name+" returned unsorted result"))
+		require.EqualValues(t, tc.expected, a, tc.name)
+		require.EqualValues(t, a.Sort(), a, tc.name+" returned unsorted result")
 
 		a = tc.a.DeepCopy().Sort()
 		b = tc.b.DeepCopy().Sort()
 		a.MergeSorted(b)
-		c.Assert(a, checker.DeepEquals, tc.expected, Commentf(tc.name+" MergeSorted"))
-		c.Assert(a, checker.DeepEquals, a.Sort(), Commentf(tc.name+" MergeSorted returned unsorted result"))
-
+		require.EqualValues(t, tc.expected, a, tc.name+" MergeSorted")
+		require.EqualValues(t, a.Sort(), a, tc.name+" MergeSorted returned unsorted result")
 	}
 }
