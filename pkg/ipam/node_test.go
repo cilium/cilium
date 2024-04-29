@@ -3,7 +3,11 @@
 
 package ipam
 
-import check "github.com/cilium/checkmate"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 type testNeededDef struct {
 	available   int
@@ -49,16 +53,16 @@ var excessDef = []testExcessDef{
 	{20, 4, 8, 0, 8, 0},
 }
 
-func (e *IPAMSuite) TestCalculateNeededIPs(c *check.C) {
+func TestCalculateNeededIPs(t *testing.T) {
 	for _, d := range neededDef {
 		result := calculateNeededIPs(d.available, d.used, d.preallocate, d.minallocate, d.maxallocate)
-		c.Assert(result, check.Equals, d.result)
+		require.Equal(t, d.result, result)
 	}
 }
 
-func (e *IPAMSuite) TestCalculateExcessIPs(c *check.C) {
+func TestCalculateExcessIPs(t *testing.T) {
 	for _, d := range excessDef {
 		result := calculateExcessIPs(d.available, d.used, d.preallocate, d.minallocate, d.maxabovewatermark)
-		c.Assert(result, check.Equals, d.result)
+		require.Equal(t, d.result, result)
 	}
 }
