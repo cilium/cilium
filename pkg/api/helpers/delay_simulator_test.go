@@ -4,9 +4,10 @@
 package helpers
 
 import (
+	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
 type operation int
@@ -16,11 +17,11 @@ const (
 	operation2
 )
 
-func (h *HelpersSuite) TestSetDelay(c *check.C) {
+func TestSetDelay(t *testing.T) {
 	d := NewDelaySimulator()
-	c.Assert(d, check.Not(check.IsNil))
+	require.NotNil(t, d)
 
 	d.SetDelay(operation1, time.Second)
-	c.Assert(d.delays[operation1], check.Equals, time.Second)
-	c.Assert(d.delays[operation2], check.Equals, time.Duration(0))
+	require.Equal(t, time.Second, d.delays[operation1])
+	require.Equal(t, time.Duration(0), d.delays[operation2])
 }

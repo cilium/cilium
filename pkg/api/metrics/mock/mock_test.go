@@ -7,22 +7,14 @@ import (
 	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type MockSuite struct{}
-
-var _ = check.Suite(&MockSuite{})
-
-func (e *MockSuite) TestMock(c *check.C) {
+func TestMock(t *testing.T) {
 	api := NewMockMetrics()
 	api.ObserveAPICall("DescribeNetworkInterfaces", "success", 2.0)
-	c.Assert(api.APICall("DescribeNetworkInterfaces", "success"), check.Equals, 2.0)
+	require.Equal(t, 2.0, api.APICall("DescribeNetworkInterfaces", "success"))
 	api.ObserveRateLimit("DescribeNetworkInterfaces", time.Second)
 	api.ObserveRateLimit("DescribeNetworkInterfaces", time.Second)
-	c.Assert(api.RateLimit("DescribeNetworkInterfaces"), check.Equals, 2*time.Second)
+	require.Equal(t, 2*time.Second, api.RateLimit("DescribeNetworkInterfaces"))
 }
