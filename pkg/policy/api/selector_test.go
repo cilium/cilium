@@ -7,39 +7,39 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
-var _ = Suite(&PolicyAPITestSuite{})
-
-func (s *PolicyAPITestSuite) TestSelectsAllEndpoints(c *C) {
+func TestSelectsAllEndpoints(t *testing.T) {
+	setUpSuite(t)
 
 	// Empty endpoint selector slice does NOT equate to a wildcard.
 	selectorSlice := EndpointSelectorSlice{}
-	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, false)
+	require.Equal(t, false, selectorSlice.SelectsAllEndpoints())
 
 	selectorSlice = EndpointSelectorSlice{WildcardEndpointSelector}
-	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, true)
+	require.Equal(t, true, selectorSlice.SelectsAllEndpoints())
 
 	// Entity "reserved:all" maps to WildcardEndpointSelector
 	selectorSlice = EntitySlice{EntityAll}.GetAsEndpointSelectors()
-	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, true)
+	require.Equal(t, true, selectorSlice.SelectsAllEndpoints())
 
 	// Slice that contains wildcard and other selectors still selects all endpoints.
 	selectorSlice = EndpointSelectorSlice{WildcardEndpointSelector, NewESFromLabels(labels.ParseSelectLabel("bar"))}
-	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, true)
+	require.Equal(t, true, selectorSlice.SelectsAllEndpoints())
 
 	selectorSlice = EndpointSelectorSlice{NewESFromLabels(labels.ParseSelectLabel("bar")), NewESFromLabels(labels.ParseSelectLabel("foo"))}
-	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, false)
+	require.Equal(t, false, selectorSlice.SelectsAllEndpoints())
 }
 
-func (s *PolicyAPITestSuite) TestLabelSelectorToRequirements(c *C) {
+func TestLabelSelectorToRequirements(t *testing.T) {
+	setUpSuite(t)
+
 	labelSelector := &slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"any.foo": "bar",
@@ -56,16 +56,16 @@ func (s *PolicyAPITestSuite) TestLabelSelectorToRequirements(c *C) {
 
 	expRequirements := k8sLbls.Requirements{}
 	req, err := k8sLbls.NewRequirement("any.foo", selection.Equals, []string{"bar"})
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	expRequirements = append(expRequirements, *req)
 	req, err = k8sLbls.NewRequirement("any.foo", selection.NotIn, []string{"default"})
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	expRequirements = append(expRequirements, *req)
 	req, err = k8sLbls.NewRequirement("k8s.baz", selection.Equals, []string{"alice"})
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	expRequirements = append(expRequirements, *req)
 
-	c.Assert(labelSelectorToRequirements(labelSelector), checker.DeepEquals, &expRequirements)
+	require.EqualValues(t, &expRequirements, labelSelectorToRequirements(labelSelector))
 }
 
 func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.LabelArray) {

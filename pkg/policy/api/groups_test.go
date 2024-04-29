@@ -9,9 +9,7 @@ import (
 	"net/netip"
 	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
 func GetToGroupsRule() Groups {
@@ -42,7 +40,7 @@ func GetCallBackWithRule(ips ...string) GroupProviderFunc {
 	}
 }
 
-func (s *PolicyAPITestSuite) TestGetCIDRSetWithValidValue(c *C) {
+func TestGetCIDRSetWithValidValue(t *testing.T) {
 	cb := GetCallBackWithRule("192.168.1.1")
 	RegisterToGroupsProvider(AWSProvider, cb)
 
@@ -50,11 +48,11 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithValidValue(c *C) {
 		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
-	c.Assert(err, IsNil)
+	require.EqualValues(t, expectedCidrRule, cidr)
+	require.Nil(t, err)
 }
 
-func (s *PolicyAPITestSuite) TestGetCIDRSetWithMultipleSorted(c *C) {
+func TestGetCIDRSetWithMultipleSorted(t *testing.T) {
 	cb := GetCallBackWithRule("192.168.1.1", "192.168.10.10", "192.168.10.3")
 	RegisterToGroupsProvider(AWSProvider, cb)
 	expectedCidrRule := []CIDRRule{
@@ -63,11 +61,11 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithMultipleSorted(c *C) {
 		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
-	c.Assert(err, IsNil)
+	require.EqualValues(t, expectedCidrRule, cidr)
+	require.Nil(t, err)
 }
 
-func (s *PolicyAPITestSuite) TestGetCIDRSetWithUniqueCIDRRule(c *C) {
+func TestGetCIDRSetWithUniqueCIDRRule(t *testing.T) {
 	cb := GetCallBackWithRule("192.168.1.1", "192.168.10.10", "192.168.1.1")
 	RegisterToGroupsProvider(AWSProvider, cb)
 
@@ -77,28 +75,31 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithUniqueCIDRRule(c *C) {
 
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	c.Assert(cidr, checker.DeepEquals, cidrRule)
-	c.Assert(err, IsNil)
+	require.EqualValues(t, cidrRule, cidr)
+	require.Nil(t, err)
 }
 
-func (s *PolicyAPITestSuite) TestGetCIDRSetWithError(c *C) {
+func TestGetCIDRSetWithError(t *testing.T) {
+	setUpSuite(t)
+
 	cb := func(ctx context.Context, group *Groups) ([]netip.Addr, error) {
 		return []netip.Addr{}, fmt.Errorf("Invalid credentials")
 	}
 	RegisterToGroupsProvider(AWSProvider, cb)
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	c.Assert(cidr, IsNil)
-	c.Assert(err, NotNil)
-
+	require.Nil(t, cidr)
+	require.Error(t, err)
 }
 
-func (s *PolicyAPITestSuite) TestWithoutProviderRegister(c *C) {
+func TestWithoutProviderRegister(t *testing.T) {
+	setUpSuite(t)
+
 	providers.Delete(AWSProvider)
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	c.Assert(cidr, IsNil)
-	c.Assert(err, NotNil)
+	require.Nil(t, cidr)
+	require.Error(t, err)
 }
 
 func BenchmarkGetCIDRSet(b *testing.B) {
