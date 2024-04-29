@@ -412,6 +412,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			elf:      objPath,
 			programs: progs,
 			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), host),
+			tcx:      option.Config.EnableTCX,
 		},
 	)
 	if err != nil {
@@ -452,6 +453,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			elf:      secondDevObjPath,
 			programs: progs,
 			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), net),
+			tcx:      option.Config.EnableTCX,
 		},
 	)
 	if err != nil {
@@ -506,6 +508,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 				elf:      netdevObjPath,
 				programs: progs,
 				linkDir:  linkDir,
+				tcx:      option.Config.EnableTCX,
 			},
 		)
 		if err != nil {
@@ -575,6 +578,7 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				elf:      objPath,
 				programs: progs,
 				linkDir:  linkDir,
+				tcx:      option.Config.EnableTCX,
 			},
 		)
 		if err != nil {
@@ -633,6 +637,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 			elf:      overlayObj,
 			programs: progs,
 			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), device),
+			tcx:      option.Config.EnableTCX,
 		},
 	)
 	if err != nil {
