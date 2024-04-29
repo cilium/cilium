@@ -4,14 +4,17 @@
 package api
 
 import (
+	"fmt"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
 // TestFQDNSelectorSanitize tests that the sanitizer correctly catches bad
 // cases, and allows good ones.
-func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
+func TestFQDNSelectorSanitize(t *testing.T) {
+	setUpSuite(t)
+
 	for _, accept := range []FQDNSelector{
 		{MatchName: "cilium.io."},
 		{MatchName: "get-cilium.io."},
@@ -24,7 +27,7 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 		{MatchPattern: "cilium.io"},
 	} {
 		err := accept.sanitize()
-		c.Assert(err, IsNil, Commentf("FQDNSelector %+v was rejected but it should be valid", accept))
+		require.NoError(t, err, fmt.Sprintf("FQDNSelector %+v was rejected but it should be valid", accept))
 	}
 
 	for _, reject := range []FQDNSelector{
@@ -33,13 +36,15 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 		{MatchName: "cilium.io", MatchPattern: "*cilium.io"},
 	} {
 		err := reject.sanitize()
-		c.Assert(err, Not(IsNil), Commentf("FQDNSelector %+v was accepted but it should be invalid", reject))
+		require.Error(t, err, fmt.Sprintf("FQDNSelector %+v was accepted but it should be invalid", reject))
 	}
 }
 
 // TestPortRuleDNSSanitize tests that the sanitizer correctly catches bad
 // cases, and allows good ones.
-func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
+func TestPortRuleDNSSanitize(t *testing.T) {
+	setUpSuite(t)
+
 	for _, accept := range []PortRuleDNS{
 		{MatchName: "cilium.io."},
 		{MatchName: "get-cilium.io."},
@@ -52,7 +57,7 @@ func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
 		{MatchPattern: "cilium.io"},
 	} {
 		err := accept.Sanitize()
-		c.Assert(err, IsNil, Commentf("PortRuleDNS %+v was rejected but it should be valid", accept))
+		require.NoError(t, err, fmt.Sprintf("PortRuleDNS %+v was rejected but it should be valid", accept))
 	}
 
 	for _, reject := range []PortRuleDNS{
@@ -61,7 +66,7 @@ func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
 		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "[a-z]*.cilium.io."},
 	} {
 		err := reject.Sanitize()
-		c.Assert(err, Not(IsNil), Commentf("PortRuleDNS %+v was accepted but it should be invalid", reject))
+		require.Error(t, err, fmt.Sprintf("PortRuleDNS %+v was accepted but it should be invalid", reject))
 	}
 }
 

@@ -7,28 +7,28 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/cilium/cilium/pkg/checker"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func (s *PolicyAPITestSuite) TestRequiresDerivativeRuleWithoutToGroups(c *C) {
+func TestRequiresDerivativeRuleWithoutToGroups(t *testing.T) {
 	eg := EgressRule{}
-	c.Assert(eg.RequiresDerivative(), Equals, false)
+	require.Equal(t, false, eg.RequiresDerivative())
 }
 
-func (s *PolicyAPITestSuite) TestRequiresDerivativeRuleWithToGroups(c *C) {
+func TestRequiresDerivativeRuleWithToGroups(t *testing.T) {
 	eg := EgressRule{}
 	eg.ToGroups = []Groups{
 		GetToGroupsRule(),
 	}
-	c.Assert(eg.RequiresDerivative(), Equals, true)
+	require.Equal(t, true, eg.RequiresDerivative())
 }
 
-func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithoutToGroups(c *C) {
+func TestCreateDerivativeRuleWithoutToGroups(t *testing.T) {
 	eg := &EgressRule{
 		EgressCommonRule: EgressCommonRule{
 			ToEndpoints: []EndpointSelector{
@@ -42,11 +42,11 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithoutToGroups(c *C) {
 		},
 	}
 	newRule, err := eg.CreateDerivative(context.TODO())
-	c.Assert(eg, checker.DeepEquals, newRule)
-	c.Assert(err, IsNil)
+	require.EqualValues(t, newRule, eg)
+	require.Nil(t, err)
 }
 
-func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(c *C) {
+func TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(t *testing.T) {
 	cb := func(ctx context.Context, group *Groups) ([]netip.Addr, error) {
 		return []netip.Addr{}, fmt.Errorf("Invalid error")
 	}
@@ -60,10 +60,10 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsWitInvalidRegis
 		},
 	}
 	_, err := eg.CreateDerivative(context.TODO())
-	c.Assert(err, NotNil)
+	require.Error(t, err)
 }
 
-func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsAndToPorts(c *C) {
+func TestCreateDerivativeRuleWithToGroupsAndToPorts(t *testing.T) {
 	cb := GetCallBackWithRule("192.168.1.1")
 	RegisterToGroupsProvider(AWSProvider, cb)
 
@@ -76,15 +76,15 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsAndToPorts(c *C
 	}
 
 	// Checking that the derivative rule is working correctly
-	c.Assert(eg.RequiresDerivative(), Equals, true)
+	require.Equal(t, true, eg.RequiresDerivative())
 
 	newRule, err := eg.CreateDerivative(context.TODO())
-	c.Assert(err, IsNil)
-	c.Assert(len(newRule.ToGroups), Equals, 0)
-	c.Assert(len(newRule.ToCIDRSet), Equals, 1)
+	require.Nil(t, err)
+	require.Equal(t, 0, len(newRule.ToGroups))
+	require.Equal(t, 1, len(newRule.ToCIDRSet))
 }
 
-func (s *PolicyAPITestSuite) TestCreateDerivativeWithoutErrorAndNoIPs(c *C) {
+func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 	// Testing that if the len of the Ips returned by provider is 0 to block
 	// all the IPS outside.
 	cb := GetCallBackWithRule()
@@ -99,14 +99,16 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeWithoutErrorAndNoIPs(c *C) {
 	}
 
 	// Checking that the derivative rule is working correctly
-	c.Assert(eg.RequiresDerivative(), Equals, true)
+	require.Equal(t, true, eg.RequiresDerivative())
 
 	newRule, err := eg.CreateDerivative(context.TODO())
-	c.Assert(err, IsNil)
-	c.Assert(newRule, checker.DeepEquals, &EgressRule{})
+	require.Nil(t, err)
+	require.EqualValues(t, &EgressRule{}, newRule)
 }
 
-func (s *PolicyAPITestSuite) TestIsLabelBasedEgress(c *C) {
+func TestIsLabelBasedEgress(t *testing.T) {
+	setUpSuite(t)
+
 	type args struct {
 		eg *EgressRule
 	}
@@ -350,8 +352,8 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedEgress(c *C) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		c.Assert(args.eg.sanitize(), Equals, nil, Commentf("Test name: %q", tt.name))
+		require.Equal(t, nil, args.eg.sanitize(), fmt.Sprintf("Test name: %q", tt.name))
 		isLabelBased := args.eg.AllowsWildcarding()
-		c.Assert(isLabelBased, checker.DeepEquals, want.isLabelBased, Commentf("Test name: %q", tt.name))
+		require.EqualValues(t, want.isLabelBased, isLabelBased, fmt.Sprintf("Test name: %q", tt.name))
 	}
 }

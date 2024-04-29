@@ -4,14 +4,18 @@
 package api
 
 import (
-	. "github.com/cilium/checkmate"
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/cilium/cilium/pkg/checker"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
+func TestIsLabelBasedIngress(t *testing.T) {
+	setUpSuite(t)
+
 	type args struct {
 		eg *IngressRule
 	}
@@ -231,8 +235,8 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		c.Assert(args.eg.sanitize(), Equals, nil, Commentf("Test name: %q", tt.name))
+		require.Equal(t, nil, args.eg.sanitize(), fmt.Sprintf("Test name: %q", tt.name))
 		isLabelBased := args.eg.AllowsWildcarding()
-		c.Assert(isLabelBased, checker.DeepEquals, want.isLabelBased, Commentf("Test name: %q", tt.name))
+		require.EqualValues(t, want.isLabelBased, isLabelBased, fmt.Sprintf("Test name: %q", tt.name))
 	}
 }
