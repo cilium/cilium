@@ -11,11 +11,10 @@ import (
 	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -28,31 +27,31 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
+func (s *EndpointSuite) TestUpdateVisibilityPolicy(t *testing.T) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
-	ep := NewTestEndpointWithState(c, do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
 		return "", nil
 	})
-	c.Assert(ep.visibilityPolicy, check.IsNil)
+	require.Nil(t, ep.visibilityPolicy)
 
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return "<Ingress/80/TCP/HTTP>", nil
 	})
 
-	c.Assert(ep.visibilityPolicy, check.Not(check.Equals), nil)
-	c.Assert(ep.visibilityPolicy.Ingress["80/TCP"], checker.DeepEquals, &policy.VisibilityMetadata{
+	require.NotEqual(t, nil, ep.visibilityPolicy)
+	require.Equal(t, &policy.VisibilityMetadata{
 		Parser:  policy.ParserTypeHTTP,
 		Port:    uint16(80),
 		Proto:   u8proto.TCP,
 		Ingress: true,
-	})
+	}, ep.visibilityPolicy.Ingress["80/TCP"])
 
 	// Check that updating after previously having value works.
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
 		return "", nil
 	})
-	c.Assert(ep.visibilityPolicy, check.IsNil)
+	require.Nil(t, ep.visibilityPolicy)
 }
 
 // This test fuzzes the incremental update engine from an end-to-end perspective
