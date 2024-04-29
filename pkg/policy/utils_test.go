@@ -4,10 +4,12 @@
 package policy
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func (s *PolicyTestSuite) TestJoinPath(c *C) {
+func TestJoinPath(t *testing.T) {
 	var joinPathTests = []struct {
 		input1   string // input 1
 		input2   string // input 2
@@ -21,6 +23,6 @@ func (s *PolicyTestSuite) TestJoinPath(c *C) {
 	}
 	for _, tt := range joinPathTests {
 		actual := JoinPath(tt.input1, tt.input2)
-		c.Assert(actual, Equals, tt.expected)
+		require.Equal(t, tt.expected, actual)
 	}
 }

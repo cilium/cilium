@@ -12,11 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -27,15 +26,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
-//
-// Distillery unit tests
-//
-
-type DistilleryTestSuite struct{}
-
 var (
-	_ = Suite(&DistilleryTestSuite{})
-
 	ep1 = testutils.NewTestEndpoint()
 	ep2 = testutils.NewTestEndpoint()
 )
@@ -44,95 +35,95 @@ func localIdentity(n uint32) identity.NumericIdentity {
 	return identity.NumericIdentity(n) | identity.IdentityScopeLocal
 
 }
-func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
+func TestCacheManagement(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
-	c.Assert(ep2.GetSecurityIdentity(), Equals, identity)
+	require.Equal(t, identity, ep2.GetSecurityIdentity())
 
 	// Nonsense delete of entry that isn't yet inserted
 	deleted := cache.delete(identity)
-	c.Assert(deleted, Equals, false)
+	require.Equal(t, false, deleted)
 
 	// Insert identity twice. Should be the same policy.
 	policy1 := cache.insert(identity)
 	policy2 := cache.insert(identity)
-	c.Assert(policy1, Equals, policy2)
+	require.Equal(t, policy2, policy1)
 
 	// Despite two insert calls, there is no reference tracking; any delete
 	// will clear the cache.
 	cacheCleared := cache.delete(identity)
-	c.Assert(cacheCleared, Equals, true)
+	require.True(t, cacheCleared)
 	cacheCleared = cache.delete(identity)
-	c.Assert(cacheCleared, Equals, false)
+	require.Equal(t, false, cacheCleared)
 
 	// Insert two distinct identities, then delete one. Other should still
 	// be there.
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
-	c.Assert(identity3, Not(Equals), identity)
+	require.NotEqual(t, identity, identity3)
 	policy1 = cache.insert(identity)
 	policy3 := cache.insert(identity3)
-	c.Assert(policy1, Not(Equals), policy3)
+	require.NotEqual(t, policy3, policy1)
 	_ = cache.delete(identity)
 	policy3 = cache.lookupOrCreate(identity3, false)
-	c.Assert(policy3, NotNil)
+	require.NotNil(t, policy3)
 }
 
-func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
+func TestCachePopulation(t *testing.T) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.revision.Store(42)
 	cache := repo.policyCache
 
 	identity1 := ep1.GetSecurityIdentity()
-	c.Assert(ep2.GetSecurityIdentity(), Equals, identity1)
+	require.Equal(t, identity1, ep2.GetSecurityIdentity())
 	policy1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
 	updated, err := cache.updateSelectorPolicy(identity1)
-	c.Assert(err, IsNil)
-	c.Assert(updated, Equals, true)
+	require.NoError(t, err)
+	require.True(t, updated)
 	updated, err = cache.updateSelectorPolicy(identity1)
-	c.Assert(err, IsNil)
-	c.Assert(updated, Equals, false)
+	require.NoError(t, err)
+	require.Equal(t, false, updated)
 	policy2 := cache.insert(identity1)
 	idp1 := policy1.(*cachedSelectorPolicy).getPolicy()
 	idp2 := policy2.(*cachedSelectorPolicy).getPolicy()
-	c.Assert(idp1, Equals, idp2)
+	require.Equal(t, idp2, idp1)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
-	c.Assert(cacheCleared, Equals, true)
+	require.True(t, cacheCleared)
 	updated, err = cache.updateSelectorPolicy(identity1)
-	c.Assert(err, NotNil)
+	require.Error(t, err)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
 	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
-	c.Assert(err, NotNil)
-	c.Assert(updated, Equals, false)
+	require.Error(t, err)
+	require.Equal(t, false, updated)
 
 	// Insert endpoint with different identity and observe that the cache
 	// is different from ep1, ep2
 	policy1 = cache.insert(identity1)
 	idp1 = policy1.(*cachedSelectorPolicy).getPolicy()
-	c.Assert(idp1, NotNil)
+	require.NotNil(t, idp1)
 	identity3 := ep3.GetSecurityIdentity()
 	policy3 := cache.insert(identity3)
-	c.Assert(policy3, Not(Equals), policy1)
+	require.NotEqual(t, policy1, policy3)
 	updated, err = cache.updateSelectorPolicy(identity3)
-	c.Assert(err, IsNil)
-	c.Assert(updated, Equals, true)
+	require.NoError(t, err)
+	require.True(t, updated)
 	idp3 := policy3.(*cachedSelectorPolicy).getPolicy()
-	c.Assert(idp3, Not(Equals), idp1)
+	require.NotEqual(t, idp1, idp3)
 
 	// If there's an error during policy resolution, update should fail
 	//repo.err = fmt.Errorf("not implemented!")
 	//repo.revision++
 	//_, err = cache.updateSelectorPolicy(identity3)
-	//c.Assert(err, NotNil)
+	//require.Error(t, err)
 }
 
 //
@@ -650,10 +641,10 @@ func Test_MergeL3(t *testing.T) {
 				if err != nil {
 					t.Errorf("Policy resolution failure: %s", err)
 				}
-				if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+				if equal := assert.EqualExportedValues(t, tt.result, mapstate); !equal {
 					t.Logf("Rules:\n%s\n\n", api.Rules(rules).String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-					t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s\nObtained: %v\nExpected: %v", labelsFoo, err, mapstate, tt.result)
+					t.Errorf("Policy obtained didn't match expected for endpoint %s:\nObtained: %v\nExpected: %v", labelsFoo, mapstate, tt.result)
 				}
 				for remoteID, expectedAuthTypes := range tt.auths {
 					authTypes := repo.GetAuthTypes(identity.ID, remoteID)
@@ -1201,10 +1192,11 @@ func Test_MergeRules(t *testing.T) {
 			// Ignore generated rules as they lap LabelArrayList which would
 			// make the tests fail.
 			if i < generatedIdx {
-				if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+				if equal := assert.EqualExportedValues(t, mapstate, tt.result); !equal {
+					require.EqualExportedValuesf(t, tt.result, mapstate, "Policy obtained didn't match expected for endpoint %s", labelsFoo)
 					t.Logf("Rules:\n%s\n\n", tt.rules.String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-					t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
+					t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
 				}
 			}
 			// It is extremely difficult to derive the "DerivedFromRules" field.
@@ -1219,15 +1211,15 @@ func Test_MergeRules(t *testing.T) {
 				mapstate.Insert(k, v)
 				return true
 			})
-			if equal, err := checker.ExportedEqual(mapstate, expectedMapState[tt.test]); !equal {
+			if equal := assert.EqualExportedValues(t, expectedMapState[tt.test], mapstate); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Policy obtained didn't match expected for endpoint:\n%s", err)
+				t.Error("Policy obtained didn't match expected for endpoint")
 			}
-			if equal, err := checker.ExportedEqual(generatedRule, tt.rules); !equal {
+			if equal := assert.ElementsMatch(t, tt.rules, generatedRule); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Generated rules didn't match manual rules:\n%s", err)
+				t.Error("Generated rules didn't match manual rules")
 			}
 		})
 	}
@@ -1304,11 +1296,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
-				t.Logf("Rules:\n%s\n\n", tt.rules.String())
-				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
-			}
+			require.EqualExportedValuesf(t, tt.result, mapstate, "Policy obtained didn't match expected for endpoint %s", labelsFoo)
 		})
 	}
 }
@@ -1353,10 +1341,10 @@ func Test_AllowAll(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+			if equal := assert.EqualExportedValues(t, tt.result, mapstate); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
+				t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
 			}
 		})
 	}
@@ -1693,9 +1681,9 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+			if equal := assert.EqualExportedValues(t, tt.result, mapstate); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s:\n%s", tt.test, labelsFoo, err)
+				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
 		})
 	}
@@ -1743,9 +1731,9 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+			if equal := assert.EqualExportedValues(t, tt.result, mapstate); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s:\n%s", tt.test, labelsFoo, err)
+				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
 		})
 	}
