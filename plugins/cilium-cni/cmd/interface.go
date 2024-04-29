@@ -58,7 +58,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 
 	if err := routingInfo.Configure(
 		ipConfig.Address.IP,
-		int(conf.DeviceMTU),
+		int(conf.RouteMTU),
 		conf.EgressMultiHomeIPRuleCompat,
 		false,
 	); err != nil {
