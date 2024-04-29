@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef ____BPF_TEST_MOCK_SKB_METADATA____
-#define ____BPF_TEST_MOCK_SKB_METADATA____
+#pragma once
 
 #include <bpf/compiler.h>
 #include <bpf/helpers.h>
@@ -68,5 +67,3 @@ mock_skb_load_and_clear_meta(struct __sk_buff *ctx __maybe_unused, const __u32 o
 #define ctx_store_meta mock_skb_store_meta
 #define ctx_load_meta mock_skb_load_meta
 #define ctx_load_and_clear_meta mock_skb_load_and_clear_meta
-
-#endif /* ____BPF_TEST_MOCK_SKB_METADATA____ */

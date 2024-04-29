@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_AUTH_H_
-#define __LIB_AUTH_H_
+#pragma once
 
 #include "common.h"
 #include "maps.h"
@@ -46,4 +45,3 @@ auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remot
 	send_signal_auth_required(ctx, &key);
 	return DROP_POLICY_AUTH_REQUIRED;
 }
-#endif

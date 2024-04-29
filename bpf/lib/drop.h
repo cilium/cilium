@@ -11,8 +11,7 @@
  * If DROP_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
 
-#ifndef __LIB_DROP__
-#define __LIB_DROP__
+#pragma once
 
 #include "dbg.h"
 #include "events.h"
@@ -178,5 +177,3 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 #define send_drop_notify_error_ext(ctx, src, reason, ext_err, exitcode, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
-
-#endif /* __LIB_DROP__ */

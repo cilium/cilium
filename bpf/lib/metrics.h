@@ -5,8 +5,7 @@
  * Data metrics collection functions
  *
  */
-#ifndef __LIB_METRICS__
-#define __LIB_METRICS__
+#pragma once
 
 #include "common.h"
 #include "utils.h"
@@ -63,5 +62,3 @@ static __always_inline enum metric_dir ct_to_metrics_dir(enum ct_dir ct_dir)
 		return 0;
 	}
 }
-
-#endif /* __LIB_METRICS__ */

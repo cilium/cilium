@@ -6,8 +6,7 @@
  * inlining at the moment.
  */
 
-#ifndef ___EP_CONFIG____
-#define ___EP_CONFIG____
+#pragma once
 
 #ifndef LXC_IP
 #define LXC_IP_1 bpf_cpu_to_be64( \
@@ -86,12 +85,16 @@
 #define POLICY_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0
 
-#endif /* ___EP_CONFIG____ */
-
 #ifndef THIS_INTERFACE_MAC
 #define THIS_INTERFACE_MAC_1 (0xde) << 24 | (0xad) << 16 | (0xbe) << 8 | (0xef)
 #define THIS_INTERFACE_MAC_2 (0xc0) << 8 | (0xde)
 #define THIS_INTERACE_MAC { { THIS_INTERFACE_MAC_1, THIS_INTERFACE_MAC_2 } }
+#endif
+
+#ifndef NODE_MAC
+#define NODE_MAC_1 (0xde) << 24 | (0xad) << 16 | (0xbe) << 8 | (0xef)
+#define NODE_MAC_2 (0xc0) << 8 | (0xde)
+#define NODE_MAC { { NODE_MAC_1, NODE_MAC_2 } }
 #endif
 
 #ifndef ROUTER_IP

@@ -10,8 +10,7 @@
  *
  * If POLICY_VERDICT_NOTIFY is not defined, the API will be a non-op.
  */
-#ifndef __LIB_POLICY_LOG__
-#define __LIB_POLICY_LOG__
+#pragma once
 
 #include "common.h"
 
@@ -109,4 +108,3 @@ send_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused,
 {
 }
 #endif /* POLICY_VERDICT_NOTIFY */
-#endif /* __LIB_POLICY_LOG__*/

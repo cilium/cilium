@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_NAT_46X64__
-#define __LIB_NAT_46X64__
+#pragma once
 
 #include <linux/ip.h>
 #include <linux/icmp.h>
@@ -408,4 +407,3 @@ static __always_inline bool nat46x64_cb_xlate(struct __ctx_buff *ctx)
 {
 	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_XLATE;
 }
-#endif /* __LIB_NAT_46X64__ */

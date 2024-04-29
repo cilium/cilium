@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_CONNTRACK_MAP_H_
-#define __LIB_CONNTRACK_MAP_H_
+#pragma once
 
 #include "common.h"
 #include "config.h"
@@ -207,4 +206,3 @@ get_cluster_ct_any_map4(__u32 cluster_id __maybe_unused)
 }
 #endif
 #endif
-#endif /* __LIB_CONNTRACK_MAP_H_ */

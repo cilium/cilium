@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LB_H_
-#define __LB_H_
+#pragma once
 
 #include "bpf/compiler.h"
 #include "csum.h"
@@ -2083,4 +2082,3 @@ __sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
        return ctx->protocol == IPPROTO_TCP ? get_prandom_u32() : 0;
 #endif
 }
-#endif /* __LB_H_ */

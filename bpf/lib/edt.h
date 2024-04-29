@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __EDT_H_
-#define __EDT_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 
@@ -82,4 +81,3 @@ edt_set_aggregate(struct __ctx_buff *ctx __maybe_unused,
 {
 }
 #endif /* ENABLE_BANDWIDTH_MANAGER */
-#endif /* __EDT_H_ */

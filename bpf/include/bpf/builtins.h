@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_BUILTINS__
-#define __BPF_BUILTINS__
+#pragma once
 
 #include "compiler.h"
 
@@ -493,5 +492,3 @@ static __always_inline __nobuiltin("memmove") void memmove(void *d,
 {
 	return __bpf_memmove(d, s, len);
 }
-
-#endif /* __BPF_BUILTINS__ */

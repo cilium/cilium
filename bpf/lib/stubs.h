@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __STUBS_H_
-#define __STUBS_H_
+#pragma once
 
 /* Define dummy values to make bpf_{lxc,overlay}.c to compile */
 #ifdef ENABLE_NODEPORT
@@ -25,5 +24,3 @@ DEFINE_IPV6(IPV6_MASQUERADE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 #  define IPV6_MASQUERADE_V
 # endif
 #endif
-
-#endif /* __STUBS_H_ */

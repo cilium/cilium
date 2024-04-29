@@ -16,8 +16,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#ifndef _LINUX_ICMP_H
-#define _LINUX_ICMP_H
+#pragma once
 
 #include <linux/types.h>
 
@@ -94,6 +93,3 @@ struct icmphdr {
 struct icmp_filter {
 	__u32		data;
 };
-
-
-#endif /* _LINUX_ICMP_H */

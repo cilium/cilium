@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __NODE_CONFIG__
-#define __NODE_CONFIG__
+#pragma once
 
 /*
  *
@@ -329,5 +328,3 @@ return false;
 #endif
 
 #define CALLS_MAP test_cilium_calls_65535
-
-#endif /* __NODE_CONFIG__ */

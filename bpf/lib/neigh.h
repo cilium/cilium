@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_NEIGH_H_
-#define __LIB_NEIGH_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -95,4 +94,3 @@ neigh_lookup_ip4(const __be32 *addr __maybe_unused)
 	return NULL;
 }
 #endif /* ENABLE_NODEPORT && ENABLE_IPV4 */
-#endif /* __LIB_NEIGH_H_ */

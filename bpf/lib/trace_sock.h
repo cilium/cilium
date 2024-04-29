@@ -14,8 +14,7 @@
  *
  * If TRACE_SOCK_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
-#ifndef __LIB_TRACE_SOCK__
-#define __LIB_TRACE_SOCK__
+#pragma once
 
 #include <bpf/ctx/sock.h>
 
@@ -140,4 +139,3 @@ send_trace_sock_notify6(struct __ctx_sock *ctx __maybe_unused,
 {
 }
 #endif /* TRACE_SOCK_NOTIFY */
-#endif /* __LIB_TRACE_SOCK__ */

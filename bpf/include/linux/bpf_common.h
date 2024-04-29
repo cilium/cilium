@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright Authors of the Linux kernel */
-#ifndef __LINUX_BPF_COMMON_H__
-#define __LINUX_BPF_COMMON_H__
+
+#pragma once
 
 /* Instruction classes */
 #define BPF_CLASS(code) ((code) & 0x07)
@@ -53,5 +53,3 @@
 #ifndef BPF_MAXINSNS
 #define BPF_MAXINSNS 4096
 #endif
-
-#endif /* __LINUX_BPF_COMMON_H__ */

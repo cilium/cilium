@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_MAPS_H_
-#define __LIB_MAPS_H_
+#pragma once
 
 #include "common.h"
 #include "ipv6.h"
@@ -331,4 +330,3 @@ tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 	return DROP_MISSED_TAIL_CALL;
 }
 #endif /* SKIP_CALLS_MAP */
-#endif

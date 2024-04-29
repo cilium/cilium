@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_OVERLOADABLE_SKB_H_
-#define __LIB_OVERLOADABLE_SKB_H_
+#pragma once
 
 #include "lib/common.h"
 #include "linux/ip.h"
@@ -304,5 +303,3 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 	return CTX_ACT_REDIRECT;
 }
 #endif /* HAVE_ENCAP */
-
-#endif /* __LIB_OVERLOADABLE_SKB_H_ */

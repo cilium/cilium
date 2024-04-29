@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_LOADER__
-#define __BPF_LOADER__
+#pragma once
 
 #include <linux/types.h>
 
@@ -27,5 +26,3 @@ struct bpf_elf_map {
 	__u32 inner_id;
 	__u32 inner_idx;
 };
-
-#endif /* __BPF_LOADER__ */

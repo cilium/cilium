@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_UTIME_H_
-#define __LIB_UTIME_H_
+#pragma once
 
 #include "common.h"
 #include "maps.h"
@@ -38,4 +37,3 @@ utime_get_time()
 {
 	return (ktime_get_ns() >> UTIME_SHIFT) + _utime_get_offset();
 }
-#endif

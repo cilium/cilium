@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __ACT_H_
-#define __ACT_H_
+#pragma once
 
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 struct lb_act_key {
@@ -55,5 +54,3 @@ static __always_inline void _lb_act_conn_open(__u16 svc_id, __u8 zone)
 	__sync_fetch_and_add(&lookup->opened, 1);
 }
 #endif /* ENABLE_ACTIVE_CONNECTION_TRACKING */
-
-#endif /* __ACT_H */

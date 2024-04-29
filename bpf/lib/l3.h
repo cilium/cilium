@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_L3_H_
-#define __LIB_L3_H_
+#pragma once
 
 #include "common.h"
 #include "ipv6.h"
@@ -182,5 +181,3 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 				 hairpin_flow, from_tunnel, cluster_id);
 }
 #endif /* SKIP_POLICY_MAP */
-
-#endif
