@@ -8,22 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type IDSuite struct{}
-
-var _ = Suite(&IDSuite{})
-
-func (s *IDSuite) TestSplitID(c *C) {
+func TestSplitID(t *testing.T) {
 	type want struct {
-		prefixType      PrefixType
-		prefixTypeCheck Checker
-		id              string
-		idCheck         Checker
+		prefixType PrefixType
+		id         string
 	}
 	tests := []struct {
 		name string
@@ -34,67 +25,55 @@ func (s *IDSuite) TestSplitID(c *C) {
 			name: "ID without a prefix",
 			id:   "123456",
 			want: want{
-				prefixType:      CiliumLocalIdPrefix,
-				prefixTypeCheck: Equals,
-				id:              "123456",
-				idCheck:         Equals,
+				prefixType: CiliumLocalIdPrefix,
+				id:         "123456",
 			},
 		},
 		{
 			name: "ID CiliumLocalIdPrefix prefix",
 			id:   string(CiliumLocalIdPrefix) + ":123456",
 			want: want{
-				prefixType:      CiliumLocalIdPrefix,
-				prefixTypeCheck: Equals,
-				id:              "123456",
-				idCheck:         Equals,
+				prefixType: CiliumLocalIdPrefix,
+				id:         "123456",
 			},
 		},
 		{
 			name: "ID with PodNamePrefix prefix",
 			id:   string(PodNamePrefix) + ":default:foobar",
 			want: want{
-				prefixType:      PodNamePrefix,
-				prefixTypeCheck: Equals,
-				id:              "default:foobar",
-				idCheck:         Equals,
+				prefixType: PodNamePrefix,
+				id:         "default:foobar",
 			},
 		},
 		{
 			name: "ID with CEPNamePrefix prefix",
 			id:   string(CEPNamePrefix) + ":default:baz-net1",
 			want: want{
-				prefixType:      CEPNamePrefix,
-				prefixTypeCheck: Equals,
-				id:              "default:baz-net1",
-				idCheck:         Equals,
+				prefixType: CEPNamePrefix,
+				id:         "default:baz-net1",
 			},
 		},
 		{
 			name: "ID with ':'",
 			id:   ":",
 			want: want{
-				prefixType:      "",
-				prefixTypeCheck: Equals,
-				id:              "",
-				idCheck:         Equals,
+				prefixType: "",
+				id:         "",
 			},
 		},
 		{
 			name: "Empty ID",
 			id:   "",
 			want: want{
-				prefixType:      CiliumLocalIdPrefix,
-				prefixTypeCheck: Equals,
-				id:              "",
-				idCheck:         Equals,
+				prefixType: CiliumLocalIdPrefix,
+				id:         "",
 			},
 		},
 	}
 	for _, tt := range tests {
 		prefixType, id := splitID(tt.id)
-		c.Assert(prefixType, tt.want.prefixTypeCheck, tt.want.prefixType, Commentf("Test Name: %s", tt.name))
-		c.Assert(id, tt.want.idCheck, tt.want.id, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want.prefixType, prefixType, "Test Name: %s", tt.name)
+		require.Equal(t, tt.want.id, id, "Test Name: %s", tt.name)
 	}
 }
 
@@ -125,7 +104,7 @@ func BenchmarkSplitID(b *testing.B) {
 	b.ReportAllocs()
 }
 
-func (s *IDSuite) TestParse(c *C) {
+func TestParse(t *testing.T) {
 	type test struct {
 		input      PrefixType
 		wantPrefix PrefixType
@@ -140,19 +119,19 @@ func (s *IDSuite) TestParse(c *C) {
 		{"unknown", CiliumLocalIdPrefix, "unknown", false},
 	}
 
-	for _, t := range tests {
-		prefix, id, err := Parse(string(t.input))
-		c.Assert(prefix, Equals, t.wantPrefix)
-		c.Assert(id, Equals, t.wantID)
-		if t.expectFail {
-			c.Assert(err, Not(IsNil))
+	for _, tt := range tests {
+		prefix, id, err := Parse(string(tt.input))
+		require.Equal(t, tt.wantPrefix, prefix)
+		require.Equal(t, tt.wantID, id)
+		if tt.expectFail {
+			require.NotNil(t, err)
 		} else {
-			c.Assert(err, IsNil)
+			require.Nil(t, err)
 		}
 	}
 }
 
-func (s *IDSuite) TestNewIPPrefix(c *C) {
-	c.Assert(strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("1.1.1.1")), string(IPv4Prefix)), Equals, true)
-	c.Assert(strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("f00d::1")), string(IPv6Prefix)), Equals, true)
+func TestNewIPPrefix(t *testing.T) {
+	require.Equal(t, true, strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("1.1.1.1")), string(IPv4Prefix)))
+	require.Equal(t, true, strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("f00d::1")), string(IPv6Prefix)))
 }
