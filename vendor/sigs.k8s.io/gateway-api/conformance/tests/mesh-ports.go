@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/echo"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -31,11 +32,11 @@ func init() {
 var MeshPorts = suite.ConformanceTest{
 	ShortName:   "MeshPorts",
 	Description: "A mesh route can optionally configure 'port' in parentRef",
-	Features: []suite.SupportedFeature{
-		suite.SupportMesh,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteParentRefPort,
-		suite.SupportHTTPRouteResponseHeaderModification,
+	Features: []features.SupportedFeature{
+		features.SupportMesh,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteParentRefPort,
+		features.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-ports.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

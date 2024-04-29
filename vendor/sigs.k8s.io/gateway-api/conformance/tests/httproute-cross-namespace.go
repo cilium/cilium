@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -33,9 +34,9 @@ func init() {
 var HTTPRouteCrossNamespace = suite.ConformanceTest{
 	ShortName:   "HTTPRouteCrossNamespace",
 	Description: "A single HTTPRoute in the gateway-conformance-web-backend namespace should attach to Gateway in another namespace",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-cross-namespace.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {

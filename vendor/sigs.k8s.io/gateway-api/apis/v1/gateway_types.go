@@ -24,6 +24,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api,shortName=gtw
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Class",type=string,JSONPath=`.spec.gatewayClassName`
 // +kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.status.addresses[*].value`
 // +kubebuilder:printcolumn:name="Programmed",type=string,JSONPath=`.status.conditions[?(@.type=="Programmed")].status`
@@ -424,6 +425,18 @@ type GatewayTLSConfig struct {
 	// +kubebuilder:validation:MaxItems=64
 	CertificateRefs []SecretObjectReference `json:"certificateRefs,omitempty"`
 
+	// FrontendValidation holds configuration information for validating the frontend (client).
+	// Setting this field will require clients to send a client certificate
+	// required for validation during the TLS handshake. In browsers this may result in a dialog appearing
+	// that requests a user to specify the client certificate.
+	// The maximum depth of a certificate chain accepted in verification is Implementation specific.
+	//
+	// Support: Extended
+	//
+	// +optional
+	// <gateway:experimental>
+	FrontendValidation *FrontendTLSValidation `json:"frontendValidation,omitempty"`
+
 	// Options are a list of key/value pairs to enable extended TLS
 	// configuration for each implementation. For example, configuring the
 	// minimum TLS version or supported cipher suites.
@@ -457,6 +470,36 @@ const (
 	// Note that SSL passthrough is only supported by TLSRoute.
 	TLSModePassthrough TLSModeType = "Passthrough"
 )
+
+// FrontendTLSValidation holds configuration information that can be used to validate
+// the frontend initiating the TLS connection
+type FrontendTLSValidation struct {
+	// CACertificateRefs contains one or more references to
+	// Kubernetes objects that contain TLS certificates of
+	// the Certificate Authorities that can be used
+	// as a trust anchor to validate the certificates presented by the client.
+	//
+	// A single CA certificate reference to a Kubernetes ConfigMap
+	// has "Core" support.
+	// Implementations MAY choose to support attaching multiple CA certificates to
+	// a Listener, but this behavior is implementation-specific.
+	//
+	// Support: Core - A single reference to a Kubernetes ConfigMap
+	// with the CA certificate in a key named `ca.crt`.
+	//
+	// Support: Implementation-specific (More than one reference, or other kinds
+	// of resources).
+	//
+	// References to a resource in a different namespace are invalid UNLESS there
+	// is a ReferenceGrant in the target namespace that allows the certificate
+	// to be attached. If a ReferenceGrant does not allow this reference, the
+	// "ResolvedRefs" condition MUST be set to False for this listener with the
+	// "RefNotPermitted" reason.
+	//
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:MinItems=1
+	CACertificateRefs []ObjectReference `json:"caCertificateRefs,omitempty"`
+}
 
 // AllowedRoutes defines which Routes may be attached to this Listener.
 type AllowedRoutes struct {
@@ -654,6 +697,37 @@ type GatewayInfrastructure struct {
 	// +optional
 	// +kubebuilder:validation:MaxProperties=8
 	Annotations map[AnnotationKey]AnnotationValue `json:"annotations,omitempty"`
+
+	// ParametersRef is a reference to a resource that contains the configuration
+	// parameters corresponding to the Gateway. This is optional if the
+	// controller does not require any additional configuration.
+	//
+	// This follows the same semantics as GatewayClass's `parametersRef`, but on a per-Gateway basis
+	//
+	// The Gateway's GatewayClass may provide its own `parametersRef`. When both are specified,
+	// the merging behavior is implementation specific.
+	// It is generally recommended that GatewayClass provides defaults that can be overridden by a Gateway.
+	//
+	// Support: Implementation-specific
+	//
+	// +optional
+	ParametersRef *LocalParametersReference `json:"parametersRef,omitempty"`
+}
+
+// LocalParametersReference identifies an API object containing controller-specific
+// configuration resource within the namespace.
+type LocalParametersReference struct {
+	// Group is the group of the referent.
+	Group Group `json:"group"`
+
+	// Kind is kind of the referent.
+	Kind Kind `json:"kind"`
+
+	// Name is the name of the referent.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name"`
 }
 
 // GatewayConditionType is a type of condition associated with a
@@ -756,6 +830,7 @@ const (
 	// Possible reasons for this condition to be False are:
 	//
 	// * "Invalid"
+	// * "InvalidParameters"
 	// * "NotReconciled"
 	// * "UnsupportedAddress"
 	// * "ListenersNotValid"
@@ -789,6 +864,11 @@ const (
 	// Gateway could not be accepted because an address that was provided is a
 	// type which is not supported by the implementation.
 	GatewayReasonUnsupportedAddress GatewayConditionReason = "UnsupportedAddress"
+
+	// This reason is used with the "Accepted" condition when the
+	// Gateway was not accepted because the parametersRef field
+	// was invalid, with more detail in the message.
+	GatewayReasonInvalidParameters GatewayConditionReason = "InvalidParameters"
 )
 
 const (

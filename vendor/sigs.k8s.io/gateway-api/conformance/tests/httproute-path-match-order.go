@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -33,9 +34,9 @@ func init() {
 var HTTPRoutePathMatchOrder = suite.ConformanceTest{
 	ShortName:   "HTTPRoutePathMatchOrder",
 	Description: "An HTTPRoute where there are multiple matches routing to any given backend follows match order precedence",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-path-match-order.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {

@@ -223,7 +223,7 @@ type Group = v1.Group
 type Kind = v1.Kind
 
 // ObjectName refers to the name of a Kubernetes object.
-// Object names can have a variety of forms, including RFC1123 subdomains,
+// Object names can have a variety of forms, including RFC 1123 subdomains,
 // RFC 1123 labels, or RFC 1035 labels.
 //
 // +kubebuilder:validation:MinLength=1
@@ -253,11 +253,22 @@ type Namespace = v1.Namespace
 
 // SectionName is the name of a section in a Kubernetes resource.
 //
+// In the following resources, SectionName is interpreted as the following:
+//
+// * Gateway: Listener name
+// * HTTPRoute: HTTPRouteRule name
+// * Service: Port name
+//
+// Section names can have a variety of forms, including RFC 1123 subdomains,
+// RFC 1123 labels, or RFC 1035 labels.
+//
 // This validation is based off of the corresponding Kubernetes validation:
 // https://github.com/kubernetes/apimachinery/blob/02cfb53916346d085a6c6c7c66f882e3c6b0eca6/pkg/util/validation/validation.go#L208
 //
 // Valid values include:
 //
+// * "example"
+// * "foo-example"
 // * "example.com"
 // * "foo.example.com"
 //

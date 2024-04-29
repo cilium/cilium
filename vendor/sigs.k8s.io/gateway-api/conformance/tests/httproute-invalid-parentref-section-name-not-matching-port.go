@@ -25,6 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -34,10 +35,10 @@ func init() {
 var HTTPRouteInvalidParentRefSectionNameNotMatchingPort = suite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidParentRefSectionNameNotMatchingPort",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set the Accepted status to False with reason NoMatchingParent when attempting to bind to a Gateway that SectionName does not match Port value.",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteParentRefPort,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteParentRefPort,
 	},
 	Manifests: []string{"tests/httproute-invalid-parentref-section-name-not-matching-port.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {

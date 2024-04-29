@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -36,11 +37,11 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRedirectPortAndScheme",
 	Description: "An HTTPRoute with port and scheme redirect filter",
 	Manifests:   []string{"tests/httproute-redirect-port-and-scheme.yaml"},
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRoutePortRedirect,
-		suite.SupportGatewayPort8080,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRoutePortRedirect,
+		features.SupportGatewayPort8080,
 	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"

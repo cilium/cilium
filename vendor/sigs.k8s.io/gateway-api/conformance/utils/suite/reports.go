@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 // -----------------------------------------------------------------------------
@@ -106,7 +107,7 @@ func (p profileReportsMap) list() (profileReports []confv1.ProfileReport) {
 	return
 }
 
-func (p profileReportsMap) compileResults(supportedFeaturesMap map[ConformanceProfileName]sets.Set[SupportedFeature], unsupportedFeaturesMap map[ConformanceProfileName]sets.Set[SupportedFeature]) {
+func (p profileReportsMap) compileResults(supportedFeaturesMap map[ConformanceProfileName]sets.Set[features.SupportedFeature], unsupportedFeaturesMap map[ConformanceProfileName]sets.Set[features.SupportedFeature]) {
 	for key, report := range p {
 		// report the overall result for core features
 		switch {

@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -40,32 +40,32 @@ func newGRPCRouteReconciler(mgr ctrl.Manager) *grpcRouteReconciler {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
 		backendServiceIndex, r.getBackendServiceForGRPCRoute,
 	); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
 		backendServiceImportIndex, r.getBackendServiceImportForGRPCRoute,
 	); err != nil {
 		return err
 	}
 
 	// Create field indexer for Gateway parents, this allows a faster lookup for event queueing
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
 		gatewayIndex, getParentGatewayForGRPCRoute); err != nil {
 		return err
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to GRPCRoute
-		For(&gatewayv1alpha2.GRPCRoute{}).
+		For(&gatewayv1.GRPCRoute{}).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them
-		Watches(&gatewayv1beta1.Gateway{}, r.enqueueRequestForGateway(),
+		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
 				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName))))
 
@@ -77,7 +77,7 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
 	}
@@ -97,7 +97,7 @@ func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
 }
 
 func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
 	}
@@ -125,7 +125,7 @@ func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object
 }
 
 func (r *grpcRouteReconciler) getBackendServiceImportForGRPCRoute(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
 	}
@@ -174,7 +174,7 @@ func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 			logfields.Controller: grpcRoute,
 			logfields.Resource:   client.ObjectKeyFromObject(o),
 		})
-		list := &gatewayv1alpha2.GRPCRouteList{}
+		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
@@ -204,7 +204,7 @@ func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 			logfields.Controller: grpcRoute,
 			logfields.Resource:   client.ObjectKeyFromObject(o),
 		})
-		list := &gatewayv1alpha2.GRPCRouteList{}
+		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {
 			scopedLog.WithError(err).Error("Failed to get GRPCRoutes")

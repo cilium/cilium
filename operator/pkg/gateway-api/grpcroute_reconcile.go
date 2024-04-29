@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
@@ -39,7 +38,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	scopedLog.Info("Reconciling GRPCRoute")
 
 	// Fetch the GRPCRoute instance
-	original := &gatewayv1alpha2.GRPCRoute{}
+	original := &gatewayv1.GRPCRoute{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
@@ -126,7 +125,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return controllerruntime.Success()
 }
 
-func (r *grpcRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1alpha2.GRPCRoute, new *gatewayv1alpha2.GRPCRoute) error {
+func (r *grpcRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1.GRPCRoute, new *gatewayv1.GRPCRoute) error {
 	oldStatus := original.Status.DeepCopy()
 	newStatus := new.Status.DeepCopy()
 
@@ -137,7 +136,7 @@ func (r *grpcRouteReconciler) updateStatus(ctx context.Context, original *gatewa
 	return r.Client.Status().Update(ctx, new)
 }
 
-func (r *grpcRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1alpha2.GRPCRoute, modified *gatewayv1alpha2.GRPCRoute) (ctrl.Result, error) {
+func (r *grpcRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.GRPCRoute, modified *gatewayv1.GRPCRoute) (ctrl.Result, error) {
 	if err := r.updateStatus(ctx, original, modified); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update GRPCRoute status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}

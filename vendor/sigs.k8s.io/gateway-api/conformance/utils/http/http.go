@@ -127,6 +127,7 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 	tlog.Logf(t, "Making %s request to %s", expected.Request.Method, reqURL.String())
 
 	req := roundtripper.Request{
+		T:                t,
 		Method:           expected.Request.Method,
 		Host:             expected.Request.Host,
 		URL:              reqURL,

@@ -116,10 +116,6 @@ modules: ## Runs go mod to ensure modules are up to date.
 	cd $(ENVTEST_DIR); go mod tidy
 	cd $(SCRATCH_ENV_DIR); go mod tidy
 
-.PHONY: generate
-generate: $(CONTROLLER_GEN) ## Runs controller-gen for internal types for config file
-	$(CONTROLLER_GEN) object paths="./pkg/config/v1alpha1/...;./examples/configfile/custom/v1alpha1/..."
-
 ## --------------------------------------
 ## Cleanup / Verification
 ## --------------------------------------
@@ -146,9 +142,4 @@ APIDIFF_OLD_COMMIT ?= $(shell git rev-parse origin/main)
 verify-apidiff: $(GO_APIDIFF) ## Check for API differences
 	$(GO_APIDIFF) $(APIDIFF_OLD_COMMIT) --print-compatible
 
-.PHONY: verify-generate
-verify-generate: generate ## Verify generated files are up to date
-	@if !(git diff --quiet HEAD); then \
-		git diff; \
-		echo "generated files are out of date, run make generate"; exit 1; \
-	fi
+

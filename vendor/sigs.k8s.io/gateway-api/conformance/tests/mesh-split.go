@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/echo"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -31,9 +32,9 @@ func init() {
 var MeshTrafficSplit = suite.ConformanceTest{
 	ShortName:   "MeshTrafficSplit",
 	Description: "A mesh client can send traffic to a Service which is split between two versions",
-	Features: []suite.SupportedFeature{
-		suite.SupportMesh,
-		suite.SupportHTTPRoute,
+	Features: []features.SupportedFeature{
+		features.SupportMesh,
+		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/mesh-split.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

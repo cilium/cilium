@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -186,9 +187,13 @@ type Informers struct {
 // Start calls Run on each of the informers and sets started to true. Blocks on the context.
 // It doesn't return start because it can't return an error, and it's not a runnable directly.
 func (ip *Informers) Start(ctx context.Context) error {
-	func() {
+	if err := func() error {
 		ip.mu.Lock()
 		defer ip.mu.Unlock()
+
+		if ip.started {
+			return errors.New("Informer already started") //nolint:stylecheck
+		}
 
 		// Set the context so it can be passed to informers that are added later
 		ip.ctx = ctx
@@ -207,7 +212,11 @@ func (ip *Informers) Start(ctx context.Context) error {
 		// Set started to true so we immediately start any informers added later.
 		ip.started = true
 		close(ip.startWait)
-	}()
+
+		return nil
+	}(); err != nil {
+		return err
+	}
 	<-ctx.Done() // Block until the context is done
 	ip.mu.Lock()
 	ip.stopped = true // Set stopped to true so we don't start any new informers

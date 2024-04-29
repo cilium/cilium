@@ -28,7 +28,7 @@ type Input struct {
 	Gateway         gatewayv1.Gateway
 	HTTPRoutes      []gatewayv1.HTTPRoute
 	TLSRoutes       []gatewayv1alpha2.TLSRoute
-	GRPCRoutes      []gatewayv1alpha2.GRPCRoute
+	GRPCRoutes      []gatewayv1.GRPCRoute
 	ReferenceGrants []gatewayv1beta1.ReferenceGrant
 	Services        []corev1.Service
 	ServiceImports  []mcsapiv1alpha1.ServiceImport
@@ -346,7 +346,7 @@ func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
 	return res
 }
 
-func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		isListener := false
@@ -411,19 +411,19 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPC
 
 			for _, f := range rule.Filters {
 				switch f.Type {
-				case gatewayv1alpha2.GRPCRouteFilterRequestHeaderModifier:
+				case gatewayv1.GRPCRouteFilterRequestHeaderModifier:
 					requestHeaderFilter = &model.HTTPHeaderFilter{
 						HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
 						HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
 						HeadersToRemove: f.RequestHeaderModifier.Remove,
 					}
-				case gatewayv1alpha2.GRPCRouteFilterResponseHeaderModifier:
+				case gatewayv1.GRPCRouteFilterResponseHeaderModifier:
 					responseHeaderFilter = &model.HTTPHeaderFilter{
 						HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
 						HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
 						HeadersToRemove: f.ResponseHeaderModifier.Remove,
 					}
-				case gatewayv1alpha2.GRPCRouteFilterRequestMirror:
+				case gatewayv1.GRPCRouteFilterRequestMirror:
 					svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, r.Namespace), services)
 					if svc != nil {
 						requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, r.Namespace))
@@ -672,12 +672,12 @@ func toPathMatch(match gatewayv1.HTTPRouteMatch) model.StringMatch {
 	return model.StringMatch{}
 }
 
-func toGRPCPathMatch(match gatewayv1alpha2.GRPCRouteMatch) model.StringMatch {
+func toGRPCPathMatch(match gatewayv1.GRPCRouteMatch) model.StringMatch {
 	if match.Method == nil || match.Method.Service == nil {
 		return model.StringMatch{}
 	}
 
-	t := gatewayv1alpha2.GRPCMethodMatchExact
+	t := gatewayv1.GRPCMethodMatchExact
 	if match.Method.Type != nil {
 		t = *match.Method.Type
 	}
@@ -692,11 +692,11 @@ func toGRPCPathMatch(match gatewayv1alpha2.GRPCRouteMatch) model.StringMatch {
 	}
 
 	switch t {
-	case gatewayv1alpha2.GRPCMethodMatchExact:
+	case gatewayv1.GRPCMethodMatchExact:
 		return model.StringMatch{
 			Exact: path,
 		}
-	case gatewayv1alpha2.GRPCMethodMatchRegularExpression:
+	case gatewayv1.GRPCMethodMatchRegularExpression:
 		return model.StringMatch{
 			Regex: path,
 		}
@@ -734,7 +734,7 @@ func toHeaderMatch(match gatewayv1.HTTPRouteMatch) []model.KeyValueMatch {
 	return res
 }
 
-func toGRPCHeaderMatch(match gatewayv1alpha2.GRPCRouteMatch) []model.KeyValueMatch {
+func toGRPCHeaderMatch(match gatewayv1.GRPCRouteMatch) []model.KeyValueMatch {
 	if len(match.Headers) == 0 {
 		return nil
 	}

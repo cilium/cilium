@@ -29,10 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/util/workqueue"
 
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/internal/controller/metrics"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/ratelimiter"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -50,10 +49,13 @@ type Controller struct {
 	// Defaults to the DefaultReconcileFunc.
 	Do reconcile.Reconciler
 
-	// MakeQueue constructs the queue for this controller once the controller is ready to start.
-	// This exists because the standard Kubernetes workqueues start themselves immediately, which
+	// RateLimiter is used to limit how frequently requests may be queued into the work queue.
+	RateLimiter ratelimiter.RateLimiter
+
+	// NewQueue constructs the queue for this controller once the controller is ready to start.
+	// This is a func because the standard Kubernetes work queues start themselves immediately, which
 	// leads to goroutine leaks if something calls controller.New repeatedly.
-	MakeQueue func() workqueue.RateLimitingInterface
+	NewQueue func(controllerName string, rateLimiter ratelimiter.RateLimiter) workqueue.RateLimitingInterface
 
 	// Queue is an listeningQueue that listens for events from Informers and adds object keys to
 	// the Queue for processing
@@ -77,7 +79,7 @@ type Controller struct {
 	CacheSyncTimeout time.Duration
 
 	// startWatches maintains a list of sources, handlers, and predicates to start when the controller is started.
-	startWatches []watchDescription
+	startWatches []source.Source
 
 	// LogConstructor is used to construct a logger to then log messages to users during reconciliation,
 	// or for example when a watch is started.
@@ -90,13 +92,6 @@ type Controller struct {
 
 	// LeaderElected indicates whether the controller is leader elected or always running.
 	LeaderElected *bool
-}
-
-// watchDescription contains all the information necessary to start a watch.
-type watchDescription struct {
-	src        source.Source
-	handler    handler.EventHandler
-	predicates []predicate.Predicate
 }
 
 // Reconcile implements reconcile.Reconciler.
@@ -120,7 +115,7 @@ func (c *Controller) Reconcile(ctx context.Context, req reconcile.Request) (_ re
 }
 
 // Watch implements controller.Controller.
-func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prct ...predicate.Predicate) error {
+func (c *Controller) Watch(src source.Source) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -128,12 +123,12 @@ func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prc
 	//
 	// These watches are going to be held on the controller struct until the manager or user calls Start(...).
 	if !c.Started {
-		c.startWatches = append(c.startWatches, watchDescription{src: src, handler: evthdler, predicates: prct})
+		c.startWatches = append(c.startWatches, src)
 		return nil
 	}
 
 	c.LogConstructor(nil).Info("Starting EventSource", "source", src)
-	return src.Start(c.ctx, evthdler, c.Queue, prct...)
+	return src.Start(c.ctx, c.Queue)
 }
 
 // NeedLeaderElection implements the manager.LeaderElectionRunnable interface.
@@ -158,7 +153,7 @@ func (c *Controller) Start(ctx context.Context) error {
 	// Set the internal context.
 	c.ctx = ctx
 
-	c.Queue = c.MakeQueue()
+	c.Queue = c.NewQueue(c.Name, c.RateLimiter)
 	go func() {
 		<-ctx.Done()
 		c.Queue.ShutDown()
@@ -175,9 +170,9 @@ func (c *Controller) Start(ctx context.Context) error {
 		// caches to sync so that they have a chance to register their intendeded
 		// caches.
 		for _, watch := range c.startWatches {
-			c.LogConstructor(nil).Info("Starting EventSource", "source", fmt.Sprintf("%s", watch.src))
+			c.LogConstructor(nil).Info("Starting EventSource", "source", fmt.Sprintf("%s", watch))
 
-			if err := watch.src.Start(ctx, watch.handler, c.Queue, watch.predicates...); err != nil {
+			if err := watch.Start(ctx, c.Queue); err != nil {
 				return err
 			}
 		}
@@ -186,7 +181,7 @@ func (c *Controller) Start(ctx context.Context) error {
 		c.LogConstructor(nil).Info("Starting Controller")
 
 		for _, watch := range c.startWatches {
-			syncingSource, ok := watch.src.(source.SyncingSource)
+			syncingSource, ok := watch.(source.SyncingSource)
 			if !ok {
 				continue
 			}

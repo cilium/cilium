@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	cfg "sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -95,13 +94,6 @@ var (
 	//
 	// * $HOME/.kube/config if exists.
 	GetConfig = config.GetConfig
-
-	// ConfigFile returns the cfg.File function for deferred config file loading,
-	// this is passed into Options{}.From() to populate the Options fields for
-	// the manager.
-	//
-	// Deprecated: This is deprecated in favor of using Options directly.
-	ConfigFile = cfg.File
 
 	// NewControllerManagedBy returns a new controller builder that will be started by the provided Manager.
 	NewControllerManagedBy = builder.ControllerManagedBy

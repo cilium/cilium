@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/echo"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -31,10 +32,11 @@ func init() {
 var MeshConsumerRoute = suite.ConformanceTest{
 	ShortName:   "MeshConsumerRoute",
 	Description: "An HTTPRoute in a namespace other than its parentRef's namespace only affects requests from the route's namespace",
-	Features: []suite.SupportedFeature{
-		suite.SupportMesh,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteResponseHeaderModification,
+	Features: []features.SupportedFeature{
+		features.SupportMesh,
+		features.SupportMeshConsumerRoute,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-consumer-route.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
