@@ -1499,6 +1499,9 @@
     "enableRuntimeDeviceDetection": {
       "type": "boolean"
     },
+    "enableTCX": {
+      "type": "boolean"
+    },
     "enableXTSocketFallback": {
       "type": "boolean"
     },
