@@ -54,7 +54,7 @@ func (t *Test) applySecrets(ctx context.Context) error {
 	}
 
 	// Register a finalizer with the Test immediately to enable cleanup.
-	t.finalizers = append(t.finalizers, func() error {
+	t.finalizers = append(t.finalizers, func(context.Context) error {
 		// Use a detached context to make sure this call is not affected by
 		// context cancellation. This deletion needs to happen event when the
 		// user interrupted the program.
