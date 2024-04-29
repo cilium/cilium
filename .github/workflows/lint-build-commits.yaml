@@ -51,7 +51,7 @@ jobs:
           go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
 
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
