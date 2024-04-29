@@ -9,24 +9,15 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type RouteSuite struct{}
-
-var _ = Suite(&RouteSuite{})
 
 func parseIP(ip string) *net.IP {
 	result := net.ParseIP(ip)
 	return &result
 }
 
-func (p *RouteSuite) TestToIPCommand(c *C) {
+func TestToIPCommand(t *testing.T) {
 	routes := []*Route{
 		{
 			Prefix: net.IPNet{
@@ -53,12 +44,12 @@ func (p *RouteSuite) TestToIPCommand(c *C) {
 		expRes := fmt.Sprintf("ip %sroute add %s/%d via %s dev %s", v6,
 			r.Prefix.IP.String(), masklen, r.Nexthop.String(), dev)
 		result := strings.Join(r.ToIPCommand(dev), " ")
-		c.Assert(result, checker.DeepEquals, expRes)
+		require.EqualValues(t, expRes, result)
 
 		r.Nexthop = nil
 		expRes = fmt.Sprintf("ip %sroute add %s/%d dev %s", v6,
 			r.Prefix.IP.String(), masklen, dev)
 		result = strings.Join(r.ToIPCommand(dev), " ")
-		c.Assert(result, checker.DeepEquals, expRes)
+		require.EqualValues(t, expRes, result)
 	}
 }

@@ -5,20 +5,22 @@ package linuxrouting
 
 import (
 	"net"
+	"testing"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-func (e *LinuxRoutingSuite) TestParse(c *check.C) {
+func TestParse(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
 	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")
-	c.Assert(err, check.IsNil)
+	require.Nil(t, err)
 
 	fakeMAC, err := mac.ParseMAC("11:22:33:44:55:66")
-	c.Assert(err, check.IsNil)
+	require.Nil(t, err)
 
 	validCIDRs := []net.IPNet{*fakeCIDR}
 
@@ -136,9 +138,10 @@ func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 		},
 	}
 	for _, tt := range tests {
-		c.Log(tt.name)
-		rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
-		c.Assert(rInfo, checker.DeepEquals, tt.wantRInfo)
-		c.Assert((err != nil), check.Equals, tt.wantErr)
+		t.Run(tt.name, func(t *testing.T) {
+			rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
+			require.EqualValues(t, tt.wantRInfo, rInfo)
+			require.Equal(t, tt.wantErr, err != nil)
+		})
 	}
 }

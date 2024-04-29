@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -18,15 +17,11 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-type RouteSuitePrivileged struct{}
-
-var _ = Suite(&RouteSuitePrivileged{})
-
-func (s *RouteSuitePrivileged) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setup(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 }
 
-func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
+func testReplaceNexthopRoute(t *testing.T, link netlink.Link, routerNet *net.IPNet) {
 	route := Route{
 		Table: 10,
 	}
@@ -37,38 +32,40 @@ func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
 	defer deleteNexthopRoute(route, link, routerNet)
 
 	replaced, err := replaceNexthopRoute(route, link, routerNet)
-	c.Assert(err, IsNil)
-	c.Assert(replaced, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, true, replaced)
 
 	// We expect routes to always be replaced
 	replaced, err = replaceNexthopRoute(route, link, routerNet)
-	c.Assert(err, IsNil)
-	c.Assert(replaced, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, true, replaced)
 
 	err = deleteNexthopRoute(route, link, routerNet)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (p *RouteSuitePrivileged) TestReplaceNexthopRoute(c *C) {
+func TestReplaceNexthopRoute(t *testing.T) {
+	setup(t)
+
 	link, err := netlink.LinkByName("lo")
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	_, routerNet, err := net.ParseCIDR("1.2.3.4/32")
-	c.Assert(err, IsNil)
-	testReplaceNexthopRoute(c, link, routerNet)
+	require.Nil(t, err)
+	testReplaceNexthopRoute(t, link, routerNet)
 
 	_, routerNet, err = net.ParseCIDR("f00d::a02:100:0:815b/128")
-	c.Assert(err, IsNil)
-	testReplaceNexthopRoute(c, link, routerNet)
+	require.Nil(t, err)
+	testReplaceNexthopRoute(t, link, routerNet)
 }
 
-func testReplaceRoute(c *C, prefixStr, nexthopStr string, lookupTest bool) {
+func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest bool) {
 	_, prefix, err := net.ParseCIDR(prefixStr)
-	c.Assert(err, IsNil)
-	c.Assert(prefix, Not(IsNil))
+	require.Nil(t, err)
+	require.NotNil(t, prefix)
 
 	nexthop := net.ParseIP(nexthopStr)
-	c.Assert(nexthop, Not(IsNil))
+	require.NotNil(t, nexthop)
 
 	rt := Route{
 		Device:  "lo",
@@ -88,29 +85,31 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string, lookupTest bool) {
 	})
 
 	err = Upsert(rt)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	if lookupTest {
 		// Account for minimal kernel race condition where route is not
 		// yet available
-		c.Assert(testutils.WaitUntil(func() bool {
+		require.Nil(t, testutils.WaitUntil(func() bool {
 			installedRoute, err := Lookup(rt)
-			c.Assert(err, IsNil)
+			require.Nil(t, err)
 			return installedRoute != nil
-		}, 5*time.Second), IsNil)
+		}, 5*time.Second))
 	}
 
 	err = Delete(rt)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (p *RouteSuitePrivileged) TestReplaceRoute(c *C) {
-	testReplaceRoute(c, "2.2.0.0/16", "1.2.3.4", true)
+func TestReplaceRoute(t *testing.T) {
+	setup(t)
+
+	testReplaceRoute(t, "2.2.0.0/16", "1.2.3.4", true)
 	// lookup test broken for IPv6 as long as use lo as device
-	testReplaceRoute(c, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
+	testReplaceRoute(t, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
 }
 
-func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
+func testReplaceRule(t *testing.T, mark int, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
@@ -118,27 +117,27 @@ func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
 
 	rule.Priority = 1
 	err := ReplaceRule(rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	exists, err := lookupRule(rule, netlink.FAMILY_V4)
-	c.Assert(err, IsNil)
-	c.Assert(exists, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, true, exists)
 
 	rule.Mask++
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
-	c.Assert(err, IsNil)
-	c.Assert(exists, Equals, false)
+	require.Nil(t, err)
+	require.Equal(t, false, exists)
 	rule.Mask--
 
 	err = DeleteRule(netlink.FAMILY_V4, rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
-	c.Assert(err, IsNil)
-	c.Assert(exists, Equals, false)
+	require.Nil(t, err)
+	require.Equal(t, false, exists)
 }
 
-func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
+func testReplaceRuleIPv6(t *testing.T, mark int, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
@@ -146,39 +145,45 @@ func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
 
 	rule.Priority = 1
 	err := ReplaceRuleIPv6(rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	exists, err := lookupRule(rule, netlink.FAMILY_V6)
-	c.Assert(err, IsNil)
-	c.Assert(exists, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, true, exists)
 
 	err = DeleteRule(netlink.FAMILY_V6, rule)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V6)
-	c.Assert(err, IsNil)
-	c.Assert(exists, Equals, false)
+	require.Nil(t, err)
+	require.Equal(t, false, exists)
 }
 
-func (p *RouteSuitePrivileged) TestReplaceRule(c *C) {
+func TestReplaceRule(t *testing.T) {
+	setup(t)
+
 	_, cidr1, err := net.ParseCIDR("10.10.0.0/16")
-	c.Assert(err, IsNil)
-	testReplaceRule(c, 0xf00, nil, nil, 123)
-	testReplaceRule(c, 0xf00, cidr1, nil, 124)
-	testReplaceRule(c, 0, nil, cidr1, 125)
-	testReplaceRule(c, 0, cidr1, cidr1, 126)
+	require.Nil(t, err)
+	testReplaceRule(t, 0xf00, nil, nil, 123)
+	testReplaceRule(t, 0xf00, cidr1, nil, 124)
+	testReplaceRule(t, 0, nil, cidr1, 125)
+	testReplaceRule(t, 0, cidr1, cidr1, 126)
 }
 
-func (p *RouteSuitePrivileged) TestReplaceRule6(c *C) {
+func TestReplaceRule6(t *testing.T) {
+	setup(t)
+
 	_, cidr1, err := net.ParseCIDR("beef::/48")
-	c.Assert(err, IsNil)
-	testReplaceRuleIPv6(c, 0xf00, nil, nil, 123)
-	testReplaceRuleIPv6(c, 0xf00, cidr1, nil, 124)
-	testReplaceRuleIPv6(c, 0, nil, cidr1, 125)
-	testReplaceRuleIPv6(c, 0, cidr1, cidr1, 126)
+	require.Nil(t, err)
+	testReplaceRuleIPv6(t, 0xf00, nil, nil, 123)
+	testReplaceRuleIPv6(t, 0xf00, cidr1, nil, 124)
+	testReplaceRuleIPv6(t, 0, nil, cidr1, 125)
+	testReplaceRuleIPv6(t, 0, cidr1, cidr1, 126)
 }
 
-func (p *RouteSuitePrivileged) TestRule_String(c *C) {
+func TestRule_String(t *testing.T) {
+	setup(t)
+
 	_, fakeIP, _ := net.ParseCIDR("10.10.10.10/32")
 	_, fakeIP2, _ := net.ParseCIDR("1.1.1.1/32")
 
@@ -227,7 +232,7 @@ func (p *RouteSuitePrivileged) TestRule_String(c *C) {
 	}
 	for _, tt := range tests {
 		if diff := cmp.Diff(tt.wantStr, tt.rule.String()); diff != "" {
-			c.Errorf("%s", diff)
+			t.Errorf("%s", diff)
 		}
 	}
 }

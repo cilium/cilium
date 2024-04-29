@@ -7,13 +7,11 @@ import (
 	"net"
 	"testing"
 
-	check "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -39,38 +37,38 @@ var (
 	cr1 = cidr.MustParseCIDR("10.1.0.0/16")
 )
 
-func (s *linuxTestSuite) TestTunnelCIDRUpdateRequired(c *check.C) {
+func TestTunnelCIDRUpdateRequired(t *testing.T) {
 	nilPrefixCluster := cmtypes.PrefixCluster{}
 	c1 := cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("10.1.0.0/16"))
 	c2 := cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("10.2.0.0/16"))
 	ip1 := net.ParseIP("1.1.1.1")
 	ip2 := net.ParseIP("2.2.2.2")
 
-	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0), check.Equals, false) // disabled -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0), check.Equals, true)                // disabled -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0), check.Equals, false)                             // c1 -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0), check.Equals, true)                              // c1 -> c1 (changed host IP)
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0), check.Equals, true)                              // c1 -> c2
-	c.Assert(cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0), check.Equals, false)               // c2 -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1), check.Equals, true)                              // key upgrade 0 -> 1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0), check.Equals, true)                              // key downgrade 1 -> 0
+	require.Equal(t, false, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
+	require.Equal(t, false, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
+	require.Equal(t, false, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
 
 	c1 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::a0a:0:0:0/96"))
 	c2 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::b0b:0:0:0/96"))
 	ip1 = net.ParseIP("cafe::1")
 	ip2 = net.ParseIP("cafe::2")
 
-	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0), check.Equals, false) // disabled -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0), check.Equals, true)                // disabled -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0), check.Equals, false)                             // c1 -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0), check.Equals, true)                              // c1 -> c1 (changed host IP)
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0), check.Equals, true)                              // c1 -> c2
-	c.Assert(cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0), check.Equals, false)               // c2 -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1), check.Equals, true)                              // key upgrade 0 -> 1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0), check.Equals, true)                              // key downgrade 1 -> 0
+	require.Equal(t, false, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
+	require.Equal(t, false, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
+	require.Equal(t, false, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
+	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
 }
 
-func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
+func TestCreateNodeRoute(t *testing.T) {
 	dpConfig := DatapathConfiguration{
 		HostDevice: "host_device",
 	}
@@ -81,42 +79,42 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.createNodeRouteSpec(c1, false)
-	c.Assert(err, check.IsNil)
-	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
-	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
-	c.Assert(*generatedRoute.Nexthop, checker.DeepEquals, fakeNodeAddressing.IPv4().Router())
-	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv4().Router())
+	require.NoError(t, err)
+	require.EqualValues(t, *c1.IPNet, generatedRoute.Prefix)
+	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
+	require.EqualValues(t, fakeNodeAddressing.IPv4().Router(), *generatedRoute.Nexthop)
+	require.EqualValues(t, fakeNodeAddressing.IPv4().Router(), generatedRoute.Local)
 
 	c1 = cidr.MustParseCIDR("beef:beef::/48")
 	generatedRoute, err = nodeHandler.createNodeRouteSpec(c1, false)
-	c.Assert(err, check.IsNil)
-	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
-	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
-	c.Assert(generatedRoute.Nexthop, check.IsNil)
-	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv6().Router())
+	require.NoError(t, err)
+	require.EqualValues(t, *c1.IPNet, generatedRoute.Prefix)
+	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
+	require.Nil(t, generatedRoute.Nexthop)
+	require.EqualValues(t, fakeNodeAddressing.IPv6().Router(), generatedRoute.Local)
 }
 
-func (s *linuxTestSuite) TestCreateNodeRouteSpecMtu(c *check.C) {
+func TestCreateNodeRouteSpecMtu(t *testing.T) {
 	generatedRoute, err := nh.createNodeRouteSpec(cr1, false)
 
-	c.Assert(err, check.IsNil)
-	c.Assert(generatedRoute.MTU, check.Not(check.Equals), 0)
+	require.NoError(t, err)
+	require.NotEqual(t, 0, generatedRoute.MTU)
 
 	generatedRoute, err = nh.createNodeRouteSpec(cr1, true)
 
-	c.Assert(err, check.IsNil)
-	c.Assert(generatedRoute.MTU, check.Equals, 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, generatedRoute.MTU)
 }
 
-func (s *linuxTestSuite) TestStoreLoadNeighLinks(c *check.C) {
-	tmpDir := c.MkDir()
+func TestStoreLoadNeighLinks(t *testing.T) {
+	tmpDir := t.TempDir()
 	devExpected := []string{"dev1"}
 	err := storeNeighLink(tmpDir, devExpected)
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 
 	devsActual, err := loadNeighLink(tmpDir)
-	c.Assert(err, check.IsNil)
-	c.Assert(devExpected, checker.DeepEquals, devsActual)
+	require.NoError(t, err)
+	require.EqualValues(t, devsActual, devExpected)
 }
 
 func TestLocalRule(t *testing.T) {
