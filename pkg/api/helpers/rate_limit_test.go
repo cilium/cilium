@@ -8,46 +8,37 @@ import (
 	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/api/metrics/mock"
-	"github.com/cilium/cilium/pkg/checker"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type HelpersSuite struct{}
-
-var _ = check.Suite(&HelpersSuite{})
-
-func (e *HelpersSuite) TestRateLimitBurst(c *check.C) {
+func TestRateLimitBurst(t *testing.T) {
 	metricsAPI := mock.NewMockMetrics()
 	limiter := NewAPILimiter(metricsAPI, 1, 10)
-	c.Assert(limiter, check.Not(check.IsNil))
+	require.NotNil(t, limiter)
 
 	// Exhaust bucket (rate limit should not kick in)
 	for i := 0; i < 10; i++ {
 		limiter.Limit(context.TODO(), "test")
 	}
-	c.Assert(metricsAPI.RateLimit("test"), check.Equals, time.Duration(0))
+	require.Equal(t, time.Duration(0), metricsAPI.RateLimit("test"))
 
 	// Rate limit should now kick in (use an expired context to avoid waiting 1sec)
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Microsecond)
 	defer cancel()
 	limiter.Limit(ctx, "test")
-	c.Assert(metricsAPI.RateLimit("test"), check.Not(checker.Equals), time.Duration(0))
+	require.NotEqual(t, time.Duration(0), metricsAPI.RateLimit("test"))
 }
 
-func (e *HelpersSuite) TestRateLimitWait(c *check.C) {
+func TestRateLimitWait(t *testing.T) {
 	metricsAPI := mock.NewMockMetrics()
 	limiter := NewAPILimiter(metricsAPI, 100, 1)
-	c.Assert(limiter, check.Not(check.IsNil))
+	require.NotNil(t, limiter)
 
 	// Exhaust bucket
 	limiter.Limit(context.TODO(), "test")
-	c.Assert(metricsAPI.RateLimit("test"), checker.Equals, time.Duration(0))
+	require.Equal(t, time.Duration(0), metricsAPI.RateLimit("test"))
 
 	// Hit rate limit 15 times. The bucket refill rate is 100 per second,
 	// meaning we expect this to take around 15 * 10 = 150 milliseconds
@@ -64,6 +55,6 @@ func (e *HelpersSuite) TestRateLimitWait(c *check.C) {
 		// to avoid flaky tests. If you are reading this because this test has
 		// been flaky despite the 100% margin of error, my recommendation
 		// is to disable this check by replacing the c.Errorf below with c.Logf
-		c.Errorf("waited longer than expected (expected %s (+/-100%%), measured %s)", accounted, measured)
+		t.Errorf("waited longer than expected (expected %s (+/-100%%), measured %s)", accounted, measured)
 	}
 }
