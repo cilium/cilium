@@ -101,6 +101,7 @@ func (i *IngressRule) sanitize() error {
 		"FromCIDRSet":   len(i.FromCIDRSet),
 		"FromEntities":  len(i.FromEntities),
 		"FromNodes":     len(i.FromNodes),
+		"FromGroups":    len(i.FromGroups),
 	}
 	l7Members := countL7Rules(i.ToPorts)
 	l7IngressSupport := map[string]bool{
