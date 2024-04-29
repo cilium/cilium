@@ -27,6 +27,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -37,9 +38,9 @@ var UDPRouteTest = suite.ConformanceTest{
 	ShortName:   "UDPRoute",
 	Description: "Make sure UDPRoute is working",
 	Manifests:   []string{"tests/udproute-simple.yaml"},
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportUDPRoute,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportUDPRoute,
 	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		t.Run("Simple UDP request matching UDPRoute should reach coredns backend", func(t *testing.T) {

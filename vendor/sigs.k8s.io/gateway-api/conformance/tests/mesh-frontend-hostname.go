@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/echo"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -31,9 +32,11 @@ func init() {
 var MeshFrontendHostname = suite.ConformanceTest{
 	ShortName:   "MeshFrontendHostname",
 	Description: "Mesh parentRef matches Service IP (not Host)",
-	Features: []suite.SupportedFeature{
-		suite.SupportMesh,
-		suite.SupportHTTPRouteResponseHeaderModification,
+	Features: []features.SupportedFeature{
+		features.SupportMesh,
+		features.SupportMeshClusterIPMatching,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-frontend.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

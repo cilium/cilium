@@ -23,6 +23,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1alpha3"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
@@ -53,9 +54,10 @@ func DefaultOptions(t *testing.T) suite.ConformanceOptions {
 	clientset, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "error initializing Kubernetes clientset")
 
-	require.NoError(t, v1alpha2.AddToScheme(client.Scheme()))
-	require.NoError(t, v1beta1.AddToScheme(client.Scheme()))
-	require.NoError(t, v1.AddToScheme(client.Scheme()))
+	require.NoError(t, v1alpha3.Install(client.Scheme()))
+	require.NoError(t, v1alpha2.Install(client.Scheme()))
+	require.NoError(t, v1beta1.Install(client.Scheme()))
+	require.NoError(t, v1.Install(client.Scheme()))
 	require.NoError(t, apiextensionsv1.AddToScheme(client.Scheme()))
 
 	supportedFeatures := suite.ParseSupportedFeatures(*flags.SupportedFeatures)
@@ -108,6 +110,11 @@ func RunConformance(t *testing.T) {
 func RunConformanceWithOptions(t *testing.T, opts suite.ConformanceOptions) {
 	if err := opts.Implementation.Validate(); err != nil && opts.ReportOutputPath != "" {
 		require.NoError(t, err, "supplied Implementation details are not valid")
+	}
+
+	// if no FS is provided, use the default Manifests FS
+	if opts.ManifestFS == nil {
+		opts.ManifestFS = []fs.FS{&Manifests}
 	}
 
 	t.Log("Running conformance tests with:")
