@@ -609,6 +609,7 @@ qede
 qemu
 queryable
 queueing
+rST
 rc
 reStructuredText
 reachability
@@ -636,7 +637,6 @@ roadmap
 rollout
 routable
 routingMode
-rST
 runnable
 runtimes
 sandboxing
@@ -700,6 +700,7 @@ tcpdump
 tcplife
 tcptop
 tcptracer
+tcx
 templating
 terminatingTLS
 terminationGracePeriodSeconds
