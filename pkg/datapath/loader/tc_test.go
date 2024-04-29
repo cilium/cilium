@@ -65,7 +65,7 @@ func TestAttachDetachSKBProgramLegacy(t *testing.T) {
 		prog := mustTCProgram(t)
 		linkDir := testutils.TempBPFFS(t)
 
-		require.NoError(t, attachSKBProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress)))
+		require.NoError(t, attachSKBProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress), false))
 		hasFilters, err := hasCiliumTCFilters(lo, directionToParent(dirEgress))
 		require.NoError(t, err)
 		require.True(t, hasFilters)
@@ -132,6 +132,37 @@ func TestHasCiliumTCFilters(t *testing.T) {
 	})
 }
 
+// Upgrade a legacy tc program to tcx.
+func TestAttachSKBUpgrade(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	skipTCXUnsupported(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		prog := mustTCProgramWithName(t, "cil_test")
+		linkDir := testutils.TempBPFFS(t)
+
+		// Use the cil_ prefix so the attachment algorithm knows which tc filter to
+		// clean up after attaching tcx.
+		require.NoError(t, attachTCProgram(lo, prog, "cil_test", directionToParent(dirEgress)))
+
+		require.NoError(t, attachSKBProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress), true))
+
+		hasFilters, err := hasCiliumTCFilters(lo, directionToParent(dirEgress))
+		require.NoError(t, err)
+		require.False(t, hasFilters)
+
+		require.NoError(t, testutils.WaitUntil(func() bool {
+			hasLinks, err := hasCiliumTCXLinks(lo, ebpf.AttachTCXEgress)
+			require.NoError(t, err)
+			return hasLinks
+		}, time.Second))
+
+		return nil
+	})
+}
+
 // Downgrade a tcx program to legacy tc.
 func TestAttachSKBDowngrade(t *testing.T) {
 	testutils.PrivilegedTest(t)
@@ -145,7 +176,7 @@ func TestAttachSKBDowngrade(t *testing.T) {
 
 		require.NoError(t, upsertTCXProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress)))
 
-		require.NoError(t, attachSKBProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress)))
+		require.NoError(t, attachSKBProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress), false))
 
 		hasFilters, err := hasCiliumTCFilters(lo, directionToParent(dirEgress))
 		require.NoError(t, err)

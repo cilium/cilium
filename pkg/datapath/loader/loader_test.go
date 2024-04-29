@@ -140,6 +140,7 @@ func TestReload(t *testing.T) {
 		elf:      objPath,
 		programs: progs,
 		linkDir:  testutils.TempBPFFS(t),
+		tcx:      true,
 	}
 	finalize, err := replaceDatapath(ctx, opts)
 	require.NoError(t, err)
@@ -288,6 +289,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 				elf:      objPath,
 				programs: progs,
 				linkDir:  linkDir,
+				tcx:      true,
 			},
 		)
 		if err != nil {
