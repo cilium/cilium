@@ -19,7 +19,6 @@ package tests
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +28,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -57,9 +57,9 @@ func init() {
 var GatewayStaticAddresses = suite.ConformanceTest{
 	ShortName:   "GatewayStaticAddresses",
 	Description: "A Gateway in the gateway-conformance-infra namespace should be able to use previously determined addresses.",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportGatewayStaticAddresses,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportGatewayStaticAddresses,
 	},
 	Manifests: []string{
 		"tests/gateway-static-addresses.yaml",
@@ -69,7 +69,7 @@ var GatewayStaticAddresses = suite.ConformanceTest{
 			Name:      "gateway-static-addresses",
 			Namespace: "gateway-conformance-infra",
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutConfig.DefaultTestTimeout)
 		defer cancel()
 
 		t.Logf("waiting for namespace %s and Gateway %s to be ready for testing", gwNN.Namespace, gwNN.Name)
@@ -134,10 +134,26 @@ var GatewayStaticAddresses = suite.ConformanceTest{
 		})
 		kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, finalExpectedListenerState)
 		require.Len(t, currentGW.Spec.Addresses, 1, "expected only 1 address left specified on Gateway")
-		require.Len(t, currentGW.Status.Addresses, 1, "one usable address was provided, so it should be the one reflected in status")
-		require.Equal(t, usableAddress.Type, currentGW.Status.Addresses[0].Type, "expected address type to match the usable address")
-		require.Equal(t, usableAddress.Value, currentGW.Status.Addresses[0].Value, "expected usable address to be assigned")
+		statusAddresses := extractStatusAddresses(currentGW.Status.Addresses)
+		require.NotContains(t, statusAddresses, unusableAddress.Value, "should contain the unusable address")
+		require.NotContains(t, statusAddresses, invalidAddress.Value, "should contain the invalid address")
+		require.Contains(t, statusAddresses, usableAddress.Value, "should contain the usable address")
+		for _, addr := range currentGW.Status.Addresses {
+			if usableAddress.Value != addr.Value {
+				continue
+			}
+			require.Equal(t, usableAddress.Type, addr.Type, "expected address type to match the usable address")
+		}
 	},
+}
+
+func extractStatusAddresses(addresses []v1.GatewayStatusAddress) []string {
+	res := []string{}
+	for _, a := range addresses {
+		n := a.Value
+		res = append(res, n)
+	}
+	return res
 }
 
 // -----------------------------------------------------------------------------

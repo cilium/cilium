@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -64,19 +66,25 @@ const (
 // ParseError is a parsing error. It contains the parse error and the location in the io.Reader
 // where the error occurred.
 type ParseError struct {
-	file string
-	err  string
-	lex  lex
+	file       string
+	err        string
+	wrappedErr error
+	lex        lex
 }
 
 func (e *ParseError) Error() (s string) {
 	if e.file != "" {
 		s = e.file + ": "
 	}
+	if e.err == "" && e.wrappedErr != nil {
+		e.err = e.wrappedErr.Error()
+	}
 	s += "dns: " + e.err + ": " + strconv.QuoteToASCII(e.lex.token) + " at line: " +
 		strconv.Itoa(e.lex.line) + ":" + strconv.Itoa(e.lex.column)
 	return
 }
+
+func (e *ParseError) Unwrap() error { return e.wrappedErr }
 
 type lex struct {
 	token  string // text of the token
@@ -168,8 +176,9 @@ type ZoneParser struct {
 	// sub is used to parse $INCLUDE files and $GENERATE directives.
 	// Next, by calling subNext, forwards the resulting RRs from this
 	// sub parser to the calling code.
-	sub    *ZoneParser
-	osFile *os.File
+	sub  *ZoneParser
+	r    io.Reader
+	fsys fs.FS
 
 	includeDepth uint8
 
@@ -188,7 +197,7 @@ func NewZoneParser(r io.Reader, origin, file string) *ZoneParser {
 	if origin != "" {
 		origin = Fqdn(origin)
 		if _, ok := IsDomainName(origin); !ok {
-			pe = &ParseError{file, "bad initial origin name", lex{}}
+			pe = &ParseError{file: file, err: "bad initial origin name"}
 		}
 	}
 
@@ -220,6 +229,24 @@ func (zp *ZoneParser) SetIncludeAllowed(v bool) {
 	zp.includeAllowed = v
 }
 
+// SetIncludeFS provides an [fs.FS] to use when looking for the target of
+// $INCLUDE directives.  ($INCLUDE must still be enabled separately by calling
+// [ZoneParser.SetIncludeAllowed].)  If fsys is nil, [os.Open] will be used.
+//
+// When fsys is an on-disk FS, the ability of $INCLUDE to reach files from
+// outside its root directory depends upon the FS implementation.  For
+// instance, [os.DirFS] will refuse to open paths like "../../etc/passwd",
+// however it will still follow links which may point anywhere on the system.
+//
+// FS paths are slash-separated on all systems, even Windows.  $INCLUDE paths
+// containing other characters such as backslash and colon may be accepted as
+// valid, but those characters will never be interpreted by an FS
+// implementation as path element separators.  See [fs.ValidPath] for more
+// details.
+func (zp *ZoneParser) SetIncludeFS(fsys fs.FS) {
+	zp.fsys = fsys
+}
+
 // Err returns the first non-EOF error that was encountered by the
 // ZoneParser.
 func (zp *ZoneParser) Err() error {
@@ -237,7 +264,7 @@ func (zp *ZoneParser) Err() error {
 }
 
 func (zp *ZoneParser) setParseError(err string, l lex) (RR, bool) {
-	zp.parseErr = &ParseError{zp.file, err, l}
+	zp.parseErr = &ParseError{file: zp.file, err: err, lex: l}
 	return nil, false
 }
 
@@ -260,9 +287,11 @@ func (zp *ZoneParser) subNext() (RR, bool) {
 		return rr, true
 	}
 
-	if zp.sub.osFile != nil {
-		zp.sub.osFile.Close()
-		zp.sub.osFile = nil
+	if zp.sub.r != nil {
+		if c, ok := zp.sub.r.(io.Closer); ok {
+			c.Close()
+		}
+		zp.sub.r = nil
 	}
 
 	if zp.sub.Err() != nil {
@@ -402,24 +431,44 @@ func (zp *ZoneParser) Next() (RR, bool) {
 
 			// Start with the new file
 			includePath := l.token
-			if !filepath.IsAbs(includePath) {
-				includePath = filepath.Join(filepath.Dir(zp.file), includePath)
-			}
-
-			r1, e1 := os.Open(includePath)
-			if e1 != nil {
-				var as string
-				if !filepath.IsAbs(l.token) {
-					as = fmt.Sprintf(" as `%s'", includePath)
+			var r1 io.Reader
+			var e1 error
+			if zp.fsys != nil {
+				// fs.FS always uses / as separator, even on Windows, so use
+				// path instead of filepath here:
+				if !path.IsAbs(includePath) {
+					includePath = path.Join(path.Dir(zp.file), includePath)
 				}
 
-				msg := fmt.Sprintf("failed to open `%s'%s: %v", l.token, as, e1)
-				return zp.setParseError(msg, l)
+				// os.DirFS, and probably others, expect all paths to be
+				// relative, so clean the path and remove leading / if
+				// present:
+				includePath = strings.TrimLeft(path.Clean(includePath), "/")
+
+				r1, e1 = zp.fsys.Open(includePath)
+			} else {
+				if !filepath.IsAbs(includePath) {
+					includePath = filepath.Join(filepath.Dir(zp.file), includePath)
+				}
+				r1, e1 = os.Open(includePath)
+			}
+			if e1 != nil {
+				var as string
+				if includePath != l.token {
+					as = fmt.Sprintf(" as `%s'", includePath)
+				}
+				zp.parseErr = &ParseError{
+					file:       zp.file,
+					wrappedErr: fmt.Errorf("failed to open `%s'%s: %w", l.token, as, e1),
+					lex:        l,
+				}
+				return nil, false
 			}
 
 			zp.sub = NewZoneParser(r1, neworigin, includePath)
-			zp.sub.defttl, zp.sub.includeDepth, zp.sub.osFile = zp.defttl, zp.includeDepth+1, r1
+			zp.sub.defttl, zp.sub.includeDepth, zp.sub.r = zp.defttl, zp.includeDepth+1, r1
 			zp.sub.SetIncludeAllowed(true)
+			zp.sub.SetIncludeFS(zp.fsys)
 			return zp.subNext()
 		case zExpectDirTTLBl:
 			if l.value != zBlank {
@@ -1326,12 +1375,12 @@ func slurpRemainder(c *zlexer) *ParseError {
 	case zBlank:
 		l, _ = c.Next()
 		if l.value != zNewline && l.value != zEOF {
-			return &ParseError{"", "garbage after rdata", l}
+			return &ParseError{err: "garbage after rdata", lex: l}
 		}
 	case zNewline:
 	case zEOF:
 	default:
-		return &ParseError{"", "garbage after rdata", l}
+		return &ParseError{err: "garbage after rdata", lex: l}
 	}
 	return nil
 }
@@ -1340,16 +1389,16 @@ func slurpRemainder(c *zlexer) *ParseError {
 // Used for NID and L64 record.
 func stringToNodeID(l lex) (uint64, *ParseError) {
 	if len(l.token) < 19 {
-		return 0, &ParseError{l.token, "bad NID/L64 NodeID/Locator64", l}
+		return 0, &ParseError{file: l.token, err: "bad NID/L64 NodeID/Locator64", lex: l}
 	}
 	// There must be three colons at fixes positions, if not its a parse error
 	if l.token[4] != ':' && l.token[9] != ':' && l.token[14] != ':' {
-		return 0, &ParseError{l.token, "bad NID/L64 NodeID/Locator64", l}
+		return 0, &ParseError{file: l.token, err: "bad NID/L64 NodeID/Locator64", lex: l}
 	}
 	s := l.token[0:4] + l.token[5:9] + l.token[10:14] + l.token[15:19]
 	u, err := strconv.ParseUint(s, 16, 64)
 	if err != nil {
-		return 0, &ParseError{l.token, "bad NID/L64 NodeID/Locator64", l}
+		return 0, &ParseError{file: l.token, err: "bad NID/L64 NodeID/Locator64", lex: l}
 	}
 	return u, nil
 }

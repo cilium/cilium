@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -35,10 +36,10 @@ func init() {
 var HTTPRoutePartiallyInvalidViaInvalidReferenceGrant = suite.ConformanceTest{
 	ShortName:   "HTTPRoutePartiallyInvalidViaInvalidReferenceGrant",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should attach to a Gateway in the same namespace if the route has a backendRef Service in the gateway-conformance-app-backend namespace and a ReferenceGrant exists but does not grant permission to route to that specific Service",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportReferenceGrant,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportReferenceGrant,
 	},
 	Manifests: []string{"tests/httproute-partially-invalid-via-invalid-reference-grant.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

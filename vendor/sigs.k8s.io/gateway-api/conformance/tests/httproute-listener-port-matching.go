@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -34,10 +35,10 @@ func init() {
 var HTTPRouteListenerPortMatching = suite.ConformanceTest{
 	ShortName:   "HTTPRouteListenerPortMatching",
 	Description: "Multiple HTTP listeners with different ports, each with a different HTTPRoute",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteParentRefPort,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteParentRefPort,
 	},
 	Manifests: []string{"tests/httproute-listener-port-matching.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {

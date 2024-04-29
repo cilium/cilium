@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -35,10 +36,10 @@ func init() {
 var HTTPRouteInvalidCrossNamespaceBackendRef = suite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidCrossNamespaceBackendRef",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set a ResolvedRefs status False with reason RefNotPermitted when attempting to bind to a Gateway in the same namespace if the route has a BackendRef Service in the gateway-conformance-web-backend namespace and a ReferenceGrant granting permission to route to that Service does not exist",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportReferenceGrant,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportReferenceGrant,
 	},
 	Manifests: []string{"tests/httproute-invalid-cross-namespace-backend-ref.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {

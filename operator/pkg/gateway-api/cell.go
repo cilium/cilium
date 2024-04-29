@@ -54,8 +54,8 @@ var requiredGVK = []schema.GroupVersionKind{
 	gatewayv1.SchemeGroupVersion.WithKind("gatewayclasses"),
 	gatewayv1.SchemeGroupVersion.WithKind("gateways"),
 	gatewayv1.SchemeGroupVersion.WithKind("httproutes"),
+	gatewayv1.SchemeGroupVersion.WithKind("grpcroutes"),
 	gatewayv1beta1.SchemeGroupVersion.WithKind("referencegrants"),
-	gatewayv1alpha2.SchemeGroupVersion.WithKind("grpcroutes"),
 	gatewayv1alpha2.SchemeGroupVersion.WithKind("tlsroutes"),
 }
 

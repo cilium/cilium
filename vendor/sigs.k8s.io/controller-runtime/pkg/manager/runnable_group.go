@@ -54,7 +54,10 @@ func newRunnables(baseContext BaseContextFunc, errChan chan error) *runnables {
 // The runnables added after Start are started directly.
 func (r *runnables) Add(fn Runnable) error {
 	switch runnable := fn.(type) {
-	case *server:
+	case *Server:
+		if runnable.NeedLeaderElection() {
+			return r.LeaderElection.Add(fn, nil)
+		}
 		return r.HTTPServers.Add(fn, nil)
 	case hasCache:
 		return r.Caches.Add(fn, func(ctx context.Context) bool {
@@ -263,6 +266,15 @@ func (r *runnableGroup) Add(rn Runnable, ready runnableCheck) error {
 		r.start.Unlock()
 	}
 
+	// Recheck if we're stopped and hold the readlock, given that the stop and start can be called
+	// at the same time, we can end up in a situation where the runnable is added
+	// after the group is stopped and the channel is closed.
+	r.stop.RLock()
+	defer r.stop.RUnlock()
+	if r.stopped {
+		return errRunnableGroupStopped
+	}
+
 	// Enqueue the runnable.
 	r.ch <- readyRunnable
 	return nil
@@ -272,7 +284,11 @@ func (r *runnableGroup) Add(rn Runnable, ready runnableCheck) error {
 func (r *runnableGroup) StopAndWait(ctx context.Context) {
 	r.stopOnce.Do(func() {
 		// Close the reconciler channel once we're done.
-		defer close(r.ch)
+		defer func() {
+			r.stop.Lock()
+			close(r.ch)
+			r.stop.Unlock()
+		}()
 
 		_ = r.Start(ctx)
 		r.stop.Lock()

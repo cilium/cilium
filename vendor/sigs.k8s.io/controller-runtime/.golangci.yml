@@ -41,6 +41,11 @@ linters:
     - whitespace
 
 linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
   importas:
     no-unaliased: true
     alias:
@@ -58,10 +63,6 @@ linters-settings:
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
-  staticcheck:
-    go: "1.22"
-  stylecheck:
-    go: "1.22"
   revive:
     rules:
       # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration
@@ -105,6 +106,9 @@ issues:
     - Subprocess launch(ed with variable|ing should be audited)
     - (G204|G104|G307)
     - "ST1000: at least one file in a package should have a package comment"
+  exclude-files:
+    - "zz_generated.*\\.go$"
+    - ".*conversion.*\\.go$"
   exclude-rules:
     - linters:
         - gosec
@@ -163,8 +167,6 @@ issues:
       path: _test\.go
 
 run:
+  go: "1.22"
   timeout: 10m
-  skip-files:
-    - "zz_generated.*\\.go$"
-    - ".*conversion.*\\.go$"
   allow-parallel-runners: true

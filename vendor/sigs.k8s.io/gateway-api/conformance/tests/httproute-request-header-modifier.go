@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -36,10 +37,10 @@ func init() {
 var HTTPRouteBackendRequestHeaderModifier = suite.ConformanceTest{
 	ShortName:   "HTTPRouteBackendRequestHeaderModifier",
 	Description: "An HTTPRoute backend has request header modifier filters applied correctly",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteBackendRequestHeaderModification,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteBackendRequestHeaderModification,
 	},
 	Manifests: []string{"tests/httproute-request-header-modifier-backend.yaml"},
 	Test:      HTTPRouteRequestHeaderModifier.Test,
@@ -48,9 +49,9 @@ var HTTPRouteBackendRequestHeaderModifier = suite.ConformanceTest{
 var HTTPRouteRequestHeaderModifier = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestHeaderModifier",
 	Description: "An HTTPRoute has request header modifier filters applied correctly",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-request-header-modifier.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
