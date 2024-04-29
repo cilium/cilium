@@ -538,6 +538,10 @@ bpf:
   # -- (bool) Disable ExternalIP mitigation (CVE-2020-8554)
   # @default -- `false`
   disableExternalIPMitigation: false
+  # -- (bool) Attach endpoint programs using tcx instead of legacy tc hooks on
+  # supported kernels.
+  # @default -- `true`
+  enableTCX: true
 # -- Enable BPF clock source probing for more efficient tick retrieval.
 bpfClockProbe: false
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
