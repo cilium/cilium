@@ -86,8 +86,10 @@ func Enable(sysctl sysctl.Sysctl) (err error) {
 		}
 	}()
 
-	coll, err := bpf.LoadCollection(spec, ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+	coll, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
 	})
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
