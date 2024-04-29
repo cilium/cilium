@@ -8,15 +8,15 @@ import (
 	"encoding/binary"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 )
 
-func (s *MonitorSuite) TestDecodePolicyVerdicyNotify(c *C) {
+func TestDecodePolicyVerdicyNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	c.Assert(PolicyVerdictNotifyLen, Equals, 32)
+	require.Equal(t, 32, PolicyVerdictNotifyLen)
 
 	input := PolicyVerdictNotify{
 		Type:        0x00,
@@ -37,27 +37,27 @@ func (s *MonitorSuite) TestDecodePolicyVerdicyNotify(c *C) {
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	output := &PolicyVerdictNotify{}
 	err = DecodePolicyVerdictNotify(buf.Bytes(), output)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
-	c.Assert(output.Type, Equals, input.Type)
-	c.Assert(output.SubType, Equals, input.SubType)
-	c.Assert(output.Source, Equals, input.Source)
-	c.Assert(output.Hash, Equals, input.Hash)
-	c.Assert(output.OrigLen, Equals, input.OrigLen)
-	c.Assert(output.CapLen, Equals, input.CapLen)
-	c.Assert(output.Version, Equals, input.Version)
-	c.Assert(output.RemoteLabel, Equals, input.RemoteLabel)
-	c.Assert(output.Verdict, Equals, input.Verdict)
-	c.Assert(output.DstPort, Equals, input.DstPort)
-	c.Assert(output.Proto, Equals, input.Proto)
-	c.Assert(output.Flags, Equals, input.Flags)
-	c.Assert(output.AuthType, Equals, input.AuthType)
-	c.Assert(output.Pad1, Equals, input.Pad1)
-	c.Assert(output.Pad2, Equals, input.Pad2)
+	require.Equal(t, input.Type, output.Type)
+	require.Equal(t, input.SubType, output.SubType)
+	require.Equal(t, input.Source, output.Source)
+	require.Equal(t, input.Hash, output.Hash)
+	require.Equal(t, input.OrigLen, output.OrigLen)
+	require.Equal(t, input.CapLen, output.CapLen)
+	require.Equal(t, input.Version, output.Version)
+	require.Equal(t, input.RemoteLabel, output.RemoteLabel)
+	require.Equal(t, input.Verdict, output.Verdict)
+	require.Equal(t, input.DstPort, output.DstPort)
+	require.Equal(t, input.Proto, output.Proto)
+	require.Equal(t, input.Flags, output.Flags)
+	require.Equal(t, input.AuthType, output.AuthType)
+	require.Equal(t, input.Pad1, output.Pad1)
+	require.Equal(t, input.Pad2, output.Pad2)
 }
 
 func BenchmarkNewDecodePolicyVerdictNotify(b *testing.B) {

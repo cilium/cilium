@@ -8,19 +8,10 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type MonitorSuite struct{}
-
-var _ = Suite(&MonitorSuite{})
-
-func (s *MonitorSuite) TestDissectSummary(c *C) {
+func TestDissectSummary(t *testing.T) {
 
 	srcMAC := "01:23:45:67:89:ab"
 	dstMAC := "02:33:45:67:89:ab"
@@ -37,21 +28,21 @@ func (s *MonitorSuite) TestDissectSummary(c *C) {
 
 	summary := GetDissectSummary(packetData)
 
-	c.Assert(summary.Ethernet, Not(Equals), "")
-	c.Assert(summary.IPv4, Not(Equals), "")
-	c.Assert(summary.TCP, Not(Equals), "")
+	require.NotEqual(t, "", summary.Ethernet)
+	require.NotEqual(t, "", summary.IPv4)
+	require.NotEqual(t, "", summary.TCP)
 
-	c.Assert(summary.L2.Src, Equals, srcMAC)
-	c.Assert(summary.L2.Dst, Equals, dstMAC)
+	require.Equal(t, srcMAC, summary.L2.Src)
+	require.Equal(t, dstMAC, summary.L2.Dst)
 
-	c.Assert(summary.L3.Src, Equals, srcIP)
-	c.Assert(summary.L3.Dst, Equals, dstIP)
+	require.Equal(t, srcIP, summary.L3.Src)
+	require.Equal(t, dstIP, summary.L3.Dst)
 
-	c.Assert(summary.L4.Src, Equals, sport)
-	c.Assert(summary.L4.Dst, Equals, dport)
+	require.Equal(t, sport, summary.L4.Src)
+	require.Equal(t, dport, summary.L4.Dst)
 }
 
-func (s *MonitorSuite) TestConnectionSummary(c *C) {
+func TestConnectionSummary(t *testing.T) {
 	srcIP := "1.2.3.4"
 	dstIP := "5.6.7.8"
 
@@ -68,5 +59,5 @@ func (s *MonitorSuite) TestConnectionSummary(c *C) {
 		net.JoinHostPort(srcIP, sport),
 		net.JoinHostPort(dstIP, dport),
 		"tcp SYN")
-	c.Assert(summary, Equals, expect)
+	require.Equal(t, expect, summary)
 }

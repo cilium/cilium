@@ -8,15 +8,15 @@ import (
 	"encoding/binary"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 )
 
-func (s *MonitorSuite) TestDecodeDebugCapture(c *C) {
+func TestDecodeDebugCapture(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	c.Assert(DebugCaptureLen, Equals, 24)
+	require.Equal(t, 24, DebugCaptureLen)
 
 	input := DebugCapture{
 		Type:    0x00,
@@ -30,19 +30,19 @@ func (s *MonitorSuite) TestDecodeDebugCapture(c *C) {
 
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	output := &DebugCapture{}
 	err = DecodeDebugCapture(buf.Bytes(), output)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
-	c.Assert(output.Type, Equals, input.Type)
-	c.Assert(output.SubType, Equals, input.SubType)
-	c.Assert(output.Source, Equals, input.Source)
-	c.Assert(output.Hash, Equals, input.Hash)
-	c.Assert(output.OrigLen, Equals, input.OrigLen)
-	c.Assert(output.Arg1, Equals, input.Arg1)
-	c.Assert(output.Arg2, Equals, input.Arg2)
+	require.Equal(t, input.Type, output.Type)
+	require.Equal(t, input.SubType, output.SubType)
+	require.Equal(t, input.Source, output.Source)
+	require.Equal(t, input.Hash, output.Hash)
+	require.Equal(t, input.OrigLen, output.OrigLen)
+	require.Equal(t, input.Arg1, output.Arg1)
+	require.Equal(t, input.Arg2, output.Arg2)
 }
 
 func BenchmarkNewDecodeDebugCapture(b *testing.B) {
@@ -83,10 +83,10 @@ func BenchmarkOldDecodeDebugCapture(b *testing.B) {
 	}
 }
 
-func (s *MonitorSuite) TestDecodeDebugMsg(c *C) {
+func TestDecodeDebugMsg(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	c.Assert(DebugMsgLen, Equals, 20)
+	require.Equal(t, 20, DebugMsgLen)
 
 	input := DebugMsg{
 		Type:    0x00,
@@ -100,19 +100,19 @@ func (s *MonitorSuite) TestDecodeDebugMsg(c *C) {
 
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	output := &DebugMsg{}
 	err = DecodeDebugMsg(buf.Bytes(), output)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
-	c.Assert(output.Type, Equals, input.Type)
-	c.Assert(output.SubType, Equals, input.SubType)
-	c.Assert(output.Source, Equals, input.Source)
-	c.Assert(output.Hash, Equals, input.Hash)
-	c.Assert(output.Arg1, Equals, input.Arg1)
-	c.Assert(output.Arg2, Equals, input.Arg2)
-	c.Assert(output.Arg3, Equals, input.Arg3)
+	require.Equal(t, input.Type, output.Type)
+	require.Equal(t, input.SubType, output.SubType)
+	require.Equal(t, input.Source, output.Source)
+	require.Equal(t, input.Hash, output.Hash)
+	require.Equal(t, input.Arg1, output.Arg1)
+	require.Equal(t, input.Arg2, output.Arg2)
+	require.Equal(t, input.Arg3, output.Arg3)
 }
 
 func BenchmarkNewDecodeDebugMsg(b *testing.B) {
