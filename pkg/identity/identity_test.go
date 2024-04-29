@@ -8,80 +8,70 @@ import (
 	"net/netip"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type IdentityTestSuite struct{}
-
-var _ = Suite(&IdentityTestSuite{})
-
-func (s *IdentityTestSuite) TestReservedID(c *C) {
+func TestReservedID(t *testing.T) {
 	i := GetReservedID("host")
-	c.Assert(i, Equals, NumericIdentity(1))
-	c.Assert(i.String(), Equals, "host")
+	require.Equal(t, NumericIdentity(1), i)
+	require.Equal(t, "host", i.String())
 
 	i = GetReservedID("world")
-	c.Assert(i, Equals, NumericIdentity(2))
-	c.Assert(i.String(), Equals, "world")
+	require.Equal(t, NumericIdentity(2), i)
+	require.Equal(t, "world", i.String())
 
 	// This is an obsoleted identity, we verify that it returns 0
 	i = GetReservedID("cluster")
-	c.Assert(i, Equals, NumericIdentity(0))
-	c.Assert(i.String(), Equals, "unknown")
+	require.Equal(t, NumericIdentity(0), i)
+	require.Equal(t, "unknown", i.String())
 
 	i = GetReservedID("health")
-	c.Assert(i, Equals, NumericIdentity(4))
-	c.Assert(i.String(), Equals, "health")
+	require.Equal(t, NumericIdentity(4), i)
+	require.Equal(t, "health", i.String())
 
 	i = GetReservedID("init")
-	c.Assert(i, Equals, NumericIdentity(5))
-	c.Assert(i.String(), Equals, "init")
+	require.Equal(t, NumericIdentity(5), i)
+	require.Equal(t, "init", i.String())
 
 	i = GetReservedID("unmanaged")
-	c.Assert(i, Equals, NumericIdentity(3))
-	c.Assert(i.String(), Equals, "unmanaged")
+	require.Equal(t, NumericIdentity(3), i)
+	require.Equal(t, "unmanaged", i.String())
 
 	i = GetReservedID("kube-apiserver")
-	c.Assert(i, Equals, NumericIdentity(7))
-	c.Assert(i.String(), Equals, "kube-apiserver")
+	require.Equal(t, NumericIdentity(7), i)
+	require.Equal(t, "kube-apiserver", i.String())
 
-	c.Assert(GetReservedID("unknown"), Equals, IdentityUnknown)
+	require.Equal(t, IdentityUnknown, GetReservedID("unknown"))
 	unknown := NumericIdentity(700)
-	c.Assert(unknown.String(), Equals, "700")
+	require.Equal(t, "700", unknown.String())
 }
 
-func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
-	c.Assert(ReservedIdentityKubeAPIServer.IsReservedIdentity(), Equals, true)
-	c.Assert(ReservedIdentityHealth.IsReservedIdentity(), Equals, true)
-	c.Assert(ReservedIdentityHost.IsReservedIdentity(), Equals, true)
-	c.Assert(ReservedIdentityWorld.IsReservedIdentity(), Equals, true)
-	c.Assert(ReservedIdentityInit.IsReservedIdentity(), Equals, true)
-	c.Assert(ReservedIdentityUnmanaged.IsReservedIdentity(), Equals, true)
+func TestIsReservedIdentity(t *testing.T) {
+	require.True(t, ReservedIdentityKubeAPIServer.IsReservedIdentity())
+	require.True(t, ReservedIdentityHealth.IsReservedIdentity())
+	require.True(t, ReservedIdentityHost.IsReservedIdentity())
+	require.True(t, ReservedIdentityWorld.IsReservedIdentity())
+	require.True(t, ReservedIdentityInit.IsReservedIdentity())
+	require.True(t, ReservedIdentityUnmanaged.IsReservedIdentity())
 
-	c.Assert(NumericIdentity(123456).IsReservedIdentity(), Equals, false)
+	require.Equal(t, false, NumericIdentity(123456).IsReservedIdentity())
 }
 
-func (s *IdentityTestSuite) TestRequiresGlobalIdentity(c *C) {
+func TestRequiresGlobalIdentity(t *testing.T) {
 	prefix := netip.MustParsePrefix("0.0.0.0/0")
-	c.Assert(RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)), Equals, false)
+	require.Equal(t, false, RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)))
 
 	prefix = netip.MustParsePrefix("192.168.23.0/24")
-	c.Assert(RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)), Equals, false)
+	require.Equal(t, false, RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)))
 
-	c.Assert(RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})), Equals, true)
+	require.True(t, RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})))
 }
 
-func (s *IdentityTestSuite) TestScopeForLabels(c *C) {
+func TestScopeForLabels(t *testing.T) {
 	tests := []struct {
 		lbls  labels.Labels
 		scope NumericIdentity
@@ -135,11 +125,11 @@ func (s *IdentityTestSuite) TestScopeForLabels(c *C) {
 			continue
 		}
 		scope := ScopeForLabels(test.lbls)
-		c.Assert(scope, Equals, test.scope, Commentf("%d / labels %s", i, test.lbls.String()))
+		require.Equal(t, test.scope, scope, "%d / labels %s", i, test.lbls.String())
 	}
 }
 
-func (s *IdentityTestSuite) TestNewIdentityFromLabelArray(c *C) {
+func TestNewIdentityFromLabelArray(t *testing.T) {
 	id := NewIdentityFromLabelArray(NumericIdentity(1001),
 		labels.NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
 
@@ -148,9 +138,9 @@ func (s *IdentityTestSuite) TestNewIdentityFromLabelArray(c *C) {
 		"c": labels.ParseLabel("c=d"),
 		"b": labels.ParseLabel("b"),
 	}
-	c.Assert(id.ID, Equals, NumericIdentity(1001))
-	c.Assert(id.Labels, checker.DeepEquals, lbls)
-	c.Assert(id.LabelArray, checker.DeepEquals, lbls.LabelArray())
+	require.Equal(t, NumericIdentity(1001), id.ID)
+	require.EqualValues(t, lbls, id.Labels)
+	require.EqualValues(t, lbls.LabelArray(), id.LabelArray)
 }
 
 func TestLookupReservedIdentityByLabels(t *testing.T) {

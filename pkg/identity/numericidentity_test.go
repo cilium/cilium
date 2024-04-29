@@ -7,24 +7,23 @@ import (
 	"sync"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
-func (s *IdentityTestSuite) TestLocalIdentity(c *C) {
+func TestLocalIdentity(t *testing.T) {
 	localID := NumericIdentity(IdentityScopeLocal | 1)
-	c.Assert(localID.HasLocalScope(), Equals, true)
+	require.True(t, localID.HasLocalScope())
 
 	maxClusterID := NumericIdentity(cmtypes.ClusterIDMax | 1)
-	c.Assert(maxClusterID.HasLocalScope(), Equals, false)
+	require.Equal(t, false, maxClusterID.HasLocalScope())
 
-	c.Assert(ReservedIdentityWorld.HasLocalScope(), Equals, false)
+	require.Equal(t, false, ReservedIdentityWorld.HasLocalScope())
 }
 
-func (s *IdentityTestSuite) TestClusterID(c *C) {
+func TestClusterID(t *testing.T) {
 	tbl := []struct {
 		identity  uint32
 		clusterID uint32
@@ -56,7 +55,7 @@ func (s *IdentityTestSuite) TestClusterID(c *C) {
 	}
 
 	for _, item := range tbl {
-		c.Assert(NumericIdentity(item.identity).ClusterID(), Equals, item.clusterID)
+		require.Equal(t, item.clusterID, NumericIdentity(item.identity).ClusterID())
 	}
 }
 
