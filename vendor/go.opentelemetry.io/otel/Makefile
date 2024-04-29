@@ -23,7 +23,7 @@ TOOLS = $(CURDIR)/.tools
 
 $(TOOLS):
 	@mkdir -p $@
-$(TOOLS)/%: | $(TOOLS)
+$(TOOLS)/%: $(TOOLS_MOD_DIR)/go.mod | $(TOOLS)
 	cd $(TOOLS_MOD_DIR) && \
 	$(GO) build -o $@ $(PACKAGE)
 
@@ -99,7 +99,7 @@ $(PYTOOLS):
 	@$(DOCKERPY) bash -c "python3 -m venv $(VENVDIR) && $(PIP) install --upgrade pip"
 
 # Install python packages into the virtual environment.
-$(PYTOOLS)/%: | $(PYTOOLS)
+$(PYTOOLS)/%: $(PYTOOLS)
 	@$(DOCKERPY) $(PIP) install -r requirements.txt
 
 CODESPELL = $(PYTOOLS)/codespell
@@ -113,18 +113,18 @@ generate: go-generate vanity-import-fix
 .PHONY: go-generate
 go-generate: $(OTEL_GO_MOD_DIRS:%=go-generate/%)
 go-generate/%: DIR=$*
-go-generate/%: | $(STRINGER) $(GOTMPL)
+go-generate/%: $(STRINGER) $(GOTMPL)
 	@echo "$(GO) generate $(DIR)/..." \
 		&& cd $(DIR) \
 		&& PATH="$(TOOLS):$${PATH}" $(GO) generate ./...
 
 .PHONY: vanity-import-fix
-vanity-import-fix: | $(PORTO)
+vanity-import-fix: $(PORTO)
 	@$(PORTO) --include-internal -w .
 
 # Generate go.work file for local development.
 .PHONY: go-work
-go-work: | $(CROSSLINK)
+go-work: $(CROSSLINK)
 	$(CROSSLINK) work --root=$(shell pwd)
 
 # Build
@@ -167,7 +167,7 @@ test/%:
 COVERAGE_MODE    = atomic
 COVERAGE_PROFILE = coverage.out
 .PHONY: test-coverage
-test-coverage: | $(GOCOVMERGE)
+test-coverage: $(GOCOVMERGE)
 	@set -e; \
 	printf "" > coverage.txt; \
 	for dir in $(ALL_COVERAGE_MOD_DIRS); do \
@@ -198,20 +198,20 @@ golangci-lint-fix: ARGS=--fix
 golangci-lint-fix: golangci-lint
 golangci-lint: $(OTEL_GO_MOD_DIRS:%=golangci-lint/%)
 golangci-lint/%: DIR=$*
-golangci-lint/%: | $(GOLANGCI_LINT)
+golangci-lint/%: $(GOLANGCI_LINT)
 	@echo 'golangci-lint $(if $(ARGS),$(ARGS) ,)$(DIR)' \
 		&& cd $(DIR) \
 		&& $(GOLANGCI_LINT) run --allow-serial-runners $(ARGS)
 
 .PHONY: crosslink
-crosslink: | $(CROSSLINK)
+crosslink: $(CROSSLINK)
 	@echo "Updating intra-repository dependencies in all go modules" \
 		&& $(CROSSLINK) --root=$(shell pwd) --prune
 
 .PHONY: go-mod-tidy
 go-mod-tidy: $(ALL_GO_MOD_DIRS:%=go-mod-tidy/%)
 go-mod-tidy/%: DIR=$*
-go-mod-tidy/%: | crosslink
+go-mod-tidy/%: crosslink
 	@echo "$(GO) mod tidy in $(DIR)" \
 		&& cd $(DIR) \
 		&& $(GO) mod tidy -compat=1.21
@@ -223,23 +223,23 @@ lint-modules: go-mod-tidy
 lint: misspell lint-modules golangci-lint govulncheck
 
 .PHONY: vanity-import-check
-vanity-import-check: | $(PORTO)
+vanity-import-check: $(PORTO)
 	@$(PORTO) --include-internal -l . || ( echo "(run: make vanity-import-fix)"; exit 1 )
 
 .PHONY: misspell
-misspell: | $(MISSPELL)
+misspell: $(MISSPELL)
 	@$(MISSPELL) -w $(ALL_DOCS)
 
 .PHONY: govulncheck
 govulncheck: $(OTEL_GO_MOD_DIRS:%=govulncheck/%)
 govulncheck/%: DIR=$*
-govulncheck/%: | $(GOVULNCHECK)
+govulncheck/%: $(GOVULNCHECK)
 	@echo "govulncheck ./... in $(DIR)" \
 		&& cd $(DIR) \
 		&& $(GOVULNCHECK) ./...
 
 .PHONY: codespell
-codespell: | $(CODESPELL)
+codespell: $(CODESPELL)
 	@$(DOCKERPY) $(CODESPELL)
 
 .PHONY: license-check
@@ -254,11 +254,11 @@ license-check:
 
 DEPENDABOT_CONFIG = .github/dependabot.yml
 .PHONY: dependabot-check
-dependabot-check: | $(DBOTCONF)
+dependabot-check: $(DBOTCONF)
 	@$(DBOTCONF) verify $(DEPENDABOT_CONFIG) || ( echo "(run: make dependabot-generate)"; exit 1 )
 
 .PHONY: dependabot-generate
-dependabot-generate: | $(DBOTCONF)
+dependabot-generate: $(DBOTCONF)
 	@$(DBOTCONF) generate > $(DEPENDABOT_CONFIG)
 
 .PHONY: check-clean-work-tree
@@ -273,7 +273,7 @@ check-clean-work-tree:
 
 SEMCONVPKG ?= "semconv/"
 .PHONY: semconv-generate
-semconv-generate: | $(SEMCONVGEN) $(SEMCONVKIT)
+semconv-generate: $(SEMCONVGEN) $(SEMCONVKIT)
 	[ "$(TAG)" ] || ( echo "TAG unset: missing opentelemetry semantic-conventions tag"; exit 1 )
 	[ "$(OTEL_SEMCONV_REPO)" ] || ( echo "OTEL_SEMCONV_REPO unset: missing path to opentelemetry semantic-conventions repo"; exit 1 )
 	$(SEMCONVGEN) -i "$(OTEL_SEMCONV_REPO)/model/." --only=span -p conventionType=trace -f trace.go -t "$(SEMCONVPKG)/template.j2" -s "$(TAG)"
@@ -293,13 +293,13 @@ gorelease/%:| $(GORELEASE)
 		|| echo ""
 
 .PHONY: prerelease
-prerelease: | $(MULTIMOD)
+prerelease: $(MULTIMOD)
 	@[ "${MODSET}" ] || ( echo ">> env var MODSET is not set"; exit 1 )
 	$(MULTIMOD) verify && $(MULTIMOD) prerelease -m ${MODSET}
 
 COMMIT ?= "HEAD"
 .PHONY: add-tags
-add-tags: | $(MULTIMOD)
+add-tags: $(MULTIMOD)
 	@[ "${MODSET}" ] || ( echo ">> env var MODSET is not set"; exit 1 )
 	$(MULTIMOD) verify && $(MULTIMOD) tag -m ${MODSET} -c ${COMMIT}
 

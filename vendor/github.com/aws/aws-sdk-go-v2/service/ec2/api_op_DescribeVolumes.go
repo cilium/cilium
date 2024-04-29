@@ -21,9 +21,11 @@ import (
 // describing a long list of volumes, we recommend that you paginate the output to
 // make the list more manageable. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
 // . For more information about EBS volumes, see Amazon EBS volumes (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes.html)
-// in the Amazon EBS User Guide. The order of the elements in the response,
-// including those within nested structures, might vary. Applications should not
-// assume the elements appear in a particular order.
+// in the Amazon EBS User Guide. We strongly recommend using only paginated
+// requests. Unpaginated requests are susceptible to throttling and timeouts. The
+// order of the elements in the response, including those within nested structures,
+// might vary. Applications should not assume the elements appear in a particular
+// order.
 func (c *Client) DescribeVolumes(ctx context.Context, params *DescribeVolumesInput, optFns ...func(*Options)) (*DescribeVolumesOutput, error) {
 	if params == nil {
 		params = &DescribeVolumesInput{}

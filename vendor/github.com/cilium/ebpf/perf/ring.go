@@ -22,12 +22,12 @@ type perfEventRing struct {
 	ringReader
 }
 
-func newPerfEventRing(cpu, perCPUBuffer, watermark int, overwritable bool) (*perfEventRing, error) {
-	if watermark >= perCPUBuffer {
+func newPerfEventRing(cpu, perCPUBuffer int, opts ReaderOptions) (*perfEventRing, error) {
+	if opts.Watermark >= perCPUBuffer {
 		return nil, errors.New("watermark must be smaller than perCPUBuffer")
 	}
 
-	fd, err := createPerfEvent(cpu, watermark, overwritable)
+	fd, err := createPerfEvent(cpu, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func newPerfEventRing(cpu, perCPUBuffer, watermark int, overwritable bool) (*per
 	}
 
 	protections := unix.PROT_READ
-	if !overwritable {
+	if !opts.Overwritable {
 		protections |= unix.PROT_WRITE
 	}
 
@@ -55,7 +55,7 @@ func newPerfEventRing(cpu, perCPUBuffer, watermark int, overwritable bool) (*per
 	meta := (*unix.PerfEventMmapPage)(unsafe.Pointer(&mmap[0]))
 
 	var reader ringReader
-	if overwritable {
+	if opts.Overwritable {
 		reader = newReverseReader(meta, mmap[meta.Data_offset:meta.Data_offset+meta.Data_size])
 	} else {
 		reader = newForwardReader(meta, mmap[meta.Data_offset:meta.Data_offset+meta.Data_size])
@@ -98,13 +98,20 @@ func (ring *perfEventRing) Close() {
 	ring.mmap = nil
 }
 
-func createPerfEvent(cpu, watermark int, overwritable bool) (int, error) {
-	if watermark == 0 {
-		watermark = 1
+func createPerfEvent(cpu int, opts ReaderOptions) (int, error) {
+	wakeup := 0
+	bits := 0
+	if opts.WakeupEvents > 0 {
+		wakeup = opts.WakeupEvents
+	} else {
+		wakeup = opts.Watermark
+		if wakeup == 0 {
+			wakeup = 1
+		}
+		bits |= unix.PerfBitWatermark
 	}
 
-	bits := unix.PerfBitWatermark
-	if overwritable {
+	if opts.Overwritable {
 		bits |= unix.PerfBitWriteBackward
 	}
 
@@ -113,7 +120,7 @@ func createPerfEvent(cpu, watermark int, overwritable bool) (int, error) {
 		Config:      unix.PERF_COUNT_SW_BPF_OUTPUT,
 		Bits:        uint64(bits),
 		Sample_type: unix.PERF_SAMPLE_RAW,
-		Wakeup:      uint32(watermark),
+		Wakeup:      uint32(wakeup),
 	}
 
 	attr.Size = uint32(unsafe.Sizeof(attr))

@@ -48,7 +48,8 @@ import (
 // . To get the state of fast snapshot restores for a snapshot, use
 // DescribeFastSnapshotRestores . For more information about EBS snapshots, see
 // Amazon EBS snapshots (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-snapshots.html)
-// in the Amazon EBS User Guide.
+// in the Amazon EBS User Guide. We strongly recommend using only paginated
+// requests. Unpaginated requests are susceptible to throttling and timeouts.
 func (c *Client) DescribeSnapshots(ctx context.Context, params *DescribeSnapshotsInput, optFns ...func(*Options)) (*DescribeSnapshotsOutput, error) {
 	if params == nil {
 		params = &DescribeSnapshotsInput{}

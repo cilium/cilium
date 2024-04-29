@@ -58,8 +58,8 @@ This library includes the following packages:
 
 * A version of Go that is [supported by
   upstream](https://golang.org/doc/devel/release.html#policy)
-* Linux >= 4.9. CI is run against kernel.org LTS releases. 4.4 should work but is
-  not tested against.
+* CI is run against kernel.org LTS releases. >= 4.4 should work but EOL'ed versions
+  are not supported.
 
 ## License
 

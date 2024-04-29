@@ -63,6 +63,7 @@ func LoadKernelSpec() (*Spec, error) {
 //
 // Defaults to /sys/kernel/btf/<module>.
 // Returns an error wrapping ErrNotSupported if BTF is not enabled.
+// Returns an error wrapping fs.ErrNotExist if BTF for the specific module doesn't exist.
 func LoadKernelModuleSpec(module string) (*Spec, error) {
 	kernelBTF.RLock()
 	spec := kernelBTF.modules[module]
