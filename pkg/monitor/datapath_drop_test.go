@@ -8,15 +8,15 @@ import (
 	"encoding/binary"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 )
 
-func (s *MonitorSuite) TestDecodeDropNotify(c *C) {
+func TestDecodeDropNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	c.Assert(DropNotifyLen, Equals, 36)
+	require.Equal(t, 36, DropNotifyLen)
 
 	input := DropNotify{
 		Type:     0x00,
@@ -35,25 +35,25 @@ func (s *MonitorSuite) TestDecodeDropNotify(c *C) {
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	output := &DropNotify{}
 	err = DecodeDropNotify(buf.Bytes(), output)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
-	c.Assert(output.Type, Equals, input.Type)
-	c.Assert(output.SubType, Equals, input.SubType)
-	c.Assert(output.Source, Equals, input.Source)
-	c.Assert(output.Hash, Equals, input.Hash)
-	c.Assert(output.OrigLen, Equals, input.OrigLen)
-	c.Assert(output.CapLen, Equals, input.CapLen)
-	c.Assert(output.SrcLabel, Equals, input.SrcLabel)
-	c.Assert(output.DstLabel, Equals, input.DstLabel)
-	c.Assert(output.DstID, Equals, input.DstID)
-	c.Assert(output.Line, Equals, input.Line)
-	c.Assert(output.File, Equals, input.File)
-	c.Assert(output.ExtError, Equals, input.ExtError)
-	c.Assert(output.Ifindex, Equals, input.Ifindex)
+	require.Equal(t, input.Type, output.Type)
+	require.Equal(t, input.SubType, output.SubType)
+	require.Equal(t, input.Source, output.Source)
+	require.Equal(t, input.Hash, output.Hash)
+	require.Equal(t, input.OrigLen, output.OrigLen)
+	require.Equal(t, input.CapLen, output.CapLen)
+	require.Equal(t, input.SrcLabel, output.SrcLabel)
+	require.Equal(t, input.DstLabel, output.DstLabel)
+	require.Equal(t, input.DstID, output.DstID)
+	require.Equal(t, input.Line, output.Line)
+	require.Equal(t, input.File, output.File)
+	require.Equal(t, input.ExtError, output.ExtError)
+	require.Equal(t, input.Ifindex, output.Ifindex)
 }
 
 func BenchmarkNewDecodeDropNotify(b *testing.B) {

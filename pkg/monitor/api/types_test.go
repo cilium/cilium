@@ -9,48 +9,38 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type MonitorAPISuite struct{}
-
-var _ = Suite(&MonitorAPISuite{})
-
-func testEqualityRules(got, expected string, c *C) {
+func testEqualityRules(got, expected string, t *testing.T) {
 	gotStruct := &PolicyUpdateNotification{}
 	expectedStruct := &PolicyUpdateNotification{}
 
 	err := json.Unmarshal([]byte(got), gotStruct)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	err = json.Unmarshal([]byte(expected), expectedStruct)
-	c.Assert(err, IsNil)
-	c.Assert(gotStruct, checker.DeepEquals, expectedStruct)
+	require.Nil(t, err)
+	require.EqualValues(t, expectedStruct, gotStruct)
 }
 
-func testEqualityEndpoint(got, expected string, c *C) {
+func testEqualityEndpoint(got, expected string, t *testing.T) {
 	gotStruct := &EndpointRegenNotification{}
 	expectedStruct := &EndpointRegenNotification{}
 
 	err := json.Unmarshal([]byte(got), gotStruct)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	err = json.Unmarshal([]byte(expected), expectedStruct)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	sort.Strings(gotStruct.Labels)
 	sort.Strings(expectedStruct.Labels)
-	c.Assert(gotStruct, checker.DeepEquals, expectedStruct)
+	require.EqualValues(t, expectedStruct, gotStruct)
 }
 
-func (s *MonitorAPISuite) TestPolicyUpdateMessage(c *C) {
+func TestPolicyUpdateMessage(t *testing.T) {
 	rules := api.Rules{
 		&api.Rule{
 			Labels: labels.LabelArray{
@@ -71,29 +61,29 @@ func (s *MonitorAPISuite) TestPolicyUpdateMessage(c *C) {
 
 	msg := PolicyUpdateMessage(len(rules), labels, 1)
 	repr, err := msg.ToJSON()
-	c.Assert(err, IsNil)
-	c.Assert(repr.Type, Equals, AgentNotifyPolicyUpdated)
-	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1","unspec:key2=value2"],"revision":1,"rule_count":2}`, c)
+	require.Nil(t, err)
+	require.Equal(t, AgentNotifyPolicyUpdated, repr.Type)
+	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1","unspec:key2=value2"],"revision":1,"rule_count":2}`, t)
 }
 
-func (s *MonitorAPISuite) TestEmptyPolicyUpdateMessage(c *C) {
+func TestEmptyPolicyUpdateMessage(t *testing.T) {
 	msg := PolicyUpdateMessage(0, []string{}, 1)
 	repr, err := msg.ToJSON()
-	c.Assert(err, IsNil)
-	c.Assert(repr.Type, Equals, AgentNotifyPolicyUpdated)
-	testEqualityRules(repr.Text, `{"revision":1,"rule_count":0}`, c)
+	require.Nil(t, err)
+	require.Equal(t, AgentNotifyPolicyUpdated, repr.Type)
+	testEqualityRules(repr.Text, `{"revision":1,"rule_count":0}`, t)
 }
 
-func (s *MonitorAPISuite) TestPolicyDeleteMessage(c *C) {
+func TestPolicyDeleteMessage(t *testing.T) {
 	lab := labels.LabelArray{
 		labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
 	}
 
 	msg := PolicyDeleteMessage(1, lab.GetModel(), 2)
 	repr, err := msg.ToJSON()
-	c.Assert(err, IsNil)
-	c.Assert(repr.Type, Equals, AgentNotifyPolicyDeleted)
-	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1"],"revision":2,"rule_count":1}`, c)
+	require.Nil(t, err)
+	require.Equal(t, AgentNotifyPolicyDeleted, repr.Type)
+	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1"],"revision":2,"rule_count":1}`, t)
 }
 
 type RegenError struct{}
@@ -126,35 +116,35 @@ func (MockEndpoint) GetID16() uint16 {
 	return 0
 }
 
-func (s *MonitorAPISuite) TestEndpointRegenMessage(c *C) {
+func TestEndpointRegenMessage(t *testing.T) {
 	e := MockEndpoint{}
 	rerr := RegenError{}
 
 	msg := EndpointRegenMessage(e, rerr)
 	repr, err := msg.ToJSON()
-	c.Assert(err, IsNil)
-	c.Assert(repr.Type, Equals, AgentNotifyEndpointRegenerateFail)
-	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"],"error":"RegenError"}`, c)
+	require.Nil(t, err)
+	require.Equal(t, AgentNotifyEndpointRegenerateFail, repr.Type)
+	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"],"error":"RegenError"}`, t)
 
 	msg = EndpointRegenMessage(e, nil)
 	repr, err = msg.ToJSON()
-	c.Assert(err, IsNil)
-	c.Assert(repr.Type, Equals, AgentNotifyEndpointRegenerateSuccess)
-	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"]}`, c)
+	require.Nil(t, err)
+	require.Equal(t, AgentNotifyEndpointRegenerateSuccess, repr.Type)
+	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"]}`, t)
 }
 
-func (s *MonitorAPISuite) TestStartMessage(c *C) {
-	t := time.Now()
+func TestStartMessage(t *testing.T) {
+	now := time.Now()
 
-	msg := StartMessage(t)
+	msg := StartMessage(now)
 	repr, err := msg.ToJSON()
-	c.Assert(err, IsNil)
-	c.Assert(repr.Type, Equals, AgentNotifyStart)
+	require.Nil(t, err)
+	require.Equal(t, AgentNotifyStart, repr.Type)
 
 	var timeNotification TimeNotification
 	json.Unmarshal([]byte(repr.Text), &timeNotification)
 	parsedTS, err := time.Parse(time.RFC3339Nano, timeNotification.Time)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	// Truncate with duration <=0 will strip any monotonic clock reading
-	c.Assert(parsedTS.Equal(t.Truncate(0)), Equals, true)
+	require.Equal(t, true, parsedTS.Equal(now.Truncate(0)))
 }

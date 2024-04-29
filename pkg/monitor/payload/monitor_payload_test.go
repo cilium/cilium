@@ -6,30 +6,22 @@ package payload
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-type PayloadSuite struct{}
-
-var _ = Suite(&PayloadSuite{})
-
-func (s *PayloadSuite) TestMeta_UnMarshalBinary(c *C) {
+func TestMeta_UnMarshalBinary(t *testing.T) {
 	meta1 := Meta{Size: 1234}
 	buf, err := meta1.MarshalBinary()
-	c.Assert(err, Equals, nil)
+	require.Equal(t, nil, err)
 
 	var meta2 Meta
 	err = meta2.UnmarshalBinary(buf)
-	c.Assert(err, Equals, nil)
+	require.Equal(t, nil, err)
 
-	c.Assert(meta1, checker.DeepEquals, meta2)
+	require.EqualValues(t, meta2, meta1)
 }
 
-func (s *PayloadSuite) TestPayload_UnMarshalBinary(c *C) {
+func TestPayload_UnMarshalBinary(t *testing.T) {
 	payload1 := Payload{
 		Data: []byte{1, 2, 3, 4},
 		Lost: 5243,
@@ -37,11 +29,11 @@ func (s *PayloadSuite) TestPayload_UnMarshalBinary(c *C) {
 		Type: 9,
 	}
 	buf, err := payload1.Encode()
-	c.Assert(err, Equals, nil)
+	require.Equal(t, nil, err)
 
 	var payload2 Payload
 	err = payload2.Decode(buf)
-	c.Assert(err, Equals, nil)
+	require.Equal(t, nil, err)
 
-	c.Assert(payload1, checker.DeepEquals, payload2)
+	require.EqualValues(t, payload2, payload1)
 }
