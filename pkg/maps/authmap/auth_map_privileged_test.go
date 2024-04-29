@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
@@ -16,27 +16,19 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-type AuthMapTestSuite struct{}
-
-var _ = Suite(&AuthMapTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (k *AuthMapTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setup(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+	require.NoError(tb, err)
 }
 
-func (k *AuthMapTestSuite) TestAuthMap(c *C) {
+func TestAuthMap(t *testing.T) {
+	setup(t)
 	authMap := newMap(10)
 	err := authMap.init()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	defer authMap.bpfMap.Unpin()
 
 	testKey := AuthKey{
@@ -47,25 +39,25 @@ func (k *AuthMapTestSuite) TestAuthMap(c *C) {
 	}
 
 	_, err = authMap.Lookup(testKey)
-	c.Assert(errors.Is(err, ebpf.ErrKeyNotExist), Equals, true)
+	require.Equal(t, true, errors.Is(err, ebpf.ErrKeyNotExist))
 
 	err = authMap.Update(testKey, 10)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	info, err := authMap.Lookup(testKey)
-	c.Assert(err, IsNil)
-	c.Assert(info.Expiration, Equals, utime.UTime(10))
+	require.Nil(t, err)
+	require.Equal(t, utime.UTime(10), info.Expiration)
 
 	err = authMap.Update(testKey, 20)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	info, err = authMap.Lookup(testKey)
-	c.Assert(err, IsNil)
-	c.Assert(info.Expiration, Equals, utime.UTime(20))
+	require.Nil(t, err)
+	require.Equal(t, utime.UTime(20), info.Expiration)
 
 	err = authMap.Delete(testKey)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	_, err = authMap.Lookup(testKey)
-	c.Assert(errors.Is(err, ebpf.ErrKeyNotExist), Equals, true)
+	require.Equal(t, true, errors.Is(err, ebpf.ErrKeyNotExist))
 }

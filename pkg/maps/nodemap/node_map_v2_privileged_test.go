@@ -5,35 +5,32 @@ package nodemap
 
 import (
 	"net"
+	"testing"
 
-	. "github.com/cilium/checkmate"
 	ciliumebpf "github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-type NodeMapV2TestSuite struct{}
-
-var _ = Suite(&NodeMapV2TestSuite{})
-
-func (k *NodeMapV2TestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setupNodeMapV2TestSuite(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+	require.Nil(tb, err)
 }
 
-func (k *NodeMapV2TestSuite) TestNodeMap(c *C) {
+func TestNodeMapV2(t *testing.T) {
+	setupNodeMapV2TestSuite(t)
 	nodeMap := newMapV2("test_cilium_node_map_v2", "test_cilium_node_map", Config{
 		NodeMapMax: 1024,
 	})
 	err := nodeMap.init()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	defer nodeMap.bpfMap.Unpin()
 
 	bpfNodeIDMap := map[uint16]string{}
@@ -48,49 +45,50 @@ func (k *NodeMapV2TestSuite) TestNodeMap(c *C) {
 	}
 
 	err = nodeMap.IterateWithCallback(toMap)
-	c.Assert(err, IsNil)
-	c.Assert(bpfNodeIDMap, HasLen, 0)
-	c.Assert(bpfNodeSPI, HasLen, 0)
+	require.Nil(t, err)
+	require.Equal(t, 0, len(bpfNodeIDMap))
+	require.Equal(t, 0, len(bpfNodeSPI))
 
 	err = nodeMap.Update(net.ParseIP("10.1.0.0"), 10, 3)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	err = nodeMap.Update(net.ParseIP("10.1.0.1"), 20, 3)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	bpfNodeSPI = []uint8{}
 	err = nodeMap.IterateWithCallback(toMap)
-	c.Assert(err, IsNil)
-	c.Assert(bpfNodeIDMap, HasLen, 2)
-	c.Assert(bpfNodeSPI, HasLen, 2)
+	require.Nil(t, err)
+	require.Equal(t, 2, len(bpfNodeIDMap))
+	require.Equal(t, 2, len(bpfNodeSPI))
 
 	err = nodeMap.Delete(net.ParseIP("10.1.0.0"))
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	bpfNodeSPI = []uint8{}
 	err = nodeMap.IterateWithCallback(toMap)
-	c.Assert(err, IsNil)
-	c.Assert(bpfNodeIDMap, HasLen, 1)
-	c.Assert(bpfNodeSPI, HasLen, 1)
+	require.Nil(t, err)
+	require.Equal(t, 1, len(bpfNodeIDMap))
+	require.Equal(t, 1, len(bpfNodeSPI))
 
 	// ensure we see mirrored writes in MapV1
 	_, err = ciliumebpf.LoadPinnedMap(bpf.MapPath("test_cilium_node_map"), nil)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	toMapV1 := func(key *NodeKey, val *NodeValue) {
 		address := key.IP.String()
 		if key.Family == bpf.EndpointKeyIPv4 {
 			address = net.IP(key.IP[:net.IPv4len]).String()
 		}
-		c.Assert(bpfNodeIDMap[val.NodeID], Equals, address)
+		require.Equal(t, address, bpfNodeIDMap[val.NodeID])
 	}
 
 	err = nodeMap.v1Map.IterateWithCallback(toMapV1)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (k *NodeMapV2TestSuite) TestNodeMapMigration(c *C) {
+func TestNodeMapMigration(t *testing.T) {
+	setupNodeMapV2TestSuite(t)
 	name1 := "test_cilium_node_map"
 	name2 := "test_cilium_node_map_v2"
 	emName := "test_cilium_encrypt_state"
@@ -105,55 +103,55 @@ func (k *NodeMapV2TestSuite) TestNodeMapMigration(c *C) {
 		NodeMapMax: 1024,
 	})
 	err := nodeMapV1.init()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	nodeMapV2 := newMapV2(name2, name1, Config{
 		NodeMapMax: 1024,
 	})
 	err = nodeMapV2.init()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	defer nodeMapV2.bpfMap.Unpin()
 
 	encryptMap := encrypt.NewMap(emName)
 	err = encryptMap.OpenOrCreate()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	encrypt.MapUpdateContextWithMap(encryptMap, 0, 3)
 
 	err = nodeMapV1.Update(IP1, ID1)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	err = nodeMapV1.Update(IP2, ID2)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// done with nodeMapV2 so we can close the FD.
 	nodeMapV2.close()
 
 	// do migration
 	err = nodeMapV2.migrateV1(name1, emName)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// confirm we see the correct migrated values
 	parse := func(k *NodeKey, v *NodeValueV2) {
 		// family must be IPv4
 		if k.Family != bpf.EndpointKeyIPv4 {
-			c.Fatalf("want: %v, got: %v", bpf.EndpointKeyIPv4, k.Family)
+			t.Fatalf("want: %v, got: %v", bpf.EndpointKeyIPv4, k.Family)
 		}
 		ipv4 := net.IP(k.IP[:4])
 
 		// IP must equal one of our two test IPs
 		if !ipv4.Equal(IP1) && !ipv4.Equal(IP2) {
-			c.Fatalf("migrated NodeValue2 did not match any IP under test: %v", ipv4)
+			t.Fatalf("migrated NodeValue2 did not match any IP under test: %v", ipv4)
 		}
 
 		// SPI must equal 3
 		if v.SPI != 3 {
-			c.Fatalf("wanted: 3, got: %v", v.SPI)
+			t.Fatalf("wanted: 3, got: %v", v.SPI)
 		}
 	}
 	MapV2(nodeMapV2).IterateWithCallback(parse)
 
 	// confirm that the map is not removed, we need it around to mirror writes
 	m, err := ciliumebpf.LoadPinnedMap(bpf.MapPath(name1), nil)
-	c.Assert(err, IsNil)
-	c.Assert(m, NotNil)
+	require.Nil(t, err)
+	require.NotNil(t, m)
 }

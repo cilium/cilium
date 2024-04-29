@@ -7,65 +7,56 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// Hook up gocheck into the "go test" runner.
-type CTMapTestSuite struct{}
-
-var _ = Suite(&CTMapTestSuite{})
-
 func init() {
 	InitMapInfo(true, true, true)
 }
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
+func TestCalculateInterval(t *testing.T) {
 	cachedGCInterval = time.Duration(0)
 
-	c.Assert(calculateInterval(time.Minute, 0.1), Equals, time.Minute)  // no change
-	c.Assert(calculateInterval(time.Minute, 0.2), Equals, time.Minute)  // no change
-	c.Assert(calculateInterval(time.Minute, 0.25), Equals, time.Minute) // no change
+	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.1))  // no change
+	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.2))  // no change
+	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.25)) // no change
 
-	c.Assert(calculateInterval(time.Minute, 0.40), Equals, 36*time.Second)
-	c.Assert(calculateInterval(time.Minute, 0.60), Equals, 24*time.Second)
+	require.Equal(t, 36*time.Second, calculateInterval(time.Minute, 0.40))
+	require.Equal(t, 24*time.Second, calculateInterval(time.Minute, 0.60))
 
-	c.Assert(calculateInterval(10*time.Second, 0.01), Equals, 15*time.Second)
-	c.Assert(calculateInterval(10*time.Second, 0.04), Equals, 15*time.Second)
+	require.Equal(t, 15*time.Second, calculateInterval(10*time.Second, 0.01))
+	require.Equal(t, 15*time.Second, calculateInterval(10*time.Second, 0.04))
 
-	c.Assert(calculateInterval(1*time.Second, 0.9), Equals, defaults.ConntrackGCMinInterval)
+	require.Equal(t, defaults.ConntrackGCMinInterval, calculateInterval(1*time.Second, 0.9))
 
-	c.Assert(calculateInterval(24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxLRUInterval)
+	require.Equal(t, defaults.ConntrackGCMaxLRUInterval, calculateInterval(24*time.Hour, 0.01))
 }
 
-func (t *CTMapTestSuite) TestGetInterval(c *C) {
+func TestGetInterval(t *testing.T) {
 	cachedGCInterval = time.Minute
-	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, time.Minute)
+	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
 
 	// Setting ConntrackGCInterval overrides the calculation
 	oldInterval := option.Config.ConntrackGCInterval
 	option.Config.ConntrackGCInterval = 10 * time.Second
-	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, 10*time.Second)
+	require.Equal(t, 10*time.Second, GetInterval(cachedGCInterval, 0.1))
 	option.Config.ConntrackGCInterval = oldInterval
-	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, time.Minute)
+	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
 
 	// Setting ConntrackGCMaxInterval limits the maximum interval
 	oldMaxInterval := option.Config.ConntrackGCMaxInterval
 	option.Config.ConntrackGCMaxInterval = 20 * time.Second
-	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, 20*time.Second)
+	require.Equal(t, 20*time.Second, GetInterval(cachedGCInterval, 0.1))
 	option.Config.ConntrackGCMaxInterval = oldMaxInterval
-	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, time.Minute)
+	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
 
 	cachedGCInterval = time.Duration(0)
 }
 
-func (t *CTMapTestSuite) TestFilterMapsByProto(c *C) {
+func TestFilterMapsByProto(t *testing.T) {
 	maps := []*Map{
 		newMap("tcp4", mapTypeIPv4TCPGlobal),
 		newMap("any4", mapTypeIPv4AnyGlobal),
@@ -74,15 +65,15 @@ func (t *CTMapTestSuite) TestFilterMapsByProto(c *C) {
 	}
 
 	ctMapTCP, ctMapAny := FilterMapsByProto(maps, CTMapIPv4)
-	c.Assert(ctMapTCP.mapType, Equals, mapTypeIPv4TCPGlobal)
-	c.Assert(ctMapAny.mapType, Equals, mapTypeIPv4AnyGlobal)
+	require.Equal(t, mapTypeIPv4TCPGlobal, ctMapTCP.mapType)
+	require.Equal(t, mapTypeIPv4AnyGlobal, ctMapAny.mapType)
 
 	ctMapTCP, ctMapAny = FilterMapsByProto(maps, CTMapIPv6)
-	c.Assert(ctMapTCP.mapType, Equals, mapTypeIPv6TCPGlobal)
-	c.Assert(ctMapAny.mapType, Equals, mapTypeIPv6AnyGlobal)
+	require.Equal(t, mapTypeIPv6TCPGlobal, ctMapTCP.mapType)
+	require.Equal(t, mapTypeIPv6AnyGlobal, ctMapAny.mapType)
 
 	maps = maps[0:2] // remove ipv6 maps
 	ctMapTCP, ctMapAny = FilterMapsByProto(maps, CTMapIPv6)
-	c.Assert(ctMapTCP, IsNil)
-	c.Assert(ctMapAny, IsNil)
+	require.Nil(t, ctMapTCP)
+	require.Nil(t, ctMapAny)
 }

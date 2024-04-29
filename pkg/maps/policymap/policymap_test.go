@@ -6,22 +6,14 @@ package policymap
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type PolicyMapTestSuite struct{}
-
-var _ = Suite(&PolicyMapTestSuite{})
-
-func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
+func TestPolicyEntriesDump_Less(t *testing.T) {
 	type args struct {
 		i int
 		j int
@@ -160,7 +152,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 	}
 	for _, tt := range tests {
 		got := tt.p.Less(tt.args.i, tt.args.j)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
@@ -178,7 +170,7 @@ const (
 	egress
 )
 
-func (pm *PolicyMapTestSuite) TestPolicyMapWildcarding(c *C) {
+func TestPolicyMapWildcarding(t *testing.T) {
 	type args struct {
 		op               opType
 		id               int
@@ -260,16 +252,14 @@ func (pm *PolicyMapTestSuite) TestPolicyMapWildcarding(c *C) {
 	for _, tt := range tests {
 		// Validate test data
 		if tt.args.proto == 0 {
-			c.Assert(tt.args.dport, Equals, 0,
-				Commentf("Test: %s data error: dport must be wildcarded when protocol is wildcarded", tt.name))
+			require.Equal(t, 0, tt.args.dport, "Test: %s data error: dport must be wildcarded when protocol is wildcarded", tt.name)
 		}
 		if tt.args.dport == 0 {
-			c.Assert(tt.args.proxyPort, Equals, 0,
-				Commentf("Test: %s data error: proxyPort must be zero when dport is wildcarded", tt.name))
+			require.Equal(t, 0, tt.args.proxyPort, "Test: %s data error: proxyPort must be zero when dport is wildcarded", tt.name)
 		}
 		if tt.args.op == deny {
-			c.Assert(tt.args.proxyPort, Equals, 0, Commentf("Test: %s data error: proxyPort must be zero with a deny key", tt.name))
-			c.Assert(tt.args.authType, Equals, 0, Commentf("Test: %s data error: authType must be zero with a deny key", tt.name))
+			require.Equal(t, 0, tt.args.proxyPort, "Test: %s data error: proxyPort must be zero with a deny key", tt.name)
+			require.Equal(t, 0, tt.args.authType, "Test: %s data error: authType must be zero with a deny key", tt.name)
 		}
 
 		// Get key
@@ -282,33 +272,33 @@ func (pm *PolicyMapTestSuite) TestPolicyMapWildcarding(c *C) {
 		case allow:
 			entry = newAllowEntry(key, uint8(tt.args.authType), uint16(tt.args.proxyPort))
 
-			c.Assert(entry.Flags&policyFlagDeny, Equals, policyEntryFlags(0))
-			c.Assert(entry.AuthType, Equals, uint8(tt.args.authType))
-			c.Assert(byteorder.NetworkToHost16(entry.ProxyPortNetwork), Equals, uint16(tt.args.proxyPort))
+			require.Equal(t, policyEntryFlags(0), entry.Flags&policyFlagDeny)
+			require.Equal(t, uint8(tt.args.authType), entry.AuthType)
+			require.Equal(t, uint16(tt.args.proxyPort), byteorder.NetworkToHost16(entry.ProxyPortNetwork))
 		case deny:
 			entry = newDenyEntry(key)
 
-			c.Assert(entry.Flags&policyFlagDeny, Equals, policyFlagDeny)
-			c.Assert(entry.AuthType, Equals, uint8(0))
-			c.Assert(entry.ProxyPortNetwork, Equals, uint16(0))
+			require.Equal(t, policyFlagDeny, entry.Flags&policyFlagDeny)
+			require.Equal(t, uint8(0), entry.AuthType)
+			require.Equal(t, uint16(0), entry.ProxyPortNetwork)
 		}
 
-		c.Assert(key.Identity, Equals, uint32(tt.args.id))
-		c.Assert(key.Nexthdr, Equals, uint8(tt.args.proto))
+		require.Equal(t, uint32(tt.args.id), key.Identity)
+		require.Equal(t, uint8(tt.args.proto), key.Nexthdr)
 		if key.Nexthdr == 0 {
-			c.Assert(entry.Flags&policyFlagWildcardNexthdr, Equals, policyFlagWildcardNexthdr)
-			c.Assert(key.DestPortNetwork, Equals, uint16(0))
-			c.Assert(entry.Flags&policyFlagWildcardDestPort, Equals, policyFlagWildcardDestPort)
-			c.Assert(key.Prefixlen, Equals, StaticPrefixBits)
+			require.Equal(t, policyFlagWildcardNexthdr, entry.Flags&policyFlagWildcardNexthdr)
+			require.Equal(t, uint16(0), key.DestPortNetwork)
+			require.Equal(t, policyFlagWildcardDestPort, entry.Flags&policyFlagWildcardDestPort)
+			require.Equal(t, StaticPrefixBits, key.Prefixlen)
 		} else {
-			c.Assert(entry.Flags&policyFlagWildcardNexthdr, Equals, policyEntryFlags(0))
+			require.Equal(t, policyEntryFlags(0), entry.Flags&policyFlagWildcardNexthdr)
 			if key.DestPortNetwork == 0 {
-				c.Assert(entry.Flags&policyFlagWildcardDestPort, Equals, policyFlagWildcardDestPort)
-				c.Assert(key.Prefixlen, Equals, StaticPrefixBits+NexthdrBits)
+				require.Equal(t, policyFlagWildcardDestPort, entry.Flags&policyFlagWildcardDestPort)
+				require.Equal(t, StaticPrefixBits+NexthdrBits, key.Prefixlen)
 			} else {
-				c.Assert(byteorder.NetworkToHost16(key.DestPortNetwork), Equals, uint16(tt.args.dport))
-				c.Assert(entry.Flags&policyFlagWildcardDestPort, Equals, policyEntryFlags(0))
-				c.Assert(key.Prefixlen, Equals, StaticPrefixBits+FullPrefixBits)
+				require.Equal(t, uint16(tt.args.dport), byteorder.NetworkToHost16(key.DestPortNetwork))
+				require.Equal(t, policyEntryFlags(0), entry.Flags&policyFlagWildcardDestPort)
+				require.Equal(t, StaticPrefixBits+FullPrefixBits, key.Prefixlen)
 			}
 		}
 	}
