@@ -358,16 +358,11 @@ func xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
 				continue
 			}
 
-			err := netlink.XfrmStateDel(&s)
+			err, deferFn := xfrmTemporarilyRemoveState(scopedLog, s, dir)
 			if err != nil {
 				scopedLog.WithError(err).Errorf("Failed to remove old XFRM %s state", dir)
 			} else {
-				scopedLog.Infof("Temporarily removed old XFRM %s state", dir)
-				defer func(oldXFRMState netlink.XfrmState, dir string) {
-					if err := netlink.XfrmStateAdd(&oldXFRMState); err != nil {
-						scopedLog.WithError(err).Errorf("Failed to re-add old XFRM %s state", dir)
-					}
-				}(s, dir)
+				defer deferFn()
 			}
 		}
 	}
@@ -392,6 +387,21 @@ func xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
 		return firstAttemptErr
 	}
 	return netlink.XfrmStateAdd(new)
+}
+
+// Temporarily remove an XFRM state to allow the addition of another,
+// conflicting XFRM state. This function removes the conflicting state and
+// prepares a defer callback to re-add it with proper logging.
+func xfrmTemporarilyRemoveState(scopedLog *logrus.Entry, state netlink.XfrmState, dir string) (error, func()) {
+	if err := netlink.XfrmStateDel(&state); err != nil {
+		return err, nil
+	}
+	scopedLog.Infof("Temporarily removed old XFRM %s state", dir)
+	return nil, func() {
+		if err := netlink.XfrmStateAdd(&state); err != nil {
+			scopedLog.WithError(err).Errorf("Failed to re-add old XFRM %s state", dir)
+		}
+	}
 }
 
 // Attempt to remove any XFRM state that conflicts with the state we just tried
