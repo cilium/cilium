@@ -24,6 +24,18 @@ import (
 // ErrNotSupported is returned whenever the kernel doesn't support a feature.
 var ErrNotSupported = internal.ErrNotSupported
 
+// errBadRelocation is returned when the verifier rejects a program due to a
+// bad CO-RE relocation.
+//
+// This error is detected based on heuristics and therefore may not be reliable.
+var errBadRelocation = errors.New("bad CO-RE relocation")
+
+// errUnknownKfunc is returned when the verifier rejects a program due to an
+// unknown kfunc.
+//
+// This error is detected based on heuristics and therefore may not be reliable.
+var errUnknownKfunc = errors.New("unknown kfunc")
+
 // ProgramID represents the unique ID of an eBPF program.
 type ProgramID uint32
 
@@ -228,6 +240,15 @@ func NewProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 	return prog, err
 }
 
+var (
+	coreBadLoad = []byte(fmt.Sprintf("(18) r10 = 0x%x\n", btf.COREBadRelocationSentinel))
+	// This log message was introduced by ebb676daa1a3 ("bpf: Print function name in
+	// addition to function id") which first appeared in v4.10 and has remained
+	// unchanged since.
+	coreBadCall  = []byte(fmt.Sprintf("invalid func unknown#%d\n", btf.COREBadRelocationSentinel))
+	kfuncBadCall = []byte(fmt.Sprintf("invalid func unknown#%d\n", kfuncCallPoisonBase))
+)
+
 func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, error) {
 	if len(spec.Instructions) == 0 {
 		return nil, errors.New("instructions cannot be empty")
@@ -416,6 +437,12 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 		_, err2 = sys.ProgLoad(attr)
 	}
 
+	end := bytes.IndexByte(logBuf, 0)
+	if end < 0 {
+		end = len(logBuf)
+	}
+
+	tail := logBuf[max(end-256, 0):end]
 	switch {
 	case errors.Is(err, unix.EPERM):
 		if len(logBuf) > 0 && logBuf[0] == 0 {
@@ -424,17 +451,31 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 			return nil, fmt.Errorf("load program: %w (MEMLOCK may be too low, consider rlimit.RemoveMemlock)", err)
 		}
 
-		fallthrough
-
 	case errors.Is(err, unix.EINVAL):
-		if hasFunctionReferences(spec.Instructions) {
-			if err := haveBPFToBPFCalls(); err != nil {
-				return nil, fmt.Errorf("load program: %w", err)
-			}
-		}
-
 		if opts.LogSize > maxVerifierLogSize {
 			return nil, fmt.Errorf("load program: %w (ProgramOptions.LogSize exceeds maximum value of %d)", err, maxVerifierLogSize)
+		}
+
+		if bytes.Contains(tail, coreBadCall) {
+			err = errBadRelocation
+			break
+		} else if bytes.Contains(tail, kfuncBadCall) {
+			err = errUnknownKfunc
+			break
+		}
+
+	case errors.Is(err, unix.EACCES):
+		if bytes.Contains(tail, coreBadLoad) {
+			err = errBadRelocation
+			break
+		}
+	}
+
+	// hasFunctionReferences may be expensive, so check it last.
+	if (errors.Is(err, unix.EINVAL) || errors.Is(err, unix.EPERM)) &&
+		hasFunctionReferences(spec.Instructions) {
+		if err := haveBPFToBPFCalls(); err != nil {
+			return nil, fmt.Errorf("load program: %w", err)
 		}
 	}
 
@@ -618,7 +659,7 @@ type RunOptions struct {
 }
 
 // Test runs the Program in the kernel with the given input and returns the
-// value returned by the eBPF program. outLen may be zero.
+// value returned by the eBPF program.
 //
 // Note: the kernel expects at least 14 bytes input for an ethernet header for
 // XDP and SKB programs.

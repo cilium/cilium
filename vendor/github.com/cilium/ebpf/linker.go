@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"slices"
 
@@ -148,10 +149,13 @@ func applyRelocations(insns asm.Instructions, targets []*btf.Spec, kmodName stri
 
 		if kmodName != "" {
 			kmodTarget, err := btf.LoadKernelModuleSpec(kmodName)
-			if err != nil {
+			// Ignore ErrNotExists to cater to kernels which have CONFIG_DEBUG_INFO_BTF_MODULES disabled.
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("load kernel module spec: %w", err)
 			}
-			targets = append(targets, kmodTarget)
+			if err == nil {
+				targets = append(targets, kmodTarget)
+			}
 		}
 	}
 

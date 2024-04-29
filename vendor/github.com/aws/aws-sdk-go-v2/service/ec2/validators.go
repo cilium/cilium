@@ -4550,6 +4550,26 @@ func (m *validateOpDisableImageDeprecation) HandleInitialize(ctx context.Context
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisableImageDeregistrationProtection struct {
+}
+
+func (*validateOpDisableImageDeregistrationProtection) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisableImageDeregistrationProtection) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisableImageDeregistrationProtectionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisableImageDeregistrationProtectionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisableImage struct {
 }
 
@@ -5025,6 +5045,26 @@ func (m *validateOpEnableImageDeprecation) HandleInitialize(ctx context.Context,
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpEnableImageDeprecationInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpEnableImageDeregistrationProtection struct {
+}
+
+func (*validateOpEnableImageDeregistrationProtection) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpEnableImageDeregistrationProtection) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*EnableImageDeregistrationProtectionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpEnableImageDeregistrationProtectionInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -9598,6 +9638,10 @@ func addOpDisableImageDeprecationValidationMiddleware(stack *middleware.Stack) e
 	return stack.Initialize.Add(&validateOpDisableImageDeprecation{}, middleware.After)
 }
 
+func addOpDisableImageDeregistrationProtectionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisableImageDeregistrationProtection{}, middleware.After)
+}
+
 func addOpDisableImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisableImage{}, middleware.After)
 }
@@ -9692,6 +9736,10 @@ func addOpEnableImageBlockPublicAccessValidationMiddleware(stack *middleware.Sta
 
 func addOpEnableImageDeprecationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpEnableImageDeprecation{}, middleware.After)
+}
+
+func addOpEnableImageDeregistrationProtectionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpEnableImageDeregistrationProtection{}, middleware.After)
 }
 
 func addOpEnableImageValidationMiddleware(stack *middleware.Stack) error {
@@ -15130,6 +15178,21 @@ func validateOpDisableImageDeprecationInput(v *DisableImageDeprecationInput) err
 	}
 }
 
+func validateOpDisableImageDeregistrationProtectionInput(v *DisableImageDeregistrationProtectionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisableImageDeregistrationProtectionInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDisableImageInput(v *DisableImageInput) error {
 	if v == nil {
 		return nil
@@ -15526,6 +15589,21 @@ func validateOpEnableImageDeprecationInput(v *EnableImageDeprecationInput) error
 	}
 	if v.DeprecateAt == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("DeprecateAt"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpEnableImageDeregistrationProtectionInput(v *EnableImageDeregistrationProtectionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "EnableImageDeregistrationProtectionInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

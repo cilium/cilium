@@ -169,6 +169,10 @@ type Reader struct {
 // ReaderOptions control the behaviour of the user
 // space reader.
 type ReaderOptions struct {
+	// The number of events required in any per CPU buffer before
+	// Read will process data. This is mutually exclusive with Watermark.
+	// The default is zero, which means Watermark will take precedence.
+	WakeupEvents int
 	// The number of written bytes required in any per CPU buffer before
 	// Read will process data. Must be smaller than PerCPUBuffer.
 	// The default is to start processing as soon as data is available.
@@ -191,6 +195,9 @@ func NewReader(array *ebpf.Map, perCPUBuffer int) (*Reader, error) {
 func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions) (pr *Reader, err error) {
 	if perCPUBuffer < 1 {
 		return nil, errors.New("perCPUBuffer must be larger than 0")
+	}
+	if opts.WakeupEvents > 0 && opts.Watermark > 0 {
+		return nil, errors.New("WakeupEvents and Watermark cannot both be non-zero")
 	}
 
 	var (
@@ -224,7 +231,7 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 	// Hence we have to create a ring for each CPU.
 	bufferSize := 0
 	for i := 0; i < nCPU; i++ {
-		ring, err := newPerfEventRing(i, perCPUBuffer, opts.Watermark, opts.Overwritable)
+		ring, err := newPerfEventRing(i, perCPUBuffer, opts)
 		if errors.Is(err, unix.ENODEV) {
 			// The requested CPU is currently offline, skip it.
 			rings = append(rings, nil)

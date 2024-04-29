@@ -13,9 +13,11 @@ import (
 
 // Describes the specified tags for your EC2 resources. For more information about
 // tags, see Tag your Amazon EC2 resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
-// in the Amazon Elastic Compute Cloud User Guide. The order of the elements in the
-// response, including those within nested structures, might vary. Applications
-// should not assume the elements appear in a particular order.
+// in the Amazon Elastic Compute Cloud User Guide. We strongly recommend using only
+// paginated requests. Unpaginated requests are susceptible to throttling and
+// timeouts. The order of the elements in the response, including those within
+// nested structures, might vary. Applications should not assume the elements
+// appear in a particular order.
 func (c *Client) DescribeTags(ctx context.Context, params *DescribeTagsInput, optFns ...func(*Options)) (*DescribeTagsOutput, error) {
 	if params == nil {
 		params = &DescribeTagsInput{}
@@ -42,13 +44,9 @@ type DescribeTagsInput struct {
 	// The filters.
 	//   - key - The tag key.
 	//   - resource-id - The ID of the resource.
-	//   - resource-type - The resource type ( customer-gateway | dedicated-host |
-	//   dhcp-options | elastic-ip | fleet | fpga-image | host-reservation | image |
-	//   instance | internet-gateway | key-pair | launch-template | natgateway |
-	//   network-acl | network-interface | placement-group | reserved-instances |
-	//   route-table | security-group | snapshot | spot-instances-request | subnet |
-	//   volume | vpc | vpc-endpoint | vpc-endpoint-service | vpc-peering-connection |
-	//   vpn-connection | vpn-gateway ).
+	//   - resource-type - The resource type. For a list of possible values, see
+	//   TagSpecification (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_TagSpecification.html)
+	//   .
 	//   - tag : - The key/value combination of the tag. For example, specify
 	//   "tag:Owner" for the filter name and "TeamA" for the filter value to find
 	//   resources with the tag "Owner=TeamA".

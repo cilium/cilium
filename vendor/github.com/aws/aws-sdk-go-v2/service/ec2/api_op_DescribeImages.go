@@ -25,9 +25,11 @@ import (
 // deregistered images appear in the returned results for a short interval and then
 // return empty results. After all instances that reference a deregistered AMI are
 // terminated, specifying the ID of the image will eventually return an error
-// indicating that the AMI ID cannot be found. The order of the elements in the
-// response, including those within nested structures, might vary. Applications
-// should not assume the elements appear in a particular order.
+// indicating that the AMI ID cannot be found. We strongly recommend using only
+// paginated requests. Unpaginated requests are susceptible to throttling and
+// timeouts. The order of the elements in the response, including those within
+// nested structures, might vary. Applications should not assume the elements
+// appear in a particular order.
 func (c *Client) DescribeImages(ctx context.Context, params *DescribeImagesInput, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
 	if params == nil {
 		params = &DescribeImagesInput{}

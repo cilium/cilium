@@ -149,6 +149,9 @@ type CreateAutoProvisioningGroupLaunchConfigurationDataDisk struct {
 	Category           string `name:"Category"`
 	DeleteWithInstance string `name:"DeleteWithInstance"`
 	Encrypted          string `name:"Encrypted"`
+	EncryptAlgorithm   string `name:"EncryptAlgorithm"`
+	ProvisionedIops    string `name:"ProvisionedIops"`
+	BurstingEnabled    string `name:"BurstingEnabled"`
 }
 
 // CreateAutoProvisioningGroupTag is a repeated param struct in CreateAutoProvisioningGroupRequest
@@ -179,6 +182,8 @@ type CreateAutoProvisioningGroupLaunchConfigurationSystemDisk struct {
 	Encrypted        string `name:"Encrypted"`
 	KMSKeyId         string `name:"KMSKeyId"`
 	EncryptAlgorithm string `name:"EncryptAlgorithm"`
+	ProvisionedIops  string `name:"ProvisionedIops"`
+	BurstingEnabled  string `name:"BurstingEnabled"`
 }
 
 // CreateAutoProvisioningGroupLaunchTemplateConfig is a repeated param struct in CreateAutoProvisioningGroupRequest

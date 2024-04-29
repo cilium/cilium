@@ -8,6 +8,32 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.26.0/0.48.0/0.2.0-alpha] 2024-04-24
+
+### Added
+
+- Add `Recorder` in `go.opentelemetry.io/otel/log/logtest` to facilitate testing the log bridge implementations. (#5134)
+- Add span flags to OTLP spans and links exported by `go.opentelemetry.io/otel/exporters/otlp/otlptrace`. (#5194)
+- Make the initial alpha release of `go.opentelemetry.io/otel/sdk/log`.
+  This new module contains the Go implementation of the OpenTelemetry Logs SDK.
+  This module is unstable and breaking changes may be introduced.
+  See our [versioning policy](VERSIONING.md) for more information about these stability guarantees. (#5240)
+- Make the initial alpha release of `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp`.
+  This new module contains an OTLP exporter that transmits log telemetry using HTTP.
+  This module is unstable and breaking changes may be introduced.
+  See our [versioning policy](VERSIONING.md) for more information about these stability guarantees. (#5240)
+- Make the initial alpha release of `go.opentelemetry.io/otel/exporters/stdout/stdoutlog`.
+  This new module contains an exporter prints log records to STDOUT.
+  This module is unstable and breaking changes may be introduced.
+  See our [versioning policy](VERSIONING.md) for more information about these stability guarantees. (#5240)
+- The `go.opentelemetry.io/otel/semconv/v1.25.0` package.
+  The package contains semantic conventions from the `v1.25.0` version of the OpenTelemetry Semantic Conventions. (#5254)
+
+### Changed
+
+- Update `go.opentelemetry.io/proto/otlp` from v1.1.0 to v1.2.0. (#5177)
+- Improve performance of baggage member character validation in `go.opentelemetry.io/otel/baggage`. (#5214)
+
 ## [1.25.0/0.47.0/0.0.8/0.1.0-alpha] 2024-04-05
 
 ### Added
@@ -2895,7 +2921,8 @@ It contains api and sdk for trace and meter.
 - CircleCI build CI manifest files.
 - CODEOWNERS file to track owners of this project.
 
-[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.25.0...HEAD
+[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.26.0...HEAD
+[1.26.0/0.48.0/0.2.0-alpha]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.26.0
 [1.25.0/0.47.0/0.0.8/0.1.0-alpha]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.25.0
 [1.24.0/0.46.0/0.0.1-alpha]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.24.0
 [1.23.1]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.23.1

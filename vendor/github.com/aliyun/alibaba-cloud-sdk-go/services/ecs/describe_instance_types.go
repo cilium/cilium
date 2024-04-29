@@ -80,14 +80,19 @@ type DescribeInstanceTypesRequest struct {
 	InstanceCategory                   string           `position:"Query" name:"InstanceCategory"`
 	MinimumInstancePpsTx               requests.Integer `position:"Query" name:"MinimumInstancePpsTx"`
 	MinimumCpuCoreCount                requests.Integer `position:"Query" name:"MinimumCpuCoreCount"`
+	LocalStorageCategories             *[]string        `position:"Query" name:"LocalStorageCategories"  type:"Repeated"`
 	MinimumPrimaryEniQueueNumber       requests.Integer `position:"Query" name:"MinimumPrimaryEniQueueNumber"`
+	InstanceTypeFamilies               *[]string        `position:"Query" name:"InstanceTypeFamilies"  type:"Repeated"`
 	MinimumBaselineCredit              requests.Integer `position:"Query" name:"MinimumBaselineCredit"`
 	MinimumSecondaryEniQueueNumber     requests.Integer `position:"Query" name:"MinimumSecondaryEniQueueNumber"`
+	CpuArchitectures                   *[]string        `position:"Query" name:"CpuArchitectures"  type:"Repeated"`
 	MinimumInstanceBandwidthTx         requests.Integer `position:"Query" name:"MinimumInstanceBandwidthTx"`
+	InstanceCategories                 *[]string        `position:"Query" name:"InstanceCategories"  type:"Repeated"`
 	MinimumGPUAmount                   requests.Integer `position:"Query" name:"MinimumGPUAmount"`
 	MaximumCpuSpeedFrequency           requests.Float   `position:"Query" name:"MaximumCpuSpeedFrequency"`
 	CpuArchitecture                    string           `position:"Query" name:"CpuArchitecture"`
 	OwnerId                            requests.Integer `position:"Query" name:"OwnerId"`
+	PhysicalProcessorModels            *[]string        `position:"Query" name:"PhysicalProcessorModels"  type:"Repeated"`
 	MinimumMemorySize                  requests.Float   `position:"Query" name:"MinimumMemorySize"`
 	MinimumEniQuantity                 requests.Integer `position:"Query" name:"MinimumEniQuantity"`
 	InstanceFamilyLevel                string           `position:"Query" name:"InstanceFamilyLevel"`
@@ -111,6 +116,7 @@ type DescribeInstanceTypesRequest struct {
 	MinimumInitialCredit               requests.Integer `position:"Query" name:"MinimumInitialCredit"`
 	InstanceTypeFamily                 string           `position:"Query" name:"InstanceTypeFamily"`
 	MinimumEniPrivateIpAddressQuantity requests.Integer `position:"Query" name:"MinimumEniPrivateIpAddressQuantity"`
+	GpuSpecs                           *[]string        `position:"Query" name:"GpuSpecs"  type:"Repeated"`
 	MinimumLocalStorageCapacity        requests.Integer `position:"Query" name:"MinimumLocalStorageCapacity"`
 }
 

@@ -6,29 +6,37 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes a launch template. Deleting a launch template deletes all of its
-// versions.
-func (c *Client) DeleteLaunchTemplate(ctx context.Context, params *DeleteLaunchTemplateInput, optFns ...func(*Options)) (*DeleteLaunchTemplateOutput, error) {
+// Disables deregistration protection for an AMI. When deregistration protection
+// is disabled, the AMI can be deregistered. If you chose to include a 24-hour
+// cooldown period when you enabled deregistration protection for the AMI, then,
+// when you disable deregistration protection, you won’t immediately be able to
+// deregister the AMI. For more information, see Protect an AMI from deregistration (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html#ami-deregistration-protection)
+// in the Amazon EC2 User Guide.
+func (c *Client) DisableImageDeregistrationProtection(ctx context.Context, params *DisableImageDeregistrationProtectionInput, optFns ...func(*Options)) (*DisableImageDeregistrationProtectionOutput, error) {
 	if params == nil {
-		params = &DeleteLaunchTemplateInput{}
+		params = &DisableImageDeregistrationProtectionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteLaunchTemplate", params, optFns, c.addOperationDeleteLaunchTemplateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DisableImageDeregistrationProtection", params, optFns, c.addOperationDisableImageDeregistrationProtectionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DeleteLaunchTemplateOutput)
+	out := result.(*DisableImageDeregistrationProtectionOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DeleteLaunchTemplateInput struct {
+type DisableImageDeregistrationProtectionInput struct {
+
+	// The ID of the AMI.
+	//
+	// This member is required.
+	ImageId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -36,21 +44,13 @@ type DeleteLaunchTemplateInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The ID of the launch template. You must specify either the launch template ID
-	// or the launch template name, but not both.
-	LaunchTemplateId *string
-
-	// The name of the launch template. You must specify either the launch template ID
-	// or the launch template name, but not both.
-	LaunchTemplateName *string
-
 	noSmithyDocumentSerde
 }
 
-type DeleteLaunchTemplateOutput struct {
+type DisableImageDeregistrationProtectionOutput struct {
 
-	// Information about the launch template.
-	LaunchTemplate *types.LaunchTemplate
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -58,19 +58,19 @@ type DeleteLaunchTemplateOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDeleteLaunchTemplateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDisableImageDeregistrationProtectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteLaunchTemplate{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDisableImageDeregistrationProtection{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDeleteLaunchTemplate{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDisableImageDeregistrationProtection{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteLaunchTemplate"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DisableImageDeregistrationProtection"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -113,7 +113,10 @@ func (c *Client) addOperationDeleteLaunchTemplateMiddlewares(stack *middleware.S
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteLaunchTemplate(options.Region), middleware.Before); err != nil {
+	if err = addOpDisableImageDeregistrationProtectionValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableImageDeregistrationProtection(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -134,10 +137,10 @@ func (c *Client) addOperationDeleteLaunchTemplateMiddlewares(stack *middleware.S
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDeleteLaunchTemplate(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDisableImageDeregistrationProtection(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DeleteLaunchTemplate",
+		OperationName: "DisableImageDeregistrationProtection",
 	}
 }

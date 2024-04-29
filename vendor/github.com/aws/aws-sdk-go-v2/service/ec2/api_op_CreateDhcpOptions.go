@@ -37,13 +37,13 @@ import (
 //   - netbios-node-type - The NetBIOS node type (1, 2, 4, or 8). We recommend that
 //     you specify 2. Broadcast and multicast are not supported. For more information
 //     about NetBIOS node types, see RFC 2132 (http://www.ietf.org/rfc/rfc2132.txt) .
-//   - ipv6-preferred-lease-time - A value (in seconds, minutes, hours, or years)
-//     for how frequently a running instance with an IPv6 assigned to it goes through
-//     DHCPv6 lease renewal. Acceptable values are between 140 and 2147483647 seconds
-//     (approximately 68 years). If no value is entered, the default lease time is 140
-//     seconds. If you use long-term addressing for EC2 instances, you can increase the
-//     lease time and avoid frequent lease renewal requests. Lease renewal typically
-//     occurs when half of the lease time has elapsed.
+//   - ipv6-address-preferred-lease-time - A value (in seconds, minutes, hours, or
+//     years) for how frequently a running instance with an IPv6 assigned to it goes
+//     through DHCPv6 lease renewal. Acceptable values are between 140 and 2147483647
+//     seconds (approximately 68 years). If no value is entered, the default lease time
+//     is 140 seconds. If you use long-term addressing for EC2 instances, you can
+//     increase the lease time and avoid frequent lease renewal requests. Lease renewal
+//     typically occurs when half of the lease time has elapsed.
 func (c *Client) CreateDhcpOptions(ctx context.Context, params *CreateDhcpOptionsInput, optFns ...func(*Options)) (*CreateDhcpOptionsOutput, error) {
 	if params == nil {
 		params = &CreateDhcpOptionsInput{}

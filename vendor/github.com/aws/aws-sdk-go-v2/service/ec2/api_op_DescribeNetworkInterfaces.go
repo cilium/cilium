@@ -20,7 +20,9 @@ import (
 // Describes one or more of your network interfaces. If you have a large number of
 // network interfaces, the operation fails unless you use pagination or one of the
 // following filters: group-id , mac-address , private-dns-name ,
-// private-ip-address , private-dns-name , subnet-id , or vpc-id .
+// private-ip-address , private-dns-name , subnet-id , or vpc-id . We strongly
+// recommend using only paginated requests. Unpaginated requests are susceptible to
+// throttling and timeouts.
 func (c *Client) DescribeNetworkInterfaces(ctx context.Context, params *DescribeNetworkInterfacesInput, optFns ...func(*Options)) (*DescribeNetworkInterfacesOutput, error) {
 	if params == nil {
 		params = &DescribeNetworkInterfacesInput{}
@@ -136,7 +138,7 @@ type DescribeNetworkInterfacesInput struct {
 
 type DescribeNetworkInterfacesOutput struct {
 
-	// Information about one or more network interfaces.
+	// Information about the network interfaces.
 	NetworkInterfaces []types.NetworkInterface
 
 	// The token to include in another request to get the next page of items. This

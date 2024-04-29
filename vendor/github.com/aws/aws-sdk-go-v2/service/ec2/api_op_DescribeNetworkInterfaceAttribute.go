@@ -51,6 +51,11 @@ type DescribeNetworkInterfaceAttributeInput struct {
 // Contains the output of DescribeNetworkInterfaceAttribute.
 type DescribeNetworkInterfaceAttributeOutput struct {
 
+	// Indicates whether to assign a public IPv4 address to a network interface. This
+	// option can be enabled for any network interface but will only apply to the
+	// primary network interface (eth0).
+	AssociatePublicIpAddress *bool
+
 	// The attachment (if any) of the network interface.
 	Attachment *types.NetworkInterfaceAttachment
 

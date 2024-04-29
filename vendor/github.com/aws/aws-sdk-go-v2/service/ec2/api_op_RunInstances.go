@@ -231,9 +231,8 @@ type RunInstancesInput struct {
 	// choose an AMI that is configured to allow users another way to log in.
 	KeyName *string
 
-	// The launch template to use to launch the instances. Any parameters that you
-	// specify in RunInstances override the same parameters in the launch template.
-	// You can specify either the name or ID of a launch template, but not both.
+	// The launch template. Any additional parameters that you specify for the new
+	// instance overwrite the corresponding parameters included in the launch template.
 	LaunchTemplate *types.LaunchTemplateSpecification
 
 	// The license configurations.

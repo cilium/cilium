@@ -63,6 +63,9 @@ type DescribeImageAttributeOutput struct {
 	// The boot mode.
 	BootMode *types.AttributeValue
 
+	// Indicates whether deregistration protection is enabled for the AMI.
+	DeregistrationProtection *types.AttributeValue
+
 	// A description for the AMI.
 	Description *types.AttributeValue
 

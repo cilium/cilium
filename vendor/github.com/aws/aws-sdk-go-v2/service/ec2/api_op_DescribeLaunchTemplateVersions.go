@@ -62,14 +62,14 @@ type DescribeLaunchTemplateVersionsInput struct {
 	Filters []types.Filter
 
 	// The ID of the launch template. To describe one or more versions of a specified
-	// launch template, you must specify either the LaunchTemplateId or the
-	// LaunchTemplateName , but not both. To describe all the latest or default launch
+	// launch template, you must specify either the launch template ID or the launch
+	// template name, but not both. To describe all the latest or default launch
 	// template versions in your account, you must omit this parameter.
 	LaunchTemplateId *string
 
 	// The name of the launch template. To describe one or more versions of a
-	// specified launch template, you must specify either the LaunchTemplateName or
-	// the LaunchTemplateId , but not both. To describe all the latest or default
+	// specified launch template, you must specify either the launch template name or
+	// the launch template ID, but not both. To describe all the latest or default
 	// launch template versions in your account, you must omit this parameter.
 	LaunchTemplateName *string
 
