@@ -501,6 +501,14 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "Routing:\t%s\n", status)
 	}
 
+	if sr.AttachMode != "" {
+		status := "Legacy TC"
+		if sr.AttachMode == models.AttachModeTcx {
+			status = "TCX"
+		}
+		fmt.Fprintf(w, "Attach Mode:\t%s\n", status)
+	}
+
 	if sr.Masquerading != nil {
 		var status string
 

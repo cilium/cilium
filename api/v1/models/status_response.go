@@ -24,6 +24,9 @@ import (
 // swagger:model StatusResponse
 type StatusResponse struct {
 
+	// Status of core datapath attachment mode
+	AttachMode AttachMode `json:"attach-mode,omitempty"`
+
 	// Status of Mutual Authentication certificate provider
 	AuthCertificateProvider *Status `json:"auth-certificate-provider,omitempty"`
 
@@ -115,6 +118,10 @@ type StatusResponse struct {
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateAttachMode(formats); err != nil {
+		res = append(res, err)
+	}
 
 	if err := m.validateAuthCertificateProvider(formats); err != nil {
 		res = append(res, err)
@@ -227,6 +234,23 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *StatusResponse) validateAttachMode(formats strfmt.Registry) error {
+	if swag.IsZero(m.AttachMode) { // not required
+		return nil
+	}
+
+	if err := m.AttachMode.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("attach-mode")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("attach-mode")
+		}
+		return err
+	}
+
 	return nil
 }
 
@@ -742,6 +766,10 @@ func (m *StatusResponse) validateStale(formats strfmt.Registry) error {
 func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateAttachMode(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateAuthCertificateProvider(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -849,6 +877,24 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *StatusResponse) contextValidateAttachMode(ctx context.Context, formats strfmt.Registry) error {
+
+	if swag.IsZero(m.AttachMode) { // not required
+		return nil
+	}
+
+	if err := m.AttachMode.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("attach-mode")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("attach-mode")
+		}
+		return err
+	}
+
 	return nil
 }
 

@@ -17,6 +17,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -219,6 +220,14 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 
 func (d *Daemon) getClockSourceStatus() *models.ClockSource {
 	return timestamp.GetClockSourceFromOptions()
+}
+
+func (d *Daemon) getAttachModeStatus() models.AttachMode {
+	mode := models.AttachModeTc
+	if option.Config.EnableTCX && probes.HaveTCX() == nil {
+		mode = models.AttachModeTcx
+	}
+	return mode
 }
 
 func (d *Daemon) getCNIChainingStatus() *models.CNIChainingStatus {
@@ -1104,6 +1113,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()
 	d.statusResponse.IdentityRange = d.getIdentityRange()
 	d.statusResponse.Srv6 = d.getSRv6Status()
+	d.statusResponse.AttachMode = d.getAttachModeStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{StackdumpPath: "/run/cilium/state/agent.stack.gz"})
 

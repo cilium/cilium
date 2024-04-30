@@ -29,7 +29,6 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 			if err := removeTCFilters(device, parent); err != nil {
 				log.WithError(err).Warnf("Cleaning up legacy tc after attaching tcx program %s", progName)
 			}
-
 			// Don't fall back to legacy tc.
 			return nil
 		}
