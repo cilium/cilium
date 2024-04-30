@@ -1289,6 +1289,8 @@ the label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379
 To reuse this policy, replace the ``port:`` values with ports used in your
 environment.
 
+.. _troubleshooting_host_policies:
+
 Troubleshooting Host Policies
 -----------------------------
 
@@ -1333,6 +1335,8 @@ endpoint get -l reserved:host -o jsonpath='{[0].id}'``. Use this ID to replace
 
 - Use ``cilium-dbg monitor`` with ``--related-to $HOST_EP_ID`` to examine
   traffic for the host endpoint.
+
+.. _host_policies_known_issues:
 
 Host Policies known issues
 --------------------------
