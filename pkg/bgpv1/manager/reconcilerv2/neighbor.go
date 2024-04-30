@@ -6,6 +6,7 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
@@ -356,4 +357,21 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 		result[k] = []byte(v)
 	}
 	return result, true, nil
+}
+
+func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName string) (netip.Addr, error) {
+	if conf == nil {
+		return netip.Addr{}, fmt.Errorf("passed instance is nil")
+	}
+
+	for _, peer := range conf.Peers {
+		if peer.Name == peerName {
+			if peer.PeerAddress != nil {
+				return netip.ParseAddr(*peer.PeerAddress)
+			} else {
+				return netip.Addr{}, fmt.Errorf("peer %s does not have a PeerAddress", peerName)
+			}
+		}
+	}
+	return netip.Addr{}, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
 }
