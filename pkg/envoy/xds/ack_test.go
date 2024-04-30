@@ -5,11 +5,13 @@ package xds
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 )
 
@@ -51,73 +53,36 @@ func newCompCallback() (func(error), *compCheck) {
 	return callback, comp
 }
 
-// IsCompletedChecker checks that a Completion is completed without errors.
-type IsCompletedChecker struct {
-	*CheckerInfo
+func completedComparison(comp *compCheck) assert.Comparison {
+	return func() bool {
+		return completedInTime(comp)
+	}
 }
 
-func (c *IsCompletedChecker) Check(params []interface{}, names []string) (result bool, err string) {
-	comp, ok := params[0].(*compCheck)
-	if !ok {
-		return false, "completion must be a *compCheck"
+func isNotCompletedComparison(comp *compCheck) assert.Comparison {
+	return func() bool {
+		return !completedInTime(comp)
 	}
+}
+
+func completedInTime(comp *compCheck) bool {
 	if comp == nil {
-		return false, "completion is nil"
+		return false
 	}
 
-	// receive from a closed channel returns nil, so test for a previous error before trying again
 	if comp.err != nil {
-		return false, err
+		return false
 	}
 
 	select {
 	case comp.err = <-comp.ch:
-		return comp.err == nil, err
-	default:
-		return false, "not completed yet"
-	}
-}
-
-// IsCompleted checks that a Completion is completed.
-var IsCompleted Checker = &IsCompletedChecker{
-	&CheckerInfo{Name: "IsCompleted", Params: []string{
-		"completion"}},
-}
-
-// IsCompletedInTimeChecker checks that a Completion is completed without errors.
-type IsCompletedInTimeChecker struct {
-	*CheckerInfo
-}
-
-func (c *IsCompletedInTimeChecker) Check(params []interface{}, names []string) (result bool, err string) {
-	comp, ok := params[0].(*compCheck)
-	if !ok {
-		return false, "completion must be a *compCheck"
-	}
-	if comp == nil {
-		return false, "completion is nil"
-	}
-
-	// receive from a closed channel returns nil, so test for a previous error before trying again
-	if comp.err != nil {
-		return false, err
-	}
-
-	select {
-	case comp.err = <-comp.ch:
-		return comp.err == nil, err
+		return comp.err == nil
 	case <-time.After(MaxCompletionDuration):
-		return false, "not completed in time"
+		return false
 	}
 }
 
-// IsCompletedInTime checks that a Completion is completed within MaxCompletionDuration.
-var IsCompletedInTime Checker = &IsCompletedInTimeChecker{
-	&CheckerInfo{Name: "IsCompletedInTime", Params: []string{
-		"completion"}},
-}
-
-func (s *AckSuite) TestUpsertSingleNode(c *C) {
+func (s *AckSuite) TestUpsertSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -126,40 +91,40 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 	// Empty cache is the version 1
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
-	c.Assert(acker.ackedVersions, HasLen, 0)
+	require.Len(t, acker.ackedVersions, 0)
 
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 0)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 0)
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 1)
-	c.Assert(acker.ackedVersions[node1], Equals, uint64(2))
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 1)
+	require.Equal(t, uint64(2), acker.ackedVersions[node1])
 
 	// Ack the right version, for another resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[1].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 2)
-	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 2)
+	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 
 	// Ack an older version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 1, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 2)
-	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 2)
+	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 
 	// Ack the right version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, IsCompleted)
-	c.Assert(acker.ackedVersions, HasLen, 2)
-	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+	require.Condition(t, completedComparison(comp))
+	require.Len(t, acker.ackedVersions, 2)
+	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 }
 
-func (s *AckSuite) TestUseCurrent(c *C) {
+func (s *AckSuite) TestUseCurrent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -168,50 +133,50 @@ func (s *AckSuite) TestUseCurrent(c *C) {
 	// Empty cache is the version 1
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
-	c.Assert(acker.ackedVersions, HasLen, 0)
+	require.Len(t, acker.ackedVersions, 0)
 
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 0)
-	c.Assert(acker.pendingCompletions, HasLen, 1)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 0)
+	require.Len(t, acker.pendingCompletions, 1)
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 1)
-	c.Assert(acker.ackedVersions[node1], Equals, uint64(2))
-	c.Assert(acker.pendingCompletions, HasLen, 1)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 1)
+	require.Equal(t, uint64(2), acker.ackedVersions[node1])
+	require.Len(t, acker.pendingCompletions, 1)
 
 	// Use current version, not yet acked
 	acker.UseCurrent(typeURL, []string{node0}, wg)
-	c.Assert(acker.pendingCompletions, HasLen, 2)
+	require.Len(t, acker.pendingCompletions, 2)
 
 	// Ack the right version, for another resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[1].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 2)
-	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 2)
+	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 	// UseCurrent ignores resource names, so an ack of the same or later version from the right node will complete it
-	c.Assert(acker.pendingCompletions, HasLen, 1)
+	require.Len(t, acker.pendingCompletions, 1)
 
 	// Ack an older version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 1, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.ackedVersions, HasLen, 2)
-	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
-	c.Assert(acker.pendingCompletions, HasLen, 1)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.ackedVersions, 2)
+	require.Equal(t, uint64(2), acker.ackedVersions[node0])
+	require.Len(t, acker.pendingCompletions, 1)
 
 	// Ack the right version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, IsCompleted)
-	c.Assert(acker.ackedVersions, HasLen, 2)
-	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
-	c.Assert(acker.pendingCompletions, HasLen, 0)
+	require.Condition(t, completedComparison(comp))
+	require.Len(t, acker.ackedVersions, 2)
+	require.Equal(t, uint64(2), acker.ackedVersions[node0])
+	require.Len(t, acker.pendingCompletions, 0)
 }
 
-func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
+func (s *AckSuite) TestUpsertMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -220,43 +185,43 @@ func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 	// Empty cache is the version 1
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
-	c.Assert(acker.ackedVersions, HasLen, 0)
+	require.Len(t, acker.ackedVersions, 0)
 
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.currentVersionAcked([]string{node0}), Equals, false)
-	c.Assert(acker.currentVersionAcked([]string{node1}), Equals, false)
-	c.Assert(acker.currentVersionAcked([]string{node2}), Equals, false)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Equal(t, false, acker.currentVersionAcked([]string{node0}))
+	require.Equal(t, false, acker.currentVersionAcked([]string{node1}))
+	require.Equal(t, false, acker.currentVersionAcked([]string{node2}))
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node2, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.currentVersionAcked([]string{node0}), Equals, false)
-	c.Assert(acker.currentVersionAcked([]string{node1}), Equals, false)
-	c.Assert(acker.currentVersionAcked([]string{node2}), Equals, true)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Equal(t, false, acker.currentVersionAcked([]string{node0}))
+	require.Equal(t, false, acker.currentVersionAcked([]string{node1}))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node2}))
 
 	// Ack the right version, for the right resource, from one of the nodes (node0).
 	// One of the nodes (node1) still needs to ACK.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(acker.currentVersionAcked([]string{node0}), Equals, true)
-	c.Assert(acker.currentVersionAcked([]string{node1}), Equals, false)
-	c.Assert(acker.currentVersionAcked([]string{node2}), Equals, true)
-	c.Assert(acker.currentVersionAcked([]string{node0, node1}), Equals, false)
-	c.Assert(acker.currentVersionAcked([]string{node0, node2}), Equals, true)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node0}))
+	require.Equal(t, false, acker.currentVersionAcked([]string{node1}))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node2}))
+	require.Equal(t, false, acker.currentVersionAcked([]string{node0, node1}))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node0, node2}))
 
 	// Ack the right version, for the right resource, from the last remaining node (node1).
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, IsCompleted)
-	c.Assert(acker.currentVersionAcked([]string{node0}), Equals, true)
-	c.Assert(acker.currentVersionAcked([]string{node1}), Equals, true)
-	c.Assert(acker.currentVersionAcked([]string{node2}), Equals, true)
-	c.Assert(acker.currentVersionAcked([]string{node0, node1, node2}), Equals, true)
+	require.Condition(t, completedComparison(comp))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node0}))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node1}))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node2}))
+	require.Equal(t, true, acker.currentVersionAcked([]string{node0, node1, node2}))
 }
 
-func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
+func (s *AckSuite) TestUpsertMoreRecentVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -269,18 +234,18 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack an older version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 1, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack a more recent version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(123, 123, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, IsCompleted)
+	require.Condition(t, completedComparison(comp))
 }
 
-func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
+func (s *AckSuite) TestUpsertMoreRecentVersionNack(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -293,21 +258,21 @@ func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack an older version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 1, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// NAck a more recent version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 2, node0, []string{resources[0].Name}, typeURL, "Detail")
 	// IsCompleted is true only for completions without error
-	c.Assert(comp, Not(IsCompleted))
-	c.Assert(comp.Err(), Not(Equals), nil)
-	c.Assert(comp.Err(), checker.DeepEquals, &ProxyError{Err: ErrNackReceived, Detail: "Detail"})
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.NotEqual(t, nil, comp.Err())
+	require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "Detail"}, comp.Err())
 }
 
-func (s *AckSuite) TestDeleteSingleNode(c *C) {
+func (s *AckSuite) TestDeleteSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -320,28 +285,28 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, IsCompleted)
+	require.Condition(t, completedComparison(comp))
 
 	// Create version 3 with no resources.
 	callback, comp = newCompCallback()
 	acker.Delete(typeURL, resources[0].Name, []string{node0}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for another resource, from another node.
 	acker.HandleResourceVersionAck(3, 3, node1, []string{resources[2].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for another resource, from the right node.
 	acker.HandleResourceVersionAck(3, 3, node0, []string{resources[2].Name}, typeURL, "")
 	// The resource name is ignored. For delete, we only consider the version.
-	c.Assert(comp, IsCompleted)
+	require.Condition(t, completedComparison(comp))
 }
 
-func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
+func (s *AckSuite) TestDeleteMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -354,28 +319,28 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
-	c.Assert(comp, IsCompleted)
+	require.Condition(t, completedComparison(comp))
 
 	// Create version 3 with no resources.
 	callback, comp = newCompCallback()
 	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, wg, callback)
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for another resource, from one of the nodes.
 	acker.HandleResourceVersionAck(3, 3, node1, []string{resources[2].Name}, typeURL, "")
-	c.Assert(comp, Not(IsCompleted))
+	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for another resource, from the remaining node.
 	acker.HandleResourceVersionAck(3, 3, node0, []string{resources[2].Name}, typeURL, "")
 	// The resource name is ignored. For delete, we only consider the version.
-	c.Assert(comp, IsCompleted)
+	require.Condition(t, completedComparison(comp))
 }
 
-func (s *AckSuite) TestRevertInsert(c *C) {
+func (s *AckSuite) TestRevertInsert(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -392,27 +357,27 @@ func (s *AckSuite) TestRevertInsert(c *C) {
 	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[0])
+	require.NoError(t, err)
+	require.Equal(t, resources[0], res)
 
 	res, err = cache.Lookup(typeURL, resources[2].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[2])
+	require.NoError(t, err)
+	require.Equal(t, resources[2], res)
 
 	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, IsNil)
+	require.NoError(t, err)
+	require.Nil(t, res)
 
 	res, err = cache.Lookup(typeURL, resources[2].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[2])
+	require.NoError(t, err)
+	require.Equal(t, resources[2], res)
 }
 
-func (s *AckSuite) TestRevertUpdate(c *C) {
+func (s *AckSuite) TestRevertUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -429,34 +394,34 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[0])
+	require.NoError(t, err)
+	require.Equal(t, resources[0], res)
 
 	res, err = cache.Lookup(typeURL, resources[2].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[2])
+	require.NoError(t, err)
+	require.Equal(t, resources[2], res)
 
 	// Update.
 	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, nil, nil)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[1])
+	require.NoError(t, err)
+	require.Equal(t, resources[1], res)
 
 	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[0])
+	require.NoError(t, err)
+	require.Equal(t, resources[0], res)
 
 	res, err = cache.Lookup(typeURL, resources[2].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[2])
+	require.NoError(t, err)
+	require.Equal(t, resources[2], res)
 }
 
-func (s *AckSuite) TestRevertDelete(c *C) {
+func (s *AckSuite) TestRevertDelete(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -473,33 +438,33 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[0])
+	require.NoError(t, err)
+	require.Equal(t, resources[0], res)
 
 	res, err = cache.Lookup(typeURL, resources[2].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[2])
+	require.NoError(t, err)
+	require.Equal(t, resources[2], res)
 
 	// Delete.
 	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, nil, nil)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, IsNil)
+	require.NoError(t, err)
+	require.Nil(t, res)
 
 	res, err = cache.Lookup(typeURL, resources[2].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[2])
+	require.NoError(t, err)
+	require.Equal(t, resources[2], res)
 
 	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[0])
+	require.NoError(t, err)
+	require.Equal(t, resources[0], res)
 
 	res, err = cache.Lookup(typeURL, resources[2].Name)
-	c.Assert(err, IsNil)
-	c.Assert(res, Equals, resources[2])
+	require.NoError(t, err)
+	require.Equal(t, resources[2], res)
 }
