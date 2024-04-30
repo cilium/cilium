@@ -1,0 +1,171 @@
+name: CiliumEndpointSlice migration (ci-ces-migrate)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths:
+      - pkg/k8s/apis/cilium.io
+      - operator/pkg/ciliumendpointslice
+      - .github/workflows/tests-ces-migrate.yaml
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  cilium_cli_ci_version:
+  KIND_CONFIG: .github/kind-config.yaml
+
+jobs:
+  setup-and-test:
+    runs-on: ubuntu-22.04
+    name: Installation and Migration Test
+    timeout-minutes: 70
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout target branch to access local actions
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+        with:
+          ref: ${{ github.base_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Checkout
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+        with:
+          persist-credentials: false
+
+      - name: Set image tag
+        id: sha
+        run: |
+          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
+            echo sha=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
+          else
+            echo sha=${{ github.sha }} >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Set up install variables
+        id: cilium-config
+        uses: ./.github/actions/cilium-config
+        with:
+          image-tag: ${{ steps.sha.outputs.sha }}
+          chart-dir: 'install/kubernetes/cilium'
+          ipv6: false
+          egress-gateway: false # Currently incompatible with CES
+          mutual-auth: false
+          misc: 'bpfClockProbe=false,cni.uninstall=false'
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@bfa4f93a41da410a1b4c9373c1694ca6d5c35ade # v0.16.6
+        with:
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+          binary-name: cilium-cli
+          binary-dir: ./
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          mkdir -p cilium-junits
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+      - name: Enable CiliumEndpointSlice & Test
+        uses: ./.github/actions/conn-disrupt-test
+        with:
+          job-name: ces-enable
+          operation-cmd: |
+            kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"enable-cilium-endpoint-slice":"true"}}'
+
+            kubectl rollout restart -n kube-system deployment cilium-operator
+            for i in $(seq 1 6);
+            do
+              if [[ $(kubectl get crd ciliumendpointslices.cilium.io) != "" ]]; then
+                break
+              fi
+              sleep 10
+            done
+
+            kubectl wait --for condition=established --timeout=2m crd/ciliumendpointslices.cilium.io
+
+            kubectl rollout restart -n kube-system ds cilium
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+      - name: Fetch artifacts
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
+        # The following is needed to prevent hubble from receiving an empty
+        # file (EOF) on stdin and displaying no flows.
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
+        run: |
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          ./cilium-cli status
+          mkdir -p cilium-sysdumps
+
+          ./cilium-cli sysdump --output-filename cilium-sysdumps-out
+
+      - name: Upload cilium-sysdumps
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdumps-out.zip
+          path: cilium-sysdumps-out.zip
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: setup-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ github.sha }}
+          status: ${{ needs.setup-and-test.result }}
