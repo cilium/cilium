@@ -34,6 +34,118 @@ var (
 	podCIDR2v6 = "2001:db8:2::/96"
 	podCIDR3v4 = "10.10.3.0/24"
 	podCIDR3v6 = "2001:db8:3::/96"
+
+	redPeer65001v4PodCIDRRoutePolicy = &types.RoutePolicy{
+		Name: "red-peer-65001-ipv4-PodCIDR",
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v4),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
+						},
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR2v4),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR2v4).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR2v4).Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction:    types.RoutePolicyActionAccept,
+					AddCommunities: []string{"65000:100"},
+				},
+			},
+		},
+	}
+
+	redPeer65001v6PodCIDRRoutePolicy = &types.RoutePolicy{
+		Name: "red-peer-65001-ipv6-PodCIDR",
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v6),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
+						},
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR2v6),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR2v6).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR2v6).Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction:    types.RoutePolicyActionAccept,
+					AddCommunities: []string{"65000:100"},
+				},
+			},
+		},
+	}
+
+	bluePeer65001v4PodCIDRRoutePolicy = &types.RoutePolicy{
+		Name: "blue-peer-65001-ipv4-PodCIDR",
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v4),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
+						},
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR2v4),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR2v4).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR2v4).Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction:    types.RoutePolicyActionAccept,
+					AddCommunities: []string{"65355:100"},
+				},
+			},
+		},
+	}
+
+	bluePeer65001v6PodCIDRRoutePolicy = &types.RoutePolicy{
+		Name: "blue-peer-65001-ipv6-PodCIDR",
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v6),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
+						},
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR2v6),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR2v6).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR2v6).Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction:    types.RoutePolicyActionAccept,
+					AddCommunities: []string{"65355:100"},
+				},
+			},
+		},
+	}
 )
 
 func Test_PodCIDRAdvertisement(t *testing.T) {
@@ -43,10 +155,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		name                  string
 		peerConfig            []*v2alpha1.CiliumBGPPeerConfig
 		advertisements        []*v2alpha1.CiliumBGPAdvertisement
-		preconfiguredAdverts  map[types.Family]map[string]struct{}
+		preconfiguredPaths    map[types.Family]map[string]struct{}
+		preconfiguredRPs      RoutePolicyMap
 		testCiliumNode        *v2api.CiliumNode
 		testBGPInstanceConfig *v2alpha1.CiliumBGPNodeInstance
-		expectedAdverts       map[types.Family]map[string]struct{}
+		expectedPaths         map[types.Family]map[string]struct{}
+		expectedRPs           RoutePolicyMap
 	}{
 		{
 			name: "pod cidr advertisement with no preconfigured advertisements",
@@ -58,7 +172,8 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				blueAdvert,
 			},
-			preconfiguredAdverts: map[types.Family]map[string]struct{}{},
+			preconfiguredPaths: map[types.Family]map[string]struct{}{},
+			preconfiguredRPs:   map[string]*types.RoutePolicy{},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
@@ -78,17 +193,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
-						},
-					},
+					redPeer65001,
 				},
 			},
-			expectedAdverts: map[types.Family]map[string]struct{}{
+			expectedPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					podCIDR1v4: struct{}{},
 					podCIDR2v4: struct{}{},
@@ -97,6 +205,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					podCIDR1v6: struct{}{},
 					podCIDR2v6: struct{}{},
 				},
+			},
+			expectedRPs: map[string]*types.RoutePolicy{
+				redPeer65001v4PodCIDRRoutePolicy.Name: redPeer65001v4PodCIDRRoutePolicy,
+				redPeer65001v6PodCIDRRoutePolicy.Name: redPeer65001v6PodCIDRRoutePolicy,
 			},
 		},
 		{
@@ -109,7 +221,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				blueAdvert,
 			},
-			preconfiguredAdverts: map[types.Family]map[string]struct{}{},
+			preconfiguredPaths: map[types.Family]map[string]struct{}{},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
@@ -129,25 +241,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
-						},
-					},
-					{
-						Name: "blue-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-blue",
-						},
-					},
+					redPeer65001,
+					bluePeer65001,
 				},
 			},
-			expectedAdverts: map[types.Family]map[string]struct{}{
+			expectedPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					podCIDR1v4: struct{}{},
 					podCIDR2v4: struct{}{},
@@ -156,6 +254,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					podCIDR1v6: struct{}{},
 					podCIDR2v6: struct{}{},
 				},
+			},
+			expectedRPs: map[string]*types.RoutePolicy{
+				redPeer65001v4PodCIDRRoutePolicy.Name:  redPeer65001v4PodCIDRRoutePolicy,
+				redPeer65001v6PodCIDRRoutePolicy.Name:  redPeer65001v6PodCIDRRoutePolicy,
+				bluePeer65001v4PodCIDRRoutePolicy.Name: bluePeer65001v4PodCIDRRoutePolicy,
+				bluePeer65001v6PodCIDRRoutePolicy.Name: bluePeer65001v6PodCIDRRoutePolicy,
 			},
 		},
 		{
@@ -168,12 +272,15 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				blueAdvert,
 			},
-			preconfiguredAdverts: map[types.Family]map[string]struct{}{
+			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				// pod cidr 3 is extra advertisement, reconcile should clean this.
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					podCIDR3v4: struct{}{},
 					podCIDR3v6: struct{}{},
 				},
+			},
+			preconfiguredRPs: map[string]*types.RoutePolicy{
+				bluePeer65001v4PodCIDRRoutePolicy.Name: bluePeer65001v4PodCIDRRoutePolicy,
 			},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
@@ -189,22 +296,18 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
-						},
-					},
+					redPeer65001,
 				},
 			},
-			expectedAdverts: map[types.Family]map[string]struct{}{
+			expectedPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					podCIDR1v4: struct{}{},
 					podCIDR2v4: struct{}{},
 				},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
+			},
+			expectedRPs: map[string]*types.RoutePolicy{
+				redPeer65001v4PodCIDRRoutePolicy.Name: redPeer65001v4PodCIDRRoutePolicy,
 			},
 		},
 		{
@@ -218,12 +321,18 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				//redPodCIDRAdvert,
 				//bluePodCIDRAdvert,
 			},
-			preconfiguredAdverts: map[types.Family]map[string]struct{}{
+			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				// pod cidr 1,2 already advertised, reconcile should clean this as there is no matching pod cidr advertisement.
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					podCIDR1v4: struct{}{},
 					podCIDR2v4: struct{}{},
 				},
+			},
+			preconfiguredRPs: map[string]*types.RoutePolicy{
+				redPeer65001v4PodCIDRRoutePolicy.Name:  redPeer65001v4PodCIDRRoutePolicy,
+				redPeer65001v6PodCIDRRoutePolicy.Name:  redPeer65001v6PodCIDRRoutePolicy,
+				bluePeer65001v4PodCIDRRoutePolicy.Name: bluePeer65001v4PodCIDRRoutePolicy,
+				bluePeer65001v6PodCIDRRoutePolicy.Name: bluePeer65001v6PodCIDRRoutePolicy,
 			},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
@@ -239,20 +348,14 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
-						},
-					},
+					redPeer65001,
 				},
 			},
-			expectedAdverts: map[types.Family]map[string]struct{}{
+			expectedPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
 			},
+			expectedRPs: map[string]*types.RoutePolicy{},
 		},
 		{
 			name: "pod cidr advertisement - v4 only",
@@ -263,7 +366,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redAdvert,
 				//bluePodCIDRAdvert,
 			},
-			preconfiguredAdverts: map[types.Family]map[string]struct{}{
+			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					podCIDR1v4: struct{}{},
 					podCIDR2v4: struct{}{},
@@ -272,6 +375,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					podCIDR1v6: struct{}{},
 					podCIDR2v6: struct{}{},
 				},
+			},
+			preconfiguredRPs: map[string]*types.RoutePolicy{
+				redPeer65001v4PodCIDRRoutePolicy.Name: redPeer65001v4PodCIDRRoutePolicy,
+				redPeer65001v6PodCIDRRoutePolicy.Name: redPeer65001v6PodCIDRRoutePolicy,
 			},
 			testCiliumNode: &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
@@ -288,7 +395,8 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v2alpha1.CiliumBGPNodePeer{
 					{
-						Name: "red-peer-65001",
+						Name:        "red-peer-65001",
+						PeerAddress: ptr.To[string]("10.10.10.1"),
 						PeerConfigRef: &v2alpha1.PeerConfigReference{
 							Group: "cilium.io",
 							Kind:  "CiliumBGPPeerConfig",
@@ -297,11 +405,14 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			expectedAdverts: map[types.Family]map[string]struct{}{
+			expectedPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					podCIDR1v4: struct{}{},
 					podCIDR2v4: struct{}{},
 				},
+			},
+			expectedRPs: map[string]*types.RoutePolicy{
+				redPeer65001v4PodCIDRRoutePolicy.Name: redPeer65001v4PodCIDRRoutePolicy,
 			},
 		},
 	}
@@ -327,7 +438,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			testBGPInstance := instance.NewFakeBGPInstance()
 
 			presetAdverts := make(AFPathsMap)
-			for preAdvertFam, preAdverts := range tt.preconfiguredAdverts {
+			for preAdvertFam, preAdverts := range tt.preconfiguredPaths {
 				pathSet := make(map[string]*types.Path)
 				for preAdvert := range preAdverts {
 					path := types.NewPathForPrefix(netip.MustParsePrefix(preAdvert))
@@ -336,7 +447,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				}
 				presetAdverts[preAdvertFam] = pathSet
 			}
-			podCIDRReconciler.setMetadata(testBGPInstance, PodCIDRReconcilerMetadata{presetAdverts})
+			podCIDRReconciler.setMetadata(testBGPInstance, PodCIDRReconcilerMetadata{
+				AFPaths:       presetAdverts,
+				RoutePolicies: tt.preconfiguredRPs,
+			})
 
 			// reconcile pod cidr
 			// run reconciler twice to ensure idempotency
@@ -359,7 +473,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				runningFamilyPaths[family] = pathSet
 			}
 
-			req.Equal(tt.expectedAdverts, runningFamilyPaths)
+			req.Equal(tt.expectedPaths, runningFamilyPaths)
+
+			// check if the route policies are as expected
+			runningRPs := podCIDRReconciler.getMetadata(testBGPInstance).RoutePolicies
+			req.Equal(tt.expectedRPs, runningRPs)
 		})
 	}
 }
