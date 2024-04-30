@@ -4,15 +4,17 @@
 package mtu
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func (m *MTUSuite) TestAutoDetect(c *C) {
-	testutils.PrivilegedTest(c)
+func TestAutoDetect(t *testing.T) {
+	testutils.PrivilegedTest(t)
 
 	mtu, err := autoDetect()
-	c.Assert(err, IsNil)
-	c.Assert(mtu, Not(Equals), 0)
+	require.Nil(t, err)
+	require.NotEqual(t, 0, mtu)
 }
