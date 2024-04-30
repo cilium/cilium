@@ -6,35 +6,30 @@ package types
 import (
 	"net"
 	"net/netip"
+	"testing"
 
-	check "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
 var testIPv6Address IPv6 = [16]byte{240, 13, 0, 0, 0, 0, 0, 0, 172, 16, 0, 20, 0, 0, 0, 1}
 
-type IPv6Suite struct{}
-
-var _ = check.Suite(&IPv6Suite{})
-
-func (s *IPv6Suite) TestIP(c *check.C) {
+func TestIPv6(t *testing.T) {
 	var expectedAddress net.IP = []byte{240, 13, 0, 0, 0, 0, 0, 0, 172, 16, 0, 20, 0, 0, 0, 1}
 	result := testIPv6Address.IP()
 
-	c.Assert(result, checker.DeepEquals, expectedAddress)
+	require.EqualValues(t, expectedAddress, result)
 }
 
-func (s *IPv6Suite) TestAddr(c *check.C) {
+func TestAddrV6(t *testing.T) {
 	expectedAddress := netip.AddrFrom16(testIPv6Address)
 	result := testIPv6Address.Addr()
 
-	c.Assert(result, checker.DeepEquals, expectedAddress)
+	require.EqualValues(t, expectedAddress, result)
 }
 
-func (s *IPv6Suite) TestString(c *check.C) {
+func TestStringV6(t *testing.T) {
 	expectedStr := "f00d::ac10:14:0:1"
 	result := testIPv6Address.String()
 
-	c.Assert(result, check.Equals, expectedStr)
+	require.Equal(t, expectedStr, result)
 }

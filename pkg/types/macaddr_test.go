@@ -5,28 +5,23 @@ package types
 
 import (
 	"net"
+	"testing"
 
-	check "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
 var testMACAddress MACAddr = [6]byte{1, 2, 3, 4, 5, 6}
 
-type MACAddrSuite struct{}
-
-var _ = check.Suite(&MACAddrSuite{})
-
-func (s *MACAddrSuite) TestHardwareAddr(c *check.C) {
+func TestHardwareAddr(t *testing.T) {
 	var expectedAddress net.HardwareAddr = []byte{1, 2, 3, 4, 5, 6}
 	result := testMACAddress.hardwareAddr()
 
-	c.Assert(result, checker.DeepEquals, expectedAddress)
+	require.EqualValues(t, expectedAddress, result)
 }
 
-func (s *MACAddrSuite) TestString(c *check.C) {
+func TestStringMAC(t *testing.T) {
 	expectedStr := "01:02:03:04:05:06"
 	result := testMACAddress.String()
 
-	c.Assert(result, check.Equals, expectedStr)
+	require.Equal(t, expectedStr, result)
 }

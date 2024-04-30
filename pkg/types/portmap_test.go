@@ -4,89 +4,87 @@
 package types
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-type PortsTestSuite struct{}
-
-var _ = Suite(&PortsTestSuite{})
-
-func (ds *PortsTestSuite) TestPolicyValidateName(c *C) {
+func TestPolicyValidateName(t *testing.T) {
 	name, err := ValidatePortName("Http")
-	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "http")
+	require.Nil(t, err)
+	require.Equal(t, "http", name)
 
 	name, err = ValidatePortName("dns-tcp")
-	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "dns-tcp")
+	require.Nil(t, err)
+	require.Equal(t, "dns-tcp", name)
 
 	_, err = ValidatePortName("-http")
-	c.Assert(err, Not(IsNil))
+	require.NotNil(t, err)
 
 	_, err = ValidatePortName("http-")
-	c.Assert(err, Not(IsNil))
+	require.NotNil(t, err)
 
 	name, err = ValidatePortName("http-80")
-	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "http-80")
+	require.Nil(t, err)
+	require.Equal(t, "http-80", name)
 
 	_, err = ValidatePortName("http--s")
-	c.Assert(err, Not(IsNil))
+	require.NotNil(t, err)
 }
 
-func (ds *PortsTestSuite) TestPolicyNewPortProto(c *C) {
+func TestPolicyNewPortProto(t *testing.T) {
 	np, err := newPortProto(80, "tcp")
-	c.Assert(err, IsNil)
-	c.Assert(np, Equals, PortProto{Port: uint16(80), Proto: uint8(6)})
+	require.Nil(t, err)
+	require.Equal(t, PortProto{Port: uint16(80), Proto: uint8(6)}, np)
 
 	_, err = newPortProto(88888, "tcp")
-	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "Port number 88888 out of 16-bit range")
+	require.NotNil(t, err)
+	require.Equal(t, "Port number 88888 out of 16-bit range", err.Error())
 
 	_, err = newPortProto(80, "cccp")
-	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "unknown protocol 'cccp'")
+	require.NotNil(t, err)
+	require.Equal(t, "unknown protocol 'cccp'", err.Error())
 
 	np, err = newPortProto(88, "")
-	c.Assert(err, IsNil)
-	c.Assert(np, Equals, PortProto{Port: uint16(88), Proto: uint8(6)})
+	require.Nil(t, err)
+	require.Equal(t, PortProto{Port: uint16(88), Proto: uint8(6)}, np)
 }
 
-func (ds *PortsTestSuite) TestPolicyNamedPortMap(c *C) {
+func TestPolicyNamedPortMap(t *testing.T) {
 	npm := make(NamedPortMap)
 
 	err := npm.AddPort("http", 80, "tcp")
-	c.Assert(err, IsNil)
-	c.Assert(npm, HasLen, 1)
+	require.Nil(t, err)
+	require.Len(t, npm, 1)
 
 	err = npm.AddPort("dns", 53, "UDP")
-	c.Assert(err, IsNil)
-	c.Assert(npm, HasLen, 2)
+	require.Nil(t, err)
+	require.Len(t, npm, 2)
 
 	err = npm.AddPort("zero", 0, "TCP")
-	c.Assert(err, Equals, ErrNamedPortIsZero)
-	c.Assert(npm, HasLen, 2)
+	require.Equal(t, ErrNamedPortIsZero, err)
+	require.Len(t, npm, 2)
 
 	proto, err := u8proto.ParseProtocol("UDP")
-	c.Assert(err, IsNil)
-	c.Assert(uint8(proto), Equals, uint8(17))
+	require.Nil(t, err)
+	require.Equal(t, uint8(17), uint8(proto))
 
 	port, err := npm.GetNamedPort("dns", uint8(proto))
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(53))
+	require.Nil(t, err)
+	require.Equal(t, uint16(53), port)
 
 	port, err = npm.GetNamedPort("dns", uint8(6))
-	c.Assert(err, Equals, ErrIncompatibleProtocol)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrIncompatibleProtocol, err)
+	require.Equal(t, uint16(0), port)
 
 	port, err = npm.GetNamedPort("unknown", uint8(proto))
-	c.Assert(err, Equals, ErrUnknownNamedPort)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrUnknownNamedPort, err)
+	require.Equal(t, uint16(0), port)
 }
 
-func (ds *PortsTestSuite) TestPolicyPortProtoSet(c *C) {
+func TestPolicyPortProtoSet(t *testing.T) {
 	a := PortProtoSet{
 		PortProto{Port: 80, Proto: 6}:  1,
 		PortProto{Port: 443, Proto: 6}: 1,
@@ -97,12 +95,12 @@ func (ds *PortsTestSuite) TestPolicyPortProtoSet(c *C) {
 		PortProto{Port: 443, Proto: 6}: 1,
 		PortProto{Port: 53, Proto: 6}:  1,
 	}
-	c.Assert(a.Equal(a), Equals, true)
-	c.Assert(a.Equal(b), Equals, false)
-	c.Assert(b.Equal(b), Equals, true)
+	require.Equal(t, true, a.Equal(a))
+	require.Equal(t, false, a.Equal(b))
+	require.Equal(t, true, b.Equal(b))
 }
 
-func (ds *PortsTestSuite) TestPolicyNamedPortMultiMap(c *C) {
+func TestPolicyNamedPortMultiMap(t *testing.T) {
 	a := &namedPortMultiMap{
 		m: map[string]PortProtoSet{
 			"http": {
@@ -142,52 +140,52 @@ func (ds *PortsTestSuite) TestPolicyNamedPortMultiMap(c *C) {
 	}
 
 	port, err := a.GetNamedPort("http", 6)
-	c.Assert(err, Equals, ErrDuplicateNamedPorts)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrDuplicateNamedPorts, err)
+	require.Equal(t, uint16(0), port)
 
 	port, err = a.GetNamedPort("http", 17)
-	c.Assert(err, Equals, ErrIncompatibleProtocol)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrIncompatibleProtocol, err)
+	require.Equal(t, uint16(0), port)
 
 	port, err = a.GetNamedPort("zero", 6)
-	c.Assert(err, Equals, ErrNamedPortIsZero)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrNamedPortIsZero, err)
+	require.Equal(t, uint16(0), port)
 
 	port, err = a.GetNamedPort("none", 6)
-	c.Assert(err, Equals, ErrUnknownNamedPort)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrUnknownNamedPort, err)
+	require.Equal(t, uint16(0), port)
 
 	port, err = a.GetNamedPort("unknown", 6)
-	c.Assert(err, Equals, ErrUnknownNamedPort)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrUnknownNamedPort, err)
+	require.Equal(t, uint16(0), port)
 
 	var nilvalued *namedPortMultiMap
 	port, err = NamedPortMultiMap(nilvalued).GetNamedPort("unknown", 6)
-	c.Assert(err, Equals, ErrNilMap)
-	c.Assert(port, Equals, uint16(0))
+	require.Equal(t, ErrNilMap, err)
+	require.Equal(t, uint16(0), port)
 
 	port, err = a.GetNamedPort("https", 6)
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(443))
+	require.Nil(t, err)
+	require.Equal(t, uint16(443), port)
 
 	port, err = a.GetNamedPort("dns", 6)
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(53))
+	require.Nil(t, err)
+	require.Equal(t, uint16(53), port)
 
 	port, err = b.GetNamedPort("dns", 6)
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(53))
+	require.Nil(t, err)
+	require.Equal(t, uint16(53), port)
 
 	port, err = a.GetNamedPort("dns", 17)
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(53))
+	require.Nil(t, err)
+	require.Equal(t, uint16(53), port)
 
 	port, err = b.GetNamedPort("dns", 17)
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(53))
+	require.Nil(t, err)
+	require.Equal(t, uint16(53), port)
 }
 
-func (ds *PortsTestSuite) TestPolicyNamedPortMultiMapUpdate(c *C) {
+func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 	npm := NewNamedPortMultiMap()
 
 	pod1PortsOld := map[string]PortProto{}
@@ -197,16 +195,16 @@ func (ds *PortsTestSuite) TestPolicyNamedPortMultiMapUpdate(c *C) {
 
 	// Insert http=80/TCP from pod1
 	changed := npm.Update(pod1PortsOld, pod1PortsNew)
-	c.Assert(changed, Equals, true)
+	require.Equal(t, true, changed)
 
 	// No changes
 	changed = npm.Update(pod1PortsNew, pod1PortsNew)
-	c.Assert(changed, Equals, false)
+	require.Equal(t, false, changed)
 
 	// Assert http=80/TCP
 	port, err := npm.GetNamedPort("http", uint8(u8proto.TCP))
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(80))
+	require.Nil(t, err)
+	require.Equal(t, uint16(80), port)
 
 	pod2PortsOld := map[string]PortProto{}
 	pod2PortsNew := map[string]PortProto{
@@ -215,14 +213,14 @@ func (ds *PortsTestSuite) TestPolicyNamedPortMultiMapUpdate(c *C) {
 
 	// Insert http=8080/UDP from pod2, retain http=80/TCP from pod1
 	changed = npm.Update(pod2PortsOld, pod2PortsNew)
-	c.Assert(changed, Equals, true)
+	require.Equal(t, true, changed)
 
 	port, err = npm.GetNamedPort("http", uint8(u8proto.TCP))
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(80))
+	require.Nil(t, err)
+	require.Equal(t, uint16(80), port)
 	port, err = npm.GetNamedPort("http", uint8(u8proto.UDP))
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(8080))
+	require.Nil(t, err)
+	require.Equal(t, uint16(8080), port)
 
 	// Delete http=80/TCP from pod1, retain http=8080/UDP from pod2
 	pod1PortsOld = pod1PortsNew
@@ -230,9 +228,9 @@ func (ds *PortsTestSuite) TestPolicyNamedPortMultiMapUpdate(c *C) {
 
 	// Delete http=80/TCP from pod1
 	changed = npm.Update(pod1PortsOld, pod1PortsNew)
-	c.Assert(changed, Equals, true)
+	require.Equal(t, true, changed)
 
 	port, err = npm.GetNamedPort("http", uint8(u8proto.UDP))
-	c.Assert(err, IsNil)
-	c.Assert(port, Equals, uint16(8080))
+	require.Nil(t, err)
+	require.Equal(t, uint16(8080), port)
 }
