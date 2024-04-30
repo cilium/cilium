@@ -187,15 +187,10 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.15-20240305.092417'
             kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
+            kpr: 'false'
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
