@@ -3,7 +3,7 @@ This page guides you through the different mechanics of Gateway API and how to t
 Be sure to follow the Generic and Setup Verification steps from the :ref:`Troubleshooting Ingress & Service Mesh page<troubleshooting_servicemesh>`.
 
 Checking resources
-----------------------
+==================
 
 #. Check the Gateway resource 
 
@@ -142,7 +142,7 @@ Checking resources
     customresourcedefinitions.apiextensions.k8s.io \"tlsroutes.gateway.networking.k8s.io\" not found" subsys=gateway-api
 
 Common mistakes
----------------
+===============
 
 .. include:: mistakes-warning.rst
 
@@ -184,7 +184,7 @@ Common mistakes
         Type:                  Accepted
 
 Underlying mechanics: a high level overview
--------------------------------------------
+===========================================
 
 A Cilium deployment has two parts that handle Gateway API resources: the Cilium agent and the Cilium operator.
 

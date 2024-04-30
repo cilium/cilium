@@ -507,6 +507,7 @@ memcd
 microservice
 microservices
 minikube
+misconfiguration
 misconfigures
 mitigations
 mlx
