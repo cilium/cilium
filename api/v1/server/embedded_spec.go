@@ -1852,6 +1852,14 @@ func init() {
         "type": "string"
       }
     },
+    "AttachMode": {
+      "description": "Core datapath attachment mode",
+      "type": "string",
+      "enum": [
+        "tc",
+        "tcx"
+      ]
+    },
     "BPFMap": {
       "description": "BPF map definition and content",
       "type": "object",
@@ -5033,6 +5041,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "attach-mode": {
+          "description": "Status of core datapath attachment mode",
+          "$ref": "#/definitions/AttachMode"
+        },
         "auth-certificate-provider": {
           "description": "Status of Mutual Authentication certificate provider",
           "$ref": "#/definitions/Status"
@@ -7599,6 +7611,14 @@ func init() {
       "additionalProperties": {
         "type": "string"
       }
+    },
+    "AttachMode": {
+      "description": "Core datapath attachment mode",
+      "type": "string",
+      "enum": [
+        "tc",
+        "tcx"
+      ]
     },
     "BPFMap": {
       "description": "BPF map definition and content",
@@ -11318,6 +11338,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "attach-mode": {
+          "description": "Status of core datapath attachment mode",
+          "$ref": "#/definitions/AttachMode"
+        },
         "auth-certificate-provider": {
           "description": "Status of Mutual Authentication certificate provider",
           "$ref": "#/definitions/Status"
