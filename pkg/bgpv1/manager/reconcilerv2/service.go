@@ -68,12 +68,9 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	}
 }
 
-// ServiceAFPathsMap holds the service prefixes per address family.
-type ServiceAFPathsMap map[resource.Key]AFPathsMap
-
 // ServiceReconcilerMetadata holds any announced service CIDRs per address family.
 type ServiceReconcilerMetadata struct {
-	ServicePaths          ServiceAFPathsMap
+	ServicePaths          ResourceAFPathsMap
 	ServiceAdvertisements PeerAdvertisements
 	ServiceRoutePolicies  ResourceRoutePolicyMap // contains cluster IP and external IP route policies
 	LBPoolRoutePolicies   ResourceRoutePolicyMap // contains load balancer IP pool route policies
@@ -82,7 +79,7 @@ type ServiceReconcilerMetadata struct {
 func (r *ServiceReconciler) getMetadata(i *instance.BGPInstance) ServiceReconcilerMetadata {
 	if _, found := i.Metadata[r.Name()]; !found {
 		i.Metadata[r.Name()] = ServiceReconcilerMetadata{
-			ServicePaths:          make(ServiceAFPathsMap),
+			ServicePaths:          make(ResourceAFPathsMap),
 			ServiceAdvertisements: make(PeerAdvertisements),
 			ServiceRoutePolicies:  make(ResourceRoutePolicyMap),
 			LBPoolRoutePolicies:   make(ResourceRoutePolicyMap),
@@ -130,7 +127,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 
 func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcileParams, ls sets.Set[resource.Key], fullReconcile bool) error {
 	var desiredSvcRoutePolicies ResourceRoutePolicyMap
-	var desiredSvcPaths ServiceAFPathsMap
+	var desiredSvcPaths ResourceAFPathsMap
 	var err error
 
 	if fullReconcile {
@@ -382,7 +379,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p ReconcileParams, svc *s
 	return desiredSvcRPs, nil
 }
 
-func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParams, desiredSvcPaths ServiceAFPathsMap) error {
+func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParams, desiredSvcPaths ResourceAFPathsMap) error {
 	var err error
 	metadata := r.getMetadata(p.BGPInstance)
 	for svc, desiredAFPaths := range desiredSvcPaths {
@@ -490,8 +487,8 @@ func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_c
 	return r.svcDiffStore.GetByKey(k)
 }
 
-func (r *ServiceReconciler) getAllPaths(p ReconcileParams, ls sets.Set[resource.Key]) (ServiceAFPathsMap, error) {
-	desiredServiceAFPaths := make(ServiceAFPathsMap)
+func (r *ServiceReconciler) getAllPaths(p ReconcileParams, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
+	desiredServiceAFPaths := make(ResourceAFPathsMap)
 
 	// check for services which are no longer present
 	serviceAFPaths := r.getMetadata(p.BGPInstance).ServicePaths
@@ -530,8 +527,8 @@ func (r *ServiceReconciler) getAllPaths(p ReconcileParams, ls sets.Set[resource.
 	return desiredServiceAFPaths, nil
 }
 
-func (r *ServiceReconciler) getDiffPaths(p ReconcileParams, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, ls sets.Set[resource.Key]) (ServiceAFPathsMap, error) {
-	desiredServiceAFPaths := make(ServiceAFPathsMap)
+func (r *ServiceReconciler) getDiffPaths(p ReconcileParams, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
+	desiredServiceAFPaths := make(ResourceAFPathsMap)
 	for _, svc := range toReconcile {
 		svcKey := resource.Key{
 			Name:      svc.GetName(),

@@ -48,12 +48,9 @@ type PodIPPoolReconciler struct {
 	poolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
 }
 
-// PoolAFPathsMap holds the desired paths per address family keyed by the pool name of the backing CiliumPodIPPool.
-type PoolAFPathsMap map[resource.Key]AFPathsMap
-
 // PodIPPoolReconcilerMetadata holds any announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
 type PodIPPoolReconcilerMetadata struct {
-	PoolAFPaths       PoolAFPathsMap
+	PoolAFPaths       ResourceAFPathsMap
 	PoolRoutePolicies ResourceRoutePolicyMap
 }
 
@@ -141,8 +138,8 @@ func (r *PodIPPoolReconciler) reconcilePaths(ctx context.Context, p ReconcilePar
 	return err
 }
 
-func (r *PodIPPoolReconciler) getDesiredPoolAFPaths(p ReconcileParams, desiredFamilyAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (PoolAFPathsMap, error) {
-	desiredPoolAFPaths := make(PoolAFPathsMap)
+func (r *PodIPPoolReconciler) getDesiredPoolAFPaths(p ReconcileParams, desiredFamilyAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (ResourceAFPathsMap, error) {
+	desiredPoolAFPaths := make(ResourceAFPathsMap)
 
 	metadata := r.getMetadata(p.BGPInstance)
 
@@ -419,7 +416,7 @@ func podIPPoolLabelSet(pool *v2alpha1.CiliumPodIPPool) labels.Labels {
 func (r *PodIPPoolReconciler) getMetadata(i *instance.BGPInstance) PodIPPoolReconcilerMetadata {
 	if _, found := i.Metadata[r.Name()]; !found {
 		i.Metadata[r.Name()] = PodIPPoolReconcilerMetadata{
-			PoolAFPaths:       make(PoolAFPathsMap),
+			PoolAFPaths:       make(ResourceAFPathsMap),
 			PoolRoutePolicies: make(ResourceRoutePolicyMap),
 		}
 	}

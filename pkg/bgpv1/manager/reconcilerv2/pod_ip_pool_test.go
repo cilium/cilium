@@ -606,7 +606,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			testBGPInstance := instance.NewFakeBGPInstance()
 
 			// set the preconfigured advertisements
-			presetPoolAFPaths := make(PoolAFPathsMap)
+			presetPoolAFPaths := make(ResourceAFPathsMap)
 			for pool, prePoolAFPaths := range tt.preconfiguredPoolAFPaths {
 				presetPoolAFPaths[pool] = make(AFPathsMap)
 				for fam, afPaths := range prePoolAFPaths {
