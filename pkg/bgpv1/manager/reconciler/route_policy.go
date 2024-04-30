@@ -120,7 +120,10 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 	// add missing policies
 	for _, p := range toAdd {
 		l.Infof("Adding route policy %s to vrouter %d", p.Name, params.DesiredConfig.LocalASN)
-		err := params.CurrentServer.Server.AddRoutePolicy(ctx, types.RoutePolicyRequest{Policy: p})
+		err := params.CurrentServer.Server.AddRoutePolicy(ctx, types.RoutePolicyRequest{
+			DefaultExportAction: types.RoutePolicyActionNone, // no change to the default action
+			Policy:              p,
+		})
 		if err != nil {
 			return fmt.Errorf("failed adding route policy %v to vrouter %d: %w", p.Name, params.DesiredConfig.LocalASN, err)
 		}
@@ -136,7 +139,10 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 		if err != nil {
 			return fmt.Errorf("failed removing route policy %v from vrouter %d: %w", existing.Name, params.DesiredConfig.LocalASN, err)
 		}
-		err = params.CurrentServer.Server.AddRoutePolicy(ctx, types.RoutePolicyRequest{Policy: p})
+		err = params.CurrentServer.Server.AddRoutePolicy(ctx, types.RoutePolicyRequest{
+			DefaultExportAction: types.RoutePolicyActionNone, // no change to the default action
+			Policy:              p,
+		})
 		if err != nil {
 			return fmt.Errorf("failed adding route policy %v to vrouter %d: %w", p.Name, params.DesiredConfig.LocalASN, err)
 		}

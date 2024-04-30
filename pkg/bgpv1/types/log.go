@@ -39,4 +39,7 @@ const (
 
 	// PodIPPoolLogField is used as key for Pod IP pool in the log field.
 	PodIPPoolLogField = "pod_ip_pool"
+
+	// PolicyLogField is used as key for BGP policy in the log field.
+	PolicyLogField = "policy"
 )
