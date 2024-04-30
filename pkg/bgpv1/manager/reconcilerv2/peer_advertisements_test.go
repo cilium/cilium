@@ -90,7 +90,7 @@ var (
 		Attributes: &v2alpha1.BGPAttributes{
 			Communities: &v2alpha1.BGPCommunities{
 				Standard: []v2alpha1.BGPStandardCommunity{
-					"65555:100",
+					"65355:100",
 				},
 			},
 		},
@@ -101,7 +101,7 @@ var (
 		Attributes: &v2alpha1.BGPAttributes{
 			Communities: &v2alpha1.BGPCommunities{
 				Standard: []v2alpha1.BGPStandardCommunity{
-					"65555:200",
+					"65355:200",
 				},
 			},
 		},
@@ -116,7 +116,7 @@ var (
 		Attributes: &v2alpha1.BGPAttributes{
 			Communities: &v2alpha1.BGPCommunities{
 				Standard: []v2alpha1.BGPStandardCommunity{
-					"65555:300",
+					"65355:300",
 				},
 			},
 		},
@@ -231,6 +231,27 @@ var (
 					},
 				},
 			},
+		},
+	}
+
+	// peer configuration
+	redPeer65001 = v2alpha1.CiliumBGPNodePeer{
+		Name:        "red-peer-65001",
+		PeerAddress: ptr.To[string]("10.10.10.1"),
+		PeerConfigRef: &v2alpha1.PeerConfigReference{
+			Group: "cilium.io",
+			Kind:  "CiliumBGPPeerConfig",
+			Name:  "peer-config-red",
+		},
+	}
+
+	bluePeer65001 = v2alpha1.CiliumBGPNodePeer{
+		Name:        "blue-peer-65001",
+		PeerAddress: ptr.To[string]("10.10.10.2"),
+		PeerConfigRef: &v2alpha1.PeerConfigReference{
+			Group: "cilium.io",
+			Kind:  "CiliumBGPPeerConfig",
+			Name:  "peer-config-blue",
 		},
 	}
 )
