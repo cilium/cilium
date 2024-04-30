@@ -2126,6 +2126,9 @@ definitions:
       kubernetes:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
+      attach-mode:
+        description: Status of core datapath attachment mode
+        "$ref": "#/definitions/AttachMode"
       kube-proxy-replacement:
         description: Status of kube-proxy replacement
         "$ref": "#/definitions/KubeProxyReplacement"
@@ -2774,6 +2777,12 @@ definitions:
     type: string
     enum:
       - veth
+  AttachMode:
+    description: Core datapath attachment mode
+    type: string
+    enum:
+      - tc
+      - tcx
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
