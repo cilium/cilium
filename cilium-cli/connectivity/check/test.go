@@ -290,11 +290,14 @@ func (t *Test) willRun() (bool, string) {
 
 // finalize runs all the Test's registered finalizers.
 // Failures encountered executing finalizers will fail the Test.
-func (t *Test) finalize(ctx context.Context) {
+func (t *Test) finalize() {
 	t.Debug("Finalizing Test", t.Name())
 
 	for _, f := range t.finalizers {
-		if err := f(ctx); err != nil {
+		// Use a detached context to make sure this call is not affected by
+		// context cancellation. Usually, finalization (e.g., netpol removal)
+		// needs to happen even when the user interrupted the program.
+		if err := f(context.TODO()); err != nil {
 			t.Failf("Error finalizing '%s': %s", t.Name(), err)
 		}
 	}
@@ -311,7 +314,7 @@ func (t *Test) Run(ctx context.Context, index int) error {
 	// in which case this function executes as normal.
 	defer func() {
 		// Run all the Test's registered finalizers.
-		t.finalize(ctx)
+		t.finalize()
 	}()
 
 	if len(t.scenarios) == 0 {

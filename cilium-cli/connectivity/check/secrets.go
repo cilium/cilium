@@ -54,11 +54,8 @@ func (t *Test) applySecrets(ctx context.Context) error {
 	}
 
 	// Register a finalizer with the Test immediately to enable cleanup.
-	t.finalizers = append(t.finalizers, func(context.Context) error {
-		// Use a detached context to make sure this call is not affected by
-		// context cancellation. This deletion needs to happen event when the
-		// user interrupted the program.
-		if err := t.deleteSecrets(context.TODO()); err != nil {
+	t.finalizers = append(t.finalizers, func(ctx context.Context) error {
+		if err := t.deleteSecrets(ctx); err != nil {
 			t.CiliumLogs(ctx)
 			return err
 		}

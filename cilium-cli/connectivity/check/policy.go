@@ -527,11 +527,8 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	// Register a finalizer with the Test immediately to enable cleanup.
 	// If we return a cleanup closure from this function, cleanup cannot be
 	// performed if the user cancels during the policy revision wait time.
-	t.finalizers = append(t.finalizers, func(context.Context) error {
-		// Use a detached context to make sure this call is not affected by
-		// context cancellation. This deletion needs to happen event when the
-		// user interrupted the program.
-		if err := t.deletePolicies(context.TODO()); err != nil {
+	t.finalizers = append(t.finalizers, func(ctx context.Context) error {
+		if err := t.deletePolicies(ctx); err != nil {
 			t.CiliumLogs(ctx)
 			return err
 		}
