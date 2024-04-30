@@ -309,6 +309,11 @@ Annotations:
 * Cilium Envoy DaemonSet is now enabled by default, and existing in-container installs
   will be changed to DaemonSet mode unless specifically opted out of. This can be done by
   disabling it manually by setting ``envoy.enabled=false`` accordingly.
+* For Linux kernels of version 6.6 or newer, Cilium by default switches to tcx BPF links for
+  attaching its tc BPF programs in the core datapath for better resiliency and performance.
+  If your current setup has third-party old-style tc BPF users, then this option should be
+  disabled via Helm through ``bpf.enableTCX=false`` in order to continue in old-style tc BPF
+  attachment mode as before.
 * The ``cilium-dbg status --verbose`` command health data may now show health reported on a non-leaf
   component under a leaf named ``reporter``. Health data tree branches will now also be sorted by
   the fully qualified health status identifier.
