@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -21,14 +20,13 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
 type EnvoySuite struct {
 	waitGroup *completion.WaitGroup
 }
 
-var _ = Suite(&EnvoySuite{})
+func setupEnvoySuite(tb testing.TB) *EnvoySuite {
+	return &EnvoySuite{}
+}
 
 func (s *EnvoySuite) waitForProxyCompletion() error {
 	start := time.Now()
@@ -38,21 +36,22 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	return err
 }
 
-func (s *EnvoySuite) TestEnvoy(c *C) {
+func TestEnvoy(t *testing.T) {
+	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
 	logging.SetLogLevelToDebug()
 	flowdebug.Enable()
 
 	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	log.Debugf("run directory: %s", testRunDir)
 
@@ -64,17 +63,17 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 		})
-	c.Assert(xdsServer, NotNil)
-	c.Assert(err, IsNil)
+	require.NotNil(t, xdsServer)
+	require.NoError(t, err)
 
 	err = xdsServer.start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer xdsServer.stop()
 
 	accessLogServer := newAccessLogServer(testRunDir, 1337, localEndpointStore)
-	c.Assert(accessLogServer, NotNil)
+	require.NotNil(t, accessLogServer)
 	err = accessLogServer.start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
@@ -84,15 +83,15 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 		baseID:         0,
 		connectTimeout: 1,
 	})
-	c.Assert(envoyProxy, NotNil)
-	c.Assert(err, IsNil)
+	require.NotNil(t, envoyProxy)
+	require.NoError(t, err)
 	log.Debug("started Envoy")
 
 	log.Debug("adding metrics listener")
 	xdsServer.AddMetricsListener(9964, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	log.Debug("completed adding metrics listener")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
@@ -106,7 +105,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	log.Debug("completed adding listener1, listener2, listener3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
@@ -115,7 +114,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	xdsServer.RemoveListener("listener3", s.waitGroup)
 
 	err = s.waitForProxyCompletion()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	log.Debug("completed removing listener 3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
@@ -124,13 +123,13 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	xdsServer.AddListener("listener3", "test.headerparser", 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	log.Debug("completed adding listener 3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	log.Debug("stopping Envoy")
 	err = envoyProxy.Stop()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	time.Sleep(2 * time.Second) // Wait for Envoy to really terminate.
 
@@ -138,24 +137,26 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.Debug("removing listener 3")
 	xdsServer.RemoveListener("listener3", s.waitGroup)
 	err = s.waitForProxyCompletion()
-	c.Assert(err, NotNil)
+	require.Error(t, err)
 	log.Debugf("failed to remove listener 3: %s", err)
 }
 
-func (s *EnvoySuite) TestEnvoyNACK(c *C) {
+func TestEnvoyNACK(t *testing.T) {
+	s := setupEnvoySuite(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
 	flowdebug.Enable()
 
 	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	log.Debugf("run directory: %s", testRunDir)
 
@@ -167,16 +168,16 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 		})
-	c.Assert(xdsServer, NotNil)
-	c.Assert(err, IsNil)
+	require.NotNil(t, xdsServer)
+	require.NoError(t, err)
 	err = xdsServer.start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer xdsServer.stop()
 
 	accessLogServer := newAccessLogServer(testRunDir, 1337, localEndpointStore)
-	c.Assert(accessLogServer, NotNil)
+	require.NotNil(t, accessLogServer)
 	err = accessLogServer.start()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
@@ -185,8 +186,8 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 		logPath: filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:  42,
 	})
-	c.Assert(envoyProxy, NotNil)
-	c.Assert(err, IsNil)
+	require.NotNil(t, envoyProxy)
+	require.NoError(t, err)
 	log.Debug("started Envoy")
 
 	rName := "listener:22"
@@ -195,13 +196,13 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 	xdsServer.AddListener(rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
-	c.Assert(err, Not(IsNil))
-	c.Assert(err, checker.DeepEquals, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '[::]:22': Address already in use\n"})
+	require.Error(t, err)
+	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '[::]:22': Address already in use\n"}, err)
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
 	log.Debug("removing ", rName)
 	xdsServer.RemoveListener(rName, s.waitGroup)
 	err = s.waitForProxyCompletion()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 }

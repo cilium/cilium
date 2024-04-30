@@ -4,58 +4,56 @@
 package envoy
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
+	"github.com/stretchr/testify/require"
 )
 
-type ResourcesSuite struct{}
-
-var _ = Suite(&ResourcesSuite{})
-
-func (s *SortSuite) TestHandleIPUpsert(c *C) {
+func TestHandleIPUpsert(t *testing.T) {
 	cache := newNPHDSCache(nil)
 
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, "123")
-	c.Assert(err, IsNil)
-	c.Assert(msg, IsNil)
+	require.NoError(t, err)
+	require.Nil(t, msg)
 
 	err = cache.handleIPUpsert(nil, "123", "1.2.3.0/32", 123)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	msg, err = cache.Lookup(NetworkPolicyHostsTypeURL, "123")
-	c.Assert(err, IsNil)
-	c.Assert(msg, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, msg)
 	npHost := msg.(*envoyAPI.NetworkPolicyHosts)
-	c.Assert(npHost, Not(IsNil))
-	c.Assert(npHost.Policy, Equals, uint64(123))
-	c.Assert(len(npHost.HostAddresses), Equals, 1)
-	c.Assert(npHost.HostAddresses[0], Equals, "1.2.3.0/32")
+	require.NotNil(t, npHost)
+	require.Equal(t, uint64(123), npHost.Policy)
+	require.Equal(t, 1, len(npHost.HostAddresses))
+	require.Equal(t, "1.2.3.0/32", npHost.HostAddresses[0])
 
 	// Another address
 	err = cache.handleIPUpsert(npHost, "123", "::1/128", 123)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	msg, err = cache.Lookup(NetworkPolicyHostsTypeURL, "123")
-	c.Assert(err, IsNil)
-	c.Assert(msg, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, msg)
 	npHost = msg.(*envoyAPI.NetworkPolicyHosts)
-	c.Assert(npHost, Not(IsNil))
-	c.Assert(npHost.Policy, Equals, uint64(123))
-	c.Assert(len(npHost.HostAddresses), Equals, 2)
-	c.Assert(npHost.HostAddresses[0], Equals, "1.2.3.0/32")
-	c.Assert(npHost.HostAddresses[1], Equals, "::1/128")
+	require.NotNil(t, npHost)
+	require.Equal(t, uint64(123), npHost.Policy)
+	require.Equal(t, 2, len(npHost.HostAddresses))
+	require.Equal(t, "1.2.3.0/32", npHost.HostAddresses[0])
+	require.Equal(t, "::1/128", npHost.HostAddresses[1])
 
 	// Check that duplicates are not added, and not erroring out
 	err = cache.handleIPUpsert(npHost, "123", "1.2.3.0/32", 123)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	msg, err = cache.Lookup(NetworkPolicyHostsTypeURL, "123")
-	c.Assert(err, IsNil)
-	c.Assert(msg, Not(IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, msg)
 	npHost = msg.(*envoyAPI.NetworkPolicyHosts)
-	c.Assert(npHost, Not(IsNil))
-	c.Assert(npHost.Policy, Equals, uint64(123))
-	c.Assert(len(npHost.HostAddresses), Equals, 2)
-	c.Assert(npHost.HostAddresses[0], Equals, "1.2.3.0/32")
-	c.Assert(npHost.HostAddresses[1], Equals, "::1/128")
+	require.NotNil(t, npHost)
+	require.Equal(t, uint64(123), npHost.Policy)
+	require.Equal(t, 2, len(npHost.HostAddresses))
+	require.Equal(t, "1.2.3.0/32", npHost.HostAddresses[0])
+	require.Equal(t, "::1/128", npHost.HostAddresses[1])
 }
