@@ -5,7 +5,8 @@ Prerequisites
   ``nodePort.enabled=true`` or by enabling the kube-proxy replacement with
   ``kubeProxyReplacement=true``. For more information, see :ref:`kube-proxy
   replacement <kubeproxy-free>`.
-* Cilium must be configured with the L7 proxy enabled using the ``--enable-l7-proxy`` flag (enabled by default).
+* Cilium must be configured with the L7 proxy enabled using ``l7Proxy=true``
+  (enabled by default).
 * The below CRDs from Gateway API v1.0.0 ``must`` be pre-installed.
   Please refer to this `docs <https://gateway-api.sigs.k8s.io/guides/?h=crds#getting-started-with-gateway-api>`_
   for installation steps. Alternatively, the below snippet could be used.
@@ -25,8 +26,9 @@ Prerequisites
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/experimental/gateway.networking.k8s.io_grpcroutes.yaml
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
-* Similar to Ingress, Gateway API controller creates a service of LoadBalancer type,
-  so your environment will need to support this.
+* By default, the Gateway API controller creates a service of LoadBalancer type,
+  so your environment will need to support this. Alternatively, since Cilium 1.16+,
+  you can directly expose the Cilium L7 proxy on the :ref:`host network <gs_gateway_host_network_mode>`.
 
 Installation
 ############
