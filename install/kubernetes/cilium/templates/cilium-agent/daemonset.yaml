@@ -745,6 +745,9 @@ spec:
           - name: cni-path
             mountPath: /host/opt/cni/bin
       {{- end }} # .Values.cni.install
+      {{- if .Values.extraInitContainers }}
+      {{- toYaml .Values.extraInitContainers | nindent 6 }}
+      {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccountName: {{ .Values.serviceAccounts.cilium.name | quote }}

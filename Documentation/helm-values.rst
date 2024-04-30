@@ -1456,6 +1456,10 @@
      - Additional agent hostPath mounts.
      - list
      - ``[]``
+   * - :spelling:ignore:`extraInitContainers`
+     - Additional initContainers added to the cilium Daemonset.
+     - list
+     - ``[]``
    * - :spelling:ignore:`extraVolumeMounts`
      - Additional agent volumeMounts.
      - list

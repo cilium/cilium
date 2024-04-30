@@ -414,6 +414,7 @@ contributors across the globe, there is almost always someone available to help.
 | extraContainers | list | `[]` | Additional containers added to the cilium DaemonSet. |
 | extraEnv | list | `[]` | Additional agent container environment variables. |
 | extraHostPathMounts | list | `[]` | Additional agent hostPath mounts. |
+| extraInitContainers | list | `[]` | Additional initContainers added to the cilium Daemonset. |
 | extraVolumeMounts | list | `[]` | Additional agent volumeMounts. |
 | extraVolumes | list | `[]` | Additional agent volumes. |
 | gatewayAPI.enableAppProtocol | bool | `false` | Enable Backend Protocol selection support (GEP-1911) for Gateway API via appProtocol. |
