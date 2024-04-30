@@ -13,6 +13,7 @@ import (
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Protocol represents the valid types of encapsulation protocols.
@@ -57,6 +58,7 @@ type newConfigIn struct {
 
 	Cfg      userCfg
 	Enablers []enabler `group:"request-enable-tunneling"`
+	Config   *option.DaemonConfig
 }
 
 func newConfig(in newConfigIn) (Config, error) {
@@ -104,6 +106,25 @@ func newConfig(in newConfigIn) (Config, error) {
 		}
 	}
 
+	if in.Config.EnableNodePort {
+		if in.Config.TunnelingEnabled() && cfg.Protocol() == VXLAN &&
+			in.Config.LoadBalancerUsesDSR() {
+			return cfg, fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", in.Config.NodePortMode, VXLAN)
+		}
+
+		if in.Config.TunnelingEnabled() && in.Config.LoadBalancerUsesDSR() &&
+			in.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+			return cfg, fmt.Errorf("Tunnel routing with Node Port %q mode requires %s dispatch.",
+				in.Config.NodePortMode, option.DSRDispatchGeneve)
+		}
+
+		if in.Config.LoadBalancerUsesDSR() &&
+			in.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
+			cfg.Protocol() != Geneve {
+			return cfg, fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunnel protocol.",
+				in.Config.NodePortMode, in.Config.LoadBalancerDSRDispatch, Geneve)
+		}
+	}
 	return cfg, nil
 }
 

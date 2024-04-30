@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
@@ -40,7 +39,7 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.Config) error {
+func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
 		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
@@ -187,24 +186,6 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.TunnelingEnabled() && tunnelConfig.Protocol() == tunnel.VXLAN &&
-			option.Config.LoadBalancerUsesDSR() {
-			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, tunnel.VXLAN)
-		}
-
-		if option.Config.TunnelingEnabled() && option.Config.LoadBalancerUsesDSR() &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
-			return fmt.Errorf("Tunnel routing with Node Port %q mode requires %s dispatch.",
-				option.Config.NodePortMode, option.DSRDispatchGeneve)
-		}
-
-		if option.Config.LoadBalancerUsesDSR() &&
-			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
-			tunnelConfig.Protocol() != tunnel.Geneve {
-			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunnel protocol.",
-				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, tunnel.Geneve)
-		}
-
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
 			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
