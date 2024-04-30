@@ -182,7 +182,7 @@ func (g *GoBGPServer) AddRoutePolicy(ctx context.Context, r types.RoutePolicyReq
 	}
 
 	// Note that we are using global policy assignment here (per-neighbor policies work only in the route-server mode)
-	assignment := g.getGlobalPolicyAssignment(policy, r.Policy.Type)
+	assignment := g.getGlobalPolicyAssignment(policy, r.Policy.Type, r.DefaultExportAction)
 	err = g.server.AddPolicyAssignment(ctx, &gobgp.AddPolicyAssignmentRequest{Assignment: assignment})
 	if err != nil {
 		g.deletePolicy(ctx, policy)           // clean up policy
@@ -200,7 +200,7 @@ func (g *GoBGPServer) RemoveRoutePolicy(ctx context.Context, r types.RoutePolicy
 	}
 	policy, definedSets := toGoBGPPolicy(r.Policy)
 
-	assignment := g.getGlobalPolicyAssignment(policy, r.Policy.Type)
+	assignment := g.getGlobalPolicyAssignment(policy, r.Policy.Type, r.DefaultExportAction)
 	err := g.server.DeletePolicyAssignment(ctx, &gobgp.DeletePolicyAssignmentRequest{Assignment: assignment})
 	if err != nil {
 		return fmt.Errorf("failed deleting policy assignment %s: %w", assignment.Name, err)
@@ -219,11 +219,11 @@ func (g *GoBGPServer) RemoveRoutePolicy(ctx context.Context, r types.RoutePolicy
 	return nil
 }
 
-func (g *GoBGPServer) getGlobalPolicyAssignment(policy *gobgp.Policy, policyType types.RoutePolicyType) *gobgp.PolicyAssignment {
+func (g *GoBGPServer) getGlobalPolicyAssignment(policy *gobgp.Policy, policyType types.RoutePolicyType, defaultAction types.RoutePolicyAction) *gobgp.PolicyAssignment {
 	return &gobgp.PolicyAssignment{
 		Name:          globalPolicyAssignmentName,
 		Direction:     toGoBGPPolicyDirection(policyType),
-		DefaultAction: gobgp.RouteAction_NONE, // no change to the default action
+		DefaultAction: toGoBGPRouteAction(defaultAction),
 		Policies:      []*gobgp.Policy{policy},
 	}
 }
