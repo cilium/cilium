@@ -42,7 +42,7 @@ var (
 )
 
 func NewDeviceTable() (statedb.RWTable[*Device], error) {
-	return statedb.NewTable[*Device](
+	return statedb.NewTable(
 		"devices",
 		DeviceIDIndex,
 		DeviceNameIndex,
