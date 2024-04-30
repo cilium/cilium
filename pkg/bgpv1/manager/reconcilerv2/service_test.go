@@ -501,7 +501,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			lbIPPools:      []*v2alpha1.CiliumLoadBalancerIPPool{redLBPool},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": PeerFamilyAdvertisements{
@@ -521,7 +521,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": PeerFamilyAdvertisements{
@@ -545,7 +545,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
@@ -584,7 +584,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
@@ -623,7 +623,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
@@ -662,7 +662,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": PeerFamilyAdvertisements{
@@ -739,7 +739,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			services:       []*slim_corev1.Service{redExternalSvc},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -758,7 +758,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -781,7 +781,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
@@ -819,7 +819,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
@@ -857,7 +857,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
@@ -895,7 +895,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -967,7 +967,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			services:       []*slim_corev1.Service{redClusterSvc},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -986,7 +986,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -1009,7 +1009,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
@@ -1047,7 +1047,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
@@ -1085,7 +1085,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
@@ -1123,7 +1123,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -1195,7 +1195,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			upsertServices: nil,
 			upsertEPs:      nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -1226,7 +1226,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			upsertServices: []*slim_corev1.Service{redExternalAndClusterSvc},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Only cluster IPs are advertised
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
@@ -1301,7 +1301,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are advertised
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
@@ -1373,7 +1373,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are withdrawn, since traffic policy is local and there are no endpoints.
-				ServicePaths:         ServiceAFPathsMap{},
+				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				LBPoolRoutePolicies:  ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -1423,7 +1423,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			upsertEPs: []*k8s.Endpoints{eps1Mixed},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are advertised since there is local endpoint.
-				ServicePaths: ServiceAFPathsMap{
+				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
