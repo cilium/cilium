@@ -205,3 +205,13 @@ Clean up
 
    $ kubectl delete ccnp demo-host-policy
    $ kubectl label node $NODE_NAME node-access-
+
+Further Reading
+===============
+
+Read the documentation on :ref:`HostPolicies` for additional details on how to
+use the policies. In particular, refer to the :ref:`Troubleshooting Host
+Policies <troubleshooting_host_policies>` subsection to understand how to debug
+issues with Host Policies, or to the section on :ref:`Host Policies known
+issues <host_policies_known_issues>` to understand the current limitations of
+the feature.
