@@ -1353,3 +1353,37 @@ endpoint get -l reserved:host -o jsonpath='{[0].id}'``. Use this ID to replace
 
 - Use ``cilium-dbg monitor`` with ``--related-to $HOST_EP_ID`` to examine
   traffic for the host endpoint.
+
+Host Policies known issues
+--------------------------
+
+- The first time Cilium enforces Host Policies in the cluster, it may drop
+  reply traffic for legitimate connections that should be allowed by the
+  policies in place. Connections should stabilize again after a few seconds.
+  One workaround is to enable, disable, then re-enable Host Policies
+  enforcement. For details, see :gh-issue:`25448`.
+
+- In the context of ClusterMesh, the following combination of options is not
+  supported:
+
+  - Cilium operating in CRD mode (as opposed to KVstore mode),
+  - Host Policies enabled,
+  - tunneling enabled,
+  - kube-proxy-replacement enabled, and
+  - WireGuard enabled.
+
+  This combination results in a failure to connect to the
+  clustermesh-apiserver. For details, refer to :gh-issue:`31209`.
+
+- Host Policies do not work on host WireGuard interfaces. For details, see
+  :gh-issue:`17636`.
+
+- When Host Policies are enabled, hosts drop traffic from layer-2 protocols
+  that they consider as unknown, even if no Host Policies are loaded. For
+  example, this affects LLC traffic (see :gh-issue:`17877`) or VRRP traffic
+  (see :gh-issue:`18347`).
+
+- When kube-proxy-replacement is disabled, or configured not to implement
+  services for the native device (such as NodePort), hosts will enforce Host
+  Policies on service addresses rather than the service endpoints. For details,
+  refer to :gh-issue:`12545`.
