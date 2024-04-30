@@ -9,26 +9,27 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 )
-
-func Test(t *testing.T) { TestingT(t) }
 
 type MulticastSuite struct {
 	r *rand.Rand
 }
 
-var _ = Suite(&MulticastSuite{
-	r: rand.New(rand.NewSource(time.Now().Unix())),
-})
+func setup(_ testing.TB) *MulticastSuite {
+	return &MulticastSuite{
+		r: rand.New(rand.NewSource(time.Now().Unix())),
+	}
+}
 
-func (m *MulticastSuite) TestGroupOps(c *C) {
+func TestGroupOps(t *testing.T) {
+	m := setup(t)
 	ifs, err := netlink.LinkList()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	if len(ifs) == 0 {
-		c.Skip("no interfaces to test")
+		t.Skip("no interfaces to test")
 	}
 
 	ifc := ifs[0]
@@ -36,24 +37,24 @@ func (m *MulticastSuite) TestGroupOps(c *C) {
 
 	// Join Group
 	err = JoinGroup(ifc.Attrs().Name, maddr)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// maddr in group
 	inGroup, err := IsInGroup(ifc.Attrs().Name, maddr)
-	c.Assert(err, IsNil)
-	c.Assert(inGroup, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, true, inGroup)
 
 	// LeaveGroup
 	err = LeaveGroup(ifc.Attrs().Name, maddr)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	// maddr not in group
 	inGroup, err = IsInGroup(ifc.Attrs().Name, maddr)
-	c.Assert(err, IsNil)
-	c.Assert(inGroup, Equals, false)
+	require.Nil(t, err)
+	require.Equal(t, false, inGroup)
 }
 
-func (m *MulticastSuite) TestSolicitedNodeMaddr(c *C) {
+func TestSolicitedNodeMaddr(t *testing.T) {
 	tests := []struct {
 		ip       string
 		expected string
@@ -67,7 +68,7 @@ func (m *MulticastSuite) TestSolicitedNodeMaddr(c *C) {
 	for _, test := range tests {
 		ip := netip.MustParseAddr(test.ip)
 		got := Address(ip).SolicitedNodeMaddr().String()
-		c.Assert(got, Equals, test.expected)
+		require.Equal(t, test.expected, got)
 	}
 
 }
@@ -78,7 +79,7 @@ func (m *MulticastSuite) randMaddr() netip.Addr {
 	return Address(netip.AddrFrom16(*(*[16]byte)(maddr))).SolicitedNodeMaddr()
 }
 
-func (m *MulticastSuite) TestMcastKey(c *C) {
+func TestMcastKey(t *testing.T) {
 	tests := []struct {
 		ipv6 string
 		key  int32
@@ -111,6 +112,6 @@ func (m *MulticastSuite) TestMcastKey(c *C) {
 
 	for _, test := range tests {
 		ipv6 := netip.MustParseAddr(test.ipv6)
-		c.Assert(Address(ipv6).Key(), Equals, test.key)
+		require.Equal(t, test.key, Address(ipv6).Key())
 	}
 }
