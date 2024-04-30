@@ -84,7 +84,9 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 // endpoints is. Each endpoints has 1000 DNS lookups, each with 10 IPs. The
 // dump iterates over all endpoints, lookups, and IPs.
 func BenchmarkFqdnCache(b *testing.B) {
-	caches := make([]*DNSCache, 0, b.N)
+	const endpoints = 8
+
+	caches := make([]*DNSCache, 0, endpoints)
 	for i := 0; i < b.N; i++ {
 		lookupTime := time.Now()
 		dnsHistory := NewDNSCache(0)
@@ -113,9 +115,11 @@ func BenchmarkFqdnCache(b *testing.B) {
 			return out
 		},
 	})
-	b.ResetTimer()
-
 	prefixMatcher := func(_ netip.Addr) bool { return true }
 	nameMatcher := func(_ string) bool { return true }
-	nameManager.GetDNSHistoryModel("", prefixMatcher, nameMatcher, "")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		nameManager.GetDNSHistoryModel("", prefixMatcher, nameMatcher, "")
+	}
 }
