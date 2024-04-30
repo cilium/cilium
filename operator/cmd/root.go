@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
+	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -185,6 +186,7 @@ var (
 			auth.Cell,
 			store.Cell,
 			endpointslicesync.Cell,
+			mcsapi.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
