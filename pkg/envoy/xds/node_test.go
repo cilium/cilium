@@ -4,24 +4,22 @@
 package xds
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-type NodeSuite struct{}
-
-var _ = Suite(&NodeSuite{})
-
-func (s *NodeSuite) TestEnvoyNodeToIP(c *C) {
+func TestEnvoyNodeToIP(t *testing.T) {
 	var ip string
 	var err error
 
 	ip, err = EnvoyNodeIdToIP("host~127.0.0.1~no-id~localdomain")
-	c.Assert(err, IsNil)
-	c.Check(ip, Equals, "127.0.0.1")
+	require.NoError(t, err)
+	require.Equal(t, "127.0.0.1", ip)
 
 	_, err = EnvoyNodeIdToIP("host~127.0.0.1~localdomain")
-	c.Assert(err, Not(IsNil))
+	require.Error(t, err)
 
 	_, err = EnvoyNodeIdToIP("host~not-an-ip~v0.default~default.svc.cluster.local")
-	c.Assert(err, Not(IsNil))
+	require.Error(t, err)
 }

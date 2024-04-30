@@ -7,15 +7,14 @@ import (
 	"reflect"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -27,15 +26,12 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-type ServerSuite struct{}
-
 type DummySelectorCacheUser struct{}
 
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
 var (
-	_        = Suite(&ServerSuite{})
 	IPv4Addr = "10.1.1.1"
 
 	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
@@ -454,13 +450,13 @@ var L4Policy2 = &policy.L4Policy{
 	Egress:  policy.L4DirectionPolicy{PortRules: L4PolicyMap2},
 }
 
-func (s *ServerSuite) TestGetHTTPRule(c *C) {
+func TestGetHTTPRule(t *testing.T) {
 	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "")
-	c.Assert(obtained.Headers, checker.ExportedEquals, ExpectedHeaders1)
-	c.Assert(canShortCircuit, Equals, true)
+	require.Equal(t, ExpectedHeaders1, obtained.Headers)
+	require.Equal(t, true, canShortCircuit)
 }
 
-func (s *ServerSuite) Test_getWildcardNetworkPolicyRule(c *C) {
+func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 	perSelectorPoliciesWithWildcard := policy.L7DataMap{
 		cachedSelector1:           nil,
 		cachedRequiresV2Selector1: nil,
@@ -468,8 +464,7 @@ func (s *ServerSuite) Test_getWildcardNetworkPolicyRule(c *C) {
 	}
 
 	obtained := getWildcardNetworkPolicyRule(perSelectorPoliciesWithWildcard)
-	c.Assert(obtained, checker.ExportedEquals,
-		&cilium.PortNetworkPolicyRule{})
+	require.Equal(t, &cilium.PortNetworkPolicyRule{}, obtained)
 
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
 	perSelectorPolicies := policy.L7DataMap{
@@ -479,53 +474,52 @@ func (s *ServerSuite) Test_getWildcardNetworkPolicyRule(c *C) {
 	}
 
 	obtained = getWildcardNetworkPolicyRule(perSelectorPolicies)
-	c.Assert(obtained, checker.ExportedEquals,
-		&cilium.PortNetworkPolicyRule{
-			RemotePolicies: []uint32{1001, 1002, 1003},
-		})
+	require.Equal(t, &cilium.PortNetworkPolicyRule{
+		RemotePolicies: []uint32{1001, 1002, 1003},
+	}, obtained)
 }
 
-func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
+func TestGetPortNetworkPolicyRule(t *testing.T) {
 	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false)
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule12)
-	c.Assert(canShortCircuit, Equals, true)
+	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
+	require.Equal(t, true, canShortCircuit)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch, false)
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule122HeaderMatch)
-	c.Assert(canShortCircuit, Equals, false)
+	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
+	require.Equal(t, false, canShortCircuit)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1, false)
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule1)
-	c.Assert(canShortCircuit, Equals, true)
+	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
+	require.Equal(t, true, canShortCircuit)
 }
 
-func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
+func TestGetDirectionNetworkPolicy(t *testing.T) {
 	// L4+L7
 	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, false, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies12Wildcard)
+	require.Equal(t, ExpectedPerPortPolicies12Wildcard, obtained)
 
 	// L4+L7 with header mods
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, false, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies122HeaderMatchWildcard)
+	require.Equal(t, ExpectedPerPortPolicies122HeaderMatchWildcard, obtained)
 
 	// L4+L7
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, false, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1Wildcard)
+	require.Equal(t, ExpectedPerPortPolicies1Wildcard, obtained)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, false, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
+	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, false, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
+	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only with SNI
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, false, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesSNI)
+	require.Equal(t, ExpectedPerPortPoliciesSNI, obtained)
 }
 
-func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
+func TestGetNetworkPolicy(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4Policy1, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -534,10 +528,10 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
+func TestGetNetworkPolicyWildcard(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4Policy2, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -546,10 +540,10 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
+func TestGetNetworkPolicyDeny(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -558,10 +552,10 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
+func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -570,10 +564,10 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
+func TestGetNetworkPolicyNil(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, nil, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -582,10 +576,10 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 		EgressPerPortPolicies:  nil,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
+func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4Policy2, false, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -594,10 +588,10 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
+func TestGetNetworkPolicyEgressNotEnforced(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4Policy1RequiresV2, true, false, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -606,7 +600,7 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var L4PolicyL7 = &policy.L4Policy{
@@ -661,7 +655,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 	},
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
+func TestGetNetworkPolicyL7(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyL7, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -669,7 +663,7 @@ func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesL7,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var L4PolicyKafka = &policy.L4Policy{
@@ -720,7 +714,7 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 	},
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
+func TestGetNetworkPolicyKafka(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyKafka, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -728,7 +722,7 @@ func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesKafka,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var L4PolicyMySQL = &policy.L4Policy{
@@ -794,7 +788,7 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 	},
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
+func TestGetNetworkPolicyMySQL(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyMySQL, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:           []string{IPv4Addr},
@@ -802,7 +796,7 @@ func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
 		EgressPerPortPolicies: ExpectedPerPortPoliciesMySQL,
 		ConntrackMapName:      "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var kafkaIngressVisibilityPolicy = &policy.VisibilityPolicy{
@@ -817,7 +811,7 @@ var kafkaIngressVisibilityPolicy = &policy.VisibilityPolicy{
 	},
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
+func TestGetNetworkPolicyProxylibVisibility(t *testing.T) {
 	// No visibility gets allow-all policies
 	// Allow-all policies are generated also when l4 filter is nil when policy is not enforced.
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, nil, false, false, false)
@@ -830,7 +824,7 @@ func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 		ConntrackMapName:       "global",
 	}
 
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 
 	obtained = getNetworkPolicy(ep, kafkaIngressVisibilityPolicy, []string{IPv4Addr}, nil, false, false, false)
 
@@ -854,7 +848,7 @@ func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 		ConntrackMapName:      "global",
 	}
 
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var L4PolicyTLSEgress = &policy.L4Policy{
@@ -885,7 +879,7 @@ var ExpectedPerPortPoliciesTLSEgress = []*cilium.PortNetworkPolicy{
 	},
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyTLSEgress(c *C) {
+func TestGetNetworkPolicyTLSEgress(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyTLSEgress, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:           []string{IPv4Addr},
@@ -893,7 +887,7 @@ func (s *ServerSuite) TestGetNetworkPolicyTLSEgress(c *C) {
 		EgressPerPortPolicies: ExpectedPerPortPoliciesTLSEgress,
 		ConntrackMapName:      "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var L4PolicyTLSIngress = &policy.L4Policy{
@@ -927,7 +921,7 @@ var ExpectedPerPortPoliciesTLSIngress = []*cilium.PortNetworkPolicy{
 	},
 }
 
-func (s *ServerSuite) TestGetNetworkPolicyTLSIngress(c *C) {
+func TestGetNetworkPolicyTLSIngress(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyTLSIngress, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -935,7 +929,7 @@ func (s *ServerSuite) TestGetNetworkPolicyTLSIngress(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesTLSIngress,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var L4PolicyTLSFullContext = &policy.L4Policy{
@@ -985,7 +979,7 @@ var ExpectedPerPortPoliciesTLSFullContext = []*cilium.PortNetworkPolicy{
 // from the secret to the Envoy config, including a CA on terminatingTLS/downstreamTls and a cert/key on originatingTLS/
 // upstreamTls. This is likely *not* correct, but is supported as an option for backwards bug compatabality. See
 // https://github.com/cilium/cilium/issues/31761 for full context.
-func (s *ServerSuite) TestGetNetworkPolicyFullTLSContextEnabled(c *C) {
+func TestGetNetworkPolicyFullTLSContextEnabled(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyTLSFullContext, true, true, true)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -993,7 +987,7 @@ func (s *ServerSuite) TestGetNetworkPolicyFullTLSContextEnabled(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesTLSFullContext,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 var ExpectedPerPortPoliciesTLSNotFullContext = []*cilium.PortNetworkPolicy{
@@ -1020,7 +1014,7 @@ var ExpectedPerPortPoliciesTLSNotFullContext = []*cilium.PortNetworkPolicy{
 //
 // Even when the useFullTLSContext flag is removed in a future release, this test (or a variant of it) must remain to
 // verify that we correctly do not copy over the CA on terminatingTLS or the cert/key on originatingTLS.
-func (s *ServerSuite) TestGetNetworkPolicyStripUnusedKeys(c *C) {
+func TestGetNetworkPolicyStripUnusedKeys(t *testing.T) {
 	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyTLSFullContext, true, true, false)
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -1028,7 +1022,7 @@ func (s *ServerSuite) TestGetNetworkPolicyStripUnusedKeys(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesTLSNotFullContext,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.ExportedEquals, expected)
+	require.Equal(t, expected, obtained)
 }
 
 func Test_getPublicListenerAddress(t *testing.T) {
