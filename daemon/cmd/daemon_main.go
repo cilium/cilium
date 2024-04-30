@@ -1647,7 +1647,28 @@ type daemonParams struct {
 	CompilationLock     datapath.CompilationLock
 }
 
-func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
+// finalDaemonConfig is used to safely provide *DaemonConfig to hive.
+// This means that following this, we should avoid any further global
+// option.Config overrides, such that modules that depend on this are provided
+// a final configuration.
+//
+// Currently this contains kube-proxy-replacement config and probing overrides, with
+// any remaining checks being done at runtime in finishKubeProxyReplacementOptions.
+func finalDaemonConfig(sysctl sysctl.Sysctl) (*option.DaemonConfig, error) {
+	// Prior to creating the daemonPromise, we do the first phase of kpr
+	// initialization.
+	// This looks at existing configuration to make any necessary option
+	// overrides related to kpr.
+	// Following this, probeKubeProxyReplacementOptions(...) and then
+	// finally finishKubeProxyReplacementInit(...)  are run inside newDeamon
+	// which is done at Hive runtime.
+	if err := initKubeProxyReplacementOptions(sysctl); err != nil {
+		return nil, err
+	}
+	return option.Config, nil
+}
+
+func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], error) {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
@@ -1690,7 +1711,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			return nil
 		},
 	})
-	return daemonPromise
+	return daemonPromise, nil
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.

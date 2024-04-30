@@ -30,8 +30,10 @@ import (
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
-// initKubeProxyReplacementOptions will grok the global config and determine
+// runtimeInitKubeProxyReplacementOptions will grok the daemon config and determine
 // if we strictly enforce a kube-proxy replacement.
+// Note: Runtime probing is performed seperately in probeKubeProxyReplacementOptions.
+// This function should be run prior hive runtime.
 //
 // if we determine the config denotes a "strict" kube-proxy replacement, the
 // returned boolean will be true, when we detect a "non-strict" configuration the
@@ -232,7 +234,65 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(sysctl)
+	if err := probeKubeProxyReplacementOptions(sysctl); err != nil {
+		return fmt.Errorf("failed to probe kube-proxy-replacement options: %w", err)
+	}
+
+	if !option.Config.EnableNodePort {
+		// Make sure that NodePort dependencies are disabled
+		disableNodePort()
+		return nil
+	}
+
+	if option.Config.DryMode {
+		return nil
+	}
+
+	// +-------------------------------------------------------+
+	// | After this point, BPF NodePort should not be disabled |
+	// +-------------------------------------------------------+
+
+	// For MKE, we only need to change/extend the socket LB behavior in case
+	// of kube-proxy replacement. Otherwise, nothing else is needed.
+	if option.Config.EnableMKE && option.Config.EnableSocketLB {
+		markHostExtension()
+	}
+
+	if !option.Config.EnableHostLegacyRouting {
+		msg := ""
+		switch {
+		// Needs host stack for packet handling.
+		case option.Config.EnableIPSec:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
+		// Non-BPF masquerade requires netfilter and hence CT.
+		case option.Config.IptablesMasqueradingEnabled():
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// KPR=true is needed or we might rely on netfilter.
+		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
+			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
+		default:
+			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
+				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+				msg = "BPF host routing requires kernel 5.10 or newer."
+			}
+		}
+		if msg != "" {
+			option.Config.EnableHostLegacyRouting = true
+			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
+		}
+	}
+
+	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
+		if err := setXDPMode(option.Config.NodePortAcceleration); err != nil {
+			return fmt.Errorf("Cannot set NodePort acceleration: %w", err)
+		}
+	}
+
+	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
+		option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
+		option.Config.NodePortMode == option.NodePortModeSNAT
+
+	return nil
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with

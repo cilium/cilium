@@ -358,17 +358,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
-	// Do the partial kube-proxy replacement initialization before creating BPF
-	// maps. Otherwise, some maps might not be created (e.g. session affinity).
-	// finishKubeProxyReplacementInit(), which is called later after the device
-	// detection, might disable BPF NodePort and friends. But this is fine, as
-	// the feature does not influence the decision which BPF maps should be
-	// created.
-	if err := initKubeProxyReplacementOptions(params.Sysctl, params.TunnelConfig); err != nil {
-		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
-		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
-	}
-
 	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 

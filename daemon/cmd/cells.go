@@ -88,7 +88,7 @@ var (
 		metricsmap.Cell,
 
 		// Provide option.Config via hive so cells can depend on the agent config.
-		cell.Provide(func() *option.DaemonConfig { return option.Config }),
+		cell.Provide(finalDaemonConfig),
 
 		// Cilium API served over UNIX sockets. Accessed by the 'cilium' utility (not cilium-cli).
 		server.Cell,
