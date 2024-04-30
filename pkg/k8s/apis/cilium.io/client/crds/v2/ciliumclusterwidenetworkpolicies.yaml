@@ -920,6 +920,12 @@ spec:
                             - secret
                             type: object
                         type: object
+                        x-kubernetes-validations:
+                        - message: If a non-TCP protocol is used in any of the ports,
+                            then there should not be any HTTP rules set
+                          rule: '!has(self.rules) || !has(self.rules.http) || !self.ports.exists_one(p,
+                            !has(p.protocol) || p.protocol != ''TCP'')'
+                      maxItems: 32
                       type: array
                     toRequires:
                       description: "ToRequires is a list of additional constraints
@@ -1076,6 +1082,7 @@ spec:
                         type: object
                       type: array
                   type: object
+                maxItems: 32
                 type: array
               egressDeny:
                 description: EgressDeny is a list of EgressDenyRule which are enforced
@@ -2558,8 +2565,15 @@ spec:
                             - secret
                             type: object
                         type: object
+                        x-kubernetes-validations:
+                        - message: If a non-TCP protocol is used in any of the ports,
+                            then there should not be any HTTP rules set
+                          rule: '!has(self.rules) || !has(self.rules.http) || !self.ports.exists_one(p,
+                            !has(p.protocol) || p.protocol != ''TCP'')'
+                      maxItems: 32
                       type: array
                   type: object
+                maxItems: 32
                 type: array
               ingressDeny:
                 description: IngressDeny is a list of IngressDenyRule which are enforced
@@ -3979,6 +3993,12 @@ spec:
                               - secret
                               type: object
                           type: object
+                          x-kubernetes-validations:
+                          - message: If a non-TCP protocol is used in any of the ports,
+                              then there should not be any HTTP rules set
+                            rule: '!has(self.rules) || !has(self.rules.http) || !self.ports.exists_one(p,
+                              !has(p.protocol) || p.protocol != ''TCP'')'
+                        maxItems: 32
                         type: array
                       toRequires:
                         description: "ToRequires is a list of additional constraints
@@ -4139,6 +4159,7 @@ spec:
                           type: object
                         type: array
                     type: object
+                  maxItems: 32
                   type: array
                 egressDeny:
                   description: EgressDeny is a list of EgressDenyRule which are enforced
@@ -5640,8 +5661,15 @@ spec:
                               - secret
                               type: object
                           type: object
+                          x-kubernetes-validations:
+                          - message: If a non-TCP protocol is used in any of the ports,
+                              then there should not be any HTTP rules set
+                            rule: '!has(self.rules) || !has(self.rules.http) || !self.ports.exists_one(p,
+                              !has(p.protocol) || p.protocol != ''TCP'')'
+                        maxItems: 32
                         type: array
                     type: object
+                  maxItems: 32
                   type: array
                 ingressDeny:
                   description: IngressDeny is a list of IngressDenyRule which are
@@ -6164,6 +6192,7 @@ spec:
                       type: object
                   type: object
               type: object
+            maxItems: 32
             type: array
           status:
             description: "Status is the status of the Cilium policy rule. \n The reason

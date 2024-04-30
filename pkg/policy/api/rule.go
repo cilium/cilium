@@ -77,6 +77,7 @@ type Rule struct {
 	// If omitted or empty, this rule does not apply at ingress.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=32
 	Ingress []IngressRule `json:"ingress,omitempty"`
 
 	// IngressDeny is a list of IngressDenyRule which are enforced at ingress.
@@ -91,6 +92,7 @@ type Rule struct {
 	// If omitted or empty, this rule does not apply at egress.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=32
 	Egress []EgressRule `json:"egress,omitempty"`
 
 	// EgressDeny is a list of EgressDenyRule which are enforced at egress.
