@@ -18,7 +18,7 @@ is also supported.
 
 .. Note::
 
-    The ingress controller creates a service of LoadBalancer type, so
+    The ingress controller creates a Service of LoadBalancer type, so
     your environment will need to support this.
 
 Cilium allows you to specify load balancer mode for the Ingress resource:
@@ -54,6 +54,10 @@ Prerequisites
   replacement <kubeproxy-free>`.
 * Cilium must be configured with the L7 proxy enabled using ``l7Proxy=true``
   (enabled by default).
+* By default, the Ingress controller creates a Service of LoadBalancer type,
+  so your environment will need to support this. Alternatively, you can change
+  this to NodePort or, since Cilium 1.16+, directly expose the Cilium L7 proxy
+  on the :ref:`host network<gs_ingress_host_network_mode>`.
 
 .. include:: installation.rst
 
@@ -82,24 +86,22 @@ Supported Ingress Annotations
      - ``LoadBalancer``
    * - ``ingress.cilium.io/insecure-node-port``
      - | The NodePort to use for the HTTP Ingress.
-       | Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``. If unspecified, a random
+       | Applicable only if ``ingress.cilium.io/service-type``
+       | is ``NodePort``. If unspecified, a random
        | NodePort will be allocated by kubernetes.
      - unspecified
    * - ``ingress.cilium.io/secure-node-port``
      - | The NodePort to use for the HTTPS Ingress.
-       | Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``. If unspecified, a random
+       | Applicable only if ``ingress.cilium.io/service-type``
+       | is ``NodePort``. If unspecified, a random
        | NodePort will be allocated by kubernetes.
      - unspecified
-   * - ``ingress.cilium.io/http-host-port``
-     - | The port to use for the HTTP listener (HTTP and HTTPS) on the host network.
-       | Applicable only for dedicated Ingress and if hostnetwork mode is enabled for IngressController.
-       | If unspecified, the default ports (80/443) are used.
-     - unspecified
-   * - ``ingress.cilium.io/tls-passthrough-host-port``
-     - | The port to use for the TLS passthrough listener on the host network.
-       | Applicable only for dedicated Ingress and if hostnetwork mode is enabled for IngressController.
-       | If unspecified, the default port (443) are used.
-     - unspecified
+   * - ``ingress.cilium.io/host-listener-port``
+     - | The port to use for the Envoy listener on the host
+       | network. Applicable and mandatory only for
+       | dedicated Ingress and if :ref:`host network mode<gs_ingress_host_network_mode>` is
+       | enabled.
+     - ``8080``
    * - ``ingress.cilium.io/tls-passthrough``
      - | Enable TLS Passthrough mode for this Ingress.
        | Applicable values are ``enabled`` and ``disabled``,
@@ -127,14 +129,17 @@ Supported Ingress Annotations
        | accepted.
        |
        | Note that if the annotation is not present, this
-       | behavior will be controlled by the ``enforce-ingress-https`` configuration
-       | file setting (or ``ingressController.enforceHttps`` in Helm).
+       | behavior will be controlled by the
+       | ``enforce-ingress-https`` configuration
+       | file setting (or ``ingressController.enforceHttps``
+       | in Helm).
        | 
-       | Any host with TLS config will have redirects to HTTPS
-       | configured for each match specified in the Ingress.
+       | Any host with TLS config will have redirects to
+       | HTTPS configured for each match specified in the
+       | Ingress.
      - unspecified
 
-Additionally, cloud-provider specific annotations for the LoadBalancer service
+Additionally, cloud-provider specific annotations for the LoadBalancer Service
 are supported.
 
 By default, annotations with values beginning with:
@@ -145,7 +150,7 @@ By default, annotations with values beginning with:
 * ``service.kubernetes.io``
 * ``cloud.google.com``
 
-will be copied from an Ingress object to the generated LoadBalancer service objects.
+will be copied from an Ingress object to the generated LoadBalancer Service objects.
 
 This setting is controlled by the Cilium Operator's ``ingress-lb-annotation-prefixes``
 config flag, and can be configured in Cilium's Helm ``values.yaml``
@@ -153,6 +158,119 @@ using the ``ingressController.ingressLBAnnotationPrefixes`` setting.
 
 Please refer to the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer>`_
 for more details.
+
+.. _gs_ingress_host_network_mode:
+
+Host network mode
+#################
+.. note::
+  Supported since Cilium 1.16+
+
+Host network mode allows you to expose the Cilium ingress controller (Envoy
+listener) directly on the host network.
+This is useful in cases where a LoadBalancer Service is unavailable, such
+as in development environments or environments with cluster-external
+loadbalancers.
+
+.. note::
+    * Enabling the Cilium ingress controller host network mode automatically disables the LoadBalancer/NodePort type Service mode. They are mutually exclusive.
+    * The listener is exposed on all interfaces (``0.0.0.0`` for IPv4 and/or ``::`` for IPv6).
+
+Host network mode can be enabled via Helm:
+
+.. code-block:: yaml
+
+    ingressController:
+      enabled: true
+      hostNetwork:
+        enabled: true
+
+Once enabled, host network ports can be specified with the following methods:
+
+* Shared Ingress: Globally via Helm flags
+    * ``ingressController.hostNetwork.sharedListenerPort``: Host network port to expose the Cilium ingress controller Envoy listener. The default port is ``8080``. If you change it, you should choose a port number higher than ``1023`` (see `Bind to privileged port`_).
+* Dedicated Ingress: Per ``Ingress`` resource via annotations
+    * ``ingress.cilium.io/host-listener-port``:  Host network port to expose the Cilium ingress controller Envoy listener. The default port is ``8080`` but it can only be used for a single ``Ingress`` resource as it needs to be unique per ``Ingress`` resource. You should choose a port higher than ``1023`` (see `Bind to privileged port`_). This annotation is mandatory if the global Cilium ingress controller mode is configured to ``dedicated`` (``ingressController.loadbalancerMode``) or the ingress resource sets the ``ingress.cilium.io/loadbalancer-mode`` annotation to ``dedicated`` and multiple ``Ingress`` resources are deployed.
+
+The default behavior regarding shared or dedicated ingress can be configured via
+``ingressController.loadbalancerMode``.
+
+.. warning::
+    Be aware that misconfiguration might result in port clashes. Configure unique ports that are still available on all Cilium Nodes where Cilium ingress controller Envoy listeners are exposed.
+
+Bind to privileged port
+***********************
+By default, the Cilium L7 Envoy process does not have any Linux capabilities
+out-of-the-box and is therefore not allowed to listen on privileged ports.
+
+If you choose a port equal to or lower than ``1023``, ensure that the Helm value
+``envoy.securityContext.capabilities.keepCapNetBindService=true`` is configured
+and to add the capability ``NET_BIND_SERVICE`` to the respective
+:ref:`Cilium Envoy container via Helm values<envoy>`:
+
+* Standalone DaemonSet mode: ``envoy.securityContext.capabilities.envoy``
+* Embedded mode: ``securityContext.capabilities.ciliumAgent``
+
+Configure the following Helm values to allow privileged port bindings in host
+network mode:
+
+.. tabs::
+
+    .. group-tab:: Standalone DaemonSet mode
+
+      .. code-block:: yaml
+
+          ingressController:
+            enabled: true
+            hostNetwork:
+              enabled: true
+          envoy:
+            enabled: true
+            securityContext:
+              capabilities:
+                keepCapNetBindService: true
+                envoy:
+                # Add NET_BIND_SERVICE to the list (keep the others!)
+                - NET_BIND_SERVICE
+
+    .. group-tab:: Embedded mode
+
+      .. code-block:: yaml
+
+          ingressController:
+            enabled: true
+            hostNetwork:
+              enabled: true
+          envoy:
+            securityContext:
+              capabilities:
+                keepCapNetBindService: true
+          securityContext:
+            capabilities:
+              ciliumAgent:
+              # Add NET_BIND_SERVICE to the list (keep the others!)
+              - NET_BIND_SERVICE
+
+Deploy Gateway API listeners on subset of nodes
+***********************************************
+The Cilium ingress controller Envoy listener can be exposed on a specific subset
+of nodes. This only works in combination with the host network mode and can be
+configured via a node label selector in the Helm values:
+
+.. code-block:: yaml
+
+    ingressController:
+      enabled: true
+      hostNetwork:
+        enabled: true
+        nodes:
+          matchLabels:
+            role: infra
+            component: ingress
+
+This will deploy the Ingress Controller Envoy listener only on the Cilium Nodes
+matching the configured labels. An empty selector selects all nodes and
+continues to expose the functionality on all Cilium nodes.
 
 Examples
 ########
