@@ -311,6 +311,11 @@ Annotations:
   disabling it manually by setting ``envoy.enabled=false`` accordingly. This change adds
   one additional Pod per Node, therefore Nodes at maximum Pod capacity will face an
   eviction of a single non-system critical Pod after upgrading.
+* For Linux kernels of version 6.6 or newer, Cilium by default switches to tcx BPF links for
+  attaching its tc BPF programs in the core datapath for better resiliency and performance.
+  If your current setup has third-party old-style tc BPF users, then this option should be
+  disabled via Helm through ``bpf.enableTCX=false`` in order to continue in old-style tc BPF
+  attachment mode as before.
 * The ``cilium-dbg status --verbose`` command health data may now show health reported on a non-leaf
   component under a leaf named ``reporter``. Health data tree branches will now also be sorted by
   the fully qualified health status identifier.
