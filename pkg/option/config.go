@@ -1353,7 +1353,8 @@ type DaemonConfig struct {
 	LBDevInheritIPAddr  string   // Device which IP addr used by bpf_host devices
 	EnableXDPPrefilter  bool     // Enable XDP-based prefiltering
 	XDPMode             string   // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	EnableTCX           bool     // Enable attaching endpoint programs using tcx
+	EnableTCX           bool     // Enable attaching endpoint programs using tcx if kernel supports it
+	TCX                 bool     // tcx has been installed successfully
 	HostV4Addr          net.IP   // Host v4 address of the snooping device
 	HostV6Addr          net.IP   // Host v6 address of the snooping device
 	EncryptInterface    []string // Set of network facing interface to encrypt over

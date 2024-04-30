@@ -221,6 +221,14 @@ func (d *Daemon) getClockSourceStatus() *models.ClockSource {
 	return timestamp.GetClockSourceFromOptions()
 }
 
+func (d *Daemon) getAttachModeStatus() models.AttachMode {
+	mode := models.AttachModeTc
+	if option.Config.TCX {
+		mode = models.AttachModeTcx
+	}
+	return mode
+}
+
 func (d *Daemon) getCNIChainingStatus() *models.CNIChainingStatus {
 	mode := d.cniConfigManager.GetChainingMode()
 	if len(mode) == 0 {
@@ -1104,6 +1112,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()
 	d.statusResponse.IdentityRange = d.getIdentityRange()
 	d.statusResponse.Srv6 = d.getSRv6Status()
+	d.statusResponse.AttachMode = d.getAttachModeStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{StackdumpPath: "/run/cilium/state/agent.stack.gz"})
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/option"
 )
+
+var once sync.Once
 
 // attachSKBProgram attaches prog to device using tcx if available and enabled,
 // or legacy tc as a fallback.
@@ -29,7 +32,10 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 			if err := removeTCFilters(device, parent); err != nil {
 				return fmt.Errorf("legacy tc cleanup after attaching tcx program %s: %w", progName, err)
 			}
-
+			// Record for daemon status that we are using tcx successfully.
+			once.Do(func() {
+				option.Config.TCX = true
+			})
 			// Don't fall back to legacy tc.
 			return nil
 		}
