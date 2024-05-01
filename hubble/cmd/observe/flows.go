@@ -529,6 +529,9 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 	filterFlags.Var(filterVar(
 		"cel-expression", ofilter,
 		"Filter flows using the given CEL expression"))
+	filterFlags.Var(filterVar(
+		"interface", ofilter,
+		"Show all flows observed at the given interface name (e.g. eth0)"))
 
 	rawFilterFlags.StringArray(allowlistFlag, []string{}, "Specify allowlist as JSON encoded FlowFilters")
 	rawFilterFlags.StringArray(denylistFlag, []string{}, "Specify denylist as JSON encoded FlowFilters")

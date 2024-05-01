@@ -808,6 +808,52 @@ func TestSnatIp(t *testing.T) {
 	}
 }
 
+func TestInterface(t *testing.T) {
+	tt := []struct {
+		name    string
+		flags   []string
+		filters []*flowpb.FlowFilter
+		err     string
+	}{
+		{
+			name:  "exact match",
+			flags: []string{"--interface", "eth0"},
+			filters: []*flowpb.FlowFilter{
+				{
+					Interface: []*flowpb.NetworkInterface{
+						{
+							Name: "eth0",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+			err := cmd.Flags().Parse(tc.flags)
+			diff := cmp.Diff(
+				tc.filters,
+				f.whitelist.flowFilters(),
+				cmpopts.IgnoreUnexported(flowpb.FlowFilter{}),
+				cmpopts.IgnoreUnexported(flowpb.NetworkInterface{}),
+			)
+			if diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+			if tc.err != "" {
+				require.Errorf(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Nil(t, f.blacklist)
+		})
+	}
+}
+
 func TestHTTPURL(t *testing.T) {
 	f := newFlowFilter()
 	cmd := newFlowsCmdWithFilter(viper.New(), f)
