@@ -13,8 +13,10 @@ import (
 )
 
 type remoteServiceObserver struct {
-	globalServices  *common.GlobalServiceCache
-	meshPodInformer *meshPodInformer
+	globalServices *common.GlobalServiceCache
+
+	clusterServiceUpdateHooks []func(*serviceStore.ClusterService)
+	clusterServiceDeleteHooks []func(*serviceStore.ClusterService)
 }
 
 // OnUpdate is called when a service in a remote cluster is updated
@@ -35,7 +37,9 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 		}
 
 		r.globalServices.OnUpdate(svc)
-		r.meshPodInformer.onClusterServiceUpdate(svc)
+		for _, clusterServiceUpdateHook := range r.clusterServiceUpdateHooks {
+			clusterServiceUpdateHook(svc)
+		}
 	} else {
 		log.Warningf("Received unexpected remote service update object %+v", key)
 	}
@@ -53,7 +57,9 @@ func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
 			return
 		}
 
-		r.meshPodInformer.onClusterServiceDelete(svc)
+		for _, clusterServiceDeleteHook := range r.clusterServiceDeleteHooks {
+			clusterServiceDeleteHook(svc)
+		}
 	} else {
 		log.Warningf("Received unexpected remote service delete object %+v", key)
 	}

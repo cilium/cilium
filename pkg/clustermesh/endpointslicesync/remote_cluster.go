@@ -22,13 +22,15 @@ type remoteCluster struct {
 	// name is the name of the cluster
 	name string
 
-	meshNodeInformer *meshNodeInformer
-	globalServices   *common.GlobalServiceCache
+	globalServices *common.GlobalServiceCache
 
 	// remoteServices is the shared store representing services in remote clusters
 	remoteServices store.WatchStore
 
 	storeFactory store.Factory
+
+	clusterAddHooks    []func(string)
+	clusterDeleteHooks []func(string)
 
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
@@ -57,7 +59,9 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	close(ready)
-	rc.meshNodeInformer.onAddCluster(rc.name)
+	for _, clusterAddHook := range rc.clusterAddHooks {
+		clusterAddHook(rc.name)
+	}
 	mgr.Run(ctx)
 }
 
@@ -66,7 +70,9 @@ func (rc *remoteCluster) Stop() {
 }
 
 func (rc *remoteCluster) Remove() {
-	rc.meshNodeInformer.onDeleteCluster(rc.name)
+	for _, clusterDeleteHook := range rc.clusterDeleteHooks {
+		clusterDeleteHook(rc.name)
+	}
 	// Draining shall occur only when the configuration for the remote cluster
 	// is removed, and not in case the operator is shutting down, otherwise we
 	// would break existing connections on restart.

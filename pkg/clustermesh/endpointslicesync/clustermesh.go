@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync/atomic"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
 	"github.com/cilium/hive/cell"
@@ -47,9 +48,34 @@ type clusterMesh struct {
 
 	endpointSliceMeshController  *endpointslice.Controller
 	endpointSliceInformerFactory informers.SharedInformerFactory
+
+	started                   atomic.Bool
+	clusterAddHooks           []func(string)
+	clusterDeleteHooks        []func(string)
+	clusterServiceUpdateHooks []func(*serviceStore.ClusterService)
+	clusterServiceDeleteHooks []func(*serviceStore.ClusterService)
 }
 
-func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) *clusterMesh {
+// ClusterMesh is the interface corresponding to the clusterMesh struct to expose
+// its public methods to other Cilium packages.
+type ClusterMesh interface {
+	// RegisterClusterAddHook register a hook when a cluster is added to the mesh.
+	// This should NOT be called after the Start hook.
+	RegisterClusterAddHook(clusterAddHook func(string))
+	// RegisterClusterDeleteHook register a hook when a cluster is removed from the mesh.
+	// This should NOT be called after the Start hook.
+	RegisterClusterDeleteHook(clusterDeleteHook func(string))
+	// RegisterClusterServiceUpdateHook register a hook when a service in the mesh is updated.
+	// This should NOT be called after the Start hook.
+	RegisterClusterServiceUpdateHook(clusterServiceUpdateHook func(*serviceStore.ClusterService))
+	// RegisterClusterServiceDeleteHook register a hook when a service in the mesh is deleted.
+	// This should NOT be called after the Start hook.
+	RegisterClusterServiceDeleteHook(clusterServiceDeleteHook func(*serviceStore.ClusterService))
+
+	GlobalServices() *common.GlobalServiceCache
+}
+
+func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) ClusterMesh {
 	if !params.Clientset.IsEnabled() || params.ClusterMeshConfig == "" || !params.Cfg.ClusterMeshEnableEndpointSync {
 		return nil
 	}
@@ -66,7 +92,11 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) *clusterMesh {
 	}
 	cm.context, cm.contextCancel = context.WithCancel(context.Background())
 	cm.meshPodInformer = newMeshPodInformer(cm.globalServices)
+	cm.RegisterClusterServiceUpdateHook(cm.meshPodInformer.onClusterServiceUpdate)
+	cm.RegisterClusterServiceDeleteHook(cm.meshPodInformer.onClusterServiceDelete)
 	cm.meshNodeInformer = newMeshNodeInformer()
+	cm.RegisterClusterAddHook(cm.meshNodeInformer.onClusterAdd)
+	cm.RegisterClusterDeleteHook(cm.meshNodeInformer.onClusterDelete)
 	cm.endpointSliceMeshController, cm.meshServiceInformer, cm.endpointSliceInformerFactory = newEndpointSliceMeshController(
 		cm.context, params.Cfg, cm.meshPodInformer,
 		cm.meshNodeInformer, params.Clientset,
@@ -124,19 +154,64 @@ func (cm *clusterMeshServiceGetter) GetServiceIP(svcID k8s.ServiceID) *loadbalan
 	return nil
 }
 
+// RegisterClusterAddHook register a hook when a cluster is added to the mesh.
+// This should NOT be called after the Start hook.
+func (cm *clusterMesh) RegisterClusterAddHook(clusterAddHook func(string)) {
+	if cm.started.Load() {
+		panic(fmt.Errorf("can't call RegisterClusterAddHook after the Start hook"))
+	}
+	cm.clusterAddHooks = append(cm.clusterAddHooks, clusterAddHook)
+}
+
+// RegisterClusterDeleteHook register a hook when a cluster is removed from the mesh.
+// This should NOT be called after the Start hook.
+func (cm *clusterMesh) RegisterClusterDeleteHook(clusterDeleteHook func(string)) {
+	if cm.started.Load() {
+		panic(fmt.Errorf("can't call RegisterClusterDeleteHook after the Start hook"))
+	}
+	cm.clusterDeleteHooks = append(cm.clusterDeleteHooks, clusterDeleteHook)
+}
+
+// RegisterClusterServiceUpdateHook register a hook when a service in the mesh is updated.
+// This should NOT be called after the Start hook.
+func (cm *clusterMesh) RegisterClusterServiceUpdateHook(clusterServiceUpdateHook func(*serviceStore.ClusterService)) {
+	if cm.started.Load() {
+		panic(fmt.Errorf("can't call RegisterClusterServiceUpdateHook after the Start hook"))
+	}
+	cm.clusterServiceUpdateHooks = append(cm.clusterServiceUpdateHooks, clusterServiceUpdateHook)
+}
+
+// RegisterClusterServiceDeleteHook register a hook when a service in the mesh is deleted.
+// This should NOT be called after the Start hook.
+func (cm *clusterMesh) RegisterClusterServiceDeleteHook(clusterServiceDeleteHook func(*serviceStore.ClusterService)) {
+	if cm.started.Load() {
+		panic(fmt.Errorf("can't call RegisterClusterServiceDeleteHook after the Start hook"))
+	}
+	cm.clusterServiceDeleteHooks = append(cm.clusterServiceDeleteHooks, clusterServiceDeleteHook)
+}
+
+func (cm *clusterMesh) GlobalServices() *common.GlobalServiceCache {
+	return cm.globalServices
+}
+
 func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
-		name:             name,
-		meshNodeInformer: cm.meshNodeInformer,
-		globalServices:   cm.globalServices,
-		storeFactory:     cm.storeFactory,
-		synced:           newSynced(),
+		name:               name,
+		globalServices:     cm.globalServices,
+		storeFactory:       cm.storeFactory,
+		synced:             newSynced(),
+		clusterAddHooks:    cm.clusterAddHooks,
+		clusterDeleteHooks: cm.clusterDeleteHooks,
 	}
 
 	rc.remoteServices = cm.storeFactory.NewWatchStore(
 		name,
 		func() store.Key { return new(serviceStore.ClusterService) },
-		&remoteServiceObserver{globalServices: cm.globalServices, meshPodInformer: cm.meshPodInformer},
+		&remoteServiceObserver{
+			globalServices:            cm.globalServices,
+			clusterServiceUpdateHooks: cm.clusterServiceUpdateHooks,
+			clusterServiceDeleteHooks: cm.clusterServiceDeleteHooks,
+		},
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
 	)
 
@@ -145,6 +220,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 
 func (cm *clusterMesh) Start(startCtx cell.HookContext) error {
 	log.Info("Bootstrap clustermesh EndpointSlice controller")
+	cm.started.Store(true)
 
 	cm.endpointSliceInformerFactory.Start(cm.context.Done())
 	if err := cm.meshServiceInformer.Start(cm.context); err != nil {
