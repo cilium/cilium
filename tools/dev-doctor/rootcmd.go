@@ -103,7 +103,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:    checkError,
 			versionArgs:   []string{"--version"},
 			versionRegexp: regexp.MustCompile(`clang version ` + versionRegex),
-			minVersion:    &semver.Version{Major: 10, Minor: 0, Patch: 0},
+			minVersion:    &semver.Version{Major: 17, Minor: 0, Patch: 0},
 		},
 		&binaryCheck{
 			name:          "docker-server",
@@ -134,7 +134,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionRegexp: regexp.MustCompile(`Ginkgo Version ` + versionRegex),
 			minVersion:    &semver.Version{Major: 1, Minor: 4, Patch: 0},
 			maxVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
-			hint:          `Run "go install github.com/onsi/ginkgo/ginkgo@latest".`,
+			hint:          `Run "go install github.com/onsi/ginkgo/ginkgo@v1.16.5".`,
 		},
 		// FIXME add gomega check?
 		&binaryCheck{
@@ -156,7 +156,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{`version`, `--template`, `Version: {{.Version}}`},
 			versionRegexp: regexp.MustCompile(`Version: ` + versionRegex),
-			minVersion:    &semver.Version{Major: 3, Minor: 6, Patch: 0},
+			minVersion:    &semver.Version{Major: 3, Minor: 13, Patch: 0},
 		},
 		&binaryCheck{
 			name:          "vagrant",
@@ -185,20 +185,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionRegexp: regexp.MustCompile(`pip ` + versionRegex),
 		},
 		&binaryCheck{
-			name:          "cfssl",
-			ifNotFound:    checkWarning,
-			versionArgs:   []string{"version"},
-			versionRegexp: regexp.MustCompile(`Version: ` + versionRegex),
-			hint:          "See https://github.com/cloudflare/cfssl#installation.",
-		},
-		&binaryCheck{
-			name:          "cfssljson",
-			ifNotFound:    checkWarning,
-			versionArgs:   []string{"-version"},
-			versionRegexp: regexp.MustCompile(`Version: ` + versionRegex),
-			hint:          "See https://github.com/cloudflare/cfssl#installation.",
-		},
-		&binaryCheck{
 			name:          "kind",
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"--version"},
@@ -211,7 +197,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"version", "--output=yaml", "--client=true"},
 			versionRegexp: regexp.MustCompile(`gitVersion: ` + versionRegex),
-			minVersion:    &semver.Version{Major: 1, Minor: 14, Patch: 0},
+			minVersion:    &semver.Version{Major: 1, Minor: 26, Patch: 0},
 			hint:          "See https://kubernetes.io/docs/tasks/tools/#kubectl.",
 		},
 		&binaryCheck{
