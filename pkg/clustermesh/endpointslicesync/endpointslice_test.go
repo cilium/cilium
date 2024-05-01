@@ -142,7 +142,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	cache.WaitForCacheSync(context.Background().Done(), serviceInformer.HasSynced)
 
 	go controller.Run(context.Background(), 1)
-	nodeInformer.onAddCluster(remoteClusterName)
+	nodeInformer.onClusterAdd(remoteClusterName)
 
 	svcStore, _ := services.Store(context.Background())
 
