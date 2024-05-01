@@ -539,11 +539,12 @@ message FlowFilter {
     // traffic_direction filters flow by direction of the connection, e.g.
     // ingress or egress.
     repeated TrafficDirection traffic_direction = 30;
-
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
     // only applicable to Verdict = DROPPED (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
     repeated DropReason drop_reason_desc = 33;
+    // interface is the network interface on which this flow was observed.
+    repeated NetworkInterface interface = 35;
     // event_type is the list of event types to filter on
     repeated EventTypeFilter event_type = 6;
     // http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
