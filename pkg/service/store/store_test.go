@@ -6,41 +6,33 @@ package store
 import (
 	"testing"
 
-	check "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { check.TestingT(t) }
-
-type ServiceGenericSuite struct{}
-
-var _ = check.Suite(&ServiceGenericSuite{})
-
-func (s *ServiceGenericSuite) TestClusterService(c *check.C) {
+func TestClusterService(t *testing.T) {
 	svc := NewClusterService("foo", "bar")
 	svc.Cluster = "default"
 
-	c.Assert(svc.Name, check.Equals, "foo")
-	c.Assert(svc.Namespace, check.Equals, "bar")
+	require.Equal(t, "foo", svc.Name)
+	require.Equal(t, "bar", svc.Namespace)
 
-	c.Assert(svc.String(), check.Equals, "default/bar/foo")
+	require.Equal(t, "default/bar/foo", svc.String())
 
 	b, err := svc.Marshal()
-	c.Assert(err, check.IsNil)
+	require.Nil(t, err)
 
 	unmarshal := ClusterService{}
 	err = unmarshal.Unmarshal("", b)
-	c.Assert(err, check.IsNil)
-	c.Assert(svc, checker.DeepEquals, unmarshal)
+	require.Nil(t, err)
+	require.EqualValues(t, unmarshal, svc)
 
-	c.Assert(svc.GetKeyName(), check.Equals, "default/bar/foo")
+	require.Equal(t, "default/bar/foo", svc.GetKeyName())
 }
 
-func (s *ServiceGenericSuite) TestPortConfigurationDeepEqual(c *check.C) {
+func TestPortConfigurationDeepEqual(t *testing.T) {
 	tests := []struct {
 		a    PortConfiguration
 		b    PortConfiguration
@@ -96,9 +88,8 @@ func (s *ServiceGenericSuite) TestPortConfigurationDeepEqual(c *check.C) {
 		},
 	}
 	for _, tt := range tests {
-		if got := tt.a.DeepEqual(&tt.b); got != tt.want {
-			c.Errorf("PortConfiguration.DeepEqual() = %v, want %v", got, tt.want)
-		}
+		got := tt.a.DeepEqual(&tt.b)
+		require.Equalf(t, tt.want, got, "PortConfiguration.DeepEqual() = %v, want %v", got, tt.want)
 	}
 }
 

@@ -8,80 +8,72 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 )
 
-type ServiceHealthServerSuite struct{}
-
-var _ = Suite(&ServiceHealthServerSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (s *ServiceHealthServerSuite) TestServiceHealthServer_UpsertService(c *C) {
+func TestServiceHealthServer_UpsertService(t *testing.T) {
 	f := NewMockHealthHTTPServerFactory()
 	h := WithHealthHTTPServerFactory(f)
 
 	// Insert svc1
 	h.UpsertService(1, "default", "svc1", 1, 32000)
-	c.Assert(f.ServiceByPort(32000).Service.Namespace, Equals, "default")
-	c.Assert(f.ServiceByPort(32000).Service.Name, Equals, "svc1")
-	c.Assert(f.ServiceByPort(32000).LocalEndpoints, Equals, 1)
+	require.Equal(t, "default", f.ServiceByPort(32000).Service.Namespace)
+	require.Equal(t, "svc1", f.ServiceByPort(32000).Service.Name)
+	require.Equal(t, 1, f.ServiceByPort(32000).LocalEndpoints)
 
 	// Disable svc1 port
 	h.UpsertService(1, "default", "svc1", 1, 0)
-	c.Assert(f.ServiceByPort(32000), IsNil)
+	require.Nil(t, f.ServiceByPort(32000))
 
 	// Re-enable svc1 port
 	h.UpsertService(1, "default", "svc1", 1, 32000)
-	c.Assert(f.ServiceByPort(32000).Service.Namespace, Equals, "default")
-	c.Assert(f.ServiceByPort(32000).Service.Name, Equals, "svc1")
-	c.Assert(f.ServiceByPort(32000).LocalEndpoints, Equals, 1)
+	require.Equal(t, "default", f.ServiceByPort(32000).Service.Namespace)
+	require.Equal(t, "svc1", f.ServiceByPort(32000).Service.Name)
+	require.Equal(t, 1, f.ServiceByPort(32000).LocalEndpoints)
 
 	// Change svc1 port
 	h.UpsertService(1, "default", "svc1", 2, 32001)
-	c.Assert(f.ServiceByPort(32000), IsNil)
-	c.Assert(f.ServiceByPort(32001).Service.Namespace, Equals, "default")
-	c.Assert(f.ServiceByPort(32001).Service.Name, Equals, "svc1")
-	c.Assert(f.ServiceByPort(32001).LocalEndpoints, Equals, 2)
+	require.Nil(t, f.ServiceByPort(32000))
+	require.Equal(t, "default", f.ServiceByPort(32001).Service.Namespace)
+	require.Equal(t, "svc1", f.ServiceByPort(32001).Service.Name)
+	require.Equal(t, 2, f.ServiceByPort(32001).LocalEndpoints)
 
 	// Update svc1 count
 	h.UpsertService(1, "default", "svc1", 3, 32001)
-	c.Assert(f.ServiceByPort(32001).Service.Namespace, Equals, "default")
-	c.Assert(f.ServiceByPort(32001).Service.Name, Equals, "svc1")
-	c.Assert(f.ServiceByPort(32001).LocalEndpoints, Equals, 3)
+	require.Equal(t, "default", f.ServiceByPort(32001).Service.Namespace)
+	require.Equal(t, "svc1", f.ServiceByPort(32001).Service.Name)
+	require.Equal(t, 3, f.ServiceByPort(32001).LocalEndpoints)
 
 	// Add svc1 clone (uses same port, must be ref-counted)
 	h.UpsertService(100, "default", "svc1", 3, 32001)
-	c.Assert(f.ServiceByPort(32001).Service.Namespace, Equals, "default")
-	c.Assert(f.ServiceByPort(32001).Service.Name, Equals, "svc1")
-	c.Assert(f.ServiceByPort(32001).LocalEndpoints, Equals, 3)
+	require.Equal(t, "default", f.ServiceByPort(32001).Service.Namespace)
+	require.Equal(t, "svc1", f.ServiceByPort(32001).Service.Name)
+	require.Equal(t, 3, f.ServiceByPort(32001).LocalEndpoints)
 
 	// Insert svc2
 	h.UpsertService(2, "default", "svc2", 0, 32002)
-	c.Assert(f.ServiceByPort(32002).Service.Namespace, Equals, "default")
-	c.Assert(f.ServiceByPort(32002).Service.Name, Equals, "svc2")
-	c.Assert(f.ServiceByPort(32002).LocalEndpoints, Equals, 0)
+	require.Equal(t, "default", f.ServiceByPort(32002).Service.Namespace)
+	require.Equal(t, "svc2", f.ServiceByPort(32002).Service.Name)
+	require.Equal(t, 0, f.ServiceByPort(32002).LocalEndpoints)
 
 	// Delete svc1 clone
 	h.DeleteService(100)
-	c.Assert(f.ServiceByPort(32001), Not(IsNil))
-	c.Assert(f.ServiceByPort(32002), Not(IsNil))
+	require.NotNil(t, f.ServiceByPort(32001))
+	require.NotNil(t, f.ServiceByPort(32002))
 
 	// Delete svc1
 	h.DeleteService(1)
-	c.Assert(f.ServiceByPort(32001), IsNil)
-	c.Assert(f.ServiceByPort(32002), Not(IsNil))
+	require.Nil(t, f.ServiceByPort(32001))
+	require.NotNil(t, f.ServiceByPort(32002))
 
 	// Delete svc2
 	h.DeleteService(2)
-	c.Assert(f.ServiceByPort(32001), IsNil)
-	c.Assert(f.ServiceByPort(32002), IsNil)
+	require.Nil(t, f.ServiceByPort(32001))
+	require.Nil(t, f.ServiceByPort(32002))
 }
 
-func (s *ServiceHealthServerSuite) Test_httpHealthServer_ServeHTTP(c *C) {
+func Test_httpHealthServer_ServeHTTP(t *testing.T) {
 	h := &httpHealthServer{}
 	ts := httptest.NewServer(h)
 	defer ts.Close()
@@ -89,23 +81,23 @@ func (s *ServiceHealthServerSuite) Test_httpHealthServer_ServeHTTP(c *C) {
 	// Set local endpoints, server must respond with HTTP 200
 	h.updateService(NewService("default", "svc", 2))
 	resp, err := http.Get(ts.URL)
-	c.Assert(err, IsNil)
-	c.Assert(resp.StatusCode, Equals, http.StatusOK)
-	assertRespHeader(c, resp, "Content-Type", "application/json")
-	assertRespHeader(c, resp, "X-Content-Type-Options", "nosniff")
-	assertRespHeader(c, resp, "X-Load-Balancing-Endpoint-Weight", "2")
+	require.Nil(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assertRespHeader(t, resp, "Content-Type", "application/json")
+	assertRespHeader(t, resp, "X-Content-Type-Options", "nosniff")
+	assertRespHeader(t, resp, "X-Load-Balancing-Endpoint-Weight", "2")
 	resp.Body.Close()
 
 	// Remove local endpoints, server must respond with HTTP 503
 	h.updateService(NewService("default", "svc", 0))
 	resp, err = http.Get(ts.URL)
-	c.Assert(err, IsNil)
-	c.Assert(resp.StatusCode, Equals, http.StatusServiceUnavailable)
+	require.Nil(t, err)
+	require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	resp.Body.Close()
 }
 
-func assertRespHeader(c *C, resp *http.Response, key, val string) {
+func assertRespHeader(t *testing.T, resp *http.Response, key, val string) {
 	if !cmp.Equal(resp.Header[key], []string{val}) {
-		c.Errorf("Want response header: %q: %q, got: %q, %q,", key, []string{val}, key, resp.Header[key])
+		t.Errorf("Want response header: %q: %q, got: %q, %q,", key, []string{val}, key, resp.Header[key])
 	}
 }
