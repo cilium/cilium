@@ -609,8 +609,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Error("failed to initialize WireGuard agent")
 			return nil, nil, fmt.Errorf("failed to initialize WireGuard agent: %w", err)
 		}
-
-		params.NodeManager.Subscribe(params.WGAgent)
 	}
 
 	// The kube-proxy replacement and host-fw devices detection should happen after

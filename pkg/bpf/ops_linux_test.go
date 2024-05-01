@@ -277,5 +277,4 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 		time.Second,
 		100*time.Millisecond,
 		"Expected key to eventually be removed")
-
 }

@@ -29,11 +29,12 @@ var Cell = cell.Module(
 
 	cell.ProvidePrivate(
 		func(ipc *ipcache.IPCache) IPCache { return ipc },
-		node.NewNodesTable,
 	),
 
-	// Provide Table[*Node] for all.
-	cell.Provide(statedb.RWTable[*types.Node].ToTable),
+	cell.Provide(
+		node.NewNodesTable,
+		statedb.RWTable[node.Node].ToTable,
+	),
 )
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An

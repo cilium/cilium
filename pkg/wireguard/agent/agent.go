@@ -11,14 +11,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -33,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -66,15 +70,17 @@ type wireguardClient interface {
 type Agent struct {
 	lock.RWMutex
 
+	jobGroup job.Group
+	mtuTable statedb.Table[mtu.RouteMTU]
+	db       *statedb.DB
+	nodes    statedb.Table[node.Node]
+
 	wgClient    wireguardClient
 	ipCache     *ipcache.IPCache
 	listenPort  int
-	privKey     wgtypes.Key
 	privKeyPath string
+	privKey     wgtypes.Key
 	sysctl      sysctl.Sysctl
-	jobGroup    job.Group
-	db          *statedb.DB
-	mtuTable    statedb.Table[mtu.RouteMTU]
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -84,25 +90,64 @@ type Agent struct {
 	optOut bool
 }
 
+type params struct {
+	cell.In
+
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+	Sysctl    sysctl.Sysctl
+	DB        *statedb.DB
+	Nodes     statedb.Table[node.Node]
+	MTUs      statedb.Table[mtu.RouteMTU]
+}
+
 // NewAgent creates a new WireGuard Agent
-func NewAgent(privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) (*Agent, error) {
+func NewAgent(p params) (*Agent, error) {
+	if !option.Config.EnableWireguard {
+		p.Lifecycle.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
+				// Delete WireGuard device from previous run (if such exists)
+				link.DeleteByName(types.IfaceName)
+				return nil
+			},
+		})
+		return nil, nil
+	}
+
+	if option.Config.EnableIPSec {
+		return nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)",
+			option.EnableWireguard, option.EnableIPSecName)
+	}
+
+	var err error
+	privateKeyPath := filepath.Join(option.Config.StateDir, types.PrivKeyFilename)
+
+	key, err := loadOrGeneratePrivKey(privateKeyPath)
+	if err != nil {
+		return nil, err
+	}
+
 	wgClient, err := wgctrl.New()
 	if err != nil {
 		return nil, err
 	}
-	return &Agent{
-		wgClient:    wgClient,
-		privKeyPath: privKeyPath,
-		listenPort:  types.ListenPort,
-		sysctl:      sysctl,
-		jobGroup:    jobGroup,
-		db:          db,
-		mtuTable:    mtuTable,
 
+	wgAgent := &Agent{
+		db:               p.DB,
+		nodes:            p.Nodes,
+		mtuTable:         p.MTUs,
+		wgClient:         wgClient,
+		privKey:          key,
+		listenPort:       types.ListenPort,
+		sysctl:           p.Sysctl,
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
-	}, nil
+	}
+
+	p.Lifecycle.Append(wgAgent)
+
+	return wgAgent, nil
 }
 
 // Start implements cell.HookInterface.
@@ -110,6 +155,46 @@ func (a *Agent) Start(cell.HookContext) (err error) {
 	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
 	return
 }
+
+type nodeOps struct {
+	a *Agent
+}
+
+// Delete implements reconciler.Operations.
+func (ops *nodeOps) Delete(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
+	node := n.Node()
+	return ops.a.DeletePeer(node.Fullname())
+}
+
+// Prune implements reconciler.Operations.
+func (ops *nodeOps) Prune(context.Context, statedb.ReadTxn, iter.Seq2[node.Node, statedb.Revision]) error {
+	return nil
+}
+
+// Update implements reconciler.Operations.
+func (ops *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
+	if n.IsLocal() {
+		return nil
+	}
+	node := n.Node()
+
+	if node.WireguardPubKey == "" {
+		return nil
+	}
+
+	newIP4 := node.GetNodeIP(false)
+	newIP6 := node.GetNodeIP(true)
+
+	if err := ops.a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
+		log.WithError(err).
+			WithField(logfields.NodeName, node.Fullname()).
+			Warning("Failed to update WireGuard configuration for peer")
+		return err
+	}
+	return nil
+}
+
+var _ reconciler.Operations[node.Node] = &nodeOps{}
 
 // Stop implements cell.HookInterface.
 func (a *Agent) Stop(cell.HookContext) error {

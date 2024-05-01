@@ -5,11 +5,13 @@ package node
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/reconciler"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -62,7 +64,7 @@ type Node interface {
 
 	GetNodeIP(ipv6 bool) net.IP
 
-	// GetNode returns a shallow copy of the node struct. The node struct is the internal
+	// Node returns a shallow copy of the node struct. The node struct is the internal
 	// model behind the interface and it is also used for marshalling the node to KVStore.
 	Node() types.Node
 
@@ -76,6 +78,21 @@ type Node interface {
 
 	TableHeader() []string
 	TableRow() []string
+
+	// Clone returns a shallow clone of the node. Meant to be used as the [CloneObject]
+	// method for a reconciler.
+	Clone() Node
+
+	// GetReconciliationStatus gets the reconcilation status of the given
+	// reconciler. If the status is not set for the reconciler then it returns
+	// pending.
+	// Meant to be used as the [GetObjectStatus] method for a reconciler.
+	GetReconciliationStatus(reconciler string) reconciler.Status
+
+	// SetReconciliationStatus sets the reconciliation status for the given
+	// reconciler. Must call Clone() before using this method.
+	// Meant to be used as the [SetObjectStatus] method for a reconciler.
+	SetReconciliationStatus(reconciler string, status reconciler.Status) Node
 }
 
 type NodeBuilder struct {
@@ -108,18 +125,47 @@ func (b *NodeBuilder) ModifyLocal(mod func(l *LocalNodeAttrs)) *NodeBuilder {
 type tableNode struct {
 	node  types.Node
 	local *LocalNodeAttrs
+
+	statuses map[string]reconciler.Status
 }
 
+var emptyStatusMap = map[string]reconciler.Status{}
+
 func NewTableNode(n types.Node, l *LocalNodeAttrs) Node {
-	return &tableNode{node: n, local: l}
+	return &tableNode{node: n, local: l, statuses: emptyStatusMap}
+}
+
+func (n *tableNode) Clone() Node {
+	return &tableNode{
+		node:     n.node,
+		local:    n.local,
+		statuses: n.statuses,
+	}
+}
+
+func (n *tableNode) GetReconciliationStatus(rc string) reconciler.Status {
+	status, ok := n.statuses[rc]
+	if ok {
+		return status
+	}
+	// If no existing status, then we assume it's pending. This allows
+	// just setting the map to empty to indicate pending.
+	return reconciler.StatusPending()
+}
+
+func (n *tableNode) SetReconciliationStatus(rc string, status reconciler.Status) Node {
+	n.statuses = maps.Clone(n.statuses)
+	n.statuses[rc] = status
+	return n
 }
 
 func (n *tableNode) Builder() *NodeBuilder {
 	return &NodeBuilder{
 		orig: n,
 		new: &tableNode{
-			node:  *n.node.DeepCopy(),
-			local: n.local.Clone(),
+			node:     *n.node.DeepCopy(),
+			local:    n.local.Clone(),
+			statuses: emptyStatusMap,
 		},
 	}
 }
@@ -171,6 +217,7 @@ func (n *tableNode) TableHeader() []string {
 		"Health IP",
 		"Ingress IP",
 		"Alloc CIDRs",
+		"Reconciliation status",
 	}
 }
 
@@ -199,7 +246,17 @@ func (n *tableNode) TableRow() []string {
 		joinStringers(n.node.IPv4HealthIP, n.node.IPv6HealthIP),
 		joinStringers(n.node.IPv4IngressIP, n.node.IPv6IngressIP),
 		joinStringers(n.node.IPv4AllocCIDR, n.node.IPv6AllocCIDR),
+		collapseStatuses(n.statuses),
 	}
+}
+
+func collapseStatuses(s map[string]reconciler.Status) string {
+	// If all Done, then Done, otherwise show which are still pending.
+	if len(s) == 0 {
+		// All pending
+		return "Pending"
+	}
+	return "TODO"
 }
 
 var _ Node = &tableNode{}
