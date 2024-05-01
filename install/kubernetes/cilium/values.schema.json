@@ -2294,6 +2294,10 @@
       "items": {},
       "type": "array"
     },
+    "extraResources": {
+      "items": {},
+      "type": "array"
+    },
     "extraVolumeMounts": {
       "items": {},
       "type": "array"

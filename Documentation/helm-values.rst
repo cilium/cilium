@@ -1460,6 +1460,10 @@
      - Additional initContainers added to the cilium Daemonset.
      - list
      - ``[]``
+   * - :spelling:ignore:`extraResources`
+     - extraResources allows you to add additional resources to the install
+     - list
+     - ``[]``
    * - :spelling:ignore:`extraVolumeMounts`
      - Additional agent volumeMounts.
      - list

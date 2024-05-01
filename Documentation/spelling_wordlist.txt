@@ -315,6 +315,7 @@ extern
 externalIPs
 externalTrafficPolicy
 extraConfig
+extraResources
 facto
 failover
 fec
