@@ -897,7 +897,15 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 				e.Origins = slices.Delete(e.Origins, idx, idx+1)
 			}
 
-			_, _, err := tbl.Delete(txn, e)
+			if len(e.Origins) == 0 {
+				_, _, err := tbl.Delete(txn, e)
+				if err != nil {
+					return fmt.Errorf("delete in table: %w", err)
+				}
+				return nil
+			}
+
+			_, _, err := tbl.Insert(txn, e)
 			if err != nil {
 				return fmt.Errorf("update in table: %w", err)
 			}
