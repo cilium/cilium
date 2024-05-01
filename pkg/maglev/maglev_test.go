@@ -8,25 +8,25 @@ import (
 	"strconv"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
 type MaglevTestSuite struct{}
 
-var _ = Suite(&MaglevTestSuite{})
+func setupMaglevTestSuite(tb testing.TB) *MaglevTestSuite {
+	s := &MaglevTestSuite{}
 
-func (s *MaglevTestSuite) SetUpTest(c *C) {
-	if err := Init(DefaultHashSeed, DefaultTableSize); err != nil {
-		c.Fatal(err)
-	}
+	err := Init(DefaultHashSeed, DefaultTableSize)
+	require.NoError(tb, err)
+
+	return s
 }
 
-func (s *MaglevTestSuite) TestPermutations(c *C) {
+func TestPermutations(t *testing.T) {
+	setupMaglevTestSuite(t)
+
 	getExpectedPermutation := func(backends []string, m uint64) []uint64 {
 		perm := make([]uint64, len(backends)*int(m))
 		for i, backend := range backends {
@@ -47,13 +47,15 @@ func (s *MaglevTestSuite) TestPermutations(c *C) {
 			expectedPerm := getExpectedPermutation(backends, m)
 			for _, numCPU := range []int{1, 2, 3, 4, 8, 100} {
 				testPerm := getPermutation(backends, m, numCPU)
-				c.Assert(testPerm, checker.DeepEquals, expectedPerm)
+				require.EqualValues(t, expectedPerm, testPerm)
 			}
 		}
 	}
 }
 
-func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
+func TestBackendRemoval(t *testing.T) {
+	setupMaglevTestSuite(t)
+
 	m := uint64(1021) // 3 (backends) * 100 should be less than M
 	changesInExistingBackends := 0
 
@@ -73,16 +75,18 @@ func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
 			changesInExistingBackends++
 		} else {
 			// Check that "three" placement was overridden by "one" or "two"
-			c.Assert(after[pos] == 0 || after[pos] == 1, Equals, true)
+			require.Equal(t, true, after[pos] == 0 || after[pos] == 1)
 		}
 	}
 
 	// Check that count of changes of existing backends is less than
 	// 1% (should be guaranteed by |backends| * 100 < M)
-	c.Assert(float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0, Equals, true)
+	require.Equal(t, true, float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0)
 }
 
-func (s *MaglevTestSuite) TestWeightedBackendWithRemoval(c *C) {
+func TestWeightedBackendWithRemoval(t *testing.T) {
+	setupMaglevTestSuite(t)
+
 	m := uint64(1021) // 4 (backends) * 100 is still less than M
 	changesInExistingBackends := 0
 
@@ -111,29 +115,29 @@ func (s *MaglevTestSuite) TestWeightedBackendWithRemoval(c *C) {
 			changesInExistingBackends++
 		} else {
 			// Check that there is no ID 0 as backend "one" with ID 0 has been removed
-			c.Assert(after[pos] == 1 || after[pos] == 2 || after[pos] == 3, Equals, true)
+			require.Equal(t, true, after[pos] == 1 || after[pos] == 2 || after[pos] == 3)
 		}
 		backendsCounter[backend]++
 	}
 
 	// Check that count of changes of existing backends is less than
 	// 1% (should be guaranteed by |backends| * 100 < M)
-	c.Assert(float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0, Equals, true)
+	require.Equal(t, true, float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0)
 
 	// Check that each backend is present x times using following formula:
 	// m / len(weightSum) * backend.Weight; e.g. 1021 / (2+13+111+10) * 13 = 97.6 => 98
-	c.Assert(backendsCounter[0] == 16, Equals, true)
-	c.Assert(backendsCounter[1] == 98, Equals, true)
-	c.Assert(backendsCounter[2] == 832, Equals, true)
-	c.Assert(backendsCounter[3] == 75, Equals, true)
+	require.Equal(t, true, backendsCounter[0] == 16)
+	require.Equal(t, true, backendsCounter[1] == 98)
+	require.Equal(t, true, backendsCounter[2] == 832)
+	require.Equal(t, true, backendsCounter[3] == 75)
 }
 
-func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
+func BenchmarkGetMaglevTable(b *testing.B) {
 	backendCount := 1000
 	m := uint64(131071)
 
 	if err := Init(DefaultHashSeed, m); err != nil {
-		c.Fatal(err)
+		b.Fatal(err)
 	}
 
 	backends := make(map[string]*loadbalancer.Backend, backendCount)
@@ -141,10 +145,10 @@ func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
 		backends[fmt.Sprintf("backend-%d", i)] = &loadbalancer.Backend{Weight: 1}
 	}
 
-	c.ResetTimer()
-	for i := 0; i < c.N; i++ {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		table := GetLookupTable(backends, m)
-		c.Assert(len(table), Equals, int(m))
+		require.Equal(b, int(m), len(table))
 	}
-	c.StopTimer()
+	b.StopTimer()
 }
