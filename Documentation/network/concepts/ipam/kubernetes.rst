@@ -46,6 +46,8 @@ Annotation                             Description
 ``network.cilium.io/ipv6-cilium-host`` IPv6 address of the cilium host interface
 ``network.cilium.io/ipv4-health-ip``   IPv4 address of the cilium-health endpoint
 ``network.cilium.io/ipv6-health-ip``   IPv6 address of the cilium-health endpoint
+``network.cilium.io/ipv4-Ingress-ip``  IPv4 address of the cilium-ingress endpoint
+``network.cilium.io/ipv6-Ingress-ip``  IPv6 address of the cilium-ingress endpoint
 ====================================== ==========================================================
 
 .. note:: The annotation-based mechanism is primarily useful in combination with
