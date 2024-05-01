@@ -6,19 +6,8 @@ package loadbalancer
 import (
 	"testing"
 
-	check "github.com/cilium/checkmate"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type TypesSuite struct{}
-
-var _ = check.Suite(&TypesSuite{})
 
 func TestL4Addr_Equals(t *testing.T) {
 	type args struct {
