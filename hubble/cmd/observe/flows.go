@@ -420,8 +420,11 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"from-ip", ofilter,
 		"Show all flows originating at the given IP address. Each of the source IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24')."))
 	filterFlags.Var(filterVar(
+		"snat-ip", ofilter,
+		"Show all flows SNATed with the given IP address. Each of the SNAT IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24')."))
+	filterFlags.Var(filterVar(
 		"ip", ofilter,
-		"Show all flows related to the given IP address. Each of the IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24')."))
+		"Show all flows originating or terminating at the given IP address. Each of the IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24')."))
 	filterFlags.Var(filterVar(
 		"to-ip", ofilter,
 		"Show all flows terminating at the given IP address. Each of the destination IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24')."))

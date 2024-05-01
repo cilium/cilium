@@ -59,7 +59,7 @@ Filters Flags:
       --http-status filter                  Show only flows which match this HTTP status code prefix (e.g. "404", "5+")
       --http-url filter                     Show only flows which match this HTTP URL regular expressions (e.g. "http://.*cilium\.io/page/\\d+")
       --identity filter                     Show all flows related to an endpoint with the given security identity
-      --ip filter                           Show all flows related to the given IP address. Each of the IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
+      --ip filter                           Show all flows originating or terminating at the given IP address. Each of the IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
       --ip-version filter                   Show only IPv4, IPv6 flows or non IP flows (e.g. ARP packets) (ie: "none", "v4", "v6")
   -4, --ipv4 filter[=v4]                    Show only IPv4 flows
   -6, --ipv6 filter[=v6]                    Show only IPv6 flows
@@ -71,6 +71,7 @@ Filters Flags:
       --port filter                         Show only flows with given port in either source or destination (e.g. 8080)
       --protocol filter                     Show only flows which match the given L4/L7 flow protocol (e.g. "udp", "http")
       --service filter                      Shows flows where either the source or destination IP address matches the ClusterIP address of the given service name prefix ([namespace/]<svc-name>). If namespace is not provided, 'default' is used. 
+      --snat-ip filter                      Show all flows SNATed with the given IP address. Each of the SNAT IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
       --tcp-flags filter                    Show only flows which match the given TCP flags (e.g. "syn", "ack", "fin")
       --to-all-namespaces filter[=true]     Show flows terminating in any Kubernetes namespace.
       --to-fqdn filter                      Show all flows terminating at the given fully qualified domain name (e.g. "*.cilium.io").
