@@ -75,7 +75,7 @@ func (i *meshNodeInformer) Get(name string) (*v1.Node, error) {
 	return nil, newNotFoundError(fmt.Sprintf("node '%s' not found", name))
 }
 
-func (i *meshNodeInformer) onAddCluster(cluster string) {
+func (i *meshNodeInformer) onClusterAdd(cluster string) {
 	i.mutex.Lock()
 	node := createDummyNode(cluster)
 	i.nodes[cluster] = node
@@ -87,7 +87,7 @@ func (i *meshNodeInformer) onAddCluster(cluster string) {
 	i.handler.OnAdd(node, false)
 }
 
-func (i *meshNodeInformer) onDeleteCluster(cluster string) {
+func (i *meshNodeInformer) onClusterDelete(cluster string) {
 	i.mutex.Lock()
 	delete(i.nodes, cluster)
 	i.mutex.Unlock()
