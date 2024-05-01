@@ -55,10 +55,6 @@ type k8sGetters interface {
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
-type GetNodeAddresses interface {
-	GetNodeAddresses() []nodeTypes.Address
-}
-
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	Manager               nodemanager.NodeManager
@@ -181,7 +177,6 @@ func (n *NodeDiscovery) StartDiscovery() {
 		}
 	}()
 
-	n.Manager.NodeUpdated(localNode.Node)
 	close(n.localStateInitialized)
 
 	n.updateLocalNode(&localNode)
@@ -193,7 +188,6 @@ func (n *NodeDiscovery) StartDiscovery() {
 			// This is particularly helpful when an IPSec key rotation occurs
 			// and the manager needs to evaluate the local node's EncryptionKey
 			// field.
-			n.Manager.NodeUpdated(ln.Node)
 			n.updateLocalNode(&ln)
 		}
 	}()

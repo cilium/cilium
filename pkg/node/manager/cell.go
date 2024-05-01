@@ -26,9 +26,11 @@ var Cell = cell.Module(
 	cell.Provide(newAllNodeManager),
 	metrics.Metric(NewNodeMetrics),
 
-	cell.ProvidePrivate(node.NewNodesTable),
-	cell.Invoke(statedb.RegisterTable[*types.Node]),
-	cell.Provide(statedb.RWTable[*types.Node].ToTable),
+	cell.Provide(
+		node.NewNodesTable,
+		statedb.RWTable[node.Node].ToTable,
+	),
+	cell.Invoke(statedb.RegisterTable[node.Node]),
 
 	cell.ProvidePrivate(func(ipc *ipcache.IPCache) IPCache { return ipc }),
 )
@@ -85,7 +87,7 @@ type NodeManagerParams struct {
 	DaemonConfig  *option.DaemonConfig
 	Health        cell.Health
 	DB            *statedb.DB
-	NodesTable    statedb.RWTable[*types.Node]
+	NodesTable    statedb.RWTable[node.Node]
 	Jobs          job.Registry
 	NodeNeighbors datapath.NodeNeighbors
 }
