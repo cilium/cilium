@@ -269,8 +269,10 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 
 func parseNode(k8sNode *slim_corev1.Node) *node.LocalNode {
 	return &node.LocalNode{
-		Node:       *k8s.ParseNode(k8sNode, source.Kubernetes),
-		UID:        k8sNode.GetUID(),
-		ProviderID: k8sNode.Spec.ProviderID,
+		Node: *k8s.ParseNode(k8sNode, source.Kubernetes),
+		LocalNodeAttrs: node.LocalNodeAttrs{
+			UID:        k8sNode.GetUID(),
+			ProviderID: k8sNode.Spec.ProviderID,
+		},
 	}
 }

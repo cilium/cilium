@@ -4,6 +4,7 @@
 package datapath
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
@@ -151,8 +152,15 @@ var Cell = cell.Module(
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
 	cell.Provide(node.NewNodeIDApiHandler),
-	cell.Invoke(func(h types.NodeHandler, nm nodeManager.NodeManager) {
-		nm.Subscribe(h)
+	cell.Invoke(func(jg job.Group, h types.NodeHandler, nm nodeManager.NodeManager) {
+		// FIXME: Subscribe() sends to an unbuffered channel, so one can only
+		// subscribe when NodeManager is running. Rethink or just factor out the
+		// Subscribe() altogether.
+		jg.Add(job.OneShot("node-handler-subscribe",
+			func(context.Context, cell.Health) error {
+				nm.Subscribe(h)
+				return nil
+			}))
 	}),
 
 	// Provides Active Connection Tracking metrics based on counts of

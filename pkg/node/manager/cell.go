@@ -90,7 +90,7 @@ type NodeManagerParams struct {
 	DaemonConfig  *option.DaemonConfig
 	Health        cell.Health
 	DB            *statedb.DB
-	NodesTable    statedb.RWTable[*types.Node]
+	NodesTable    statedb.RWTable[node.Node]
 	Jobs          job.Registry
 	NodeNeighbors datapath.NodeNeighbors
 }

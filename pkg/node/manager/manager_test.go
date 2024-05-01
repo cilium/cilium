@@ -75,7 +75,7 @@ func newFixture(t testing.TB, p NodeManagerParams) *manager {
 	var mngr *manager
 	h := hive.New(
 		cell.Invoke(func(lc cell.Lifecycle, jobs job.Registry, db *statedb.DB) error {
-			table, err := node.NewNodesTable(p.DB)
+			table, err := node.NewNodesTable(db)
 			if err != nil {
 				return err
 			}

@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -25,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -57,11 +57,8 @@ const (
 	nodesFilename = "nodes.json"
 	// Minimum amount of time to wait in between writing nodes file.
 	nodeCheckpointMinInterval = time.Minute
-)
 
-var (
 	baseBackgroundSyncInterval = time.Minute
-	defaultNodeUpdateInterval  = 10 * time.Second
 )
 
 // IPCache is the set of interactions the node manager performs with the ipcache
@@ -88,7 +85,7 @@ type manager struct {
 	restoredNodes lock.Map[nodeTypes.Identity, *nodeTypes.Node]
 
 	db              *statedb.DB
-	nodesTable      statedb.RWTable[*nodeTypes.Node]
+	nodesTable      statedb.RWTable[node.Node]
 	markInitialized func(statedb.WriteTxn)
 
 	synthesizeDelete chan *nodeTypes.Node
@@ -118,9 +115,6 @@ type manager struct {
 	// nodeCheckpointer triggers writing the current set of nodes to disk
 	nodeCheckpointer *trigger.Trigger
 	checkpointerDone chan struct{} // Closed once the checkpointer is shut down.
-
-	// Ensure the pruning is only attempted once.
-	nodePruneOnce sync.Once
 
 	nodeNeighbors datapath.NodeNeighbors
 }
@@ -217,8 +211,8 @@ func New(p NodeManagerParams) (*manager, error) {
 		db:               p.DB,
 		nodesTable:       p.NodesTable,
 		markInitialized:  markInit,
-		addHandler:       make(chan datapath.NodeHandler, 1),
-		delHandler:       make(chan datapath.NodeHandler, 1),
+		addHandler:       make(chan datapath.NodeHandler),
+		delHandler:       make(chan datapath.NodeHandler),
 		synthesizeDelete: make(chan *nodeTypes.Node),
 		conf:             p.DaemonConfig,
 		ipcache:          p.IPCache,
@@ -230,7 +224,10 @@ func New(p NodeManagerParams) (*manager, error) {
 		jobGroup:         p.Jobs.NewGroup(p.Health),
 	}
 
-	m.jobGroup.Add(job.OneShot("node-handlers", m.nodeHandlerLoop))
+	m.jobGroup.Add(
+		job.OneShot("node-handlers", m.nodeHandlerLoop),
+		job.OneShot("neighbor-refresh", m.neighRefreshLoop),
+	)
 
 	return m, nil
 }
@@ -305,23 +302,11 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 	changesWatch := make(chan struct{})
 	close(changesWatch)
 
-	previous := map[nodeTypes.Identity]*nodeTypes.Node{}
+	currentNodes := map[nodeTypes.Identity]node.Node{}
 	handlers := sets.New[datapath.NodeHandler]()
 
 	syncInterval := m.backgroundSyncInterval()
 	syncWatch := time.After(syncInterval)
-
-	// Start periodical refresh of the neighbor table from the agent if needed.
-	var neighRefreshWatch <-chan time.Time
-	if m.nodeNeighbors != nil && m.nodeNeighbors.NodeNeighDiscoveryEnabled() && option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-		neighRefreshWatch = time.After(m.conf.ARPPingRefreshPeriod)
-	}
-
-	// TODO ticker interval should be what?
-	neighRefreshTicker := time.NewTicker(100 * time.Millisecond)
-	defer neighRefreshTicker.Stop()
-
-	neighToRefresh := []nodeTypes.Identity{}
 
 	syncHealth := health.NewScope("validate")
 	defer syncHealth.Close()
@@ -343,33 +328,34 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 		txn := m.db.ReadTxn()
 
 		changes, changesWatch := changeIter.Next(txn)
+		changesProcessed := 0
 		for change := range changes {
+			changesProcessed++
 			numEvents++
 			node := change.Object
 			identity := node.Identity()
-			oldNode, oldNodeExists := previous[identity]
+			oldNode, oldNodeExists := currentNodes[identity]
 			var emit func(h datapath.NodeHandler) error
 			switch {
 			case change.Deleted:
-				delete(previous, identity)
+				delete(currentNodes, identity)
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeDelete(*node)
+					return h.NodeDelete(node.Node())
 				}
 				m.metrics.NumNodes.Dec()
-				m.metrics.ProcessNodeDeletion(node.Cluster, node.Name)
+				m.metrics.ProcessNodeDeletion(node.Cluster(), node.Name())
 
 			case oldNodeExists:
-				previous[identity] = node
+				currentNodes[identity] = node
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeUpdate(*oldNode, *node)
+					return h.NodeUpdate(oldNode.Node(), node.Node())
 				}
 			default:
 				m.metrics.NumNodes.Inc()
-				previous[identity] = node
+				currentNodes[identity] = node
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeAdd(*node)
+					return h.NodeAdd(node.Node())
 				}
-				neighToRefresh = append(neighToRefresh, node.Identity())
 			}
 			var lastError error
 			for h := range handlers {
@@ -379,7 +365,7 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 						"handler": h.Name(),
 						"node":    node.Name,
 					}).WithError(err).
-						Error("Failed to handle node event while applying handler. Cilium may be have degraded functionality. See error message for details.")
+						Error("Failed to handle node event while applying handler. Cilium may be have degraded functionality.")
 
 					lastError = err
 				}
@@ -387,8 +373,12 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 			if lastError != nil {
 				handlerHealth.Degraded("Failure handling node event", lastError)
 			} else {
-				handlerHealth.OK(fmt.Sprintf("%d nodes, %d events processed", len(previous), numEvents))
+				handlerHealth.OK(fmt.Sprintf("%d nodes, %d events processed", len(currentNodes), numEvents))
 			}
+		}
+
+		if changesProcessed > 0 && m.nodeCheckpointer != nil {
+			m.nodeCheckpointer.TriggerWithReason("nodes changed")
 		}
 
 		select {
@@ -396,21 +386,18 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 			return nil
 
 		case <-initWatch:
-			m.nodePruneOnce.Do(func() {
-				go m.pruneNodes(false)
-			})
-			initWatch = nil
+			m.pruneNodes(false)
 
 		case <-changesWatch:
 
 		case h := <-m.addHandler:
 			handlers.Insert(h)
-			for _, node := range previous {
-				if err := h.NodeAdd(*node); err != nil {
+			for _, node := range currentNodes {
+				if err := h.NodeAdd(node.Node()); err != nil {
 					log.WithFields(logrus.Fields{
 						"handler": h.Name(),
 						"node":    node.Name,
-					}).WithError(err).Error("Failed applying node handler following initial subscribe. Cilium may have degraded functionality. See error message for more details.")
+					}).WithError(err).Error("Failed applying node handler following initial subscribe. Cilium may have degraded functionality.")
 				}
 			}
 		case h := <-m.delHandler:
@@ -426,65 +413,20 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 				}
 			}
 
-		case <-neighRefreshWatch:
-			neighRefreshWatch = time.After(m.conf.ARPPingRefreshPeriod)
-			// Queue unrefreshed neighbours, in random order.
-			existing := sets.New(neighToRefresh...)
-			unqueued := []nodeTypes.Identity{}
-			for k := range previous {
-				if !existing.Has(k) {
-					unqueued = append(unqueued, k)
-				}
-			}
-			rand.Shuffle(len(unqueued),
-				func(i, j int) {
-					unqueued[i], unqueued[j] = unqueued[j], unqueued[i]
-				})
-			neighToRefresh = append(neighToRefresh, unqueued...)
-
-		case <-neighRefreshTicker.C:
-			if m.nodeNeighbors == nil {
-				break
-			}
-
-			if len(neighToRefresh) == 0 {
-				continue
-			}
-			neigh, ok := previous[neighToRefresh[0]]
-			if !ok {
-				// Node has been removed.
-				continue
-			}
-			neighToRefresh = neighToRefresh[1:]
-
-			if neigh.IsLocal() {
-				continue
-			}
-
-			log.Debugf("Refreshing node neighbor link for %s", neigh.Name)
-			hr := health.NewScope(neigh.Name)
-			err := m.nodeNeighbors.NodeNeighborRefresh(ctx, *neigh, false)
-			// FIXME: keep track of all errors and only when all gone mark OK
-			if err != nil {
-				hr.Degraded("Failed node neighbor link update", err)
-			} else {
-				hr.OK("Node neighbor link update successful")
-			}
-
 		case <-syncWatch:
 			syncInterval = m.backgroundSyncInterval()
 			log.WithField("syncInterval", syncInterval.String()).Debug("Performing regular background work")
 			syncWatch = time.After(syncInterval)
 			var errs []error
-			for _, node := range previous {
+			for _, node := range currentNodes {
 				for h := range handlers {
-					if err := h.NodeValidateImplementation(*node); err != nil {
+					if err := h.NodeValidateImplementation(node.Node()); err != nil {
 						log.WithFields(logrus.Fields{
 							"handler": h.Name(),
 							"node":    node.Name,
 						}).WithError(err).
-							Error("Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.")
-						errs = append(errs, fmt.Errorf("failed while handling %s on node %s: %w", h.Name(), node.Name, err))
+							Error("Failed to apply node handler during background sync. Cilium may have degraded functionality.")
+						errs = append(errs, fmt.Errorf("%s: node %s: %w", h.Name(), node.Name(), err))
 					}
 				}
 				m.metrics.DatapathValidations.Inc()
@@ -495,7 +437,6 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 				syncHealth.OK("Node validation successful")
 			}
 		}
-
 	}
 }
 
@@ -586,7 +527,11 @@ func (m *manager) checkpoint() error {
 
 	bw := bufio.NewWriter(f)
 	w := jsoniter.ConfigFastest.NewEncoder(bw)
-	ns := statedb.Collect(m.nodesTable.All(m.db.ReadTxn()))
+	ns := statedb.Collect(
+		statedb.Map(
+			m.nodesTable.All(m.db.ReadTxn()),
+			node.Node.Node, // ode to node
+		))
 	if err := w.Encode(ns); err != nil {
 		return fmt.Errorf("failed to encode node checkpoint: %w", err)
 	}
@@ -594,6 +539,91 @@ func (m *manager) checkpoint() error {
 		return fmt.Errorf("failed to flush node checkpoint writer: %w", err)
 	}
 	return f.CloseAtomicallyReplace()
+}
+
+// neighRefreshLoop does periodic neighbor table refresh for non-local nodes.
+// Every [ARPPingRefreshPeriod] it will queue refreshes for the neighbors, spread over
+// a random time interval. On failure to refresh the health with scope 'neighbors'
+// is marked degraded.
+func (m *manager) neighRefreshLoop(ctx context.Context, health cell.Health) error {
+	if m.nodeNeighbors == nil || !m.nodeNeighbors.NodeNeighDiscoveryEnabled() || option.Config.ARPPingRefreshPeriod == 0 || option.Config.ARPPingKernelManaged {
+		return nil
+	}
+
+	neighRefreshWatch := time.After(m.conf.ARPPingRefreshPeriod)
+
+	neighRefreshTicker := time.NewTicker(50 * time.Millisecond)
+	defer neighRefreshTicker.Stop()
+
+	neighToRefresh := map[nodeTypes.Identity]time.Time{}
+
+	refreshErrors := map[nodeTypes.Identity]error{}
+
+	health = health.NewScope("neighbors")
+	defer health.Close()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+
+		case <-neighRefreshWatch:
+			// Queue refreshes for yet unrefreshed neighbors.
+			neighRefreshWatch = time.After(m.conf.ARPPingRefreshPeriod)
+			for n := range m.nodesTable.All(m.db.ReadTxn()) {
+				if n.IsLocal() {
+					continue
+				}
+				id := n.Identity()
+				if _, ok := neighToRefresh[id]; !ok {
+					// To avoid flooding network with arping requests
+					// at the same time, spread them over the
+					// [0; ARPPingRefreshPeriod/2) period.
+					duration := rand.Int64N(int64(m.conf.ARPPingRefreshPeriod / 2))
+					neighToRefresh[id] = time.Now().Add(time.Duration(duration))
+				}
+			}
+
+		case <-neighRefreshTicker.C:
+			if len(neighToRefresh) == 0 {
+				continue
+			}
+			txn := m.db.ReadTxn()
+			now := time.Now()
+			refreshed := false
+
+			for id, refreshAt := range neighToRefresh {
+				if refreshAt.After(now) {
+					continue
+				}
+				delete(neighToRefresh, id)
+
+				node, _, ok := m.nodesTable.Get(txn, node.NodeIdentityIndex.Query(id))
+				if !ok {
+					// Node has been removed.
+					delete(refreshErrors, id)
+					continue
+				}
+
+				log.Debugf("Refreshing node neighbor link for %s", node.Name())
+				err := m.nodeNeighbors.NodeNeighborRefresh(ctx, node.Node(), false)
+				if err != nil {
+					refreshErrors[id] = err
+				} else {
+					delete(refreshErrors, id)
+				}
+				refreshed = true
+			}
+
+			if refreshed {
+				if len(refreshErrors) > 0 {
+					health.Degraded("Node neighbor refresh failed", errors.Join(maps.Values(refreshErrors)...))
+				} else {
+					health.OK("Node neighbor refresh successful")
+				}
+			}
+		}
+	}
 }
 
 func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
@@ -806,7 +836,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	if oldNodeExists {
 		m.metrics.EventsReceived.WithLabelValues("update", string(n.Source)).Inc()
 
-		if !source.AllowOverwrite(oldNode.Source, n.Source) {
+		if !source.AllowOverwrite(oldNode.Source(), n.Source) {
 			// Done; skip node-handler updates and label injection
 			// triggers below. Includes case where the local host
 			// was discovered locally and then is subsequently
@@ -814,21 +844,22 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			return
 		}
 
-		// FIXME: This "dpUpdate" thing should be done differently. We should still store
-		// the data and only skip the handler calls.
-		if dpUpdate {
-			m.nodesTable.Insert(txn, &n)
+		newNode, err := oldNode.Builder().ModifyNode(func(node *nodeTypes.Node) { *node = n }).Build()
+		if err == nil {
+			m.nodesTable.Insert(txn, newNode)
+		} else {
+			log.WithError(err).WithField(logfields.Node, n.Name).Warn("Ignoring update for node")
 		}
-		m.removeNodeFromIPCache(*oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
+
+		if dpUpdate {
+			m.removeNodeFromIPCache(oldNode.Node(), resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
+		}
 	} else {
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
 
 		if dpUpdate {
-			m.nodesTable.Insert(txn, &n)
+			m.nodesTable.Insert(txn, node.NewTableNode(n, nil))
 		}
-	}
-	if m.nodeCheckpointer != nil {
-		m.nodeCheckpointer.TriggerWithReason("NodeUpdate")
 	}
 }
 
@@ -944,28 +975,22 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	// If the source is Kubernetes and the node is the node we are running on
 	// Kubernetes is giving us a hint it is about to delete our node. Close down
 	// the agent gracefully in this case.
-	if n.Source != oldNode.Source {
+	if n.Source != oldNode.Source() {
 		if n.IsLocal() && n.Source == source.Kubernetes {
 			log.Debugf("Kubernetes is deleting local node, close manager")
 			m.Stop(context.Background())
 		} else {
 			log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
-				n.Name, n.Source, oldNode.Source)
+				n.Name, n.Source, oldNode.Source())
 		}
 		return
 	}
 
 	// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
-	if n.Source != source.Restored {
-		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.removeNodeFromIPCache(*oldNode, resource, nil, nil, nil, nil)
-	}
+	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+	m.removeNodeFromIPCache(oldNode.Node(), resource, nil, nil, nil, nil)
 
 	m.nodesTable.Delete(txn, oldNode)
-
-	if m.nodeCheckpointer != nil {
-		m.nodeCheckpointer.TriggerWithReason("NodeDeleted")
-	}
 }
 
 // NodeSync signals the manager that the initial nodes listing (either from k8s
@@ -975,6 +1000,7 @@ func (m *manager) NodeSync() {
 	wtxn := m.db.WriteTxn(m.nodesTable)
 	m.markInitialized(wtxn)
 	wtxn.Commit()
+
 	m.ipsetInitializer.InitDone()
 }
 
@@ -1032,7 +1058,7 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	numNodes := m.nodesTable.NumObjects(txn)
 	nodes := make(map[nodeTypes.Identity]nodeTypes.Node, numNodes)
 	for node := range m.nodesTable.All(txn) {
-		nodes[node.Identity()] = *node
+		nodes[node.Identity()] = node.Node()
 	}
 	return nodes
 }
