@@ -361,6 +361,25 @@ all
     The all entity represents the combination of all known clusters as well
     world and whitelists all communication.
 
+Access to/from kube-apiserver
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Allow all endpoints with the label ``env=dev`` to access the kube-apiserver.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.json
+
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
