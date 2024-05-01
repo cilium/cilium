@@ -766,6 +766,48 @@ func TestTrafficDirection(t *testing.T) {
 	}
 }
 
+func TestSnatIp(t *testing.T) {
+	tt := []struct {
+		name    string
+		flags   []string
+		filters []*flowpb.FlowFilter
+		err     string
+	}{
+		{
+			name:  "exact match",
+			flags: []string{"--snat-ip", "1.1.1.1"},
+			filters: []*flowpb.FlowFilter{
+				{SourceIpXlated: []string{"1.1.1.1"}},
+			},
+		},
+		{
+			name:  "cidr range match",
+			flags: []string{"--snat-ip", "2.2.2.2/16"},
+			filters: []*flowpb.FlowFilter{
+				{SourceIpXlated: []string{"2.2.2.2/16"}},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+			err := cmd.Flags().Parse(tc.flags)
+			diff := cmp.Diff(tc.filters, f.whitelist.flowFilters(), cmpopts.IgnoreUnexported(flowpb.FlowFilter{}))
+			if diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+			if tc.err != "" {
+				require.Errorf(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Nil(t, f.blacklist)
+		})
+	}
+}
+
 func TestHTTPURL(t *testing.T) {
 	f := newFlowFilter()
 	cmd := newFlowsCmdWithFilter(viper.New(), f)
