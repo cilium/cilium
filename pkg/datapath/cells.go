@@ -130,6 +130,9 @@ var Cell = cell.Module(
 
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
+
+	// Provides the DirectRoutingDevice selection logic.
+	tables.DirectRoutingDeviceCell,
 )
 
 func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
@@ -208,12 +211,8 @@ type datapathParams struct {
 
 	NodeAddressing types.NodeAddressing
 
-	// Depend on DeviceManager to ensure devices have been resolved.
-	// This is required until option.Config.GetDevices() has been removed and
-	// uses of it converted to Table[Device].
-	DeviceManager *linuxdatapath.DeviceManager
-	DB            *statedb.DB
-	Devices       statedb.Table[*tables.Device]
+	DB      *statedb.DB
+	Devices statedb.Table[*tables.Device]
 
 	BandwidthManager types.BandwidthManager
 
