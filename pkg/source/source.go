@@ -48,6 +48,10 @@ const (
 	// by the previous agent instance. Can be overwritten by all other
 	// sources (except for unspec).
 	Restored Source = "restored"
+
+	// Directory is the source used for watching and reading
+	// cilium network policy files from specific directory.
+	Directory Source = "directory"
 )
 
 // AllowOverwrite returns true if new state from a particular source is allowed

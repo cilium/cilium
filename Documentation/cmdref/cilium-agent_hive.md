@@ -105,6 +105,7 @@ cilium-agent hive [flags]
       --proxy-xff-num-trusted-hops-egress uint32                  Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
       --proxy-xff-num-trusted-hops-ingress uint32                 Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
       --read-cni-conf string                                      CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
+      --static-cnp-path string                                    Directory path to watch and load static cilium network policy yaml files.
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.

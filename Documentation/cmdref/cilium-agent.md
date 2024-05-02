@@ -338,6 +338,7 @@ cilium-agent [flags]
       --service-no-backend-response string                        Response to traffic for a service without backends (default "reject")
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                                          Directory path to store runtime state (default "/var/run/cilium")
+      --static-cnp-path string                                    Directory path to watch and load static cilium network policy yaml files.
       --tofqdns-dns-reject-response-code string                   DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-dns-compression                            Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present (default true)
       --tofqdns-endpoint-max-ip-per-hostname int                  Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
