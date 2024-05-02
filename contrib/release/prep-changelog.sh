@@ -59,6 +59,7 @@ main() {
     local version="v$ersion"
     local old_branch="$(echo $3 | sed 's/^v//')"
     local GITHUB_TOKEN=${GITHUB_TOKEN:-"$(gh auth token)"}
+    export GITHUB_TOKEN
 
     logecho "Generating CHANGELOG.md"
     rm -f $RELNOTESCACHE
