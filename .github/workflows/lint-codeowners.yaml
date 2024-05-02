@@ -80,6 +80,12 @@ jobs:
           # shellcheck disable=SC2046
           while read l; do
               case "${l}" in
+                  /CHANGELOG.md)
+                      # Special case: This file doesn't always exist, but it
+                      # may be temporarily created on 'main' branch during the
+                      # preparation of a preview release. Skip it as it's not
+                      # important to track the staleness.
+                      ;;
                   /*)
                       # The pattern should match from the root of the repo,
                       # we'll use 'ls'. For now, just append pattern to $LIST.
