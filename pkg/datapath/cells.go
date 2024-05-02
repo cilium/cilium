@@ -86,6 +86,9 @@ var Cell = cell.Module(
 	// Provides the legacy accessor for the above, the NodeAddressing interface.
 	NodeAddressingCell,
 
+	// Provides the DirectRoutingDevice selection logic.
+	tables.DirectRoutingDeviceCell,
+
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.
 	agentliveness.Cell,
@@ -214,12 +217,8 @@ type datapathParams struct {
 
 	NodeAddressing types.NodeAddressing
 
-	// Depend on DeviceManager to ensure devices have been resolved.
-	// This is required until option.Config.GetDevices() has been removed and
-	// uses of it converted to Table[Device].
-	DeviceManager *linuxdatapath.DeviceManager
-	DB            *statedb.DB
-	Devices       statedb.Table[*tables.Device]
+	DB      *statedb.DB
+	Devices statedb.Table[*tables.Device]
 
 	BandwidthManager types.BandwidthManager
 

@@ -99,10 +99,6 @@ func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.Lo
 	n.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
 	n.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
 
-	// If there is one device specified, use it to derive better default
-	// allocation prefixes
-	node.SetDefaultPrefix(ini.Config, ini.Config.DirectRoutingDevice, n)
-
 	// Initialize node IP addresses from configuration.
 	if ini.Config.IPv6NodeAddr != "auto" {
 		if ip := net.ParseIP(ini.Config.IPv6NodeAddr); ip == nil {

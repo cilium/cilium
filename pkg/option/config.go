@@ -1425,20 +1425,19 @@ type DaemonConfig struct {
 	// after.
 	shaSum [32]byte
 
-	CreationTime        time.Time
-	BpfDir              string   // BPF template files directory
-	LibDir              string   // Cilium library files directory
-	RunDir              string   // Cilium runtime directory
-	ExternalEnvoyProxy  bool     // Whether Envoy is deployed as external DaemonSet or not
-	DirectRoutingDevice string   // Direct routing device (used by BPF NodePort and BPF Host Routing)
-	LBDevInheritIPAddr  string   // Device which IP addr used by bpf_host devices
-	EnableXDPPrefilter  bool     // Enable XDP-based prefiltering
-	XDPMode             string   // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	EnableTCX           bool     // Enable attaching endpoint programs using tcx if the kernel supports it
-	HostV4Addr          net.IP   // Host v4 address of the snooping device
-	HostV6Addr          net.IP   // Host v6 address of the snooping device
-	EncryptInterface    []string // Set of network facing interface to encrypt over
-	EncryptNode         bool     // Set to true for encrypting node IP traffic
+	CreationTime       time.Time
+	BpfDir             string   // BPF template files directory
+	LibDir             string   // Cilium library files directory
+	RunDir             string   // Cilium runtime directory
+	ExternalEnvoyProxy bool     // Whether Envoy is deployed as external DaemonSet or not
+	LBDevInheritIPAddr string   // Device which IP addr used by bpf_host devices
+	EnableXDPPrefilter bool     // Enable XDP-based prefiltering
+	XDPMode            string   // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	EnableTCX          bool     // Enable attaching endpoint programs using tcx if the kernel supports it
+	HostV4Addr         net.IP   // Host v4 address of the snooping device
+	HostV6Addr         net.IP   // Host v6 address of the snooping device
+	EncryptInterface   []string // Set of network facing interface to encrypt over
+	EncryptNode        bool     // Set to true for encrypting node IP traffic
 
 	// If set to true the daemon will detect new and deleted datapath devices
 	// at runtime and reconfigure the datapath to load programs onto the new
@@ -3037,7 +3036,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DatapathMode = vp.GetString(DatapathMode)
 	c.Debug = vp.GetBool(DebugArg)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)
-	c.DirectRoutingDevice = vp.GetString(DirectRoutingDevice)
 	c.EnableIPv4 = vp.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = vp.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = vp.GetBool(EnableIPv6NDPName)

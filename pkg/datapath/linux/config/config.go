@@ -571,23 +571,42 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 
 	if option.Config.DirectRoutingDeviceRequired() {
+		drd := cfg.DirectRoutingDevice
 		if option.Config.EnableIPv4 {
-			ifindex, ip, ok := h.nodeAddressing.IPv4().DirectRouting()
-			if !ok {
+			if drd == nil {
 				return fmt.Errorf("IPv4 direct routing device not found")
 			}
-			ipv4 := byteorder.NetIPv4ToHost32(ip)
+			var ipv4 uint32
+			for _, addr := range drd.Addrs {
+				if addr.Addr.Is4() {
+					ipv4 = byteorder.NetIPv4ToHost32(addr.AsIP())
+					break
+				}
+			}
+			if ipv4 == 0 {
+				return fmt.Errorf("IPv4 direct routing device IP not found")
+			}
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
-			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
+			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", drd.Index)
 		}
 		if option.Config.EnableIPv6 {
-			ifindex, ip, ok := h.nodeAddressing.IPv6().DirectRouting()
-			if !ok {
+			if drd == nil {
 				return fmt.Errorf("IPv6 direct routing device not found")
+			}
+
+			var ip net.IP
+			for _, addr := range drd.Addrs {
+				if addr.Addr.Is6() {
+					ip = addr.AsIP()
+					break
+				}
+			}
+			if ip.IsUnspecified() {
+				return fmt.Errorf("IPv6 direct routing device IP not found")
 			}
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip))
-			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
+			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", drd.Index)
 		}
 	} else {
 		var directRoutingIPv6 net.IP
@@ -1056,10 +1075,10 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *datapath.LocalN
 	writeIncludes(w)
 	h.writeStaticData(deviceNames, fw, e)
 
-	return h.writeTemplateConfig(fw, deviceNames, cfg.HostEndpointID, e)
+	return h.writeTemplateConfig(fw, deviceNames, cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
 }
 
-func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []string, hostEndpointID uint64, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []string, hostEndpointID uint64, e datapath.EndpointConfiguration, drd *tables.Device) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
@@ -1068,16 +1087,13 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
-		directRoutingIface := option.Config.DirectRoutingDevice
-		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
-		if len(devices) == 1 {
-			if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
-				fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+	if !option.Config.EnableHostLegacyRouting {
+		if drd != nil {
+			fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", drd.Index)
+			if len(devices) == 1 {
+				if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
+					fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+				}
 			}
 		}
 	}
@@ -1117,5 +1133,5 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
-	return h.writeTemplateConfig(fw, cfg.DeviceNames(), cfg.HostEndpointID, e)
+	return h.writeTemplateConfig(fw, cfg.DeviceNames(), cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
 }

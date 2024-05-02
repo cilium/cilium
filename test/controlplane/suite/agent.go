@@ -93,6 +93,10 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			h.nodeAddrs = nodeAddrs
 		}),
 	)
+
+	hive.AddConfigOverride(h.hive, func(c *datapathTables.DirectRoutingDeviceConfig) {
+		c.DirectRoutingDevice = "test0"
+	})
 }
 
 func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(*option.DaemonConfig)) {

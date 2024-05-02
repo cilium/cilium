@@ -36,6 +36,7 @@ func newLocalNodeConfig(
 	mtu mtu.MTU,
 	txn statedb.ReadTxn,
 	devices statedb.Table[*tables.Device],
+	directRoutingDev *tables.Device,
 	nodeAddresses statedb.Table[tables.NodeAddress],
 ) (datapath.LocalNodeConfiguration, error) {
 	auxPrefixes := []*cidr.CIDR{}
@@ -70,6 +71,7 @@ func newLocalNodeConfig(
 		LoopbackIPv4:                 node.GetIPv4Loopback(),
 		Devices:                      nativeDevices,
 		NodeAddresses:                statedb.Collect(nodeAddresses.All(txn)),
+		DirectRoutingDevice:          directRoutingDev,
 		HostEndpointID:               node.GetEndpointID(),
 		DeviceMTU:                    mtu.GetDeviceMTU(),
 		RouteMTU:                     mtu.GetRouteMTU(),
