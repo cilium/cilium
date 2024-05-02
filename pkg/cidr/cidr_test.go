@@ -7,63 +7,52 @@ import (
 	"net"
 	"testing"
 
-	check "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-type CidrTestSuite struct{}
-
-var _ = check.Suite(&CidrTestSuite{})
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-func (t *CidrTestSuite) TestNilDeepCopy(c *check.C) {
+func TestNilDeepCopy(t *testing.T) {
 	var c1 *CIDR
-	c.Assert(c1.DeepCopy(), check.IsNil)
+	require.Nil(t, c1.DeepCopy())
 }
 
-func (t *CidrTestSuite) TestDeepCopy(c *check.C) {
+func TestDeepCopy(t *testing.T) {
 	_, ipnet, err := net.ParseCIDR("1.1.1.1/8")
-	c.Assert(err, check.IsNil)
+	require.Nil(t, err)
 	c1 := NewCIDR(ipnet)
-	c.Assert(c1, check.Not(check.IsNil))
+	require.NotNil(t, c1)
 
 	c2 := c1.DeepCopy()
-	c.Assert(c1, checker.DeepEquals, c2)
+	require.EqualValues(t, c2, c1)
 }
 
-func (t *CidrTestSuite) TestNewCIDRNil(c *check.C) {
-	c.Assert(NewCIDR(nil), check.IsNil)
+func TestNewCIDRNil(t *testing.T) {
+	require.Nil(t, NewCIDR(nil))
 }
 
-func (t *CidrTestSuite) TestIllegalParseCIDR(c *check.C) {
+func TestIllegalParseCIDR(t *testing.T) {
 	c1, err := ParseCIDR("Illegal")
-	c.Assert(c1, check.IsNil)
-	c.Assert(err, check.Not(check.IsNil))
+	require.Nil(t, c1)
+	require.NotNil(t, err)
 }
 
-func (t *CidrTestSuite) TestIllegalMustParseCIDR(c *check.C) {
+func TestIllegalMustParseCIDR(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
-			c.Errorf("MustParseCIDR did not panic on illegal CIDR")
+			t.Errorf("MustParseCIDR did not panic on illegal CIDR")
 		}
 	}()
 	c1 := MustParseCIDR("Illegal")
-	c.Assert(c1, check.IsNil)
+	require.Nil(t, c1)
 }
 
-func (t *CidrTestSuite) TestAvailableIPs(c *check.C) {
+func TestAvailableIPs(t *testing.T) {
 	cidr := MustParseCIDR("10.0.0.0/8")
-	c.Assert(cidr.AvailableIPs(), check.Equals, 16777216)
+	require.Equal(t, 16777216, cidr.AvailableIPs())
 	cidr = MustParseCIDR("1.1.1.1/32")
-	c.Assert(cidr.AvailableIPs(), check.Equals, 1)
+	require.Equal(t, 1, cidr.AvailableIPs())
 }
 
-func (t *CidrTestSuite) TestEqual(c *check.C) {
+func TestEqual(t *testing.T) {
 	ipNet := &net.IPNet{
 		IP:   net.ParseIP("1.2.3.4"),
 		Mask: net.CIDRMask(1, 2),
@@ -183,7 +172,7 @@ func (t *CidrTestSuite) TestEqual(c *check.C) {
 		},
 	}
 	for _, tt := range tests {
-		c.Assert(tt.fields.n.Equal(tt.args.o), check.Equals, tt.want, check.Commentf("Test Name: %s", tt.name))
+		require.Equalf(t, tt.want, tt.fields.n.Equal(tt.args.o), "Test Name: %s", tt.name)
 	}
 }
 
@@ -199,7 +188,7 @@ func mustNewCIDRs(cidrs ...string) []*net.IPNet {
 	return ipnets
 }
 
-func (t *CidrTestSuite) TestRemoveAll(c *check.C) {
+func TestRemoveAll(t *testing.T) {
 	type args struct {
 		ipNets   []*net.IPNet
 		toRemove []*net.IPNet
@@ -292,6 +281,6 @@ func (t *CidrTestSuite) TestRemoveAll(c *check.C) {
 	}
 	for _, tt := range tests {
 		result := RemoveAll(tt.args.ipNets, tt.args.toRemove)
-		c.Assert(result, checker.DeepEquals, tt.want, check.Commentf("Test Name: %s", tt.name))
+		require.EqualValuesf(t, tt.want, result, "Test Name: %s", tt.name)
 	}
 }
