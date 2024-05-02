@@ -1832,6 +1832,8 @@ type DaemonConfig struct {
 	// unused after this time, they will be removed from the IP cache. Any of the restored
 	// identities that are used in network policies will remain in the IP cache until all such
 	// policies are removed.
+	//
+	// The default is 30 seconds for k8s clusters, and 10 minutes for kvstore clusters
 	IdentityRestoreGracePeriod time.Duration
 
 	// PolicyQueueSize is the size of the queues for the policy repository.
@@ -2404,7 +2406,7 @@ var (
 		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
 		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
-		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
+		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriodK8s,
 		FixedIdentityMapping:            make(map[string]string),
 		KVStoreOpt:                      make(map[string]string),
 		LogOpt:                          make(map[string]string),
@@ -3504,6 +3506,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			continue
 		}
 		c.ExcludeNodeLabelPatterns = append(c.ExcludeNodeLabelPatterns, r)
+	}
+
+	if c.KVStore != "" {
+		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
 }
 
