@@ -8,7 +8,7 @@ This is a step-by-step guide on how to install and prepare
 Google Kubernetes Engine (GKE) clusters to meet the requirements 
 for the clustermesh feature.
 
-In this guide we will deploy two zonal, single node GKE clusters
+This guide describes how to deploy two zonal, single node GKE clusters
 in different regions for the express purpose of creating a
 cost-effective environment to deploy a clustermesh to. Ideal for
 development/learning purposes.
@@ -42,7 +42,7 @@ Create VPC
 Deploy clusters
 ###############
 
-1.  We will once again set some environment variables for values that will be reused in 
+1.  Set additional environment variables for values that will be reused in 
     later steps.
 
     .. code-block:: bash
