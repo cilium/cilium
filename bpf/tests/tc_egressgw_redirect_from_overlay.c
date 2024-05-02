@@ -8,7 +8,6 @@
 #define SECLABEL
 #define SECLABEL_IPV4
 #define SECLABEL_IPV6
-#include "config_replacement.h"
 #undef SECLABEL
 #undef SECLABEL_IPV4
 #undef SECLABEL_IPV6

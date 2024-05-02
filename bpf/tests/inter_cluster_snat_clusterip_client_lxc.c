@@ -45,7 +45,6 @@
 #define ENABLE_CLUSTER_AWARE_ADDRESSING
 
 /* Import some default values */
-#include "config_replacement.h"
 
 /* Import map definitions and some default values */
 #include "node_config.h"
