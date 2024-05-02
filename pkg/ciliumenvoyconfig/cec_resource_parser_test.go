@@ -14,6 +14,7 @@ import (
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_config_http_healthcheck "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
@@ -880,6 +881,67 @@ func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
 	eg := acs.GrpcServices[0].GetEnvoyGrpc()
 	assert.NotNil(t, eg)
 	assert.Equal(t, "xds-grpc-cilium", eg.ClusterName)
+}
+
+var ciliumEnvoyConfigWithHealthFilter = `apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  namespace: test-namespace
+  name: test-name
+spec:
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    name: listener
+    address:
+      socketAddress:
+        address: 100.64.0.100
+        portValue: 80
+    filterChains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          httpFilters:
+          - name: envoy.filters.http.health_check
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
+              clusterMinHealthyPercentages:
+                cluster:
+                  value: 20
+              passThroughMode: false`
+
+func TestCiliumEnvoyConfigtHTTPHealthCheckFilter(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
+	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigWithHealthFilter))
+	require.NoError(t, err)
+	cec := &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	require.NoError(t, err)
+
+	resources, err := parser.parseResources(cec.Namespace, cec.Name, cec.Spec.Resources, false, false, false)
+	require.NoError(t, err)
+	assert.Len(t, resources.Listeners, 1)
+	chain := resources.Listeners[0].FilterChains[0]
+	assert.Len(t, chain.Filters, 1)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
+
+	hcmMessage, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
+	require.NoError(t, err)
+	assert.NotNil(t, hcmMessage)
+
+	assert.IsType(t, &envoy_config_http.HttpConnectionManager{}, hcmMessage)
+	pm, err := hcmMessage.(*envoy_config_http.HttpConnectionManager).HttpFilters[0].GetTypedConfig().UnmarshalNew()
+	assert.NoError(t, err)
+
+	assert.IsType(t, &envoy_config_http_healthcheck.HealthCheck{}, pm)
+	assert.Len(t, pm.(*envoy_config_http_healthcheck.HealthCheck).ClusterMinHealthyPercentages, 1)
+	assert.Contains(t, pm.(*envoy_config_http_healthcheck.HealthCheck).ClusterMinHealthyPercentages, "test-namespace/test-name/cluster")
 }
 
 func TestListenersAddedOrDeleted(t *testing.T) {
