@@ -308,8 +308,8 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 //
 // Any identities and prefixes actually in use will still exist after this.
 //
-// This should be called after a grace period (default 10 minutes, set
-// by --identity-restore-grace-period).
+// This should be called after a grace period (default 30 seconds,
+// 10 minutes for kvstore, set by --identity-restore-grace-period).
 // This grace period is needed when running on an external workload
 // where policy synchronization is not done via k8s. Also in k8s
 // case it is prudent to allow concurrent endpoint regenerations to
