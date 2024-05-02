@@ -169,6 +169,15 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	err := ipsec.IPsecDefaultDropPolicy(false)
 	errs = errors.Join(errs, upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi, 0))
 
+	localCiliumInternalIP := n.nodeAddressing.IPv4().Router()
+	localNodeInternalIP, err := n.getV4LinkLocalIP()
+	if n.subnetEncryption() && err != nil {
+		log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
+		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link: %w", err))
+	}
+
+	localIP := localCiliumInternalIP
+
 	if newNode.IsLocal() {
 		if n.subnetEncryption() {
 			// FIXME: Remove the following four lines in Cilium v1.16
@@ -198,15 +207,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 		}
 		remoteIP := remoteCiliumInternalIP
 
-		localCiliumInternalIP := n.nodeAddressing.IPv4().Router()
-		localIP := localCiliumInternalIP
-
 		if n.subnetEncryption() {
-			localNodeInternalIP, err := n.getV4LinkLocalIP()
-			if err != nil {
-				log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
-				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link: %w", err))
-			}
 			remoteNodeInternalIP := newNode.GetNodeIP(false)
 
 			// Check if we should use the NodeInternalIPs instead of the
@@ -281,6 +282,15 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	}
 	errs = errors.Join(errs, upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi, 0))
 
+	localCiliumInternalIP := n.nodeAddressing.IPv6().Router()
+	localNodeInternalIP, err := n.getV6LinkLocalIP()
+	if n.subnetEncryption() && err != nil {
+		log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
+		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
+	}
+
+	localIP := localCiliumInternalIP
+
 	if newNode.IsLocal() {
 		if n.subnetEncryption() {
 			// FIXME: Remove the following four lines in Cilium v1.16
@@ -310,15 +320,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 		}
 		remoteIP := remoteCiliumInternalIP
 
-		localCiliumInternalIP := n.nodeAddressing.IPv6().Router()
-		localIP := localCiliumInternalIP
-
 		if n.subnetEncryption() {
-			localNodeInternalIP, err := n.getV6LinkLocalIP()
-			if err != nil {
-				log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
-				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
-			}
 			remoteNodeInternalIP := newNode.GetNodeIP(true)
 
 			// Check if we should use the NodeInternalIPs instead of the
