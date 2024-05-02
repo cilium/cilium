@@ -230,6 +230,7 @@
 /CODE_OF_CONDUCT.md @cilium/contributing
 /CODEOWNERS @cilium/contributing
 /CONTRIBUTING.md @cilium/contributing
+/CHANGELOG.md @cilium/release-managers
 /.authors.aux @cilium/contributing
 /.clomonitor.yml @cilium/contributing
 /.devcontainer @cilium/ci-structure
@@ -421,6 +422,7 @@ Makefile* @cilium/build
 /Documentation/network/egress-gateway/ @cilium/egress-gateway @cilium/docs-structure
 /Documentation/network/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
 /Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
+/Documentation/network/kubernetes/compatibility-table.rst @cilium/release-managers
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/kubernetes/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/kubernetes/local-redirect-policy.rst @cilium/sig-lb @cilium/docs-structure
@@ -643,7 +645,7 @@ Makefile* @cilium/build
 /pkg/xds/ @cilium/envoy
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker
-/README.rst @cilium/docs-structure
+/README.rst @cilium/docs-structure @cilium/release-managers
 /SECURITY.md @cilium/contributing
 /SECURITY-INSIGHTS.yml @cilium/security
 /stable.txt @cilium/release-managers
