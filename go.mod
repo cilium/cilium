@@ -90,6 +90,7 @@ require (
 	go.uber.org/dig v1.15.0
 	go.uber.org/goleak v1.2.0
 	go.uber.org/multierr v1.8.0
+	go.uber.org/zap v1.23.0
 	go.universe.tf/metallb v0.11.0
 	golang.org/x/crypto v0.19.0
 	golang.org/x/exp v0.0.0-20221106115401-f9659909a136
@@ -232,7 +233,6 @@ require (
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/oauth2 v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
