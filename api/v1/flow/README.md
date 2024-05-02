@@ -179,6 +179,7 @@ DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS](htt
 | ----- | ---- | ----- | ----------- |
 | ID | [uint32](#uint32) |  |  |
 | identity | [uint32](#uint32) |  |  |
+| cluster_name | [string](#string) |  |  |
 | namespace | [string](#string) |  |  |
 | labels | [string](#string) | repeated | labels in `foo=bar` format. |
 | pod_name | [string](#string) |  |  |
