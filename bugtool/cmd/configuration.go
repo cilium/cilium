@@ -431,6 +431,8 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf nodeid list",
 		"cilium lrp list",
 		"cilium cgroups list -o json",
+		"cilium troubleshoot kvstore",
+		"cilium troubleshoot clustermesh",
 	}
 	var commands []string
 
