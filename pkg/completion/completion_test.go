@@ -9,18 +9,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	//logging.ToggleDebugLogs(true)
-	TestingT(t)
-}
-
-type CompletionSuite struct{}
-
-var _ = Suite(&CompletionSuite{})
 
 const (
 	TestTimeout      = 10 * time.Second
@@ -28,7 +18,7 @@ const (
 	CompletionDelay  = 250 * time.Millisecond
 )
 
-func (s *CompletionSuite) TestNoCompletion(c *C) {
+func TestNoCompletion(t *testing.T) {
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
@@ -38,10 +28,10 @@ func (s *CompletionSuite) TestNoCompletion(c *C) {
 
 	// Wait should return immediately, since there are no completions.
 	err = wg.Wait()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (s *CompletionSuite) TestCompletionBeforeWait(c *C) {
+func TestCompletionBeforeWait(t *testing.T) {
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
@@ -55,10 +45,10 @@ func (s *CompletionSuite) TestCompletionBeforeWait(c *C) {
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (s *CompletionSuite) TestCompletionAfterWait(c *C) {
+func TestCompletionAfterWait(t *testing.T) {
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
@@ -75,10 +65,10 @@ func (s *CompletionSuite) TestCompletionAfterWait(c *C) {
 
 	// Wait should block until comp.Complete is called, then return nil.
 	err = wg.Wait()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (s *CompletionSuite) TestCompletionBeforeAndAfterWait(c *C) {
+func TestCompletionBeforeAndAfterWait(t *testing.T) {
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
@@ -99,10 +89,10 @@ func (s *CompletionSuite) TestCompletionBeforeAndAfterWait(c *C) {
 
 	// Wait should block until comp2.Complete is called, then return nil.
 	err = wg.Wait()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (s *CompletionSuite) TestCompletionTimeout(c *C) {
+func TestCompletionTimeout(t *testing.T) {
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
@@ -115,22 +105,22 @@ func (s *CompletionSuite) TestCompletionTimeout(c *C) {
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		// Callback gets called with context.DeadlineExceeded if the WaitGroup times out
-		c.Assert(err, Equals, context.DeadlineExceeded)
+		require.Equal(t, context.DeadlineExceeded, err)
 	})
 
 	// comp never completes.
 
 	// Wait should block until wgCtx expires.
 	err = wg.Wait()
-	c.Assert(err, Not(IsNil))
-	c.Assert(err, Equals, wgCtx.Err())
+	require.NotNil(t, err)
+	require.Equal(t, wgCtx.Err(), err)
 
 	// Complete is idempotent and harmless, and can be called after the
 	// context is canceled.
 	comp.Complete(nil)
 }
 
-func (s *CompletionSuite) TestCompletionMultipleCompleteCalls(c *C) {
+func TestCompletionMultipleCompleteCalls(t *testing.T) {
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
@@ -148,10 +138,10 @@ func (s *CompletionSuite) TestCompletionMultipleCompleteCalls(c *C) {
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (s *CompletionSuite) TestCompletionWithCallback(c *C) {
+func TestCompletionWithCallback(t *testing.T) {
 	var err error
 	var callbackCount int
 
@@ -173,14 +163,14 @@ func (s *CompletionSuite) TestCompletionWithCallback(c *C) {
 	comp.Complete(nil)
 
 	// The callback is called exactly once.
-	c.Assert(callbackCount, Equals, 1)
+	require.Equal(t, 1, callbackCount)
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 }
 
-func (s *CompletionSuite) TestCompletionWithCallbackError(c *C) {
+func TestCompletionWithCallbackError(t *testing.T) {
 	var err error
 	var callbackCount, callbackCount2 int
 
@@ -196,14 +186,14 @@ func (s *CompletionSuite) TestCompletionWithCallbackError(c *C) {
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		callbackCount++
 		// Completion that completes with a failure gets the reason for the failure
-		c.Assert(err, Equals, err1)
+		require.Equal(t, err1, err)
 	})
 
 	wg.AddCompletionWithCallback(func(err error) {
 		callbackCount2++
 		// When one completions fail the other completion callbacks
 		// are called with context.Canceled
-		c.Assert(err, Equals, context.Canceled)
+		require.Equal(t, context.Canceled, err)
 	})
 
 	// Complete is idempotent.
@@ -213,14 +203,14 @@ func (s *CompletionSuite) TestCompletionWithCallbackError(c *C) {
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	c.Assert(err, Equals, err1)
+	require.Equal(t, err1, err)
 
 	// The callbacks are called exactly once.
-	c.Assert(callbackCount, Equals, 1)
-	c.Assert(callbackCount2, Equals, 1)
+	require.Equal(t, 1, callbackCount)
+	require.Equal(t, 1, callbackCount2)
 }
 
-func (s *CompletionSuite) TestCompletionWithCallbackOtherError(c *C) {
+func TestCompletionWithCallbackOtherError(t *testing.T) {
 	var err error
 	var callbackCount, callbackCount2 int
 
@@ -235,12 +225,12 @@ func (s *CompletionSuite) TestCompletionWithCallbackOtherError(c *C) {
 
 	wg.AddCompletionWithCallback(func(err error) {
 		callbackCount++
-		c.Assert(err, Equals, context.Canceled)
+		require.Equal(t, context.Canceled, err)
 	})
 
 	comp2 := wg.AddCompletionWithCallback(func(err error) {
 		callbackCount2++
-		c.Assert(err, Equals, err2)
+		require.Equal(t, err2, err)
 	})
 
 	// Complete is idempotent.
@@ -250,14 +240,14 @@ func (s *CompletionSuite) TestCompletionWithCallbackOtherError(c *C) {
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	c.Assert(err, Equals, err2)
+	require.Equal(t, err2, err)
 
 	// The callbacks are called exactly once.
-	c.Assert(callbackCount, Equals, 1)
-	c.Assert(callbackCount2, Equals, 1)
+	require.Equal(t, 1, callbackCount)
+	require.Equal(t, 1, callbackCount2)
 }
 
-func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
+func TestCompletionWithCallbackTimeout(t *testing.T) {
 	var err error
 	var callbackCount int
 
@@ -273,20 +263,20 @@ func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
 		if err == nil {
 			callbackCount++
 		}
-		c.Assert(err, Equals, context.DeadlineExceeded)
+		require.Equal(t, context.DeadlineExceeded, err)
 	})
 
 	// comp never completes.
 
 	// Wait should block until wgCtx expires.
 	err = wg.Wait()
-	c.Assert(err, Not(IsNil))
-	c.Assert(err, Equals, wgCtx.Err())
+	require.NotNil(t, err)
+	require.Equal(t, wgCtx.Err(), err)
 
 	// Complete is idempotent and harmless, and can be called after the
 	// context is canceled.
 	comp.Complete(nil)
 
 	// The callback is only called with the error 'context.DeadlineExceeded'.
-	c.Assert(callbackCount, Equals, 0)
+	require.Equal(t, 0, callbackCount)
 }
