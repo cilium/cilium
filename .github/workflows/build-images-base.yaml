@@ -101,29 +101,19 @@ jobs:
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
-      - name: Install Bom
-        shell: bash
-        env:
-          # renovate: datasource=github-releases depName=kubernetes-sigs/bom
-          BOM_VERSION: v0.6.0
-        run: |
-          curl -L https://github.com/kubernetes-sigs/bom/releases/download/${{ env.BOM_VERSION }}/bom-amd64-linux -o bom
-          sudo mv ./bom /usr/local/bin/bom
-          sudo chmod +x /usr/local/bin/bom
 
       - name: Generate SBOM
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        shell: bash
-        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
-        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
-        run: |
-          bom generate -o sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx \
-          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
+        uses: anchore/sbom-action@7ccf588e3cf3cc2611714c2eeae48550fbc17552 # v0.15.11
+        with:
+          artifact-name: sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
+          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attach sbom --sbom sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign attach sbom --sbom sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Sign SBOM Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -200,17 +190,16 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        shell: bash
-        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
-        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
-        run: |
-          bom generate -o sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx \
-          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
+        uses: anchore/sbom-action@7ccf588e3cf3cc2611714c2eeae48550fbc17552 # v0.15.11
+        with:
+          artifact-name: sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
+          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attach sbom --sbom sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign attach sbom --sbom sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Sign SBOM Image
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}

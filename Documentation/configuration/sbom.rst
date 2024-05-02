@@ -15,10 +15,10 @@ components that are required to build a given piece of software. SBOM provides
 insight into the software supply chain and any potential concerns related to
 license compliance and security that might exist.
 
-The Cilium SBOM is generated using the `bom`_ tool. To learn more about SBOM, see
+The Cilium SBOM is generated using the `syft`_ tool. To learn more about SBOM, see
 `what an SBOM can do for you`_.
 
-.. _`bom`: https://github.com/kubernetes-sigs/bom
+.. _`syft`: https://github.com/anchore/syft
 .. _`what an SBOM can do for you`: https://www.chainguard.dev/unchained/what-an-sbom-can-do-for-you
 
 Prerequisites
