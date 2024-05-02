@@ -49,6 +49,7 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -215,6 +216,9 @@ var (
 
 		// K8s policy resource watcher cell.
 		policyK8s.Cell,
+
+		// Directory policy watcher cell.
+		policyDirectory.Cell,
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		cell.Config(cmtypes.DefaultClusterInfo),
