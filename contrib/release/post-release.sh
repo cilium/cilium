@@ -49,9 +49,8 @@ handle_args() {
         common::exit 1 "Invalid VERSION ARG \"$2\"; $RELEASE_FORMAT_MSG"
     fi
 
-    if [ -z "${GITHUB_TOKEN}" ]; then
-        usage 2>&1
-        common::exit 1 "GITHUB_TOKEN not set!"
+    if ! gh auth status >/dev/null; then
+        common::exit 1 "Failed to authenticate with GitHub"
     fi
 }
 

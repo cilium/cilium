@@ -37,14 +37,14 @@ handle_args() {
         common::exit 1 "Invalid VERSION ARG \"$2\"; Expected X.Y.Z"
     fi
 
-    if [ -z "${GITHUB_TOKEN}" ]; then
-        usage 2>&1
-        common::exit 1 "GITHUB_TOKEN not set!"
+    if ! gh auth status >/dev/null; then
+        common::exit 1 "Failed to authenticate with GitHub"
     fi
 }
 
 get_digest_output() {
     local username run_id file tmp_dir archive_download_url archive_download_url_zip
+    local GITHUB_TOKEN=${GITHUB_TOKEN:-$(gh auth token)}
 
     username="${1}"
     run_id="${2}"
