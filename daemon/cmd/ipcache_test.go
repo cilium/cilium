@@ -5,11 +5,12 @@ package cmd
 
 import (
 	"net"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *DaemonSuite) TestContainsSubnet(c *C) {
+func TestContainsSubnet(t *testing.T) {
 	type args struct {
 		outer, inner string
 	}
@@ -61,13 +62,10 @@ func (s *DaemonSuite) TestContainsSubnet(c *C) {
 	}
 	for _, tt := range tests {
 		_, outer, err := net.ParseCIDR(tt.args.outer)
-		c.Assert(err, IsNil)
+		require.Nil(t, err)
 		_, inner, err := net.ParseCIDR(tt.args.inner)
-		c.Assert(err, IsNil)
+		require.Nil(t, err)
 		got := containsSubnet(*outer, *inner)
-		if got != tt.want {
-			c.Errorf("expected containsSubnet(%q, %q) = %t, got %t",
-				tt.args.outer, tt.args.inner, tt.want, got)
-		}
+		require.Equalf(t, tt.want, got, "expected containsSubnet(%q, %q) = %t, got %t", tt.args.outer, tt.args.inner, tt.want, got)
 	}
 }
