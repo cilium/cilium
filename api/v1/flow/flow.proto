@@ -252,6 +252,7 @@ message TraceParent {
 message Endpoint {
     uint32 ID = 1;
     uint32 identity = 2;
+    string cluster_name = 7;
     string namespace = 3;
     // labels in `foo=bar` format.
     repeated string labels = 4;
