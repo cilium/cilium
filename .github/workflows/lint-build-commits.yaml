@@ -31,25 +31,6 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
 
-      - name: Set clang directory
-        id: set_clang_dir
-        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
-
-      - name: Install LLVM and Clang prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libtinfo5
-
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@8b37482c5a2997a3ab5dbf6561f8109e2eaa7d3b # v2.0.2
-        with:
-          version: "17.0.6"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
-
-      - name: Install ginkgo
-        run: |
-          go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
-
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
@@ -93,6 +74,29 @@ jobs:
             src:
               - 'pkg/**'
               - 'test/**'
+
+      - name: Set clang directory
+        if: steps.test-tree.outputs.src == 'true'
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
+      - name: Install LLVM and Clang prerequisites
+        if: steps.test-tree.outputs.src == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
+
+      - name: Install LLVM and Clang
+        if: steps.test-tree.outputs.src == 'true'
+        uses: KyleMayes/install-llvm-action@8b37482c5a2997a3ab5dbf6561f8109e2eaa7d3b # v2.0.2
+        with:
+          version: "17.0.6"
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+
+      - name: Install ginkgo
+        if: steps.test-tree.outputs.src == 'true'
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
 
       # Runs only if code under test/ is changed.
       - name: Check if ginkgo test suite build works for every commit
