@@ -63,9 +63,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"bpf.monitorAggregation": "medium",
 				"bpf.monitorInterval":    "60s",
 				"bpf.monitorFlags":       "syn",
-				// Need to disable the host firewall for now due to complexity issue.
-				// See #14552 for details.
-				"hostFirewall.enabled": "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			monitorRes, monitorCancel, targetIP := monitorConnectivityAcrossNodes(kubectl)
