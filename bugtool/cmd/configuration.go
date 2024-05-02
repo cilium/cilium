@@ -453,6 +453,8 @@ func ciliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium-dbg bgp routes advertised ipv4 unicast",
 		"cilium-dbg bgp routes advertised ipv6 unicast",
 		"cilium-dbg bgp route-policies",
+		"cilium-dbg troubleshoot kvstore",
+		"cilium-dbg troubleshoot clustermesh",
 	}
 
 	return append(k8sPerPodCopyCommands(commands, k8sPods), k8sPerPodCopyStateDir(cmdDir, k8sPods)...)
