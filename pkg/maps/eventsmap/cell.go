@@ -6,11 +6,10 @@ package eventsmap
 import (
 	"fmt"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/common"
 )
 
 // Cell provides eventsmap.Map, which is the hive representation of the cilium
@@ -28,13 +27,16 @@ var (
 
 type Map interface{}
 
-func newEventsMap(log logrus.FieldLogger, lifecycle cell.Lifecycle) bpf.MapOut[Map] {
+func newEventsMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 	eventsMap := &eventsMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
-			cpus := common.GetNumPossibleCPUs(log)
-			err := eventsMap.init(cpus)
+			cpus, err := ebpf.PossibleCPU()
+			if err != nil {
+				return fmt.Errorf("failed to get number of possible CPUs: %w", err)
+			}
+			err = eventsMap.init(cpus)
 			if err != nil {
 				return fmt.Errorf("initializing events map: %w", err)
 			}
