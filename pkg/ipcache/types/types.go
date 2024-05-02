@@ -44,6 +44,7 @@ var (
 	ResourceKindCCNP     = ResourceKind("ccnp")
 	ResourceKindDaemon   = ResourceKind("daemon")
 	ResourceKindEndpoint = ResourceKind("ep")
+	ResourceKindFile     = ResourceKind("file")
 	ResourceKindNetpol   = ResourceKind("netpol")
 	ResourceKindNode     = ResourceKind("node")
 )
