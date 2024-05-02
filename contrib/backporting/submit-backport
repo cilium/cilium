@@ -8,8 +8,8 @@ source $DIR/common.sh
 
 require_linux
 
-if ! hub help | grep -q "api"; then
-    echo "This tool relies on a recent version of 'hub' from https://github.com/github/hub." 1>&2
+if ! gh help | grep -q "api"; then
+    echo "This tool relies on 'gh' from https://cli.github.com/." 1>&2
     echo "Please install this tool first." 1>&2
     exit 1
 fi
@@ -54,9 +54,9 @@ PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git config --local "branch.${PR_BRANCH}.remote" "$USER_REMOTE"
 git push -q "$USER_REMOTE" "$PR_BRANCH"
 if [ -z "$REVIEWERS" ]; then
-  hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
+  gh pr create -B "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
 else
-  hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY -r $REVIEWERS
+  gh pr create -B "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY -r $REVIEWERS
 fi
 
 prs=$(sed -En "/upstream-prs/ { n; p }" < "$SUMMARY")
