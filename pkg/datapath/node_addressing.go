@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // NodeAddressingCell provides the [NodeAddressing] interface that provides
@@ -74,10 +73,6 @@ func (a addressFamily) AllocationCIDR() *cidr.CIDR {
 	return nil
 }
 
-func (a addressFamily) DirectRouting() (int, net.IP, bool) {
-	return a.getDirectRouting(a.flags)
-}
-
 type getFlags int
 
 const (
@@ -85,33 +80,6 @@ const (
 	ipv6     getFlags = 1 << 1
 	nodePort getFlags = 1 << 2
 )
-
-func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
-	if option.Config.DirectRoutingDevice == "" {
-		return 0, nil, false
-	}
-
-	dev, _, ok := a.devices.Get(a.db.ReadTxn(), tables.DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
-	if !ok {
-		return 0, nil, false
-	}
-
-	var addr net.IP
-	for _, a := range dev.Addrs {
-		if flags&ipv6 != 0 && a.Addr.Is6() {
-			addr = a.AsIP()
-			break
-		} else if flags&ipv6 == 0 && a.Addr.Is4() {
-			addr = a.AsIP()
-			break
-		}
-	}
-	if addr == nil {
-		return 0, nil, false
-	}
-
-	return dev.Index, addr, true
-}
 
 type addressFamily struct {
 	*nodeAddressing

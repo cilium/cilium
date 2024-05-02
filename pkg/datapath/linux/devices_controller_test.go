@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -623,4 +624,201 @@ func TestDevicesController_Restarts(t *testing.T) {
 	err = h.Stop(tlog, ctx)
 	assert.NoError(t, err)
 
+}
+
+func createLink(linkTemplate netlink.Link, iface, ipAddr string, flagMulticast bool) error {
+	var flags net.Flags
+	if flagMulticast {
+		flags = net.FlagMulticast
+	}
+	*linkTemplate.Attrs() = netlink.LinkAttrs{
+		Name:  iface,
+		Flags: flags,
+	}
+
+	if err := netlink.LinkAdd(linkTemplate); err != nil {
+		return err
+	}
+
+	if ipAddr != "" {
+		if err := addAddr(iface, ipAddr); err != nil {
+			return err
+		}
+	}
+
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+
+	if err := netlink.LinkSetUp(link); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func deleteLink(name string) error {
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		return err
+	}
+	return netlink.LinkDel(link)
+}
+
+func createDummy(iface, ipAddr string, flagMulticast bool) error {
+	return createLink(&netlink.Dummy{}, iface, ipAddr, flagMulticast)
+}
+
+func createVeth(iface, ipAddr string, flagMulticast bool) error {
+	return createLink(&netlink.Veth{PeerName: iface + "_"}, iface, ipAddr, flagMulticast)
+}
+
+func createBridge(iface, ipAddr string, flagMulticast bool) error {
+	return createLink(&netlink.Bridge{}, iface, ipAddr, flagMulticast)
+}
+
+func createBond(iface, ipAddr string, flagMulticast bool) error {
+	bond := netlink.NewLinkBond(netlink.LinkAttrs{})
+	bond.Mode = netlink.BOND_MODE_BALANCE_RR
+	return createLink(bond, iface, ipAddr, flagMulticast)
+}
+
+func setLinkUp(iface string) error {
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+	return netlink.LinkSetUp(link)
+}
+
+func setMaster(iface string, master string) error {
+	masterLink, err := netlink.LinkByName(master)
+	if err != nil {
+		return err
+	}
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+	return netlink.LinkSetMaster(link, masterLink)
+}
+
+func setBondMaster(iface string, master string) error {
+	masterLink, err := netlink.LinkByName(master)
+	if err != nil {
+		return err
+	}
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+	netlink.LinkSetDown(link)
+	defer netlink.LinkSetUp(link)
+	return netlink.LinkSetBondSlave(link, masterLink.(*netlink.Bond))
+}
+func addAddr(iface string, cidr string) error {
+	return addAddrScoped(iface, cidr, netlink.SCOPE_SITE, 0)
+}
+
+func addAddrScoped(iface string, cidr string, scope netlink.Scope, flags int) error {
+	ip, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return fmt.Errorf("ParseCIDR: %w", err)
+	}
+	ipnet.IP = ip
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return fmt.Errorf("LinkByName: %w", err)
+	}
+
+	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipnet, Scope: int(scope), Flags: flags}); err != nil {
+		return fmt.Errorf("AddrAdd: %w", err)
+	}
+	return nil
+}
+
+type addRouteParams struct {
+	iface string
+	gw    string
+	src   string
+	dst   string
+	table int
+	scope netlink.Scope
+}
+
+func addRoute(p addRouteParams) error {
+	link, err := netlink.LinkByName(p.iface)
+	if err != nil {
+		return err
+	}
+
+	var dst *net.IPNet
+	if p.dst != "" {
+		_, dst, err = net.ParseCIDR(p.dst)
+		if err != nil {
+			return err
+		}
+	}
+
+	var src net.IP
+	if p.src != "" {
+		src = net.ParseIP(p.src)
+	}
+
+	if p.table == 0 {
+		p.table = unix.RT_TABLE_MAIN
+	}
+
+	route := &netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       dst,
+		Src:       src,
+		Gw:        net.ParseIP(p.gw),
+		Table:     p.table,
+		Scope:     p.scope,
+	}
+	if err := netlink.RouteAdd(route); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func delRoute(p addRouteParams) error {
+	link, err := netlink.LinkByName(p.iface)
+	if err != nil {
+		return err
+	}
+
+	var dst *net.IPNet
+	if p.dst != "" {
+		_, dst, err = net.ParseCIDR(p.dst)
+		if err != nil {
+			return err
+		}
+	}
+
+	var src net.IP
+	if p.src != "" {
+		src = net.ParseIP(p.src)
+	}
+
+	if p.table == 0 {
+		p.table = unix.RT_TABLE_MAIN
+	}
+
+	route := &netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       dst,
+		Src:       src,
+		Gw:        net.ParseIP(p.gw),
+		Table:     p.table,
+		Scope:     p.scope,
+	}
+	if err := netlink.RouteDel(route); err != nil {
+		return err
+	}
+
+	return nil
 }

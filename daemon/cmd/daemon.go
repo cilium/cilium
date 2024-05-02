@@ -106,8 +106,9 @@ type Daemon struct {
 	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	devices   statedb.Table[*datapathTables.Device]
-	nodeAddrs statedb.Table[datapathTables.NodeAddress]
+	directRoutingDev datapathTables.DirectRoutingDevice
+	devices          statedb.Table[*datapathTables.Device]
+	nodeAddrs        statedb.Table[datapathTables.NodeAddress]
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -382,6 +383,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
+		directRoutingDev:  params.DirectRoutingDevice,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -626,20 +628,26 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	var devices []string
-	if params.DeviceManager != nil {
-		if devices, err = params.DeviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
-			if option.Config.AreDevicesRequired() {
-				// Fail hard if devices are required to function.
-				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
-			}
-			log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
-			disableNodePort()
+
+	rxn := d.db.ReadTxn()
+	drdName := ""
+	directRoutingDevice, _ := params.DirectRoutingDevice.Get(ctx, rxn)
+	if directRoutingDevice == nil {
+		if option.Config.AreDevicesRequired() {
+			// Fail hard if devices are required to function.
+			return nil, nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
+				option.DirectRoutingDevice)
 		}
+
+		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
+		disableNodePort()
+	} else {
+		drdName = directRoutingDevice.Name
+		log.WithField(option.DirectRoutingDevice, drdName).Info("Direct routing device detected")
 	}
 
-	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
-	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices); err != nil {
+	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, rxn)
+	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices, drdName); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
@@ -676,7 +684,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
 		return nil, nil, fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
-	if len(devices) == 0 {
+	if len(nativeDevices) == 0 {
 		if option.Config.EnableHostFirewall {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
 			log.WithError(err).Errorf(msg, option.Devices)

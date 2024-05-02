@@ -58,7 +58,6 @@ var DevicesControllerCell = cell.Module(
 
 	cell.Provide(
 		newDevicesController,
-		newDeviceManager,
 	),
 	cell.Config(DevicesConfig{}),
 

@@ -1213,14 +1213,15 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		case !option.Config.EnableL2NeighDiscovery:
 			n.enableNeighDiscovery = false
 		case option.Config.DirectRoutingDeviceRequired():
-			if option.Config.DirectRoutingDevice == "" {
+			if newConfig.DirectRoutingDevice == nil {
 				return fmt.Errorf("direct routing device is required, but not defined")
 			}
 
+			drd := newConfig.DirectRoutingDevice
 			devices := n.nodeConfig.DeviceNames()
 
 			targetDevices := make([]string, 0, len(devices)+1)
-			targetDevices = append(targetDevices, option.Config.DirectRoutingDevice)
+			targetDevices = append(targetDevices, drd.Name)
 			targetDevices = append(targetDevices, devices...)
 
 			var err error
