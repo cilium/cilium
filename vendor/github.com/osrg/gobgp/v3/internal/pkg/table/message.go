@@ -401,11 +401,11 @@ func (p *packerV4) add(path *Path) {
 
 func (p *packerV4) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 	split := func(max int, paths []*Path) ([]*bgp.IPAddrPrefix, []*Path) {
-		nlris := make([]*bgp.IPAddrPrefix, 0, max)
-		i := 0
 		if max > len(paths) {
 			max = len(paths)
 		}
+		nlris := make([]*bgp.IPAddrPrefix, 0, max)
+		i := 0
 		for ; i < max; i++ {
 			nlris = append(nlris, paths[i].GetNlri().(*bgp.IPAddrPrefix))
 		}

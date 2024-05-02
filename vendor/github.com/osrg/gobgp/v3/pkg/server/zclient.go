@@ -142,7 +142,7 @@ func newIPRouteBody(dst []*table.Path, vrfID uint32, z *zebraClient) (body *zebr
 	}
 	path := paths[0]
 
-	l := strings.SplitN(path.GetNlri().String(), "/", 2)
+	l := strings.SplitN(path.GetPrefix(), "/", 2)
 	var prefix net.IP
 	var nexthop zebra.Nexthop
 	nexthops := make([]zebra.Nexthop, 0, len(paths))
