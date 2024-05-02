@@ -6,7 +6,6 @@ package linux
 import (
 	"fmt"
 	"log/slog"
-	"net"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -76,15 +75,6 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 		dm.params.Log.Info("Direct routing device detected",
 			logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice,
 		)
-	}
-
-	if option.Config.EnableIPv6NDP && option.Config.IPv6MCastDevice == "" {
-		if nodeDevice != nil && nodeDevice.Flags&net.FlagMulticast != 0 {
-			option.Config.IPv6MCastDevice = nodeDevice.Name
-		} else {
-			return nil, fmt.Errorf("unable to determine Multicast device. Use --%s to specify it",
-				option.IPv6MCastDevice)
-		}
 	}
 
 	return names, nil
