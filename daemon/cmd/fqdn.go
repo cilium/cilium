@@ -129,9 +129,9 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	// locally running endpoints.
 	cfg.Cache.DisableCleanupTrack()
 
-	rg := fqdn.NewNameManager(cfg)
-	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
-	d.dnsNameManager = rg
+	nameManager := fqdn.NewNameManager(cfg)
+	d.policy.GetSelectorCache().SetLocalIdentityNotifier(nameManager)
+	d.dnsNameManager = nameManager
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
 	d.dnsNameManager.StartGC(d.ctx)
