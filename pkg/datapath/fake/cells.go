@@ -75,6 +75,7 @@ var Cell = cell.Module(
 
 	tables.NodeAddressCell,
 	datapath.NodeAddressingCell,
+	tables.DirectRoutingDeviceCell,
 
 	cell.Invoke(
 		statedb.RegisterTable[*tables.Device],

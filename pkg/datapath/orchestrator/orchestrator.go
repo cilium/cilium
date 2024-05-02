@@ -28,16 +28,17 @@ type orchestrator struct {
 type orchestratorParams struct {
 	cell.In
 
-	Loader          types.Loader
-	TunnelConfig    tunnel.Config
-	MTU             mtu.MTU
-	IPTablesManager *iptables.Manager
-	Proxy           *proxy.Proxy
-	DB              *statedb.DB
-	Devices         statedb.Table[*tables.Device]
-	NodeAddresses   statedb.Table[tables.NodeAddress]
-	LocalNodeStore  *node.LocalNodeStore
-	NodeDiscovery   *nodediscovery.NodeDiscovery
+	Loader              types.Loader
+	TunnelConfig        tunnel.Config
+	MTU                 mtu.MTU
+	IPTablesManager     *iptables.Manager
+	Proxy               *proxy.Proxy
+	DB                  *statedb.DB
+	Devices             statedb.Table[*tables.Device]
+	NodeAddresses       statedb.Table[tables.NodeAddress]
+	DirectRoutingDevice tables.DirectRoutingDevice
+	LocalNodeStore      *node.LocalNodeStore
+	NodeDiscovery       *nodediscovery.NodeDiscovery
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -55,14 +56,18 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 		return fmt.Errorf("get local node: %w", err)
 	}
 
+	rxn := o.params.DB.ReadTxn()
+	directRoutingDevice, _ := o.params.DirectRoutingDevice.Get(ctx, rxn)
+
 	// Construct the LocalNodeConfiguration that encapsulates the
 	// local node's dynamic configuration.
 	localNodeConfig, err := newLocalNodeConfig(
 		option.Config,
 		localNode,
 		o.params.MTU,
-		o.params.DB.ReadTxn(),
+		rxn,
 		o.params.Devices,
+		directRoutingDevice,
 		o.params.NodeAddresses,
 	)
 	if err != nil {

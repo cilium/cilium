@@ -61,6 +61,10 @@ type LocalNodeConfiguration struct {
 	// Mutable at runtime.
 	Devices []*tables.Device
 
+	// DirectRoutingDevice is the device used in direct routing mode.
+	// Mutable at runtime.
+	DirectRoutingDevice *tables.Device
+
 	// NodeAddresses are the IP addresses of the local node that are considered
 	// as this node's addresses. From this set we pick the addresses that are
 	// used as NodePort frontends and the addresses to use for BPF masquerading.
