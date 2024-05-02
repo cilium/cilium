@@ -72,5 +72,17 @@ type CachingIdentityAllocator interface {
 	clustermesh.RemoteIdentityWatcher
 
 	InitIdentityAllocator(versioned.Interface) <-chan struct{}
+
+	// RestoreLocalIdentities reads in the checkpointed local allocator state
+	// from disk and allocates a reference to every previously existing identity.
+	//
+	// Once all identity-allocating objects are synchronized (e.g. network policies,
+	// remote nodes), call ReleaseRestoredIdentities to release the held references.
+	RestoreLocalIdentities() (map[identity.NumericIdentity]*identity.Identity, error)
+
+	// ReleaseRestoredIdentities releases any identities that were restored, reducing their reference
+	// count and cleaning up as necessary.
+	ReleaseRestoredIdentities()
+
 	Close()
 }
