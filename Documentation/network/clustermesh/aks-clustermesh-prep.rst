@@ -8,7 +8,7 @@ This is a step-by-step guide on how to install and prepare
 AKS (Azure Kubernetes Service) clusters in BYOCNI mode to meet the requirements 
 for the clustermesh feature.
 
-In this guide we will install two AKS clusters in BYOCNI (Bring Your Own CNI) 
+This guide describes how to install two AKS clusters in BYOCNI (Bring Your Own CNI) 
 mode and connect them together via clustermesh. This guide is not 
 applicable for cross-cloud clustermesh since this guide doesn't expose the node
 IPs outside of the Azure cloud.
@@ -32,13 +32,12 @@ Install cluster one
         #  westus2 can be changed to any available location (`az account list-locations`)
         az group create --name "${AZURE_RESOURCE_GROUP}" -l westus2
 
-2.  Now that we have a resource group we can create a VNet (virtual network). 
-    Creating a custom VNet is required so we can specify a unique Node, Pod, and 
-    Service CIDRs to make sure we don't overlap with other clusters.
+2.  Create a VNet (virtual network). 
+    Creating a custom VNet is required to ensure that the Node, Pod, and 
+    Service CIDRs are unique and they don't overlap with other clusters.
 
     .. note::
-        In this case we use the ``192.168.10.0/24`` range, but this can be exchanged
-        for any range except for ``169.254.0.0/16``, ``172.30.0.0/16``, 
+        The example below uses range ``192.168.10.0/24`` range, but you could use any range except for ``169.254.0.0/16``, ``172.30.0.0/16``, 
         ``172.31.0.0/16``, or ``192.0.2.0/24`` which are 
         `reserved by Azure <https://docs.microsoft.com/en-us/azure/aks/configure-azure-cni#prerequisites>`__.
 
@@ -59,12 +58,11 @@ Install cluster one
             --query id \
             -o tsv)
 
-3.  We now have a virtual network and a subnet with the same CIDR. We can 
-    create an AKS cluster without CNI and request to use our custom VNet and subnet.
+3.  You now have a virtual network and a subnet with the same CIDR. Create an AKS cluster without a CNI and request to use a custom VNet and subnet.
 
-    During creation we also request to use ``"10.10.0.0/16"`` as the pod CIDR and
+    During creation request to use ``"10.10.0.0/16"`` as the pod CIDR and
     ``"10.11.0.0/16"`` as the services CIDR. These can be changed to any range
-    except for Azure reserved ranges and ranges used by other clusters we intend to
+    except for Azure reserved ranges and ranges used by other clusters you intend to
     add to the clustermesh.
 
     .. code-block:: bash
@@ -100,7 +98,7 @@ Install cluster one
 
         cilium status   
 
-6.  Before we continue with cluster two, store the name of the current cluster.
+6.  Before configuring cluster two, store the name of the current cluster.
 
     .. code-block:: bash
 
@@ -126,8 +124,7 @@ arguments.
 2.  Create a VNet in this resource group. Make sure to use a non-overlapping prefix.
 
     .. note::
-        In this case we use the ``192.168.20.0/24`` range, but this can be exchanged
-        for any range except for ``169.254.0.0/16``, ``172.30.0.0/16``, 
+        The example below uses range ``192.168.20.0/24``, but you could use any range except for ``169.254.0.0/16``, ``172.30.0.0/16``, 
         ``172.31.0.0/16``, or ``192.0.2.0/24`` which are 
         `reserved by Azure <https://docs.microsoft.com/en-us/azure/aks/configure-azure-cni#prerequisites>`__.
 
@@ -148,12 +145,12 @@ arguments.
             --query id \
             -o tsv)
 
-3.  Create an AKS cluster without CNI and request to use our custom VNet and 
+3.  Create an AKS cluster without CNI and request to use your custom VNet and 
     subnet.
 
-    During creation we also request to use ``"10.20.0.0/16"`` as the pod CIDR and
+    During creation use ``"10.20.0.0/16"`` as the pod CIDR and
     ``"10.21.0.0/16"`` as the services CIDR. These can be changed to any range
-    except for Azure reserved ranges and ranges used by other clusters we intend to
+    except for Azure reserved ranges and ranges used by other clusters you intend to
     add to the clustermesh.
 
     .. code-block:: bash
@@ -173,7 +170,7 @@ arguments.
             --name "${NAME}"
 
 4.  Install Cilium, it is important to give
-    the cluster a unique cluster ID and to tell Cilium to use our custom pod CIDR.
+    the cluster a unique cluster ID and to tell Cilium to use your custom pod CIDR.
 
     .. parsed-literal::
 
@@ -188,7 +185,7 @@ arguments.
 
         cilium status
 
-6.  Before we continue with peering and clustermesh, store the current cluster 
+6.  Before configuring peering and clustermesh, store the current cluster 
     name.
 
     .. code-block:: bash
@@ -198,10 +195,10 @@ arguments.
 Peering virtual networks
 ########################
 
-Virtual networks can't connect to each other by default. We can enable cross
+Virtual networks can't connect to each other by default. You can enable cross
 VNet communication by creating bi-directional "peering".
 
-We will start by creating a peering from cluster one to cluster two using the
+Create a peering from cluster one to cluster two using the
 following commands.
 
 .. code-block:: bash
@@ -219,7 +216,7 @@ following commands.
         --allow-vnet-access
 
 This allows outbound traffic from cluster one to cluster two. To allow 
-bi-directional traffic, we need to add peering to the other direction as well.
+bi-directional traffic, add a peering to the other direction as well.
 
 .. code-block:: bash
 
