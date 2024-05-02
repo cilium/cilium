@@ -20,7 +20,6 @@ require (
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/google/gops v0.3.28
-	github.com/hashicorp/go-multierror v1.1.1
 	github.com/osrg/gobgp/v3 v3.23.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/spf13/cobra v1.8.0
