@@ -8,24 +8,15 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/source"
 )
-
-type AgentSuite struct{}
-
-var _ = Suite(&AgentSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 type fakeWgClient struct{}
 
@@ -95,7 +86,7 @@ func newTestAgent(ctx context.Context) (*Agent, *ipcache.IPCache) {
 	return wgAgent, ipCache
 }
 
-func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
+func TestAgent_PeerConfig(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wgAgent, ipCache := newTestAgent(ctx)
@@ -108,20 +99,20 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
 	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
-	c.Assert(k8s1, NotNil)
-	c.Assert(k8s1.nodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
-	c.Assert(k8s1.nodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
-	c.Assert(k8s1.pubKey.String(), Equals, k8s1PubKey)
-	c.Assert(k8s1.allowedIPs, HasLen, 6)
-	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv6)), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, pod1IPv4), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, pod1IPv6), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv4), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv6), Equals, true)
+	require.NotNil(t, k8s1)
+	require.EqualValues(t, k8s1NodeIPv4, k8s1.nodeIPv4)
+	require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
+	require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
+	require.Len(t, k8s1.allowedIPs, 6)
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv6)))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod1IPv4))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod1IPv6))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod2IPv4))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod2IPv6))
 
 	// Tests that IPCache updates are blocked by a concurrent UpdatePeer.
 	// We test this by issuing an UpdatePeer request while holding
@@ -137,7 +128,7 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	go func() {
 		close(agentUpdatePending)
 		err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
-		c.Assert(err, IsNil)
+		require.Nil(t, err)
 		close(agentUpdated)
 	}()
 
@@ -168,9 +159,9 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	// channel yet. Thus once release the lock we expect them to make progress
 	select {
 	case <-agentUpdated:
-		c.Fatal("agent update not blocked by agent lock")
+		t.Fatal("agent update not blocked by agent lock")
 	case <-ipCacheUpdated:
-		c.Fatal("ipcache update not blocked by agent lock")
+		t.Fatal("ipcache update not blocked by agent lock")
 	default:
 	}
 
@@ -181,38 +172,38 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	<-ipCacheUpdated
 
 	k8s1 = wgAgent.peerByNodeName[k8s1NodeName]
-	c.Assert(k8s1.nodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
-	c.Assert(k8s1.nodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
-	c.Assert(k8s1.pubKey.String(), Equals, k8s1PubKey)
-	c.Assert(k8s1.allowedIPs, HasLen, 4)
-	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv6)), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv4), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv6), Equals, true)
+	require.EqualValues(t, k8s1NodeIPv4, k8s1.nodeIPv4)
+	require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
+	require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
+	require.Len(t, k8s1.allowedIPs, 4)
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv6)))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod2IPv4))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod2IPv6))
 
 	k8s2 := wgAgent.peerByNodeName[k8s2NodeName]
-	c.Assert(k8s2.nodeIPv4, checker.DeepEquals, k8s2NodeIPv4)
-	c.Assert(k8s2.nodeIPv6, checker.DeepEquals, k8s2NodeIPv6)
-	c.Assert(k8s2.pubKey.String(), Equals, k8s2PubKey)
-	c.Assert(k8s2.allowedIPs, HasLen, 4)
-	c.Assert(containsIP(k8s2.allowedIPs, iputil.IPToPrefix(k8s2NodeIPv4)), Equals, true)
-	c.Assert(containsIP(k8s2.allowedIPs, iputil.IPToPrefix(k8s2NodeIPv6)), Equals, true)
-	c.Assert(containsIP(k8s2.allowedIPs, pod3IPv4), Equals, true)
-	c.Assert(containsIP(k8s2.allowedIPs, pod3IPv6), Equals, true)
+	require.EqualValues(t, k8s2NodeIPv4, k8s2.nodeIPv4)
+	require.EqualValues(t, k8s2NodeIPv6, k8s2.nodeIPv6)
+	require.Equal(t, k8s2PubKey, k8s2.pubKey.String())
+	require.Len(t, k8s2.allowedIPs, 4)
+	require.Equal(t, true, containsIP(k8s2.allowedIPs, iputil.IPToPrefix(k8s2NodeIPv4)))
+	require.Equal(t, true, containsIP(k8s2.allowedIPs, iputil.IPToPrefix(k8s2NodeIPv6)))
+	require.Equal(t, true, containsIP(k8s2.allowedIPs, pod3IPv4))
+	require.Equal(t, true, containsIP(k8s2.allowedIPs, pod3IPv6))
 
 	// Tests that duplicate public keys are rejected (k8s2 imitates k8s1)
 	err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
-	c.Assert(err, ErrorMatches, "detected duplicate public key.*")
+	require.ErrorContains(t, err, "detected duplicate public key")
 
 	// Node Deletion
 	wgAgent.DeletePeer(k8s1NodeName)
 	wgAgent.DeletePeer(k8s2NodeName)
-	c.Assert(wgAgent.peerByNodeName, HasLen, 0)
-	c.Assert(wgAgent.nodeNameByNodeIP, HasLen, 0)
-	c.Assert(wgAgent.nodeNameByPubKey, HasLen, 0)
+	require.Len(t, wgAgent.peerByNodeName, 0)
+	require.Len(t, wgAgent.nodeNameByNodeIP, 0)
+	require.Len(t, wgAgent.nodeNameByPubKey, 0)
 }
 
-func (a *AgentSuite) TestAgent_PeerConfig_WithEncryptNode(c *C) {
+func TestAgent_PeerConfig_WithEncryptNode(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wgAgent, ipCache := newTestAgent(ctx)
@@ -222,16 +213,16 @@ func (a *AgentSuite) TestAgent_PeerConfig_WithEncryptNode(c *C) {
 	ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
 	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 
 	k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
-	c.Assert(k8s1, NotNil)
-	c.Assert(k8s1.nodeIPv4, checker.DeepEquals, k8s1NodeIPv4)
-	c.Assert(k8s1.nodeIPv6, checker.DeepEquals, k8s1NodeIPv6)
-	c.Assert(k8s1.pubKey.String(), Equals, k8s1PubKey)
-	c.Assert(k8s1.allowedIPs, HasLen, 4)
-	c.Assert(containsIP(k8s1.allowedIPs, pod1IPv4), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv4), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)), Equals, true)
-	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv6)), Equals, true)
+	require.NotNil(t, k8s1)
+	require.EqualValues(t, k8s1NodeIPv4, k8s1.nodeIPv4)
+	require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
+	require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
+	require.Len(t, k8s1.allowedIPs, 4)
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod1IPv4))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, pod2IPv4))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)))
+	require.Equal(t, true, containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv6)))
 }
