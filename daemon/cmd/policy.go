@@ -101,6 +101,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	}
 	iao := &identityAllocatorOwner{}
 	idAlloc := cache.NewCachingIdentityAllocator(iao)
+	idAlloc.EnableCheckpointing()
 
 	iao.policy = policy.NewStoppedPolicyRepository(
 		idAlloc,
