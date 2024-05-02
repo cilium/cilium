@@ -28,6 +28,11 @@ const subsystem = "clustermesh"
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
+// ConfigFiles exposes the internal.ConfigFiles method, which is otherwise not
+// accessible as it belongs to an internal package. This allows CLI commands to
+// leverage it directly.
+var ConfigFiles = internal.ConfigFiles
+
 // Configuration is the configuration that must be provided to
 // NewClusterMesh()
 type Configuration struct {
