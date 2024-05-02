@@ -46,5 +46,6 @@ CLI for interacting with the local Cilium Agent
 * [cilium service](cilium_service.md)	 - Manage services & loadbalancers
 * [cilium statedb](cilium_statedb.md)	 - Inspect StateDB
 * [cilium status](cilium_status.md)	 - Display status of daemon
+* [cilium troubleshoot](cilium_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 * [cilium version](cilium_version.md)	 - Print version information
 
