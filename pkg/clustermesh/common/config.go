@@ -7,7 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -73,7 +73,7 @@ func isEtcdConfigFile(path string) (bool, fhash) {
 }
 
 func (cdw *configDirectoryWatcher) handle(abspath string) {
-	filename := path.Base(abspath)
+	filename := filepath.Base(abspath)
 	isConfig, newHash := isEtcdConfigFile(abspath)
 
 	if !isConfig {
@@ -144,7 +144,7 @@ func (cdw *configDirectoryWatcher) watch() error {
 			continue
 		}
 
-		absolutePath := path.Join(cdw.path, f.Name())
+		absolutePath := filepath.Join(cdw.path, f.Name())
 		cdw.handle(absolutePath)
 	}
 
@@ -176,4 +176,23 @@ func (cdw *configDirectoryWatcher) close() {
 	log.WithField(fieldConfigDir, cdw.path).Debug("Stopping config directory watcher")
 	close(cdw.stop)
 	cdw.watcher.Close()
+}
+
+// ConfigFiles returns the list of configuration files in the given path. It
+// shall be used by CLI tools only, as it doesn't handle subsequent updates.
+func ConfigFiles(cfgdir string) (configs map[string]string, err error) {
+	files, err := os.ReadDir(cfgdir)
+	if err != nil {
+		return nil, err
+	}
+
+	configs = make(map[string]string)
+	for _, f := range files {
+		cfgfile := filepath.Join(cfgdir, f.Name())
+		if ok, _ := isEtcdConfigFile(cfgfile); ok {
+			configs[f.Name()] = cfgfile
+		}
+	}
+
+	return configs, nil
 }
