@@ -174,3 +174,31 @@ func DeviceNames(devs []*Device) (names []string) {
 	}
 	return
 }
+
+// DeviceFilter implements filtering device names either by
+// concrete name ("eth0") or by iptables-like wildcard ("eth+").
+type DeviceFilter []string
+
+// NonEmpty returns true if the filter has been defined
+// (i.e. user has specified --devices).
+func (lst DeviceFilter) NonEmpty() bool {
+	return len(lst) > 0
+}
+
+// Match checks whether the given device name passes the filter
+func (lst DeviceFilter) Match(dev string) bool {
+	if len(lst) == 0 {
+		return true
+	}
+	for _, entry := range lst {
+		if strings.HasSuffix(entry, "+") {
+			prefix := strings.TrimRight(entry, "+")
+			if strings.HasPrefix(dev, prefix) {
+				return true
+			}
+		} else if dev == entry {
+			return true
+		}
+	}
+	return false
+}
