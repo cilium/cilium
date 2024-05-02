@@ -6,19 +6,10 @@ package logutils
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-// Hook up gocheck into the "go test" runner.
-type LogutilsTestSuite struct{}
-
-var _ = Suite(&LogutilsTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (s *LogutilsTestSuite) TestLogErrorsSummary(c *C) {
+func TestLogErrorsSummary(t *testing.T) {
 	log := `Mar 05 07:51:17 runtime cilium-agent[11336]: level=debug msg="Process exited" cmd="cilium-health [-d]" exitCode="<nil>" subsys=launcher
 Mar 05 07:51:17 runtime cilium-agent[11336]: level=warning msg="Error while running monitor" error="Unable to read stdout from monitor: EOF" subsys=monitor-launcher
 Mar 05 07:51:17 runtime cilium-agent[11336]: level=debug msg="Sleeping with exponential backoff" attempt=1 fields.time=2s name=75419b5f-3f1b-11e9-9375-080027b5ed00 subsys=backoff
@@ -45,7 +36,7 @@ github.com/cilium/cilium/daemon/k8s_watcher.go:847: expected type *v1.Node, but 
 Error while running monitor
 `
 
-	c.Assert(output, Equals, expected)
+	require.Equal(t, expected, output)
 
 	output = LogErrorsSummary("")
 	expected = `Number of "context deadline exceeded" in logs: 0
@@ -56,5 +47,5 @@ Number of "Goroutine took lock for more than" in logs: 0
 No errors/warnings found in logs
 `
 
-	c.Assert(output, Equals, expected)
+	require.Equal(t, expected, output)
 }
