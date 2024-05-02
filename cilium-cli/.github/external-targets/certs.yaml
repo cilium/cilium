@@ -2,14 +2,14 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
- name: ca-cert
+  name: ca-cert
 spec:
- secretName: ca
- isCA: true
- issuerRef:
+  secretName: ca
+  isCA: true
+  issuerRef:
     name: selfsigned-issuer
     kind: Issuer
- commonName: "cilium.io"
+  commonName: "cilium.io"
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -38,5 +38,5 @@ kind: Issuer
 metadata:
   name: ca-cert-issuer
 spec:
- ca:
-   secretName: ca
+  ca:
+    secretName: ca

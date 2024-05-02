@@ -24,6 +24,14 @@ jobs:
   installation-and-connectivity:
     name: Kind Installation and Connectivity Test
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # run connectivity tests explicitly without concurrency
+          - test-concurrency: 1
+          # run connectivity tests concurrently
+          - test-concurrency: 5
     timeout-minutes: 50
     steps:
       - name: Checkout
@@ -106,13 +114,15 @@ jobs:
           #
           # Dispatch interval is set to 100ms, b/c otherwise (default is 0), the flow validation might time out.
           cilium connectivity test --debug --test-namespace test-namespace \
+            --test-concurrency=${{ matrix.test-concurrency }} \
             --conn-disrupt-dispatch-interval 100ms \
             --include-conn-disrupt-test --conn-disrupt-test-setup
 
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
+            --test-concurrency=${{ matrix.test-concurrency }} \
             --include-unsafe-tests --include-conn-disrupt-test \
-            --collect-sysdump-on-failure --junit-file cilium-junit-1.xml \
+            --collect-sysdump-on-failure --junit-file cilium-junit-1-concurrency-${{ matrix.test-concurrency }}.xml \
             --junit-property type=no-tunnel \
             --curl-insecure \
             --external-target chart-testing-worker2 \
@@ -152,8 +162,9 @@ jobs:
       - name: Connectivity test
         run: |
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
+            --test-concurrency=${{ matrix.test-concurrency }} \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file cilium-junit-2.xml \
+            --collect-sysdump-on-failure --junit-file cilium-junit-2-concurrency-${{ matrix.test-concurrency }}.xml \
             --junit-property type=ipsec \
             --curl-insecure \
             --external-target chart-testing-worker2 \
@@ -167,7 +178,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: cilium-junits
+          name: cilium-junits-concurrency-${{ matrix.test-concurrency }}
           path: cilium-junit*.xml
           retention-days: 2
 
@@ -176,14 +187,14 @@ jobs:
         run: |
           cilium status
           kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-out --hubble-flows-count 10000
+          cilium sysdump --output-filename cilium-sysdump-out-concurrency-${{ matrix.test-concurrency }} --hubble-flows-count 10000
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload sysdump
         if: ${{ !success() }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: cilium-sysdumps
+          name: cilium-sysdumps-concurrency-${{ matrix.test-concurrency }}
           path: cilium-sysdump-*.zip
           retention-days: 5
 
