@@ -6,7 +6,6 @@
 #include "pktgen.h"
 #define ROUTER_IP
 #define HOST_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 #undef HOST_IP
 

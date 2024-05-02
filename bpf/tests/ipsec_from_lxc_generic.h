@@ -5,7 +5,6 @@
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 #define ROUTER_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 
 #define NODE_ID 2333
