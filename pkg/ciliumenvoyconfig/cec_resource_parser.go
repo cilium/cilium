@@ -15,9 +15,11 @@ import (
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_config_healthcheck "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_config_types "github.com/cilium/proxy/go/envoy/type/v3"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -195,6 +197,10 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 							l7FilterUpdated := injectCiliumL7Filter(hcmConfig)
 							updated = updated || l7FilterUpdated
 						}
+
+						httpFiltersUpdated := qualifyHttpFilters(cecNamespace, cecName, hcmConfig)
+						updated = updated || httpFiltersUpdated
+
 						if updated {
 							filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
 								TypedConfig: toAny(hcmConfig),
@@ -551,6 +557,42 @@ func injectCiliumL7Filter(hcmConfig *envoy_config_http.HttpConnectionManager) bo
 	}
 
 	return false
+}
+
+func qualifyHttpFilters(cecNamespace string, cecName string, hcmConfig *envoy_config_http.HttpConnectionManager) bool {
+	updated := false
+
+	for _, httpFilter := range hcmConfig.HttpFilters {
+		switch h := httpFilter.ConfigType.(type) {
+		case *envoy_config_http.HttpFilter_TypedConfig:
+			any, err := h.TypedConfig.UnmarshalNew()
+			if err != nil {
+				continue
+			}
+
+			switch httpFilterConfig := any.(type) {
+			case *envoy_config_healthcheck.HealthCheck:
+				clusters := map[string]*envoy_config_types.Percent{}
+				for c, p := range httpFilterConfig.ClusterMinHealthyPercentages {
+					clusterName := c
+					updatedClusterName, nameUpdated := api.ResourceQualifiedName(cecNamespace, cecName, c)
+					if nameUpdated {
+						updated = true
+						clusterName = updatedClusterName
+					}
+
+					clusters[clusterName] = p
+				}
+
+				if updated {
+					httpFilterConfig.ClusterMinHealthyPercentages = clusters
+					h.TypedConfig = toAny(httpFilterConfig)
+				}
+			}
+		}
+	}
+
+	return updated
 }
 
 func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext) (updated bool) {
