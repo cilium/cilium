@@ -6,6 +6,8 @@ DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source "${DIR}/lib/common.sh"
 source "${DIR}/../backporting/common.sh"
 
+RELEASES_URL="https://github.com/cilium/cilium/releases"
+
 usage() {
     logecho "usage: $0 <RUN-URL> [VERSION] [GH-USERNAME]"
     logecho "RUN-URL      GitHub URL with the RUN for the release images"
