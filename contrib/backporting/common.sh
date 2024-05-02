@@ -22,7 +22,7 @@ get_remote () {
 }
 
 get_user() {
-  gh_username=$(hub api user --flat | awk '/.login/ {print $2}')
+  gh_username=$(gh api user | jq -r '.login')
   if [ "$gh_username" = "" ]; then
     echo "Error: could not get user info from hub" 1>&2
     exit 1
@@ -50,7 +50,7 @@ is_collaborator() {
       exit 1
   fi
   local path="repos/$org/$repo/collaborators/$username"
-  if hub api "$path" &> /dev/null; then
+  if gh api "$path" &> /dev/null; then
     echo "yes"
   else
     echo "no"

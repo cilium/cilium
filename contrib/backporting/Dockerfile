@@ -14,13 +14,14 @@ RUN apt-get install -y \
   curl \
   vim
 
+ARG GH_VERSION=2.49.0
 RUN set -ex \
   && mkdir -p /hub \
   && cd /hub \
   && HUB_ARCH=amd64; if [ "$(uname -m)" = "aarch64" ]; then HUB_ARCH=arm64; fi \
-  && curl -L -o hub.tgz https://github.com/github/hub/releases/download/v2.14.0/hub-linux-${HUB_ARCH}-2.14.0.tgz \
-  && tar xfz hub.tgz \
-  && $(tar tfz hub.tgz | head -n1 | cut -f1 -d"/")/install \
+  && curl -L -o gh.tar.gz https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${HUB_ARCH}.tar.gz \
+  && tar xfz gh.tar.gz \
+  && cp $(tar tfz gh.tar.gz | tail -n1 | cut -f1 -d"/")/bin/gh /usr/sbin/ \
   && rm -rf /hub
 RUN useradd -m user
 USER user
