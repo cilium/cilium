@@ -205,6 +205,11 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPortProto restore.PortPr
 	if !exists && destPortProto.IsPortV2() {
 		// Check if there is a Version 1 restore.
 		ipRules, exists = p.restored[endpointID][destPortProto.ToV1()]
+		log.WithFields(logrus.Fields{
+			logfields.EndpointID: endpointID,
+			logfields.Port:       destPortProto.Port(),
+			logfields.Protocol:   destPortProto.Protocol(),
+		}).Debugf("Checking if restored V1 IP rules (exists: %t) for endpoint: %+v", exists, ipRules)
 		if !exists {
 			return false
 		}
@@ -514,6 +519,14 @@ func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, end
 // passed-in endpointID and destPort with setPortRulesForID
 func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPortProto restore.PortProto) (rules CachedSelectorREEntry, exists bool) {
 	rules, exists = allow[endpointID][destPortProto]
+	if !exists && destPortProto.Protocol() != 0 {
+		rules, exists = allow[endpointID][destPortProto.ToV1()]
+		log.WithFields(logrus.Fields{
+			logfields.EndpointID: endpointID,
+			logfields.Port:       destPortProto.Port(),
+			logfields.Protocol:   destPortProto.Protocol(),
+		}).Debugf("Checking for V1 port rule (exists: %t) for endpoint: %+v", exists, rules)
+	}
 	return
 }
 
