@@ -49,16 +49,16 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 	}
 
 	if option.Config.DirectRoutingDeviceRequired() {
-		var filter deviceFilter
+		var filter tables.DeviceFilter
 		if option.Config.DirectRoutingDevice != "" {
-			filter = deviceFilter(strings.Split(option.Config.DirectRoutingDevice, ","))
+			filter = tables.DeviceFilter(strings.Split(option.Config.DirectRoutingDevice, ","))
 		}
 		option.Config.DirectRoutingDevice = ""
-		if filter.nonEmpty() {
+		if filter.NonEmpty() {
 			// User has defined a direct-routing device. Try to find the first matching
 			// device.
 			for _, dev := range devs {
-				if filter.match(dev.Name) {
+				if filter.Match(dev.Name) {
 					option.Config.DirectRoutingDevice = dev.Name
 					break
 				}
