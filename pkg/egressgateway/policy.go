@@ -11,6 +11,7 @@ import (
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -137,7 +138,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 		// If the gateway config specifies an interface, use the first IPv4 assigned to that
 		// interface as egress IP
 		gwc.ifaceName = gc.iface
-		gwc.egressIP, err = getIfaceFirstIPv4Address(gc.iface)
+		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
@@ -145,7 +146,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 		// If the gateway config specifies an egress IP, use the interface with that IP as egress
 		// interface
 		gwc.egressIP = gc.egressIP
-		gwc.ifaceName, err = getIfaceWithIPv4Address(gc.egressIP)
+		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
 		}
@@ -158,7 +159,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
-		gwc.egressIP, err = getIfaceFirstIPv4Address(gwc.ifaceName)
+		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}

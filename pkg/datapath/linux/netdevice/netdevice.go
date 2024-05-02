@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package egressgateway
+package netdevice
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"go4.org/netipx"
 )
 
-func getIfaceFirstIPv4Address(ifaceName string) (netip.Addr, error) {
+func GetIfaceFirstIPv4Address(ifaceName string) (netip.Addr, error) {
 	dev, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		return netip.Addr{}, err
@@ -35,7 +35,7 @@ func getIfaceFirstIPv4Address(ifaceName string) (netip.Addr, error) {
 	return netip.Addr{}, fmt.Errorf("no IPv4 address assigned to interface")
 }
 
-func getIfaceWithIPv4Address(ip netip.Addr) (string, error) {
+func GetIfaceWithIPv4Address(ip netip.Addr) (string, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		return "", err
