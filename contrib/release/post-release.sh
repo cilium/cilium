@@ -71,6 +71,10 @@ main() {
     tail -n+4 CHANGELOG.md | sed '/^## v.*$/q' > $version-release-summary.txt
     tail -n+2 digest-$version.txt >> $version-release-summary.txt
     logecho "Creating Github draft release"
+    prerelease=""
+    if echo $ersion | grep -q 'pre\|rc'; then
+        prerelease="-p"
+    fi
     logrun gh release create -d $prerelease -F $version-release-summary.txt $version --title "$ersion"
     logecho "Browse to $RELEASES_URL to see the draft release"
 
