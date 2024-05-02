@@ -154,6 +154,7 @@ const (
 	CONDITION_LARGE_COMMUNITY
 	CONDITION_NEXT_HOP
 	CONDITION_AFI_SAFI_IN
+	CONDITION_COMMUNITY_COUNT
 )
 
 type ActionType int
@@ -1825,6 +1826,59 @@ func NewLargeCommunityCondition(c oc.MatchLargeCommunitySet) (*LargeCommunityCon
 	}, nil
 }
 
+type CommunityCountCondition struct {
+	count    uint32
+	operator AttributeComparison
+}
+
+func (c *CommunityCountCondition) Type() ConditionType {
+	return CONDITION_COMMUNITY_COUNT
+}
+
+// Evaluate compares the number of communities in the message's community
+// attributes with the one in condition.
+func (c *CommunityCountCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
+	count := uint32(len(path.GetCommunities()))
+	switch c.operator {
+	case ATTRIBUTE_EQ:
+		return count == c.count
+	case ATTRIBUTE_GE:
+		return count >= c.count
+	case ATTRIBUTE_LE:
+		return count <= c.count
+	default:
+		return false
+	}
+}
+
+func (c *CommunityCountCondition) Set() DefinedSet {
+	return nil
+}
+
+func (c *CommunityCountCondition) Name() string { return "" }
+
+func (c *CommunityCountCondition) String() string {
+	return fmt.Sprintf("%s%d", c.operator, c.count)
+}
+
+func NewCommunityCountCondition(c oc.CommunityCount) (*CommunityCountCondition, error) {
+	if c.Value == 0 && c.Operator == "" {
+		return nil, nil
+	}
+	var op AttributeComparison
+	if i := c.Operator.ToInt(); i < 0 {
+		return nil, fmt.Errorf("invalid community count operator: %s", c.Operator)
+	} else {
+		// take mod 3 because we have extended openconfig attribute-comparison
+		// for simple configuration. see oc.AttributeComparison definition
+		op = AttributeComparison(i % 3)
+	}
+	return &CommunityCountCondition{
+		count:    c.Value,
+		operator: op,
+	}, nil
+}
+
 type AsPathLengthCondition struct {
 	length   uint32
 	operator AttributeComparison
@@ -1837,19 +1891,17 @@ func (c *AsPathLengthCondition) Type() ConditionType {
 // compare AS_PATH length in the message's AS_PATH attribute with
 // the one in condition.
 func (c *AsPathLengthCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
-
 	length := uint32(path.GetAsPathLen())
-	result := false
 	switch c.operator {
 	case ATTRIBUTE_EQ:
-		result = c.length == length
+		return length == c.length
 	case ATTRIBUTE_GE:
-		result = c.length <= length
+		return length >= c.length
 	case ATTRIBUTE_LE:
-		result = c.length >= length
+		return length <= c.length
+	default:
+		return false
 	}
-
-	return result
 }
 
 func (c *AsPathLengthCondition) Set() DefinedSet {
@@ -2693,6 +2745,8 @@ func (s *Statement) ToConfig() *oc.Statement {
 					cond.MatchPrefixSet = oc.MatchPrefixSet{PrefixSet: v.set.Name(), MatchSetOptions: v.option.ConvertToMatchSetOptionsRestrictedType()}
 				case *NeighborCondition:
 					cond.MatchNeighborSet = oc.MatchNeighborSet{NeighborSet: v.set.Name(), MatchSetOptions: v.option.ConvertToMatchSetOptionsRestrictedType()}
+				case *CommunityCountCondition:
+					cond.BgpConditions.CommunityCount = oc.CommunityCount{Operator: oc.IntToAttributeComparisonMap[int(v.operator)], Value: v.count}
 				case *AsPathLengthCondition:
 					cond.BgpConditions.AsPathLength = oc.AsPathLength{Operator: oc.IntToAttributeComparisonMap[int(v.operator)], Value: v.length}
 				case *AsPathCondition:
@@ -2891,6 +2945,9 @@ func NewStatement(c oc.Statement) (*Statement, error) {
 		},
 		func() (Condition, error) {
 			return NewNeighborCondition(c.Conditions.MatchNeighborSet)
+		},
+		func() (Condition, error) {
+			return NewCommunityCountCondition(c.Conditions.BgpConditions.CommunityCount)
 		},
 		func() (Condition, error) {
 			return NewAsPathLengthCondition(c.Conditions.BgpConditions.AsPathLength)
@@ -3943,6 +4000,12 @@ func toStatementApi(s *oc.Statement) *api.Statement {
 		cs.NeighborSet = &api.MatchSet{
 			Type: api.MatchSet_Type(o),
 			Name: s.Conditions.MatchNeighborSet.NeighborSet,
+		}
+	}
+	if s.Conditions.BgpConditions.CommunityCount.Operator != "" {
+		cs.CommunityCount = &api.CommunityCount{
+			Count: s.Conditions.BgpConditions.CommunityCount.Value,
+			Type:  api.CommunityCount_Type(s.Conditions.BgpConditions.CommunityCount.Operator.ToInt()),
 		}
 	}
 	if s.Conditions.BgpConditions.AsPathLength.Operator != "" {
