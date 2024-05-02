@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   ginkgo-workflow-comments:
-    name: Lint Ginko Workflows Comments
+    name: Lint Ginkgo Workflows Comments
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -138,7 +138,7 @@ jobs:
           fi
 
   ginkgo-schema-validation:
-    name: Validate Ginko Schema
+    name: Validate Ginkgo Schema
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
