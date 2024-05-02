@@ -256,6 +256,21 @@ func (l *localIdentityCache) GetIdentities() map[identity.NumericIdentity]*ident
 	return cache
 }
 
+func (l *localIdentityCache) checkpoint(dst []*identity.Identity) []*identity.Identity {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	for _, id := range l.identitiesByID {
+		dst = append(dst, id)
+	}
+	return dst
+}
+
+func (l *localIdentityCache) size() int {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	return len(l.identitiesByID)
+}
+
 // close removes the events channel.
 func (l *localIdentityCache) close() {
 	l.mutex.Lock()

@@ -5,6 +5,8 @@ package cache
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -464,5 +466,50 @@ func TestAllocateLocally(t *testing.T) {
 	id, _, err = mgr.AllocateLocalIdentity(podLbls, false, 0)
 	assert.Error(t, err, ErrNonLocalIdentity)
 	assert.Nil(t, id)
+}
 
+func TestCheckpointRestore(t *testing.T) {
+	owner := newDummyOwner()
+	mgr := NewCachingIdentityAllocator(owner)
+	defer mgr.Close()
+	dir := t.TempDir()
+	mgr.checkpointPath = filepath.Join(dir, CheckpointFile)
+	mgr.EnableCheckpointing()
+
+	for _, l := range []string{
+		"cidr:1.1.1.1/32;reserved:kube-apiserver",
+		"cidr:1.1.1.2/32;reserved:kube-apiserver",
+		"cidr:1.1.1.1/32",
+		"cidr:1.1.1.2/32",
+	} {
+		lbls := labels.NewLabelsFromSortedList(l)
+		assert.NotEqual(t, identity.IdentityScopeGlobal, identity.ScopeForLabels(lbls), "test bug: only restore locally-scoped labels")
+
+		_, _, err := mgr.AllocateIdentity(context.Background(), lbls, false, 0)
+		assert.Nil(t, err)
+	}
+
+	// ensure that the checkpoint file has been written
+	// This is asynchronous, so we must retry
+	assert.Eventually(t, func() bool {
+		_, err := os.Stat(mgr.checkpointPath)
+		return err == nil
+	}, time.Second, 50*time.Millisecond)
+
+	modelBefore := mgr.GetIdentities()
+
+	// Explicitly checkpoint, to ensure we get the latest data
+	mgr.checkpoint(nil)
+
+	newMgr := NewCachingIdentityAllocator(owner)
+	defer newMgr.Close()
+	newMgr.checkpointPath = mgr.checkpointPath
+
+	restored, err := newMgr.RestoreLocalIdentities()
+	assert.Nil(t, err)
+	assert.Len(t, restored, 4)
+
+	modelAfter := newMgr.GetIdentities()
+
+	assert.ElementsMatch(t, modelBefore, modelAfter)
 }
