@@ -7,10 +7,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/cilium/cilium-cli/connectivity/builder"
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/runner"
 )
 
 // Hooks defines the extension hooks provided by connectivity tests.
@@ -46,31 +45,31 @@ func Run(ctx context.Context, params check.Parameters, connTests []*check.Connec
 }
 
 func setupConnectivityTests(ctx context.Context, connTest []*check.ConnectivityTest, hooks Hooks) error {
-	var meg multierror.Group
+	me := runner.MultiError{}
 	for i := range connTest {
 		id := i
-		meg.Go(func() error {
+		me.Go(func() error {
 			return connTest[id].SetupAndValidate(ctx, hooks)
 		})
 	}
-	return meg.Wait().ErrorOrNil()
+	return me.Wait()
 }
 
 func runConnectivityTests(ctx context.Context, connTests []*check.ConnectivityTest) error {
 	finish := make([]bool, len(connTests))
-	var meg multierror.Group
+	me := runner.MultiError{}
 	for i := range connTests {
 		id := i
 		// Execute connectivity.Run() in its own goroutine, it might call Fatal()
 		// and end the goroutine without returning.
-		meg.Go(func() error {
+		me.Go(func() error {
 			err := connTests[id].Run(ctx)
 			// If Fatal() was called in the test suite, the statement below won't fire.
 			finish[id] = true
 			return err
 		})
 	}
-	if err := meg.Wait().ErrorOrNil(); err != nil {
+	if err := me.Wait(); err != nil {
 		return err
 	}
 	for i := 0; i < len(connTests); i++ {
