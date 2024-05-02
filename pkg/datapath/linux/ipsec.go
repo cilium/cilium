@@ -177,6 +177,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	}
 
 	localIP := localCiliumInternalIP
+	esnKey := ipsec.IsKeyESN(localIP)
 
 	if newNode.IsLocal() {
 		if n.subnetEncryption() {
@@ -185,9 +186,41 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 				// This removes a bogus route that Cilium installed prior to v1.15
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
+
+			// If we're using the new key system, then we need per-remote node
+			// XFRM IN states.
+			if esnKey {
+				return statesUpdated, errs
+			}
+
+			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
+				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, wildcardIP, 0, newNode.BootID, ipsec.IPSecDirIn, zeroMark, updateExisting)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv4", wildcardCIDR, cidr, spi, 0))
+				if err != nil {
+					statesUpdated = false
+				}
+
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, wildcardIP, 0, newNode.BootID, ipsec.IPSecDirIn, zeroMark, updateExisting)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in NodeInternalIPv4", wildcardCIDR, cidr, spi, 0))
+				if err != nil {
+					statesUpdated = false
+				}
+			}
 		} else {
 			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
+
+			// If we're using the new key system, then we need per-remote node
+			// XFRM IN states.
+			if esnKey {
+				return statesUpdated, errs
+			}
+
+			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, newNode.BootID, ipsec.IPSecDirIn, false, updateExisting)
+			errs = errors.Join(errs, upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi, 0))
+			if err != nil {
+				statesUpdated = false
+			}
 		}
 	} else {
 		// A node update that doesn't contain a BootID will cause the creation
@@ -229,6 +262,13 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 					log.WithError(err).Warning("egress unable to replace policy fwd:")
 				}
 
+				// We only want to switch to the new per-node XFRM IN states if
+				// we're using the new key system. Otherwise, we should stay
+				// with only the two states for all remote nodes.
+				if !esnKey {
+					continue
+				}
+
 				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, zeroMark, updateExisting)
 				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv4", wildcardCIDR, cidr, spi, nodeID))
 				if err != nil {
@@ -256,6 +296,13 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 			/* Insert wildcard policy rules for traffic skipping back through host */
 			if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR, localIP); err != nil {
 				log.WithError(err).Warning("egress unable to replace policy fwd:")
+			}
+
+			// We only want to switch to the new per-node XFRM IN states if
+			// we're using the new key system. Otherwise, we should stay
+			// with the single state for all remote nodes.
+			if !esnKey {
+				return statesUpdated, errs
 			}
 
 			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, false, updateExisting)
@@ -290,6 +337,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	}
 
 	localIP := localCiliumInternalIP
+	esnKey := ipsec.IsKeyESN(localIP)
 
 	if newNode.IsLocal() {
 		if n.subnetEncryption() {
@@ -298,9 +346,41 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 				// This removes a bogus route that Cilium installed prior to v1.15
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
+
+			// If we're using the new key system, then we need per-remote node
+			// XFRM IN states.
+			if esnKey {
+				return statesUpdated, errs
+			}
+
+			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
+				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, wildcardIP, 0, newNode.BootID, ipsec.IPSecDirIn, zeroMark, updateExisting)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi, 0))
+				if err != nil {
+					statesUpdated = false
+				}
+
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, wildcardIP, 0, newNode.BootID, ipsec.IPSecDirIn, zeroMark, updateExisting)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in NodeInternalIPv6", wildcardCIDR, cidr, spi, 0))
+				if err != nil {
+					statesUpdated = false
+				}
+			}
 		} else {
 			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
+
+			// If we're using the new key system, then we need per-remote node
+			// XFRM IN states.
+			if esnKey {
+				return statesUpdated, errs
+			}
+
+			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, newNode.BootID, ipsec.IPSecDirIn, false, updateExisting)
+			errs = errors.Join(errs, upsertIPsecLog(err, "in IPv6", localCIDR, wildcardCIDR, spi, 0))
+			if err != nil {
+				statesUpdated = false
+			}
 		}
 	} else {
 		// A node update that doesn't contain a BootID will cause the creation
@@ -337,6 +417,13 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 					statesUpdated = false
 				}
 
+				// We only want to switch to the new per-node XFRM IN states if
+				// we're using the new key system. Otherwise, we should stay
+				// with only the two states for all remote nodes.
+				if !esnKey {
+					continue
+				}
+
 				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, zeroMark, updateExisting)
 				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi, nodeID))
 				if err != nil {
@@ -359,6 +446,13 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 			errs = errors.Join(errs, upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi, nodeID))
 			if err != nil {
 				statesUpdated = false
+			}
+
+			// We only want to switch to the new per-node XFRM IN states if
+			// we're using the new key system. Otherwise, we should stay
+			// with the single state for all remote nodes.
+			if !esnKey {
+				return statesUpdated, errs
 			}
 
 			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, false, updateExisting)

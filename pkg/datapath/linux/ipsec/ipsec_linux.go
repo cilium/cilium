@@ -230,6 +230,15 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP, remoteBootID, localBootID)
 }
 
+func IsKeyESN(localNodeIP net.IP) bool {
+	globalKey := getGlobalIPsecKey(localNodeIP)
+	if globalKey == nil {
+		log.Error("Failed to retrieve the global IPsec key")
+		return true
+	}
+	return globalKey.ESN
+}
+
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
 		Mode:  netlink.XFRM_MODE_TUNNEL,
@@ -705,9 +714,16 @@ func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
 
 func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	val := decryptBit | (uint32(nodeID) << 16)
+	// If the nodeID is zero, then it means we have a single XFRM IN state for
+	// all remote nodes (i.e., still using old key system). In that case, we
+	// don't want to match on the node IDs.
+	mask := uint32(linux_defaults.IPsecMarkBitMask)
+	if nodeID != 0 {
+		mask |= linux_defaults.IPsecMarkMaskNodeID
+	}
 	return &netlink.XfrmMark{
 		Value: val,
-		Mask:  linux_defaults.IPsecMarkMaskIn,
+		Mask:  mask,
 	}
 }
 
