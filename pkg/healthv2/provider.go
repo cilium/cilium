@@ -87,9 +87,19 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 				return fmt.Errorf("upsert status %s: %w", s, err)
 			}
 
-			logger.WithField("reporter-id", s.ID.String()).
-				WithField("status", s).
-				Debugf("upserting health status")
+			// To avoid excess debug logs, only report upserts if it's a new status,
+			// is not-OK or is a state change (ex. Degraded -> OK).
+			if !found || s.Level != types.LevelOK || old.Level != s.Level {
+				lastLevel := "none"
+				if old.Level != "" {
+					lastLevel = string(old.Level)
+				}
+				logger.WithField("reporter-id", s.ID.String()).
+					WithField("lastLevel", lastLevel).
+					WithField("status", s.Level).
+					Debugf("upserting health status")
+			}
+
 			tx.Commit()
 			return nil
 		},
