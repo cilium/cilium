@@ -98,7 +98,6 @@ jobs:
           yq -o=json "${work_dir}/k8s-versions.yaml" | jq . > "${destination_directory}/aws.json"
 
       - name: Generate Matrix
-        id: set-matrix
         run: |
           cd /tmp/generated/aws
 
@@ -113,7 +112,35 @@ jobs:
 
           echo "Generated matrix:"
           cat /tmp/matrix.json
-          echo "matrix=$(jq -c . < /tmp/matrix.json)" >> $GITHUB_OUTPUT
+
+      # We use latest eksctl just to fetch recent supported versions.
+      # We don't use that eksctl to create cluster.
+      # Eksctl has hardcoded list of supported versions in the binary.
+      # This is hack until https://github.com/aws/containers-roadmap/issues/982 is resolved.
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Filter Matrix
+        id: set-matrix
+        run: |
+          cp /tmp/matrix.json /tmp/result.json
+          jq -c '.include[]' /tmp/matrix.json | while read i; do
+            VERSION=$(echo $i | jq -r '.version')
+            eksctl version -o json | jq -r '.EKSServerSupportedVersions[]' > /tmp/output
+            if grep -q -F $VERSION /tmp/output; then
+              echo "Version $VERSION is supported"
+            else
+              echo "::notice::Removing version $VERSION as it's not supported"
+              jq 'del(.include[] | select(.version == "'$VERSION'"))' /tmp/result.json > /tmp/result.json.tmp
+              mv /tmp/result.json.tmp /tmp/result.json
+            fi
+          done
+          echo "Filtered matrix:"
+          cat /tmp/result.json
+          echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
 
   installation-and-connectivity:
     name: Installation and Connectivity Test
