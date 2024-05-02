@@ -120,7 +120,7 @@ type devicesController struct {
 	log    *slog.Logger
 
 	initialized          chan struct{}
-	filter               deviceFilter
+	filter               tables.DeviceFilter
 	enforceAutoDetection bool
 	l3DevSupported       bool
 
@@ -136,7 +136,7 @@ func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*device
 	dc := &devicesController{
 		params:               p,
 		initialized:          make(chan struct{}),
-		filter:               deviceFilter(p.Config.Devices),
+		filter:               tables.DeviceFilter(p.Config.Devices),
 		enforceAutoDetection: p.Config.ForceDeviceDetection,
 		log:                  p.Log,
 		deadLinkIndexes:      sets.New[int](),
@@ -552,8 +552,8 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 	// If user specified devices or wildcards, then skip the device if it doesn't match.
 	// If the device does match and user not requested auto detection, then skip further checks.
 	// If the device does match and user requested auto detection, then continue to further checks.
-	if dc.filter.nonEmpty() {
-		if dc.filter.match(d.Name) {
+	if dc.filter.NonEmpty() {
+		if dc.filter.Match(d.Name) {
 			return true, ""
 		}
 		if !dc.enforceAutoDetection {
@@ -590,7 +590,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		// the device manually).
 		// This is a workaround for kubernetes-in-docker. We want to avoid
 		// veth devices in general as they may be leftovers from another CNI.
-		if !dc.filter.nonEmpty() && !tables.HasDefaultRoute(dc.params.RouteTable, txn, d.Index) {
+		if !dc.filter.NonEmpty() && !tables.HasDefaultRoute(dc.params.RouteTable, txn, d.Index) {
 			return false, "veth without default route"
 		}
 
@@ -619,34 +619,6 @@ func hasGlobalRoute(devIndex int, tbl statedb.Table[*tables.Route], rxn statedb.
 	}
 
 	return hasGlobal
-}
-
-// deviceFilter implements filtering device names either by
-// concrete name ("eth0") or by iptables-like wildcard ("eth+").
-type deviceFilter []string
-
-// nonEmpty returns true if the filter has been defined
-// (i.e. user has specified --devices).
-func (lst deviceFilter) nonEmpty() bool {
-	return len(lst) > 0
-}
-
-// match checks whether the given device name passes the filter
-func (lst deviceFilter) match(dev string) bool {
-	if len(lst) == 0 {
-		return true
-	}
-	for _, entry := range lst {
-		if strings.HasSuffix(entry, "+") {
-			prefix := strings.TrimRight(entry, "+")
-			if strings.HasPrefix(dev, prefix) {
-				return true
-			}
-		} else if dev == entry {
-			return true
-		}
-	}
-	return false
 }
 
 // netlinkFuncs wraps the netlink subscribe functions into a simpler interface to facilitate
