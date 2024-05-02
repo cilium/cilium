@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
@@ -107,36 +107,10 @@ func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h c
 func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
-func (ds *DaemonSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
-}
+func setupDaemonSuite(tb testing.TB) *DaemonSuite {
+	testutils.IntegrationTest(tb)
 
-func (s *DaemonSuite) setupConfigOptions() {
-	// Set up all configuration options which are global to the entire test
-	// run.
-	mockCmd := &cobra.Command{}
-	s.hive.RegisterFlags(mockCmd.Flags())
-	InitGlobalFlags(mockCmd, s.hive.Viper())
-	option.Config.Populate(s.hive.Viper())
-	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
-	option.Config.DryMode = true
-	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
-	// GetConfig the default labels prefix filter
-	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
-	if err != nil {
-		panic("ParseLabelPrefixCfg() failed")
-	}
-	option.Config.Opts.SetBool(option.DropNotify, true)
-	option.Config.Opts.SetBool(option.TraceNotify, true)
-	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
-
-	// Disable the replacement, as its initialization function execs bpftool
-	// which requires root privileges. This would require marking the test suite
-	// as privileged.
-	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
-}
-
-func (ds *DaemonSuite) SetUpTest(c *C) {
+	ds := &DaemonSuite{}
 	ctx := context.Background()
 
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
@@ -174,12 +148,12 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	option.Config.RunDir = testRunDir
 	option.Config.StateDir = testRunDir
 
-	ds.log = hivetest.Logger(c)
+	ds.log = hivetest.Logger(tb)
 	err := ds.hive.Start(ds.log, ctx)
-	c.Assert(err, IsNil)
+	require.Nil(tb, err)
 
 	ds.d, err = daemonPromise.Await(ctx)
-	c.Assert(err, IsNil)
+	require.Nil(tb, err)
 
 	kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
 	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
@@ -197,69 +171,84 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		string(models.EndpointStateWaitingDashToDashRegenerate)} {
 		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
 	}
+
+	tb.Cleanup(func() {
+		controller.NewManager().RemoveAllAndWait()
+
+		// It's helpful to keep the directories around if a test failed; only delete
+		// them if tests succeed.
+		if !tb.Failed() {
+			os.RemoveAll(option.Config.RunDir)
+		}
+
+		// Restore the policy enforcement mode.
+		policy.SetPolicyEnabled(ds.oldPolicyEnabled)
+
+		err := ds.hive.Stop(ds.log, ctx)
+		require.Nil(tb, err)
+
+		ds.d.Close()
+	})
+
+	return ds
 }
 
-func (ds *DaemonSuite) TearDownTest(c *C) {
-	ctx := context.Background()
-
-	controller.NewManager().RemoveAllAndWait()
-
-	// It's helpful to keep the directories around if a test failed; only delete
-	// them if tests succeed.
-	if !c.Failed() {
-		os.RemoveAll(option.Config.RunDir)
+func (ds *DaemonSuite) setupConfigOptions() {
+	// Set up all configuration options which are global to the entire test
+	// run.
+	mockCmd := &cobra.Command{}
+	ds.hive.RegisterFlags(mockCmd.Flags())
+	InitGlobalFlags(mockCmd, ds.hive.Viper())
+	option.Config.Populate(ds.hive.Viper())
+	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
+	option.Config.DryMode = true
+	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
+	// GetConfig the default labels prefix filter
+	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	if err != nil {
+		panic("ParseLabelPrefixCfg() failed")
 	}
+	option.Config.Opts.SetBool(option.DropNotify, true)
+	option.Config.Opts.SetBool(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
 
-	// Restore the policy enforcement mode.
-	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
-
-	err := ds.hive.Stop(ds.log, ctx)
-	c.Assert(err, IsNil)
-
-	ds.d.Close()
+	// Disable the replacement, as its initialization function execs bpftool
+	// which requires root privileges. This would require marking the test suite
+	// as privileged.
+	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 }
 
 type DaemonEtcdSuite struct {
 	DaemonSuite
 }
 
-var _ = Suite(&DaemonEtcdSuite{})
+func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
+	testutils.IntegrationTest(tb)
+	kvstore.SetupDummy(tb, "etcd")
 
-func (e *DaemonEtcdSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
-}
-
-func (e *DaemonEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy(c, "etcd")
-	e.DaemonSuite.SetUpTest(c)
-}
-
-func (e *DaemonEtcdSuite) TearDownTest(c *C) {
-	e.DaemonSuite.TearDownTest(c)
+	ds := setupDaemonSuite(tb)
+	return &DaemonEtcdSuite{
+		DaemonSuite: *ds,
+	}
 }
 
 type DaemonConsulSuite struct {
 	DaemonSuite
 }
 
-var _ = Suite(&DaemonConsulSuite{})
+func setupDaemonConsulSuite(tb testing.TB) *DaemonConsulSuite {
+	testutils.IntegrationTest(tb)
+	kvstore.SetupDummy(tb, "consul")
 
-func (e *DaemonConsulSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
+	ds := setupDaemonSuite(tb)
+	return &DaemonConsulSuite{
+		DaemonSuite: *ds,
+	}
 }
 
-func (e *DaemonConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy(c, "consul")
-	e.DaemonSuite.SetUpTest(c)
-}
-
-func (e *DaemonConsulSuite) TearDownTest(c *C) {
-	e.DaemonSuite.TearDownTest(c)
-}
-
-func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
-	c.Assert(numWorkerThreads() >= 2, Equals, true)
-	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
+func TestMinimumWorkerThreadsIsSet(t *testing.T) {
+	require.Equal(t, true, numWorkerThreads() >= 2)
+	require.Equal(t, true, numWorkerThreads() >= runtime.NumCPU())
 }
 
 func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
@@ -316,8 +305,8 @@ func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {
 }
 
-func (ds *DaemonSuite) TestMemoryMap(c *C) {
+func TestMemoryMap(t *testing.T) {
 	pid := os.Getpid()
 	m := memoryMap(pid)
-	c.Assert(m, Not(Equals), "")
+	require.NotEqual(t, "", m)
 }

@@ -4,11 +4,14 @@
 package cmd
 
 import (
+	"regexp"
 	"strings"
+	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -17,8 +20,6 @@ import (
 )
 
 type KPRSuite struct{}
-
-var _ = Suite(&KPRSuite{})
 
 type kprConfig struct {
 	kubeProxyReplacement string
@@ -64,39 +65,58 @@ func (cfg *kprConfig) set() {
 	}
 }
 
-func (cfg *kprConfig) verify(c *C, tc tunnel.Config) {
+func errorMatch(err error, regex string) assert.Comparison {
+	return func() (success bool) {
+		if err == nil {
+			return false
+		}
+
+		matched, matchErr := regexp.MatchString(regex, err.Error())
+		if matchErr != nil {
+			return false
+		}
+		return matched
+	}
+}
+
+func (cfg *kprConfig) verify(t *testing.T, tc tunnel.Config) {
 	err := initKubeProxyReplacementOptions(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc)
 	if err != nil || cfg.expectedErrorRegex != "" {
-		c.Assert(err, ErrorMatches, cfg.expectedErrorRegex)
+		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {
 			return
 		}
 	}
 
-	c.Assert(option.Config.EnableSocketLB, Equals, cfg.enableSocketLB)
-	c.Assert(option.Config.EnableNodePort, Equals, cfg.enableNodePort)
-	c.Assert(option.Config.EnableHostPort, Equals, cfg.enableHostPort)
-	c.Assert(option.Config.EnableExternalIPs, Equals, cfg.enableExternalIPs)
-	c.Assert(option.Config.EnableSessionAffinity, Equals, cfg.enableSessionAffinity)
-	c.Assert(option.Config.EnableIPSec, Equals, cfg.enableIPSec)
-	c.Assert(option.Config.EnableHostLegacyRouting, Equals, cfg.enableHostLegacyRouting)
-	c.Assert(option.Config.InstallNoConntrackIptRules, Equals, cfg.installNoConntrackIptRules)
-	c.Assert(option.Config.EnableBPFMasquerade, Equals, cfg.enableBPFMasquerade)
-	c.Assert(option.Config.EnableIPv4Masquerade, Equals, cfg.enableIPv4Masquerade)
-	c.Assert(option.Config.EnableSocketLBTracing, Equals, cfg.enableSocketLBTracing)
+	require.Equal(t, cfg.enableSocketLB, option.Config.EnableSocketLB)
+	require.Equal(t, cfg.enableNodePort, option.Config.EnableNodePort)
+	require.Equal(t, cfg.enableHostPort, option.Config.EnableHostPort)
+	require.Equal(t, cfg.enableExternalIPs, option.Config.EnableExternalIPs)
+	require.Equal(t, cfg.enableSessionAffinity, option.Config.EnableSessionAffinity)
+	require.Equal(t, cfg.enableIPSec, option.Config.EnableIPSec)
+	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.EnableHostLegacyRouting)
+	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)
+	require.Equal(t, cfg.enableBPFMasquerade, option.Config.EnableBPFMasquerade)
+	require.Equal(t, cfg.enableIPv4Masquerade, option.Config.EnableIPv4Masquerade)
+	require.Equal(t, cfg.enableSocketLBTracing, option.Config.EnableSocketLBTracing)
 }
 
-func (s *KPRSuite) SetUpTest(c *C) {
-	mockCmd := &cobra.Command{}
+func setupKPRSuite(tb testing.TB) *KPRSuite {
+	s := &KPRSuite{}
 
+	mockCmd := &cobra.Command{}
 	h := hive.New(Agent)
 	h.RegisterFlags(mockCmd.Flags())
 	InitGlobalFlags(mockCmd, h.Viper())
 	option.Config.Populate(h.Viper())
 	option.Config.DryMode = true
+
+	return s
 }
 
-func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
+func TestInitKubeProxyReplacementOptions(t *testing.T) {
+	setupKPRSuite(t)
+
 	cases := []struct {
 		name string
 		mod  func(*kprConfig)
@@ -384,11 +404,11 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 	def := kprConfig{}
 
 	for _, testCase := range cases {
-		c.Logf("Testing %s", testCase.name)
+		t.Logf("Testing %s", testCase.name)
 		cfg := def
 		testCase.mod(&cfg)
 		cfg.set()
-		testCase.out.verify(c, tunnel.NewTestConfig(cfg.tunnelProtocol))
+		testCase.out.verify(t, tunnel.NewTestConfig(cfg.tunnelProtocol))
 		def.set()
 	}
 }
