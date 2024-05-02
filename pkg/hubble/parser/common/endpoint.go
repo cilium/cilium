@@ -11,6 +11,7 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -167,19 +168,22 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 		}
 	}
 	var labels []string
+	var clusterName string
 	if r.identityGetter != nil {
 		if id, err := r.identityGetter.GetIdentity(numericIdentity); err != nil {
 			r.log.WithError(err).WithField("identity", numericIdentity).
 				Debug("failed to resolve identity")
 		} else {
 			labels = SortAndFilterLabels(r.log, id.Labels.GetModel(), identity.NumericIdentity(numericIdentity))
+			clusterName = (id.Labels[k8sConst.PolicyLabelCluster]).Value
 		}
 	}
 
 	return &pb.Endpoint{
-		Identity:  numericIdentity,
-		Namespace: namespace,
-		Labels:    labels,
-		PodName:   podName,
+		Identity:    numericIdentity,
+		ClusterName: clusterName,
+		Namespace:   namespace,
+		Labels:      labels,
+		PodName:     podName,
 	}
 }
