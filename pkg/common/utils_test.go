@@ -4,13 +4,9 @@
 package common
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func TestC2GoArray(t *testing.T) {
@@ -51,24 +47,4 @@ func TestGoArray2C(t *testing.T) {
 	for _, test := range tests {
 		require.Equal(t, test.output, GoArray2C(test.input))
 	}
-}
-
-func TestGetNumPossibleCPUsFromReader(t *testing.T) {
-	log := logging.DefaultLogger.WithField(logfields.LogSubsys, "utils-test")
-	tests := []struct {
-		in       string
-		expected int
-	}{
-		{"0", 1},
-		{"0-7", 8},
-		{"0,2-3", 3},
-		{"", 0},
-		{"foobar", 0},
-	}
-
-	for _, tt := range tests {
-		possibleCpus := getNumPossibleCPUsFromReader(log, strings.NewReader(tt.in))
-		require.Equal(t, tt.expected, possibleCpus)
-	}
-
 }

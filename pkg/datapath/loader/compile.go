@@ -22,7 +22,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -98,7 +97,7 @@ type directoryInfo struct {
 
 var (
 	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
-		"-nostdinc", fmt.Sprintf("-D__NR_CPUS__=%d", common.GetNumPossibleCPUs(log)),
+		"-nostdinc",
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",
@@ -165,6 +164,11 @@ func pidFromProcess(proc *os.Process) string {
 //
 // May output assembly or source code after prepocessing.
 func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, error) {
+	possibleCPUs, err := ebpf.PossibleCPU()
+	if err != nil {
+		return "", fmt.Errorf("failed to get number of possible CPUs: %w", err)
+	}
+
 	compileArgs := append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
@@ -180,6 +184,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	}
 
 	compileArgs = append(compileArgs, standardCFlags...)
+	compileArgs = append(compileArgs, fmt.Sprintf("-D__NR_CPUS__=%d", possibleCPUs))
 	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU())
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,

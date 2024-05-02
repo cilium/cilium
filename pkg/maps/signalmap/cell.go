@@ -4,12 +4,13 @@
 package signalmap
 
 import (
+	"fmt"
+
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/common"
 )
 
 // Cell initializes and manages the config map.
@@ -34,8 +35,11 @@ type Map interface {
 	MapName() string
 }
 
-func newMap(log logrus.FieldLogger, lifecycle cell.Lifecycle) bpf.MapOut[Map] {
-	possibleCPUs := common.GetNumPossibleCPUs(log)
+func newMap(lifecycle cell.Lifecycle) (bpf.MapOut[Map], error) {
+	possibleCPUs, err := ebpf.PossibleCPU()
+	if err != nil {
+		return bpf.MapOut[Map]{}, fmt.Errorf("failed to get number of possible CPUs: %w", err)
+	}
 	signalmap := initMap(possibleCPUs)
 
 	lifecycle.Append(cell.Hook{
@@ -47,5 +51,5 @@ func newMap(log logrus.FieldLogger, lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 		},
 	})
 
-	return bpf.NewMapOut(Map(signalmap))
+	return bpf.NewMapOut(Map(signalmap)), nil
 }
