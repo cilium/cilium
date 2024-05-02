@@ -329,7 +329,7 @@ func (manager *TableManager) GetPathList(id string, as uint32, rfList []bgp.Rout
 func (manager *TableManager) GetPathListWithMac(id string, as uint32, rfList []bgp.RouteFamily, mac net.HardwareAddr) []*Path {
 	var paths []*Path
 	for _, t := range manager.tables(rfList...) {
-		paths = append(paths, t.GetKnownPathListWithMac(id, as, mac)...)
+		paths = append(paths, t.GetKnownPathListWithMac(id, as, mac, false)...)
 	}
 	return paths
 }

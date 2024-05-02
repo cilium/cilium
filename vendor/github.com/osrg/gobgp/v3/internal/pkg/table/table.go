@@ -171,7 +171,7 @@ func (t *Table) validatePath(path *Path) {
 			log.Fields{
 				"Topic":      "Table",
 				"Key":        t.routeFamily,
-				"Prefix":     path.GetNlri().String(),
+				"Prefix":     path.GetPrefix(),
 				"ReceivedRf": path.GetRouteFamily().String()})
 	}
 	if attr := path.getPathAttr(bgp.BGP_ATTR_TYPE_AS_PATH); attr != nil {
@@ -480,7 +480,7 @@ func (t *Table) GetKnownPathList(id string, as uint32) []*Path {
 	return paths
 }
 
-func (t *Table) GetKnownPathListWithMac(id string, as uint32, mac net.HardwareAddr) []*Path {
+func (t *Table) GetKnownPathListWithMac(id string, as uint32, mac net.HardwareAddr, onlyBest bool) []*Path {
 	var paths []*Path
 	if rds, ok := t.macIndex[*(*string)(unsafe.Pointer(&mac))]; ok {
 		for rd := range rds {
@@ -490,7 +490,11 @@ func (t *Table) GetKnownPathListWithMac(id string, as uint32, mac net.HardwareAd
 			copy(b[9:15], mac)
 			key := *(*string)(unsafe.Pointer(&b))
 			if dst, ok := t.destinations[key]; ok {
-				paths = append(paths, dst.GetKnownPathList(id, as)...)
+				if onlyBest {
+					paths = append(paths, dst.GetBestPath(id, as))
+				} else {
+					paths = append(paths, dst.GetKnownPathList(id, as)...)
+				}
 			}
 		}
 	}
