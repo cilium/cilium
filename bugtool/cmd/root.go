@@ -59,6 +59,21 @@ for sensitive information.
 	defaultDumpPath = "/tmp"
 )
 
+// ExtraCommandsFunc represents a function that builds and returns a list of extra commands
+// to gather additional information in specific environments.
+//
+// confDir is the directory where the output of "config commands" (e.g: "uname -r") is stored.
+// cmdDir is the directory where the output of "info commands" (e.g: "cilium-dbg debuginfo",
+// "cilium-dbg metrics list" and pprof traces) is stored.
+// k8sPods is a list of the cilium pods.
+//
+// It returns a slice of strings with all the commands to be executed.
+type ExtraCommandsFunc func(confDir string, cmdDir string, k8sPods []string) []string
+
+// ExtraCommands is a slice of ExtraCommandsFunc each of which generates a list of additional
+// commands to be executed alongside the default ones.
+var ExtraCommands []ExtraCommandsFunc
+
 var (
 	archive                  bool
 	archiveType              string
@@ -200,6 +215,9 @@ func runTool() {
 	k8sPods := getVerifyCiliumPods()
 
 	commands := defaultCommands(confDir, cmdDir, k8sPods)
+	for _, f := range ExtraCommands {
+		commands = append(commands, f(confDir, cmdDir, k8sPods)...)
+	}
 
 	if dryRunMode {
 		dryRun(configPath, commands)
