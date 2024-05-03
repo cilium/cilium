@@ -57,6 +57,15 @@ var Cell = cell.Module(
 	cell.Provide(newClientset),
 )
 
+// client.ClientBuilderCell provides a function to create a new composite Clientset,
+// allowing a controller to use its own Clientset with a different user agent.
+var ClientBuilderCell = cell.Module(
+	"k8s-client-builder",
+	"Kubernetes Client Builder",
+
+	cell.Provide(NewClientBuilder),
+)
+
 var k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
 
 // Type aliases for the clientsets to avoid name collision on 'Clientset' when composing them.
@@ -113,6 +122,10 @@ type compositeClientset struct {
 }
 
 func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
+	return newClientsetForUserAgent(lc, log, cfg, "")
+}
+
+func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, name string) (Clientset, error) {
 	if !cfg.isEnabled() {
 		return &compositeClientset{disabled: true}, nil
 	}
@@ -128,7 +141,17 @@ func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) (Client
 		config:     cfg,
 	}
 
-	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst)
+	cmdName := "cilium"
+	if len(os.Args[0]) != 0 {
+		cmdName = filepath.Base(os.Args[0])
+	}
+	userAgent := fmt.Sprintf("%s/%s", cmdName, version.Version)
+
+	if name != "" {
+		userAgent = fmt.Sprintf("%s %s", userAgent, name)
+	}
+
+	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst, userAgent)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
 	}
@@ -286,16 +309,11 @@ func (c *compositeClientset) startHeartbeat() {
 // 1. kubeCfgPath
 // 2. apiServerURL (https if specified)
 // 3. rest.InClusterConfig().
-func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*rest.Config, error) {
+func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int, userAgent string) (*rest.Config, error) {
 	var (
 		config *rest.Config
 		err    error
 	)
-	cmdName := "cilium"
-	if len(os.Args[0]) != 0 {
-		cmdName = filepath.Base(os.Args[0])
-	}
-	userAgent := fmt.Sprintf("%s/%s", cmdName, version.Version)
 
 	switch {
 	// If the apiServerURL and the kubeCfgPath are empty then we can try getting
@@ -501,6 +519,30 @@ func NewStandaloneClientset(cfg Config) (Clientset, error) {
 	}
 
 	return clientset, err
+}
+
+type ClientBuilderFunc func(name string) (Clientset, error)
+
+// NewClientBuilder returns a function that creates a new Clientset with the given
+// name appended to the user agent, or returns an error if the Clientset cannot be
+// created.
+func NewClientBuilder(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) ClientBuilderFunc {
+	return func(name string) (Clientset, error) {
+		c, err := newClientsetForUserAgent(lc, log, cfg, name)
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
+	}
+}
+
+var FakeClientBuilderCell = cell.Provide(FakeClientBuilder)
+
+func FakeClientBuilder() ClientBuilderFunc {
+	fc, _ := NewFakeClientset()
+	return func(_ string) (Clientset, error) {
+		return fc, nil
+	}
 }
 
 func init() {
