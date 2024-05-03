@@ -1,4 +1,4 @@
-name: PR from External Contribution Detector
+name: PR and Issues Auto Labeler
 
 on:
   pull_request_target:
@@ -7,7 +7,7 @@ on:
       - reopened
 
 jobs:
-  labeler:
+  external-contributions:
     if: |
       (
         (github.event.pull_request.author_association != 'OWNER') &&
@@ -15,7 +15,7 @@ jobs:
         (github.event.pull_request.author_association != 'MEMBER')
       )
     runs-on: ubuntu-latest
-    name: Label PRs
+    name: External Contributions
     permissions:
       pull-requests: write
     steps:
