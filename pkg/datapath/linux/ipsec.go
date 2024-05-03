@@ -52,6 +52,9 @@ func (n *linuxNodeHandler) getLinkLocalIP(family int) (net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(addr) == 0 {
+		return nil, fmt.Errorf("No IP address assigned to %s", iface)
+	}
 	return addr[0].IPNet.IP, nil
 }
 
