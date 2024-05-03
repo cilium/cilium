@@ -101,6 +101,9 @@ var (
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,
 
+		// Provides a ClientBuilderFunc that can be used by other cells to create a client.
+		k8sClient.ClientBuilderCell,
+
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,
 		cell.Provide(func(

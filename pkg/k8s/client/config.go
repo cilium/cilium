@@ -13,6 +13,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+const OptUserAgent = "user-agent"
+
 type Config struct {
 	// EnableK8s is a flag that, when set to false, forcibly disables the clientset, to let cilium
 	// operates with CNI-compatible orchestrators other than Kubernetes. Default to true.
