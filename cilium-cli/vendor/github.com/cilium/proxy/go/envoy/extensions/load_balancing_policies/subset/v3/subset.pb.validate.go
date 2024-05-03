@@ -130,6 +130,8 @@ func (m *Subset) validate(all bool) error {
 
 	}
 
+	// no validation rules for AllowRedundantKeys
+
 	// no validation rules for LocalityWeightAware
 
 	// no validation rules for ScaleLocalityWeight

@@ -345,7 +345,7 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav
 func (n *EndpointSelector) sanitize() error {
 	errList := validation.ValidateLabelSelector(n.LabelSelector, validation.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
 	if len(errList) > 0 {
-		return fmt.Errorf("invalid label selector: %s", errList.ToAggregate().Error())
+		return fmt.Errorf("invalid label selector: %w", errList.ToAggregate())
 	}
 	return nil
 }

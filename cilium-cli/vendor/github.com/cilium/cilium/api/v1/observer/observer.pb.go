@@ -69,6 +69,21 @@ const TraceObservationPoint_TO_NETWORK = flow.TraceObservationPoint_TO_NETWORK
 var TraceObservationPoint_name = flow.TraceObservationPoint_name
 var TraceObservationPoint_value = flow.TraceObservationPoint_value
 
+type TraceReason = flow.TraceReason
+
+const TraceReason_TRACE_REASON_UNKNOWN = flow.TraceReason_TRACE_REASON_UNKNOWN
+const TraceReason_NEW = flow.TraceReason_NEW
+const TraceReason_ESTABLISHED = flow.TraceReason_ESTABLISHED
+const TraceReason_REPLY = flow.TraceReason_REPLY
+const TraceReason_RELATED = flow.TraceReason_RELATED
+const TraceReason_REOPENED = flow.TraceReason_REOPENED
+const TraceReason_SRV6_ENCAP = flow.TraceReason_SRV6_ENCAP
+const TraceReason_SRV6_DECAP = flow.TraceReason_SRV6_DECAP
+const TraceReason_ENCRYPT_OVERLAY = flow.TraceReason_ENCRYPT_OVERLAY
+
+var TraceReason_name = flow.TraceReason_name
+var TraceReason_value = flow.TraceReason_value
+
 type L7FlowType = flow.L7FlowType
 
 const L7FlowType_UNKNOWN_L7_TYPE = flow.L7FlowType_UNKNOWN_L7_TYPE
@@ -177,6 +192,7 @@ const DropReason_IGMP_HANDLED = flow.DropReason_IGMP_HANDLED
 const DropReason_IGMP_SUBSCRIBED = flow.DropReason_IGMP_SUBSCRIBED
 const DropReason_MULTICAST_HANDLED = flow.DropReason_MULTICAST_HANDLED
 const DropReason_DROP_HOST_NOT_READY = flow.DropReason_DROP_HOST_NOT_READY
+const DropReason_DROP_EP_NOT_READY = flow.DropReason_DROP_EP_NOT_READY
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value
@@ -379,6 +395,7 @@ type ServiceUpsertNotification = flow.ServiceUpsertNotification
 type ServiceDeleteNotification = flow.ServiceDeleteNotification
 type NetworkInterface = flow.NetworkInterface
 type DebugEvent = flow.DebugEvent
+type FlowFilter_Experimental = flow.FlowFilter_Experimental
 
 type ServerStatusRequest struct {
 	state         protoimpl.MessageState

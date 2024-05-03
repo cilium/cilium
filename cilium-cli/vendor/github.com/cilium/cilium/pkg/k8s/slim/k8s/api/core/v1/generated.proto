@@ -128,6 +128,10 @@ message EndpointAddress {
   // or link-local multicast (224.0.0.0/24 or ff02::/16).
   optional string ip = 1;
 
+  // The Hostname of this endpoint
+  // +optional
+  optional string hostname = 3;
+
   // Optional: Node hosting this endpoint. This can be used to determine endpoints local to a node.
   // +optional
   optional string nodeName = 4;
@@ -170,10 +174,12 @@ message EndpointSubset {
   // IP addresses which offer the related ports that are marked as ready. These endpoints
   // should be considered safe for load balancers and clients to utilize.
   // +optional
+  // +listType=atomic
   repeated EndpointAddress addresses = 1;
 
   // Port numbers available on the related IP addresses.
   // +optional
+  // +listType=atomic
   repeated EndpointPort ports = 3;
 }
 
@@ -204,6 +210,7 @@ message Endpoints {
   // NotReadyAddresses in the same subset.
   // Sets of addresses and ports that comprise a service.
   // +optional
+  // +listType=atomic
   repeated EndpointSubset subsets = 2;
 }
 
@@ -252,6 +259,7 @@ message LoadBalancerStatus {
   // Ingress is a list containing ingress points for the load-balancer.
   // Traffic intended for the service should be sent to these ingress points.
   // +optional
+  // +listType=atomic
   repeated LoadBalancerIngress ingress = 1;
 }
 
@@ -341,6 +349,7 @@ message NodeSpec {
   // each of IPv4 and IPv6.
   // +optional
   // +patchStrategy=merge
+  // +listType=set
   repeated string podCIDRs = 7;
 
   // ID of the node assigned by the cloud provider in the format: <ProviderName>://<ProviderSpecificNodeID>
@@ -349,6 +358,7 @@ message NodeSpec {
 
   // If specified, the node's taints.
   // +optional
+  // +listType=atomic
   repeated Taint taints = 5;
 }
 
@@ -359,6 +369,8 @@ message NodeStatus {
   // +optional
   // +patchMergeKey=type
   // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=type
   repeated NodeCondition conditions = 4;
 
   // List of addresses reachable to the node.
@@ -374,6 +386,8 @@ message NodeStatus {
   // +optional
   // +patchMergeKey=type
   // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=type
   repeated NodeAddress addresses = 5;
 }
 
@@ -445,6 +459,12 @@ message PodList {
   repeated Pod items = 2;
 }
 
+// PodReadinessGate contains the reference to a pod condition
+message PodReadinessGate {
+  // ConditionType refers to a condition in the pod's condition list with matching type.
+  optional string conditionType = 1;
+}
+
 // PodSpec is a description of a pod.
 message PodSpec {
   // List of initialization containers belonging to the pod.
@@ -462,6 +482,8 @@ message PodSpec {
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
   // +patchMergeKey=name
   // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=name
   repeated Container initContainers = 20;
 
   // List of containers belonging to the pod.
@@ -470,6 +492,8 @@ message PodSpec {
   // Cannot be updated.
   // +patchMergeKey=name
   // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=name
   repeated Container containers = 2;
 
   // ServiceAccountName is the name of the ServiceAccount to use to run this pod.
@@ -521,6 +545,8 @@ message PodStatus {
   // +optional
   // +patchMergeKey=type
   // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=type
   repeated PodCondition conditions = 2;
 
   // hostIP holds the IP address of the host to which the pod is assigned. Empty if the pod has not started yet.
@@ -540,6 +566,8 @@ message PodStatus {
   // +optional
   // +patchStrategy=merge
   // +patchMergeKey=ip
+  // +listType=map
+  // +listMapKey=ip
   repeated PodIP podIPs = 12;
 
   // RFC 3339 date and time at which the object was acknowledged by the Kubelet.
@@ -550,6 +578,7 @@ message PodStatus {
   // The list has one entry per container in the manifest.
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
   // +optional
+  // +listType=atomic
   repeated ContainerStatus containerStatuses = 8;
 
   // The Quality of Service (QOS) classification assigned to the pod based on resource requirements
@@ -559,6 +588,7 @@ message PodStatus {
   optional string qosClass = 9;
 }
 
+// PortStatus represents the error condition of a service port
 message PortStatus {
   // Port is the port number of the service port of which status is recorded here
   optional int32 port = 1;
@@ -786,6 +816,7 @@ message ServiceSpec {
   // at a node with this IP.  A common example is external load-balancers
   // that are not part of the Kubernetes system.
   // +optional
+  // +listType=atomic
   repeated string externalIPs = 5;
 
   // Supports "ClientIP" and "None". Used to maintain session affinity.
@@ -811,6 +842,7 @@ message ServiceSpec {
   // cloud-provider does not support the feature."
   // More info: https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
   // +optional
+  // +listType=atomic
   repeated string loadBalancerSourceRanges = 9;
 
   // externalTrafficPolicy describes how nodes distribute service traffic they

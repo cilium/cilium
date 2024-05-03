@@ -46,7 +46,7 @@ func ToAgentGetRoutesRequest(params restapi.GetBgpRoutesParams) (*types.GetRoute
 		}
 		addr, err := netip.ParseAddr(*params.Neighbor)
 		if err != nil {
-			return nil, fmt.Errorf("invalid neighbor address %w", err)
+			return nil, fmt.Errorf("invalid neighbor address: %w", err)
 		}
 		ret.Neighbor = addr
 	} else {

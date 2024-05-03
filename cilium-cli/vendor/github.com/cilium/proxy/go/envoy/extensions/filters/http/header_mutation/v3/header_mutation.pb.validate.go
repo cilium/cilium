@@ -384,6 +384,8 @@ func (m *HeaderMutation) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for MostSpecificHeaderMutationsWins
+
 	if len(errors) > 0 {
 		return HeaderMutationMultiError(errors)
 	}

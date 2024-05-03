@@ -567,6 +567,9 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 	svc.Backends = map[string]serviceStore.PortConfiguration{}
 	for addrCluster, backend := range k8sEndpoints.Backends {
 		svc.Backends[addrCluster.Addr().String()] = backend.Ports
+		if backend.Hostname != "" {
+			svc.Hostnames[addrCluster.Addr().String()] = backend.Hostname
+		}
 	}
 
 	svc.Shared = k8sService.Shared

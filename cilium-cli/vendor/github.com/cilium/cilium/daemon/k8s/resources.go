@@ -4,10 +4,15 @@
 package k8s
 
 import (
+	"fmt"
+
+	"github.com/cilium/hive/cell"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -31,6 +36,7 @@ var (
 
 		cell.Config(k8s.DefaultConfig),
 		LocalNodeCell,
+		ServiceNonHeadlessCell,
 		cell.Provide(
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
@@ -78,6 +84,50 @@ var (
 			},
 		),
 	)
+
+	ServiceNonHeadlessCell = cell.Module(
+		"k8s-service-non-headless",
+		"Agent Kubernetes non headless service resources",
+
+		cell.Provide(
+			func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (ServiceNonHeadless, error) {
+				return k8s.ServiceResource(
+					lc, cfg, cs,
+					func(opts *metav1.ListOptions) {
+						nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+						if err != nil {
+							panic(fmt.Sprintf("can't create headless service requirement: %s", err))
+						}
+
+						labelSelector, err := labels.Parse(opts.LabelSelector)
+						if err != nil {
+							panic(fmt.Sprintf("can't parse existing service label selector: %s", err))
+						}
+						labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+						opts.LabelSelector = labelSelector.String()
+					},
+				)
+			},
+			func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (EndpointsNonHeadless, error) {
+				return k8s.EndpointsResource(
+					lc, cfg, cs,
+					func(opts *metav1.ListOptions) {
+						nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+						if err != nil {
+							panic(fmt.Sprintf("can't create headless service requirement: %s", err))
+						}
+
+						labelSelector, err := labels.Parse(opts.LabelSelector)
+						if err != nil {
+							panic(fmt.Sprintf("can't parse existing endpoints label selector: %s", err))
+						}
+						labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+						opts.LabelSelector = labelSelector.String()
+					},
+				)
+			},
+		),
+	)
 )
 
 // LocalNodeResource is a resource.Resource[*slim_corev1.Node] but one which will only stream updates for the node object
@@ -92,12 +142,20 @@ type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 // objects scheduled on the node we are currently running on.
 type LocalPodResource resource.Resource[*slim_corev1.Pod]
 
+// ServiceNonHeadless is a resource.Resource[*slim_corev1.Service] but one which will only stream updates for
+// non headless Services.
+type ServiceNonHeadless resource.Resource[*slim_corev1.Service]
+
+// EndpointsNonHeadless is a resource.Resource[*slim_corev1.Service] but one which will only stream updates for
+// Endpoints from non headless Services.
+type EndpointsNonHeadless resource.Resource[*k8s.Endpoints]
+
 // Resources is a convenience struct to group all the agent k8s resources as cell constructor parameters.
 type Resources struct {
 	cell.In
 
-	Services                         resource.Resource[*slim_corev1.Service]
-	Endpoints                        resource.Resource[*k8s.Endpoints]
+	Services                         ServiceNonHeadless
+	Endpoints                        EndpointsNonHeadless
 	LocalNode                        LocalNodeResource
 	LocalCiliumNode                  LocalCiliumNodeResource
 	LocalPods                        LocalPodResource

@@ -18,9 +18,11 @@ import (
 // labels, which must be joined to produce the full set of endpoints.
 type EndpointSlice struct {
 	slim_metav1.TypeMeta `json:",inline"`
+
 	// Standard object's metadata.
 	// +optional
 	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
 	// addressType specifies the type of address carried by this EndpointSlice.
 	// All addresses in this slice must be the same type. This field is
 	// immutable after creation. The following address types are currently
@@ -73,6 +75,14 @@ type Endpoint struct {
 
 	// conditions contains information about the current status of the endpoint.
 	Conditions EndpointConditions `json:"conditions,omitempty" protobuf:"bytes,2,opt,name=conditions"`
+
+	// hostname of this endpoint. This field may be used by consumers of
+	// endpoints to distinguish endpoints from each other (e.g. in DNS names).
+	// Multiple endpoints which use the same hostname should be considered
+	// fungible (e.g. multiple A values in DNS). Must be lowercase and pass DNS
+	// Label (RFC 1123) validation.
+	// +optional
+	Hostname *string `json:"hostname,omitempty" protobuf:"bytes,3,opt,name=hostname"`
 
 	// deprecatedTopology contains topology information part of the v1beta1
 	// API. This field is deprecated, and will be removed when the v1beta1

@@ -1883,6 +1883,8 @@ func (m *TrackClusterStats) validate(all bool) error {
 
 	// no validation rules for RequestResponseSizes
 
+	// no validation rules for PerEndpointStats
+
 	if len(errors) > 0 {
 		return TrackClusterStatsMultiError(errors)
 	}

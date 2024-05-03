@@ -22,6 +22,11 @@ func (in *Endpoint) DeepCopyInto(out *Endpoint) {
 		copy(*out, *in)
 	}
 	in.Conditions.DeepCopyInto(&out.Conditions)
+	if in.Hostname != nil {
+		in, out := &in.Hostname, &out.Hostname
+		*out = new(string)
+		**out = **in
+	}
 	if in.Topology != nil {
 		in, out := &in.Topology, &out.Topology
 		*out = make(map[string]string, len(*in))

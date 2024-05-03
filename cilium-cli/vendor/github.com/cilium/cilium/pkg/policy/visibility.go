@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -42,7 +44,7 @@ func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 //     format for a visibility annotation.
 //   - if there is a conflict between the state encoded in the annotation (e.g.,
 //     different L7 protocols for the same L4 port / protocol / traffic direction.
-func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
+func NewVisibilityPolicy(anno, namespace, pod string) (*VisibilityPolicy, error) {
 	if !annotationRegex.MatchString(anno) {
 		return nil, fmt.Errorf("annotation for proxy visibility did not match expected format %s", annotationRegex.String())
 	}
@@ -67,7 +69,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 
 		portInt, err := strconv.ParseUint(port, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse port: %s", err)
+			return nil, fmt.Errorf("unable to parse port: %w", err)
 		}
 
 		// Don't need to validate, regex already did that.
@@ -112,7 +114,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 				}
 			}
 
-			l7Meta := generateL7AllowAllRules(l7Protocol)
+			l7Meta := generateL7AllowAllRules(l7Protocol, namespace, pod)
 
 			dvp[pp] = &VisibilityMetadata{
 				Parser:     l7Protocol,
@@ -127,13 +129,23 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 	return nvp, nil
 }
 
-func generateL7AllowAllRules(parser L7ParserType) L7DataMap {
+func generateL7AllowAllRules(parser L7ParserType, namespace, pod string) L7DataMap {
 	var m L7DataMap
 	switch parser {
 	case ParserTypeDNS:
 		m = L7DataMap{}
 		// Create an entry to explicitly allow all at L7 for DNS.
 		emptyL3Selector := &identitySelector{source: &labelIdentitySelector{selector: api.WildcardEndpointSelector}, key: wildcardSelectorKey}
+		emptyL3Selector.metadataLbls = labels.LabelArray{
+			labels.NewLabel(ciliumio.PolicyLabelDerivedFrom, "PodVisibilityAnnotation", labels.LabelSourceK8s),
+		}
+		if namespace != "" {
+			emptyL3Selector.metadataLbls = append(emptyL3Selector.metadataLbls, labels.NewLabel(ciliumio.PodNamespaceLabel, namespace, labels.LabelSourceK8s))
+		}
+		if pod != "" {
+			emptyL3Selector.metadataLbls = append(emptyL3Selector.metadataLbls, labels.NewLabel(ciliumio.PodNameLabel, pod, labels.LabelSourceK8s))
+		}
+
 		m[emptyL3Selector] = &PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{

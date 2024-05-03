@@ -46,6 +46,9 @@ type ExtraOptions struct {
 	// have an initial rate limit equal to etcd.bootstrapQps and be updated to
 	// etcd.qps after this channel is closed.
 	BootstrapComplete <-chan struct{}
+
+	// NoEndpointStatusChecks disables the status checks for the endpoints
+	NoEndpointStatusChecks bool
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the

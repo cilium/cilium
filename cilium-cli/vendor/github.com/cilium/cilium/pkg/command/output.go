@@ -58,7 +58,7 @@ func PrintOutput(data interface{}) error {
 func PrintOutputWithPatch(data interface{}, patch interface{}) error {
 	mergedInterface, err := mergeInterfaces(data, patch)
 	if err != nil {
-		return fmt.Errorf("Unable to merge Interfaces:%v", err)
+		return fmt.Errorf("Unable to merge Interfaces: %w", err)
 	}
 	return PrintOutputWithType(mergedInterface, outputOpt)
 }

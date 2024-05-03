@@ -65,6 +65,9 @@ type ClusterService struct {
 	// Backends is map indexed by the backend IP address
 	Backends map[string]PortConfiguration `json:"backends"`
 
+	// Hostnames is map indexed by the backend IP address
+	Hostnames map[string]string `json:"hostnames"`
+
 	// Labels are the labels of the service
 	Labels map[string]string `json:"labels"`
 
@@ -156,6 +159,7 @@ func NewClusterService(name, namespace string) ClusterService {
 		Namespace: namespace,
 		Frontends: map[string]PortConfiguration{},
 		Backends:  map[string]PortConfiguration{},
+		Hostnames: map[string]string{},
 		Labels:    map[string]string{},
 		Selector:  map[string]string{},
 	}

@@ -5,7 +5,9 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -13,10 +15,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	apiext_clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiext_fake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -29,7 +32,6 @@ import (
 	"k8s.io/client-go/util/connrotation"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -391,13 +393,12 @@ func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error,
 		// which means the server is overloaded and only for this reason we
 		// will not close all connections.
 		err := heartBeat(ctx)
-		switch t := err.(type) {
-		case *errors.StatusError:
-			if t.ErrStatus.Code != http.StatusTooManyRequests {
+		if err != nil {
+			statusError := &k8sErrors.StatusError{}
+			if !errors.As(err, &statusError) ||
+				statusError.ErrStatus.Code != http.StatusTooManyRequests {
 				done <- err
 			}
-		default:
-			done <- err
 		}
 		close(done)
 	}()
@@ -495,7 +496,7 @@ func NewStandaloneClientset(cfg Config) (Clientset, error) {
 		return nil, err
 	}
 
-	if err := lc.Start(context.Background()); err != nil {
+	if err := lc.Start(slog.Default(), context.Background()); err != nil {
 		return nil, err
 	}
 

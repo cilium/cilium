@@ -77,6 +77,8 @@ message Flow {
 
     // Only applicable to cilium trace notifications, blank for other types.
     TraceObservationPoint trace_observation_point = 24;
+    // Cilium datapath trace reason info.
+    TraceReason trace_reason = 36;
 
     // only applicable to Verdict = DROPPED.
     DropReason drop_reason_desc = 25;
@@ -125,6 +127,11 @@ message Flow {
     repeated Policy egress_allowed_by = 21001;
     // The CiliumNetworkPolicies allowing the ingress of the flow.
     repeated Policy ingress_allowed_by = 21002;
+
+    // The CiliumNetworkPolicies denying the egress of the flow.
+    repeated Policy egress_denied_by = 21004;
+    // The CiliumNetworkPolicies denying the ingress of the flow.
+    repeated Policy ingress_denied_by = 21005;
 }
 
 enum FlowType {
@@ -181,6 +188,18 @@ enum TraceObservationPoint {
     // TO_NETWORK indicates network packets are transmitted towards native
     // devices.
     TO_NETWORK = 11;
+}
+
+enum TraceReason {
+    TRACE_REASON_UNKNOWN = 0;
+    NEW = 1;
+    ESTABLISHED = 2;
+    REPLY = 3;
+    RELATED = 4;
+    REOPENED = 5;
+    SRV6_ENCAP = 6;
+    SRV6_DECAP = 7;
+    ENCRYPT_OVERLAY = 8;
 }
 
 message Layer4 {
@@ -409,6 +428,9 @@ enum DropReason {
     // A BPF program wants to tail call into bpf_host, but the host datapath
     // hasn't been loaded yet.
     DROP_HOST_NOT_READY = 202;
+    // A BPF program wants to tail call some endpoint's policy program in the
+    // POLICY_CALL_MAP, but the program is not available.
+    DROP_EP_NOT_READY = 203;
 }
 
 enum TrafficDirection {
@@ -512,6 +534,8 @@ message FlowFilter {
 
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
+    // only applicable to Verdict = DROPPED (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
+    repeated DropReason drop_reason_desc = 35;
     // event_type is the list of event types to filter on
     repeated EventTypeFilter event_type = 6;
     // http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
@@ -556,6 +580,24 @@ message FlowFilter {
 
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
+
+    // Experimental contains filters that are not stable yet. Support for
+    // experimental features is always optional and subject to change.
+    message Experimental {
+      // cel_expression takes a common expression language (CEL) expression
+      // returning a boolean to determine if the filter matched or not.
+      // You can use the `_flow` variable to access fields on the flow using
+      // the flow.Flow protobuf field names.
+      // See https://github.com/google/cel-spec/blob/v0.14.0/doc/intro.md#introduction
+      // for more details on CEL and accessing the protobuf fields in CEL.
+      // Using CEL has performance cost compared to other filters, so prefer
+      // using non-CEL filters when possible, and try to specify CEL filters
+      // last in the list of FlowFilters.
+      repeated string cel_expression = 33;
+    }
+    // experimental contains filters that are not stable yet. Support for
+    // experimental features is always optional and subject to change.
+    Experimental experimental = 999;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
@@ -596,7 +638,7 @@ message HTTPHeader {
     string value = 2;
 }
 
-// L7 information for HTTP flows. It corresponds to Cilium's [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type. 
+// L7 information for HTTP flows. It corresponds to Cilium's [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
 message HTTP {
     uint32 code = 1;
     string method = 2;

@@ -8,7 +8,6 @@ import (
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -19,7 +18,7 @@ type Owner interface {
 
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
-	GetCompilationLock() *lock.RWMutex
+	GetCompilationLock() datapath.CompilationLock
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error

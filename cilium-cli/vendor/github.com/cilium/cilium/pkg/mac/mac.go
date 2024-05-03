@@ -107,7 +107,7 @@ func (m *MAC) UnmarshalJSON(data []byte) error {
 func GenerateRandMAC() (MAC, error) {
 	buf := make([]byte, 6)
 	if _, err := rand.Read(buf); err != nil {
-		return nil, fmt.Errorf("Unable to retrieve 6 rnd bytes: %s", err)
+		return nil, fmt.Errorf("Unable to retrieve 6 rnd bytes: %w", err)
 	}
 
 	// Set locally administered addresses bit and reset multicast bit
