@@ -39,6 +39,7 @@ func setupCiliumOperatorHive(clients *k8sClient.FakeClientset) *hive.Hive {
 		cell.Provide(func() k8sClient.Clientset {
 			return clients
 		}),
+		k8sClient.FakeClientBuilderCell,
 		cmd.ControlPlane,
 	)
 }
