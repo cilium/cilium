@@ -449,9 +449,8 @@ func (m *Manager) disableIPEarlyDemux() {
 // the source IP address.
 func (m *Manager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
-	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
-	// the source security ID.
-	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && (!m.sharedCfg.TunnelingEnabled || m.sharedCfg.EnableIPSec)
+	// is disabled
+	return m.haveSocketMatch || m.ipEarlyDemuxDisabled
 }
 
 // removeRules removes iptables rules installed by Cilium.
