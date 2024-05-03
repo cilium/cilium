@@ -17,6 +17,7 @@ import (
 // NetworkPolicy describes what network traffic is allowed for a set of Pods
 type NetworkPolicy struct {
 	slim_metav1.TypeMeta `json:",inline"`
+
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
@@ -62,6 +63,7 @@ type NetworkPolicySpec struct {
 	// this field is empty then this NetworkPolicy does not allow any traffic (and serves
 	// solely to ensure that the pods it selects are isolated by default)
 	// +optional
+	// +listType=atomic
 	Ingress []NetworkPolicyIngressRule `json:"ingress,omitempty" protobuf:"bytes,2,rep,name=ingress"`
 
 	// egress is a list of egress rules to be applied to the selected pods. Outgoing traffic
@@ -72,6 +74,7 @@ type NetworkPolicySpec struct {
 	// solely to ensure that the pods it selects are isolated by default).
 	// This field is beta-level in 1.8
 	// +optional
+	// +listType=atomic
 	Egress []NetworkPolicyEgressRule `json:"egress,omitempty" protobuf:"bytes,3,rep,name=egress"`
 
 	// policyTypes is a list of rule types that the NetworkPolicy relates to.
@@ -85,6 +88,7 @@ type NetworkPolicySpec struct {
 	// an egress section and would otherwise default to just [ "Ingress" ]).
 	// This field is beta-level in 1.8
 	// +optional
+	// +listType=atomic
 	PolicyTypes []PolicyType `json:"policyTypes,omitempty" protobuf:"bytes,4,rep,name=policyTypes,casttype=PolicyType"`
 }
 
@@ -97,6 +101,7 @@ type NetworkPolicyIngressRule struct {
 	// If this field is present and contains at least one item, then this rule allows
 	// traffic only if the traffic matches at least one port in the list.
 	// +optional
+	// +listType=atomic
 	Ports []NetworkPolicyPort `json:"ports,omitempty" protobuf:"bytes,1,rep,name=ports"`
 
 	// from is a list of sources which should be able to access the pods selected for this rule.
@@ -105,6 +110,7 @@ type NetworkPolicyIngressRule struct {
 	// source). If this field is present and contains at least one item, this rule
 	// allows traffic only if the traffic matches at least one item in the from list.
 	// +optional
+	// +listType=atomic
 	From []NetworkPolicyPeer `json:"from,omitempty" protobuf:"bytes,2,rep,name=from"`
 }
 
@@ -118,6 +124,7 @@ type NetworkPolicyEgressRule struct {
 	// If this field is present and contains at least one item, then this rule allows
 	// traffic only if the traffic matches at least one port in the list.
 	// +optional
+	// +listType=atomic
 	Ports []NetworkPolicyPort `json:"ports,omitempty" protobuf:"bytes,1,rep,name=ports"`
 
 	// to is a list of destinations for outgoing traffic of pods selected for this rule.
@@ -126,6 +133,7 @@ type NetworkPolicyEgressRule struct {
 	// destination). If this field is present and contains at least one item, this rule
 	// allows traffic only if the traffic matches at least one item in the to list.
 	// +optional
+	// +listType=atomic
 	To []NetworkPolicyPeer `json:"to,omitempty" protobuf:"bytes,2,rep,name=to"`
 }
 
@@ -163,6 +171,7 @@ type IPBlock struct {
 	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
 	// Except values will be rejected if they are outside the cidr range
 	// +optional
+	// +listType=atomic
 	Except []string `json:"except,omitempty" protobuf:"bytes,2,rep,name=except"`
 }
 

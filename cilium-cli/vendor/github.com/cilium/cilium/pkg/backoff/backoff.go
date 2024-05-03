@@ -166,7 +166,7 @@ func (b *Exponential) Wait(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("exponential backoff cancelled via context: %s", ctx.Err())
+		return fmt.Errorf("exponential backoff cancelled via context: %w", ctx.Err())
 	case <-time.After(t):
 	}
 

@@ -71,9 +71,49 @@ func (i *LinkInfo) info() (unsafe.Pointer, uint32) {
 	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
 }
 
+func (i *TracingLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *CgroupLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *NetNsLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *XDPLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *TcxLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *NetfilterLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *NetkitLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *KprobeMultiLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *KprobeLinkInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
 var _ Info = (*BtfInfo)(nil)
 
 func (i *BtfInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
+func (i *PerfEventLinkInfo) info() (unsafe.Pointer, uint32) {
 	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
 }
 

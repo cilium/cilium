@@ -110,19 +110,6 @@ const (
 	ConditionUnknown ConditionStatus = "Unknown"
 )
 
-// PodQOSClass defines the supported qos classes of Pods.
-// +enum
-type PodQOSClass string
-
-const (
-	// PodQOSGuaranteed is the Guaranteed qos class.
-	PodQOSGuaranteed PodQOSClass = "Guaranteed"
-	// PodQOSBurstable is the Burstable qos class.
-	PodQOSBurstable PodQOSClass = "Burstable"
-	// PodQOSBestEffort is the BestEffort qos class.
-	PodQOSBestEffort PodQOSClass = "BestEffort"
-)
-
 // ContainerStateRunning is a running state of a container.
 type ContainerStateRunning struct {
 	// Time at which the container was last (re-)started
@@ -244,6 +231,12 @@ type PodCondition struct {
 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 }
 
+const (
+	// DefaultTerminationGracePeriodSeconds indicates the default duration in
+	// seconds a pod needs to terminate gracefully.
+	DefaultTerminationGracePeriodSeconds = 30
+)
+
 // The node this Taint is attached to has the "effect" on
 // any pod that does not tolerate the Taint.
 type Taint struct {
@@ -286,6 +279,12 @@ const (
 	TaintEffectNoExecute TaintEffect = "NoExecute"
 )
 
+// PodReadinessGate contains the reference to a pod condition
+type PodReadinessGate struct {
+	// ConditionType refers to a condition in the pod's condition list with matching type.
+	ConditionType PodConditionType `json:"conditionType" protobuf:"bytes,1,opt,name=conditionType,casttype=PodConditionType"`
+}
+
 // PodSpec is a description of a pod.
 type PodSpec struct {
 	// List of initialization containers belonging to the pod.
@@ -303,6 +302,8 @@ type PodSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 	// +patchMergeKey=name
 	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
 	InitContainers []Container `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,20,rep,name=initContainers"`
 	// List of containers belonging to the pod.
 	// Containers cannot currently be added or removed.
@@ -310,11 +311,15 @@ type PodSpec struct {
 	// Cannot be updated.
 	// +patchMergeKey=name
 	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
 	Containers []Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
+
 	// ServiceAccountName is the name of the ServiceAccount to use to run this pod.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty" protobuf:"bytes,8,opt,name=serviceAccountName"`
+
 	// NodeName is a request to schedule this pod onto a specific node. If it is non-empty,
 	// the scheduler simply schedules this pod onto that node, assuming that it fits resource
 	// requirements.
@@ -327,6 +332,19 @@ type PodSpec struct {
 	// +optional
 	HostNetwork bool `json:"hostNetwork,omitempty" protobuf:"varint,11,opt,name=hostNetwork"`
 }
+
+// PodQOSClass defines the supported qos classes of Pods.
+// +enum
+type PodQOSClass string
+
+const (
+	// PodQOSGuaranteed is the Guaranteed qos class.
+	PodQOSGuaranteed PodQOSClass = "Guaranteed"
+	// PodQOSBurstable is the Burstable qos class.
+	PodQOSBurstable PodQOSClass = "Burstable"
+	// PodQOSBestEffort is the BestEffort qos class.
+	PodQOSBestEffort PodQOSClass = "BestEffort"
+)
 
 // PodIP represents a single IP address allocated to the pod.
 type PodIP struct {
@@ -363,7 +381,10 @@ type PodStatus struct {
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
 	Conditions []PodCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,2,rep,name=conditions"`
+
 	// hostIP holds the IP address of the host to which the pod is assigned. Empty if the pod has not started yet.
 	// A pod can be assigned to a node that has a problem in kubelet which in turns mean that HostIP will
 	// not be updated even if there is a node is assigned to pod
@@ -381,6 +402,8 @@ type PodStatus struct {
 	// +optional
 	// +patchStrategy=merge
 	// +patchMergeKey=ip
+	// +listType=map
+	// +listMapKey=ip
 	PodIPs []PodIP `json:"podIPs,omitempty" protobuf:"bytes,12,rep,name=podIPs" patchStrategy:"merge" patchMergeKey:"ip"`
 
 	// RFC 3339 date and time at which the object was acknowledged by the Kubelet.
@@ -391,6 +414,7 @@ type PodStatus struct {
 	// The list has one entry per container in the manifest.
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
 	// +optional
+	// +listType=atomic
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
 	// The Quality of Service (QOS) classification assigned to the pod based on resource requirements
 	// See PodQOSClass type for available QOS classes
@@ -563,6 +587,7 @@ type LoadBalancerStatus struct {
 	// Ingress is a list containing ingress points for the load-balancer.
 	// Traffic intended for the service should be sent to these ingress points.
 	// +optional
+	// +listType=atomic
 	Ingress []LoadBalancerIngress `json:"ingress,omitempty" protobuf:"bytes,1,rep,name=ingress"`
 }
 
@@ -728,6 +753,7 @@ type ServiceSpec struct {
 	// at a node with this IP.  A common example is external load-balancers
 	// that are not part of the Kubernetes system.
 	// +optional
+	// +listType=atomic
 	ExternalIPs []string `json:"externalIPs,omitempty" protobuf:"bytes,5,rep,name=externalIPs"`
 
 	// Supports "ClientIP" and "None". Used to maintain session affinity.
@@ -753,6 +779,7 @@ type ServiceSpec struct {
 	// cloud-provider does not support the feature."
 	// More info: https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
 	// +optional
+	// +listType=atomic
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty" protobuf:"bytes,9,opt,name=loadBalancerSourceRanges"`
 
 	// externalTrafficPolicy describes how nodes distribute service traffic they
@@ -787,6 +814,12 @@ type ServiceSpec struct {
 	// sessionAffinityConfig contains the configurations of session affinity.
 	// +optional
 	SessionAffinityConfig *SessionAffinityConfig `json:"sessionAffinityConfig,omitempty" protobuf:"bytes,14,opt,name=sessionAffinityConfig"`
+
+	// TopologyKeys is tombstoned to show why 16 is reserved protobuf tag.
+	// TopologyKeys []string `json:"topologyKeys,omitempty" protobuf:"bytes,16,opt,name=topologyKeys"`
+
+	// IPFamily is tombstoned to show why 15 is a reserved protobuf tag.
+	// IPFamily *IPFamily `json:"ipFamily,omitempty" protobuf:"bytes,15,opt,name=ipFamily,Configcasttype=IPFamily"`
 
 	// IPFamilies is a list of IP families (e.g. IPv4, IPv6) assigned to this
 	// service. This field is usually assigned automatically based on cluster
@@ -946,6 +979,7 @@ type Endpoints struct {
 	// NotReadyAddresses in the same subset.
 	// Sets of addresses and ports that comprise a service.
 	// +optional
+	// +listType=atomic
 	Subsets []EndpointSubset `json:"subsets,omitempty" protobuf:"bytes,2,rep,name=subsets"`
 }
 
@@ -966,9 +1000,11 @@ type EndpointSubset struct {
 	// IP addresses which offer the related ports that are marked as ready. These endpoints
 	// should be considered safe for load balancers and clients to utilize.
 	// +optional
+	// +listType=atomic
 	Addresses []EndpointAddress `json:"addresses,omitempty" protobuf:"bytes,1,rep,name=addresses"`
 	// Port numbers available on the related IP addresses.
 	// +optional
+	// +listType=atomic
 	Ports []EndpointPort `json:"ports,omitempty" protobuf:"bytes,3,rep,name=ports"`
 }
 
@@ -979,6 +1015,9 @@ type EndpointAddress struct {
 	// May not be loopback (127.0.0.0/8 or ::1), link-local (169.254.0.0/16 or fe80::/10),
 	// or link-local multicast (224.0.0.0/24 or ff02::/16).
 	IP string `json:"ip" protobuf:"bytes,1,opt,name=ip"`
+	// The Hostname of this endpoint
+	// +optional
+	Hostname string `json:"hostname,omitempty" protobuf:"bytes,3,opt,name=hostname"`
 	// Optional: Node hosting this endpoint. This can be used to determine endpoints local to a node.
 	// +optional
 	NodeName *string `json:"nodeName,omitempty" protobuf:"bytes,4,opt,name=nodeName"`
@@ -1029,14 +1068,15 @@ type NodeSpec struct {
 	// each of IPv4 and IPv6.
 	// +optional
 	// +patchStrategy=merge
+	// +listType=set
 	PodCIDRs []string `json:"podCIDRs,omitempty" protobuf:"bytes,7,opt,name=podCIDRs" patchStrategy:"merge"`
 
 	// ID of the node assigned by the cloud provider in the format: <ProviderName>://<ProviderSpecificNodeID>
 	// +optional
 	ProviderID string `json:"providerID,omitempty" protobuf:"bytes,3,opt,name=providerID"`
-
 	// If specified, the node's taints.
 	// +optional
+	// +listType=atomic
 	Taints []Taint `json:"taints,omitempty" protobuf:"bytes,5,opt,name=taints"`
 }
 
@@ -1047,6 +1087,8 @@ type NodeStatus struct {
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
 	Conditions []NodeCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,4,rep,name=conditions"`
 	// List of addresses reachable to the node.
 	// Queried from cloud provider, if available.
@@ -1061,6 +1103,8 @@ type NodeStatus struct {
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
 	Addresses []NodeAddress `json:"addresses,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,5,rep,name=addresses"`
 }
 
@@ -1080,8 +1124,7 @@ const (
 type NodeConditionType string
 
 // These are valid but not exhaustive conditions of node. A cloud provider may set a condition not listed here.
-// The built-in set of conditions are:
-// NodeReachable, NodeLive, NodeReady, NodeSchedulable, NodeRunnable.
+// Relevant events contain "NodeReady", "NodeNotReady", "NodeSchedulable", and "NodeNotSchedulable".
 const (
 	// NodeReady means kubelet is healthy and ready to accept pods.
 	NodeReady NodeConditionType = "Ready"
@@ -1106,7 +1149,6 @@ type NodeCondition struct {
 	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
 }
 
-// +enum
 type NodeAddressType string
 
 // These are built-in addresses type of node. A cloud provider may set a type not listed here.
@@ -1391,7 +1433,6 @@ type SecretList struct {
 }
 
 // PortStatus represents the error condition of a service port
-
 type PortStatus struct {
 	// Port is the port number of the service port of which status is recorded here
 	Port int32 `json:"port" protobuf:"varint,1,opt,name=port"`

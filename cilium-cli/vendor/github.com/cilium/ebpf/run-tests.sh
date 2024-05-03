@@ -67,31 +67,22 @@ if [[ "${1:-}" = "--exec-vm" ]]; then
     rm "${output}/fake-stdin"
   fi
 
-  for ((i = 0; i < 3; i++)); do
-    if ! $sudo virtme-run --kimg "${input}/boot/vmlinuz" --cpus 2 --memory 768M --pwd \
-      --rwdir="${testdir}=${testdir}" \
-      --rodir=/run/input="${input}" \
-      --rwdir=/run/output="${output}" \
-      --script-sh "$(quote_env "${preserved_env[@]}") \"$script\" \
-      --exec-test $cmd"; then
-      exit 23
-    fi
+  if ! $sudo virtme-run --kimg "${input}/boot/vmlinuz" --cpus 2 --memory 1G --pwd \
+    --rwdir="${testdir}=${testdir}" \
+    --rodir=/run/input="${input}" \
+    --rwdir=/run/output="${output}" \
+    --script-sh "$(quote_env "${preserved_env[@]}") \"$script\" \
+    --exec-test $cmd"; then
+    exit 23
+  fi
 
-    if [[ -e "${output}/status" ]]; then
-      break
-    fi
-
-    if [[ -v CI ]]; then
-      echo "Retrying test run due to qemu crash"
-      continue
-    fi
-
+  if ! [[ -e "${output}/status" ]]; then
     exit 42
-  done
+  fi
 
   rc=$(<"${output}/status")
   $sudo rm -r "$output"
-  exit $rc
+  exit "$rc"
 elif [[ "${1:-}" = "--exec-test" ]]; then
   shift
 

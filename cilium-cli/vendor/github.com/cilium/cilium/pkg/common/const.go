@@ -10,6 +10,10 @@ const (
 	// particular endpoint.
 	CHeaderFileName = "ep_config.h"
 
+	// EndpointStateFileName is used as the file name for the JSON representation
+	// of endpoint state.
+	EndpointStateFileName = "ep_config.json"
+
 	// PossibleCPUSysfsPath is used to retrieve the number of CPUs for per-CPU maps.
 	PossibleCPUSysfsPath = "/sys/devices/system/cpu/possible"
 )

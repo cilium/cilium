@@ -194,7 +194,7 @@ func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.
 	if reliablyMissing {
 		// Recreate a missing master key
 		if _, err = c.AllocateID(ctx, id, key); err != nil {
-			return fmt.Errorf("Unable recreate missing CRD identity %q->%q: %s", key, id, err)
+			return fmt.Errorf("Unable recreate missing CRD identity %q->%q: %w", key, id, err)
 		}
 
 		return nil
@@ -278,7 +278,7 @@ func (c *crdBackend) Get(ctx context.Context, key allocator.AllocatorKey) (idpoo
 
 	id, err := strconv.ParseUint(identity.Name, 10, 64)
 	if err != nil {
-		return idpool.NoID, fmt.Errorf("unable to parse value '%s': %s", identity.Name, err)
+		return idpool.NoID, fmt.Errorf("unable to parse value '%s': %w", identity.Name, err)
 	}
 
 	return idpool.ID(id), nil

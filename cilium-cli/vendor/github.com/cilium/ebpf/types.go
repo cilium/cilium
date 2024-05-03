@@ -220,6 +220,13 @@ const (
 	AttachTCXIngress                 = AttachType(sys.BPF_TCX_INGRESS)
 	AttachTCXEgress                  = AttachType(sys.BPF_TCX_EGRESS)
 	AttachTraceUprobeMulti           = AttachType(sys.BPF_TRACE_UPROBE_MULTI)
+	AttachCgroupUnixConnect          = AttachType(sys.BPF_CGROUP_UNIX_CONNECT)
+	AttachCgroupUnixSendmsg          = AttachType(sys.BPF_CGROUP_UNIX_SENDMSG)
+	AttachCgroupUnixRecvmsg          = AttachType(sys.BPF_CGROUP_UNIX_RECVMSG)
+	AttachCgroupUnixGetpeername      = AttachType(sys.BPF_CGROUP_UNIX_GETPEERNAME)
+	AttachCgroupUnixGetsockname      = AttachType(sys.BPF_CGROUP_UNIX_GETSOCKNAME)
+	AttachNetkitPrimary              = AttachType(sys.BPF_NETKIT_PRIMARY)
+	AttachNetkitPeer                 = AttachType(sys.BPF_NETKIT_PEER)
 )
 
 // AttachFlags of the eBPF program used in BPF_PROG_ATTACH command

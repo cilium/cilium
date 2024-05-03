@@ -4,9 +4,9 @@
 package controller
 
 import (
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
@@ -32,7 +32,7 @@ var Cell = cell.Module(
 	"controller",
 	"Controllers and Controller Lifecycle management",
 	cell.Config(Config{}),
-	cell.Metric(NewMetrics),
+	metrics.Metric(NewMetrics),
 	cell.Invoke(Init),
 )
 

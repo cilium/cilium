@@ -616,6 +616,35 @@ func (m *VirtualHost) validate(all bool) error {
 
 	}
 
+	if all {
+		switch v := interface{}(m.GetMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, VirtualHostValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, VirtualHostValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return VirtualHostValidationError{
+				field:  "Metadata",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return VirtualHostMultiError(errors)
 	}
@@ -6219,6 +6248,37 @@ func (m *InternalRedirectPolicy) validate(all bool) error {
 
 	// no validation rules for AllowCrossSchemeRedirect
 
+	_InternalRedirectPolicy_ResponseHeadersToCopy_Unique := make(map[string]struct{}, len(m.GetResponseHeadersToCopy()))
+
+	for idx, item := range m.GetResponseHeadersToCopy() {
+		_, _ = idx, item
+
+		if _, exists := _InternalRedirectPolicy_ResponseHeadersToCopy_Unique[item]; exists {
+			err := InternalRedirectPolicyValidationError{
+				field:  fmt.Sprintf("ResponseHeadersToCopy[%v]", idx),
+				reason: "repeated value must contain unique items",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+			_InternalRedirectPolicy_ResponseHeadersToCopy_Unique[item] = struct{}{}
+		}
+
+		if !_InternalRedirectPolicy_ResponseHeadersToCopy_Pattern.MatchString(item) {
+			err := InternalRedirectPolicyValidationError{
+				field:  fmt.Sprintf("ResponseHeadersToCopy[%v]", idx),
+				reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return InternalRedirectPolicyMultiError(errors)
 	}
@@ -6298,6 +6358,8 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = InternalRedirectPolicyValidationError{}
+
+var _InternalRedirectPolicy_ResponseHeadersToCopy_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 // Validate checks the field values on FilterConfig with the rules defined in
 // the proto definition for this message. If any rules are violated, the first

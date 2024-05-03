@@ -32,4 +32,6 @@ type Datapath interface {
 	LBMap() LBMap
 
 	BandwidthManager() BandwidthManager
+
+	Orchestrator() Orchestrator
 }

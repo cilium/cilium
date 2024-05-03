@@ -119,12 +119,19 @@ type IPAMPoolSpec struct {
 //
 // This structure is embedded into v2.CiliumNode
 type IPAMSpec struct {
-	// Pool is the list of IPs available to the node for allocation. When
-	// an IP is used, the IP will remain on this list but will be added to
+	// Pool is the list of IPv4 addresses available to the node for allocation.
+	// When an IPv4 address is used, it will remain on this list but will be added to
 	// Status.IPAM.Used
 	//
 	// +optional
 	Pool AllocationMap `json:"pool,omitempty"`
+
+	// IPv6Pool is the list of IPv6 addresses available to the node for allocation.
+	// When an IPv6 address is used, it will remain on this list but will be added to
+	// Status.IPAM.IPv6Used
+	//
+	// +optional
+	IPv6Pool AllocationMap `json:"ipv6-pool,omitempty"`
 
 	// Pools contains the list of assigned IPAM pools for this node.
 	//
@@ -173,7 +180,7 @@ type IPAMSpec struct {
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
 }
 
-// IPReleaseStatus  defines the valid states in IP release handshake
+// IPReleaseStatus defines the valid states in IP release handshake
 //
 // +kubebuilder:validation:Enum=marked-for-release;ready-for-release;do-not-release;released
 type IPReleaseStatus string
@@ -182,11 +189,17 @@ type IPReleaseStatus string
 //
 // This structure is embedded into v2.CiliumNode
 type IPAMStatus struct {
-	// Used lists all IPs out of Spec.IPAM.Pool which have been allocated
+	// Used lists all IPv4 addresses out of Spec.IPAM.Pool which have been allocated
 	// and are in use.
 	//
 	// +optional
 	Used AllocationMap `json:"used,omitempty"`
+
+	// IPv6Used lists all IPv6 addresses out of Spec.IPAM.IPv6Pool which have been
+	// allocated and are in use.
+	//
+	// +optional
+	IPv6Used AllocationMap `json:"ipv6-used,omitempty"`
 
 	// PodCIDRs lists the status of each pod CIDR allocated to this node.
 	//
@@ -198,8 +211,8 @@ type IPAMStatus struct {
 	// +optional
 	OperatorStatus OperatorStatus `json:"operator-status,omitempty"`
 
-	// ReleaseIPs tracks the state for every IP considered for release.
-	// value can be one of the following string :
+	// ReleaseIPs tracks the state for every IPv4 address considered for release.
+	// The value can be one of the following strings:
 	// * marked-for-release : Set by operator as possible candidate for IP
 	// * ready-for-release  : Acknowledged as safe to release by agent
 	// * do-not-release     : IP already in use / not owned by the node. Set by agent
@@ -207,6 +220,16 @@ type IPAMStatus struct {
 	//
 	// +optional
 	ReleaseIPs map[string]IPReleaseStatus `json:"release-ips,omitempty"`
+
+	// ReleaseIPv6s tracks the state for every IPv6 address considered for release.
+	// The value can be one of the following strings:
+	// * marked-for-release : Set by operator as possible candidate for IP
+	// * ready-for-release  : Acknowledged as safe to release by agent
+	// * do-not-release     : IP already in use / not owned by the node. Set by agent
+	// * released           : IP successfully released. Set by operator
+	//
+	// +optional
+	ReleaseIPv6s map[string]IPReleaseStatus `json:"release-ipv6s,omitempty"`
 }
 
 // IPAMPoolRequest is a request from the agent to the operator, indicating how
@@ -274,8 +297,11 @@ type Subnet struct {
 	// Name is the subnet name
 	Name string
 
-	// CIDR is the CIDR associated with the subnet
+	// CIDR is the IPv4 CIDR associated with the subnet
 	CIDR *cidr.CIDR
+
+	// IPv6CIDR is the IPv6 CIDR associated with the subnet
+	IPv6CIDR *cidr.CIDR
 
 	// AvailabilityZone is the availability zone of the subnet
 	AvailabilityZone string
@@ -283,9 +309,13 @@ type Subnet struct {
 	// VirtualNetworkID is the virtual network the subnet is in
 	VirtualNetworkID string
 
-	// AvailableAddresses is the number of addresses available for
+	// AvailableAddresses is the number of IPv4 addresses available for
 	// allocation
 	AvailableAddresses int
+
+	// AvailableIPv6Addresses is the number of IPv6 addresses available for
+	// allocation
+	AvailableIPv6Addresses int
 
 	// Tags is the tags of the subnet
 	Tags Tags
@@ -325,6 +355,9 @@ type VirtualNetwork struct {
 
 	// CIDRs is the list of secondary IPv4 CIDR ranges associated with the VPC
 	CIDRs []string
+
+	// IPv6CIDRs is the list of IPv6 CIDR ranges associated with the VPC
+	IPv6CIDRs []string
 }
 
 // VirtualNetworkMap indexes virtual networks by their ID
@@ -346,6 +379,9 @@ type PoolQuota struct {
 
 	// AvailableIPs is the number of available IPs in the pool
 	AvailableIPs int
+
+	// AvailableIPv6s is the number of available IPv6 addresses in the pool
+	AvailableIPv6s int
 }
 
 // PoolQuotaMap is a map of pool quotas indexes by pool identifier
