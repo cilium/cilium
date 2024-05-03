@@ -186,6 +186,16 @@ time is included in the json output of the command.
     Endpoint   Source   FQDN         TTL    ExpirationTime             IPs
     3459       lookup   cilium.io.   3600   2020-04-21T15:04:27.146Z   104.198.14.52
 
+As of Cilium 1.16, the ``ExpirationTime`` represents the next time that
+the entry will be evaluated for staleness. If the entry ``Source`` is
+``lookup``, then the entry will expire at that time. An equivalent entry with
+source ``connection`` may be established when a ``lookup`` entry expires. If
+the corresponding Endpoint continues to communicate to this domain via one of
+the related IP addresses, then Cilium will continue to keep the ``connection``
+entry alive. When the expiration time for a ``connection`` entry is reached,
+the entry will be re-evaluated to determine whether it is still used by active
+connections, and at that time may expire or be renewed with a new target
+expiration time.
 
 DNS Proxy Errors
 ~~~~~~~~~~~~~~~~
