@@ -43,6 +43,7 @@ var Cell = cell.Module(
 			EnableMasqueradeRouteSource: cfg.EnableMasqueradeRouteSource,
 			EnableL7Proxy:               cfg.EnableL7Proxy,
 			InstallIptRules:             cfg.InstallIptRules,
+			SnatDstExclusionCIDRs:       cfg.SnatDstExclusionCIDRs,
 		}
 	}),
 	cell.Provide(newIptablesManager),
@@ -95,4 +96,5 @@ type SharedConfig struct {
 	EnableMasqueradeRouteSource bool
 	EnableL7Proxy               bool
 	InstallIptRules             bool
+	SnatDstExclusionCIDRs       []string
 }

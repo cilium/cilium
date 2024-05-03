@@ -284,6 +284,7 @@ cilium-agent [flags]
       --log-driver strings                                        Logging endpoints to use for example syslog
       --log-opt map                                               Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}
       --log-system-load                                           Enable periodic logging of system load
+      --masquerade-exclusion-cidrs                                A set of CIDRs that will be excluded from Masquarading
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
       --mesh-auth-enabled                                         Enable authentication processing & garbage collection (beta) (default true)
       --mesh-auth-gc-interval duration                            Interval in which auth entries are attempted to be garbage collected (default 5m0s)

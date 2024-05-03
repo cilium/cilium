@@ -1838,6 +1838,8 @@ enableIPv4Masquerade: true
 enableIPv6Masquerade: true
 # -- Enables masquerading to the source of the route for traffic leaving the node from endpoints.
 enableMasqueradeRouteSource: false
+# -- A comma-separated list of CIDRs that will be excluded from masquarading.
+masquerade-exclusion-cidrs: ""
 # -- Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods

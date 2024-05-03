@@ -636,6 +636,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPv6Masquerade, true, "Masquerade IPv6 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv6Masquerade)
 
+	flags.StringSlice(option.MasqueradeExclusionCIDRs, nil, "A set of CIDRs that will be excluded from Masquarading")
+	option.BindEnv(vp, option.MasqueradeExclusionCIDRs)
+
 	flags.Bool(option.EnableBPFMasquerade, false, "Masquerade packets from endpoints leaving the host with BPF instead of iptables")
 	option.BindEnv(vp, option.EnableBPFMasquerade)
 

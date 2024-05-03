@@ -333,6 +333,9 @@ const (
 	// EnableIPv6Masquerade masquerades IPv6 packets from endpoints leaving the host.
 	EnableIPv6Masquerade = "enable-ipv6-masquerade"
 
+	// MasqueradeExclusionCIDRs is a list of CIDRs that are excluded from masquarding
+	MasqueradeExclusionCIDRs = "masquerade-exclusion-cidrs"
+
 	// EnableBPFClockProbe selects a more efficient source clock (jiffies vs ktime)
 	EnableBPFClockProbe = "enable-bpf-clock-probe"
 
@@ -1674,6 +1677,7 @@ type DaemonConfig struct {
 	EnableMasqueradeRouteSource bool
 	EnableIPMasqAgent           bool
 	IPMasqAgentConfigPath       string
+	SnatDstExclusionCIDRs       []string
 
 	EnableBPFClockProbe     bool
 	EnableIPv4EgressGateway bool
@@ -3057,6 +3061,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableHighScaleIPcache = vp.GetBool(EnableHighScaleIPcache)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
+	c.SnatDstExclusionCIDRs = vp.GetStringSlice(MasqueradeExclusionCIDRs)
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.EnableMasqueradeRouteSource = vp.GetBool(EnableMasqueradeRouteSource)

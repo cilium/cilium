@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"net"
 	"net/netip"
 	"os"
 	"regexp"
@@ -1144,7 +1143,7 @@ func (m *Manager) installForwardChainRulesIpX(prog runnable, ifName, localDelive
 
 func (m *Manager) installMasqueradeRules(
 	prog iptablesInterface, nativeDevices []string,
-	localDeliveryInterface, snatDstExclusionCIDR, allocRange, hostMasqueradeIP string,
+	localDeliveryInterface string, snatDstExclusionCIDRs []string, allocRange, hostMasqueradeIP string,
 ) error {
 	devices := nativeDevices
 
@@ -1219,8 +1218,7 @@ func (m *Manager) installMasqueradeRules(
 					// -o device.
 					match = true
 				}
-				_, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR)
-				if !match || r.Src == nil || (err == nil && cidr.Equal(r.Dst, exclusionCIDR)) {
+				if !match || r.Src == nil {
 					continue
 				}
 				if initialPass && cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
@@ -1235,7 +1233,8 @@ func (m *Manager) installMasqueradeRules(
 				if cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
 					progArgs = append(
 						progArgs,
-						"!", "-d", snatDstExclusionCIDR)
+						"!", "-d", strings.Join(snatDstExclusionCIDRs, ","),
+					)
 				} else {
 					progArgs = append(
 						progArgs,
@@ -1287,7 +1286,7 @@ func (m *Manager) installMasqueradeRules(
 		progArgs := []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
-			"!", "-d", snatDstExclusionCIDR,
+			"!", "-d", strings.Join(snatDstExclusionCIDRs, ","),
 		}
 		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
 			progArgs = append(
@@ -1585,13 +1584,16 @@ func (m *Manager) installRules(state desiredState) error {
 	return nil
 }
 
-func (m *Manager) remoteSNATDstAddrExclusionCIDR(nativeRoutingCIDR, allocCIDR string) string {
+func (m *Manager) remoteSNATDstAddrExclusionCIDR(nativeRoutingCIDR, allocCIDR string) []string {
+	if len(m.sharedCfg.SnatDstExclusionCIDRs) > 0 {
+		return m.sharedCfg.SnatDstExclusionCIDRs
+	}
 	if nativeRoutingCIDR != "" {
 		// ip{v4,v6}-native-routing-cidr is set, so use it
-		return nativeRoutingCIDR
+		return []string{nativeRoutingCIDR}
 	}
 
-	return allocCIDR
+	return []string{allocCIDR}
 }
 
 func (m *Manager) ciliumNoTrackXfrmRules(prog iptablesInterface, input string) error {
