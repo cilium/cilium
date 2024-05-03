@@ -538,6 +538,9 @@ bpf:
   # supported kernels.
   # @default -- `true`
   enableTCX: true
+  # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
+  # @default -- `veth`
+  datapathMode: veth
 # -- Enable BPF clock source probing for more efficient tick retrieval.
 bpfClockProbe: false
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
