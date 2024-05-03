@@ -45,7 +45,7 @@ func getEgressRuleWithToGroups() *Rule {
 			{
 				EgressCommonRule: EgressCommonRule{
 					ToGroups: []Groups{
-						GetToGroupsRule(),
+						GetGroupsRule(),
 					},
 				},
 			},
@@ -59,7 +59,35 @@ func getEgressDenyRuleWithToGroups() *Rule {
 			{
 				EgressCommonRule: EgressCommonRule{
 					ToGroups: []Groups{
-						GetToGroupsRule(),
+						GetGroupsRule(),
+					},
+				},
+			},
+		},
+	}
+}
+
+func getIngressRuleWithFromGroups() *Rule {
+	return &Rule{
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromGroups: []Groups{
+						GetGroupsRule(),
+					},
+				},
+			},
+		},
+	}
+}
+
+func getIngressDenyRuleWithFromGroups() *Rule {
+	return &Rule{
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromGroups: []Groups{
+						GetGroupsRule(),
 					},
 				},
 			},
@@ -78,6 +106,12 @@ func TestRequiresDerivative(t *testing.T) {
 
 	egressDenyRuleWithToGroups := getEgressDenyRuleWithToGroups()
 	require.Equal(t, true, egressDenyRuleWithToGroups.RequiresDerivative())
+
+	ingressRuleWithToGroups := getIngressRuleWithFromGroups()
+	require.Equal(t, true, ingressRuleWithToGroups.RequiresDerivative())
+
+	ingressDenyRuleWithToGroups := getIngressDenyRuleWithFromGroups()
+	require.Equal(t, true, ingressDenyRuleWithToGroups.RequiresDerivative())
 }
 
 func TestCreateDerivative(t *testing.T) {
@@ -104,4 +138,18 @@ func TestCreateDerivative(t *testing.T) {
 	require.Equal(t, 0, len(newRule.Egress))
 	require.Equal(t, 1, len(newRule.EgressDeny))
 	require.Equal(t, 1, len(newRule.EgressDeny[0].ToCIDRSet))
+
+	ingressRuleWithToGroups := getIngressRuleWithFromGroups()
+	newRule, err = ingressRuleWithToGroups.CreateDerivative(context.TODO())
+	require.Nil(t, err)
+	require.Equal(t, 0, len(newRule.IngressDeny))
+	require.Equal(t, 1, len(newRule.Ingress))
+	require.Equal(t, 1, len(newRule.Ingress[0].FromCIDRSet))
+
+	ingressDenyRuleWithToGroups := getIngressDenyRuleWithFromGroups()
+	newRule, err = ingressDenyRuleWithToGroups.CreateDerivative(context.TODO())
+	require.Nil(t, err)
+	require.Equal(t, 0, len(newRule.Ingress))
+	require.Equal(t, 1, len(newRule.IngressDeny))
+	require.Equal(t, 1, len(newRule.IngressDeny[0].FromCIDRSet))
 }
