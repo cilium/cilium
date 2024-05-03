@@ -304,6 +304,10 @@
      - Configure the maximum number of entries in the TCP connection tracking table.
      - int
      - ``524288``
+   * - :spelling:ignore:`bpf.datapathMode`
+     - Mode for Pod devices for the core datapath (veth, netkit, netkit-l2)
+     - string
+     - ``veth``
    * - :spelling:ignore:`bpf.disableExternalIPMitigation`
      - Disable ExternalIP mitigation (CVE-2020-8554)
      - bool
