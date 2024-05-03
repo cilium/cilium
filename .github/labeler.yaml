@@ -1,0 +1,5 @@
+# Add 'hubble-cli' label to any file changes in 'hubble/'
+hubble-cli:
+- changed-files:
+  - any-glob-to-any-file:
+    - hubble/**
