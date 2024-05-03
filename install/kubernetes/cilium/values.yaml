@@ -540,8 +540,8 @@ bpf:
   disableExternalIPMitigation: false
   # -- (bool) Attach endpoint programs using tcx instead of legacy tc hooks on
   # supported kernels.
-  # @default -- `true`
-  enableTCX: true
+  # @default -- `false`
+  enableTCX: false
 # -- Enable BPF clock source probing for more efficient tick retrieval.
 bpfClockProbe: false
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
