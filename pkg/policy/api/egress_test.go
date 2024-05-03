@@ -23,7 +23,7 @@ func TestRequiresDerivativeRuleWithoutToGroups(t *testing.T) {
 func TestRequiresDerivativeRuleWithToGroups(t *testing.T) {
 	eg := EgressRule{}
 	eg.ToGroups = []Groups{
-		GetToGroupsRule(),
+		GetGroupsRule(),
 	}
 	require.Equal(t, true, eg.RequiresDerivative())
 }
@@ -55,7 +55,7 @@ func TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(t *testing.T
 	eg := &EgressRule{
 		EgressCommonRule: EgressCommonRule{
 			ToGroups: []Groups{
-				GetToGroupsRule(),
+				GetGroupsRule(),
 			},
 		},
 	}
@@ -70,7 +70,7 @@ func TestCreateDerivativeRuleWithToGroupsAndToPorts(t *testing.T) {
 	eg := &EgressRule{
 		EgressCommonRule: EgressCommonRule{
 			ToGroups: []Groups{
-				GetToGroupsRule(),
+				GetGroupsRule(),
 			},
 		},
 	}
@@ -93,7 +93,7 @@ func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 	eg := &EgressRule{
 		EgressCommonRule: EgressCommonRule{
 			ToGroups: []Groups{
-				GetToGroupsRule(),
+				GetGroupsRule(),
 			},
 		},
 	}

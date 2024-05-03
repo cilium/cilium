@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func GetToGroupsRule() Groups {
+func GetGroupsRule() Groups {
 	return Groups{
 		AWS: &AWSGroup{
 			Labels: map[string]string{
@@ -46,7 +46,7 @@ func TestGetCIDRSetWithValidValue(t *testing.T) {
 
 	expectedCidrRule := []CIDRRule{
 		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true}}
-	group := GetToGroupsRule()
+	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.EqualValues(t, expectedCidrRule, cidr)
 	require.Nil(t, err)
@@ -59,7 +59,7 @@ func TestGetCIDRSetWithMultipleSorted(t *testing.T) {
 		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true},
 		{Cidr: "192.168.10.3/32", ExceptCIDRs: []CIDR{}, Generated: true},
 		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
-	group := GetToGroupsRule()
+	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.EqualValues(t, expectedCidrRule, cidr)
 	require.Nil(t, err)
@@ -73,7 +73,7 @@ func TestGetCIDRSetWithUniqueCIDRRule(t *testing.T) {
 		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true},
 		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 
-	group := GetToGroupsRule()
+	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.EqualValues(t, cidrRule, cidr)
 	require.Nil(t, err)
@@ -86,7 +86,7 @@ func TestGetCIDRSetWithError(t *testing.T) {
 		return []netip.Addr{}, fmt.Errorf("Invalid credentials")
 	}
 	RegisterToGroupsProvider(AWSProvider, cb)
-	group := GetToGroupsRule()
+	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.Nil(t, cidr)
 	require.Error(t, err)
@@ -96,7 +96,7 @@ func TestWithoutProviderRegister(t *testing.T) {
 	setUpSuite(t)
 
 	providers.Delete(AWSProvider)
-	group := GetToGroupsRule()
+	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.Nil(t, cidr)
 	require.Error(t, err)
@@ -105,7 +105,7 @@ func TestWithoutProviderRegister(t *testing.T) {
 func BenchmarkGetCIDRSet(b *testing.B) {
 	cb := GetCallBackWithRule("192.168.1.1", "192.168.10.10", "192.168.10.3")
 	RegisterToGroupsProvider(AWSProvider, cb)
-	group := GetToGroupsRule()
+	group := GetGroupsRule()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
