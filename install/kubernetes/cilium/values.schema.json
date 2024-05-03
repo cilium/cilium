@@ -509,6 +509,9 @@
             "integer"
           ]
         },
+        "datapathMode": {
+          "type": "string"
+        },
         "disableExternalIPMitigation": {
           "type": "boolean"
         },
