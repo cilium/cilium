@@ -38,24 +38,22 @@ func (obj *ObjectMeta) GetObjectMeta() metav1.Object { return obj }
 
 // Namespace implements metav1.Object for any object with an ObjectMeta typed field. Allows
 // fast, direct access to metadata fields for API objects.
-func (meta *ObjectMeta) GetNamespace() string          { return meta.Namespace }
-func (meta *ObjectMeta) SetNamespace(namespace string) { meta.Namespace = namespace }
-func (meta *ObjectMeta) GetName() string               { return meta.Name }
-func (meta *ObjectMeta) SetName(name string)           { meta.Name = name }
-func (meta *ObjectMeta) GetGenerateName() string {
-	panic("ObjectMeta - GetGenerateName() not implemented")
+func (meta *ObjectMeta) GetNamespace() string                { return meta.Namespace }
+func (meta *ObjectMeta) SetNamespace(namespace string)       { meta.Namespace = namespace }
+func (meta *ObjectMeta) GetName() string                     { return meta.Name }
+func (meta *ObjectMeta) SetName(name string)                 { meta.Name = name }
+func (meta *ObjectMeta) GetGenerateName() string             { return meta.GenerateName }
+func (meta *ObjectMeta) SetGenerateName(generateName string) { meta.GenerateName = generateName }
+func (meta *ObjectMeta) GetUID() types.UID                   { return meta.UID }
+func (meta *ObjectMeta) SetUID(uid types.UID)                { meta.UID = uid }
+func (meta *ObjectMeta) GetResourceVersion() string          { return meta.ResourceVersion }
+func (meta *ObjectMeta) SetResourceVersion(version string)   { meta.ResourceVersion = version }
+func (meta *ObjectMeta) GetGeneration() int64                { panic("ObjectMeta - GetGeneration() not implemented") }
+func (meta *ObjectMeta) SetGeneration(_ int64)               { panic("ObjectMeta - SetGeneration() not implemented") }
+func (meta *ObjectMeta) GetSelfLink() string                 { panic("ObjectMeta - GetSelfLink() not implemented") }
+func (meta *ObjectMeta) SetSelfLink(_ string) {
+	panic("ObjectMeta - SetSelfLink() not implemented")
 }
-func (meta *ObjectMeta) SetGenerateName(string) {
-	panic("ObjectMeta - SetGenerateName() not implemented")
-}
-func (meta *ObjectMeta) GetUID() types.UID             { return meta.UID }
-func (meta *ObjectMeta) SetUID(uid types.UID)          { meta.UID = uid }
-func (meta *ObjectMeta) GetResourceVersion() string    { return meta.ResourceVersion }
-func (meta *ObjectMeta) SetResourceVersion(ver string) { meta.ResourceVersion = ver }
-func (meta *ObjectMeta) GetGeneration() int64          { panic("ObjectMeta - GetGeneration() not implemented") }
-func (meta *ObjectMeta) SetGeneration(_ int64)         { panic("ObjectMeta - SetGeneration() not implemented") }
-func (meta *ObjectMeta) GetSelfLink() string           { panic("ObjectMeta - GetSelfLink() not implemented") }
-func (meta *ObjectMeta) SetSelfLink(_ string)          { panic("ObjectMeta - SetSelfLink() not implemented") }
 func (meta *ObjectMeta) GetCreationTimestamp() metav1.Time {
 	panic("ObjectMeta - GetCreationTimestamp() not implemented")
 }
@@ -95,9 +93,6 @@ func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference {
 func (meta *ObjectMeta) SetOwnerReferences(references []metav1.OwnerReference) {
 	meta.OwnerReferences = SlimOwnerReferences(references)
 }
-func (meta *ObjectMeta) GetZZZ_DeprecatedClusterName() string  { panic("not implemented") }
-func (meta *ObjectMeta) SetZZZ_DeprecatedClusterName(_ string) { panic("not implemented") }
-
 func (meta *ObjectMeta) GetManagedFields() []metav1.ManagedFieldsEntry {
 	panic("ObjectMeta - GetManagedFields() not implemented")
 }

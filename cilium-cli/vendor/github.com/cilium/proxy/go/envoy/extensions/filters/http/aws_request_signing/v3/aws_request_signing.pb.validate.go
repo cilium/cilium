@@ -117,6 +117,8 @@ func (m *AwsRequestSigning) validate(all bool) error {
 
 	}
 
+	// no validation rules for SigningAlgorithm
+
 	if len(errors) > 0 {
 		return AwsRequestSigningMultiError(errors)
 	}

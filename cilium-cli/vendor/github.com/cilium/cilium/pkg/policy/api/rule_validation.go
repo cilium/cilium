@@ -465,7 +465,7 @@ func (pp *PortProtocol) sanitize() (isZero bool, err error) {
 	} else {
 		p, err := strconv.ParseUint(pp.Port, 0, 16)
 		if err != nil {
-			return isZero, fmt.Errorf("Unable to parse port: %s", err)
+			return isZero, fmt.Errorf("Unable to parse port: %w", err)
 		}
 		isZero = p == 0
 	}
@@ -499,7 +499,7 @@ func (c CIDR) sanitize() error {
 	if err != nil {
 		_, err := netip.ParseAddr(strCIDR)
 		if err != nil {
-			return fmt.Errorf("unable to parse CIDR: %s", err)
+			return fmt.Errorf("unable to parse CIDR: %w", err)
 		}
 		return nil
 	}
@@ -519,7 +519,7 @@ func (c *CIDRRule) sanitize() error {
 	// the logic in api.CIDR.Sanitize().
 	prefix, err := netip.ParsePrefix(string(c.Cidr))
 	if err != nil {
-		return fmt.Errorf("Unable to parse CIDRRule %q: %s", c.Cidr, err)
+		return fmt.Errorf("Unable to parse CIDRRule %q: %w", c.Cidr, err)
 	}
 
 	prefixLength := prefix.Bits()

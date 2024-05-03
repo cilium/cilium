@@ -164,6 +164,23 @@ type CiliumLocalRedirectPolicySpec struct {
 	// +kubebuilder:validation:Required
 	RedirectBackend RedirectBackend `json:"redirectBackend"`
 
+	// SkipRedirectFromBackend indicates whether traffic matching RedirectFrontend
+	// from RedirectBackend should skip redirection, and hence the traffic will
+	// be forwarded as-is.
+	//
+	// The default is false which means traffic matching RedirectFrontend will
+	// get redirected from all pods, including the RedirectBackend(s).
+	//
+	// Example: If RedirectFrontend is configured to "169.254.169.254:80" as the traffic
+	// that needs to be redirected to backends selected by RedirectBackend, if
+	// SkipRedirectFromBackend is set to true, traffic going to "169.254.169.254:80"
+	// from such backends will not be redirected back to the backends. Instead,
+	// the matched traffic from the backends will be forwarded to the original
+	// destination "169.254.169.254:80".
+	//
+	// +kubebuilder:validation:Optional
+	SkipRedirectFromBackend bool `json:"skipRedirectFromBackend"`
+
 	// Description can be used by the creator of the policy to describe the
 	// purpose of this policy.
 	//
@@ -204,7 +221,7 @@ func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb
 	} else {
 		p, err := strconv.ParseUint(pInfo.Port, 0, 16)
 		if err != nil {
-			return pInt, pName, protocol, fmt.Errorf("unable to parse port: %v", err)
+			return pInt, pName, protocol, fmt.Errorf("unable to parse port: %w", err)
 		}
 		if p == 0 {
 			return pInt, pName, protocol, fmt.Errorf("port cannot be 0")

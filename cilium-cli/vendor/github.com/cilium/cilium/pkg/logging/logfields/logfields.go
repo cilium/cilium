@@ -53,6 +53,9 @@ const (
 	// Labels are any label, they may not be relevant to the security identity.
 	Labels = "labels"
 
+	// Label is a singular label, where relevant
+	Label = "label"
+
 	// SourceFilter is the label or node information source
 	SourceFilter = "sourceFilter"
 
@@ -328,6 +331,9 @@ const (
 
 	// BackendSlot is the backend slot number in a service BPF map
 	BackendSlot = "backendSlot"
+
+	// ProxyName is the name of a proxy (e.g., "Envoy")
+	ProxyName = "proxyName"
 
 	// L7LBProxyPort is the port number of the Envoy listener a L7 LB service redirects traffic to for load balancing.
 	L7LBProxyPort = "l7LBProxyPort"
@@ -768,4 +774,10 @@ const (
 	Entries = "entries"
 	// Action is the summarized action from a reconciliation.
 	Action = "action"
+
+	// EtcdClusterID is the ID of the etcd cluster
+	EtcdClusterID = "etcdClusterID"
+
+	// NetnsCookie is the Linux kernel netns cookie.
+	NetnsCookie = "netnsCookie"
 )

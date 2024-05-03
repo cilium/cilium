@@ -134,6 +134,146 @@ var _ interface {
 	ErrorName() string
 } = CompositeValidationError{}
 
+// Validate checks the field values on DynamicConfig with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *DynamicConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DynamicConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in DynamicConfigMultiError, or
+// nil if none found.
+func (m *DynamicConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DynamicConfig) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetName()) < 1 {
+		err := DynamicConfigValidationError{
+			field:  "Name",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetConfigDiscovery()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DynamicConfigValidationError{
+					field:  "ConfigDiscovery",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DynamicConfigValidationError{
+					field:  "ConfigDiscovery",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfigDiscovery()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return DynamicConfigValidationError{
+				field:  "ConfigDiscovery",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return DynamicConfigMultiError(errors)
+	}
+
+	return nil
+}
+
+// DynamicConfigMultiError is an error wrapping multiple validation errors
+// returned by DynamicConfig.ValidateAll() if the designated constraints
+// aren't met.
+type DynamicConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DynamicConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DynamicConfigMultiError) AllErrors() []error { return m }
+
+// DynamicConfigValidationError is the validation error returned by
+// DynamicConfig.Validate if the designated constraints aren't met.
+type DynamicConfigValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DynamicConfigValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DynamicConfigValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DynamicConfigValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DynamicConfigValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DynamicConfigValidationError) ErrorName() string { return "DynamicConfigValidationError" }
+
+// Error satisfies the builtin error interface
+func (e DynamicConfigValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDynamicConfig.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DynamicConfigValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DynamicConfigValidationError{}
+
 // Validate checks the field values on ExecuteFilterAction with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -179,6 +319,35 @@ func (m *ExecuteFilterAction) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return ExecuteFilterActionValidationError{
 				field:  "TypedConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetDynamicConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExecuteFilterActionValidationError{
+					field:  "DynamicConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExecuteFilterActionValidationError{
+					field:  "DynamicConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDynamicConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExecuteFilterActionValidationError{
+				field:  "DynamicConfig",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}

@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
+
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/spf13/pflag"
 )
 
 var Cell = cell.Module(

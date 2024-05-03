@@ -142,12 +142,13 @@ func AssignMetadataToInstructions(
 
 // MarshalExtInfos encodes function and line info embedded in insns into kernel
 // wire format.
+//
+// If an instruction has an [asm.Comment], it will be synthesized into a mostly
+// empty line info.
 func MarshalExtInfos(insns asm.Instructions, b *Builder) (funcInfos, lineInfos []byte, _ error) {
 	iter := insns.Iterate()
 	for iter.Next() {
-		_, ok := iter.Ins.Source().(*Line)
-		fn := FuncMetadata(iter.Ins)
-		if ok || fn != nil {
+		if iter.Ins.Source() != nil || FuncMetadata(iter.Ins) != nil {
 			goto marshal
 		}
 	}
@@ -167,7 +168,16 @@ marshal:
 			}
 		}
 
-		if line, ok := iter.Ins.Source().(*Line); ok {
+		if source := iter.Ins.Source(); source != nil {
+			var line *Line
+			if l, ok := source.(*Line); ok {
+				line = l
+			} else {
+				line = &Line{
+					line: source.String(),
+				}
+			}
+
 			li := &lineInfo{
 				line:   line,
 				offset: iter.Offset,

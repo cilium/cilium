@@ -6,16 +6,14 @@ package agent
 import (
 	"context"
 	"fmt"
-	"runtime/pprof"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/util/workqueue"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	v2_api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -24,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -84,8 +83,8 @@ type ControllerParams struct {
 	cell.In
 
 	Lifecycle               cell.Lifecycle
-	Scope                   cell.Scope
-	JobRegistry             job.Registry
+	Health                  cell.Health
+	JobGroup                job.Group
 	Shutdowner              hive.Shutdowner
 	Sig                     *signaler.BGPCPSignaler
 	RouteMgr                BGPRouterManager
@@ -116,14 +115,8 @@ func NewController(params ControllerParams) (*Controller, error) {
 		CiliumNodeResource: params.LocalCiliumNodeResource,
 	}
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(log),
-		job.WithPprofLabels(pprof.Labels("cell", "bgp-cp")),
-	)
-
-	jobGroup.Add(
-		job.OneShot("bgp-policy-observer", func(ctx context.Context, health cell.HealthReporter) (err error) {
+	params.JobGroup.Add(
+		job.OneShot("bgp-policy-observer", func(ctx context.Context, health cell.Health) (err error) {
 			for ev := range c.PolicyResource.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
@@ -135,7 +128,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 			return nil
 		}),
 
-		job.OneShot("cilium-node-observer", func(ctx context.Context, health cell.HealthReporter) (err error) {
+		job.OneShot("cilium-node-observer", func(ctx context.Context, health cell.Health) (err error) {
 			for ev := range c.CiliumNodeResource.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert:
@@ -149,22 +142,24 @@ func NewController(params ControllerParams) (*Controller, error) {
 			return nil
 		}),
 
-		job.OneShot("bgp-controller", func(ctx context.Context, health cell.HealthReporter) (err error) {
-			// initialize PolicyLister used in the controller
-			policyStore, err := c.PolicyResource.Store(ctx)
-			if err != nil {
-				return fmt.Errorf("error creating CiliumBGPPeeringPolicy resource store: %w", err)
-			}
-			c.PolicyLister = policyListerFunc(func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-				return policyStore.List(), nil
-			})
-			// run the controller
-			c.Run(ctx)
-			return nil
-		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
+		job.OneShot("bgp-controller",
+			func(ctx context.Context, health cell.Health) (err error) {
+				// initialize PolicyLister used in the controller
+				policyStore, err := c.PolicyResource.Store(ctx)
+				if err != nil {
+					return fmt.Errorf("error creating CiliumBGPPeeringPolicy resource store: %w", err)
+				}
+				c.PolicyLister = policyListerFunc(func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+					return policyStore.List(), nil
+				})
+				// run the controller
+				c.Run(ctx)
+				return nil
+			},
+			job.WithRetry(3, &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: time.Second}),
+			job.WithShutdown()),
 	)
 
-	params.Lifecycle.Append(jobGroup)
 	return c, nil
 }
 

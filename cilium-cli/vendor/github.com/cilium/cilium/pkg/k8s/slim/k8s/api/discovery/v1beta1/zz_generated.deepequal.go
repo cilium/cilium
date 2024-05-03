@@ -36,6 +36,14 @@ func (in *Endpoint) DeepEqual(other *Endpoint) bool {
 		return false
 	}
 
+	if (in.Hostname == nil) != (other.Hostname == nil) {
+		return false
+	} else if in.Hostname != nil {
+		if *in.Hostname != *other.Hostname {
+			return false
+		}
+	}
+
 	if ((in.Topology != nil) && (other.Topology != nil)) || ((in.Topology == nil) != (other.Topology == nil)) {
 		in, other := &in.Topology, &other.Topology
 		if other == nil {

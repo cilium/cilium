@@ -412,6 +412,10 @@ var (
 	// ServicesEventsCount counts the number of services
 	ServicesEventsCount = NoOpCounterVec
 
+	// ServiceImplementationDelay the execution duration of the service handler in milliseconds.
+	// The metric reflects the time it took to program the service excluding the event queue latency.
+	ServiceImplementationDelay = NoOpObserverVec
+
 	// Errors and warnings
 
 	// ErrorsWarnings is the number of errors and warnings in cilium-agent instances
@@ -673,6 +677,7 @@ type LegacyMetrics struct {
 	ConntrackDumpResets              metric.Vec[metric.Counter]
 	SignalsHandled                   metric.Vec[metric.Counter]
 	ServicesEventsCount              metric.Vec[metric.Counter]
+	ServiceImplementationDelay       metric.Vec[metric.Observer]
 	ErrorsWarnings                   metric.Vec[metric.Counter]
 	ControllerRuns                   metric.Vec[metric.Counter]
 	ControllerRunsDuration           metric.Vec[metric.Observer]
@@ -979,6 +984,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace:  Namespace,
 			Name:       "services_events_total",
 			Help:       "Number of services events labeled by action type",
+		}, []string{LabelAction}),
+
+		ServiceImplementationDelay: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_service_implementation_delay",
+			Namespace:  Namespace,
+			Name:       "service_implementation_delay",
+			Help: "Duration in seconds to propagate the data plane programming of a service, its network and endpoints " +
+				"from the time the service or the service pod was changed excluding the event queue latency",
 		}, []string{LabelAction}),
 
 		ErrorsWarnings: newErrorsWarningsMetric(),
@@ -1367,6 +1380,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ConntrackDumpResets = lm.ConntrackDumpResets
 	SignalsHandled = lm.SignalsHandled
 	ServicesEventsCount = lm.ServicesEventsCount
+	ServiceImplementationDelay = lm.ServiceImplementationDelay
 	ErrorsWarnings = lm.ErrorsWarnings
 	ControllerRuns = lm.ControllerRuns
 	ControllerRunsDuration = lm.ControllerRunsDuration

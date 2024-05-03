@@ -109,7 +109,7 @@ type CachedSelectionUser interface {
 // new identitySelectors are pre-populated from the set of currently
 // known identities.
 //
-// 2. When reachacble identities appear or disappear, either via local
+// 2. When reachable identities appear or disappear, either via local
 // allocation (CIDRs), or via the KV-store (remote endpoints). In this
 // case all existing identitySelectors are walked through and their
 // cached selections are updated as necessary.
@@ -180,28 +180,8 @@ func (f *fqdnSelector) setSelectorIPs(ips []netip.Addr) {
 
 // matches returns true if the identity contains at least one label
 // that is in wantLabels.
-// This is reasonably efficient, as it relies on both arrays being sorted.
 func (f *fqdnSelector) matches(identity scIdentity) bool {
-	wantIdx := 0
-	checkIdx := 0
-
-	// Both arrays are sorted; walk through until we get a match
-	for wantIdx < len(f.wantLabels) && checkIdx < len(identity.lbls) {
-		want := f.wantLabels[wantIdx]
-		check := identity.lbls[checkIdx]
-		if want == check {
-			return true
-		}
-
-		// Not equal, bump
-		if check.Key < want.Key {
-			checkIdx++
-		} else {
-			wantIdx++
-		}
-	}
-
-	return false
+	return identity.lbls.Intersects(f.wantLabels)
 }
 
 type labelIdentitySelector struct {

@@ -94,6 +94,7 @@ func (in *Endpoints) DeepCopy() *Endpoints {
 type Backend struct {
 	Ports         serviceStore.PortConfiguration
 	NodeName      string
+	Hostname      string
 	Terminating   bool
 	HintsForZones []string
 	Preferred     bool
@@ -167,6 +168,7 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 			if addr.NodeName != nil {
 				backend.NodeName = *addr.NodeName
 			}
+			backend.Hostname = addr.Hostname
 
 			for _, port := range sub.Ports {
 				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
@@ -246,6 +248,9 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 				endpoints.Backends[addrCluster] = backend
 				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
 					backend.NodeName = nodeName
+				}
+				if sub.Hostname != nil {
+					backend.Hostname = *sub.Hostname
 				}
 				if option.Config.EnableK8sTerminatingEndpoint {
 					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
@@ -359,6 +364,9 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 					if nodeName, ok := sub.DeprecatedTopology["kubernetes.io/hostname"]; ok {
 						backend.NodeName = nodeName
 					}
+				}
+				if sub.Hostname != nil {
+					backend.Hostname = *sub.Hostname
 				}
 				// If is not ready check if is serving and terminating
 				if !isReady && option.Config.EnableK8sTerminatingEndpoint &&

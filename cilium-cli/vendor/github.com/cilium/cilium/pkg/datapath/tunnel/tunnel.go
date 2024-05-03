@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // Protocol represents the valid types of encapsulation protocols.

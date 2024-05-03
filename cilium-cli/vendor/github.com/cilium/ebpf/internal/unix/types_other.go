@@ -93,6 +93,7 @@ const (
 	DEBUGFS_MAGIC
 	BPF_RB_NO_WAKEUP
 	BPF_RB_FORCE_WAKEUP
+	BPF_F_LOCK
 )
 
 type Statfs_t struct {
@@ -294,5 +295,17 @@ func Fstat(fd int, stat *Stat_t) error {
 }
 
 func SetsockoptInt(fd, level, opt, value int) error {
+	return errNonLinux
+}
+
+type CPUSet struct{}
+
+func (*CPUSet) Set(int) {}
+
+func SchedSetaffinity(pid int, set *CPUSet) error {
+	return errNonLinux
+}
+
+func SchedGetaffinity(pid int, set *CPUSet) error {
 	return errNonLinux
 }
