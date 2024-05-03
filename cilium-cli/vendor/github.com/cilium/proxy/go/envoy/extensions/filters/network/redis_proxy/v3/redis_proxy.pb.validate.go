@@ -1122,7 +1122,16 @@ func (m *RedisProxy_ConnectionRateLimit) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for ConnectionRateLimitPerSec
+	if m.GetConnectionRateLimitPerSec() <= 0 {
+		err := RedisProxy_ConnectionRateLimitValidationError{
+			field:  "ConnectionRateLimitPerSec",
+			reason: "value must be greater than 0",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return RedisProxy_ConnectionRateLimitMultiError(errors)
@@ -1286,6 +1295,35 @@ func (m *RedisProxy_PrefixRoutes_Route) validate(all bool) error {
 	}
 
 	// no validation rules for KeyFormatter
+
+	if all {
+		switch v := interface{}(m.GetReadCommandPolicy()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RedisProxy_PrefixRoutes_RouteValidationError{
+					field:  "ReadCommandPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RedisProxy_PrefixRoutes_RouteValidationError{
+					field:  "ReadCommandPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetReadCommandPolicy()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RedisProxy_PrefixRoutes_RouteValidationError{
+				field:  "ReadCommandPolicy",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return RedisProxy_PrefixRoutes_RouteMultiError(errors)
@@ -1522,3 +1560,125 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RedisProxy_PrefixRoutes_Route_RequestMirrorPolicyValidationError{}
+
+// Validate checks the field values on
+// RedisProxy_PrefixRoutes_Route_ReadCommandPolicy with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *RedisProxy_PrefixRoutes_Route_ReadCommandPolicy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// RedisProxy_PrefixRoutes_Route_ReadCommandPolicy with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// RedisProxy_PrefixRoutes_Route_ReadCommandPolicyMultiError, or nil if none found.
+func (m *RedisProxy_PrefixRoutes_Route_ReadCommandPolicy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RedisProxy_PrefixRoutes_Route_ReadCommandPolicy) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetCluster()) < 1 {
+		err := RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError{
+			field:  "Cluster",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return RedisProxy_PrefixRoutes_Route_ReadCommandPolicyMultiError(errors)
+	}
+
+	return nil
+}
+
+// RedisProxy_PrefixRoutes_Route_ReadCommandPolicyMultiError is an error
+// wrapping multiple validation errors returned by
+// RedisProxy_PrefixRoutes_Route_ReadCommandPolicy.ValidateAll() if the
+// designated constraints aren't met.
+type RedisProxy_PrefixRoutes_Route_ReadCommandPolicyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RedisProxy_PrefixRoutes_Route_ReadCommandPolicyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RedisProxy_PrefixRoutes_Route_ReadCommandPolicyMultiError) AllErrors() []error { return m }
+
+// RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError is the
+// validation error returned by
+// RedisProxy_PrefixRoutes_Route_ReadCommandPolicy.Validate if the designated
+// constraints aren't met.
+type RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError) Field() string {
+	return e.field
+}
+
+// Reason function returns reason value.
+func (e RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError) Reason() string {
+	return e.reason
+}
+
+// Cause function returns cause value.
+func (e RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError) ErrorName() string {
+	return "RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRedisProxy_PrefixRoutes_Route_ReadCommandPolicy.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RedisProxy_PrefixRoutes_Route_ReadCommandPolicyValidationError{}

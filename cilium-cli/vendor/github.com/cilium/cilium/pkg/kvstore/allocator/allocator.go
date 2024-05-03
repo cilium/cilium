@@ -119,7 +119,7 @@ func (k *kvstoreBackend) AllocateID(ctx context.Context, id idpool.ID, key alloc
 	keyEncoded := []byte(k.backend.Encode([]byte(key.GetKey())))
 	success, err := k.backend.CreateOnly(ctx, keyPath, keyEncoded, false)
 	if err != nil || !success {
-		return nil, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
+		return nil, fmt.Errorf("unable to create master key '%s': %w", keyPath, err)
 	}
 
 	return key, nil
@@ -132,7 +132,7 @@ func (k *kvstoreBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, k
 	keyEncoded := []byte(k.backend.Encode([]byte(key.GetKey())))
 	success, err := k.backend.CreateOnlyIfLocked(ctx, keyPath, keyEncoded, false, lock)
 	if err != nil || !success {
-		return nil, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
+		return nil, fmt.Errorf("unable to create master key '%s': %w", keyPath, err)
 	}
 
 	return key, nil
@@ -142,7 +142,7 @@ func (k *kvstoreBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, k
 func (k *kvstoreBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
 	keyString := k.backend.Encode([]byte(key.GetKey()))
 	if err := k.createValueNodeKey(ctx, keyString, id, lock); err != nil {
-		return fmt.Errorf("unable to create slave key '%s': %s", keyString, err)
+		return fmt.Errorf("unable to create slave key '%s': %w", keyString, err)
 	}
 	return nil
 }
@@ -153,7 +153,7 @@ func (k *kvstoreBackend) createValueNodeKey(ctx context.Context, key string, new
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(k.valuePrefix, key, k.suffix)
 	if _, err := k.backend.UpdateIfDifferentIfLocked(ctx, valueKey, []byte(newID.String()), true, lock); err != nil {
-		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
+		return fmt.Errorf("unable to create value-node key '%s': %w", valueKey, err)
 	}
 
 	return nil
@@ -280,7 +280,7 @@ func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key alloca
 	success, err := k.backend.CreateOnly(ctx, keyPath, keyEncoded, false)
 	switch {
 	case err != nil:
-		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %s", logfields.Key, valueKey, err)
+		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %w", logfields.Key, valueKey, err)
 	case success:
 		log.WithField(logfields.Key, keyPath).Warning("Re-created missing master key")
 	}
@@ -295,7 +295,7 @@ func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key alloca
 	}
 	switch {
 	case err != nil:
-		return fmt.Errorf("Unable to re-create missing slave key \"%s\" -> \"%s\": %s", logfields.Key, valueKey, err)
+		return fmt.Errorf("Unable to re-create missing slave key \"%s\" -> \"%s\": %w", logfields.Key, valueKey, err)
 	case recreated:
 		log.WithField(logfields.Key, valueKey).Warning("Re-created missing slave key")
 	}
@@ -320,7 +320,7 @@ func (k *kvstoreBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, ke
 	success, err := k.backend.CreateOnlyIfLocked(ctx, keyPath, keyEncoded, false, lock)
 	switch {
 	case err != nil:
-		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %s", logfields.Key, valueKey, err)
+		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %w", logfields.Key, valueKey, err)
 	case success:
 		log.WithField(logfields.Key, keyPath).Warning("Re-created missing master key")
 	}
@@ -336,7 +336,7 @@ func (k *kvstoreBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, ke
 	}
 	switch {
 	case err != nil:
-		return fmt.Errorf("Unable to re-create missing slave key \"%s\" -> \"%s\": %s", logfields.Key, valueKey, err)
+		return fmt.Errorf("Unable to re-create missing slave key \"%s\" -> \"%s\": %w", logfields.Key, valueKey, err)
 	case recreated:
 		log.WithField(logfields.Key, valueKey).Warning("Re-created missing slave key")
 	}
@@ -374,7 +374,7 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 	// fetch list of all /../locks keys
 	allocated, err := k.backend.ListPrefix(ctx, k.lockPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("list failed: %s", err)
+		return nil, fmt.Errorf("list failed: %w", err)
 	}
 
 	staleKeys := map[string]kvstore.Value{}
@@ -423,7 +423,7 @@ func (k *kvstoreBackend) RunGC(
 	// fetch list of all /id/ keys
 	allocated, err := k.backend.ListPrefix(ctx, k.idPrefix)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list failed: %s", err)
+		return nil, nil, fmt.Errorf("list failed: %w", err)
 	}
 
 	totalEntries := len(allocated)

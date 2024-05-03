@@ -26,7 +26,12 @@ type kconfigMeta struct {
 	Offset uint32
 }
 
-type kfuncMeta struct{}
+type kfuncMetaKey struct{}
+
+type kfuncMeta struct {
+	Binding elf.SymBind
+	Func    *btf.Func
+}
 
 // elfCode is a convenience to reduce the amount of arguments that have to
 // be passed around explicitly. You should treat its contents as immutable.
@@ -600,7 +605,7 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 	// function declarations, as well as extern kfunc declarations using __ksym
 	// and extern kconfig variables declared using __kconfig.
 	case undefSection:
-		if bind != elf.STB_GLOBAL {
+		if bind != elf.STB_GLOBAL && bind != elf.STB_WEAK {
 			return fmt.Errorf("asm relocation: %s: %w: %s", name, errUnsupportedBinding, bind)
 		}
 
@@ -610,12 +615,24 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 
 		kf := ec.kfuncs[name]
 		switch {
-		// If a Call instruction is found and the datasec has a btf.Func with a Name
-		// that matches the symbol name we mark the instruction as a call to a kfunc.
+		// If a Call / DWordLoad instruction is found and the datasec has a btf.Func with a Name
+		// that matches the symbol name we mark the instruction as a referencing a kfunc.
 		case kf != nil && ins.OpCode.JumpOp() == asm.Call:
-			ins.Metadata.Set(kfuncMeta{}, kf)
+			ins.Metadata.Set(kfuncMetaKey{}, &kfuncMeta{
+				Func:    kf,
+				Binding: bind,
+			})
+
 			ins.Src = asm.PseudoKfuncCall
 			ins.Constant = -1
+
+		case kf != nil && ins.OpCode.IsDWordLoad():
+			ins.Metadata.Set(kfuncMetaKey{}, &kfuncMeta{
+				Func:    kf,
+				Binding: bind,
+			})
+
+			ins.Constant = 0
 
 		// If no kconfig map is found, this must be a symbol reference from inline
 		// asm (see testdata/loader.c:asm_relocation()) or a call to a forward
@@ -626,6 +643,10 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 		// require it to contain the symbol to disambiguate between inline asm
 		// relos and kconfigs.
 		case ec.kconfig != nil && ins.OpCode.IsDWordLoad():
+			if bind != elf.STB_GLOBAL {
+				return fmt.Errorf("asm relocation: %s: %w: %s", name, errUnsupportedBinding, bind)
+			}
+
 			for _, vsi := range ec.kconfig.Value.(*btf.Datasec).Vars {
 				if vsi.Type.(*btf.Var).Name != rel.Name {
 					continue

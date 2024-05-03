@@ -22,8 +22,8 @@ var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	corev1.AddToScheme,
-	discoveryv1beta1.AddToScheme,
 	discoveryv1.AddToScheme,
+	discoveryv1beta1.AddToScheme,
 	networkingv1.AddToScheme,
 }
 

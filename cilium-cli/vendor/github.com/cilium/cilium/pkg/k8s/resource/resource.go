@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -21,7 +22,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"

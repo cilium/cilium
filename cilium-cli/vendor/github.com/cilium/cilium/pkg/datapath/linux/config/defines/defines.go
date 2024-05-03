@@ -6,7 +6,7 @@ package defines
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/hive/cell"
 )
 
 // Map is the type containing the key-value pairs representing extra define

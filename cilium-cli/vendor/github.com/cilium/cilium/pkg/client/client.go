@@ -75,7 +75,7 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 	for {
 		select {
 		case <-timeoutAfter:
-			return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %s", timeout.Seconds(), err)
+			return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %w", timeout.Seconds(), err)
 		default:
 		}
 
@@ -88,7 +88,7 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 		for {
 			select {
 			case <-timeoutAfter:
-				return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %s", timeout.Seconds(), err)
+				return nil, fmt.Errorf("failed to create cilium agent client after %f seconds timeout: %w", timeout.Seconds(), err)
 			default:
 			}
 			// This is an API call that we do to the cilium-agent to check
@@ -491,8 +491,22 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "BandwidthManager:\t%s\n", status)
 	}
 
-	if sr.HostRouting != nil {
-		fmt.Fprintf(w, "Host Routing:\t%s\n", sr.HostRouting.Mode)
+	if sr.Routing != nil {
+		status := "Network: " + sr.Routing.InterHostRoutingMode
+		if sr.Routing.InterHostRoutingMode == models.RoutingInterHostRoutingModeTunnel {
+			status = status + " [" + sr.Routing.TunnelProtocol + "]"
+		}
+		status = status + "\tHost: " + sr.Routing.IntraHostRoutingMode
+
+		fmt.Fprintf(w, "Routing:\t%s\n", status)
+	}
+
+	if sr.AttachMode != "" {
+		status := "Legacy TC"
+		if sr.AttachMode == models.AttachModeTcx {
+			status = "TCX"
+		}
+		fmt.Fprintf(w, "Attach Mode:\t%s\n", status)
 	}
 
 	if sr.Masquerading != nil {
