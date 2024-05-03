@@ -138,6 +138,13 @@ func (in *IPAMSpec) DeepCopyInto(out *IPAMSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.IPv6Pool != nil {
+		in, out := &in.IPv6Pool, &out.IPv6Pool
+		*out = make(AllocationMap, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.Pools.DeepCopyInto(&out.Pools)
 	if in.PodCIDRs != nil {
 		in, out := &in.PodCIDRs, &out.PodCIDRs
@@ -167,6 +174,13 @@ func (in *IPAMStatus) DeepCopyInto(out *IPAMStatus) {
 			(*out)[key] = val
 		}
 	}
+	if in.IPv6Used != nil {
+		in, out := &in.IPv6Used, &out.IPv6Used
+		*out = make(AllocationMap, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.PodCIDRs != nil {
 		in, out := &in.PodCIDRs, &out.PodCIDRs
 		*out = make(PodCIDRMap, len(*in))
@@ -177,6 +191,13 @@ func (in *IPAMStatus) DeepCopyInto(out *IPAMStatus) {
 	out.OperatorStatus = in.OperatorStatus
 	if in.ReleaseIPs != nil {
 		in, out := &in.ReleaseIPs, &out.ReleaseIPs
+		*out = make(map[string]IPReleaseStatus, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.ReleaseIPv6s != nil {
+		in, out := &in.ReleaseIPv6s, &out.ReleaseIPv6s
 		*out = make(map[string]IPReleaseStatus, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
@@ -310,6 +331,10 @@ func (in *Subnet) DeepCopyInto(out *Subnet) {
 		in, out := &in.CIDR, &out.CIDR
 		*out = (*in).DeepCopy()
 	}
+	if in.IPv6CIDR != nil {
+		in, out := &in.IPv6CIDR, &out.IPv6CIDR
+		*out = (*in).DeepCopy()
+	}
 	if in.Tags != nil {
 		in, out := &in.Tags, &out.Tags
 		*out = make(Tags, len(*in))
@@ -387,6 +412,11 @@ func (in *VirtualNetwork) DeepCopyInto(out *VirtualNetwork) {
 	*out = *in
 	if in.CIDRs != nil {
 		in, out := &in.CIDRs, &out.CIDRs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.IPv6CIDRs != nil {
+		in, out := &in.IPv6CIDRs, &out.IPv6CIDRs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

@@ -201,6 +201,16 @@ You can install and run a "local Go Doc site" in the following way:
 [`go.opentelemetry.io/otel/metric`](https://pkg.go.dev/go.opentelemetry.io/otel/metric)
 is an example of a very well-documented package.
 
+### README files
+
+Each (non-internal, non-test, non-documentation) package must contain a
+`README.md` file containing at least a title, and a `pkg.go.dev` badge.
+
+The README should not be a repetition of Go doc comments.
+
+You can verify the presence of all README files with the `make verify-readmes`
+command.
+
 ## Style Guide
 
 One of the primary goals of this project is that it is actually used by

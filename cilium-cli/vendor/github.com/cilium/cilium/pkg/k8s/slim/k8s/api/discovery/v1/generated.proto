@@ -30,6 +30,14 @@ message Endpoint {
   // conditions contains information about the current status of the endpoint.
   optional EndpointConditions conditions = 2;
 
+  // hostname of this endpoint. This field may be used by consumers of
+  // endpoints to distinguish endpoints from each other (e.g. in DNS names).
+  // Multiple endpoints which use the same hostname should be considered
+  // fungible (e.g. multiple A values in DNS). Must be lowercase and pass DNS
+  // Label (RFC 1123) validation.
+  // +optional
+  optional string hostname = 3;
+
   // deprecatedTopology contains topology information part of the v1beta1
   // API. This field is deprecated, and will be removed when the v1beta1
   // API is removed (no sooner than kubernetes v1.24).  While this field can

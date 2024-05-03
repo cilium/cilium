@@ -93,6 +93,10 @@ const (
 	GlobalService      = ServicePrefix + "/global"
 	GlobalServiceAlias = Prefix + "/global-service"
 
+	// GlobalServiceSyncEndpointSlice if set to true, marks a service to
+	// synchronize remote clusters endpoint slices to the local Kubernetes API
+	GlobalServiceSyncEndpointSlices = ServicePrefix + "/global-sync-endpoint-slices"
+
 	// SharedService / SharedServiceAlias if set to false, prevents a service
 	// from being shared, the default is true if GlobalService is set, otherwise
 	// false. Setting the annotation SharedService to false while setting

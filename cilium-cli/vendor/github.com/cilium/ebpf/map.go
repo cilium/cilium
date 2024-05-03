@@ -490,6 +490,15 @@ func handleMapCreateError(attr sys.MapCreateAttr, spec *MapSpec, err error) erro
 			return fmt.Errorf("map create: %w", haveFeatErr)
 		}
 	}
+	// BPF_MAP_TYPE_RINGBUF's max_entries must be a power-of-2 multiple of kernel's page size.
+	if errors.Is(err, unix.EINVAL) &&
+		(attr.MapType == sys.BPF_MAP_TYPE_RINGBUF || attr.MapType == sys.BPF_MAP_TYPE_USER_RINGBUF) {
+		pageSize := uint32(os.Getpagesize())
+		maxEntries := attr.MaxEntries
+		if maxEntries%pageSize != 0 || !internal.IsPow(maxEntries) {
+			return fmt.Errorf("map create: %w (ring map size %d not a multiple of page size %d)", err, maxEntries, pageSize)
+		}
+	}
 	if attr.BtfFd == 0 {
 		return fmt.Errorf("map create: %w (without BTF k/v)", err)
 	}
@@ -566,7 +575,7 @@ func (m *Map) Info() (*MapInfo, error) {
 type MapLookupFlags uint64
 
 // LookupLock look up the value of a spin-locked map.
-const LookupLock MapLookupFlags = 4
+const LookupLock MapLookupFlags = unix.BPF_F_LOCK
 
 // Lookup retrieves a value from a Map.
 //

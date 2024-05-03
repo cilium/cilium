@@ -2026,6 +2026,8 @@ func (m *TLSProperties_CertificateProperties) validate(all bool) error {
 
 	// no validation rules for Subject
 
+	// no validation rules for Issuer
+
 	if len(errors) > 0 {
 		return TLSProperties_CertificatePropertiesMultiError(errors)
 	}

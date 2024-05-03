@@ -11,8 +11,6 @@ import (
 const (
 	// CiliumAgentName is the name of cilium-agent (daemon) process name.
 	CiliumAgentName = "cilium-agent"
-	// CiliumOperatortName is the name of cilium-operator process name.
-	CiliumOperatortName = "cilium-operator"
 	// CiliumDaemonTestName is the name of test binary for daemon package.
 	CiliumDaemonTestName = "cmd.test"
 )

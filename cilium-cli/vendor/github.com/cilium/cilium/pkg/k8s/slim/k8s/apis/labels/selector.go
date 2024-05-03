@@ -651,7 +651,7 @@ func (p *Parser) parse() (internalSelector, error) {
 		case IdentifierToken, DoesNotExistToken:
 			r, err := p.parseRequirement()
 			if err != nil {
-				return nil, fmt.Errorf("unable to parse requirement: %v", err)
+				return nil, fmt.Errorf("unable to parse requirement: %w", err)
 			}
 			requirements = append(requirements, *r)
 			t, l := p.consume(Values)
@@ -950,3 +950,76 @@ func SelectorFromValidatedSet(ls Set) Selector {
 func ParseToRequirements(selector string, opts ...field.PathOption) ([]Requirement, error) {
 	return parse(selector, field.ToPath(opts...))
 }
+
+// ValidatedSetSelector wraps a Set, allowing it to implement the Selector interface. Unlike
+// Set.AsSelectorPreValidated (which copies the input Set), this type simply wraps the underlying
+// Set. As a result, it is substantially more efficient. A nil and empty Sets are considered
+// equivalent to Everything().
+//
+// Callers MUST ensure the underlying Set is not mutated, and that it is already validated. If these
+// constraints are not met, Set.AsValidatedSelector should be preferred
+//
+// None of the Selector methods mutate the underlying Set, but Add() and Requirements() convert to
+// the less optimized version.
+type ValidatedSetSelector Set
+
+func (s ValidatedSetSelector) Matches(labels Labels) bool {
+	for k, v := range s {
+		if !labels.Has(k) || v != labels.Get(k) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s ValidatedSetSelector) Empty() bool {
+	return len(s) == 0
+}
+
+func (s ValidatedSetSelector) String() string {
+	keys := make([]string, 0, len(s))
+	for k := range s {
+		keys = append(keys, k)
+	}
+	// Ensure deterministic output
+	sort.Strings(keys)
+	b := strings.Builder{}
+	for i, key := range keys {
+		v := s[key]
+		b.Grow(len(key) + 2 + len(v))
+		if i != 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(key)
+		b.WriteString("=")
+		b.WriteString(v)
+	}
+	return b.String()
+}
+
+func (s ValidatedSetSelector) Add(r ...Requirement) Selector {
+	return s.toFullSelector().Add(r...)
+}
+
+func (s ValidatedSetSelector) Requirements() (requirements Requirements, selectable bool) {
+	return s.toFullSelector().Requirements()
+}
+
+func (s ValidatedSetSelector) DeepCopySelector() Selector {
+	res := make(ValidatedSetSelector, len(s))
+	for k, v := range s {
+		res[k] = v
+	}
+	return res
+}
+
+func (s ValidatedSetSelector) RequiresExactMatch(label string) (value string, found bool) {
+	v, f := s[label]
+	return v, f
+}
+
+func (s ValidatedSetSelector) toFullSelector() Selector {
+	return SelectorFromValidatedSet(Set(s))
+}
+
+var _ Selector = ValidatedSetSelector{}

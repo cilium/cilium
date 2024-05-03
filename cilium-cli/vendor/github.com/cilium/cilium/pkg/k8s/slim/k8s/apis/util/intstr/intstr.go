@@ -147,7 +147,7 @@ func GetScaledValueFromIntOrPercent(intOrPercent *IntOrString, total int, roundU
 	}
 	value, isPercent, err := getIntOrPercentValueSafely(intOrPercent)
 	if err != nil {
-		return 0, fmt.Errorf("invalid value for IntOrString: %v", err)
+		return 0, fmt.Errorf("invalid value for IntOrString: %w", err)
 	}
 	if isPercent {
 		if roundUp {
@@ -169,7 +169,7 @@ func GetValueFromIntOrPercent(intOrPercent *IntOrString, total int, roundUp bool
 	}
 	value, isPercent, err := getIntOrPercentValue(intOrPercent)
 	if err != nil {
-		return 0, fmt.Errorf("invalid value for IntOrString: %v", err)
+		return 0, fmt.Errorf("invalid value for IntOrString: %w", err)
 	}
 	if isPercent {
 		if roundUp {
@@ -191,7 +191,7 @@ func getIntOrPercentValue(intOrStr *IntOrString) (int, bool, error) {
 		s := strings.Replace(intOrStr.StrVal, "%", "", -1)
 		v, err := strconv.Atoi(s)
 		if err != nil {
-			return 0, false, fmt.Errorf("invalid value %q: %v", intOrStr.StrVal, err)
+			return 0, false, fmt.Errorf("invalid value %q: %w", intOrStr.StrVal, err)
 		}
 		return int(v), true, nil
 	}
@@ -213,7 +213,7 @@ func getIntOrPercentValueSafely(intOrStr *IntOrString) (int, bool, error) {
 		}
 		v, err := strconv.Atoi(s)
 		if err != nil {
-			return 0, false, fmt.Errorf("invalid value %q: %v", intOrStr.StrVal, err)
+			return 0, false, fmt.Errorf("invalid value %q: %w", intOrStr.StrVal, err)
 		}
 		return int(v), isPercent, nil
 	}

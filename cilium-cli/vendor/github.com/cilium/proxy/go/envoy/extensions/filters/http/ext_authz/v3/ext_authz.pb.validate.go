@@ -74,6 +74,8 @@ func (m *ExtAuthz) validate(all bool) error {
 
 	// no validation rules for FailureModeAllow
 
+	// no validation rules for FailureModeAllowHeaderAdd
+
 	if all {
 		switch v := interface{}(m.GetWithRequestBody()).(type) {
 		case interface{ ValidateAll() error }:
@@ -257,6 +259,35 @@ func (m *ExtAuthz) validate(all bool) error {
 	}
 
 	// no validation rules for IncludeTlsSession
+
+	if all {
+		switch v := interface{}(m.GetChargeClusterResponseStats()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExtAuthzValidationError{
+					field:  "ChargeClusterResponseStats",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExtAuthzValidationError{
+					field:  "ChargeClusterResponseStats",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetChargeClusterResponseStats()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExtAuthzValidationError{
+				field:  "ChargeClusterResponseStats",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	switch v := m.Services.(type) {
 	case *ExtAuthz_GrpcService:
@@ -1355,6 +1386,35 @@ func (m *CheckSettings) validate(all bool) error {
 	// no validation rules for ContextExtensions
 
 	// no validation rules for DisableRequestBodyBuffering
+
+	if all {
+		switch v := interface{}(m.GetWithRequestBody()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CheckSettingsValidationError{
+					field:  "WithRequestBody",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CheckSettingsValidationError{
+					field:  "WithRequestBody",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWithRequestBody()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CheckSettingsValidationError{
+				field:  "WithRequestBody",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return CheckSettingsMultiError(errors)

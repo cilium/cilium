@@ -346,6 +346,8 @@ func (m *DownstreamTlsContext) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for DisableStatefulSessionResumption
+
 	if d := m.GetSessionTimeout(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {

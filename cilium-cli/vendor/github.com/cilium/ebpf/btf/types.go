@@ -318,6 +318,18 @@ func (f *Fwd) copy() Type {
 	return &cpy
 }
 
+func (f *Fwd) matches(typ Type) bool {
+	if _, ok := As[*Struct](typ); ok && f.Kind == FwdStruct {
+		return true
+	}
+
+	if _, ok := As[*Union](typ); ok && f.Kind == FwdUnion {
+		return true
+	}
+
+	return false
+}
+
 // Typedef is an alias of a Type.
 type Typedef struct {
 	Name string
@@ -655,54 +667,40 @@ func alignof(typ Type) (int, error) {
 		return 0, fmt.Errorf("can't calculate alignment of %T", t)
 	}
 
-	if !pow(n) {
+	if !internal.IsPow(n) {
 		return 0, fmt.Errorf("alignment value %d is not a power of two", n)
 	}
 
 	return n, nil
 }
 
-// pow returns true if n is a power of two.
-func pow(n int) bool {
-	return n != 0 && (n&(n-1)) == 0
-}
-
-// Transformer modifies a given Type and returns the result.
-//
-// For example, UnderlyingType removes any qualifiers or typedefs from a type.
-// See the example on Copy for how to use a transform.
-type Transformer func(Type) Type
-
 // Copy a Type recursively.
 //
-// typ may form a cycle. If transform is not nil, it is called with the
-// to be copied type, and the returned value is copied instead.
-func Copy(typ Type, transform Transformer) Type {
-	copies := make(copier)
-	return copies.copy(typ, transform)
+// typ may form a cycle.
+func Copy(typ Type) Type {
+	return copyType(typ, nil, make(map[Type]Type), nil)
 }
 
-// A map of a type to its copy.
-type copier map[Type]Type
+func copyType(typ Type, ids map[Type]TypeID, copies map[Type]Type, copiedIDs map[Type]TypeID) Type {
+	cpy, ok := copies[typ]
+	if ok {
+		// This has been copied previously, no need to continue.
+		return cpy
+	}
 
-func (c copier) copy(typ Type, transform Transformer) Type {
-	return modifyGraphPreorder(typ, func(t Type) (Type, bool) {
-		cpy, ok := c[t]
-		if ok {
-			// This has been copied previously, no need to continue.
-			return cpy, false
-		}
+	cpy = typ.copy()
+	copies[typ] = cpy
 
-		if transform != nil {
-			cpy = transform(t).copy()
-		} else {
-			cpy = t.copy()
-		}
-		c[t] = cpy
+	if id, ok := ids[typ]; ok {
+		copiedIDs[cpy] = id
+	}
 
-		// This is a new copy, keep copying children.
-		return cpy, true
+	children(cpy, func(child *Type) bool {
+		*child = copyType(*child, ids, copies, copiedIDs)
+		return true
 	})
+
+	return cpy
 }
 
 type typeDeque = internal.Deque[*Type]
@@ -1205,12 +1203,15 @@ func UnderlyingType(typ Type) Type {
 	return &cycle{typ}
 }
 
-// as returns typ if is of type T. Otherwise it peels qualifiers and Typedefs
+// As returns typ if is of type T. Otherwise it peels qualifiers and Typedefs
 // until it finds a T.
 //
 // Returns the zero value and false if there is no T or if the type is nested
 // too deeply.
-func as[T Type](typ Type) (T, bool) {
+func As[T Type](typ Type) (T, bool) {
+	// NB: We can't make this function return (*T) since then
+	// we can't assert that a type matches an interface which
+	// embeds Type: as[composite](T).
 	for depth := 0; depth <= maxResolveDepth; depth++ {
 		switch v := (typ).(type) {
 		case T:

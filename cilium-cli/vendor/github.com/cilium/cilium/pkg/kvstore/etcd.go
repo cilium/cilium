@@ -338,12 +338,10 @@ func etcdClientDebugLevel() zapcore.Level {
 
 // Hint tries to improve the error message displayed to te user.
 func Hint(err error) error {
-	switch err {
-	case context.DeadlineExceeded:
+	if errors.Is(err, context.DeadlineExceeded) {
 		return fmt.Errorf("etcd client timeout exceeded")
-	default:
-		return err
 	}
+	return err
 }
 
 type etcdClient struct {
@@ -632,7 +630,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			return
 		}
 
-		log.Infof("Got lock lease ID %x", ls.Lease())
+		ec.logger.Infof("Got lock lease ID %x", ls.Lease())
 		close(errorChan)
 	}()
 
@@ -686,7 +684,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			select {
 			case _, ok := <-watcher.Events:
 				if !ok {
-					log.Debug("Stopping heartbeat watcher")
+					ec.logger.Debug("Stopping heartbeat watcher")
 					watcher.Stop()
 					return
 				}
@@ -700,7 +698,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 				ec.RWMutex.Lock()
 				ec.lastHeartbeat = time.Now()
 				ec.RWMutex.Unlock()
-				log.Debug("Received update notification of heartbeat")
+				ec.logger.Debug("Received update notification of heartbeat")
 			case <-ctx.Done():
 				return
 			}
@@ -1038,18 +1036,6 @@ func (e *etcdClient) statusChecker() {
 
 		quorumError := e.isConnectedAndHasQuorum(ctx)
 
-		endpoints := e.client.Endpoints()
-		for _, ep := range endpoints {
-			st, err := e.determineEndpointStatus(ctx, ep)
-			if err == nil {
-				ok++
-			}
-
-			newStatus = append(newStatus, st)
-		}
-
-		allConnected := len(endpoints) == ok
-
 		e.RWMutex.RLock()
 		lastHeartbeat := e.lastHeartbeat
 		e.RWMutex.RUnlock()
@@ -1058,6 +1044,26 @@ func (e *etcdClient) statusChecker() {
 			recordQuorumError("no event received")
 			quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
 		}
+
+		endpoints := e.client.Endpoints()
+		if e.extraOptions != nil && e.extraOptions.NoEndpointStatusChecks {
+			newStatus = append(newStatus, "endpoint status checks are disabled")
+
+			if quorumError == nil {
+				ok = len(endpoints)
+			}
+		} else {
+			for _, ep := range endpoints {
+				st, err := e.determineEndpointStatus(ctx, ep)
+				if err == nil {
+					ok++
+				}
+
+				newStatus = append(newStatus, st)
+			}
+		}
+
+		allConnected := len(endpoints) == ok
 
 		quorumString := "true"
 		if quorumError != nil {
@@ -1072,7 +1078,7 @@ func (e *etcdClient) statusChecker() {
 
 		switch {
 		case consecutiveQuorumErrors > option.Config.KVstoreMaxConsecutiveQuorumErrors:
-			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %s",
+			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %w",
 				consecutiveQuorumErrors, quorumError)
 			e.latestStatusSnapshot = e.latestErrorStatus.Error()
 		case len(endpoints) > 0 && ok == 0:
@@ -1081,7 +1087,7 @@ func (e *etcdClient) statusChecker() {
 		default:
 			e.latestErrorStatus = nil
 			e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, leases=%d, lock leases=%d, has-quorum=%s: %s",
-				ok, len(endpoints), e.leaseManager.TotalLeases(), e.leaseManager.TotalLeases(), quorumString, strings.Join(newStatus, "; "))
+				ok, len(endpoints), e.leaseManager.TotalLeases(), e.lockLeaseManager.TotalLeases(), quorumString, strings.Join(newStatus, "; "))
 		}
 
 		e.statusLock.Unlock()
