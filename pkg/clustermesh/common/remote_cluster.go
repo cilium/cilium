@@ -80,6 +80,7 @@ type remoteCluster struct {
 	// mutex protects the following variables
 	// - backend
 	// - config
+	// - etcdClusterID
 	// - failures
 	// - lastFailure
 	mutex lock.RWMutex
@@ -89,6 +90,11 @@ type remoteCluster struct {
 
 	// config contains the information about the cluster config for status reporting
 	config *models.RemoteClusterConfig
+
+	// etcdClusterID contains the information about the etcd cluster ID for status
+	// reporting. It is used to distinguish which instance of the clustermesh-apiserver
+	// we are connected to when running in HA mode.
+	etcdClusterID string
 
 	// failures is the number of observed failures
 	failures int
@@ -119,6 +125,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	backend := rc.backend
 	rc.backend = nil
 	rc.config = nil
+	rc.etcdClusterID = ""
 	rc.mutex.Unlock()
 
 	// Release resources asynchronously in the background. Many of these
@@ -165,8 +172,11 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					return err
 				}
 
+				etcdClusterID := fmt.Sprintf("%x", clusterLock.etcdClusterID.Load())
+
 				rc.mutex.Lock()
 				rc.backend = backend
+				rc.etcdClusterID = etcdClusterID
 				rc.mutex.Unlock()
 
 				ctx, cancel := context.WithCancel(ctx)
@@ -177,7 +187,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					rc.wg.Done()
 				}()
 
-				rc.logger.WithField(logfields.EtcdClusterID, clusterLock.etcdClusterID.Load()).Info("Connection to remote cluster established")
+				rc.logger.WithField(logfields.EtcdClusterID, etcdClusterID).Info("Connection to remote cluster established")
 
 				config, err := rc.getClusterConfig(ctx, backend, rc.ClusterConfigRequired())
 				if err == nil && config == nil {
@@ -423,6 +433,10 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 		backendStatus, backendError = rc.backend.Status()
 		if backendError != nil {
 			backendStatus = backendError.Error()
+		}
+
+		if rc.etcdClusterID != "" {
+			backendStatus += ", ID: " + rc.etcdClusterID
 		}
 	}
 
