@@ -1291,6 +1291,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
 		return DROP_NOT_IN_SRC_RANGE;
 
+	if (!lb6_svc_is_routable(svc))
+		return DROP_IS_CLUSTER_IP;
+
 #if defined(ENABLE_L7_LB)
 	if (lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
 		if (ctx_is_xdp())
@@ -1315,9 +1318,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 	if (IS_ERR(ret))
 		return ret;
-
-	if (!lb6_svc_is_routable(svc))
-		return DROP_IS_CLUSTER_IP;
 
 	backend_local = __lookup_ip6_endpoint(&tuple->daddr);
 	if (!backend_local && lb6_svc_is_hostport(svc))
@@ -2820,6 +2820,9 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	if (!lb4_src_range_ok(svc, ip4->saddr))
 		return DROP_NOT_IN_SRC_RANGE;
 
+	if (!lb4_svc_is_routable(svc))
+		return DROP_IS_CLUSTER_IP;
+
 #if defined(ENABLE_L7_LB)
 	if (lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
 		/* We cannot redirect from the XDP layer to cilium_host.
@@ -2853,9 +2856,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	}
 	if (IS_ERR(ret))
 		return ret;
-
-	if (!lb4_svc_is_routable(svc))
-		return DROP_IS_CLUSTER_IP;
 
 	backend_local = __lookup_ip4_endpoint(tuple->daddr);
 	if (!backend_local && lb4_svc_is_hostport(svc))
