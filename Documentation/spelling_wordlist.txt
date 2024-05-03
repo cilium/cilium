@@ -540,6 +540,7 @@ netdevices
 netdevsim
 netfilter
 netfront
+netkit
 netns
 netperf
 netsec
