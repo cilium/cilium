@@ -34,11 +34,11 @@ func TestRegisterController(t *testing.T) {
 		// no longer than 0.5s after the workqueue is stopped.
 		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
 	)
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient k8sClient.Clientset
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientBuilderCell,
 		k8s.ResourcesCell,
 		cell.Provide(func() Config {
 			return defaultConfig
@@ -53,8 +53,12 @@ func TestRegisterController(t *testing.T) {
 			registerController(p)
 			return nil
 		}),
-		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
-			fakeClient = *c
+		cell.Provide(func(f k8sClient.ClientBuilderFunc) k8sClient.Clientset {
+			clientset, _ := f("test-ces-registered")
+			return clientset
+		}),
+		cell.Invoke(func(c k8sClient.Clientset, cep resource.Resource[*cilium_v2.CiliumEndpoint], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
+			fakeClient = c
 			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
 			return nil
@@ -83,11 +87,11 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 		// no longer than 0.5s after the workqueue is stopped.
 		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
 	)
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient k8sClient.Clientset
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientBuilderCell,
 		k8s.ResourcesCell,
 		cell.Provide(func() Config {
 			return defaultConfig
@@ -102,8 +106,12 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 			registerController(p)
 			return nil
 		}),
-		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
-			fakeClient = *c
+		cell.Provide(func(f k8sClient.ClientBuilderFunc) k8sClient.Clientset {
+			clientset, _ := f("test-ces-unregistered")
+			return clientset
+		}),
+		cell.Invoke(func(c k8sClient.Clientset, cep resource.Resource[*cilium_v2.CiliumEndpoint], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
+			fakeClient = c
 			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
 			return nil
@@ -124,7 +132,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 	}
 }
 
-func createCEPandVerifyCESCreated(fakeClient k8sClient.FakeClientset, ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint], ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) (bool, error) {
+func createCEPandVerifyCESCreated(fakeClient k8sClient.Clientset, ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint], ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) (bool, error) {
 	cep := tu.CreateStoreEndpoint("cep1", "ns", 1)
 	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cep, meta_v1.CreateOptions{})
 	cepStore, _ := ciliumEndpoint.Store(context.Background())

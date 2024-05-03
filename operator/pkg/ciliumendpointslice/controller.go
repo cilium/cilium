@@ -27,7 +27,7 @@ type params struct {
 	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 
-	Clientset           k8sClient.Clientset
+	NewClient           k8sClient.ClientBuilderFunc
 	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	CiliumNodes         resource.Resource[*v2.CiliumNode]
@@ -76,13 +76,14 @@ type Controller struct {
 
 // registerController creates and initializes the CES controller
 func registerController(p params) {
-	if !p.Clientset.IsEnabled() || !p.SharedCfg.EnableCiliumEndpointSlice {
+	clientset, err := p.NewClient("ciliumendpointslice-controller")
+	if err != nil || !clientset.IsEnabled() || !p.SharedCfg.EnableCiliumEndpointSlice {
 		return
 	}
 
 	cesController := &Controller{
 		logger:              p.Logger,
-		clientset:           p.Clientset,
+		clientset:           clientset,
 		ciliumEndpoint:      p.CiliumEndpoint,
 		ciliumEndpointSlice: p.CiliumEndpointSlice,
 		ciliumNodes:         p.CiliumNodes,
