@@ -502,6 +502,18 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "Attach Mode:\t%s\n", status)
 	}
 
+	if sr.DatapathMode != "" {
+		status := "?"
+		if sr.DatapathMode == models.DatapathModeVeth {
+			status = "veth"
+		} else if sr.DatapathMode == models.DatapathModeNetkitDashL2 {
+			status = "netkit-l2"
+		} else if sr.DatapathMode == models.DatapathModeNetkit {
+			status = "netkit"
+		}
+		fmt.Fprintf(w, "Device Mode:\t%s\n", status)
+	}
+
 	if sr.Masquerading != nil {
 		var status string
 

@@ -5044,6 +5044,10 @@ func init() {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
         },
+        "datapath-mode": {
+          "description": "Status of datapath mode",
+          "$ref": "#/definitions/DatapathMode"
+        },
         "encryption": {
           "description": "Status of transparent encryption",
           "$ref": "#/definitions/EncryptionStatus"
@@ -11247,6 +11251,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "datapath-mode": {
+          "description": "Status of datapath mode",
+          "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {
           "description": "Status of transparent encryption",
