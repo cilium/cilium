@@ -80,7 +80,7 @@ corresponding image pull tags and their release notes where applicable:
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+-------------------------------------------------------------------------------------------+
 | `main <https://github.com/cilium/cilium/commits/main>`__                             | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                       |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+-------------------------------------------------------------------------------------------+
-| `v1.16.0-pre.1 <https://github.com/cilium/cilium/commits/v1.16.0-pre.1>`__           | 2024-04-02 | ``quay.io/cilium/cilium:v1.16.0-pre.1``      | `Release Candidate Notes <https://github.com/cilium/cilium/releases/tag/v1.16.0-pre.1>`__ |
+| `v1.16.0-pre.2 <https://github.com/cilium/cilium/commits/v1.16.0-pre.2>`__           | 2024-05-02 | ``quay.io/cilium/cilium:v1.16.0-pre.2``      | `Release Candidate Notes <https://github.com/cilium/cilium/releases/tag/v1.16.0-pre.2>`__ |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+-------------------------------------------------------------------------------------------+
 
 Functionality Overview
