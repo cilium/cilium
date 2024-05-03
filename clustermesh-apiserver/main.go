@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
+	clustermeshdbg "github.com/cilium/cilium/clustermesh-apiserver/clustermesh-dbg"
 	"github.com/cilium/cilium/clustermesh-apiserver/etcdinit"
 	"github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh"
 	kvstoremeshdbg "github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh-dbg"
@@ -30,6 +31,7 @@ func main() {
 		etcdinit.NewCmd(),
 		clustermesh.NewCmd(hive.New(clustermesh.Cell)),
 		kvstoremesh.NewCmd(hive.New(kvstoremesh.Cell)),
+		clustermeshdbg.RootCmd,
 		kvstoremeshdbg.RootCmd,
 	)
 
