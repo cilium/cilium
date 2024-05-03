@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/test/helpers"
 )
 
 var (
@@ -40,7 +39,7 @@ var configGetCmd = &cobra.Command{
 		for k, v := range resp.Status.Realized.Options {
 			readWriteConfigMap[k] = v
 		}
-		readWriteConfigMap[helpers.PolicyEnforcement] = resp.Status.Realized.PolicyEnforcement
+		readWriteConfigMap["PolicyEnforcement"] = resp.Status.Realized.PolicyEnforcement
 
 		// Key values are named as field names of `DaemonConfig` struct
 		// to match configuration input, map keys are transformed to lower case
