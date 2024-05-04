@@ -39,7 +39,8 @@ Cluster Addressing Requirements
 .. note::
   
   For cloud-specific deployments, you can check out the :ref:`gs_clustermesh_aks_prep`
-  guide for Azure Kubernetes Service (AKS) or the :ref:`gs_clustermesh_gke_prep` 
+  guide for Azure Kubernetes Service (AKS), the :ref:`gs_clustermesh_eks_prep`
+  guide for Amazon Elastic Kubernetes Service (EKS) or the :ref:`gs_clustermesh_gke_prep` 
   guide for Google Kubernetes Engine (GKE) clusters for instructions on
   how to meet the above requirements.
 
