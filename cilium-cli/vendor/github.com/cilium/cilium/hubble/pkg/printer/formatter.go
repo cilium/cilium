@@ -6,7 +6,8 @@ package printer
 import (
 	"math"
 	"strconv"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // uint64Grouping formats n by grouping digits by 3, separated by a comma
