@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	hubprinter "github.com/cilium/hubble/pkg/printer"
+	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
