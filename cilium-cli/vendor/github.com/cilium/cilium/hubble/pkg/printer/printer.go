@@ -15,15 +15,16 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
-	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Printer for flows.
@@ -326,7 +327,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 			p.getSummary(f), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out packet: %v", ew.err)
+			return fmt.Errorf("failed to write out packet: %w", ew.err)
 		}
 	case DictOutput:
 		ew := &errWriter{w: p.opts.w}
@@ -351,7 +352,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 			"    SUMMARY: ", f.GetSummary(), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out packet: %v", ew.err)
+			return fmt.Errorf("failed to write out packet: %w", ew.err)
 		}
 	case CompactOutput:
 		var node string
@@ -384,7 +385,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 			p.getVerdict(f),
 			p.getSummary(f))
 		if err != nil {
-			return fmt.Errorf("failed to write out packet: %v", err)
+			return fmt.Errorf("failed to write out packet: %w", err)
 		}
 	case JSONLegacyOutput:
 		return p.jsonEncoder.Encode(f)
@@ -464,7 +465,7 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 			"    MESSAGE: ", message, newline,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to write out node status: %v", err)
+			return fmt.Errorf("failed to write out node status: %w", err)
 		}
 	case TabOutput, CompactOutput:
 		numNodes := len(s.GetNodeNames())
@@ -608,7 +609,7 @@ func (p *Printer) WriteProtoAgentEvent(r *observerpb.GetAgentEventsResponse) err
 			"    DETAILS: ", getAgentEventDetails(e, p.opts.timeFormat), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out agent event: %v", ew.err)
+			return fmt.Errorf("failed to write out agent event: %w", ew.err)
 		}
 	case TabOutput:
 		ew := &errWriter{w: p.tw}
@@ -631,7 +632,7 @@ func (p *Printer) WriteProtoAgentEvent(r *observerpb.GetAgentEventsResponse) err
 			getAgentEventDetails(e, p.opts.timeFormat), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out agent event: %v", ew.err)
+			return fmt.Errorf("failed to write out agent event: %w", ew.err)
 		}
 	case CompactOutput:
 		var node string
@@ -646,7 +647,7 @@ func (p *Printer) WriteProtoAgentEvent(r *observerpb.GetAgentEventsResponse) err
 			e.GetType(),
 			getAgentEventDetails(e, p.opts.timeFormat))
 		if err != nil {
-			return fmt.Errorf("failed to write out agent event: %v", err)
+			return fmt.Errorf("failed to write out agent event: %w", err)
 		}
 	}
 	p.line++
@@ -714,7 +715,7 @@ func (p *Printer) WriteProtoDebugEvent(r *observerpb.GetDebugEventsResponse) err
 			"    MESSAGE: ", e.GetMessage(), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out debug event: %v", ew.err)
+			return fmt.Errorf("failed to write out debug event: %w", ew.err)
 		}
 	case TabOutput:
 		ew := &errWriter{w: p.tw}
@@ -741,7 +742,7 @@ func (p *Printer) WriteProtoDebugEvent(r *observerpb.GetDebugEventsResponse) err
 			e.GetMessage(), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out debug event: %v", ew.err)
+			return fmt.Errorf("failed to write out debug event: %w", ew.err)
 		}
 	case CompactOutput:
 		var node string
@@ -759,7 +760,7 @@ func (p *Printer) WriteProtoDebugEvent(r *observerpb.GetDebugEventsResponse) err
 			e.GetMessage(),
 		)
 		if err != nil {
-			return fmt.Errorf("failed to write out debug event: %v", err)
+			return fmt.Errorf("failed to write out debug event: %w", err)
 		}
 	}
 	p.line++
@@ -852,7 +853,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 			res.GetVersion(), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out server status: %v", ew.err)
+			return fmt.Errorf("failed to write out server status: %w", ew.err)
 		}
 	case DictOutput:
 		ew := &errWriter{w: p.opts.w}
@@ -867,7 +868,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 			"            VERSION: ", res.GetVersion(), newline,
 		)
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out server status: %v", ew.err)
+			return fmt.Errorf("failed to write out server status: %w", ew.err)
 		}
 	case CompactOutput:
 		ew := &errWriter{w: p.opts.w}
@@ -906,7 +907,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 			}
 		}
 		if ew.err != nil {
-			return fmt.Errorf("failed to write out server status: %v", ew.err)
+			return fmt.Errorf("failed to write out server status: %w", ew.err)
 		}
 	case JSONPBOutput:
 		return p.jsonEncoder.Encode(res)

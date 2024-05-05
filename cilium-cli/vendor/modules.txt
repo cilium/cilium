@@ -82,6 +82,7 @@ github.com/cilium/cilium/api/v1/relay
 github.com/cilium/cilium/api/v1/server/restapi/bgp
 github.com/cilium/cilium/api/v1/server/restapi/statedb
 github.com/cilium/cilium/daemon/k8s
+github.com/cilium/cilium/hubble/pkg/printer
 github.com/cilium/cilium/pkg/alibabacloud/eni/types
 github.com/cilium/cilium/pkg/allocator
 github.com/cilium/cilium/pkg/annotation
@@ -245,9 +246,6 @@ github.com/cilium/hive
 github.com/cilium/hive/cell
 github.com/cilium/hive/internal
 github.com/cilium/hive/job
-# github.com/cilium/hubble v0.13.3
-## explicit; go 1.21.8
-github.com/cilium/hubble/pkg/printer
 # github.com/cilium/proxy v0.0.0-20240418093727-2c7164c53e26
 ## explicit; go 1.22
 github.com/cilium/proxy/go/cilium/api
