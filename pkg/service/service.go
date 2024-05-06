@@ -203,6 +203,31 @@ type L7LBInfo struct {
 	// port number for L7 LB redirection. Can be zero if only backend sync
 	// has been requested.
 	proxyPort uint16
+
+	// (sub)set of service's frontend ports to be redirected. If empty, all frontend ports will be redirected.
+	ports []uint16
+}
+
+// isProtoAndPortMatch returns true if frontend has protocol TCP and its Port is in i.ports, or if
+// i.ports is empty.
+// 'ports' is typically short for no point optimizing the search.
+func (i *L7LBInfo) isProtoAndPortMatch(fe *lb.L4Addr) bool {
+	// L7 LB redirect is only supported for TCP frontends
+	if fe.Protocol != lb.TCP {
+		return false
+	}
+
+	// Empty 'ports' matches all ports
+	if len(i.ports) == 0 {
+		return true
+	}
+
+	for _, p := range i.ports {
+		if p == fe.Port {
+			return true
+		}
+	}
+	return false
 }
 
 type L7LBResourceName struct {
@@ -272,23 +297,24 @@ func NewService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, back
 
 // RegisterL7LBServiceRedirect makes the given service to be locally redirected to the
 // given proxy port.
-func (s *Service) RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16) error {
+func (s *Service) RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16, frontendPorts []uint16) error {
 	if proxyPort == 0 {
 		return errors.New("proxy port for L7 LB redirection must be nonzero")
 	}
 
 	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
 		log.WithFields(logrus.Fields{
-			logfields.ServiceName:      serviceName.Name,
-			logfields.ServiceNamespace: serviceName.Namespace,
-			logfields.L7LBProxyPort:    proxyPort,
+			logfields.ServiceName:       serviceName.Name,
+			logfields.ServiceNamespace:  serviceName.Namespace,
+			logfields.L7LBProxyPort:     proxyPort,
+			logfields.L7LBFrontendPorts: frontendPorts,
 		}).Debug("Registering service for L7 proxy port redirection")
 	}
 
 	s.Lock()
 	defer s.Unlock()
 
-	err := s.registerL7LBServiceRedirect(serviceName, resourceName, proxyPort)
+	err := s.registerL7LBServiceRedirect(serviceName, resourceName, proxyPort, frontendPorts)
 	if err != nil {
 		return err
 	}
@@ -297,7 +323,7 @@ func (s *Service) RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resour
 }
 
 // 's' must be locked
-func (s *Service) registerL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16) error {
+func (s *Service) registerL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16, frontendPorts []uint16) error {
 	info := s.l7lbSvcs[serviceName]
 	if info == nil {
 		info = &L7LBInfo{}
@@ -311,6 +337,13 @@ func (s *Service) registerL7LBServiceRedirect(serviceName lb.ServiceName, resour
 
 	info.ownerRef = resourceName
 	info.proxyPort = proxyPort
+
+	if len(frontendPorts) == 0 {
+		info.ports = nil
+	} else {
+		info.ports = make([]uint16, len(frontendPorts))
+		copy(info.ports, frontendPorts)
+	}
 
 	s.l7lbSvcs[serviceName] = info
 
@@ -645,8 +678,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	// Set L7 LB for this service if registered.
 	l7lbInfo, exists := s.l7lbSvcs[params.Name]
-	// L7 LB redirect is only supported for TCP frontends
-	if exists && l7lbInfo.ownerRef != empty && params.Frontend.L4Addr.Protocol == lb.TCP {
+	if exists && l7lbInfo.ownerRef != empty && l7lbInfo.isProtoAndPortMatch(&params.Frontend.L4Addr) {
 		params.L7LBProxyPort = l7lbInfo.proxyPort
 	} else {
 		params.L7LBProxyPort = 0
