@@ -19,14 +19,14 @@ type Hooks interface {
 	AddConnectivityTests(ct *check.ConnectivityTest) error
 }
 
-func Run(ctx context.Context, params check.Parameters, connTests []*check.ConnectivityTest, extra Hooks) error {
+func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) error {
 	if err := setupConnectivityTests(ctx, connTests, extra); err != nil {
 		return err
 	}
 
 	connTests[0].Infof("Cilium version: %v", connTests[0].CiliumVersion)
 
-	suiteBuilders, err := builder.GetTestSuites(params)
+	suiteBuilders, err := builder.GetTestSuites(connTests[0].Params())
 	if err != nil {
 		return err
 	}
