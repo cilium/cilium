@@ -8,16 +8,11 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
 )
-
-type AckSuite struct{}
-
-var _ = Suite(&AckSuite{})
 
 const (
 	node0 = "10.0.0.0"
@@ -82,7 +77,7 @@ func completedInTime(comp *compCheck) bool {
 	}
 }
 
-func (s *AckSuite) TestUpsertSingleNode(t *testing.T) {
+func TestUpsertSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -124,7 +119,7 @@ func (s *AckSuite) TestUpsertSingleNode(t *testing.T) {
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 }
 
-func (s *AckSuite) TestUseCurrent(t *testing.T) {
+func TestUseCurrent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -176,7 +171,7 @@ func (s *AckSuite) TestUseCurrent(t *testing.T) {
 	require.Len(t, acker.pendingCompletions, 0)
 }
 
-func (s *AckSuite) TestUpsertMultipleNodes(t *testing.T) {
+func TestUpsertMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -221,7 +216,7 @@ func (s *AckSuite) TestUpsertMultipleNodes(t *testing.T) {
 	require.Equal(t, true, acker.currentVersionAcked([]string{node0, node1, node2}))
 }
 
-func (s *AckSuite) TestUpsertMoreRecentVersion(t *testing.T) {
+func TestUpsertMoreRecentVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -245,7 +240,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 }
 
-func (s *AckSuite) TestUpsertMoreRecentVersionNack(t *testing.T) {
+func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -272,7 +267,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersionNack(t *testing.T) {
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "Detail"}, comp.Err())
 }
 
-func (s *AckSuite) TestDeleteSingleNode(t *testing.T) {
+func TestDeleteSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -306,7 +301,7 @@ func (s *AckSuite) TestDeleteSingleNode(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 }
 
-func (s *AckSuite) TestDeleteMultipleNodes(t *testing.T) {
+func TestDeleteMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -340,7 +335,7 @@ func (s *AckSuite) TestDeleteMultipleNodes(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 }
 
-func (s *AckSuite) TestRevertInsert(t *testing.T) {
+func TestRevertInsert(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -377,7 +372,7 @@ func (s *AckSuite) TestRevertInsert(t *testing.T) {
 	require.Equal(t, resources[2], res)
 }
 
-func (s *AckSuite) TestRevertUpdate(t *testing.T) {
+func TestRevertUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -421,7 +416,7 @@ func (s *AckSuite) TestRevertUpdate(t *testing.T) {
 	require.Equal(t, resources[2], res)
 }
 
-func (s *AckSuite) TestRevertDelete(t *testing.T) {
+func TestRevertDelete(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
