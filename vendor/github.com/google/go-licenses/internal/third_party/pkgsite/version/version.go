@@ -11,13 +11,6 @@ import (
 )
 
 const (
-	// Latest signifies the latest available version in requests to the
-	// proxy client.
-	Latest = "latest"
-
-	// Main represents the main branch.
-	Main = "main"
-
 	// Master represents the master branch.
 	Master = "master"
 )

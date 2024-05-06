@@ -33,6 +33,9 @@ type Module struct {
 }
 
 func newModule(mod *packages.Module) *Module {
+	if mod == nil {
+		return nil
+	}
 	// Example of a module with replace directive: 	k8s.io/kubernetes => k8s.io/kubernetes v1.11.1
 	// {
 	//         "Path": "k8s.io/kubernetes",
@@ -55,7 +58,6 @@ func newModule(mod *packages.Module) *Module {
 	if tmp.Replace != nil {
 		tmp = *tmp.Replace
 	}
-
 	// The +incompatible suffix does not affect module version.
 	// ref: https://golang.org/ref/mod#incompatible-versions
 	tmp.Version = strings.TrimSuffix(tmp.Version, "+incompatible")

@@ -21,24 +21,22 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/go-licenses/internal/third_party/pkgsite/source"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/packages"
 	"k8s.io/klog/v2"
 )
 
 // Library is a collection of packages covered by the same license file.
 type Library struct {
-	// LicenseFile is the path of the file containing the library's license.
-	LicenseFile string
+	// LicensePath is the path of the file containing the library's license.
+	LicensePath string
 	// Packages contains import paths for Go packages in this library.
 	// It may not be the complete set of all packages in the library.
 	Packages []string
 	// Parent go module.
 	module *Module
-	// List of licenses for found at the LicenseFile.
-	Licenses []License
 }
 
 // PackagesError aggregates all Packages[].Errors into a single error.
@@ -62,17 +60,6 @@ func (e PackagesError) Error() string {
 // Packages not covered by a license will be returned as individual libraries.
 // Standard library packages will be ignored.
 func Libraries(ctx context.Context, classifier Classifier, includeTests bool, ignoredPaths []string, importPaths ...string) ([]*Library, error) {
-	// These are the steps we take to find libraries:
-	// 1. we list all modules and all packages
-	// 2. for each package, we find a list of candidates
-	// 3. we deduplicate all candidates
-	// 4. for each candidate, we classify if the candidate is a license file
-	// 5. for each package, we select the first candidates that is a license
-	//    file & add the package to a list of packages for that license file
-	// 6. we return an array of libraries (which are the license files, the
-	//    found licenses in that file, all the packages that had that file as
-	//    its first candidate and the module in which those packages live)
-
 	cfg := &packages.Config{
 		Context: ctx,
 		Mode:    packages.NeedImports | packages.NeedDeps | packages.NeedFiles | packages.NeedName | packages.NeedModule,
@@ -84,240 +71,134 @@ func Libraries(ctx context.Context, classifier Classifier, includeTests bool, ig
 		return nil, err
 	}
 
-	vendoredSearch := []*Module{}
-	for _, parentPkg := range rootPkgs {
-		if parentPkg.Module == nil {
-			continue
+	pkgs := map[string]*packages.Package{}
+	pkgsByLicense := make(map[string][]*packages.Package)
+	pkgErrorOccurred := false
+	otherErrorOccurred := false
+	packages.Visit(rootPkgs, func(p *packages.Package) bool {
+		if len(p.Errors) > 0 {
+			pkgErrorOccurred = true
+			return false
 		}
-
-		module := newModule(parentPkg.Module)
-		if module.Dir == "" {
-			continue
+		if isStdLib(p) {
+			// No license requirements for the Go standard library.
+			return false
 		}
-
-		vendoredSearch = append(vendoredSearch, module)
-	}
-
-	type pkgInfo struct {
-		// pkgPath is the import path of the package.
-		pkgPath string
-		// modulePath is the module path of the package.
-		modulePath string
-
-		// pkgDir is the directory containing the package's source code.
-		pkgDir string
-		// moduleDir is the directory containing the module's source code.
-		moduleDir string
-	}
-
-	allModules := map[string]*Module{}
-	allPackages := []pkgInfo{}
-	{
-		pkgErrorOccurred := false
-		otherErrorOccurred := false
-		packages.Visit(rootPkgs, func(p *packages.Package) bool {
-			if len(p.Errors) > 0 {
-				pkgErrorOccurred = true
-				return false
-			}
-			if isStdLib(p) {
-				// No license requirements for the Go standard library.
-				return false
-			}
-			if includeTests && isTestBinary(p) {
-				// A test binary only imports the standard library, so we do not need to check its license.
-				// Moreover, Find below will return an error because pkgDir is not under p.Module.Dir
-				// as pkgDir is under GOCACHE instead.
-				return false
-			}
-			for _, i := range ignoredPaths {
-				if strings.HasPrefix(p.PkgPath, i) {
-					// Marked to be ignored.
-					return true
-				}
-			}
-
-			if len(p.OtherFiles) > 0 {
-				klog.Warningf("%q contains non-Go code that can't be inspected for further dependencies:\n%s", p.PkgPath, strings.Join(p.OtherFiles, "\n"))
-			}
-
-			var pkgDir string
-			switch {
-			case len(p.GoFiles) > 0:
-				pkgDir = filepath.Dir(p.GoFiles[0])
-			case len(p.CompiledGoFiles) > 0:
-				pkgDir = filepath.Dir(p.CompiledGoFiles[0])
-			case len(p.OtherFiles) > 0:
-				pkgDir = filepath.Dir(p.OtherFiles[0])
-			default:
-				// This package is empty - nothing to do.
+		if includeTests && isTestBinary(p) {
+			// A test binary only imports the standard library, so we do not need to check its license.
+			// Moreover, Find below will return an error because pkgDir is not under p.Module.Dir
+			// as pkgDir is under GOCACHE instead.
+			return false
+		}
+		for _, i := range ignoredPaths {
+			if strings.HasPrefix(p.PkgPath, i) {
+				// Marked to be ignored.
 				return true
 			}
+		}
 
-			if p.Module == nil {
-				otherErrorOccurred = true
-				klog.Errorf("Package %s does not have module info. Non go modules projects are no longer supported. For feedback, refer to https://github.com/google/go-licenses/issues/128.", p.PkgPath)
-				return false
-			}
-
-			module := newModule(p.Module)
-
-			if module.Dir == "" {
-				// A known cause is that the module is vendored, so some information is lost.
-				isVendored := strings.Contains(pkgDir, "/vendor/")
-				if !isVendored {
-					klog.Warningf("module %s does not have dir and it's not vendored, cannot discover the license URL. Report to go-licenses developer if you see this.", module.Path)
-				} else {
-					// This is vendored. Handle this known special case.
-
-					// Extra note why we identify a vendored package like this.
-					//
-					// For a normal package:
-					// * if it's not in a module, lib.module == nil
-					// * if it's in a module, lib.module.Dir != ""
-					// Only vendored modules will have lib.module != nil && lib.module.Path != "" && lib.module.Dir == "" as far as I know.
-					// So the if condition above is already very strict for vendored packages.
-					// On top of it, we checked the lib.LicensePath contains a vendor folder in it.
-					// So it's rare to have a false positive for both conditions at the same time, although it may happen in theory.
-					//
-					// These assumptions may change in the future,
-					// so we need to keep this updated with go tooling changes.
-					for _, parentModule := range vendoredSearch {
-						if strings.HasPrefix(pkgDir, parentModule.Dir) {
-							module = parentModule
-							break
-						}
-					}
-
-					if module.Dir == "" {
-						klog.Warningf("cannot find parent package of vendored module %s", module.Path)
-					}
-				}
-			}
-
-			allPackages = append(allPackages, pkgInfo{
-				pkgPath:    p.PkgPath,
-				modulePath: module.Path,
-				pkgDir:     pkgDir,
-				moduleDir:  module.Dir,
-			})
-			allModules[module.Path] = module
-
+		if len(p.OtherFiles) > 0 {
+			klog.Warningf("%q contains non-Go code that can't be inspected for further dependencies:\n%s", p.PkgPath, strings.Join(p.OtherFiles, "\n"))
+		}
+		var pkgDir string
+		switch {
+		case len(p.GoFiles) > 0:
+			pkgDir = filepath.Dir(p.GoFiles[0])
+		case len(p.CompiledGoFiles) > 0:
+			pkgDir = filepath.Dir(p.CompiledGoFiles[0])
+		case len(p.OtherFiles) > 0:
+			pkgDir = filepath.Dir(p.OtherFiles[0])
+		default:
+			// This package is empty - nothing to do.
 			return true
-		}, nil)
-		if pkgErrorOccurred {
-			return nil, PackagesError{
-				pkgs: rootPkgs,
-			}
 		}
-		if otherErrorOccurred {
-			return nil, fmt.Errorf("some errors occurred when loading direct and transitive dependency packages")
+		if p.Module == nil {
+			otherErrorOccurred = true
+			klog.Errorf("Package %s does not have module info. Non go modules projects are no longer supported. For feedback, refer to https://github.com/google/go-licenses/issues/128.", p.PkgPath)
+			return false
 		}
-	}
-
-	pkgCandidates := map[string][]string{}
-	allCandidates := map[string]struct{}{}
-	for _, pkg := range allPackages {
-		candidates, err := FindCandidates(pkg.pkgDir, pkg.moduleDir)
+		licensePath, err := Find(pkgDir, p.Module.Dir, classifier)
 		if err != nil {
-			return nil, err
+			klog.Errorf("Failed to find license for %s: %v", p.PkgPath, err)
 		}
-
-		pkgCandidates[pkg.pkgDir] = candidates
-		for _, candidate := range candidates {
-			allCandidates[candidate] = struct{}{}
+		pkgs[p.PkgPath] = p
+		pkgsByLicense[licensePath] = append(pkgsByLicense[licensePath], p)
+		return true
+	}, nil)
+	if pkgErrorOccurred {
+		return nil, PackagesError{
+			pkgs: rootPkgs,
 		}
 	}
-
-	group, _ := errgroup.WithContext(ctx)
-	foundLicenseSlice := make([]struct {
-		candidate string
-		licenes   []License
-	}, len(allCandidates))
-	counter := 0
-	for candidate := range allCandidates {
-		idx := counter
-		counter++
-		candidate := candidate
-
-		group.Go(func() error {
-			licenses, err := classifier.Identify(candidate)
-			if err != nil {
-				klog.Errorf("Failed to parse %s: %v", candidate, err)
-				return nil // Continue even if one LICENSE file fails to parse.
-			}
-
-			foundLicenseSlice[idx] = struct {
-				candidate string
-				licenes   []License
-			}{
-				candidate: candidate,
-				licenes:   licenses,
-			}
-			return nil
-		})
-	}
-
-	if err := group.Wait(); err != nil {
-		return nil, err
-	}
-
-	foundLicenses := map[string][]License{}
-	for _, found := range foundLicenseSlice {
-		if len(found.licenes) == 0 {
-			continue
-		}
-
-		foundLicenses[found.candidate] = found.licenes
-	}
-
-	pkgsByLicense := make(map[string][]pkgInfo)
-	for _, pkg := range allPackages {
-		candidates := pkgCandidates[pkg.pkgDir]
-
-		bestCandidate := ""
-		for _, candidate := range candidates {
-			if _, ok := foundLicenses[candidate]; ok {
-				bestCandidate = candidate
-				break
-			}
-		}
-
-		pkgsByLicense[bestCandidate] = append(pkgsByLicense[bestCandidate], pkg)
+	if otherErrorOccurred {
+		return nil, fmt.Errorf("some errors occurred when loading direct and transitive dependency packages")
 	}
 
 	var libraries []*Library
-	for licenseFile, pkgs := range pkgsByLicense {
-		if licenseFile == "" {
+	for licensePath, pkgs := range pkgsByLicense {
+		if licensePath == "" {
 			// No license for these packages - return each one as a separate library.
 			for _, p := range pkgs {
 				libraries = append(libraries, &Library{
-					Packages: []string{p.pkgPath},
-					module:   allModules[p.modulePath],
+					Packages: []string{p.PkgPath},
+					module:   newModule(p.Module),
 				})
 			}
 			continue
 		}
-
 		lib := &Library{
-			LicenseFile: licenseFile,
-			Licenses:    foundLicenses[licenseFile],
-			Packages:    make([]string, len(pkgs)),
-			module:      allModules[pkgs[0].modulePath],
+			LicensePath: licensePath,
 		}
-
-		for i, p := range pkgs {
-			lib.Packages[i] = p.pkgPath
+		for _, pkg := range pkgs {
+			lib.Packages = append(lib.Packages, pkg.PkgPath)
+			if lib.module == nil && pkg.Module != nil {
+				// All the sub packages should belong to the same module.
+				lib.module = newModule(pkg.Module)
+			}
 		}
+		if lib.module != nil && lib.module.Path != "" && lib.module.Dir == "" {
+			// A known cause is that the module is vendored, so some information is lost.
+			splits := strings.SplitN(lib.LicensePath, "/vendor/", 2)
+			if len(splits) != 2 {
+				klog.Warningf("module %s does not have dir and it's not vendored, cannot discover the license URL. Report to go-licenses developer if you see this.", lib.module.Path)
+			} else {
+				// This is vendored. Handle this known special case.
 
+				// Extra note why we identify a vendored package like this.
+				//
+				// For a normal package:
+				// * if it's not in a module, lib.module == nil
+				// * if it's in a module, lib.module.Dir != ""
+				// Only vendored modules will have lib.module != nil && lib.module.Path != "" && lib.module.Dir == "" as far as I know.
+				// So the if condition above is already very strict for vendored packages.
+				// On top of it, we checked the lib.LicensePath contains a vendor folder in it.
+				// So it's rare to have a false positive for both conditions at the same time, although it may happen in theory.
+				//
+				// These assumptions may change in the future,
+				// so we need to keep this updated with go tooling changes.
+				parentModDir := splits[0]
+				var parentPkg *packages.Package
+				for _, rootPkg := range rootPkgs {
+					if rootPkg.Module != nil && rootPkg.Module.Dir == parentModDir {
+						parentPkg = rootPkg
+						break
+					}
+				}
+				if parentPkg == nil {
+					klog.Warningf("cannot find parent package of vendored module %s", lib.module.Path)
+				} else {
+					// Vendored modules should be commited in the parent module, so it counts as part of the
+					// parent module.
+					lib.module = newModule(parentPkg.Module)
+				}
+			}
+		}
 		libraries = append(libraries, lib)
 	}
-
 	// Sort libraries to produce a stable result for snapshot diffing.
 	sort.Slice(libraries, func(i, j int) bool {
 		return libraries[i].Name() < libraries[j].Name()
 	})
-
 	return libraries, nil
 }
 
@@ -353,7 +234,7 @@ func (l *Library) String() string {
 
 // FileURL attempts to determine the URL for a file in this library using
 // go module name and version.
-func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath string) (string, error) {
+func (l *Library) FileURL(ctx context.Context, filePath string) (string, error) {
 	if l == nil {
 		return "", fmt.Errorf("library is nil")
 	}
@@ -367,7 +248,8 @@ func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath strin
 	if m.Dir == "" {
 		return "", wrap(fmt.Errorf("empty go module dir"))
 	}
-	remote, err := source.ModuleInfo(ctx, cl, m.Path, m.Version)
+	client := source.NewClient(time.Second * 20)
+	remote, err := source.ModuleInfo(ctx, client, m.Path, m.Version)
 	if err != nil {
 		return "", wrap(err)
 	}

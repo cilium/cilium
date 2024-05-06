@@ -1,0 +1,14 @@
+# Change Log
+# All notable changes to this project will be documented in this file.
+# This project adheres to [Semantic Versioning](http://semver.org/).
+
+## [0.1.0] UNRELEASED
+### Init
+- Initial development.
+### Changed
+- Create a database of forbidden licenses to make matching just forbidden
+  licenses quicker.
+- Remove non-words from the license texts. It makes the matching more precise.
+  This subsumes what the "remove common prefix" and a few other passes did.
+- Remove the "lattice" structure in favor of a simpler and smaller list of
+  substrings. This gives us a tremendous speed increase of up to 2x.

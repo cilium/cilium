@@ -1,3 +1,0 @@
-# Copyright 1996 Chih-Hao Tsai @ Beckman Institute,
-# University of Illinois
-# c-tsai4@uiuc.edu http://casper.beckman.uiuc.edu/~c-tsai4

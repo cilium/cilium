@@ -15,6 +15,7 @@
 package licenses
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,50 +27,63 @@ var (
 	licenseRegexp = regexp.MustCompile(`^(?i)((UN)?LICEN(S|C)E|COPYING|README|NOTICE).*$`)
 )
 
-// FindCandidates returns the candidate file path of the license for this package.
+// Find returns the file path of the license for this package.
 //
 // dir is path of the directory where we want to find a license.
 // rootDir is path of the module containing this package. Find will not search out of the
 // rootDir.
-func FindCandidates(dir string, rootDir string) ([]string, error) {
+func Find(dir string, rootDir string, classifier Classifier) (string, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
 	rootDir, err = filepath.Abs(rootDir)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
 	if !strings.HasPrefix(dir, rootDir) {
-		return nil, fmt.Errorf("licenses.Find: rootDir %s should contain dir %s", rootDir, dir)
+		return "", fmt.Errorf("licenses.Find: rootDir %s should contain dir %s", rootDir, dir)
 	}
-
-	return findAllUpwards(dir, licenseRegexp, rootDir)
+	found, err := findUpwards(dir, licenseRegexp, rootDir, func(path string) bool {
+		// TODO(RJPercival): Return license details
+		if _, _, err := classifier.Identify(path); err != nil {
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			return "", fmt.Errorf("cannot find a known open source license for %q whose name matches regexp %s and locates up until %q", dir, licenseRegexp, rootDir)
+		}
+		return "", fmt.Errorf("finding a known open source license: %w", err)
+	}
+	return found, nil
 }
 
-func findAllUpwards(dir string, r *regexp.Regexp, stopAt string) ([]string, error) {
-	var foundPaths []string
+var errNotFound = fmt.Errorf("file/directory matching predicate and regexp not found")
 
+func findUpwards(dir string, r *regexp.Regexp, stopAt string, predicate func(path string) bool) (string, error) {
+	// Dir must be made absolute for reliable matching with stopAt regexps
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	start := dir
 	// Stop once we go out of the stopAt dir.
 	for strings.HasPrefix(dir, stopAt) {
 		dirContents, err := os.ReadDir(dir)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-
 		for _, f := range dirContents {
-			if f.IsDir() {
-				continue
-			}
-
 			if r.MatchString(f.Name()) {
 				path := filepath.Join(dir, f.Name())
-				foundPaths = append(foundPaths, path)
+				if predicate != nil && !predicate(path) {
+					continue
+				}
+				return path, nil
 			}
 		}
-
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			// Can't go any higher up the directory tree.
@@ -77,6 +91,5 @@ func findAllUpwards(dir string, r *regexp.Regexp, stopAt string) ([]string, erro
 		}
 		dir = parent
 	}
-
-	return foundPaths, nil
+	return "", fmt.Errorf("findUpwards(dir=%q, regexp=%q, stopAt=%q, predicate=func): %w", start, r, stopAt, errNotFound)
 }

@@ -1,4 +1,0 @@
-UTF-8 Library
-
-The authors of this software are Rob Pike and Ken Thompson.
-             Copyright (c) 1998-2002 by Lucent Technologies.

@@ -1,0 +1,14 @@
+sudo: false
+language: go
+go:
+  - "1.16"
+matrix:
+  allow_failures:
+    - go: master
+  fast_finish: true
+script:
+  - go get -t -v ./...
+  - diff -u <(echo -n) <(gofmt -d -s .)
+  - go generate -x ./... && git diff --exit-code; code=$?; git checkout -- .; (exit $code) # Check that go generate ./... produces a zero diff; clean up any changes afterwards.
+  - go vet .
+  - go test -v -race ./...

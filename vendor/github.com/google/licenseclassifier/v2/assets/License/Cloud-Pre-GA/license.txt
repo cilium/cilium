@@ -1,3 +1,0 @@
-Google Confidential & Proprietary
-Copyright 2022 Google LLC
-The use of this software is governed by the Pre-GA Offering Terms section of the the Service Specific Terms set forth at https://cloud.google.com/terms/service-terms#general-service-terms

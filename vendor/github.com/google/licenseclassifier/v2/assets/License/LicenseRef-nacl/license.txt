@@ -1,5 +1,0 @@
-"All of the NaCl software is in the public domain."
-(http://nacl.cr.yp.to/features.html)
-
-Additionally NaCl is part of http://cace-project.eu/ - an EU Commission
-project and so "public domain" has legal meaning.

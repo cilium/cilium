@@ -1,3 +1,0 @@
-Files: external/perl/Text-Template-1.56/*
-Copyright: 2013, Mark Jason Dominus <mjd@cpan.org>.
-License: Artistic or GPL-1+
