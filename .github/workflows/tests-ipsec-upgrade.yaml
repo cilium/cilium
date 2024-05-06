@@ -140,7 +140,7 @@ jobs:
     timeout-minutes: 70
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           # We keep the credentials here, to make sure we're able to run
@@ -187,7 +187,7 @@ jobs:
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
 
       - name: Call actions/checkout again to remove credentials
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -284,7 +284,7 @@ jobs:
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -294,7 +294,7 @@ jobs:
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
           persist-credentials: false
@@ -377,14 +377,14 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
-        uses: actions/upload-artifact@1746f4ab65b179e0ea60a494b83293b640dd5bba # v4.3.2
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: cilium-sysdumps-${{ matrix.config }}-${{ matrix.mode }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
-        uses: actions/upload-artifact@1746f4ab65b179e0ea60a494b83293b640dd5bba # v4.3.2
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: cilium-junits-${{ matrix.config }}-${{ matrix.mode }}
           path: cilium-junits/*.xml
@@ -403,7 +403,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.setup-and-test.result == 'failure' }}
-        uses: actions/upload-artifact/merge@1746f4ab65b179e0ea60a494b83293b640dd5bba # v4.3.2
+        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -411,7 +411,7 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@1746f4ab65b179e0ea60a494b83293b640dd5bba # v4.3.2
+        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: cilium-junits
           pattern: cilium-junits-*
