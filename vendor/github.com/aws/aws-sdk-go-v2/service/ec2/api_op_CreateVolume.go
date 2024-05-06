@@ -150,7 +150,8 @@ type CreateVolumeInput struct {
 // Describes a volume.
 type CreateVolumeOutput struct {
 
-	// Information about the volume attachments.
+	// This parameter is not returned by CreateVolume. Information about the volume
+	// attachments.
 	Attachments []types.VolumeAttachment
 
 	// The Availability Zone for the volume.
@@ -162,7 +163,8 @@ type CreateVolumeOutput struct {
 	// Indicates whether the volume is encrypted.
 	Encrypted *bool
 
-	// Indicates whether the volume was created using fast snapshot restore.
+	// This parameter is not returned by CreateVolume. Indicates whether the volume
+	// was created using fast snapshot restore.
 	FastRestored *bool
 
 	// The number of I/O operations per second (IOPS). For gp3 , io1 , and io2
@@ -187,7 +189,7 @@ type CreateVolumeOutput struct {
 	// The snapshot from which the volume was created, if applicable.
 	SnapshotId *string
 
-	// Reserved for future use.
+	// This parameter is not returned by CreateVolume. Reserved for future use.
 	SseType types.SSEType
 
 	// The volume state.

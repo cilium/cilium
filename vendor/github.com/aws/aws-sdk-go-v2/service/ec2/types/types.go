@@ -9319,7 +9319,11 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	// A description for the network interface.
 	Description *string
 
-	// The device index for the network interface attachment.
+	// The device index for the network interface attachment. Each network interface
+	// requires a device index. If you create a launch template that includes secondary
+	// network interfaces but not a primary network interface, then you must add a
+	// primary network interface as a launch parameter when you launch an instance from
+	// the template.
 	DeviceIndex *int32
 
 	// Configure ENA Express settings for your launch template.
@@ -17878,7 +17882,8 @@ type VgwTelemetry struct {
 // Describes a volume.
 type Volume struct {
 
-	// Information about the volume attachments.
+	// This parameter is not returned by CreateVolume. Information about the volume
+	// attachments.
 	Attachments []VolumeAttachment
 
 	// The Availability Zone for the volume.
@@ -17890,7 +17895,8 @@ type Volume struct {
 	// Indicates whether the volume is encrypted.
 	Encrypted *bool
 
-	// Indicates whether the volume was created using fast snapshot restore.
+	// This parameter is not returned by CreateVolume. Indicates whether the volume
+	// was created using fast snapshot restore.
 	FastRestored *bool
 
 	// The number of I/O operations per second (IOPS). For gp3 , io1 , and io2
@@ -17915,7 +17921,7 @@ type Volume struct {
 	// The snapshot from which the volume was created, if applicable.
 	SnapshotId *string
 
-	// Reserved for future use.
+	// This parameter is not returned by CreateVolume. Reserved for future use.
 	SseType SSEType
 
 	// The volume state.
