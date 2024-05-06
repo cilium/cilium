@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -131,7 +130,7 @@ func extractFlowKey(f *flowpb.Flow) (
 	return
 }
 
-func lookupPolicyForKey(ep v1.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
+func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
 	switch matchType {
 	case monitorAPI.PolicyMatchL3L4, monitorAPI.PolicyMatchL4Only:
 		// Check for L4 policy rules

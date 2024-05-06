@@ -22,9 +22,9 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -34,8 +34,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -78,7 +78,7 @@ func TestL34Decode(t *testing.T) {
 		98, 0, 90, 176, 97, 0, 0}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr("10.16.236.178") {
 				return &testutils.FakeEndpointInfo{
 					ID:           1234,
@@ -206,7 +206,7 @@ func TestL34Decode(t *testing.T) {
 		0, 0, 0, 0, 0}
 
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr("ff02::1:ff00:b3e5") {
 				return &testutils.FakeEndpointInfo{
 					ID: 1234,
@@ -390,7 +390,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	}
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	policyKey := policy.Key{
+	policyKey := policyTypes.Key{
 		Identity:         uint32(remoteIdentity),
 		DestPort:         uint16(dstPort),
 		Nexthdr:          uint8(u8proto.TCP),
@@ -403,19 +403,19 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]labels.LabelArrayList{
+		PolicyMap: map[policyTypes.Key]labels.LabelArrayList{
 			policyKey: {policyLabel},
 		},
 		PolicyRevision: 1,
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr(localIP) {
 				return ep, true
 			}
 			return nil, false
 		},
-		OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -660,7 +660,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 
 	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
-	policyKey := policy.Key{
+	policyKey := policyTypes.Key{
 		Identity:         remoteID,
 		DestPort:         0,
 		Nexthdr:          0,
@@ -668,11 +668,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			if ip == localIP {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
-					PolicyMap: map[policy.Key]labels.LabelArrayList{
+					PolicyMap: map[policyTypes.Key]labels.LabelArrayList{
 						policyKey: policyLabel,
 					},
 					PolicyRevision: 1,
@@ -858,7 +858,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	ep, ok := endpointGetter.GetEndpointInfo(localIP)
 	assert.Equal(t, true, ok)
-	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
+	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(policyTypes.Key{
 		Identity:         f.GetDestination().GetIdentity(),
 		TrafficDirection: directionFromProto(f.GetTrafficDirection()).Uint8(),
 	})
@@ -1212,7 +1212,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 		Labels:       []string{"a", "b", "c"},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			return ep, true
 		},
 	}

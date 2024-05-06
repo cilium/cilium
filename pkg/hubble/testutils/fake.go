@@ -19,14 +19,14 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 // FakeGetFlowsServer is used for unit tests and implements the
@@ -298,12 +298,12 @@ var NoopDNSGetter = FakeFQDNCache{
 
 // FakeEndpointGetter is used for unit tests that needs EndpointGetter.
 type FakeEndpointGetter struct {
-	OnGetEndpointInfo     func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool)
-	OnGetEndpointInfoByID func(id uint16) (endpoint v1.EndpointInfo, ok bool)
+	OnGetEndpointInfo     func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool)
+	OnGetEndpointInfoByID func(id uint16) (endpoint getters.EndpointInfo, ok bool)
 }
 
 // GetEndpointInfo implements EndpointGetter.GetEndpointInfo.
-func (f *FakeEndpointGetter) GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+func (f *FakeEndpointGetter) GetEndpointInfo(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 	if f.OnGetEndpointInfo != nil {
 		return f.OnGetEndpointInfo(ip)
 	}
@@ -311,7 +311,7 @@ func (f *FakeEndpointGetter) GetEndpointInfo(ip netip.Addr) (endpoint v1.Endpoin
 }
 
 // GetEndpointInfoByID implements EndpointGetter.GetEndpointInfoByID.
-func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint getters.EndpointInfo, ok bool) {
 	if f.OnGetEndpointInfoByID != nil {
 		return f.OnGetEndpointInfoByID(id)
 	}
@@ -320,10 +320,10 @@ func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint v1.Endpoin
 
 // NoopEndpointGetter always returns an empty response.
 var NoopEndpointGetter = FakeEndpointGetter{
-	OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+	OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 		return nil, false
 	},
-	OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+	OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
 		return nil, false
 	},
 }
@@ -412,7 +412,7 @@ var NoopIdentityGetter = FakeIdentityGetter{
 	},
 }
 
-// FakeEndpointInfo implements v1.EndpointInfo for unit tests. All interface
+// FakeEndpointInfo implements getters.EndpointInfo for unit tests. All interface
 // methods return values exposed in the fields.
 type FakeEndpointInfo struct {
 	ContainerIDs []string
@@ -425,7 +425,7 @@ type FakeEndpointInfo struct {
 	Labels       []string
 	Pod          *slim_corev1.Pod
 
-	PolicyMap      map[policy.Key]labels.LabelArrayList
+	PolicyMap      map[policyTypes.Key]labels.LabelArrayList
 	PolicyRevision uint64
 }
 
@@ -459,7 +459,7 @@ func (e *FakeEndpointInfo) GetPod() *slim_corev1.Pod {
 	return e.Pod
 }
 
-func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
+func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
 	derivedFrom labels.LabelArrayList,
 	revision uint64,
 	ok bool,

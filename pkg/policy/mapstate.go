@@ -20,7 +20,17 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
+
+// Key and Keys are types used both internally and externally.
+// The types have been lifted out, but an alias is being used
+// so we don't have to change all the code everywhere.
+//
+// Do not use these types outside of pkg/policy or pkg/endpoint,
+// lest ye find yourself with hundreds of unnecessary imports.
+type Key = policyTypes.Key
+type Keys = policyTypes.Keys
 
 var (
 	// localHostKey represents an ingress L3 allow from the local host.
@@ -93,57 +103,6 @@ func (m mapStateMap) insert(k Key, e MapStateEntry) {
 type Identities interface {
 	GetNetsLocked(identity.NumericIdentity) []*net.IPNet
 }
-
-// Key is the userspace representation of a policy key in BPF. It is
-// intentionally duplicated from pkg/maps/policymap to avoid pulling in the
-// BPF dependency to this package.
-type Key struct {
-	// Identity is the numeric identity to / from which traffic is allowed.
-	Identity uint32
-	// DestPort is the port at L4 to / from which traffic is allowed, in
-	// host-byte order.
-	DestPort uint16
-	// NextHdr is the protocol which is allowed.
-	Nexthdr uint8
-	// TrafficDirection indicates in which direction Identity is allowed
-	// communication (egress or ingress).
-	TrafficDirection uint8
-}
-
-// String returns a string representation of the Key
-func (k Key) String() string {
-	return "Identity=" + strconv.FormatUint(uint64(k.Identity), 10) +
-		",DestPort=" + strconv.FormatUint(uint64(k.DestPort), 10) +
-		",Nexthdr=" + strconv.FormatUint(uint64(k.Nexthdr), 10) +
-		",TrafficDirection=" + strconv.FormatUint(uint64(k.TrafficDirection), 10)
-}
-
-// IsIngress returns true if the key refers to an ingress policy key
-func (k Key) IsIngress() bool {
-	return k.TrafficDirection == trafficdirection.Ingress.Uint8()
-}
-
-// IsEgress returns true if the key refers to an egress policy key
-func (k Key) IsEgress() bool {
-	return k.TrafficDirection == trafficdirection.Egress.Uint8()
-}
-
-// PortProtoIsBroader returns true if the receiver Key has broader
-// port-protocol than the argument Key. That is a port-protocol
-// that covers the argument Key's port-protocol and is larger.
-// An equal port-protocol will return false.
-func (k Key) PortProtoIsBroader(c Key) bool {
-	return k.DestPort == 0 && c.DestPort != 0 ||
-		k.Nexthdr == 0 && c.Nexthdr != 0
-}
-
-// PortProtoIsEqual returns true if the port-protocols of the
-// two keys are exactly equal.
-func (k Key) PortProtoIsEqual(c Key) bool {
-	return k.DestPort == c.DestPort && k.Nexthdr == c.Nexthdr
-}
-
-type Keys map[Key]struct{}
 
 type MapStateOwner interface{}
 
@@ -916,7 +875,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 //  4. ID/*/*
 //  5. ID/proto/*
 //     ( ID/proto/port can not be superset of anything )
-func (k Key) IsSuperSetOf(other Key) int {
+func IsSuperSetOf(k, other Key) int {
 	if k.TrafficDirection != other.TrafficDirection {
 		return 0 // TrafficDirection must match for 'k' to be a superset of 'other'
 	}
@@ -983,7 +942,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 				}
 
 				// Find out if 'k' is an identity-port-proto superset of 'newKey'
-				if specificity := k.IsSuperSetOf(newKey); specificity > 0 {
+				if specificity := IsSuperSetOf(k, newKey); specificity > 0 {
 					if specificity > maxSpecificity {
 						// AuthType from the most specific superset is
 						// applied to 'newEntry'
@@ -1042,7 +1001,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 				}
 
 				// Find out if 'newKey' is a superset of 'k'
-				if specificity := newKey.IsSuperSetOf(k); specificity > 0 {
+				if specificity := IsSuperSetOf(newKey, k); specificity > 0 {
 					if v.hasAuthType == ExplicitAuthType {
 						// store for later comparison
 						explicitSubsetKeys[k] = struct{}{}
@@ -1075,7 +1034,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 		Next:
 			for k, specificity := range defaultSubsetKeys {
 				for l := range explicitSubsetKeys {
-					if s := l.IsSuperSetOf(k); s > specificity {
+					if s := IsSuperSetOf(l, k); s > specificity {
 						// k has a more specific superset key than the newKey, skip
 						continue Next
 					}
