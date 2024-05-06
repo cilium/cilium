@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
@@ -62,7 +62,7 @@ jobs:
           comment_on_pr: false
 
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
@@ -71,7 +71,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@82d40c283aeb1f2b6595839195e95c2d6a49081b # v5.0.0
+        uses: golangci/golangci-lint-action@38e1018663fa5173f3968ea0777460d3de38f256 # v5.3.0
         with:
           # renovate: datasource=docker depName=golangci/golangci-lint
           version: v1.57.2
@@ -83,7 +83,7 @@ jobs:
     name: Precheck
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
@@ -103,7 +103,7 @@ jobs:
     name: Generate API
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
@@ -123,7 +123,7 @@ jobs:
     name: Generate k8s API
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.2
