@@ -37,9 +37,6 @@ import (
 // and holds all resources belonging to it. It implements interface
 // ConnectivityTest and is instantiated once at the start of the program,
 type ConnectivityTest struct {
-	// ConnectivityTest instance unique identifier
-	id int
-
 	// Client connected to a Kubernetes cluster.
 	client       *k8s.Client
 	hubbleClient observer.ObserverClient
