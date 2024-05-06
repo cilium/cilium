@@ -58,6 +58,8 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
+  # renovate: datasource=docker depName=google/cloud-sdk
+  gcloud_version: 405.0.0
 
 jobs:
   echo-inputs:
@@ -134,7 +136,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          version: "405.0.0"
+          version: ${{ env.gcloud_version }}
 
       - name: Filter Matrix
         id: set-matrix
@@ -238,7 +240,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          version: "405.0.0"
+          version: ${{ env.gcloud_version }}
 
       - name: Install gke-gcloud-auth-plugin
         run: |
