@@ -48,7 +48,7 @@ type ServiceManager interface {
 	InitMaps(ipv6, ipv4, sockMaps, restore bool) error
 
 	// RegisterL7LBServiceRedirect makes the given service to be locally redirected to the given proxy port.
-	RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16) error
+	RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16, frontendPorts []uint16) error
 
 	// DeregisterL7LBServiceRedirect deregisters a Service from being redirected to a L7 LB.
 	DeregisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName) error

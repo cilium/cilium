@@ -97,7 +97,7 @@ type Service struct {
 	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace"`
 
-	// Port is the port number, which can be used for filtering in case of underlying
+	// Ports is a set of port numbers, which can be used for filtering in case of underlying
 	// is exposing multiple port numbers.
 	//
 	// +kubebuilder:validation:Optional
@@ -116,6 +116,12 @@ type ServiceListener struct {
 	// In CiliumClusterwideEnvoyConfig namespace defaults to "default".
 	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace"`
+
+	// Ports is a set of service's frontend ports that should be redirected to the Envoy
+	// listener. By default all frontend ports of the service are redirected.
+	//
+	// +kubebuilder:validation:Optional
+	Ports []uint16 `json:"ports,omitempty"`
 
 	// Listener specifies the name of the Envoy listener the
 	// service traffic is redirected to. The listener must be
