@@ -1019,7 +1019,7 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting the clustermesh metrics",
+			Description:     "Collecting the clustermesh debug information and metrics",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
 				// clustermesh-apiserver runs in the same namespace as operator
@@ -1027,6 +1027,12 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get the Cilium clustermesh pods: %w", err)
 				}
+
+				err = c.submitClusterMeshAPIServerDbgTasks(pods)
+				if err != nil {
+					return fmt.Errorf("failed to collect the Cilium clustermesh debug information: %w", err)
+				}
+
 				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshContainerName, defaults.ClusterMeshMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
@@ -2667,6 +2673,89 @@ func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, po
 	return nil
 }
 
+func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods *corev1.PodList) error {
+	tasks := []struct {
+		name      string
+		ext       string
+		cmd       []string
+		container string
+	}{
+		{
+			name:      "version",
+			ext:       "txt",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "version"},
+			container: defaults.ClusterMeshContainerName},
+		{
+			name:      "troubleshoot",
+			ext:       "txt",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "clustermesh-dbg", "troubleshoot"},
+			container: defaults.ClusterMeshContainerName,
+		},
+		{
+			name:      "version",
+			ext:       "txt",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "version"},
+			container: defaults.ClusterMeshKVStoreMeshContainerName,
+		},
+		{
+			name:      "status",
+			ext:       "txt",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "--verbose"},
+			container: defaults.ClusterMeshKVStoreMeshContainerName,
+		},
+		{
+			name:      "status",
+			ext:       "json",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "-o", "json"},
+			container: defaults.ClusterMeshKVStoreMeshContainerName,
+		},
+		{
+			name:      "troubleshoot",
+			ext:       "txt",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "troubleshoot", "--include-local"},
+			container: defaults.ClusterMeshKVStoreMeshContainerName,
+		},
+	}
+
+	for _, pod := range pods.Items {
+		pod := pod
+		for _, task := range tasks {
+			if !podIsRunningAndHasContainer(&pod, task.container) {
+				continue
+			}
+
+			name := fmt.Sprintf("%s-%s-%s-%s", pod.Name, task.container, task.name, task.ext)
+			if err := c.Pool.Submit(name, func(ctx context.Context) error {
+				stdout, stderr, err := c.Client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, task.container, task.cmd)
+				if err != nil {
+					stderrStr := stderr.String()
+					if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
+						// The default cobra error tends to be misleading when both the
+						// command and the flags are not found, as it reports the missing
+						// flags rather than the missing command. Hence, let's just guess
+						// and output a generic unknown command error.
+						stderrStr = "unknown command - this is expected if not supported by this Cilium version"
+					}
+
+					return fmt.Errorf("failed to collect clustermesh %s information from %s/%s (%s): %w: %s",
+						task.name, pod.Namespace, pod.Name, task.container, err, stderrStr)
+				}
+
+				filename := name + "-<ts>." + task.ext
+				if err := c.WriteString(filename, stdout.String()); err != nil {
+					return fmt.Errorf("failed to write clustermesh %s information to file %q: %w", task.name, filename, err)
+				}
+
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to submit %s task: %w", name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func getPodMetricsPort(pod corev1.Pod, containerName, portName string) (int32, error) {
 	for _, container := range pod.Spec.Containers {
 		if container.Name != containerName {
@@ -2680,6 +2769,20 @@ func getPodMetricsPort(pod corev1.Pod, containerName, portName string) (int32, e
 	}
 
 	return 0, fmt.Errorf("failed to find port %s in container %s in pod %s", portName, containerName, pod.Name)
+}
+
+// podIsRunningAndHasContainer returns whether the given pod is running,
+// and includes the specified container.
+func podIsRunningAndHasContainer(pod *corev1.Pod, container string) bool {
+	if pod.Status.Phase == corev1.PodRunning {
+		for i := range pod.Spec.Containers {
+			if pod.Spec.Containers[i].Name == container {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func buildNodeNameList(nodes *corev1.NodeList, filter string) ([]string, error) {
