@@ -2411,6 +2411,11 @@ func (c *Collector) getGopsPID(ctx context.Context, pod *corev1.Pod, containerNa
 func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
+
+		if !podIsRunningAndHasContainer(p, containerName) {
+			continue
+		}
+
 		for _, g := range gopsStats {
 			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
@@ -2657,7 +2662,7 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, portName string) error {
 	for _, p := range pods.Items {
 		p := p
-		if p.Status.Phase != corev1.PodRunning {
+		if !podIsRunningAndHasContainer(&p, containerName) {
 			continue
 		}
 		err := c.Pool.Submit(fmt.Sprintf("metrics-%s-%s-%s", p.Name, containerName, portName), func(ctx context.Context) error {
