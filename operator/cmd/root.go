@@ -531,6 +531,10 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
+		if (ipamMode == ipamOption.IPAMAlibabaCloud || ipamMode == ipamOption.IPAMAzure) && option.Config.IPv6Enabled() {
+			log.Fatalf("%s allocator does not support IPv6", ipamMode)
+		}
+
 		if err := alloc.Init(legacy.ctx); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}

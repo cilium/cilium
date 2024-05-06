@@ -79,7 +79,7 @@ type nodeStore struct {
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, conf *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
+func newNodeStore(nodeName string, conf *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, family Family) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
@@ -174,7 +174,7 @@ func newNodeStore(nodeName string, conf *option.DaemonConfig, owner Owner, local
 	}
 
 	for {
-		minimumReached, required, numAvailable := store.hasMinimumIPsInPool(localNodeStore)
+		minimumReached, required, numAvailable := store.hasMinimumIPsInPool(localNodeStore, family)
 		logFields := logrus.Fields{
 			fieldName:   nodeName,
 			"required":  required,
@@ -282,10 +282,53 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNo
 	}
 }
 
-// hasMinimumIPsInPool returns true if the required number of IPs is available
-// in the allocation pool. It also returns the number of IPs required and
-// available.
-func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (minimumReached bool, required, numAvailable int) {
+func (n *nodeStore) autoDetectIPv6NativeRoutingCIDR(localNodeStore *node.LocalNodeStore) bool {
+	if vpcCIDR := deriveVpcIPv6CIDR(n.ownNode); vpcCIDR != nil {
+		if nativeCIDR := n.conf.GetIPv6NativeRoutingCIDR(); nativeCIDR != nil {
+			logFields := logrus.Fields{
+				"vpc-cidr":                   vpcCIDR.String(),
+				option.IPv6NativeRoutingCIDR: nativeCIDR.String(),
+			}
+
+			_, ranges6 := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
+			if len(ranges6) == 1 {
+				log.WithFields(logFields).Info("IPv6 native routing CIDR contains VPC IPv6 CIDR, ignoring autodetected VPC IPv6 CIDRs.")
+				return true
+			} else {
+				log.Fatal("IPv6 native routing CIDR does not contain VPC IPv6 CIDR")
+			}
+		} else {
+			log.WithFields(logrus.Fields{
+				"vpc-cidr": vpcCIDR.String(),
+			}).Info("Using autodetected IPv6 VPC CIDR.")
+			localNodeStore.Update(func(n *node.LocalNode) {
+				n.IPv6NativeRoutingCIDR = vpcCIDR
+			})
+		}
+		return true
+	}
+	log.Info("Could not determine VPC IPv6 CIDR")
+	return false
+}
+
+func deriveVpcIPv6CIDR(node *ciliumv2.CiliumNode) *cidr.CIDR {
+	// A node belongs to a single VPC so we can pick the first ENI
+	// in the list and derive the VPC CIDR from it.
+	for _, eni := range node.Status.ENI.ENIs {
+		for _, v6Cidr := range eni.VPC.IPv6CIDRs {
+			c, err := cidr.ParseIPv6CIDR(v6Cidr)
+			if err == nil {
+				return c
+			}
+		}
+	}
+	// TOD: Add support for Azure and Alibaba IPAM providers.
+	return nil
+}
+
+// hasMinimumIPsInPool returns true and the number of required and available IPs
+// in the allocation pool based on the provided IP family.
+func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore, family Family) (minimumReached bool, required, numAvailable int) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -293,30 +336,58 @@ func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (mi
 		return
 	}
 
-	switch {
-	case n.ownNode.Spec.IPAM.MinAllocate != 0:
-		required = n.ownNode.Spec.IPAM.MinAllocate
-	case n.ownNode.Spec.IPAM.PreAllocate != 0:
-		required = n.ownNode.Spec.IPAM.PreAllocate
-	case n.conf.HealthCheckingEnabled():
-		required = 2
-	default:
-		required = 1
-	}
+	if family == IPv4 {
+		switch {
+		case n.ownNode.Spec.IPAM.MinAllocate != 0:
+			required = n.ownNode.Spec.IPAM.MinAllocate
+		case n.ownNode.Spec.IPAM.PreAllocate != 0:
+			required = n.ownNode.Spec.IPAM.PreAllocate
+		case n.conf.HealthCheckingEnabled():
+			required = 2
+		default:
+			required = 1
+		}
+		if n.ownNode.Spec.IPAM.Pool != nil {
+			for ip := range n.ownNode.Spec.IPAM.Pool {
+				if !n.isIPInReleaseHandshake(ip) {
+					numAvailable++
+				}
+			}
+			if len(n.ownNode.Spec.IPAM.Pool) >= required {
+				minimumReached = true
+			}
 
-	if n.ownNode.Spec.IPAM.Pool != nil {
-		for ip := range n.ownNode.Spec.IPAM.Pool {
-			if !n.isIPInReleaseHandshake(ip) {
-				numAvailable++
+			if n.conf.IPAMMode() == ipamOption.IPAMENI || n.conf.IPAMMode() == ipamOption.IPAMAzure || n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud {
+				if !n.autoDetectIPv4NativeRoutingCIDR(localNodeStore) {
+					minimumReached = false
+				}
 			}
 		}
-		if len(n.ownNode.Spec.IPAM.Pool) >= required {
-			minimumReached = true
+	} else {
+		switch {
+		case n.ownNode.Spec.IPAM.IPv6MinAllocate != 0:
+			required = n.ownNode.Spec.IPAM.IPv6MinAllocate
+		case n.ownNode.Spec.IPAM.IPv6PreAllocate != 0:
+			required = n.ownNode.Spec.IPAM.IPv6PreAllocate
+		case n.conf.HealthCheckingEnabled():
+			required = 2
+		default:
+			required = 1
 		}
+		if n.ownNode.Spec.IPAM.IPv6Pool != nil {
+			for ip := range n.ownNode.Spec.IPAM.IPv6Pool {
+				if !n.isIPInReleaseHandshake(ip) {
+					numAvailable++
+				}
+			}
+			if len(n.ownNode.Spec.IPAM.IPv6Pool) >= required {
+				minimumReached = true
+			}
 
-		if n.conf.IPAMMode() == ipamOption.IPAMENI || n.conf.IPAMMode() == ipamOption.IPAMAzure || n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud {
-			if !n.autoDetectIPv4NativeRoutingCIDR(localNodeStore) {
-				minimumReached = false
+			if n.conf.IPAMMode() == ipamOption.IPAMENI {
+				if !n.autoDetectIPv6NativeRoutingCIDR(localNodeStore) {
+					minimumReached = false
+				}
 			}
 		}
 	}
@@ -359,7 +430,7 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 	}
 
 	releaseUpstreamSyncNeeded := false
-	// ACK or NACK IPs marked for release by the operator
+	// ACK or NACK IPv4 addresses marked for release by the operator
 	for ip, status := range n.ownNode.Status.IPAM.ReleaseIPs {
 		if n.ownNode.Spec.IPAM.Pool == nil {
 			continue
@@ -413,7 +484,7 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 		if ipAddr := net.ParseIP(ip); ipAddr != nil {
 			ipFamily = DeriveFamily(ipAddr)
 		}
-		if ipFamily == "" {
+		if ipFamily == "" || ipFamily == IPv6 {
 			continue
 		}
 		for _, a := range n.allocators {
@@ -439,6 +510,95 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
 		} else {
 			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMReadyForRelease
+		}
+		releaseUpstreamSyncNeeded = true
+	}
+
+	// ACK or NACK IPv6 addresses marked for release by the operator
+	for ip, status := range n.ownNode.Status.IPAM.ReleaseIPv6s {
+		if n.ownNode.Spec.IPAM.IPv6Pool == nil {
+			continue
+		}
+		// Ignore states that agent previously responded to.
+		if status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMDoNotRelease {
+			continue
+		}
+		if _, ok := n.ownNode.Spec.IPAM.IPv6Pool[ip]; !ok {
+			if status == ipamOption.IPAMReleased {
+				// Remove entry from release-ips only when it is removed from .spec.ipam.pool as well
+				delete(n.ownNode.Status.IPAM.ReleaseIPv6s, ip)
+				releaseUpstreamSyncNeeded = true
+
+				// Remove the unreachable route for this IP
+				if n.conf.UnreachableRoutesEnabled() {
+					parsedIP := net.ParseIP(ip)
+					if parsedIP == nil {
+						// Unable to parse IP, no point in trying to remove the route
+						log.Warningf("Unable to parse IP %s", ip)
+						continue
+					}
+
+					if parsedIP.To4() != nil {
+						log.Warningf("IP %s is not an IPv6 address", ip)
+						continue
+					}
+
+					err := netlink.RouteDel(&netlink.Route{
+						Dst:   &net.IPNet{IP: parsedIP, Mask: net.CIDRMask(128, 128)},
+						Table: unix.RT_TABLE_MAIN,
+						Type:  unix.RTN_UNREACHABLE,
+					})
+					if err != nil && !errors.Is(err, unix.ESRCH) {
+						// We ignore ESRCH, as it means the entry was already deleted
+						log.WithError(err).Warningf("Unable to delete unreachable route for IP %s", ip)
+						continue
+					}
+				}
+			} else if status == ipamOption.IPAMMarkForRelease {
+				// NACK the IP, if this node doesn't own the IP
+				n.ownNode.Status.IPAM.ReleaseIPv6s[ip] = ipamOption.IPAMDoNotRelease
+				releaseUpstreamSyncNeeded = true
+			}
+			continue
+		}
+
+		// Ignore all other states, transition to do-not-release and ready-for-release are allowed only from
+		// marked-for-release
+		if status != ipamOption.IPAMMarkForRelease {
+			continue
+		}
+		// Retrieve the appropriate allocator
+		var allocator *crdAllocator
+		var ipFamily Family
+		if ipAddr := net.ParseIP(ip); ipAddr != nil {
+			ipFamily = DeriveFamily(ipAddr)
+		}
+		if ipFamily == "" || ipFamily == IPv4 {
+			continue
+		}
+		for _, a := range n.allocators {
+			if a.family == ipFamily {
+				allocator = a
+			}
+		}
+		if allocator == nil {
+			continue
+		}
+
+		// Some functions like crdAllocator.Allocate() acquire lock on allocator first and then on nodeStore.
+		// So release nodestore lock before acquiring allocator lock to avoid potential deadlocks from inconsistent
+		// lock ordering.
+		n.mutex.Unlock()
+		allocator.mutex.Lock()
+		_, ok := allocator.allocated[ip]
+		allocator.mutex.Unlock()
+		n.mutex.Lock()
+
+		if ok {
+			// IP still in use, update the operator to stop releasing the IP.
+			n.ownNode.Status.IPAM.ReleaseIPv6s[ip] = ipamOption.IPAMDoNotRelease
+		} else {
+			n.ownNode.Status.IPAM.ReleaseIPv6s[ip] = ipamOption.IPAMReadyForRelease
 		}
 		releaseUpstreamSyncNeeded = true
 	}
@@ -484,11 +644,18 @@ func (n *nodeStore) refreshNode() error {
 	n.mutex.RUnlock()
 
 	node.Status.IPAM.Used = ipamTypes.AllocationMap{}
+	node.Status.IPAM.IPv6Used = ipamTypes.AllocationMap{}
 
 	for _, a := range staleCopyOfAllocators {
 		a.mutex.RLock()
-		for ip, ipInfo := range a.allocated {
-			node.Status.IPAM.Used[ip] = ipInfo
+		if a.family == IPv6 {
+			for ip, ipInfo := range a.allocated {
+				node.Status.IPAM.IPv6Used[ip] = ipInfo
+			}
+		} else {
+			for ip, ipInfo := range a.allocated {
+				node.Status.IPAM.Used[ip] = ipInfo
+			}
 		}
 		a.mutex.RUnlock()
 	}
@@ -511,21 +678,39 @@ func (n *nodeStore) allocate(ip net.IP) (*ipamTypes.AllocationIP, error) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
+	isV4 := false
+	if ip.To4() != nil {
+		isV4 = true
+	}
+
 	if n.ownNode == nil {
 		return nil, fmt.Errorf("CiliumNode for own node is not available")
 	}
 
-	if n.ownNode.Spec.IPAM.Pool == nil {
-		return nil, fmt.Errorf("No IPs available")
+	if isV4 && n.ownNode.Spec.IPAM.Pool == nil {
+		return nil, fmt.Errorf("No IPv4 addresses available")
+	}
+
+	if !isV4 && n.ownNode.Spec.IPAM.IPv6Pool == nil {
+		return nil, fmt.Errorf("No IPv6 addresses available")
 	}
 
 	if n.isIPInReleaseHandshake(ip.String()) {
 		return nil, fmt.Errorf("IP not available, marked or ready for release")
 	}
 
-	ipInfo, ok := n.ownNode.Spec.IPAM.Pool[ip.String()]
-	if !ok {
-		return nil, NewIPNotAvailableInPoolError(ip)
+	var ipInfo ipamTypes.AllocationIP
+	var ok bool
+	if isV4 {
+		ipInfo, ok = n.ownNode.Spec.IPAM.Pool[ip.String()]
+		if !ok {
+			return nil, NewIPNotAvailableInPoolError(ip)
+		}
+	} else {
+		ipInfo, ok = n.ownNode.Spec.IPAM.IPv6Pool[ip.String()]
+		if !ok {
+			return nil, NewIPNotAvailableInPoolError(ip)
+		}
 	}
 
 	return &ipInfo, nil
@@ -533,14 +718,32 @@ func (n *nodeStore) allocate(ip net.IP) (*ipamTypes.AllocationIP, error) {
 
 // isIPInReleaseHandshake validates if a given IP is currently in the process of being released
 func (n *nodeStore) isIPInReleaseHandshake(ip string) bool {
-	if n.ownNode.Status.IPAM.ReleaseIPs == nil {
-		return false
+	isV4 := false
+	parsedIP := net.ParseIP(ip)
+	if parsedIP.To4() != nil {
+		isV4 = true
 	}
-	if status, ok := n.ownNode.Status.IPAM.ReleaseIPs[ip]; ok {
-		if status == ipamOption.IPAMMarkForRelease || status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMReleased {
-			return true
+
+	if isV4 {
+		if n.ownNode.Status.IPAM.ReleaseIPs == nil {
+			return false
+		}
+		if status, ok := n.ownNode.Status.IPAM.ReleaseIPs[ip]; ok {
+			if status == ipamOption.IPAMMarkForRelease || status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMReleased {
+				return true
+			}
+		}
+	} else {
+		if n.ownNode.Status.IPAM.ReleaseIPv6s == nil {
+			return false
+		}
+		if status, ok := n.ownNode.Status.IPAM.ReleaseIPv6s[ip]; ok {
+			if status == ipamOption.IPAMMarkForRelease || status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMReleased {
+				return true
+			}
 		}
 	}
+
 	return false
 }
 
@@ -575,7 +778,11 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 
 	// FIXME: This is currently using a brute-force method that can be
 	// optimized
-	for ip, ipInfo := range n.ownNode.Spec.IPAM.Pool {
+	pool := n.ownNode.Spec.IPAM.Pool
+	if family == IPv6 {
+		pool = n.ownNode.Spec.IPAM.IPv6Pool
+	}
+	for ip, ipInfo := range pool {
 		if _, ok := allocated[ip]; !ok {
 
 			if n.isIPInReleaseHandshake(ip) {
@@ -636,7 +843,7 @@ type crdAllocator struct {
 // newCRDAllocator creates a new CRD-backed IP allocator
 func newCRDAllocator(family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, localNodeStore, clientset, k8sEventReg, mtuConfig)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, localNodeStore, clientset, k8sEventReg, mtuConfig, family)
 	})
 
 	allocator := &crdAllocator{
@@ -682,20 +889,32 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 	case ipamOption.IPAMENI:
 		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
 			if eni.ID == ipInfo.Resource {
-				result.PrimaryMAC = eni.MAC
-				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
-				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
-				// Add manually configured Native Routing CIDR
-				if a.conf.GetIPv4NativeRoutingCIDR() != nil {
-					result.CIDRs = append(result.CIDRs, a.conf.GetIPv4NativeRoutingCIDR().String())
-				}
-				if eni.Subnet.CIDR != "" {
-					// The gateway for a subnet and VPC is always x.x.x.1
-					// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
-					result.GatewayIP = deriveGatewayIP(eni.Subnet.CIDR, 1)
-				}
 				result.InterfaceNumber = strconv.Itoa(eni.Number)
-
+				result.PrimaryMAC = eni.MAC
+				if a.family == IPv4 {
+					result.CIDRs = []string{eni.VPC.PrimaryCIDR}
+					result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
+					// Add manually configured Native Routing CIDR
+					if a.conf.GetIPv4NativeRoutingCIDR() != nil {
+						result.CIDRs = append(result.CIDRs, a.conf.GetIPv4NativeRoutingCIDR().String())
+					}
+					if eni.Subnet.CIDR != "" {
+						// The gateway for a subnet and VPC is always x.x.x.1
+						// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
+						result.GatewayIP = deriveGatewayIP(eni.Subnet.CIDR, 1)
+					}
+				} else {
+					result.CIDRs = eni.VPC.IPv6CIDRs
+					// Add manually configured IPv6 Native Routing CIDR
+					if a.conf.GetIPv6NativeRoutingCIDR() != nil {
+						result.CIDRs = append(result.CIDRs, a.conf.GetIPv6NativeRoutingCIDR().String())
+					}
+					if eni.Subnet.IPv6CIDR != "" {
+						// The gateway for a subnet and VPC is always x:x:x::1
+						// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
+						result.GatewayIP = deriveGatewayIP(eni.Subnet.IPv6CIDR, 1)
+					}
+				}
 				return
 			}
 		}

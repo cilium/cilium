@@ -17,6 +17,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
+	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamStats "github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -34,14 +35,20 @@ const testPoolID = ipamTypes.PoolID("global")
 
 type allocationImplementationMock struct {
 	// mutex protects all fields of this structure
-	mutex        lock.RWMutex
-	poolSize     int
-	allocatedIPs int
-	ipGenerator  int
+	mutex          lock.RWMutex
+	poolSize       int
+	v6PoolSize     int
+	allocatedIPs   int
+	allocatedIPv6s int
+	ipGenerator    int
+	ipv6Generator  int
 }
 
 func newAllocationImplementationMock() *allocationImplementationMock {
-	return &allocationImplementationMock{poolSize: 2048}
+	return &allocationImplementationMock{
+		poolSize:   2048,
+		v6PoolSize: 2048,
+	}
 }
 
 func (a *allocationImplementationMock) CreateNode(obj *v2.CiliumNode, node *Node) NodeOperations {
@@ -52,7 +59,10 @@ func (a *allocationImplementationMock) GetPoolQuota() ipamTypes.PoolQuotaMap {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	return ipamTypes.PoolQuotaMap{
-		testPoolID: ipamTypes.PoolQuota{AvailableIPs: a.poolSize - a.allocatedIPs},
+		testPoolID: ipamTypes.PoolQuota{
+			AvailableIPs:   a.poolSize - a.allocatedIPs,
+			AvailableIPv6s: a.v6PoolSize - a.allocatedIPv6s,
+		},
 	}
 }
 
@@ -75,11 +85,15 @@ type nodeOperationsMock struct {
 	allocator *allocationImplementationMock
 
 	// mutex protects allocatedIPs
-	mutex        lock.RWMutex
-	allocatedIPs []string
+	mutex          lock.RWMutex
+	allocatedIPs   []string
+	allocatedIPv6s []string
 }
 
-func (n *nodeOperationsMock) GetUsedIPWithPrefixes() int {
+func (n *nodeOperationsMock) GetUsedIPWithPrefixes(family Family) int {
+	if family == IPv6 {
+		return len(n.allocatedIPv6s)
+	}
 	return len(n.allocatedIPs)
 }
 
@@ -87,56 +101,80 @@ func (n *nodeOperationsMock) UpdatedNode(obj *v2.CiliumNode) {}
 
 func (n *nodeOperationsMock) PopulateStatusFields(resource *v2.CiliumNode) {}
 
-func (n *nodeOperationsMock) CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+func (n *nodeOperationsMock) CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry, family Family) (int, string, error) {
 	return 0, "operation not supported", fmt.Errorf("operation not supported")
 }
 
-func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (
+func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry, family Family) (
 	ipamTypes.AllocationMap,
 	ipamStats.InterfaceStats,
 	error) {
 	var stats ipamStats.InterfaceStats
 	available := ipamTypes.AllocationMap{}
 	n.mutex.RLock()
-	for _, ip := range n.allocatedIPs {
-		available[ip] = ipamTypes.AllocationIP{}
+	if family == IPv4 {
+		for _, ip := range n.allocatedIPs {
+			available[ip] = ipamTypes.AllocationIP{}
+		}
+	} else {
+		for _, ip := range n.allocatedIPv6s {
+			available[ip] = ipamTypes.AllocationIP{}
+		}
 	}
 	n.mutex.RUnlock()
 	return available, stats, nil
 }
 
-func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry) (*AllocationAction, error) {
+func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry, family Family) (*AllocationAction, error) {
 	n.allocator.mutex.RLock()
 	defer n.allocator.mutex.RUnlock()
-	return &AllocationAction{
-		PoolID: testPoolID,
-		IPv4: IPAllocationAction{
-			AvailableForAllocation: n.allocator.poolSize - n.allocator.allocatedIPs,
-		},
-	}, nil
+	alloc := &AllocationAction{PoolID: testPoolID}
+	if family == IPv4 {
+		alloc.IPv4 = IPAllocationAction{AvailableForAllocation: n.allocator.poolSize - n.allocator.allocatedIPs}
+	} else {
+		alloc.IPv6 = IPAllocationAction{AvailableForAllocation: n.allocator.v6PoolSize - n.allocator.allocatedIPv6s}
+	}
+	return alloc, nil
 }
 
-func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *AllocationAction) error {
+func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *AllocationAction, family Family) error {
 	n.mutex.Lock()
 	n.allocator.mutex.Lock()
-	n.allocator.allocatedIPs += allocation.IPv4.AvailableForAllocation
-	for i := 0; i < allocation.IPv4.AvailableForAllocation; i++ {
-		n.allocator.ipGenerator++
-		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("%d", n.allocator.ipGenerator))
+	if family == IPv4 {
+		n.allocator.allocatedIPs += allocation.IPv4.AvailableForAllocation
+		for i := 0; i < allocation.IPv4.AvailableForAllocation; i++ {
+			n.allocator.ipGenerator++
+			n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("%d", n.allocator.ipGenerator))
+		}
+	} else {
+		n.allocator.allocatedIPv6s += allocation.IPv6.AvailableForAllocation
+		for i := 0; i < allocation.IPv6.AvailableForAllocation; i++ {
+			n.allocator.ipv6Generator++
+			n.allocatedIPv6s = append(n.allocatedIPv6s, fmt.Sprintf("%d", n.allocator.ipv6Generator))
+		}
 	}
 	n.allocator.mutex.Unlock()
 	n.mutex.Unlock()
 	return nil
 }
 
-func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction {
+func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry, family Family) *ReleaseAction {
 	n.mutex.RLock()
-	excessIPs = math.IntMin(excessIPs, len(n.allocatedIPs))
 	r := &ReleaseAction{PoolID: testPoolID}
-	for i := 1; i <= excessIPs; i++ {
-		// Release from the end of slice to avoid releasing used IPs
-		releaseIndex := len(n.allocatedIPs) - (excessIPs + i - 1)
-		r.IPsToRelease = append(r.IPsToRelease, n.allocatedIPs[releaseIndex])
+	if family == IPv4 {
+		excessIPs = math.IntMin(excessIPs, len(n.allocatedIPs))
+		for i := 1; i <= excessIPs; i++ {
+			// Release from the end of slice to avoid releasing used IPs
+			releaseIndex := len(n.allocatedIPs) - (excessIPs + i - 1)
+			r.IPsToRelease = append(r.IPsToRelease, n.allocatedIPs[releaseIndex])
+		}
+	} else {
+		excessIPs = math.IntMin(excessIPs, len(n.allocatedIPv6s))
+		for i := 1; i <= excessIPs; i++ {
+			// Release from the end of slice to avoid releasing used IPs
+			releaseIndex := len(n.allocatedIPv6s) - (excessIPs + i - 1)
+			r.IPv6sToRelease = append(r.IPv6sToRelease, n.allocatedIPv6s[releaseIndex])
+		}
 	}
 	n.mutex.RUnlock()
 	return r
@@ -166,15 +204,22 @@ func (n *nodeOperationsMock) ReleaseIPs(ctx context.Context, release *ReleaseAct
 	return nil
 }
 
-func (n *nodeOperationsMock) GetMaximumAllocatableIPv4() int {
-	return 0
+func (n *nodeOperationsMock) GetMaximumAllocatableIP(family Family) int {
+	max := 0
+	if family == IPv6 {
+		max = option.ENIPDBlockSizeIPv6
+	}
+	return max
 }
 
-func (n *nodeOperationsMock) GetMinimumAllocatableIPv4() int {
-	return defaults.IPAMPreAllocation
+func (n *nodeOperationsMock) GetMinimumAllocatableIP(family Family) int {
+	if family == IPv4 {
+		return defaults.IPAMPreAllocation
+	}
+	return defaults.IPAMIPv6PreAllocation
 }
 
-func (n *nodeOperationsMock) IsPrefixDelegated() bool {
+func (n *nodeOperationsMock) IsPrefixDelegated(family Family) bool {
 	return false
 }
 
@@ -293,6 +338,29 @@ func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNo
 	return cn
 }
 
+func newIPv6CiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNode {
+	cn := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				IPv6Pool:        ipamTypes.AllocationMap{},
+				IPv6PreAllocate: preAllocate,
+				IPv6MinAllocate: minAllocate,
+			},
+		},
+		Status: v2.NodeStatus{
+			IPAM: ipamTypes.IPAMStatus{
+				IPv6Used:     ipamTypes.AllocationMap{},
+				ReleaseIPv6s: map[string]ipamTypes.IPReleaseStatus{},
+			},
+		},
+	}
+
+	updateCiliumIPv6Node(cn, used)
+
+	return cn
+}
+
 func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	for i := 1; i <= used; i++ {
@@ -311,9 +379,34 @@ func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 	return cn
 }
 
+func updateCiliumIPv6Node(cn *v2.CiliumNode, used int) *v2.CiliumNode {
+	cn.Spec.IPAM.IPv6Pool = ipamTypes.AllocationMap{}
+	for i := 1; i <= used; i++ {
+		cn.Spec.IPAM.IPv6Pool[fmt.Sprintf("2001:db8::%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
+	}
+
+	cn.Status.IPAM.IPv6Used = ipamTypes.AllocationMap{}
+	for ip, ipAllocation := range cn.Spec.IPAM.IPv6Pool {
+		if used > 0 {
+			delete(cn.Spec.IPAM.IPv6Pool, ip)
+			cn.Status.IPAM.IPv6Used[ip] = ipAllocation
+			used--
+		}
+	}
+
+	return cn
+}
+
 func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (success bool) {
 	if node := mngr.Get(nodeName); node != nil {
 		success = node.GetNeededAddresses() == needed
+	}
+	return
+}
+
+func reachedIPv6AddressesNeeded(mngr *NodeManager, nodeName string, needed int) (success bool) {
+	if node := mngr.Get(nodeName); node != nil {
+		success = node.GetNeededIPv6Addresses() == needed
 	}
 	return
 }
@@ -347,6 +440,39 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 	require.NotNil(t, node)
 	require.Equal(t, 15, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 7, node.Stats().IPv4.UsedIPs)
+}
+
+// TestNodeManagerDefaultIPv6Allocation tests IPv6 allocation with default parameters
+//
+// - MinAllocate 0
+// - PreAllocate 32
+func TestNodeManagerDefaultIPv6Allocation(t *testing.T) {
+	am := newAllocationImplementationMock()
+	require.NotNil(t, am)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, true)
+	require.Nil(t, err)
+	require.NotNil(t, mngr)
+
+	// Announce node wait for IPs to become available
+	nodeName := "node-ipv6-defaults"
+	cn := newIPv6CiliumNode(nodeName, 32, 0, 0)
+	mngr.Upsert(cn)
+	require.Nil(t, testutils.WaitUntil(func() bool { return reachedIPv6AddressesNeeded(mngr, nodeName, 0) }, 5*time.Second))
+
+	node := mngr.Get(nodeName)
+	require.NotNil(t, node)
+	require.Equal(t, 32, node.Stats().IPv6.AvailableIPs)
+	require.Equal(t, 0, node.Stats().IPv6.UsedIPs)
+
+	// Use 31 of 32 IPs
+	cn = updateCiliumIPv6Node(cn, 31)
+	mngr.Upsert(cn)
+	require.Nil(t, testutils.WaitUntil(func() bool { return reachedIPv6AddressesNeeded(mngr, nodeName, 0) }, 5*time.Second))
+
+	node = mngr.Get(nodeName)
+	require.NotNil(t, node)
+	require.Equal(t, 63, node.Stats().IPv6.AvailableIPs)
+	require.Equal(t, 31, node.Stats().IPv6.UsedIPs)
 }
 
 // TestNodeManagerMinAllocate20 tests MinAllocate without PreAllocate
@@ -689,4 +815,53 @@ func BenchmarkAllocDelay50Worker10(b *testing.B) {
 }
 func BenchmarkAllocDelay50Worker50(b *testing.B) {
 	benchmarkAllocWorker(b, 50, 50*time.Millisecond, 100.0, 4)
+}
+
+func TestGetNodesByIPWatermarkLocked(t *testing.T) {
+	tests := map[string]struct {
+		setupNodes    func(mngr *NodeManager)
+		expectedOrder []string
+		ipv6Enabled   bool
+	}{
+		"ipv4 nodes": {
+			setupNodes: func(mngr *NodeManager) {
+				mngr.Upsert(newCiliumNode("node1", 2, 0, 0)) // Node requiring 2 IPv4 addresses
+				mngr.Upsert(newCiliumNode("node2", 1, 0, 0)) // Node requiring 1 IPv4 addresses
+				mngr.Upsert(newCiliumNode("node3", 3, 0, 0)) // Node requiring 3 IPv4 addresses
+			},
+			expectedOrder: []string{"node3", "node1", "node2"},
+			ipv6Enabled:   false,
+		},
+		"ipv6 nodes": {
+			setupNodes: func(mngr *NodeManager) {
+				mngr.ipv6PrefixDelegation = true
+				mngr.Upsert(newIPv6CiliumNode("node4", 2, 0, 0)) // Node requiring 2 IPv6 addresses
+				mngr.Upsert(newIPv6CiliumNode("node5", 1, 0, 0)) // Node requiring 1 IPv6 addresses
+				mngr.Upsert(newIPv6CiliumNode("node6", 3, 0, 0)) // Node requiring 3 IPv6 addresses
+			},
+			expectedOrder: []string{"node6", "node4", "node5"},
+			ipv6Enabled:   true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Logf("Test case: %s", name)
+		am := newAllocationImplementationMock()
+		require.NotNil(t, am)
+		mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, tt.ipv6Enabled)
+		require.Nil(t, err)
+		require.NotNil(t, mngr)
+
+		tt.setupNodes(mngr)
+
+		result := mngr.GetNodesByIPWatermarkLocked()
+
+		// Convert result to node names for easier assertion
+		nodeNames := make([]string, len(result))
+		for i, node := range result {
+			nodeNames[i] = node.name
+		}
+
+		require.Equal(t, tt.expectedOrder, nodeNames)
+	}
 }

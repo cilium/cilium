@@ -266,17 +266,22 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 	// by the caller.
 	// This will also cause disruption of networking until all endpoints
 	// have been regenerated.
+	primaryFam := ipam.IPv4
 	result := reallocateDatapathIPs(d.ipam, fromK8s, fromFS)
 	if result == nil {
-		family := ipam.DeriveFamily(family.PrimaryExternal())
-		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault())
+		primaryFam = ipam.DeriveFamily(family.PrimaryExternal())
+		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(primaryFam, "router", ipam.PoolDefault())
 		if err != nil {
 			return nil, fmt.Errorf("Unable to allocate router IP for family %s: %w", family, err)
 		}
 	}
 
+	masqEnabled := option.Config.EnableIPv4Masquerade
+	if primaryFam == ipam.IPv6 {
+		masqEnabled = option.Config.EnableIPv6Masquerade
+	}
 	// Coalescing multiple CIDRs. GH #18868
-	if option.Config.EnableIPv4Masquerade &&
+	if masqEnabled &&
 		option.Config.IPAM == ipamOption.IPAMENI &&
 		result != nil &&
 		len(result.CIDRs) > 0 {
@@ -288,8 +293,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
 		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
-			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
-			option.Config.EnableIPv4Masquerade)
+			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM, masqEnabled)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
@@ -379,7 +383,24 @@ func (d *Daemon) allocateHealthIPs() error {
 			node.SetEndpointHealthIPv6(result.IP)
 		}
 
+		// Coalescing multiple CIDRs. GH #18868
+		if option.Config.EnableIPv6Masquerade &&
+			option.Config.IPAM == ipamOption.IPAMENI &&
+			result != nil &&
+			len(result.CIDRs) > 0 {
+			result.CIDRs = coalesceCIDRs(result.CIDRs)
+		}
+
 		log.Debugf("IPv6 health endpoint address: %s", result.IP)
+
+		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
+		// in order to set up rules and routes on the local node to direct
+		// endpoint traffic out of the ENIs.
+		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+			if d.healthEndpointRouting, err = parseRoutingInfo(result); err != nil {
+				log.WithError(err).Warn("Unable to allocate health information for ENI")
+			}
+		}
 	}
 	return nil
 }
@@ -628,12 +649,23 @@ func (d *Daemon) startIPAM(node agentK8s.LocalCiliumNodeResource) {
 }
 
 func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
+	var masqEnabled bool
+
+	switch {
+	case result.IP.To4() != nil:
+		masqEnabled = option.Config.EnableIPv4Masquerade
+	case result.IP.To16() != nil:
+		masqEnabled = option.Config.EnableIPv6Masquerade
+	default:
+		return nil, fmt.Errorf("failed to parse IP %v", result.IP)
+	}
+
 	return linuxrouting.NewRoutingInfo(
 		result.GatewayIP,
 		result.CIDRs,
 		result.PrimaryMAC,
 		result.InterfaceNumber,
 		option.Config.IPAM,
-		option.Config.EnableIPv4Masquerade,
+		masqEnabled,
 	)
 }

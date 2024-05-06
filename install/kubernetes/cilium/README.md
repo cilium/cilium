@@ -315,7 +315,8 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.wireguard.userspaceFallback | bool | `false` | Enables the fallback to the user-space implementation (deprecated). |
 | endpointHealthChecking.enabled | bool | `true` | Enable connectivity health checking between virtual endpoints. |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
-| eni.awsEnablePrefixDelegation | bool | `false` | Enable ENI prefix delegation |
+| eni.awsEnableIPv6PrefixDelegation | bool | `false` | Enable ENI IPv6 prefix delegation |
+| eni.awsEnablePrefixDelegation | bool | `false` | Enable ENI IPv4 prefix delegation |
 | eni.awsReleaseExcessIPs | bool | `false` | Release IPs not used from the ENI |
 | eni.ec2APIEndpoint | string | `""` | EC2 API endpoint to use |
 | eni.enabled | bool | `false` | Enable Elastic Network Interface (ENI) integration. |

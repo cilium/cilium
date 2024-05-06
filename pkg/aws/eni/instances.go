@@ -30,13 +30,14 @@ type EC2API interface {
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
 	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
-	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error)
+	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool, family ipam.Family) (string, *eniTypes.ENI, error)
 	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
+	AssignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes int32) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
 	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
 }

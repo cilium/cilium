@@ -56,7 +56,7 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 }
 
 // PrepareIPRelease prepares the release of IPs
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
+func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry, family ipam.Family) *ipam.ReleaseAction {
 	return &ipam.ReleaseAction{}
 }
 
@@ -65,9 +65,15 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	return fmt.Errorf("not implemented")
 }
 
-// PrepareIPAllocation returns the number of IPs that can be allocated/created.
-func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
+// PrepareIPAllocation returns the number of IP addresses that can be allocated/created
+// based on the provided IP family.
+func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry, family ipam.Family) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
+
+	if family == ipam.IPv6 {
+		return a, fmt.Errorf("ipv6 allocation is not implemented")
+	}
+
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
@@ -116,8 +122,12 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 	return
 }
 
-// AllocateIPs performs the Azure IP allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
+// AllocateIPs performs the Azure IP address allocation operation based on the provided IP family.
+func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction, family ipam.Family) error {
+	if family == ipam.IPv6 {
+		return fmt.Errorf("ipv6 allocation is not implemented")
+	}
+
 	iface, ok := a.Interface.Resource.(*types.AzureInterface)
 	if !ok {
 		return fmt.Errorf("invalid interface object")
@@ -130,24 +140,28 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	}
 }
 
-// CreateInterface is called to create a new interface. This operation is
-// currently not supported on Azure.
-func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+// CreateInterface is called to create a new interface based on the provided IP family.
+// This operation is currently not supported on Azure.
+func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry, family ipam.Family) (int, string, error) {
 	return 0, "", fmt.Errorf("not implemented")
 }
 
 // ResyncInterfacesAndIPs is called to retrieve interfaces and IPs known
-// to the Azure API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (
+// to the Azure API based on the provided IP family and returns them.
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry, family ipam.Family) (
 	available ipamTypes.AllocationMap,
 	stats stats.InterfaceStats,
 	err error) {
+
+	if family == ipam.IPv6 {
+		return available, stats, fmt.Errorf("ipv6 allocation is not implemented")
+	}
 
 	// Azure virtual machines always have an upper limit of 256 addresses.
 	// Both VMs and NICs can have a maximum of 256 addresses, so as long as
 	// there is at least one available NIC, we can allocate up to 256 addresses
 	// on the VM (minus the primary IP address).
-	stats.NodeCapacity = math.IntMax(n.GetMaximumAllocatableIPv4()-1, 0)
+	stats.NodeCapacity = math.IntMax(n.GetMaximumAllocatableIP(family)-1, 0)
 
 	if n.node.InstanceID() == "" {
 		return nil, stats, nil
@@ -197,27 +211,38 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	return available, stats, nil
 }
 
-// GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
-// that can be allocated to the instance
-func (n *Node) GetMaximumAllocatableIPv4() int {
+// GetMaximumAllocatableIP returns the maximum amount of IP addresses
+// that can be allocated to the instance based on the provided IP family.
+func (n *Node) GetMaximumAllocatableIP(family ipam.Family) int {
+	if family == ipam.IPv6 {
+		// not implemented
+		return 0
+	}
 	// An Azure node can allocate up to 256 private IP addresses
 	// source: https://github.com/MicrosoftDocs/azure-docs/blob/master/includes/azure-virtual-network-limits.md#networking-limits---azure-resource-manager
 	return types.InterfaceAddressLimit
 }
 
-// GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
-// must be allocated to the instance.
-func (n *Node) GetMinimumAllocatableIPv4() int {
+// GetMinimumAllocatableIP returns the minimum amount of IP addresses that
+// must be allocated to the instance based on the provided IP family.
+func (n *Node) GetMinimumAllocatableIP(family ipam.Family) int {
+	if family == ipam.IPv6 {
+		// not implemented
+		return 0
+	}
 	return defaults.IPAMPreAllocation
 }
 
-func (n *Node) IsPrefixDelegated() bool {
+func (n *Node) IsPrefixDelegated(family ipam.Family) bool {
 	return false
 }
 
-func (n *Node) GetUsedIPWithPrefixes() int {
+func (n *Node) GetUsedIPWithPrefixes(family ipam.Family) int {
 	if n.k8sObj == nil {
 		return 0
+	}
+	if family == ipam.IPv6 {
+		return len(n.k8sObj.Status.IPAM.IPv6Used)
 	}
 	return len(n.k8sObj.Status.IPAM.Used)
 }

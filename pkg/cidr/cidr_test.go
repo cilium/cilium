@@ -284,3 +284,28 @@ func TestRemoveAll(t *testing.T) {
 		require.EqualValuesf(t, tt.want, result, "Test Name: %s", tt.name)
 	}
 }
+
+func TestParseIPv6CIDR(t *testing.T) {
+	testCases := []struct {
+		name    string
+		cidrStr string
+		valid   bool
+	}{
+		{"Valid IPv6 CIDR", "2001:db8::/32", true},
+		{"Invalid IPv6 CIDR", "2001:db8::/129", false}, // Invalid mask
+		{"IPv4 CIDR", "192.168.1.0/24", false},
+		{"Invalid CIDR Format", "invalid", false},
+		{"Empty String", "", false},
+	}
+
+	for _, tc := range testCases {
+		cidr, err := ParseIPv6CIDR(tc.cidrStr)
+		if tc.valid {
+			require.Nilf(t, err, "Test failed for: %s", tc.name)
+			require.NotNilf(t, cidr, "Expected a non-nil CIDR for: %s", tc.name)
+			require.Nilf(t, cidr.IPNet.IP.To4(), "Expected an IPv6 address for: %s", tc.name)
+		} else {
+			require.NotNilf(t, err, "Expected an error for: %s", tc.name)
+		}
+	}
+}

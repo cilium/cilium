@@ -56,6 +56,27 @@ func TestIPNotAvailableInPoolError(t *testing.T) {
 	err2 = NewIPNotAvailableInPoolError(net.ParseIP("2.1.1.1"))
 	assert.NotEqual(t, err, err2)
 	assert.False(t, errors.Is(err, err2))
+
+	// IPv6 Test Cases
+	err = NewIPNotAvailableInPoolError(net.ParseIP("2001:db8::1"))
+	err2 = NewIPNotAvailableInPoolError(net.ParseIP("2001:db8::1"))
+	assert.Equal(t, err, err2)
+	assert.True(t, errors.Is(err, err2))
+
+	err = NewIPNotAvailableInPoolError(net.ParseIP("2001:db8::1"))
+	err2 = NewIPNotAvailableInPoolError(net.ParseIP("2001:db8::2"))
+	assert.NotEqual(t, err, err2)
+	assert.False(t, errors.Is(err, err2))
+
+	err = NewIPNotAvailableInPoolError(net.ParseIP("2001:db8::2"))
+	err2 = errors.New("another error")
+	assert.NotEqual(t, err, err2)
+	assert.False(t, errors.Is(err, err2))
+
+	err = errors.New("another IPv6 error")
+	err2 = NewIPNotAvailableInPoolError(net.ParseIP("2001:db8::2"))
+	assert.NotEqual(t, err, err2)
+	assert.False(t, errors.Is(err, err2))
 }
 
 var testConfigurationCRD = &option.DaemonConfig{
@@ -122,4 +143,55 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	cn.Status.IPAM.ReleaseIPs["1.1.1.3"] = ipamOption.IPAMMarkForRelease
 	sharedNodeStore.updateLocalNodeResource(cn)
 	require.Equal(t, ipamOption.IPAMDoNotRelease, string(cn.Status.IPAM.ReleaseIPs["1.1.1.3"]))
+}
+
+func TestMarkForReleaseNoAllocateIPv6(t *testing.T) {
+	// Enable IPv6 and disable IPv4 for this test
+	testConfigurationCRD.EnableIPv4 = false
+	testConfigurationCRD.EnableIPv6 = true
+
+	cn := newIPv6CiliumNode("node-ipv6", 4, 4, 0)
+	dummyResource := ipamTypes.AllocationIP{Resource: "foo"}
+	for i := 1; i <= 4; i++ {
+		cn.Spec.IPAM.IPv6Pool[fmt.Sprintf("fd00::%d", i)] = dummyResource
+	}
+
+	fakeAddressing := fakeTypes.NewIPv6OnlyNodeAddressing()
+	conf := testConfigurationCRD
+	initNodeStore.Do(func() {
+		sharedNodeStore = newFakeNodeStore(conf, t)
+		sharedNodeStore.ownNode = cn
+	})
+	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	sharedNodeStore.updateLocalNodeResource(cn)
+
+	// Allocate the first 3 IPv6 IPs
+	for i := 1; i <= 3; i++ {
+		epipv6 := netip.MustParseAddr(fmt.Sprintf("fd00::%d", i))
+		_, err := ipam.IPv6Allocator.Allocate(epipv6.AsSlice(), fmt.Sprintf("test%d", i), PoolDefault())
+		require.Nil(t, err)
+	}
+
+	// Mark fd00::4 for release and verify behavior
+	ipv6Addr := "fd00::4"
+	cn.Status.IPAM.ReleaseIPv6s[ipv6Addr] = ipamOption.IPAMMarkForRelease
+
+	// Attempts to allocate fd00::4 should fail
+	epipv6 := netip.MustParseAddr(ipv6Addr)
+	_, err := ipam.IPv6Allocator.Allocate(epipv6.AsSlice(), "test4", PoolDefault())
+	require.NotNil(t, err)
+
+	// Call agent's CRD update function. Status for fd00::4 should change from marked for release to ready for release
+	sharedNodeStore.updateLocalNodeResource(cn)
+	require.Equal(t, ipamOption.IPAMReadyForRelease, string(cn.Status.IPAM.ReleaseIPv6s[ipv6Addr]))
+
+	// Verify that fd00::3 is denied for release, since they are already in use
+	cn.Status.IPAM.ReleaseIPv6s["fd00::3"] = ipamOption.IPAMMarkForRelease
+	sharedNodeStore.updateLocalNodeResource(cn)
+	require.Equal(t, ipamOption.IPAMDoNotRelease, string(cn.Status.IPAM.ReleaseIPv6s["fd00::3"]))
+
+	// Reset IPv4 and IPv6 enable flags after test
+	testConfigurationCRD.EnableIPv6 = false
+	testConfigurationCRD.EnableIPv4 = true
 }

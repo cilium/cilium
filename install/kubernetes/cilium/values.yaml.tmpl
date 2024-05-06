@@ -900,8 +900,10 @@ eni:
   updateEC2AdapterLimitViaAPI: true
   # -- Release IPs not used from the ENI
   awsReleaseExcessIPs: false
-  # -- Enable ENI prefix delegation
+  # -- Enable ENI IPv4 prefix delegation
   awsEnablePrefixDelegation: false
+  # -- Enable ENI IPv6 prefix delegation
+  awsEnableIPv6PrefixDelegation: false
   # -- EC2 API endpoint to use
   ec2APIEndpoint: ""
   # -- Tags to apply to the newly created ENIs

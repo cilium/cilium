@@ -57,7 +57,15 @@ func TestGetMaximumAllocatableIPv4(t *testing.T) {
 
 	n := &Node{}
 	n.k8sObj = newCiliumNode("node", "i-1", "ecs.g7ne.24xlarge", "cn-hangzhou-i", "vpc-1")
-	require.Equal(t, n.GetMaximumAllocatableIPv4(), 700)
+	require.Equal(t, n.GetMaximumAllocatableIP(ipam.IPv4), 700)
+}
+
+func TestGetMaximumAllocatableIPv6(t *testing.T) {
+	setup(t)
+
+	n := &Node{}
+	n.k8sObj = newCiliumNode("node", "i-1", "ecs.g7ne.24xlarge", "cn-hangzhou-i", "vpc-1")
+	require.Equal(t, n.GetMaximumAllocatableIP(ipam.IPv6), 0) // IPv6 is not supported
 }
 
 func TestCreateInterface(t *testing.T) {
@@ -99,7 +107,7 @@ func TestCreateInterface(t *testing.T) {
 			MaxIPsToAllocate: 10,
 		},
 		EmptyInterfaceSlots: 2,
-	}, log)
+	}, log, ipam.IPv4)
 	require.NoError(t, err)
 	require.Equal(t, toAlloc, 10)
 
@@ -108,7 +116,7 @@ func TestCreateInterface(t *testing.T) {
 			MaxIPsToAllocate: 11,
 		},
 		EmptyInterfaceSlots: 1,
-	}, log)
+	}, log, ipam.IPv4)
 	require.NoError(t, err)
 	require.Equal(t, toAlloc, 10)
 }
@@ -130,13 +138,13 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	n := &Node{}
 	n.k8sObj = cn
 	// Primary ENI excluded, max allocatable = 3 ( 1 (ENI) * 3 (IPv4/ENI) )
-	require.Equal(t, n.GetMaximumAllocatableIPv4(), 3)
+	require.Equal(t, n.GetMaximumAllocatableIP(ipam.IPv4), 3)
 
 	// Wait for IPs to become available
 	require.Eventually(t, func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second, 1*time.Second)
 
 	node3 := mngr.Get("node3")
-	a, err := node3.Ops().PrepareIPAllocation(log)
+	a, err := node3.Ops().PrepareIPAllocation(log, ipam.IPv4)
 	require.NoError(t, err)
 	// 1 ENI attached, 1/3 IPs allocated, 0 empty slots left
 	require.Equal(t, a.IPv4.InterfaceCandidates, 1)
@@ -156,7 +164,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	mngr.SetInstancesAPIReadiness(false) // to avoid the manager background jobs starting and racing us.
 
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
-	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
+	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log, ipam.IPv4)
 	require.NoError(t, err)
 	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
 
@@ -166,12 +174,12 @@ func TestPrepareIPAllocation(t *testing.T) {
 			MaxIPsToAllocate: 10,
 		},
 		EmptyInterfaceSlots: 2,
-	}, log)
+	}, log, ipam.IPv4)
 	require.NoError(t, err)
 	require.Equal(t, toAlloc, 10)
 
 	// one eni left
-	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
+	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log, ipam.IPv4)
 	require.NoError(t, err)
 	require.Equal(t, 1, a.EmptyInterfaceSlots, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
 }

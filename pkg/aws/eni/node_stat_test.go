@@ -44,7 +44,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	ipamNode.SetPoolMaintainer(&mockMaintainer{})
 	n.node = ipamNode
 
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log, ipam.IPv4)
 	assert.NoError(err)
 	// m5a.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
@@ -52,7 +52,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	cn.Spec.ENI.UsePrimaryAddress = new(bool)
 	*cn.Spec.ENI.UsePrimaryAddress = true
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log, ipam.IPv4)
 	assert.NoError(err)
 	// In this case, we disable using allocated primary IP,
 	// so we should be able to allocate 10*3=30 IPs.
@@ -60,7 +60,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	ipamNode.prefixDelegation = true
 	// Note: m5a.large is a nitro instance, so it supports prefix delegation.
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log, ipam.IPv4)
 	assert.NoError(err)
 	// m5a.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
@@ -71,7 +71,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	// Lets turn off UsePrimaryAddress.
 	*cn.Spec.ENI.UsePrimaryAddress = false
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log, ipam.IPv4)
 	assert.NoError(err)
 	// In this case, we have prefix delegation enabled.
 	// Thus we have 16 addr * 9 addr * 3 ENIs = 432 IPs.
@@ -93,15 +93,16 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	// Finally, we have the case where an eni has a leftover prefix available.
 	// Thus, we add an additional 16 IPs to the capacity.
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log, ipam.IPv4)
 	assert.NoError(err)
 	assert.Equal(27+16-1, stats.NodeCapacity)
 }
 
 // mocks ipamNodeActions interface
 type mockIPAMNode struct {
-	instanceID       string
-	prefixDelegation bool
+	instanceID           string
+	prefixDelegation     bool
+	ipv6PrefixDelegation bool
 }
 
 func (m *mockIPAMNode) SetOpts(ipam.NodeOperations)           {}
@@ -109,9 +110,16 @@ func (m *mockIPAMNode) SetPoolMaintainer(ipam.PoolMaintainer) {}
 func (m *mockIPAMNode) UpdatedResource(*v2.CiliumNode) bool   { panic("not impl") }
 func (m *mockIPAMNode) Update(*v2.CiliumNode)                 {}
 func (m *mockIPAMNode) InstanceID() string                    { return m.instanceID }
-func (m *mockIPAMNode) IsPrefixDelegationEnabled() bool       { return m.prefixDelegation }
-func (m *mockIPAMNode) Ops() ipam.NodeOperations              { panic("not impl") }
-func (m *mockIPAMNode) SetRunning(_ bool)                     { panic("not impl") }
+
+func (m *mockIPAMNode) IsPrefixDelegationEnabled(family ipam.Family) bool {
+	if family == ipam.IPv4 {
+		return m.prefixDelegation
+	}
+	return m.ipv6PrefixDelegation
+}
+
+func (m *mockIPAMNode) Ops() ipam.NodeOperations { panic("not impl") }
+func (m *mockIPAMNode) SetRunning(_ bool)        { panic("not impl") }
 
 var _ ipamNodeActions = (*mockIPAMNode)(nil)
 

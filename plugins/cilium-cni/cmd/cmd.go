@@ -617,7 +617,16 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		switch conf.IpamMode {
-		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+		case ipamOption.IPAMENI:
+			resp := ipam.IPV6
+			if ipConfig.Address.IP.To4() != nil {
+				resp = ipam.IPV4
+			}
+			err = interfaceAdd(ipConfig, resp, conf)
+			if err != nil {
+				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			}
+		case ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)

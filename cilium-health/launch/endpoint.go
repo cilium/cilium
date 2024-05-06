@@ -341,7 +341,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
-		// ENI mode does not support IPv6.
 		if err := routingConfig.Configure(
 			healthIP,
 			mtuConfig.GetDeviceMTU(),

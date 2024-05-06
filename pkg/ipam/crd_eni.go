@@ -23,7 +23,9 @@ import (
 type eniDeviceConfig struct {
 	name         string
 	ip           net.IP
+	ipv6         *net.IP
 	cidr         *net.IPNet
+	v6Cidr       *net.IPNet
 	mtu          int
 	usePrimaryIP bool
 }
@@ -117,13 +119,31 @@ func parseENIConfig(name string, eni *eniTypes.ENI, mtuConfig MtuConfiguration, 
 		return cfg, fmt.Errorf("failed to parse eni subnet cidr %q: %w", eni.Subnet.CIDR, err)
 	}
 
-	return eniDeviceConfig{
+	cfg = eniDeviceConfig{
 		name:         name,
 		ip:           ip,
 		cidr:         cidr,
 		mtu:          mtuConfig.GetDeviceMTU(),
 		usePrimaryIP: usePrimary,
-	}, nil
+	}
+
+	if eni.IPv6 != "" {
+		v6Ip := net.ParseIP(eni.IPv6)
+		if v6Ip == nil {
+			return cfg, fmt.Errorf("failed to parse eni IPv6 addrress %q", eni.IPv6)
+		}
+		cfg.ipv6 = &v6Ip
+	}
+
+	if len(eni.IPv6Prefixes) > 0 {
+		_, v6Cidr, err := net.ParseCIDR(eni.Subnet.IPv6CIDR)
+		if err != nil {
+			return cfg, fmt.Errorf("failed to parse eni subnet IPv6 cidr %q: %w", eni.Subnet.IPv6CIDR, err)
+		}
+		cfg.v6Cidr = v6Cidr
+	}
+
+	return cfg, nil
 }
 
 const (
@@ -196,6 +216,31 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig) error {
 		if err != nil && !errors.Is(err, unix.ESRCH) {
 			// We ignore ESRCH, as it means the entry was already deleted
 			return fmt.Errorf("failed to delete default route %q on link %q: %w", cfg.ip, link.Attrs().Name, err)
+		}
+
+		if cfg.ipv6 != nil && cfg.v6Cidr != nil {
+			// Set the primary IP in order for SNAT to work correctly on this ENI
+			err := netlink.AddrAdd(link, &netlink.Addr{
+				IPNet: &net.IPNet{
+					IP:   *cfg.ipv6,
+					Mask: cfg.v6Cidr.Mask,
+				},
+			})
+			if err != nil && !errors.Is(err, unix.EEXIST) {
+				return fmt.Errorf("failed to set eni primary ipv6 address %q on link %q: %w", cfg.ipv6, link.Attrs().Name, err)
+			}
+
+			err = netlink.RouteDel(&netlink.Route{
+				Dst:   cfg.v6Cidr,
+				Src:   *cfg.ipv6,
+				Table: unix.RT_TABLE_MAIN,
+				Scope: netlink.SCOPE_LINK,
+			})
+			if err != nil && !errors.Is(err, unix.ESRCH) {
+				// We ignore ESRCH, as it means the entry was already deleted
+				return fmt.Errorf("failed to delete default ipv6 route %q on link %q: %w", cfg.ipv6, link.Attrs().Name, err)
+			}
+
 		}
 	}
 

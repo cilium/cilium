@@ -152,7 +152,7 @@ type ENI struct {
 	// +optional
 	ID string `json:"id,omitempty"`
 
-	// IP is the primary IP of the ENI
+	// IP is the primary IPv4 address of the ENI
 	//
 	// +optional
 	IP string `json:"ip,omitempty"`
@@ -188,15 +188,30 @@ type ENI struct {
 	// +optional
 	VPC AwsVPC `json:"vpc,omitempty"`
 
-	// Addresses is the list of all secondary IPs associated with the ENI
+	// Addresses is the list of all secondary IPv4 addresses associated with the ENI
 	//
 	// +optional
 	Addresses []string `json:"addresses,omitempty"`
 
-	// Prefixes is the list of all /28 prefixes associated with the ENI
+	// Prefixes is the list of all /28 IPv4 prefixes associated with the ENI
 	//
 	// +optional
 	Prefixes []string `json:"prefixes,omitempty"`
+
+	// The IPv6 globally unique address associated with the ENI.
+	//
+	// +optional
+	IPv6 string `json:"ipv6,omitempty"`
+
+	// IPv6Addresses is the IPv6 addresses associated with the ENI.
+	//
+	// +optional
+	IPv6Addresses []string `json:"ipv6-addresses,omitempty"`
+
+	// IPv6Prefixes is the list of /80 IPv6 prefixes assigned to the ENI.
+	//
+	// +optional
+	IPv6Prefixes []string `json:"ipv6-prefixes,omitempty"`
 
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
@@ -259,6 +274,9 @@ type AwsSubnet struct {
 
 	// CIDR is the CIDR range associated with the subnet
 	CIDR string `json:"cidr,omitempty"`
+
+	// IPv6CIDR is the IPv6 CIDR range associated with the subnet
+	IPv6CIDR string `json:"ipv6-cidr,omitempty"`
 }
 
 // AwsVPC stores information regarding an AWS VPC
@@ -271,4 +289,7 @@ type AwsVPC struct {
 
 	// CIDRs is the list of CIDR ranges associated with the VPC
 	CIDRs []string `json:"cidrs,omitempty"`
+
+	// IPv6CIDRs is the list of IPv6 CIDR ranges associated with the VPC
+	IPv6CIDRs []string `json:"ipv6-cidrs,omitempty"`
 }

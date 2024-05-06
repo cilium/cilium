@@ -30,7 +30,7 @@ func TestConfigure(t *testing.T) {
 
 	ns1 := netns.NewNetNS(t)
 	ns1.Do(func() error {
-		ip, ri := getFakes(t, true)
+		ip, ri := getFakes(t, true, false)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -41,7 +41,7 @@ func TestConfigure(t *testing.T) {
 
 	ns2 := netns.NewNetNS(t)
 	ns2.Do(func() error {
-		ip, ri := getFakes(t, false)
+		ip, ri := getFakes(t, false, false)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -49,31 +49,55 @@ func TestConfigure(t *testing.T) {
 		runConfigureThenDelete(t, ri, ip, 1500)
 		return nil
 	})
+
+	ns3 := netns.NewNetNS(t)
+	ns3.Do(func() error {
+		ip, ri := getFakes(t, true, true)
+		masterMAC := ri.MasterIfMAC
+		ifaceCleanup := createDummyDevice(t, masterMAC)
+		defer ifaceCleanup()
+		runConfigureThenDelete(t, ri, ip, 1500)
+		return nil
+	})
 }
 
-func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
-	setupLinuxRoutingSuite(t)
+func TestConfigureIPv6(t *testing.T) {
+	// Create a new network namespace for the test to ensure isolation
+	nsIPv6 := netns.NewNetNS(t)
+	nsIPv6.Do(func() error {
+		// Get fake IPv6 configuration and routing info
+		ip, ri := getFakesIPv6()
+		masterMAC := ri.MasterIfMAC
 
-	_, ri := getFakes(t, true)
-	ipv6 := netip.MustParseAddr("fd00::2").AsSlice()
-	err := ri.Configure(ipv6, 1500, false, false)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "IP not compatible")
+		// Create a dummy network device to simulate interface
+		ifaceCleanup := createDummyDevice(t, masterMAC)
+		defer ifaceCleanup()
+
+		// Run configuration and deletion tests
+		runConfigureThenDeleteIPv6(t, ri, ip, 1500)
+		return nil
+	})
 }
 
-func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
-	setupLinuxRoutingSuite(t)
-
-	ipv6 := netip.MustParseAddr("fd00::2")
-	err := Delete(ipv6, false)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "IP not compatible")
+// getFakesIPv6 returns fake IPv6 addresses and routing information for testing
+func getFakesIPv6() (net.IP, *RoutingInfo) {
+	// Example IPv6 address and routing info
+	ipv6Address := net.ParseIP("2001:db8::1")
+	routingInfo := &RoutingInfo{
+		IPv6Gateway:     net.ParseIP("2001:db8::fffe"),
+		IPv6CIDRs:       []net.IPNet{{IP: net.ParseIP("2001:db8::"), Mask: net.CIDRMask(64, 128)}},
+		MasterIfMAC:     mac.MAC{0x00, 0x15, 0x5d, 0x22, 0x54, 0x00},
+		Masquerade:      true,
+		InterfaceNumber: 2,
+		IpamMode:        ipamOption.IPAMENI,
+	}
+	return ipv6Address, routingInfo
 }
 
 func TestDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	fakeIP, fakeRoutingInfo := getFakes(t, true)
+	fakeIP, fakeRoutingInfo := getFakes(t, true, false)
 	masterMAC := fakeRoutingInfo.MasterIfMAC
 
 	tests := []struct {
@@ -152,11 +176,97 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestDeleteIPv6(t *testing.T) {
+	fakeIP, fakeRoutingInfo := getFakes(t, true, true)
+	masterMAC := fakeRoutingInfo.MasterIfMAC
+
+	tests := []struct {
+		name    string
+		preRun  func() netip.Addr
+		wantErr bool
+	}{
+		{
+			name: "valid IPv6 addr matching rules",
+			preRun: func() netip.Addr {
+				runConfigure(t, fakeRoutingInfo, fakeIP, 1500)
+				return fakeIP
+			},
+			wantErr: false,
+		},
+		{
+			name: "IPv6 addr doesn't match rules",
+			preRun: func() netip.Addr {
+				ip := netip.MustParseAddr("2001:db8::321")
+
+				runConfigure(t, fakeRoutingInfo, fakeIP, 1500)
+				return ip
+			},
+			wantErr: true,
+		},
+		{
+			name: "IPv6 addr matches more rules than number expected",
+			preRun: func() netip.Addr {
+				ip := netip.MustParseAddr("2001:db8::321")
+
+				runConfigure(t, fakeRoutingInfo, ip, 1500)
+
+				// Find interface ingress rules so that we can create a
+				// near-duplicate.
+				rules, err := route.ListRules(netlink.FAMILY_V6, &route.Rule{
+					Priority: linux_defaults.RulePriorityIngress,
+				})
+				require.Nil(t, err)
+				require.NotEqual(t, len(rules), 0)
+
+				// Insert almost duplicate rule; the reason for this is to
+				// trigger an error while trying to delete the ingress rule. We
+				// are setting the Src because ingress rules don't have
+				// one (only Dst), thus we set Src to create a near-duplicate.
+				r := rules[0]
+				r.Src = &net.IPNet{IP: fakeIP.AsSlice(), Mask: net.CIDRMask(128, 128)}
+				require.Nil(t, netlink.RuleAdd(&r))
+
+				return ip
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to delete rules due to IPv6 masquerade misconfiguration",
+			preRun: func() netip.Addr {
+				runConfigure(t, fakeRoutingInfo, fakeIP, 1500)
+				// inconsistency with fakeRoutingInfo.Masquerade should lead to failure
+				option.Config.EnableIPv6Masquerade = false
+				return fakeIP
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Log("Test: " + tt.name)
+		ns := netns.NewNetNS(t)
+		ns.Do(func() error {
+			ifaceCleanup := createDummyDevice(t, masterMAC)
+			defer ifaceCleanup()
+
+			ip := tt.preRun()
+			err := Delete(ip, false)
+			require.Equal(t, (err != nil), tt.wantErr)
+			return nil
+		})
+	}
+}
+
 func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
+	// Determine if the rule is for IPv4 or IPv6
+	family := netlink.FAMILY_V4
+	if ip.Is6() {
+		family = netlink.FAMILY_V6
+	}
+
 	// Create rules and routes
-	beforeCreationRules, beforeCreationRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
+	beforeCreationRules, beforeCreationRoutes := listRulesAndRoutes(t, family)
 	runConfigure(t, ri, ip, mtu)
-	afterCreationRules, afterCreationRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
+	afterCreationRules, afterCreationRoutes := listRulesAndRoutes(t, family)
 
 	require.NotEqual(t, 0, len(afterCreationRules))
 	require.NotEqual(t, 0, len(afterCreationRoutes))
@@ -164,9 +274,9 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 	require.NotEqual(t, len(afterCreationRoutes), len(beforeCreationRoutes))
 
 	// Delete rules and routes
-	beforeDeletionRules, beforeDeletionRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
+	beforeDeletionRules, beforeDeletionRoutes := listRulesAndRoutes(t, family)
 	runDelete(t, ip)
-	afterDeletionRules, afterDeletionRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
+	afterDeletionRules, afterDeletionRoutes := listRulesAndRoutes(t, family)
 
 	require.NotEqual(t, len(afterDeletionRules), len(beforeDeletionRules))
 	require.NotEqual(t, len(afterDeletionRoutes), len(beforeDeletionRoutes))
@@ -177,6 +287,12 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
 	err := ri.Configure(ip.AsSlice(), mtu, false, false)
 	require.Nil(t, err)
+}
+
+// runConfigureThenDeleteIPv6 configures and then deletes IPv6 routes and rules
+func runConfigureThenDeleteIPv6(t *testing.T, ri *RoutingInfo, ip net.IP, mtu int) {
+	err := ri.Configure(ip, mtu, false, false)
+	require.Nilf(t, err, "Failed to configure IPv6 routing: %s", err)
 }
 
 func runDelete(t *testing.T, ip netip.Addr) {
@@ -200,10 +316,27 @@ func listRulesAndRoutes(t *testing.T, family int) ([]netlink.Rule, []netlink.Rou
 		}, netlink.RT_FILTER_TABLE)
 		require.Nil(t, err)
 
+		if family == netlink.FAMILY_V6 {
+			// Filter out IPv6 link-local routes
+			rr = filterLinkLocalAndMcastRoutes(rr)
+		}
+
 		routes = append(routes, rr...)
 	}
 
 	return rules, routes
+}
+
+// filterLinkLocalAndMcastRoutes excludes IPv6 link-local unicast and multicast
+// routes from a slice of routes.
+func filterLinkLocalAndMcastRoutes(routes []netlink.Route) []netlink.Route {
+	var filteredRoutes []netlink.Route
+	for _, r := range routes {
+		if r.Dst != nil && !r.Dst.IP.IsLinkLocalUnicast() && !r.Dst.IP.IsMulticast() {
+			filteredRoutes = append(filteredRoutes, r)
+		}
+	}
+	return filteredRoutes
 }
 
 // createDummyDevice creates a new dummy device with a MAC of `macAddr` to be
@@ -235,13 +368,19 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 
 // getFakes returns a fake IP simulating an Endpoint IP and RoutingInfo as test harnesses.
 // To create routing info with a list of CIDRs which the interface has access to, set withCIDR parameter to true
-func getFakes(t *testing.T, withCIDR bool) (netip.Addr, RoutingInfo) {
+func getFakes(t *testing.T, withCIDR, withV6 bool) (netip.Addr, RoutingInfo) {
 	fakeGateway := netip.MustParseAddr("192.168.2.1")
 	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
 	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
 	fakeMAC, err := mac.ParseMAC("00:11:22:33:44:55")
 	require.Nil(t, err)
 	require.NotNil(t, fakeMAC)
+
+	if withV6 {
+		fakeGateway = netip.MustParseAddr("2001:db8::1")
+		fakeSubnet1CIDR = netip.MustParsePrefix("2001:db8::/80")
+		fakeSubnet2CIDR = netip.MustParsePrefix("2001:db9::/80")
+	}
 
 	var fakeRoutingInfo *RoutingInfo
 	if withCIDR {
@@ -271,6 +410,11 @@ func getFakes(t *testing.T, withCIDR bool) (netip.Addr, RoutingInfo) {
 	option.Config.EnableIPv4Masquerade = fakeRoutingInfo.Masquerade
 
 	fakeIP := netip.MustParseAddr("192.168.2.123")
+	if withV6 {
+		fakeIP = netip.MustParseAddr("2001:db8::123")
+		option.Config.EnableIPv4Masquerade = false
+		option.Config.EnableIPv6Masquerade = fakeRoutingInfo.Masquerade
+	}
 	return fakeIP, *fakeRoutingInfo
 }
 

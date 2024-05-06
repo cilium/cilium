@@ -263,6 +263,33 @@ spec:
                   can be populated by a user or it can be automatically populated
                   by an IPAM operator.
                 properties:
+                  ipv6-max-above-watermark:
+                    description: IPv6MaxAboveWatermark is the maximum number of IPv6
+                      addresses to allocate beyond the addresses needed to reach the
+                      IPv6PreAllocate watermark. Going above the watermark can help
+                      reduce the number of API calls to allocate IPs, e.g. when a
+                      new ENI is allocated, as many secondary IPv6 adresses as possible
+                      are allocated. Limiting the amount can help reduce waste of
+                      IPs.
+                    minimum: 0
+                    type: integer
+                  ipv6-max-allocate:
+                    description: IPv6MaxAllocate is the maximum number of IPv6 addresses
+                      that can be allocated to the node. When the current amount of
+                      allocated IPv6 addresses will approach this value, the considered
+                      value for IPv6PreAllocate will decrease down to 0 in order to
+                      not attempt to allocate more IPv6 addresses than defined.
+                    minimum: 0
+                    type: integer
+                  ipv6-min-allocate:
+                    description: IPv6MinAllocate is the minimum number of IPv6 addresses
+                      that must be allocated when the node is first bootstrapped.
+                      It defines the minimum base socket of IPv6 addresses that must
+                      be available. After reaching this watermark, the IPv6PreAllocate
+                      and IPv6MaxAboveWatermark logic takes over to continue allocating
+                      IPv6 addresses.
+                    minimum: 0
+                    type: integer
                   ipv6-pool:
                     additionalProperties:
                       description: AllocationIP is an IP which is available for allocation,
@@ -287,8 +314,15 @@ spec:
                       to the node for allocation. When an IPv6 address is used, it
                       will remain on this list but will be added to Status.IPAM.IPv6Used
                     type: object
+                  ipv6-pre-allocate:
+                    description: IPv6PreAllocate defines the number of IPv6 addresses
+                      that must be available for allocation in the IPAMspec. It defines
+                      the buffer of IPv6 addresses available immediately without requiring
+                      cilium-operator to get involved.
+                    minimum: 0
+                    type: integer
                   max-above-watermark:
-                    description: MaxAboveWatermark is the maximum number of addresses
+                    description: MaxAboveWatermark is the maximum number of IPv4 addresses
                       to allocate beyond the addresses needed to reach the PreAllocate
                       watermark. Going above the watermark can help reduce the number
                       of API calls to allocate IPs, e.g. when a new ENI is allocated,
@@ -297,19 +331,19 @@ spec:
                     minimum: 0
                     type: integer
                   max-allocate:
-                    description: MaxAllocate is the maximum number of IPs that can
-                      be allocated to the node. When the current amount of allocated
-                      IPs will approach this value, the considered value for PreAllocate
-                      will decrease down to 0 in order to not attempt to allocate
-                      more addresses than defined.
+                    description: MaxAllocate is the maximum number of IPv4 addresses
+                      that can be allocated to the node. When the current amount of
+                      allocated IPs will approach this value, the considered value
+                      for PreAllocate will decrease down to 0 in order to not attempt
+                      to allocate more addresses than defined.
                     minimum: 0
                     type: integer
                   min-allocate:
-                    description: MinAllocate is the minimum number of IPs that must
-                      be allocated when the node is first bootstrapped. It defines
-                      the minimum base socket of addresses that must be available.
-                      After reaching this watermark, the PreAllocate and MaxAboveWatermark
-                      logic takes over to continue allocating IPs.
+                    description: MinAllocate is the minimum number of IPv4 addresses
+                      that must be allocated when the node is first bootstrapped.
+                      It defines the minimum base socket of addresses that must be
+                      available. After reaching this watermark, the PreAllocate and
+                      MaxAboveWatermark logic takes over to continue allocating IPs.
                     minimum: 0
                     type: integer
                   podCIDRs:
@@ -407,8 +441,8 @@ spec:
                         type: array
                     type: object
                   pre-allocate:
-                    description: PreAllocate defines the number of IP addresses that
-                      must be available for allocation in the IPAMspec. It defines
+                    description: PreAllocate defines the number of IPv4 addresses
+                      that must be available for allocation in the IPAMspec. It defines
                       the buffer of addresses available immediately without requiring
                       cilium-operator to get involved.
                     minimum: 0
@@ -580,8 +614,8 @@ spec:
                         \n More details: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html"
                       properties:
                         addresses:
-                          description: Addresses is the list of all secondary IPs
-                            associated with the ENI
+                          description: Addresses is the list of all secondary IPv4
+                            addresses associated with the ENI
                           items:
                             type: string
                           type: array
@@ -597,8 +631,24 @@ spec:
                           description: ID is the ENI ID
                           type: string
                         ip:
-                          description: IP is the primary IP of the ENI
+                          description: IP is the primary IPv4 address of the ENI
                           type: string
+                        ipv6:
+                          description: The IPv6 globally unique address associated
+                            with the ENI.
+                          type: string
+                        ipv6-addresses:
+                          description: IPv6Addresses is the IPv6 addresses associated
+                            with the ENI.
+                          items:
+                            type: string
+                          type: array
+                        ipv6-prefixes:
+                          description: IPv6Prefixes is the list of /80 IPv6 prefixes
+                            assigned to the ENI.
+                          items:
+                            type: string
+                          type: array
                         mac:
                           description: MAC is the mac address of the ENI
                           type: string
@@ -607,8 +657,8 @@ spec:
                             with FirstInterfaceIndex
                           type: integer
                         prefixes:
-                          description: Prefixes is the list of all /28 prefixes associated
-                            with the ENI
+                          description: Prefixes is the list of all /28 IPv4 prefixes
+                            associated with the ENI
                           items:
                             type: string
                           type: array
@@ -628,6 +678,10 @@ spec:
                               type: string
                             id:
                               description: ID is the ID of the subnet
+                              type: string
+                            ipv6-cidr:
+                              description: IPv6CIDR is the IPv6 CIDR range associated
+                                with the subnet
                               type: string
                           type: object
                         tags:
@@ -649,6 +703,12 @@ spec:
                             id:
                               description: / ID is the ID of a VPC
                               type: string
+                            ipv6-cidrs:
+                              description: IPv6CIDRs is the list of IPv6 CIDR ranges
+                                associated with the VPC
+                              items:
+                                type: string
+                              type: array
                             primary-cidr:
                               description: PrimaryCIDR is the primary CIDR of the
                                 VPC

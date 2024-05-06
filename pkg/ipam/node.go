@@ -223,8 +223,16 @@ func (n *Node) Ops() NodeOperations {
 	return n.ops
 }
 
-func (n *Node) IsPrefixDelegationEnabled() bool {
-	return n.manager.prefixDelegation
+func (n *Node) IsPrefixDelegationEnabled(family Family) bool {
+	if n == nil || n.manager == nil {
+		return false
+	}
+
+	if family == IPv4 {
+		return n.manager.prefixDelegation
+	}
+
+	return n.manager.ipv6PrefixDelegation
 }
 
 func (n *Node) logger() *logrus.Entry {
@@ -250,14 +258,14 @@ func (n *Node) loggerLocked() (logger *logrus.Entry) {
 	return
 }
 
-// getMaxAboveWatermark returns the max-above-watermark setting for an AWS node
+// getMaxAboveWatermark returns the IPv4 max-above-watermark setting for an AWS node
 //
 // n.mutex must be held when calling this function
 func (n *Node) getMaxAboveWatermark() int {
 	return n.resource.Spec.IPAM.MaxAboveWatermark
 }
 
-// getPreAllocate returns the pre-allocation setting for an AWS node
+// getPreAllocate returns the IPv4 pre-allocation setting for an AWS node
 //
 // n.mutex must be held when calling this function
 func (n *Node) getPreAllocate() int {
@@ -267,27 +275,33 @@ func (n *Node) getPreAllocate() int {
 	return defaults.IPAMPreAllocation
 }
 
-// getMinAllocate returns the minimum-allocation setting of an AWS node
+// getMinAllocate returns the IPv4 minimum-allocation setting of an AWS node
 //
 // n.mutex must be held when calling this function
 func (n *Node) getMinAllocate() int {
 	return n.resource.Spec.IPAM.MinAllocate
 }
 
-// getMaxAllocate returns the maximum-allocation setting of an AWS node
-func (n *Node) getMaxAllocate() int {
-	instanceMax := n.ops.GetMaximumAllocatableIPv4()
-	if n.resource.Spec.IPAM.MaxAllocate > 0 {
+// getMaxAllocate returns the maximum-allocation setting of an AWS node based
+// on the provided IP family.
+func (n *Node) getMaxAllocate(family Family) int {
+	instanceMax := n.ops.GetMaximumAllocatableIP(family)
+	if family == IPv4 && n.resource.Spec.IPAM.MaxAllocate > 0 {
 		if n.resource.Spec.IPAM.MaxAllocate > instanceMax {
 			n.loggerLocked().Warningf("max-allocate (%d) is higher than the instance type limits (%d)", n.resource.Spec.IPAM.MaxAllocate, instanceMax)
 		}
 		return n.resource.Spec.IPAM.MaxAllocate
+	} else if n.resource.Spec.IPAM.IPv6MaxAllocate > 0 {
+		if n.resource.Spec.IPAM.IPv6MaxAllocate > instanceMax {
+			n.loggerLocked().Warningf("ipv6-max-allocate (%d) is higher than the instance type limits (%d)", n.resource.Spec.IPAM.IPv6MaxAllocate, instanceMax)
+		}
+		return n.resource.Spec.IPAM.IPv6MaxAllocate
 	}
 
 	return instanceMax
 }
 
-// GetNeededAddresses returns the number of needed addresses that need to be
+// GetNeededAddresses returns the number of needed IPv4 addresses that need to be
 // allocated or released. A positive number is returned to indicate allocation.
 // A negative number is returned to indicate release of addresses.
 func (n *Node) GetNeededAddresses() int {
@@ -299,6 +313,46 @@ func (n *Node) GetNeededAddresses() int {
 		// Nodes are sorted by needed addresses, return negative values of excessIPs
 		// so that nodes with IP deficit are resolved first
 		return stats.IPv4.ExcessIPs * -1
+	}
+	return 0
+}
+
+// getIPv6PreAllocate returns the IPv6 pre-allocation setting for an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getIPv6PreAllocate() int {
+	if n.resource.Spec.IPAM.IPv6PreAllocate != 0 {
+		return n.resource.Spec.IPAM.IPv6PreAllocate
+	}
+	return defaults.IPAMIPv6PreAllocation
+}
+
+// getIPv6MinAllocate returns the IPv6 minimum-allocation setting of an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getIPv6MinAllocate() int {
+	return n.resource.Spec.IPAM.IPv6MinAllocate
+}
+
+// getIPv6MaxAboveWatermark returns the IPv6 max-above-watermark setting for an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getIPv6MaxAboveWatermark() int {
+	return n.resource.Spec.IPAM.IPv6MaxAboveWatermark
+}
+
+// GetNeededAddresses returns the number of needed IPv6 addresses that need to be
+// allocated or released. A positive number is returned to indicate allocation.
+// A negative number is returned to indicate release of addresses.
+func (n *Node) GetNeededIPv6Addresses() int {
+	stats := n.Stats()
+	if stats.IPv6.NeededIPs > 0 {
+		return stats.IPv6.NeededIPs
+	}
+	if n.manager.releaseExcessIPs && stats.IPv6.ExcessIPs > 0 {
+		// Nodes are sorted by needed addresses, return negative values of excessIPs
+		// so that nodes with IP deficit are resolved first
+		return stats.IPv6.ExcessIPs * -1
 	}
 	return 0
 }
@@ -378,13 +432,21 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 
 func (n *Node) requirePoolMaintenance() {
 	n.mutex.Lock()
-	n.ipv4Alloc.waitingForPoolMaintenance = true
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		n.ipv6Alloc.waitingForPoolMaintenance = true
+	} else {
+		n.ipv4Alloc.waitingForPoolMaintenance = true
+	}
 	n.mutex.Unlock()
 }
 
 func (n *Node) poolMaintenanceComplete() {
 	n.mutex.Lock()
-	n.ipv4Alloc.waitingForPoolMaintenance = false
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		n.ipv6Alloc.waitingForPoolMaintenance = false
+	} else {
+		n.ipv4Alloc.waitingForPoolMaintenance = false
+	}
 	n.mutex.Unlock()
 }
 
@@ -452,50 +514,89 @@ func (n *Node) recalculate() {
 	}
 	scopedLog := n.logger()
 
-	a, stats, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
+	family := IPv4
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		family = IPv6
+	}
+
+	a, stats, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog, family)
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
 	if err != nil {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
+		if family == IPv4 {
+			n.stats.IPv4.NeededIPs = 0
+			n.stats.IPv4.ExcessIPs = 0
+		} else {
+			n.stats.IPv6.NeededIPs = 0
+			n.stats.IPv6.ExcessIPs = 0
+		}
 		// Avoid any further action
-		n.stats.IPv4.NeededIPs = 0
-		n.stats.IPv4.ExcessIPs = 0
 		return
 	}
 
-	n.ipv4Alloc.available = a
-	n.stats.IPv4.UsedIPs = len(n.resource.Status.IPAM.Used)
+	if family == IPv4 {
+		n.ipv4Alloc.available = a
+		n.stats.IPv4.UsedIPs = len(n.resource.Status.IPAM.Used)
 
-	// Get used IP count with prefixes included
-	usedIPForExcessCalc := n.stats.IPv4.UsedIPs
-	if n.ops.IsPrefixDelegated() {
-		usedIPForExcessCalc = n.ops.GetUsedIPWithPrefixes()
+		// Get used IP count with prefixes included
+		usedIPForExcessCalc := n.stats.IPv4.UsedIPs
+		if n.ops.IsPrefixDelegated(IPv4) {
+			usedIPForExcessCalc = n.ops.GetUsedIPWithPrefixes(IPv4)
+		}
+
+		n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
+		n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate(IPv4))
+		n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, usedIPForExcessCalc, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
+		n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
+		n.stats.IPv4.Capacity = stats.NodeCapacity
+
+		scopedLog.WithFields(logrus.Fields{
+			"available":                 n.stats.IPv4.AvailableIPs,
+			"capacity":                  n.stats.IPv4.Capacity,
+			"used":                      n.stats.IPv4.UsedIPs,
+			"toAlloc":                   n.stats.IPv4.NeededIPs,
+			"toRelease":                 n.stats.IPv4.ExcessIPs,
+			"waitingForPoolMaintenance": n.ipv4Alloc.waitingForPoolMaintenance,
+			"resyncNeeded":              n.resyncNeeded,
+			"remainingInterfaces":       stats.RemainingAvailableInterfaceCount,
+		}).Info("Recalculated needed IPv4 addresses")
+	} else {
+		n.ipv6Alloc.available = a
+		n.stats.IPv6.UsedIPs = len(n.resource.Status.IPAM.IPv6Used)
+
+		// Get used IP count with prefixes included
+		usedIPForExcessCalc := n.ops.GetUsedIPWithPrefixes(IPv6)
+
+		n.stats.IPv6.AvailableIPs = len(n.ipv6Alloc.available)
+		n.stats.IPv6.NeededIPs = calculateNeededIPs(n.stats.IPv6.AvailableIPs, n.stats.IPv6.UsedIPs, n.getIPv6PreAllocate(), n.getIPv6MinAllocate(), n.getMaxAllocate(IPv6))
+		n.stats.IPv6.ExcessIPs = calculateExcessIPs(n.stats.IPv6.AvailableIPs, usedIPForExcessCalc, n.getIPv6PreAllocate(), n.getIPv6MinAllocate(), n.getIPv6MaxAboveWatermark())
+		n.stats.IPv6.RemainingInterfaces = stats.RemainingAvailableIPv6InterfaceCount
+		n.stats.IPv6.Capacity = stats.NodeIPv6Capacity
+
+		scopedLog.WithFields(logrus.Fields{
+			"available":                 n.stats.IPv6.AvailableIPs,
+			"capacity":                  n.stats.IPv6.Capacity,
+			"used":                      n.stats.IPv6.UsedIPs,
+			"toAlloc":                   n.stats.IPv6.NeededIPs,
+			"toRelease":                 n.stats.IPv6.ExcessIPs,
+			"waitingForPoolMaintenance": n.ipv6Alloc.waitingForPoolMaintenance,
+			"resyncNeeded":              n.resyncNeeded,
+			"remainingInterfaces":       stats.RemainingAvailableIPv6InterfaceCount,
+		}).Info("Recalculated needed IPv6 addresses")
 	}
-
-	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
-	n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
-	n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, usedIPForExcessCalc, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
-	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
-	n.stats.IPv4.Capacity = stats.NodeCapacity
-
-	scopedLog.WithFields(logrus.Fields{
-		"available":                 n.stats.IPv4.AvailableIPs,
-		"capacity":                  n.stats.IPv4.Capacity,
-		"used":                      n.stats.IPv4.UsedIPs,
-		"toAlloc":                   n.stats.IPv4.NeededIPs,
-		"toRelease":                 n.stats.IPv4.ExcessIPs,
-		"waitingForPoolMaintenance": n.ipv4Alloc.waitingForPoolMaintenance,
-		"resyncNeeded":              n.resyncNeeded,
-		"remainingInterfaces":       stats.RemainingAvailableInterfaceCount,
-	}).Debug("Recalculated needed addresses")
 }
 
 // allocationNeeded returns true if this node requires IPs to be allocated
 func (n *Node) allocationNeeded() (needed bool) {
 	n.mutex.RLock()
-	needed = !n.ipv4Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.NeededIPs > 0
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		needed = !n.ipv6Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv6.NeededIPs > 0
+	} else {
+		needed = !n.ipv4Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.NeededIPs > 0
+	}
 	n.mutex.RUnlock()
 	return
 }
@@ -503,10 +604,18 @@ func (n *Node) allocationNeeded() (needed bool) {
 // releaseNeeded returns true if this node requires IPs to be released
 func (n *Node) releaseNeeded() (needed bool) {
 	n.mutex.RLock()
-	needed = n.manager.releaseExcessIPs && !n.ipv4Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.ExcessIPs > 0
-	if n.resource != nil {
-		releaseInProgress := len(n.resource.Status.IPAM.ReleaseIPs) > 0
-		needed = needed || releaseInProgress
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		needed = n.manager.releaseExcessIPs && !n.ipv6Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv6.ExcessIPs > 0
+		if n.resource != nil {
+			releaseInProgress := len(n.resource.Status.IPAM.ReleaseIPv6s) > 0
+			needed = needed || releaseInProgress
+		}
+	} else {
+		needed = n.manager.releaseExcessIPs && !n.ipv4Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.ExcessIPs > 0
+		if n.resource != nil {
+			releaseInProgress := len(n.resource.Status.IPAM.ReleaseIPs) > 0
+			needed = needed || releaseInProgress
+		}
 	}
 	n.mutex.RUnlock()
 	return
@@ -523,6 +632,17 @@ func (n *Node) Pool() (pool ipamTypes.AllocationMap) {
 	return
 }
 
+// IPv6Pool returns the IPv6 allocation pool available to the node
+func (n *Node) IPv6Pool() (pool ipamTypes.AllocationMap) {
+	pool = ipamTypes.AllocationMap{}
+	n.mutex.RLock()
+	for k, allocationIP := range n.ipv6Alloc.available {
+		pool[k] = allocationIP
+	}
+	n.mutex.RUnlock()
+	return
+}
+
 // ResourceCopy returns a deep copy of the CiliumNode custom resource
 // associated with the node
 func (n *Node) ResourceCopy() *v2.CiliumNode {
@@ -531,11 +651,11 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 	return n.resource.DeepCopy()
 }
 
-// createInterface creates an additional interface with the instance and
-// attaches it to the instance as specified by the CiliumNode. neededAddresses
-// of secondary IPs are assigned to the interface up to the maximum number of
-// addresses as allowed by the instance.
-func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (created bool, err error) {
+// createInterface creates an additional interface based on the provided IP family
+// and attaches it to the instance as specified by the CiliumNode. neededAddresses
+// of secondary IPs are assigned to the interface up to the maximum number of addresses
+// as allowed by the instance.
+func (n *Node) createInterface(ctx context.Context, a *AllocationAction, family Family) (created bool, err error) {
 	if a.EmptyInterfaceSlots == 0 {
 		// This is not a failure scenario, warn once per hour but do
 		// not track as interface allocation failure. There is a
@@ -551,16 +671,23 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (create
 
 	scopedLog := n.logger()
 	start := time.Now()
-	toAllocate, errCondition, err := n.ops.CreateInterface(ctx, a, scopedLog)
-	if err != nil {
-		n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, errCondition, string(a.PoolID), metrics.SinceInSeconds(start))
-		scopedLog.Warningf("Unable to create interface on instance: %s", err)
-		return false, err
+	if family == IPv4 {
+		toAllocate, errCondition, err := n.ops.CreateInterface(ctx, a, scopedLog, family)
+		if err != nil {
+			n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, errCondition, string(a.PoolID), metrics.SinceInSeconds(start))
+			scopedLog.Warningf("Unable to create interface on instance: %s", err)
+			return false, err
+		}
+		n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, success, string(a.PoolID), metrics.SinceInSeconds(start))
+		n.manager.metricsAPI.AddIPAllocation(string(a.PoolID), int64(toAllocate))
+		n.manager.metricsAPI.IncInterfaceAllocation(string(a.PoolID))
+	} else {
+		// TODO: Add IPv6 metrics support GH-19251
+		if _, _, err = n.ops.CreateInterface(ctx, a, scopedLog, family); err != nil {
+			scopedLog.Warningf("Unable to create IPv6 interface on instance: %s", err)
+			return false, err
+		}
 	}
-
-	n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, success, string(a.PoolID), metrics.SinceInSeconds(start))
-	n.manager.metricsAPI.AddIPAllocation(string(a.PoolID), int64(toAllocate))
-	n.manager.metricsAPI.IncInterfaceAllocation(string(a.PoolID))
 
 	return true, nil
 }
@@ -590,6 +717,9 @@ type AllocationAction struct {
 
 	// IPv4 represents IPv4-specific allocation actions.
 	IPv4 IPAllocationAction
+
+	// IPv6 represents IPv6-specific allocation actions.
+	IPv6 IPAllocationAction
 }
 
 // IPAllocationAction is the IP-specific action to be taken to resolve allocation deficits
@@ -602,10 +732,11 @@ type IPAllocationAction struct {
 	AvailableForAllocation int
 
 	// MaxIPsToAllocate is set by the core IPAM layer before
-	// NodeOperations.AllocateIPs() is called and defines the maximum
-	// number of IPs to allocate in order to stay within the boundaries as
-	// defined by NodeOperations.{ MinAllocate() | PreAllocate() |
-	// getMaxAboveWatermark() }.
+	// NodeOperations.AllocateIPs() | AllocateIPv6s() is called and defines
+	// the maximum number of IPs to allocate in order to stay within the
+	// boundaries as defined by NodeOperations.{ MinAllocate() | PreAllocate() |
+	// IPv6MinAllocate() | IPv6PreAllocate() | getMaxAboveWatermark() |
+	// getIPv6MaxAboveWatermark() }.
 	MaxIPsToAllocate int
 
 	// InterfaceCandidates is the number of attached interfaces with IPs
@@ -630,6 +761,9 @@ type ReleaseAction struct {
 
 	// IPsToRelease is the list of IPs to release
 	IPsToRelease []string
+
+	// IPv6sToRelease is the list of IPv6 addreses to release
+	IPv6sToRelease []string
 }
 
 // maintenanceAction represents the resources available for allocation for a
@@ -652,7 +786,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	// Validate that the node still requires addresses to be released, the
 	// request may have been resolved in the meantime.
 	if n.manager.releaseExcessIPs && stats.IPv4.ExcessIPs > 0 {
-		a.release = n.ops.PrepareIPRelease(stats.IPv4.ExcessIPs, scopedLog)
+		a.release = n.ops.PrepareIPRelease(stats.IPv4.ExcessIPs, scopedLog, IPv4)
 		return a, nil
 	}
 
@@ -662,7 +796,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 		return nil, nil
 	}
 
-	a.allocation, err = n.ops.PrepareIPAllocation(scopedLog)
+	a.allocation, err = n.ops.PrepareIPAllocation(scopedLog, IPv4)
 	if err != nil {
 		return nil, err
 	}
@@ -702,7 +836,73 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 		"used":                stats.IPv4.UsedIPs,
 		"neededIPs":           stats.IPv4.NeededIPs,
 		"remainingInterfaces": stats.IPv4.RemainingInterfaces,
-	}).Info("Resolving IP deficit of node")
+	}).Info("Resolving IPv4 deficit of node")
+
+	return a, nil
+}
+
+func (n *Node) determineIPv6MaintenanceAction() (*maintenanceAction, error) {
+	var err error
+
+	a := &maintenanceAction{}
+
+	scopedLog := n.logger()
+	stats := n.Stats()
+
+	// Validate that the node still requires addresses to be released, the
+	// request may have been resolved in the meantime.
+	if n.manager.releaseExcessIPs && stats.IPv6.ExcessIPs > 0 {
+		a.release = n.ops.PrepareIPRelease(stats.IPv6.ExcessIPs, scopedLog, IPv6)
+		return a, nil
+	}
+
+	// Validate that the node still requires addresses to be allocated, the
+	// request may have been resolved in the meantime.
+	if stats.IPv6.NeededIPs == 0 {
+		return nil, nil
+	}
+
+	a.allocation, err = n.ops.PrepareIPAllocation(scopedLog, IPv6)
+	if err != nil {
+		return nil, err
+	}
+
+	surgeAllocate := 0
+	numPendingPods, err := getPendingPodCount(n.name)
+	if err != nil {
+		if n.logLimiter.Allow() {
+			scopedLog.WithError(err).Warningf("Unable to compute pending pods, will not surge-allocate")
+		}
+	} else if numPendingPods > stats.IPv6.NeededIPs {
+		surgeAllocate = numPendingPods - stats.IPv6.NeededIPs
+	}
+
+	n.mutex.RLock()
+	// handleIPAllocation() takes a min of MaxIPsToAllocate and AvailableIPs for allocation on the interface.
+	// This makes sure we don't try to allocate more than what's available.
+	a.allocation.IPv6.MaxIPsToAllocate = stats.IPv6.NeededIPs + n.getIPv6MaxAboveWatermark() + surgeAllocate
+	n.mutex.RUnlock()
+
+	if a.allocation != nil {
+		n.mutex.Lock()
+		n.stats.IPv6.RemainingInterfaces = a.allocation.IPv6.InterfaceCandidates + a.allocation.EmptyInterfaceSlots
+		stats = n.stats
+		n.mutex.Unlock()
+		scopedLog = scopedLog.WithFields(logrus.Fields{
+			"selectedInterface":      a.allocation.InterfaceID,
+			"selectedPoolID":         a.allocation.PoolID,
+			"maxToAllocate":          a.allocation.IPv6.MaxIPsToAllocate,
+			"availableForAllocation": a.allocation.IPv6.AvailableForAllocation,
+			"emptyInterfaceSlots":    a.allocation.EmptyInterfaceSlots,
+		})
+	}
+
+	scopedLog.WithFields(logrus.Fields{
+		"qvailable":           stats.IPv6.AvailableIPs,
+		"used":                stats.IPv6.UsedIPs,
+		"needed":              stats.IPv6.NeededIPs,
+		"remainingInterfaces": stats.IPv6.RemainingInterfaces,
+	}).Info("Resolving IPv6 deficit of node")
 
 	return a, nil
 }
@@ -719,6 +919,22 @@ func (n *Node) removeStaleReleaseIPs() {
 		}
 		if _, ok := n.resource.Status.IPAM.ReleaseIPs[ip]; !ok {
 			delete(n.ipv4Alloc.ipReleaseStatus, ip)
+		}
+	}
+}
+
+// removeStaleReleaseIPv6s removes stale entries in local n.ipv6Alloc.ipReleaseStatus.
+// Once the handshake is complete agent would remove entries from IP release status map
+// in ciliumnode CRD's status. These IPs need to be purged from n.ipv6ReleaseStatus
+func (n *Node) removeStaleReleaseIPv6s() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	for ip, status := range n.ipv6Alloc.ipReleaseStatus {
+		if status != ipamOption.IPAMReleased {
+			continue
+		}
+		if _, ok := n.resource.Status.IPAM.ReleaseIPv6s[ip]; !ok {
+			delete(n.ipv6Alloc.ipReleaseStatus, ip)
 		}
 	}
 }
@@ -747,7 +963,31 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 	}
 }
 
-// handleIPReleaseResponse handles IPs agent has already responded to
+// abortNoLongerExcessIPv6s allows for aborting the release of IPv6 addresses if new allocations
+// on the node result in a change of excess count or the interface selected for release.
+func (n *Node) abortNoLongerExcessIPv6s(excessMap map[string]bool) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if len(n.resource.Status.IPAM.ReleaseIPv6s) == 0 {
+		return
+	}
+	for ip, status := range n.resource.Status.IPAM.ReleaseIPv6s {
+		if excessMap[ip] {
+			continue
+		}
+		// Handshake can be aborted from every state except 'released'
+		// 'released' state is removed by the agent once the IP has been removed from ciliumnode's IPAM pool as well.
+		if status == ipamOption.IPAMReleased {
+			continue
+		}
+		if status, ok := n.ipv6Alloc.ipReleaseStatus[ip]; ok && status != ipamOption.IPAMReleased {
+			delete(n.ipv6Alloc.ipsMarkedForRelease, ip)
+			delete(n.ipv6Alloc.ipReleaseStatus, ip)
+		}
+	}
+}
+
+// handleIPReleaseResponse handles IPv4 addresses that the agent has already responded to
 func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) bool {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -768,13 +1008,40 @@ func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) 
 	return false
 }
 
+// handleIPv6ReleaseResponse handles IPv6 addresses that the agent has already responded to
+func (n *Node) handleIPv6ReleaseResponse(markedIP string, ipsToRelease *[]string) bool {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if n.resource.Status.IPAM.ReleaseIPv6s != nil {
+		if status, ok := n.resource.Status.IPAM.ReleaseIPv6s[markedIP]; ok {
+			switch status {
+			case ipamOption.IPAMReadyForRelease:
+				*ipsToRelease = append(*ipsToRelease, markedIP)
+			case ipamOption.IPAMDoNotRelease:
+				delete(n.ipv6Alloc.ipsMarkedForRelease, markedIP)
+				delete(n.ipv6Alloc.ipReleaseStatus, markedIP)
+			}
+			// 'released' state is already handled in removeStaleReleaseIPs()
+			// Other states don't need additional handling.
+			return true
+		}
+	}
+	return false
+}
+
 func (n *Node) deleteLocalReleaseStatus(ip string) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	delete(n.ipv4Alloc.ipReleaseStatus, ip)
 }
 
-// handleIPRelease implements IP release handshake needed for releasing excess IPs on the node.
+func (n *Node) deleteLocalIPv6ReleaseStatus(ip string) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	delete(n.ipv6Alloc.ipReleaseStatus, ip)
+}
+
+// handleIPRelease implements IP release handshake needed for releasing excess IPv4 addresses on the node.
 // Operator initiates the handshake after an IP remains unused and excess for more than the number of seconds configured
 // by excess-ip-release-delay flag. Operator uses a map in ciliumnode's IPAM status field to exchange handshake
 // information with the agent. Once the operator marks an IP for release, agent can either acknowledge or NACK IPs.
@@ -890,6 +1157,108 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 	return false, nil
 }
 
+// handleIPv6Release implements IP release handshake needed for releasing excess IPv6 addresses on the node.
+// Operator initiates the handshake after an IP remains unused and excess for more than the number of seconds configured
+// by excess-ip-release-delay flag. Operator uses a map in ciliumnode's IPAM status field to exchange handshake
+// information with the agent. Once the operator marks an IP for release, agent can either acknowledge or NACK IPs.
+// If agent acknowledges, operator will release the IP and update the state to released. After the IP is removed from
+// spec.ipam.pool and status is set to released, agent will remove the entry from map completing the handshake.
+// Handshake is implemented with 4 states :
+// * marked-for-release : Set by operator as possible candidate for IP
+// * ready-for-release  : Acknowledged as safe to release by agent
+// * do-not-release     : IP already in use / not owned by the node. Set by agent
+// * released           : IP successfully released. Set by operator
+//
+// Handshake would be aborted if there are new allocations and the node doesn't have IPv6 addresses in excess anymore.
+func (n *Node) handleIPv6Release(ctx context.Context, a *maintenanceAction) {
+	scopedLog := n.logger()
+	var ipsToMark []string
+	var ipsToRelease []string
+
+	// Update timestamps for IPs from this iteration
+	releaseTS := time.Now()
+	if a.release != nil && a.release.IPv6sToRelease != nil {
+		for _, ip := range a.release.IPv6sToRelease {
+			if _, ok := n.ipv6Alloc.ipsMarkedForRelease[ip]; !ok {
+				n.ipv6Alloc.ipsMarkedForRelease[ip] = releaseTS
+			}
+		}
+	}
+
+	if n.ipv6Alloc.ipsMarkedForRelease == nil || a.release == nil || len(a.release.IPv6sToRelease) == 0 {
+		// Resetting ipsMarkedForRelease if there are no IPs to release in this iteration
+		n.ipv6Alloc.ipsMarkedForRelease = make(map[string]time.Time)
+	}
+
+	for markedIP, ts := range n.ipv6Alloc.ipsMarkedForRelease {
+		// Determine which IPs are still marked for release.
+		stillMarkedForRelease := false
+		for _, ip := range a.release.IPv6sToRelease {
+			if markedIP == ip {
+				stillMarkedForRelease = true
+				break
+			}
+		}
+		if !stillMarkedForRelease {
+			// n.determineIPv6MaintenanceAction() only returns the IPv6 addresses on the interface
+			// with maximum number of IPs that can be freed up. If the selected interface changes
+			// or if this IP is not excess anymore, remove entry from local maps.
+			delete(n.ipv6Alloc.ipsMarkedForRelease, markedIP)
+			n.deleteLocalIPv6ReleaseStatus(markedIP)
+			continue
+		}
+		// Check if the IP release waiting period elapsed
+		if ts.Add(time.Duration(operatorOption.Config.ExcessIPReleaseDelay) * time.Second).After(time.Now()) {
+			continue
+		}
+		// Handling for IPs we've already heard back from agent.
+		if n.handleIPv6ReleaseResponse(markedIP, &ipsToRelease) {
+			continue
+		}
+		// markedIP can now be considered excess and is not currently in an active handshake
+		ipsToMark = append(ipsToMark, markedIP)
+	}
+
+	n.mutex.Lock()
+	for _, ip := range ipsToMark {
+		scopedLog.WithFields(logrus.Fields{logfields.IPAddr: ip}).Debug("Marking IPv6 address for release")
+		n.ipv6Alloc.ipReleaseStatus[ip] = ipamOption.IPAMMarkForRelease
+	}
+	n.mutex.Unlock()
+
+	// Abort handshake for IPs that are in the middle of handshake, but are no longer considered excess
+	var excessMap map[string]bool
+	if a.release != nil && len(a.release.IPv6sToRelease) > 0 {
+		excessMap = make(map[string]bool, len(a.release.IPv6sToRelease))
+		for _, ip := range a.release.IPv6sToRelease {
+			excessMap[ip] = true
+		}
+	}
+	n.abortNoLongerExcessIPv6s(excessMap)
+
+	if len(ipsToRelease) > 0 {
+		a.release.IPv6sToRelease = ipsToRelease
+		scopedLog = scopedLog.WithFields(logrus.Fields{
+			"available":         n.stats.IPv6.AvailableIPs,
+			"used":              n.stats.IPv6.UsedIPs,
+			"excess":            n.stats.IPv6.ExcessIPs,
+			"excessIpv6s":       a.release.IPv6sToRelease,
+			"releasing":         ipsToRelease,
+			"selectedInterface": a.release.InterfaceID,
+			"selectedPoolID":    a.release.PoolID,
+		})
+		scopedLog.Info("Releasing excess IPv6 addresses from node")
+
+		// Remove the IPs from ipsMarkedForRelease
+		n.mutex.Lock()
+		for _, ip := range ipsToRelease {
+			delete(n.ipv6Alloc.ipsMarkedForRelease, ip)
+			n.ipv6Alloc.ipReleaseStatus[ip] = ipamOption.IPAMReleased
+		}
+		n.mutex.Unlock()
+	}
+}
+
 // handleIPAllocation allocates the necessary IPs needed to resolve deficit on the node.
 // If existing interfaces don't have enough capacity, new interface would be created.
 func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (instanceMutated bool, err error) {
@@ -899,50 +1268,85 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 		return false, nil
 	}
 
-	// Assign needed addresses
-	if a.allocation.IPv4.AvailableForAllocation > 0 {
-		a.allocation.IPv4.AvailableForAllocation = math.IntMin(a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
+	// Determine the family for IP allocation
+	family := IPv4
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		family = IPv6
+	}
 
-		start := time.Now()
-		err := n.ops.AllocateIPs(ctx, a.allocation)
-		if err == nil {
-			n.manager.metricsAPI.AllocationAttempt(allocateIP, success, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
-			n.manager.metricsAPI.AddIPAllocation(string(a.allocation.PoolID), int64(a.allocation.IPv4.AvailableForAllocation))
+	// Assign needed addresses
+	if family == IPv4 {
+		if a.allocation.IPv4.AvailableForAllocation > 0 {
+			a.allocation.IPv4.AvailableForAllocation = math.IntMin(a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
+			start := time.Now()
+			err := n.ops.AllocateIPs(ctx, a.allocation, IPv4)
+			if err == nil {
+				n.manager.metricsAPI.AllocationAttempt(allocateIP, success, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
+				n.manager.metricsAPI.AddIPAllocation(string(a.allocation.PoolID), int64(a.allocation.IPv4.AvailableForAllocation))
+				return true, nil
+			}
+			n.manager.metricsAPI.AllocationAttempt(allocateIP, failed, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
+			scopedLog.WithFields(logrus.Fields{
+				"selectedInterface": a.allocation.InterfaceID,
+				"ipsToAllocate":     a.allocation.IPv4.AvailableForAllocation,
+			}).WithError(err).Warning("Unable to assign additional IPs to interface, will create new interface")
+		}
+	} else if a.allocation.IPv6.AvailableForAllocation > 0 {
+		a.allocation.IPv6.AvailableForAllocation = math.IntMin(a.allocation.IPv6.AvailableForAllocation, a.allocation.IPv6.MaxIPsToAllocate)
+		// TODO: Add IPv6 metrics support GH-19251
+		if err := n.ops.AllocateIPs(ctx, a.allocation, IPv6); err == nil {
 			return true, nil
 		}
-
-		n.manager.metricsAPI.AllocationAttempt(allocateIP, failed, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
 		scopedLog.WithFields(logrus.Fields{
 			"selectedInterface": a.allocation.InterfaceID,
-			"ipsToAllocate":     a.allocation.IPv4.AvailableForAllocation,
-		}).WithError(err).Warning("Unable to assign additional IPs to interface, will create new interface")
+			"ipsToAllocate":     a.allocation.IPv6.AvailableForAllocation,
+		}).WithError(err).Warning("Unable to assign additional IPv6 addresses to interface, will create new interface")
 	}
 
-	return n.createInterface(ctx, a.allocation)
+	return n.createInterface(ctx, a.allocation, family)
 }
 
-// maintainIPPool attempts to allocate or release all required IPs to fulfill the needed gap.
-// returns instanceMutated which tracks if state changed with the cloud provider and is used
-// to determine if IPAM pool maintainer trigger func needs to be invoked.
+// maintainIPPool attempts to allocate or release all required IPs based on the provided IP
+// family to fulfill the needed gap. returns instanceMutated which tracks if state changed
+// with the cloud provider and is used to determine if IPAM pool maintainer trigger func needs
+// to be invoked.
 func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err error) {
-	if n.manager.releaseExcessIPs {
-		n.removeStaleReleaseIPs()
-	}
-
-	a, err := n.determineMaintenanceAction()
-	if err != nil {
-		n.abortNoLongerExcessIPs(nil)
-		return false, err
-	}
-
-	// Maintenance request has already been fulfilled
-	if a == nil {
-		n.abortNoLongerExcessIPs(nil)
-		return false, nil
-	}
-
-	if instanceMutated, err := n.handleIPRelease(ctx, a); instanceMutated || err != nil {
-		return instanceMutated, err
+	a := new(maintenanceAction)
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		if n.manager.releaseExcessIPs {
+			n.removeStaleReleaseIPv6s()
+		}
+		a, err = n.determineIPv6MaintenanceAction()
+		switch {
+		case err != nil:
+			n.abortNoLongerExcessIPv6s(nil)
+			return false, err
+		case a == nil:
+			// Maintenance request has already been fulfilled
+			n.abortNoLongerExcessIPv6s(nil)
+			return false, nil
+		case a.release != nil:
+			n.handleIPv6Release(ctx, a)
+			return false, nil
+		}
+	} else {
+		if n.manager.releaseExcessIPs {
+			n.removeStaleReleaseIPs()
+		}
+		a, err = n.determineMaintenanceAction()
+		switch {
+		case err != nil:
+			n.abortNoLongerExcessIPs(nil)
+			return false, err
+		case a == nil:
+			// Maintenance request has already been fulfilled
+			n.abortNoLongerExcessIPs(nil)
+			return false, nil
+		default:
+			if instanceMutated, err := n.handleIPRelease(ctx, a); instanceMutated || err != nil {
+				return instanceMutated, err
+			}
+		}
 	}
 
 	return n.handleIPAllocation(ctx, a)
@@ -999,10 +1403,11 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	if instanceMutated || err != nil {
 		n.instanceSync.Trigger()
 	}
+
 	return err
 }
 
-// PopulateIPReleaseStatus Updates cilium node IPAM status with excess IP release data
+// PopulateIPReleaseStatus updates cilium node IPAM status with excess IPv4 release data
 func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 	// maintainIPPool() might not have run yet since the last update from agent.
 	// Attempt to remove any stale entries
@@ -1021,6 +1426,27 @@ func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 		releaseStatus[ip] = ipamTypes.IPReleaseStatus(status)
 	}
 	node.Status.IPAM.ReleaseIPs = releaseStatus
+}
+
+// PopulateIPv6ReleaseStatus updates cilium node IPAM status with excess IPv6 release data
+func (n *Node) PopulateIPv6ReleaseStatus(node *v2.CiliumNode) {
+	// maintainIPPool() might not have run yet since the last update from agent.
+	// Attempt to remove any stale entries
+	n.removeStaleReleaseIPv6s()
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	releaseStatus := make(map[string]ipamTypes.IPReleaseStatus)
+	for ip, status := range n.ipv6Alloc.ipReleaseStatus {
+		if existingStatus, ok := node.Status.IPAM.ReleaseIPv6s[ip]; ok && status == ipamOption.IPAMMarkForRelease {
+			// retain status if agent already responded to this IP
+			if existingStatus == ipamOption.IPAMReadyForRelease || existingStatus == ipamOption.IPAMDoNotRelease {
+				releaseStatus[ip] = existingStatus
+				continue
+			}
+		}
+		releaseStatus[ip] = ipamTypes.IPReleaseStatus(status)
+	}
+	node.Status.IPAM.ReleaseIPv6s = releaseStatus
 }
 
 // syncToAPIServer synchronizes the contents of the CiliumNode resource
@@ -1045,7 +1471,7 @@ func (n *Node) syncToAPIServer() (err error) {
 
 	origNode := node.DeepCopy()
 
-	// We create a snapshot of the IP pool before we update the status. This
+	// We create a snapshot of the IP pools before we update the status. This
 	// ensures that the pool in the spec is always older than the IPAM
 	// information in the status.
 	// This ordering is important, because otherwise a new IP could be added to
@@ -1056,7 +1482,11 @@ func (n *Node) syncToAPIServer() (err error) {
 	// handshake, where the agent will never use any IP where it has
 	// acknowledged the release handshake. Therefore, having an already
 	// released IP in the pool is fine, as the agent will ignore it.
-	pool := n.Pool()
+	v4Pool := n.Pool()
+	v6Pool := ipamTypes.AllocationMap{}
+	if n.IsPrefixDelegationEnabled(IPv6) {
+		v6Pool = n.IPv6Pool()
+	}
 
 	// Always update the status first to ensure that the IPAM information
 	// is synced for all addresses that are marked as available.
@@ -1069,8 +1499,15 @@ func (n *Node) syncToAPIServer() (err error) {
 			node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 		}
 
+		if n.IsPrefixDelegationEnabled(IPv6) && node.Status.IPAM.IPv6Used == nil {
+			node.Status.IPAM.IPv6Used = ipamTypes.AllocationMap{}
+		}
+
 		n.ops.PopulateStatusFields(node)
 		n.PopulateIPReleaseStatus(node)
+		if n.IsPrefixDelegationEnabled(IPv6) {
+			n.PopulateIPv6ReleaseStatus(node)
+		}
 
 		err = n.update(origNode, node, retry, true)
 		if err == nil {
@@ -1084,8 +1521,7 @@ func (n *Node) syncToAPIServer() (err error) {
 	}
 
 	for retry := 0; retry < 2; retry++ {
-		node.Spec.IPAM.Pool = pool
-		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
+		node.Spec.IPAM.Pool = v4Pool
 
 		// The PreAllocate value is added here rather than where the CiliumNode
 		// resource is created ((*NodeDiscovery).mutateNodeResource() inside
@@ -1093,7 +1529,20 @@ func (n *Node) syncToAPIServer() (err error) {
 		// access to the ipam.Node object. Since we are in the CiliumNode
 		// update sync loop, we can compute the value.
 		if node.Spec.IPAM.PreAllocate == 0 {
-			node.Spec.IPAM.PreAllocate = n.ops.GetMinimumAllocatableIPv4()
+			node.Spec.IPAM.PreAllocate = n.ops.GetMinimumAllocatableIP(IPv4)
+		}
+
+		if n.IsPrefixDelegationEnabled(IPv6) {
+			node.Spec.IPAM.IPv6Pool = v6Pool
+
+			// The IPv6PreAllocate value is added here rather than where the CiliumNode
+			// resource is created ((*NodeDiscovery).mutateNodeResource() inside
+			// pkg/nodediscovery), because mutateNodeResource() does not have
+			// access to the ipam.Node object. Since we are in the CiliumNode
+			// update sync loop, we can compute the value.
+			if node.Spec.IPAM.IPv6PreAllocate == 0 {
+				node.Spec.IPAM.IPv6PreAllocate = n.ops.GetMinimumAllocatableIP(IPv6)
+			}
 		}
 
 		err = n.update(origNode, node, retry, false)

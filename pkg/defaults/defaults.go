@@ -387,8 +387,12 @@ const (
 	KVstoreLeaseMaxTTL = 86400 * time.Second
 
 	// IPAMPreAllocation is the default value for
-	// CiliumNode.Spec.IPAM.PreAllocate if no value is set
+	// CiliumNode.Spec.IPAM.IPv4.PreAllocate if no value is set
 	IPAMPreAllocation = 8
+
+	// IPAMIPv6PreAllocation is the default value for
+	// CiliumNode.Spec.IPAM.IPv6.PreAllocate if no value is set
+	IPAMIPv6PreAllocation = 32
 
 	// IPAMDefaultIPPool is the default value for the multi-pool default pool name.
 	IPAMDefaultIPPool = "default"

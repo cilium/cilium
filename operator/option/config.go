@@ -516,6 +516,12 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)
 
+	// AWS does not support dual stack: https://docs.aws.amazon.com/eks/latest/userguide/cni-ipv6.html
+	if c.AWSEnablePrefixDelegation && c.AWSEnableIPv6PrefixDelegation {
+		log.Fatalf("both %s and %s cannot be set since AWS does not support dualstack",
+			AWSEnablePrefixDelegation, AWSEnableIPv6PrefixDelegation)
+	}
+
 	// Azure options
 
 	c.AzureSubscriptionID = vp.GetString(AzureSubscriptionID)

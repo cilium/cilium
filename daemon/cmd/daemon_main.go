@@ -1386,6 +1386,22 @@ func initEnv(vp *viper.Viper) {
 		log.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
 	}
 
+	// AWS does not support dualstack: https://docs.aws.amazon.com/eks/latest/userguide/cni-ipv6.html
+	if option.Config.IPAM == ipamOption.IPAMENI && option.Config.IsDualStack() {
+		log.Fatalf("Both %s and %s options cannot be set since AWS does not support dualstack",
+			option.EnableIPv4Name, option.EnableIPv6Name)
+	}
+
+	// IPv6 is not supported for the Alibaba IPAM plugin.
+	if option.Config.IPAM == ipamOption.IPAMAlibabaCloud && option.Config.IPv6Enabled() {
+		log.Fatalf("%s ENI IPAM plugin does not support IPv6", ipamOption.IPAMAlibabaCloud)
+	}
+
+	// IPv6 is not supported for the Azure IPAM plugin.
+	if option.Config.IPAM == ipamOption.IPAMAzure && option.Config.IPv6Enabled() {
+		log.Fatalf("%s ENI IPAM plugin does not support IPv6", ipamOption.IPAMAzure)
+	}
+
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if option.Config.EnableIPSec &&

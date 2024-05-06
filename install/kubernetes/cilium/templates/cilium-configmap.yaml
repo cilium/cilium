@@ -513,6 +513,9 @@ data:
 {{- if .Values.eni.awsEnablePrefixDelegation }}
   aws-enable-prefix-delegation: "true"
 {{- end }}
+{{- if .Values.eni.awsEnableIPv6PrefixDelegation }}
+  aws-enable-ipv6-prefix-delegation: "true"
+{{- end }}
   ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
 {{- if .Values.eni.subnetIDsFilter }}

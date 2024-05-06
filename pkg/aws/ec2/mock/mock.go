@@ -19,6 +19,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
@@ -40,6 +41,7 @@ const (
 	AttachNetworkInterface
 	ModifyNetworkInterface
 	AssignPrivateIpAddresses
+	AssignIPv6Prefixes
 	UnassignPrivateIpAddresses
 	TagENI
 	MaxOperation
@@ -47,19 +49,21 @@ const (
 
 // API represents a mocked EC2 API
 type API struct {
-	mutex          lock.RWMutex
-	unattached     map[string]*eniTypes.ENI
-	enis           map[string]ENIMap
-	subnets        map[string]*ipamTypes.Subnet
-	vpcs           map[string]*ipamTypes.VirtualNetwork
-	securityGroups map[string]*types.SecurityGroup
-	instanceTypes  []ec2_types.InstanceTypeInfo
-	errors         map[Operation]error
-	allocator      *ipallocator.Range
-	pdAllocator    *cidrset.CidrSet
-	limiter        *rate.Limiter
-	delaySim       *helpers.DelaySimulator
-	pdSubnet       *net.IPNet
+	mutex             lock.RWMutex
+	unattached        map[string]*eniTypes.ENI
+	enis              map[string]ENIMap
+	subnets           map[string]*ipamTypes.Subnet
+	vpcs              map[string]*ipamTypes.VirtualNetwork
+	securityGroups    map[string]*types.SecurityGroup
+	instanceTypes     []ec2_types.InstanceTypeInfo
+	errors            map[Operation]error
+	ipAllocator       *ipallocator.Range
+	v4PrefixAllocator *cidrset.CidrSet
+	v6PrefixAllocator *cidrset.CidrSet
+	limiter           *rate.Limiter
+	delaySim          *helpers.DelaySimulator
+	pdSubnet          *net.IPNet
+	ipv6PDSubnet      *net.IPNet
 }
 
 // NewAPI returns a new mocked EC2 API
@@ -80,18 +84,33 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		panic(err)
 	}
 
+	// Start with a base IPv6 2001:db8::/56 CIDR for the VPC.
+	_, vpcV6Cidr, _ := net.ParseCIDR("2001:db8::/56")
+
+	// Use /64 for the VPC subnet allocation.
+	v6SubnetCidrSet, _ := cidrset.NewCIDRSet(vpcV6Cidr, 64)
+	v6SubnetCidr, _ := v6SubnetCidrSet.AllocateNext()
+
+	// Use /80 for IPv6 prefix allocations.
+	v6PdCidrRange, err := cidrset.NewCIDRSet(v6SubnetCidr, 80)
+	if err != nil {
+		panic(err)
+	}
+
 	api := &API{
-		unattached:     map[string]*eniTypes.ENI{},
-		enis:           map[string]ENIMap{},
-		subnets:        map[string]*ipamTypes.Subnet{},
-		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
-		securityGroups: map[string]*types.SecurityGroup{},
-		instanceTypes:  []ec2_types.InstanceTypeInfo{},
-		allocator:      podCidrRange,
-		pdAllocator:    pdCidrRange,
-		errors:         map[Operation]error{},
-		delaySim:       helpers.NewDelaySimulator(),
-		pdSubnet:       pdCidr,
+		unattached:        map[string]*eniTypes.ENI{},
+		enis:              map[string]ENIMap{},
+		subnets:           map[string]*ipamTypes.Subnet{},
+		vpcs:              map[string]*ipamTypes.VirtualNetwork{},
+		securityGroups:    map[string]*types.SecurityGroup{},
+		instanceTypes:     []ec2_types.InstanceTypeInfo{},
+		ipAllocator:       podCidrRange,
+		v4PrefixAllocator: pdCidrRange,
+		v6PrefixAllocator: v6PdCidrRange,
+		errors:            map[Operation]error{},
+		delaySim:          helpers.NewDelaySimulator(),
+		pdSubnet:          pdCidr,
+		ipv6PDSubnet:      v6SubnetCidr,
 	}
 
 	api.UpdateSubnets(subnets)
@@ -184,10 +203,10 @@ func (e *API) rateLimit() {
 	}
 }
 
-// CreateNetworkInterface mocks the interface creation. As with the upstream
-// EC2 API, the number of IP addresses in toAllocate are the number of
-// secondary IPs, a primary IP is always allocated.
-func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
+// CreateNetworkInterface mocks the interface creation based on the provided IP family.
+// When the IP family is "IPv4", the number of IP addresses in toAllocate are the number
+// of secondary IPs, a primary IP is always allocated.
+func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool, family ipam.Family) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
 	e.delaySim.Delay(CreateNetworkInterface)
 
@@ -203,9 +222,12 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 		return "", nil, fmt.Errorf("subnet %s not found", subnetID)
 	}
 
-	numAddresses := int(toAllocate) + 1 // include primary IP
-	if numAddresses > subnet.AvailableAddresses {
-		return "", nil, fmt.Errorf("subnet %s has not enough addresses available", subnetID)
+	numAddresses := int(toAllocate)
+	if family == ipam.IPv4 {
+		numAddresses += 1 // include primary IP
+		if numAddresses > subnet.AvailableAddresses {
+			return "", nil, fmt.Errorf("subnet %s has not enough IPv4 addresses available", subnetID)
+		}
 	}
 
 	eniID := uuid.New().String()
@@ -218,28 +240,44 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 		SecurityGroups: groups,
 	}
 
-	primaryIP, err := e.allocator.AllocateNext()
-	if err != nil {
-		panic("Unable to allocate primary IP from allocator")
-	}
-	eni.IP = primaryIP.String()
-
-	if allocatePrefixes {
+	switch {
+	case family == ipam.IPv4 && allocatePrefixes:
 		err := assignPrefixToENI(e, eni, int32(1))
 		if err != nil {
 			return "", nil, err
 		}
-	} else {
+	case family == ipam.IPv6 && allocatePrefixes:
+		pfx, err := e.v6PrefixAllocator.AllocateNext()
+		if err != nil {
+			panic("Unable to allocate IPv6 prefix from allocator")
+		}
+		eni.IPv6 = pfx.IP.String()
+
+		err = assignIPv6PrefixToENI(e, eni, int32(1))
+		if err != nil {
+			return "", nil, err
+		}
+	default:
+		primaryIP, err := e.ipAllocator.AllocateNext()
+		if err != nil {
+			panic("Unable to allocate primary IP from allocator")
+		}
+		eni.IPv6 = primaryIP.String()
+
 		for i := int32(0); i < toAllocate; i++ {
-			ip, err := e.allocator.AllocateNext()
+			ip, err := e.ipAllocator.AllocateNext()
 			if err != nil {
-				panic("Unable to allocate IP from allocator")
+				panic("Unable to allocate IPv4 address from allocator")
 			}
 			eni.Addresses = append(eni.Addresses, ip.String())
 		}
 	}
 
-	subnet.AvailableAddresses -= numAddresses
+	if family == ipam.IPv4 {
+		subnet.AvailableAddresses -= numAddresses
+	} else {
+		subnet.AvailableIPv6Addresses -= numAddresses
+	}
 
 	e.unattached[eniID] = eni
 	log.Debugf(" ENI after initial creation %v", eni)
@@ -366,7 +404,7 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 			}
 
 			for i := int32(0); i < addresses; i++ {
-				ip, err := e.allocator.AllocateNext()
+				ip, err := e.ipAllocator.AllocateNext()
 				if err != nil {
 					panic("Unable to allocate IP from allocator")
 				}
@@ -418,7 +456,7 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 				addressesAfterRelease = append(addressesAfterRelease, address)
 			} else {
 				ip := net.ParseIP(address)
-				e.allocator.Release(ip)
+				e.ipAllocator.Release(ip)
 				subnet.AvailableAddresses++
 			}
 		}
@@ -443,7 +481,7 @@ func assignPrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
 
 	for i := int32(0); i < prefixes; i++ {
 		// Get a new /28 prefix
-		pfx, err := e.pdAllocator.AllocateNext()
+		pfx, err := e.v4PrefixAllocator.AllocateNext()
 		if err != nil {
 			return err
 		}
@@ -452,11 +490,36 @@ func assignPrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
 		eni.Prefixes = append(eni.Prefixes, prefixStr)
 		prefixIPs, err := ip.PrefixToIps(prefixStr, 0)
 		if err != nil {
-			return fmt.Errorf("unable to convert prefix %s to ips", prefixStr)
+			return fmt.Errorf("unable to convert prefix %s to ipv4 addresses", prefixStr)
 		}
 		eni.Addresses = append(eni.Addresses, prefixIPs...)
 	}
 	subnet.AvailableAddresses -= int(prefixes * option.ENIPDBlockSizeIPv4)
+	return nil
+}
+
+func assignIPv6PrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
+	subnet, ok := e.subnets[eni.Subnet.ID]
+	if !ok {
+		return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+	}
+
+	for i := int32(0); i < prefixes; i++ {
+		// Get a new /80 prefix
+		pfx, err := e.v6PrefixAllocator.AllocateNext()
+		if err != nil {
+			return err
+		}
+
+		prefixStr := pfx.String()
+		eni.IPv6Prefixes = append(eni.IPv6Prefixes, prefixStr)
+		prefixIPs, err := ip.PrefixToIps(prefixStr, option.ENIPDBlockSizeIPv6)
+		if err != nil {
+			return fmt.Errorf("unable to convert prefix %s to ipv6 addresses", prefixStr)
+		}
+		eni.IPv6Addresses = append(eni.IPv6Addresses, prefixIPs...)
+	}
+	subnet.AvailableIPv6Addresses -= int(prefixes * option.ENIPDBlockSizeIPv6)
 	return nil
 }
 
@@ -474,6 +537,25 @@ func (e *API) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int3
 	for _, enis := range e.enis {
 		if eni, ok := enis[eniID]; ok {
 			return assignPrefixToENI(e, eni, prefixes)
+		}
+	}
+	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+}
+
+func (e *API) AssignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes int32) error {
+	e.rateLimit()
+	e.delaySim.Delay(AssignIPv6Prefixes)
+
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if err, ok := e.errors[AssignIPv6Prefixes]; ok {
+		return err
+	}
+
+	for _, enis := range e.enis {
+		if eni, ok := enis[eniID]; ok {
+			return assignIPv6PrefixToENI(e, eni, prefixes)
 		}
 	}
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
@@ -497,7 +579,7 @@ func (e *API) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []
 		if err != nil {
 			return fmt.Errorf("Invalid CIDR block %s", prefix)
 		}
-		e.pdAllocator.Release(ipNet)
+		e.v4PrefixAllocator.Release(ipNet)
 		ips, _ := ip.PrefixToIps(prefix, 0)
 		addresses = append(addresses, ips...)
 	}

@@ -38,10 +38,16 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 	// Coalesce CIDRs into minimum set needed for route rules
 	// The routes set up here will be cleaned up by linuxrouting.Delete.
 	// Therefor the code here should be kept in sync with the deletion code.
-	ipv4CIDRs, _ := ip.CoalesceCIDRs(allCIDRs)
-	cidrs := make([]string, 0, len(ipv4CIDRs))
-	for _, cidr := range ipv4CIDRs {
-		cidrs = append(cidrs, cidr.String())
+	ipv4CIDRs, ipv6CIDRs := ip.CoalesceCIDRs(allCIDRs)
+	var cidrs []string
+	if ipConfig.Address.IP.To4() != nil {
+		for _, cidr := range ipv4CIDRs {
+			cidrs = append(cidrs, cidr.String())
+		}
+	} else {
+		for _, cidr := range ipv6CIDRs {
+			cidrs = append(cidrs, cidr.String())
+		}
 	}
 
 	routingInfo, err := linuxrouting.NewRoutingInfo(

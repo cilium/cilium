@@ -1060,8 +1060,12 @@
      - Enable use of per endpoint routes instead of routing via the cilium_host interface.
      - bool
      - ``false``
+   * - :spelling:ignore:`eni.awsEnableIPv6PrefixDelegation`
+     - Enable ENI IPv6 prefix delegation
+     - bool
+     - ``false``
    * - :spelling:ignore:`eni.awsEnablePrefixDelegation`
-     - Enable ENI prefix delegation
+     - Enable ENI IPv4 prefix delegation
      - bool
      - ``false``
    * - :spelling:ignore:`eni.awsReleaseExcessIPs`
