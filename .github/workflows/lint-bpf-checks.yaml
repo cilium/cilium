@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
       - name: Run coccicheck
@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.9
@@ -115,13 +115,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libtinfo5
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@dec985c8d7b46a2f363ea1a78f660c946a3349ea # v2.0.1
+        uses: KyleMayes/install-llvm-action@8b37482c5a2997a3ab5dbf6561f8109e2eaa7d3b # v2.0.2
         with:
           version: "10.0"
           directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -138,7 +138,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.9
@@ -153,13 +153,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libtinfo5
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@dec985c8d7b46a2f363ea1a78f660c946a3349ea # v2.0.1
+        uses: KyleMayes/install-llvm-action@8b37482c5a2997a3ab5dbf6561f8109e2eaa7d3b # v2.0.2
         with:
           version: "10.0"
           directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -168,7 +168,7 @@ jobs:
           # TODO: re-enable coverage reporting, see https://github.com/cilium/cilium/issues/22088
           make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
       - name: Archive code coverage results
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: bpf-code-coverage-report
           path: bpf-coverage.html
