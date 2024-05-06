@@ -11,45 +11,63 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified transit gateway route table. If there are any route
-// tables associated with the transit gateway route table, you must first run
-// DisassociateRouteTable before you can delete the transit gateway route table.
-// This removes any route tables associated with the transit gateway route table.
-func (c *Client) DeleteTransitGatewayRouteTable(ctx context.Context, params *DeleteTransitGatewayRouteTableInput, optFns ...func(*Options)) (*DeleteTransitGatewayRouteTableOutput, error) {
+// Gets the public endorsement key associated with the Nitro Trusted Platform
+// Module (NitroTPM) for the specified instance.
+func (c *Client) GetInstanceTpmEkPub(ctx context.Context, params *GetInstanceTpmEkPubInput, optFns ...func(*Options)) (*GetInstanceTpmEkPubOutput, error) {
 	if params == nil {
-		params = &DeleteTransitGatewayRouteTableInput{}
+		params = &GetInstanceTpmEkPubInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteTransitGatewayRouteTable", params, optFns, c.addOperationDeleteTransitGatewayRouteTableMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetInstanceTpmEkPub", params, optFns, c.addOperationGetInstanceTpmEkPubMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DeleteTransitGatewayRouteTableOutput)
+	out := result.(*GetInstanceTpmEkPubOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DeleteTransitGatewayRouteTableInput struct {
+type GetInstanceTpmEkPubInput struct {
 
-	// The ID of the transit gateway route table.
+	// The ID of the instance for which to get the public endorsement key.
 	//
 	// This member is required.
-	TransitGatewayRouteTableId *string
+	InstanceId *string
 
-	// Checks whether you have the required permissions for the action, without
-	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation . Otherwise, it is
-	// UnauthorizedOperation .
+	// The required public endorsement key format. Specify der for a DER-encoded
+	// public key that is compatible with OpenSSL. Specify tpmt for a TPM 2.0 format
+	// that is compatible with tpm2-tools. The returned key is base64 encoded.
+	//
+	// This member is required.
+	KeyFormat types.EkPubKeyFormat
+
+	// The required public endorsement key type.
+	//
+	// This member is required.
+	KeyType types.EkPubKeyType
+
+	// Specify this parameter to verify whether the request will succeed, without
+	// actually making the request. If the request will succeed, the response is
+	// DryRunOperation . Otherwise, the response is UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
 }
 
-type DeleteTransitGatewayRouteTableOutput struct {
+type GetInstanceTpmEkPubOutput struct {
 
-	// Information about the deleted transit gateway route table.
-	TransitGatewayRouteTable *types.TransitGatewayRouteTable
+	// The ID of the instance.
+	InstanceId *string
+
+	// The public endorsement key format.
+	KeyFormat types.EkPubKeyFormat
+
+	// The public endorsement key type.
+	KeyType types.EkPubKeyType
+
+	// The public endorsement key material.
+	KeyValue *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -57,19 +75,19 @@ type DeleteTransitGatewayRouteTableOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDeleteTransitGatewayRouteTableMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetInstanceTpmEkPubMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteTransitGatewayRouteTable{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpGetInstanceTpmEkPub{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDeleteTransitGatewayRouteTable{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetInstanceTpmEkPub{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteTransitGatewayRouteTable"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "GetInstanceTpmEkPub"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -112,10 +130,10 @@ func (c *Client) addOperationDeleteTransitGatewayRouteTableMiddlewares(stack *mi
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addOpDeleteTransitGatewayRouteTableValidationMiddleware(stack); err != nil {
+	if err = addOpGetInstanceTpmEkPubValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteTransitGatewayRouteTable(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetInstanceTpmEkPub(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -136,10 +154,10 @@ func (c *Client) addOperationDeleteTransitGatewayRouteTableMiddlewares(stack *mi
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDeleteTransitGatewayRouteTable(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opGetInstanceTpmEkPub(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DeleteTransitGatewayRouteTable",
+		OperationName: "GetInstanceTpmEkPub",
 	}
 }
