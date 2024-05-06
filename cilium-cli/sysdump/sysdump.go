@@ -1019,7 +1019,7 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting the clustermesh debug information and metrics",
+			Description:     "Collecting the clustermesh debug information, metrics and gops stats",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
 				// clustermesh-apiserver runs in the same namespace as operator
@@ -1045,6 +1045,14 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
+
+				for _, container := range []string{defaults.ClusterMeshContainerName, defaults.ClusterMeshKVStoreMeshContainerName} {
+					err = c.SubmitGopsSubtasks(AllPods(pods), container)
+					if err != nil {
+						return fmt.Errorf("failed to collect the Cilium clustermesh gops stats: %w", err)
+					}
+				}
+
 				return nil
 			},
 		},
