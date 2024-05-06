@@ -7,8 +7,8 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/require"
 
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -16,26 +16,22 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
 type MaglevSuite struct {
 	prevMaglevTableSize int
 	prevNodePortAlg     string
 }
 
-var _ = Suite(&MaglevSuite{})
+func setupMaglevSuite(tb testing.TB) *MaglevSuite {
+	testutils.PrivilegedTest(tb)
 
-func (s *MaglevSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+	s := &MaglevSuite{}
 
 	s.prevMaglevTableSize = option.Config.MaglevTableSize
 	s.prevNodePortAlg = option.Config.NodePortAlg
 
 	// Otherwise opening the map might fail with EPERM
 	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+	require.NoError(tb, err)
 
 	option.Config.LBMapEntries = DefaultMaxEntries
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
@@ -48,34 +44,38 @@ func (s *MaglevSuite) SetUpSuite(c *C) {
 		RevNatMapMaxEntries:  option.Config.LBMapEntries,
 		MaglevMapMaxEntries:  option.Config.LBMapEntries,
 	})
+
+	tb.Cleanup(func() {
+		option.Config.MaglevTableSize = s.prevMaglevTableSize
+		option.Config.NodePortAlg = s.prevNodePortAlg
+	})
+
+	return s
 }
 
-func (s *MaglevSuite) TeadDownTest(c *C) {
-	option.Config.MaglevTableSize = s.prevMaglevTableSize
-	option.Config.NodePortAlg = s.prevNodePortAlg
-}
+func TestInitMaps(t *testing.T) {
+	setupMaglevSuite(t)
 
-func (s *MaglevSuite) TestInitMaps(c *C) {
 	option.Config.MaglevTableSize = 251
 	err := InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	option.Config.MaglevTableSize = 509
 	// M mismatch, so the map should be removed
 	deleted, err := deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
-	c.Assert(err, IsNil)
-	c.Assert(deleted, Equals, true)
+	require.NoError(t, err)
+	require.True(t, deleted)
 
 	// M is the same, but no entries, so the map should be removed too
 	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
-	c.Assert(err, IsNil)
-	c.Assert(deleted, Equals, true)
+	require.NoError(t, err)
+	require.True(t, deleted)
 
 	// Now insert the entry, so that the map should not be removed
 	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	lbm := New()
 	params := &datapathTypes.UpsertServiceParams{
 		ID:   1,
@@ -89,8 +89,8 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 		UseMaglev: true,
 	}
 	err = lbm.UpsertService(params)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
-	c.Assert(err, IsNil)
-	c.Assert(deleted, Equals, false)
+	require.NoError(t, err)
+	require.Equal(t, false, deleted)
 }
