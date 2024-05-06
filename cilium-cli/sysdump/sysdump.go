@@ -2649,14 +2649,14 @@ func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, po
 		err := c.Pool.Submit(fmt.Sprintf("metrics-%s-%s-%s", p.Name, containerName, portName), func(ctx context.Context) error {
 			port, err := getPodMetricsPort(p, containerName, portName)
 			if err != nil {
-				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w - this is expected if prometheus metrics are disabled", err)
+				return fmt.Errorf("failed to collect metrics: %w - this is expected if prometheus metrics are disabled", err)
 			}
 			rsp, err := c.Client.ProxyGet(ctx, p.Namespace, fmt.Sprintf("%s:%d", p.Name, port), "metrics")
 			if err != nil {
-				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
+				return fmt.Errorf("failed to collect metrics: %w", err)
 			}
 			if err := c.WriteString(fmt.Sprintf(metricsFileName, p.Name, containerName), rsp); err != nil {
-				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
+				return fmt.Errorf("failed to collect metrics: %w", err)
 			}
 			return nil
 		})
