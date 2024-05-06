@@ -1010,7 +1010,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get the Cilium operator pods: %w", err)
 				}
-				err = c.submitMetricsSubtask(pods, defaults.OperatorContainerName, defaults.OperatorMetricsPortName, ciliumOperatorPodMetricsFileName)
+				err = c.submitMetricsSubtask(pods, defaults.OperatorContainerName, defaults.OperatorMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator metrics: %w", err)
 				}
@@ -1027,15 +1027,15 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get the Cilium clustermesh pods: %w", err)
 				}
-				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshContainerName, defaults.ClusterMeshMetricsPortName, clustermeshMetricsFileName)
+				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshContainerName, defaults.ClusterMeshMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
-				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshKVStoreMeshContainerName, defaults.ClusterMeshKVStoreMeshMetricsPortName, clustermeshKVStoreMeshMetricsFileName)
+				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshKVStoreMeshContainerName, defaults.ClusterMeshKVStoreMeshMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
-				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshEtcdContainerName, defaults.ClusterMeshEtcdMetricsPortName, clustermeshEtcdMetricsFileName)
+				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshEtcdContainerName, defaults.ClusterMeshEtcdMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
@@ -2640,7 +2640,7 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 }
 
 // submitMetricsSubtask submits tasks to collect metrics from pods.
-func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, portName, filenameTmpl string) error {
+func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, portName string) error {
 	for _, p := range pods.Items {
 		p := p
 		if p.Status.Phase != corev1.PodRunning {
@@ -2655,7 +2655,7 @@ func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, po
 			if err != nil {
 				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 			}
-			if err := c.WriteString(fmt.Sprintf(filenameTmpl, p.Name), rsp); err != nil {
+			if err := c.WriteString(fmt.Sprintf(metricsFileName, p.Name, containerName), rsp); err != nil {
 				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 			}
 			return nil
