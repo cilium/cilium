@@ -145,12 +145,13 @@ type ManagerTestSuite struct {
 }
 
 var (
-	_             = Suite(&ManagerTestSuite{})
-	surrogateFE   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 80, lb.ScopeExternal, 0)
-	surrogateFEv6 = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("::"), 80, lb.ScopeExternal, 0)
-	frontend1     = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
-	frontend2     = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, lb.ScopeExternal, 0)
-	frontend3     = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("f00d::1"), 80, lb.ScopeExternal, 0)
+	_              = Suite(&ManagerTestSuite{})
+	surrogateFE    = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 80, lb.ScopeExternal, 0)
+	surrogateFEv6  = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("::"), 80, lb.ScopeExternal, 0)
+	frontend1      = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
+	frontend1_8080 = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 8080, lb.ScopeExternal, 0)
+	frontend2      = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, lb.ScopeExternal, 0)
+	frontend3      = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("f00d::1"), 80, lb.ScopeExternal, 0)
 
 	backends1, backends2, backends3, backends4, backends5, backends6 []*lb.Backend
 )
@@ -1507,7 +1508,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	// registering redirection with proxy port 0 should result in an error
 	echoOtherNode := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
 	resource1 := L7LBResourceName{Name: "testOwner1", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource1, 0)
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource1, 0, nil)
 	require.Error(t, err)
 
 	svc, ok = m.svc.svcByID[id]
@@ -1517,7 +1518,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 
 	// Registering with redirection stores the proxy port.
 	resource2 := L7LBResourceName{Name: "testOwner2", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090)
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090, nil)
 	require.Nil(t, err)
 
 	svc, ok = m.svc.svcByID[id]
@@ -1528,7 +1529,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	// registering redirection for a Service that already has a redirect registration
 	// should result in an error.
 	resource3 := L7LBResourceName{Name: "testOwner3", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource3, 10000)
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource3, 10000, nil)
 	require.Error(t, err)
 
 	// Remove with an unregistered owner name does not remove
@@ -1555,6 +1556,136 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	require.Nil(t, err)
 
 	svc, ok = m.svc.svcByID[id]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(0), svc.l7LBProxyPort)
+}
+
+// l7 load balancer service with ports should only override the given frontend ports.
+func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
+	m := setupManagerTestSuite(t)
+
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	// Create two remote backends.
+	remoteBackends := make([]*lb.Backend, 0, len(backends2))
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	allBackends := make([]*lb.Backend, 0, 1+len(remoteBackends))
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	p1 := &lb.SVC{
+		Frontend:         frontend1,
+		Backends:         allBackends,
+		Type:             lb.SVCTypeClusterIP,
+		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:             lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err := m.svc.UpsertService(p1)
+	require.Nil(t, err)
+	require.Equal(t, true, created)
+	require.NotEqual(t, lb.ID(0), id)
+
+	svc, ok := m.svc.svcByID[id]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(0), svc.l7LBProxyPort)
+
+	echoOtherNode := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
+	resource1 := L7LBResourceName{Name: "testOwner1", Namespace: "cilium-test"}
+
+	// Registering with redirection stores the proxy port.
+	resource2 := L7LBResourceName{Name: "testOwner2", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090, []uint16{80})
+	require.Nil(t, err)
+
+	svc, ok = m.svc.svcByID[id]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
+
+	// removing the registration with redirection removes the proxy port
+	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource2)
+	require.Nil(t, err)
+
+	svc, ok = m.svc.svcByID[id]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(0), svc.l7LBProxyPort)
+
+	// Registering with non-matching port does not store the proxy port.
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090, []uint16{8080})
+	require.Nil(t, err)
+
+	svc, ok = m.svc.svcByID[id]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(0), svc.l7LBProxyPort)
+
+	// registering redirection for a Service that already has a redirect registration
+	// should result in an error.
+	resource3 := L7LBResourceName{Name: "testOwner3", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource3, 10000, nil)
+	require.Error(t, err)
+
+	// Adding a matching frontend gets proxy port
+
+	p2 := &lb.SVC{
+		Frontend:         frontend1_8080,
+		Backends:         allBackends,
+		Type:             lb.SVCTypeClusterIP,
+		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:             lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id2, err := m.svc.UpsertService(p2)
+	require.Nil(t, err)
+	require.Equal(t, true, created)
+	require.NotEqual(t, lb.ID(0), id2)
+
+	svc, ok = m.svc.svcByID[id2]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
+
+	// Remove with an unregistered owner name does not remove
+	resource4 := L7LBResourceName{Name: "testOwner4", Namespace: "cilium-test"}
+	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource4)
+	require.Nil(t, err)
+
+	svc, ok = m.svc.svcByID[id2]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
+
+	// Removing registration without redirection does not remove the proxy port
+	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource1)
+	require.Nil(t, err)
+
+	svc, ok = m.svc.svcByID[id2]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
+
+	// removing the registration with redirection removes the proxy port
+	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource2)
+	require.Nil(t, err)
+
+	svc, ok = m.svc.svcByID[id]
+	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Equal(t, true, ok)
+	require.Equal(t, uint16(0), svc.l7LBProxyPort)
+
+	svc, ok = m.svc.svcByID[id2]
 	require.Equal(t, len(allBackends), len(svc.backends))
 	require.Equal(t, true, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)

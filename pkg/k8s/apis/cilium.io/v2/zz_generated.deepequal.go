@@ -1318,6 +1318,23 @@ func (in *ServiceListener) DeepEqual(other *ServiceListener) bool {
 	if in.Namespace != other.Namespace {
 		return false
 	}
+	if ((in.Ports != nil) && (other.Ports != nil)) || ((in.Ports == nil) != (other.Ports == nil)) {
+		in, other := &in.Ports, &other.Ports
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if in.Listener != other.Listener {
 		return false
 	}

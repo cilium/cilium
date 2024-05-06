@@ -127,7 +127,7 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		if err := r.serviceManager.RegisterL7LBServiceRedirect(serviceName, resourceName, proxyPort); err != nil {
+		if err := r.serviceManager.RegisterL7LBServiceRedirect(serviceName, resourceName, proxyPort, svc.Ports); err != nil {
 			return err
 		}
 

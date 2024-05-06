@@ -62,8 +62,8 @@ spec:
                         to "default".
                       type: string
                     number:
-                      description: Port is the port number, which can be used for
-                        filtering in case of underlying is exposing multiple port
+                      description: Ports is a set of port numbers, which can be used
+                        for filtering in case of underlying is exposing multiple port
                         numbers.
                       items:
                         type: string
@@ -161,6 +161,13 @@ spec:
                         of the CEC, In CiliumClusterwideEnvoyConfig namespace defaults
                         to "default".
                       type: string
+                    ports:
+                      description: Ports is a set of service's frontend ports that
+                        should be redirected to the Envoy listener. By default all
+                        frontend ports of the service are redirected.
+                      items:
+                        type: integer
+                      type: array
                   required:
                   - name
                   type: object
