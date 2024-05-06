@@ -151,7 +151,7 @@ jobs:
             if grep -q -F $VERSION /tmp/output; then
               echo "Version $VERSION is valid for zone $ZONE"
             else
-              echo "Removing version $VERSION as it's not valid for zone $ZONE"
+              echo "::notice::Removing version $VERSION as it's not valid for zone $ZONE"
               jq 'del(.k8s[] | select(.version == "'$VERSION'"))' /tmp/result.json > /tmp/result.json.tmp
               mv /tmp/result.json.tmp /tmp/result.json
             fi
