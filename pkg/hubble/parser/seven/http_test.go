@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -88,7 +88,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			switch {
 			case ip == netip.MustParseAddr(fakeSourceEndpoint.IPv4):
 				return &testutils.FakeEndpointInfo{
@@ -203,7 +203,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			switch {
 			case ip.String() == fakeSourceEndpoint.IPv4:
 				return &testutils.FakeEndpointInfo{

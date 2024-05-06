@@ -25,73 +25,73 @@ func Test_IsSuperSetOf(t *testing.T) {
 		res      int
 	}{
 		{Key{}, Key{}, 0},
-		{Key{0, 0, 0, 0}, Key{42, 0, 6, 0}, 1},
-		{Key{0, 0, 0, 0}, Key{42, 80, 6, 0}, 1},
-		{Key{0, 0, 0, 0}, Key{42, 0, 0, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 0, 6, 0}, 2},
-		{Key{0, 0, 6, 0}, Key{42, 80, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{42, 80, 6, 0}, 3},
-		{Key{0, 80, 6, 0}, Key{42, 80, 17, 0}, 0},  // proto is different
-		{Key{2, 80, 6, 0}, Key{42, 80, 6, 0}, 0},   // id is different
-		{Key{0, 8080, 6, 0}, Key{42, 80, 6, 0}, 0}, // port is different
-		{Key{42, 0, 0, 0}, Key{42, 0, 0, 0}, 0},    // same key
-		{Key{42, 0, 0, 0}, Key{42, 0, 6, 0}, 4},
-		{Key{42, 0, 0, 0}, Key{42, 80, 6, 0}, 4},
-		{Key{42, 0, 0, 0}, Key{42, 0, 17, 0}, 4},
-		{Key{42, 0, 0, 0}, Key{42, 80, 17, 0}, 4},
-		{Key{42, 0, 6, 0}, Key{42, 0, 6, 0}, 0}, // same key
-		{Key{42, 0, 6, 0}, Key{42, 80, 6, 0}, 5},
-		{Key{42, 0, 6, 0}, Key{42, 8080, 6, 0}, 5},
-		{Key{42, 80, 6, 0}, Key{42, 80, 6, 0}, 0},    // same key
-		{Key{42, 80, 6, 0}, Key{42, 8080, 6, 0}, 0},  // different port
-		{Key{42, 80, 6, 0}, Key{42, 80, 17, 0}, 0},   // different proto
-		{Key{42, 80, 6, 0}, Key{42, 8080, 17, 0}, 0}, // different port and proto
+		{key(0, 0, 0, 0), key(42, 0, 6, 0), 1},
+		{key(0, 0, 0, 0), key(42, 80, 6, 0), 1},
+		{key(0, 0, 0, 0), key(42, 0, 0, 0), 1},
+		{key(0, 0, 6, 0), key(42, 0, 6, 0), 2},
+		{key(0, 0, 6, 0), key(42, 80, 6, 0), 2},
+		{key(0, 80, 6, 0), key(42, 80, 6, 0), 3},
+		{key(0, 80, 6, 0), key(42, 80, 17, 0), 0},  // proto is different
+		{key(2, 80, 6, 0), key(42, 80, 6, 0), 0},   // id is different
+		{key(0, 8080, 6, 0), key(42, 80, 6, 0), 0}, // port is different
+		{key(42, 0, 0, 0), key(42, 0, 0, 0), 0},    // same key
+		{key(42, 0, 0, 0), key(42, 0, 6, 0), 4},
+		{key(42, 0, 0, 0), key(42, 80, 6, 0), 4},
+		{key(42, 0, 0, 0), key(42, 0, 17, 0), 4},
+		{key(42, 0, 0, 0), key(42, 80, 17, 0), 4},
+		{key(42, 0, 6, 0), key(42, 0, 6, 0), 0}, // same key
+		{key(42, 0, 6, 0), key(42, 80, 6, 0), 5},
+		{key(42, 0, 6, 0), key(42, 8080, 6, 0), 5},
+		{key(42, 80, 6, 0), key(42, 80, 6, 0), 0},    // same key
+		{key(42, 80, 6, 0), key(42, 8080, 6, 0), 0},  // different port
+		{key(42, 80, 6, 0), key(42, 80, 17, 0), 0},   // different proto
+		{key(42, 80, 6, 0), key(42, 8080, 17, 0), 0}, // different port and proto
 
 		// increasing specificity for a L3/L4 key
-		{Key{0, 0, 0, 0}, Key{42, 80, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 80, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{42, 80, 6, 0}, 3},
-		{Key{42, 0, 0, 0}, Key{42, 80, 6, 0}, 4},
-		{Key{42, 0, 6, 0}, Key{42, 80, 6, 0}, 5},
-		{Key{42, 80, 6, 0}, Key{42, 80, 6, 0}, 0}, // same key
+		{key(0, 0, 0, 0), key(42, 80, 6, 0), 1},
+		{key(0, 0, 6, 0), key(42, 80, 6, 0), 2},
+		{key(0, 80, 6, 0), key(42, 80, 6, 0), 3},
+		{key(42, 0, 0, 0), key(42, 80, 6, 0), 4},
+		{key(42, 0, 6, 0), key(42, 80, 6, 0), 5},
+		{key(42, 80, 6, 0), key(42, 80, 6, 0), 0}, // same key
 
 		// increasing specificity for a L3-only key
-		{Key{0, 0, 0, 0}, Key{42, 0, 0, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 0, 0, 0}, 0},   // not a superset
-		{Key{0, 80, 6, 0}, Key{42, 0, 0, 0}, 0},  // not a superset
-		{Key{42, 0, 0, 0}, Key{42, 0, 0, 0}, 0},  // same key
-		{Key{42, 0, 6, 0}, Key{42, 0, 0, 0}, 0},  // not a superset
-		{Key{42, 80, 6, 0}, Key{42, 0, 0, 0}, 0}, // not a superset
+		{key(0, 0, 0, 0), key(42, 0, 0, 0), 1},
+		{key(0, 0, 6, 0), key(42, 0, 0, 0), 0},   // not a superset
+		{key(0, 80, 6, 0), key(42, 0, 0, 0), 0},  // not a superset
+		{key(42, 0, 0, 0), key(42, 0, 0, 0), 0},  // same key
+		{key(42, 0, 6, 0), key(42, 0, 0, 0), 0},  // not a superset
+		{key(42, 80, 6, 0), key(42, 0, 0, 0), 0}, // not a superset
 
 		// increasing specificity for a L3/proto key
-		{Key{0, 0, 0, 0}, Key{42, 0, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{42, 0, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{42, 0, 6, 0}, 0}, // not a superset
-		{Key{42, 0, 0, 0}, Key{42, 0, 6, 0}, 4},
-		{Key{42, 0, 6, 0}, Key{42, 0, 6, 0}, 0},  // same key
-		{Key{42, 80, 6, 0}, Key{42, 0, 6, 0}, 0}, // not a superset
+		{key(0, 0, 0, 0), key(42, 0, 6, 0), 1},
+		{key(0, 0, 6, 0), key(42, 0, 6, 0), 2},
+		{key(0, 80, 6, 0), key(42, 0, 6, 0), 0}, // not a superset
+		{key(42, 0, 0, 0), key(42, 0, 6, 0), 4},
+		{key(42, 0, 6, 0), key(42, 0, 6, 0), 0},  // same key
+		{key(42, 80, 6, 0), key(42, 0, 6, 0), 0}, // not a superset
 
 		// increasing specificity for a proto-only key
-		{Key{0, 0, 0, 0}, Key{0, 0, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{0, 0, 6, 0}, 0},   // same key
-		{Key{0, 80, 6, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
-		{Key{42, 0, 0, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
-		{Key{42, 0, 6, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
-		{Key{42, 80, 6, 0}, Key{0, 0, 6, 0}, 0}, // not a superset
+		{key(0, 0, 0, 0), key(0, 0, 6, 0), 1},
+		{key(0, 0, 6, 0), key(0, 0, 6, 0), 0},   // same key
+		{key(0, 80, 6, 0), key(0, 0, 6, 0), 0},  // not a superset
+		{key(42, 0, 0, 0), key(0, 0, 6, 0), 0},  // not a superset
+		{key(42, 0, 6, 0), key(0, 0, 6, 0), 0},  // not a superset
+		{key(42, 80, 6, 0), key(0, 0, 6, 0), 0}, // not a superset
 
 		// increasing specificity for a L4-only key
-		{Key{0, 0, 0, 0}, Key{0, 80, 6, 0}, 1},
-		{Key{0, 0, 6, 0}, Key{0, 80, 6, 0}, 2},
-		{Key{0, 80, 6, 0}, Key{0, 80, 6, 0}, 0},  // same key
-		{Key{42, 0, 0, 0}, Key{0, 80, 6, 0}, 0},  // not a superset
-		{Key{42, 0, 6, 0}, Key{0, 80, 6, 0}, 0},  // not a superset
-		{Key{42, 80, 6, 0}, Key{0, 80, 6, 0}, 0}, // not a superset
+		{key(0, 0, 0, 0), key(0, 80, 6, 0), 1},
+		{key(0, 0, 6, 0), key(0, 80, 6, 0), 2},
+		{key(0, 80, 6, 0), key(0, 80, 6, 0), 0},  // same key
+		{key(42, 0, 0, 0), key(0, 80, 6, 0), 0},  // not a superset
+		{key(42, 0, 6, 0), key(0, 80, 6, 0), 0},  // not a superset
+		{key(42, 80, 6, 0), key(0, 80, 6, 0), 0}, // not a superset
 
 	}
 	for i, tt := range tests {
-		assert.Equal(t, tt.res, tt.superSet.IsSuperSetOf(tt.subSet), fmt.Sprintf("IsSuperSetOf failed on round %d", i+1))
+		assert.Equal(t, tt.res, IsSuperSetOf(tt.superSet, tt.subSet), fmt.Sprintf("IsSuperSetOf failed on round %d", i+1))
 		if tt.res != 0 {
-			assert.Equal(t, 0, tt.subSet.IsSuperSetOf(tt.superSet), fmt.Sprintf("Reverse IsSuperSetOf succeeded on round %d", i+1))
+			assert.Equal(t, 0, IsSuperSetOf(tt.subSet, tt.superSet), fmt.Sprintf("Reverse IsSuperSetOf succeeded on round %d", i+1))
 		}
 	}
 }
