@@ -4,16 +4,19 @@
 package endpointmanager
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func (s *EndpointManagerSuite) TestErrInvalidPrefix_Error(c *C) {
+func TestErrInvalidPrefix_Error(t *testing.T) {
+	setupEndpointManagerSuite(t)
+
 	type args struct {
 		err ErrInvalidPrefix
 	}
 	type want struct {
-		errMsg      string
-		errMsgCheck Checker
+		errMsg string
 	}
 	tests := []struct {
 		name      string
@@ -31,8 +34,7 @@ func (s *EndpointManagerSuite) TestErrInvalidPrefix_Error(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					errMsg:      "unknown endpoint prefix 'foo'",
-					errMsgCheck: Equals,
+					errMsg: "unknown endpoint prefix 'foo'",
 				}
 			},
 		},
@@ -41,17 +43,18 @@ func (s *EndpointManagerSuite) TestErrInvalidPrefix_Error(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		errMsg := args.err.Error()
-		c.Assert(errMsg, want.errMsgCheck, want.errMsg, Commentf("Test Name: %s", tt.name))
+		require.Equalf(t, want.errMsg, errMsg, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *EndpointManagerSuite) TestIsErrUnsupportedID(c *C) {
+func TestIsErrUnsupportedID(t *testing.T) {
+	setupEndpointManagerSuite(t)
+
 	type args struct {
 		err error
 	}
 	type want struct {
-		bool      bool
-		boolCheck Checker
+		bool bool
 	}
 	tests := []struct {
 		name      string
@@ -67,8 +70,7 @@ func (s *EndpointManagerSuite) TestIsErrUnsupportedID(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					bool:      false,
-					boolCheck: Equals,
+					bool: false,
 				}
 			},
 		},
@@ -83,8 +85,7 @@ func (s *EndpointManagerSuite) TestIsErrUnsupportedID(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					bool:      true,
-					boolCheck: Equals,
+					bool: true,
 				}
 			},
 		},
@@ -93,17 +94,18 @@ func (s *EndpointManagerSuite) TestIsErrUnsupportedID(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		errMsg := IsErrInvalidPrefix(args.err)
-		c.Assert(errMsg, want.boolCheck, want.bool, Commentf("Test Name: %s", tt.name))
+		require.Equalf(t, want.bool, errMsg, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *EndpointManagerSuite) TestIsErrInvalidPrefix(c *C) {
+func TestIsErrInvalidPrefix(t *testing.T) {
+	setupEndpointManagerSuite(t)
+
 	type args struct {
 		err error
 	}
 	type want struct {
-		bool      bool
-		boolCheck Checker
+		bool bool
 	}
 	tests := []struct {
 		name      string
@@ -121,8 +123,7 @@ func (s *EndpointManagerSuite) TestIsErrInvalidPrefix(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					bool:      false,
-					boolCheck: Equals,
+					bool: false,
 				}
 			},
 		},
@@ -135,8 +136,7 @@ func (s *EndpointManagerSuite) TestIsErrInvalidPrefix(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					bool:      true,
-					boolCheck: Equals,
+					bool: true,
 				}
 			},
 		},
@@ -145,6 +145,6 @@ func (s *EndpointManagerSuite) TestIsErrInvalidPrefix(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		errMsg := IsErrUnsupportedID(args.err)
-		c.Assert(errMsg, want.boolCheck, want.bool, Commentf("Test Name: %s", tt.name))
+		require.Equalf(t, want.bool, errMsg, "Test Name: %s", tt.name)
 	}
 }
