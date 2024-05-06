@@ -37,6 +37,7 @@ const (
 	HubbleGenerateCertsCronJobName = "hubble-generate-certs"
 
 	ClusterMeshDeploymentName             = "clustermesh-apiserver"
+	ClusterMeshBinaryName                 = "/usr/bin/clustermesh-apiserver"
 	ClusterMeshContainerName              = "apiserver"
 	ClusterMeshPodSelector                = "k8s-app=clustermesh-apiserver"
 	ClusterMeshMetricsPortName            = "apiserv-metrics"
