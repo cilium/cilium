@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -54,7 +54,7 @@ jobs:
     name: Preflight Clusterrole Check
     steps:
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
 
@@ -66,7 +66,7 @@ jobs:
     name: Helm Charts Check
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
 
@@ -82,7 +82,7 @@ jobs:
     name: Installation and Conformance Test
     steps:
       - name: Checkout target branch to access local actions
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           ref: ${{ github.base_ref || github.ref }}
           persist-credentials: false
@@ -91,7 +91,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
 
@@ -113,7 +113,7 @@ jobs:
           test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
 
       - name: Create kind cluster
-        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -201,7 +201,7 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@1746f4ab65b179e0ea60a494b83293b640dd5bba # v4.3.2
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip
