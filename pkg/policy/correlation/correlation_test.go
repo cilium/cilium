@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -81,7 +81,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -199,7 +199,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}

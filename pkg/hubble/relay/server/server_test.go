@@ -26,12 +26,12 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	relayObserver "github.com/cilium/cilium/pkg/hubble/relay/observer"
@@ -55,11 +55,11 @@ func noopParser(t testing.TB) *parser.Parser {
 	pp, err := parser.New(
 		log,
 		&testutils.FakeEndpointGetter{
-			OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+			OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 				endpoint, ok = endpoints[ip.String()]
 				return
 			},
-			OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+			OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
 				return nil, false
 			},
 		},

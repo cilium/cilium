@@ -8,9 +8,11 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 // DNSGetter ...
@@ -24,9 +26,9 @@ type DNSGetter interface {
 // EndpointGetter ...
 type EndpointGetter interface {
 	// GetEndpointInfo looks up endpoint by IP address.
-	GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool)
+	GetEndpointInfo(ip netip.Addr) (endpoint EndpointInfo, ok bool)
 	// GetEndpointInfo looks up endpoint by id
-	GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool)
+	GetEndpointInfoByID(id uint16) (endpoint EndpointInfo, ok bool)
 }
 
 // IdentityGetter ...
@@ -66,4 +68,15 @@ type PodMetadataGetter interface {
 	// GetPodMetadataForContainer returns the pod metadata for the given container
 	// cgroup id.
 	GetPodMetadataForContainer(cgroupId uint64) *cgroupManager.PodMetadata
+}
+
+// EndpointInfo defines readable fields of a Cilium endpoint.
+type EndpointInfo interface {
+	GetID() uint64
+	GetIdentity() identity.NumericIdentity
+	GetK8sPodName() string
+	GetK8sNamespace() string
+	GetLabels() []string
+	GetPod() *slim_corev1.Pod
+	GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (derivedFrom labels.LabelArrayList, revision uint64, ok bool)
 }

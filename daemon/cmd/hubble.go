@@ -20,7 +20,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/datapath/link"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
@@ -402,7 +402,7 @@ func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error
 
 // GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate
 // fields like namespace and pod name for local endpoints.
-func (d *Daemon) GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+func (d *Daemon) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.EndpointInfo, ok bool) {
 	if !ip.IsValid() {
 		return nil, false
 	}
@@ -414,7 +414,7 @@ func (d *Daemon) GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bo
 }
 
 // GetEndpointInfoByID returns endpoint info for a given Cilium endpoint id. Used by Hubble.
-func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.EndpointInfo, ok bool) {
 	ep := d.endpointManager.LookupCiliumID(id)
 	if ep == nil {
 		return nil, false
