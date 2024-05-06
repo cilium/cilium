@@ -86,7 +86,7 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			connTests[0].Logf("Cancellation request (%s) received, cancelling tests...", context.Cause(ctx))
 		}()
 
-		return connectivity.Run(ctx, params, connTests, hooks)
+		return connectivity.Run(ctx, connTests, hooks)
 	}
 }
 
