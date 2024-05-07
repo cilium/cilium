@@ -11,6 +11,9 @@ inputs:
   kind-image:
     required: true
     type: string
+  kind-config:
+    required: false
+    type: string
   test-name:
     required: true
     type: string
@@ -38,9 +41,13 @@ runs:
         provision: 'false'
         cmd: |
           cd /host
-
           export IMAGE=${{ inputs.kind-image }}
-          ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
+
+          if [ "${{ inputs.kind-config }}" != "" ]; then
+            kind create cluster --config ${{ inputs.kind-config }}
+          else
+            ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
+          fi
 
     - name: Copy kubeconfig
       shell: bash
