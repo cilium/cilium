@@ -8,7 +8,6 @@ import (
 	"net/netip"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -21,10 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 func setupLinuxRoutingSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
@@ -56,7 +51,7 @@ func TestConfigure(t *testing.T) {
 	})
 }
 
-func TestConfigureRoutewithIncompatibleIP(t *testing.T) {
+func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, ri := getFakes(t, true)
@@ -66,7 +61,7 @@ func TestConfigureRoutewithIncompatibleIP(t *testing.T) {
 	require.ErrorContains(t, err, "IP not compatible")
 }
 
-func TestDeleteRoutewithIncompatibleIP(t *testing.T) {
+func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ipv6 := netip.MustParseAddr("fd00::2")
