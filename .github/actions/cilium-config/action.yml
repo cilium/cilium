@@ -52,6 +52,9 @@ inputs:
   misc:
     description: 'Misc helm rarely set by a user coma separated values'
     default: ''
+  ciliumendpointslice:
+    description: 'Enable CiliumEndpointSlice'
+    default: false
 outputs:
   config:
     description: 'Cilium installation config'
@@ -157,6 +160,10 @@ runs:
               INGRESS_CONTROLLER+=" --helm-set=ingressController.service.type=NodePort"
             fi
           fi
+
+          if [ "${{ inputs.ciliumendpointslice }}" == "true" ]; then
+            CILIUMENDPOINTSLICE="--helm-set=enableCiliumEndpointSlice=true"
+          fi
         
-          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER}"
+          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT
