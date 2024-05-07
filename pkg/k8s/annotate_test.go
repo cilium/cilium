@@ -7,17 +7,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/checker"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (s *K8sSuite) TestPrepareRemoveNodeAnnotationsPayload(c *C) {
+func TestPrepareRemoveNodeAnnotationsPayload(t *testing.T) {
 	tests := []struct {
 		name       string
 		annotation nodeAnnotation
@@ -47,12 +47,12 @@ func (s *K8sSuite) TestPrepareRemoveNodeAnnotationsPayload(c *C) {
 
 	for _, tt := range tests {
 		got, err := prepareRemoveNodeAnnotationsPayload(tt.annotation)
-		c.Assert(err, IsNil)
-		c.Assert(string(got), Equals, tt.wantJson, Commentf("Test Name: %s", tt.name))
+		require.NoError(t, err)
+		require.Equal(t, tt.wantJson, string(got), "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) TestPatchingCIDRAnnotation(c *C) {
+func TestPatchingCIDRAnnotation(t *testing.T) {
 	node.WithTestLocalNodeStore(func() {
 		prevAnnotateK8sNode := option.Config.AnnotateK8sNode
 		option.Config.AnnotateK8sNode = true
@@ -79,17 +79,17 @@ func (s *K8sSuite) TestPatchingCIDRAnnotation(c *C) {
 		patchChan := make(chan bool, 2)
 		fakeK8sClient := &fake.Clientset{}
 		fakeK8sClient.AddReactor("patch", "nodes",
-			func(action testing.Action) (bool, runtime.Object, error) {
+			func(action k8stesting.Action) (bool, runtime.Object, error) {
 				n1copy := node1.DeepCopy()
 				n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
 				raw, err := json.Marshal(n1copy.Annotations)
 				if err != nil {
-					c.Assert(err, IsNil)
+					require.NoError(t, err)
 				}
 				patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
 
-				patchReceived := action.(testing.PatchAction).GetPatch()
-				c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
+				patchReceived := action.(k8stesting.PatchAction).GetPatch()
+				require.EqualValues(t, string(patchWanted), string(patchReceived))
 				patchChan <- true
 				return true, n1copy, nil
 			})
@@ -98,18 +98,18 @@ func (s *K8sSuite) TestPatchingCIDRAnnotation(c *C) {
 		node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		node.SetIPv4AllocRange(node1Cilium.IPv4AllocCIDR)
 
-		c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
+		require.Equal(t, "10.2.0.0/16", node.GetIPv4AllocRange().String())
 		// IPv6 Node range is not checked because it shouldn't be changed.
 
 		_, err := AnnotateNode(fakeK8sClient, "node1", *node1Cilium, 0)
 
-		c.Assert(err, IsNil)
+		require.NoError(t, err)
 
 		select {
 		case <-patchChan:
 		case <-time.Tick(10 * time.Second):
-			c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
-			c.FailNow()
+			t.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
+			t.FailNow()
 		}
 
 		// Test IPv6
@@ -130,7 +130,7 @@ func (s *K8sSuite) TestPatchingCIDRAnnotation(c *C) {
 
 		fakeK8sClient = &fake.Clientset{}
 		fakeK8sClient.AddReactor("patch", "nodes",
-			func(action testing.Action) (bool, runtime.Object, error) {
+			func(action k8stesting.Action) (bool, runtime.Object, error) {
 				// first call will be a patch for annotations
 				if failAttempts == 0 {
 					failAttempts++
@@ -141,12 +141,12 @@ func (s *K8sSuite) TestPatchingCIDRAnnotation(c *C) {
 				n2Copy.Annotations[annotation.V6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
 				raw, err := json.Marshal(n2Copy.Annotations)
 				if err != nil {
-					c.Assert(err, IsNil)
+					require.NoError(t, err)
 				}
 				patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
 
-				patchReceived := action.(testing.PatchAction).GetPatch()
-				c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
+				patchReceived := action.(k8stesting.PatchAction).GetPatch()
+				require.EqualValues(t, string(patchWanted), string(patchReceived))
 				patchChan <- true
 				return true, n2Copy, nil
 			})
@@ -158,23 +158,23 @@ func (s *K8sSuite) TestPatchingCIDRAnnotation(c *C) {
 
 		// We use the node's annotation for the IPv4 and the PodCIDR for the
 		// IPv6.
-		c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
-		c.Assert(node.GetIPv6AllocRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
+		require.Equal(t, "10.254.0.0/16", node.GetIPv4AllocRange().String())
+		require.Equal(t, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96", node.GetIPv6AllocRange().String())
 
 		_, err = AnnotateNode(fakeK8sClient, "node2", *node2Cilium, 0)
 
-		c.Assert(err, IsNil)
+		require.NoError(t, err)
 
 		select {
 		case <-patchChan:
 		case <-time.Tick(10 * time.Second):
-			c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
-			c.FailNow()
+			t.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
+			t.FailNow()
 		}
 	})
 }
 
-func (s *K8sSuite) TestRemovalOfNodeAnnotations(c *C) {
+func TestRemovalOfNodeAnnotations(t *testing.T) {
 	node1 := v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
@@ -187,24 +187,24 @@ func (s *K8sSuite) TestRemovalOfNodeAnnotations(c *C) {
 	patchChan := make(chan bool, 1)
 	fakeK8sClient := &fake.Clientset{}
 	fakeK8sClient.AddReactor("patch", "nodes",
-		func(action testing.Action) (bool, runtime.Object, error) {
+		func(action k8stesting.Action) (bool, runtime.Object, error) {
 			n1copy := node1.DeepCopy()
 			delete(n1copy.Annotations, annotation.V4CIDRName)
 			patchWanted := []byte("[{\"op\":\"remove\",\"path\":\"/metadata/annotations/network.cilium.io~1ipv4-pod-cidr\",\"value\":null}]")
-			patchReceived := action.(testing.PatchAction).GetPatch()
-			c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
+			patchReceived := action.(k8stesting.PatchAction).GetPatch()
+			require.EqualValues(t, string(patchWanted), string(patchReceived))
 			patchChan <- true
 			return true, n1copy, nil
 		})
 
 	err := RemoveNodeAnnotations(fakeK8sClient, "node1", map[string]string{annotation.V4CIDRName: "10.254.0.0/16"})
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	select {
 	case <-patchChan:
 	case <-time.Tick(10 * time.Second):
-		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
-		c.FailNow()
+		t.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
+		t.FailNow()
 	}
 }
 

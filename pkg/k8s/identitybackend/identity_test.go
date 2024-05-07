@@ -9,13 +9,12 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -24,16 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type K8sIdentityBackendSuite struct{}
-
-var _ = Suite(&K8sIdentityBackendSuite{})
-
-func (s *K8sIdentityBackendSuite) TestSanitizeK8sLabels(c *C) {
+func TestSanitizeK8sLabels(t *testing.T) {
 	path := field.NewPath("test", "labels")
 	testCases := []struct {
 		input            map[string]string
@@ -88,9 +78,9 @@ func (s *K8sIdentityBackendSuite) TestSanitizeK8sLabels(c *C) {
 
 	for _, test := range testCases {
 		selected, skipped := sanitizeK8sLabels(test.input)
-		c.Assert(selected, checker.DeepEquals, test.selected)
-		c.Assert(skipped, checker.DeepEquals, test.skipped)
-		c.Assert(validation.ValidateLabels(selected, path), checker.DeepEquals, test.validationErrors)
+		require.EqualValues(t, test.selected, selected)
+		require.EqualValues(t, test.skipped, skipped)
+		require.EqualValues(t, test.validationErrors, validation.ValidateLabels(selected, path))
 	}
 }
 

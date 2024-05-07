@@ -5,10 +5,11 @@ package v2
 
 import (
 	"encoding/json"
+	"testing"
 
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
-	. "github.com/cilium/checkmate"
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 )
@@ -45,15 +46,15 @@ var (
 `)
 )
 
-func (s *CiliumV2Suite) TestParseEnvoySpec(c *C) {
+func TestParseEnvoySpec(t *testing.T) {
 	// option.Config.Debug = true
 	// logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(envoySpec))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	cec := &CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, &cec.Spec)
-	c.Assert(err, IsNil)
-	c.Assert(cec.Spec.Resources, HasLen, 1)
-	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	require.NoError(t, err)
+	require.Len(t, cec.Spec.Resources, 1)
+	require.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 }

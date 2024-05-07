@@ -5,9 +5,10 @@ package k8s
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	core_v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/checker"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -29,7 +29,7 @@ var (
 	unknownObjErr = fmt.Errorf("unknown object type %T", unknownObj)
 )
 
-func (s *K8sSuite) Test_EqualV2CNP(c *C) {
+func Test_EqualV2CNP(t *testing.T) {
 	type args struct {
 		o1 *types.SlimCNP
 		o2 *types.SlimCNP
@@ -136,11 +136,11 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 	}
 	for _, tt := range tests {
 		got := tt.args.o1.DeepEqual(tt.args.o2)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
+func Test_EqualV1Endpoints(t *testing.T) {
 	type args struct {
 		o1 *slim_corev1.Endpoints
 		o2 *slim_corev1.Endpoints
@@ -268,11 +268,11 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 	}
 	for _, tt := range tests {
 		got := tt.args.o1.DeepEqual(tt.args.o2)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_EqualV1Pod(c *C) {
+func Test_EqualV1Pod(t *testing.T) {
 	type args struct {
 		o1 *slim_corev1.Pod
 		o2 *slim_corev1.Pod
@@ -520,11 +520,11 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 	}
 	for _, tt := range tests {
 		got := tt.args.o1.DeepEqual(tt.args.o2)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_EqualV1Node(c *C) {
+func Test_EqualV1Node(t *testing.T) {
 	type args struct {
 		o1 *slim_corev1.Node
 		o2 *slim_corev1.Node
@@ -773,11 +773,11 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 	}
 	for _, tt := range tests {
 		got := tt.args.o1.DeepEqual(tt.args.o2)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
+func Test_EqualV1Namespace(t *testing.T) {
 	type args struct {
 		o1 *slim_corev1.Namespace
 		o2 *slim_corev1.Namespace
@@ -866,11 +866,11 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 	}
 	for _, tt := range tests {
 		got := tt.args.o1.DeepEqual(tt.args.o2)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_TransformToK8sService(c *C) {
+func Test_TransformToK8sService(t *testing.T) {
 	type args struct {
 		obj interface{}
 	}
@@ -947,15 +947,15 @@ func (s *K8sSuite) Test_TransformToK8sService(c *C) {
 	for _, tt := range tests {
 		got, err := TransformToK8sService(tt.args.obj)
 		if tt.expected {
-			c.Assert(err, checker.Equals, nil)
-			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, nil, err)
+			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
-			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToK8sV1ServicePorts(c *C) {
+func Test_ConvertToK8sV1ServicePorts(t *testing.T) {
 	type args struct {
 		ports []slim_corev1.ServicePort
 	}
@@ -991,11 +991,11 @@ func (s *K8sSuite) Test_ConvertToK8sV1ServicePorts(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sV1ServicePorts(tt.args.ports)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToK8sV1SessionAffinityConfig(c *C) {
+func Test_ConvertToK8sV1SessionAffinityConfig(t *testing.T) {
 	ts := int32(1)
 	type args struct {
 		cfg *slim_corev1.SessionAffinityConfig
@@ -1030,11 +1030,11 @@ func (s *K8sSuite) Test_ConvertToK8sV1SessionAffinityConfig(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sV1ServiceAffinityConfig(tt.args.cfg)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToK8sV1LoadBalancerIngress(c *C) {
+func Test_ConvertToK8sV1LoadBalancerIngress(t *testing.T) {
 	type args struct {
 		ings []slim_corev1.LoadBalancerIngress
 	}
@@ -1069,11 +1069,11 @@ func (s *K8sSuite) Test_ConvertToK8sV1LoadBalancerIngress(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sV1LoadBalancerIngress(tt.args.ings)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToNetworkV1IngressLoadBalancerIngress(c *C) {
+func Test_ConvertToNetworkV1IngressLoadBalancerIngress(t *testing.T) {
 	type args struct {
 		ings []slim_corev1.LoadBalancerIngress
 	}
@@ -1108,11 +1108,11 @@ func (s *K8sSuite) Test_ConvertToNetworkV1IngressLoadBalancerIngress(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToNetworkV1IngressLoadBalancerIngress(tt.args.ings)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
-func (s *K8sSuite) Test_TransformToCNP(c *C) {
+func Test_TransformToCNP(t *testing.T) {
 	type args struct {
 		obj interface{}
 	}
@@ -1193,15 +1193,15 @@ func (s *K8sSuite) Test_TransformToCNP(c *C) {
 	for _, tt := range tests {
 		got, err := TransformToCNP(tt.args.obj)
 		if tt.expected {
-			c.Assert(err, checker.Equals, nil)
-			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, nil, err)
+			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
-			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}
 	}
 }
 
-func (s *K8sSuite) Test_TransformToCCNP(c *C) {
+func Test_TransformToCCNP(t *testing.T) {
 	type args struct {
 		obj interface{}
 	}
@@ -1292,15 +1292,15 @@ func (s *K8sSuite) Test_TransformToCCNP(c *C) {
 	for _, tt := range tests {
 		got, err := TransformToCCNP(tt.args.obj)
 		if tt.expected {
-			c.Assert(err, checker.Equals, nil)
-			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, nil, err)
+			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
-			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}
 	}
 }
 
-func (s *K8sSuite) Test_TransformToCiliumEndpoint(c *C) {
+func Test_TransformToCiliumEndpoint(t *testing.T) {
 	type args struct {
 		obj interface{}
 	}
@@ -1501,15 +1501,15 @@ func (s *K8sSuite) Test_TransformToCiliumEndpoint(c *C) {
 	for _, tt := range tests {
 		got, err := TransformToCiliumEndpoint(tt.args.obj)
 		if tt.expected {
-			c.Assert(err, checker.Equals, nil)
-			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, nil, err)
+			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
-			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}
 	}
 }
 
-func (s *K8sSuite) Test_AnnotationsEqual(c *C) {
+func Test_AnnotationsEqual(t *testing.T) {
 	irrelevantAnnoKey := "foo"
 	irrelevantAnnoVal := "bar"
 
@@ -1518,29 +1518,29 @@ func (s *K8sSuite) Test_AnnotationsEqual(c *C) {
 	relevantAnnoVal2 := "<Ingress/80/TCP/HTTP>,<Egress/80/TCP/HTTP>"
 
 	// Empty returns true.
-	c.Assert(AnnotationsEqual(nil, map[string]string{}, map[string]string{}), Equals, true)
+	require.Equal(t, true, AnnotationsEqual(nil, map[string]string{}, map[string]string{}))
 
-	c.Assert(AnnotationsEqual(nil,
+	require.True(t, AnnotationsEqual(nil,
 		map[string]string{
 			irrelevantAnnoKey: irrelevantAnnoVal,
 			relevantAnnoKey:   relevantAnnoVal1,
 		}, map[string]string{
 			irrelevantAnnoKey: irrelevantAnnoVal,
 			relevantAnnoKey:   relevantAnnoVal2,
-		}), Equals, true)
+		}))
 
 	// If the relevant annotation isn't in either map, return true.
-	c.Assert(AnnotationsEqual([]string{relevantAnnoKey},
+	require.True(t, AnnotationsEqual([]string{relevantAnnoKey},
 		map[string]string{
 			irrelevantAnnoKey: irrelevantAnnoVal,
 		}, map[string]string{
 			irrelevantAnnoKey: irrelevantAnnoVal,
-		}), Equals, true)
+		}))
 
-	c.Assert(AnnotationsEqual([]string{relevantAnnoKey},
+	require.False(t, AnnotationsEqual([]string{relevantAnnoKey},
 		map[string]string{
 			relevantAnnoKey: relevantAnnoVal1,
 		}, map[string]string{
 			relevantAnnoKey: relevantAnnoVal2,
-		}), Equals, false)
+		}))
 }

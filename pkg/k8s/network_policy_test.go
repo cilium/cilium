@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -25,15 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type K8sSuite struct{}
-
-var _ = Suite(&K8sSuite{})
 
 var (
 	labelsA = labels.LabelArray{
@@ -98,7 +88,7 @@ func testNewPolicyRepository() *policy.Repository {
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
+func TestParseNetworkPolicyIngress(t *testing.T) {
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: slim_metav1.LabelSelector{
@@ -133,7 +123,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	}
 
 	_, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	fromEndpoints := labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
@@ -152,22 +142,22 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	repo := testNewPolicyRepository()
 
 	repo.AddList(rules)
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	epSelector := api.NewESFromLabels(fromEndpoints...)
 	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, nil, epSelector)
 	defer func() { repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser) }()
 
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
-	c.Assert(ingressL4Policy, Not(IsNil))
-	c.Assert(err, IsNil)
-	c.Assert(ingressL4Policy, checker.Equals, policy.L4PolicyMap{
+	require.NotNil(t, ingressL4Policy)
+	require.NoError(t, err)
+	require.EqualValues(t, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			L7Parser:            policy.ParserTypeNone,
@@ -182,7 +172,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 				)},
 			},
 		},
-	})
+	}, ingressL4Policy)
 	ingressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.To = labels.LabelArray{
@@ -190,7 +180,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	}
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Not(Equals), api.Allowed)
+	require.NotEqual(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -203,10 +193,10 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// ctx.From also needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Not(Equals), api.Allowed)
+	require.NotEqual(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
+func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 
 	// Rule with multiple selectors in egress and ingress
 	ex1 := []byte(`{
@@ -277,11 +267,11 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 
 	np := slim_networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err := ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	repo := testNewPolicyRepository()
 	repo.AddList(rules)
@@ -301,7 +291,7 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	}
 
 	// should be DENIED because ctx.From is missing the namespace selector
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx.From = labels.LabelArray{
 		labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
@@ -309,7 +299,7 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	}
 
 	// should be ALLOWED with the namespace label properly set
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx.From = labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
@@ -317,7 +307,7 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	}
 
 	// should be ALLOWED since all rules in From must match
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	// Egress context
 	ctx = policy.SearchContext{
@@ -330,12 +320,12 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	}
 
 	// should be DENIED because DPorts are missing in context
-	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctx))
 
 	ctx.DPorts = []*models.Port{{Port: 5432, Protocol: models.PortProtocolTCP}}
 
 	// should be ALLOWED with DPorts set correctly
-	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
 
 	ctx.To = labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
@@ -343,10 +333,10 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	}
 
 	// should be ALLOWED for db2 as well
-	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
+func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 
 	// Ingress with neither pod nor namespace selector set.
 	ex1 := []byte(`{
@@ -388,7 +378,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	epSelector := api.NewESFromLabels(fromEndpoints...)
 	np := slim_networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	expectedRule := api.NewRule().
 		WithEndpointSelector(epSelector).
@@ -421,12 +411,12 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(rules, NotNil)
-	c.Assert(rules, checker.DeepEquals, expectedRules)
+	require.NoError(t, err)
+	require.NotNil(t, rules)
+	require.EqualValues(t, expectedRules, rules)
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
+func TestParseNetworkPolicyEgress(t *testing.T) {
 
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
@@ -462,8 +452,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	fromEndpoints := labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
@@ -487,16 +477,16 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	repo.AddList(rules)
 	// Because search context did not contain port-specific policy, deny is
 	// expected.
-	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctx))
 
 	epSelector := api.NewESFromLabels(toEndpoints...)
 	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, nil, epSelector)
 	defer func() { repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser) }()
 
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
-	c.Assert(egressL4Policy, Not(IsNil))
-	c.Assert(err, IsNil)
-	c.Assert(egressL4Policy, checker.DeepEquals, policy.L4PolicyMap{
+	require.NotNil(t, egressL4Policy)
+	require.NoError(t, err)
+	require.EqualValues(t, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			L7Parser:            policy.ParserTypeNone,
@@ -506,7 +496,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 				cachedEPSelector: {rules[0].Labels},
 			},
 		},
-	})
+	}, egressL4Policy)
 	egressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.From = labels.LabelArray{
@@ -514,7 +504,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	}
 
 	// ctx.From needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.AllowsEgressRLocked(&ctx), Not(Equals), api.Allowed)
+	require.NotEqual(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		To: labels.LabelArray{
@@ -528,22 +518,22 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	}
 
 	// ctx.To also needs to have all labels from the policy in order to be accepted.
-	c.Assert(repo.AllowsEgressRLocked(&ctx), Not(Equals), api.Allowed)
+	require.NotEqual(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
 }
 
-func parseAndAddRules(c *C, p *slim_networkingv1.NetworkPolicy) *policy.Repository {
+func parseAndAddRules(t *testing.T, p *slim_networkingv1.NetworkPolicy) *policy.Repository {
 	repo := testNewPolicyRepository()
 	rules, err := ParseNetworkPolicy(p)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	rev := repo.GetRevision()
 	_, id := repo.AddList(rules)
-	c.Assert(id, Equals, rev+1)
+	require.Equal(t, rev+1, id)
 
 	return repo
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
-	repo := parseAndAddRules(c, &slim_networkingv1.NetworkPolicy{
+func TestParseNetworkPolicyEgressAllowAll(t *testing.T) {
+	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
 			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
@@ -554,20 +544,20 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
 		},
 	})
 
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToB), Equals, api.Allowed)
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToC), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToB))
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC))
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC80))
 
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC90))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyEgressL4AllowAll(c *C) {
-	repo := parseAndAddRules(c, &slim_networkingv1.NetworkPolicy{
+func TestParseNetworkPolicyEgressL4AllowAll(t *testing.T) {
+	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
 			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
@@ -581,15 +571,15 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressL4AllowAll(c *C) {
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC80))
 
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctxAToC90))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
-	repo := parseAndAddRules(c, &slim_networkingv1.NetworkPolicy{
+func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
+	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorC,
 			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
@@ -600,20 +590,20 @@ func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
 		},
 	})
 
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, api.Denied)
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC), Equals, api.Allowed)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctxAToB))
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctxAToC))
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctxAToC80))
 
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctxAToC90))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyIngressL4AllowAll(c *C) {
-	repo := parseAndAddRules(c, &slim_networkingv1.NetworkPolicy{
+func TestParseNetworkPolicyIngressL4AllowAll(t *testing.T) {
+	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorC,
 			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
@@ -625,18 +615,18 @@ func (s *K8sSuite) TestParseNetworkPolicyIngressL4AllowAll(c *C) {
 		},
 	})
 
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctxAToB))
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctxAToC80))
 
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctxAToC90))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyNamedPort(c *C) {
+func TestParseNetworkPolicyNamedPort(t *testing.T) {
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
@@ -655,11 +645,11 @@ func (s *K8sSuite) TestParseNetworkPolicyNamedPort(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyEmptyPort(c *C) {
+func TestParseNetworkPolicyEmptyPort(t *testing.T) {
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
@@ -673,27 +663,27 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyPort(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
-	c.Assert(len(rules[0].Ingress), Equals, 1)
-	c.Assert(len(rules[0].Ingress[0].ToPorts), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
+	require.Equal(t, 1, len(rules[0].Ingress))
+	require.Equal(t, 1, len(rules[0].Ingress[0].ToPorts))
 	ports := rules[0].Ingress[0].ToPorts[0].Ports
-	c.Assert(len(ports), Equals, 1)
-	c.Assert(ports[0].Port, Equals, "0")
-	c.Assert(ports[0].Protocol, Equals, api.ProtoTCP)
+	require.Equal(t, 1, len(ports))
+	require.Equal(t, "0", ports[0].Port)
+	require.Equal(t, api.ProtoTCP, ports[0].Protocol)
 }
 
-func (s *K8sSuite) TestParsePorts(c *C) {
+func TestParsePorts(t *testing.T) {
 	rules := parsePorts([]slim_networkingv1.NetworkPolicyPort{
 		{},
 	})
-	c.Assert(len(rules), Equals, 1)
-	c.Assert(len(rules[0].Ports), Equals, 1)
-	c.Assert(rules[0].Ports[0].Port, Equals, "0")
-	c.Assert(rules[0].Ports[0].Protocol, Equals, api.ProtoTCP)
+	require.Equal(t, 1, len(rules))
+	require.Equal(t, 1, len(rules[0].Ports))
+	require.Equal(t, "0", rules[0].Ports[0].Port)
+	require.Equal(t, api.ProtoTCP, rules[0].Ports[0].Protocol)
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
+func TestParseNetworkPolicyUnknownProto(t *testing.T) {
 	unknownProtocol := slim_corev1.Protocol("unknown")
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
@@ -714,11 +704,11 @@ func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, Not(IsNil))
-	c.Assert(len(rules), Equals, 0)
+	require.NotNil(t, err)
+	require.Equal(t, 0, len(rules))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
+func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 	// From missing, all sources should be allowed
 	netPolicy1 := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
@@ -734,8 +724,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy1)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -751,7 +741,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 
 	repo := testNewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	// Empty From rules, all sources should be allowed
 	netPolicy2 := &slim_networkingv1.NetworkPolicy{
@@ -771,14 +761,14 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	}
 
 	rules, err = ParseNetworkPolicy(netPolicy2)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 	repo = testNewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
+func TestParseNetworkPolicyDenyAll(t *testing.T) {
 	// From missing, all sources should be allowed
 	netPolicy1 := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
@@ -789,8 +779,8 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy1)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -806,10 +796,10 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 
 	repo := testNewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
+func TestParseNetworkPolicyNoIngress(t *testing.T) {
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: slim_metav1.LabelSelector{
@@ -822,11 +812,11 @@ func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 }
 
-func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
+func TestNetworkPolicyExamples(t *testing.T) {
 	// Example 1a: Only allow traffic from frontend pods on TCP port 6379 to
 	// backend pods in the same namespace `myns`
 	ex1 := []byte(`{
@@ -865,10 +855,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 }`)
 	np := slim_networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	_, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	// Example 1b: Only allow traffic from frontend pods to backend pods
 	// in the same namespace `myns`
@@ -909,11 +899,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 }`)
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex1, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err := ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	repo := testNewPolicyRepository()
 	repo.AddList(rules)
@@ -928,7 +918,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Doesn't share the same namespace
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -941,7 +931,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Doesn't share the same namespace
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -962,7 +952,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	}
 	// Should be ACCEPT sense the traffic needs to come from `frontend` AND
 	// port 6379 and belong to the same namespace `myns`.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	// Example 2a: Allow TCP 443 from any source in Bob's namespaces.
 	ex2 := []byte(`{
@@ -1001,10 +991,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex2, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	_, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	// Example 2b: Allow from any source in Bob's namespaces.
 	ex2 = []byte(`{
@@ -1043,11 +1033,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex2, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	repo = testNewPolicyRepository()
 	repo.AddList(rules)
@@ -1065,11 +1055,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	// Should be DENY sense the traffic needs to come from
 	// namespace `user=bob` AND port 443.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	l4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
-	c.Assert(l4Policy, Not(IsNil))
-	c.Assert(err, IsNil)
+	require.NotNil(t, l4Policy)
+	require.NoError(t, err)
 	l4Policy.Detach(repo.GetSelectorCache())
 
 	ctx = policy.SearchContext{
@@ -1091,7 +1081,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	}
 	// Should be ACCEPT sense the traffic comes from Bob's namespaces
 	// (even if it's a different namespace than `default`) AND port 443.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	// Example 3: Allow all traffic to all pods in this namespace.
 	ex3 := []byte(`{
@@ -1111,11 +1101,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex3, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	repo = testNewPolicyRepository()
 	repo.AddList(rules)
@@ -1131,7 +1121,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's going to `default` namespace
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1145,7 +1135,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's coming from `default` and going to `default` ns
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1165,7 +1155,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's coming from `default` and going to `default` namespace.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	// Example 4a: Example 4 is similar to example 2 but we will add both network
 	// policies to see if the rules are additive for the same podSelector.
@@ -1205,11 +1195,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex4, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	// Example 4b: Example 4 is similar to example 2 but we will add both network
 	// policies to see if the rules are additive for the same podSelector.
@@ -1250,11 +1240,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex4, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 
 	repo = testNewPolicyRepository()
 	// add example 4
@@ -1262,10 +1252,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex2, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	// add example 2
 	repo.AddList(rules)
 
@@ -1287,7 +1277,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 8080 as specified in `ex4`.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1307,7 +1297,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 443 as specified in `ex2`.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1327,7 +1317,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT despite coming from Alice's namespaces since it's port 8080 as specified in `ex4`.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	// Example 5: Some policies with match expressions.
 	ex5 := []byte(`{
@@ -1399,11 +1389,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex5, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(rules))
 	repo.AddList(rules)
 
 	// A reminder: from the kubernetes network policy spec:
@@ -1443,7 +1433,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since the SearchContext is being covered by the rules.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx.To = labels.LabelArray{
 		// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
@@ -1454,7 +1444,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 	}
 	// Should be DENY since the namespace doesn't belong to the policy.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1477,7 +1467,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be DENY since the environment is from dev.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1498,10 +1488,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since the environment is from dev.
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 }
 
-func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
+func TestCIDRPolicyExamples(t *testing.T) {
 	ex1 := []byte(`{
   "kind": "NetworkPolicy",
   "apiVersion": "networking.k8s.io/v1",
@@ -1543,13 +1533,13 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 }`)
 	np := slim_networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err := ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(rules, NotNil)
-	c.Assert(len(rules), Equals, 1)
-	c.Assert(len(rules[0].Ingress), Equals, 2)
+	require.NoError(t, err)
+	require.NotNil(t, rules)
+	require.Equal(t, 1, len(rules))
+	require.Equal(t, 2, len(rules[0].Ingress))
 
 	ex2 := []byte(`{
   "kind": "NetworkPolicy",
@@ -1591,25 +1581,25 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex2, &np)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	rules, err = ParseNetworkPolicy(&np)
-	c.Assert(err, IsNil)
-	c.Assert(rules, NotNil)
-	c.Assert(len(rules), Equals, 1)
-	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("10.0.0.0/8"))
+	require.NoError(t, err)
+	require.NotNil(t, rules)
+	require.Equal(t, 1, len(rules))
+	require.Equal(t, api.CIDR("10.0.0.0/8"), rules[0].Egress[0].ToCIDRSet[0].Cidr)
 
 	expectedCIDRs := []api.CIDR{"10.96.0.0/12", "10.255.255.254/32"}
 	for k, v := range rules[0].Egress[0].ToCIDRSet[0].ExceptCIDRs {
-		c.Assert(v, Equals, expectedCIDRs[k])
+		require.Equal(t, expectedCIDRs[k], v)
 	}
 
 	expectedCIDRs = []api.CIDR{"11.96.0.0/12", "11.255.255.254/32"}
 	for k, v := range rules[0].Egress[1].ToCIDRSet[0].ExceptCIDRs {
-		c.Assert(v, Equals, expectedCIDRs[k])
+		require.Equal(t, expectedCIDRs[k], v)
 	}
 
-	c.Assert(len(rules[0].Egress), Equals, 2)
+	require.Equal(t, 2, len(rules[0].Egress))
 
 }
 
@@ -1775,16 +1765,12 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer)
-			args := []interface{}{got, tt.want}
-			names := []string{"obtained", "expected"}
-			if equal, err := checker.DeepEquals.Check(args, names); !equal {
-				t.Errorf("Failed to parseNetworkPolicyPeer():\n%s", err)
-			}
+			require.EqualValues(t, tt.want, got)
 		})
 	}
 }
 
-func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
+func TestGetPolicyLabelsv1(t *testing.T) {
 	uuid := "1bba160-ddca-11e8-b697-0800273b04ff"
 	tests := []struct {
 		np          *slim_networkingv1.NetworkPolicy // input network policy
@@ -1829,17 +1815,15 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 	}
 
 	assertLabel := func(lbl labels.Label, key, value string) {
-		c.Assert(lbl.Key, Equals, key)
-		c.Assert(lbl.Value, Equals, value)
-		c.Assert(lbl.Source, Equals, labels.LabelSourceK8s)
+		require.Equal(t, key, lbl.Key)
+		require.Equal(t, value, lbl.Value)
+		require.Equal(t, labels.LabelSourceK8s, lbl.Source)
 	}
 
 	for _, tt := range tests {
 		lbls := GetPolicyLabelsv1(tt.np)
-
-		c.Assert(lbls, NotNil)
-		c.Assert(len(lbls), Equals, 4, Commentf(
-			"Incorrect number of labels: Expected DerivedFrom, Name, Namespace and UID labels."))
+		require.NotNil(t, lbls)
+		require.Len(t, lbls, 4, "Incorrect number of labels: Expected DerivedFrom, Name, Namespace and UID labels.")
 		assertLabel(lbls[0], "io.cilium.k8s.policy.derived-from", tt.derivedFrom)
 		assertLabel(lbls[1], "io.cilium.k8s.policy.name", tt.name)
 		assertLabel(lbls[2], "io.cilium.k8s.policy.namespace", tt.namespace)
@@ -1847,7 +1831,7 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 	}
 }
 
-func (s *K8sSuite) TestIPBlockToCIDRRule(c *C) {
+func TestIPBlockToCIDRRule(t *testing.T) {
 	blocks := []*slim_networkingv1.IPBlock{
 		{},
 		{CIDR: "192.168.1.1/24"},
@@ -1871,13 +1855,13 @@ func (s *K8sSuite) TestIPBlockToCIDRRule(c *C) {
 			exceptCIDRs[i] = api.CIDR(v)
 		}
 
-		c.Assert(cidrRule.Generated, Equals, false)
-		c.Assert(cidrRule.Cidr, Equals, api.CIDR(block.CIDR))
+		require.Equal(t, false, cidrRule.Generated)
+		require.Equal(t, api.CIDR(block.CIDR), cidrRule.Cidr)
 
 		if block.Except == nil || len(block.Except) == 0 {
-			c.Assert(cidrRule.ExceptCIDRs, IsNil)
+			require.Nil(t, cidrRule.ExceptCIDRs)
 		} else {
-			c.Assert(cidrRule.ExceptCIDRs, checker.DeepEquals, exceptCIDRs)
+			require.EqualValues(t, exceptCIDRs, cidrRule.ExceptCIDRs)
 		}
 	}
 }
