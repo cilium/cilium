@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/google/gops/signal"
+
 	"github.com/cilium/cilium-cli/defaults"
 )
 
@@ -149,9 +151,9 @@ var (
 		"stack",
 		"stats",
 	}
-	gopsProfiling = []string{
-		"pprof-heap",
-		"pprof-cpu",
+	gopsProfiling = map[string]byte{
+		"pprof-heap": signal.HeapProfile,
+		"pprof-cpu":  signal.CPUProfile,
 	}
 	gopsTrace = "trace"
 
