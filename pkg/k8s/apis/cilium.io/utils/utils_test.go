@@ -7,30 +7,20 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type CiliumUtilsSuite struct{}
-
-var _ = Suite(&CiliumUtilsSuite{})
-
-func (s *CiliumUtilsSuite) Test_namespacesAreValid(c *C) {
-	c.Assert(namespacesAreValid("default", []string{}), Equals, true)
-	c.Assert(namespacesAreValid("default", []string{"default"}), Equals, true)
-	c.Assert(namespacesAreValid("default", []string{"foo"}), Equals, false)
-	c.Assert(namespacesAreValid("default", []string{"default", "foo"}), Equals, false)
+func Test_namespacesAreValid(t *testing.T) {
+	require.Equal(t, true, namespacesAreValid("default", []string{}))
+	require.Equal(t, true, namespacesAreValid("default", []string{"default"}))
+	require.Equal(t, false, namespacesAreValid("default", []string{"foo"}))
+	require.Equal(t, false, namespacesAreValid("default", []string{"default", "foo"}))
 }
 
 func Test_ParseToCiliumRule(t *testing.T) {
@@ -438,16 +428,12 @@ func Test_ParseToCiliumRule(t *testing.T) {
 
 			// Sanitize to set AggregatedSelectors field.
 			tt.want.Sanitize()
-			args := []interface{}{got, tt.want}
-			names := []string{"obtained", "expected"}
-			if equal, err := checker.DeepEquals.Check(args, names); !equal {
-				t.Errorf("Failed to ParseToCiliumRule():\n%s", err)
-			}
+			require.EqualValues(t, tt.want, got, "Test Name: %s", tt.name)
 		})
 	}
 }
 
-func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
+func TestParseToCiliumLabels(t *testing.T) {
 
 	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
@@ -506,6 +492,6 @@ func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
 	}
 	for _, tt := range tests {
 		got := ParseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.uid, tt.args.ruleLbs)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }

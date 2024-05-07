@@ -5,13 +5,12 @@ package validator
 
 import (
 	"sort"
+	"testing"
 
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *CNPValidationSuite) Test_getFields(c *C) {
+func Test_getFields(t *testing.T) {
 	tests := []struct {
 		name      string
 		structure map[string]interface{}
@@ -173,13 +172,13 @@ func (s *CNPValidationSuite) Test_getFields(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		c.Log(tt.name)
+		t.Log(tt.name)
 
 		got, err := getFields(tt.structure)
-		c.Assert(tt.err, checker.DeepEquals, err)
+		require.EqualValues(t, err, tt.err)
 
 		sort.Strings(tt.expected) // Must sort to check slice equality
 		sort.Strings(got)
-		c.Assert(tt.expected, checker.DeepEquals, got)
+		require.EqualValues(t, got, tt.expected)
 	}
 }
