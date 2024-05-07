@@ -36,19 +36,13 @@ linters-settings:
       Copyright Authors of {{ PROJECT }}
   goimports:
     local-prefixes: github.com/cilium/cilium-cli
-  gosimple:
-    go: "1.21"
   govet:
     enable-all: true
     disable:
       - fieldalignment
       - shadow
-  staticcheck:
-    go: "1.21"
   stylecheck:
     checks: ["ST1019"]
-  unused:
-    go: "1.21"
 
 issues:
   # This also warns about credential name variables which are false positives.
