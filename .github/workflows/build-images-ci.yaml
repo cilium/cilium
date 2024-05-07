@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build-and-push-prs:
     name: Build and Push Images
-    runs-on: ubuntu-22.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     strategy:
       matrix:
         include:
