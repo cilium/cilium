@@ -36,7 +36,7 @@ jobs:
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
-    runs-on: ubuntu-22.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     strategy:
       matrix:
         include:
