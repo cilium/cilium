@@ -55,7 +55,7 @@ func New(cells ...cell.Cell) *Hive {
 	// Scope logging and health by module ID.
 	moduleDecorators := []cell.ModuleDecorator{
 		func(log logrus.FieldLogger, mid cell.ModuleID) logrus.FieldLogger {
-			return log.WithField(logfields.LogSubsys, mid)
+			return log.WithField(logfields.LogSubsys, string(mid))
 		},
 		func(hp healthTypes.Provider, fmid cell.FullModuleID) cell.Health {
 			return hp.ForModule(fmid)
