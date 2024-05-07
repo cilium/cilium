@@ -51,12 +51,12 @@ READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
 DOCKER_CTR_ROOT_DIR := /src
 DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
-		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR)
+		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
+		--user "$(shell id -u):$(shell id -g)"
 DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
-		--env INCREMENTAL=$(INCREMENTAL) \
-		--user "$(shell id -u):$(shell id -g)"
+		--env INCREMENTAL=$(INCREMENTAL)
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
 ##@ Auto-generated Contents Updates and Validation
