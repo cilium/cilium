@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	ciliumdef "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
@@ -1046,10 +1047,20 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
 
-				for _, container := range []string{defaults.ClusterMeshContainerName, defaults.ClusterMeshKVStoreMeshContainerName} {
+				for container, port := range map[string]uint16{
+					defaults.ClusterMeshContainerName:            ciliumdef.GopsPortApiserver,
+					defaults.ClusterMeshKVStoreMeshContainerName: ciliumdef.GopsPortKVStoreMesh,
+				} {
 					err = c.SubmitGopsSubtasks(AllPods(pods), container)
 					if err != nil {
 						return fmt.Errorf("failed to collect the Cilium clustermesh gops stats: %w", err)
+					}
+
+					if c.Options.Profiling {
+						err = c.SubmitStreamProfilingGopsSubtasks(AllPods(pods), container, port)
+						if err != nil {
+							return fmt.Errorf("failed to collect the Cilium clustermesh profiles: %w", err)
+						}
 					}
 				}
 
@@ -2448,7 +2459,7 @@ func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string)
 func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
-		for _, g := range gopsProfiling {
+		for g := range gopsProfiling {
 			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
 				agentPID, err := c.getGopsPID(ctx, p, containerName)
@@ -2475,6 +2486,55 @@ func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerNam
 				if _, err = c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{rmCommand, filePath}); err != nil {
 					c.logWarn("failed to delete profiling output from pod %q in namespace %q: %w", p.Name, p.Namespace, err)
 					return nil
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to submit %s gops task for %q: %w", g, p.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+// SubmitStreamProfilingGopsSubtasks submits tasks to collect profiling data from pods. Differently
+// from SubmitProfilingGopsSubtasks, it directly retrieves the profiles from the remote gops server,
+// rather than calling the gops client binary. This allows to retrieve the profiles from distroless
+// containers as well, as it does not depend on any shell tools.
+func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, containerName string, port uint16) error {
+	for _, p := range pods {
+		p := p
+
+		if !podIsRunningAndHasContainer(p, containerName) {
+			continue
+		}
+
+		for g, b := range gopsProfiling {
+			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
+				err := c.Client.ProxyTCP(ctx, p.Namespace, p.Name, port, func(stream io.ReadWriteCloser) error {
+					defer stream.Close()
+
+					_, err := stream.Write([]byte{b})
+					if err != nil {
+						return fmt.Errorf("requesting profiling data: %w", err)
+					}
+
+					file := c.AbsoluteTempPath(fmt.Sprintf("%s-%s-%s-<ts>.pprof", p.Name, containerName, g))
+					outFile, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err != nil {
+						return fmt.Errorf("creating target file: %w", err)
+					}
+					defer outFile.Close()
+
+					_, err = io.Copy(outFile, stream)
+					if err != nil {
+						return fmt.Errorf("saving profiling data: %w", err)
+					}
+
+					return nil
+				})
+
+				if err != nil {
+					return fmt.Errorf("failed to collect gops profiling data: %w", err)
 				}
 				return nil
 			}); err != nil {
