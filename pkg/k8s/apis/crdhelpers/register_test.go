@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -23,14 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type CiliumV2RegisterSuite struct{}
-
-var _ = Suite(&CiliumV2RegisterSuite{})
-
-func (s *CiliumV2RegisterSuite) getV1TestCRD() *apiextensionsv1.CustomResourceDefinition {
+func getV1TestCRD() *apiextensionsv1.CustomResourceDefinition {
 	return &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo-v1",
@@ -53,7 +46,7 @@ func (s *CiliumV2RegisterSuite) getV1TestCRD() *apiextensionsv1.CustomResourceDe
 	}
 }
 
-func (s *CiliumV2RegisterSuite) getV1beta1TestCRD() *apiextensionsv1beta1.CustomResourceDefinition {
+func getV1beta1TestCRD() *apiextensionsv1beta1.CustomResourceDefinition {
 	return &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo-v1beta1",
@@ -73,7 +66,7 @@ const labelKey = k8sconst.CustomResourceDefinitionSchemaVersionKey
 
 var minVersion = versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion)
 
-func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
+func TestCreateUpdateCRD(t *testing.T) {
 	v1Support := &version.Info{
 		Major: "1",
 		Minor: "16",
@@ -91,9 +84,9 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 		{
 			name: "v1 crd installed with v1 apiserver",
 			test: func() error {
-				crd := s.getV1TestCRD()
+				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
-				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
+				require.Nil(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
 				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
@@ -102,9 +95,9 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 			name: "v1beta1 crd installed with v1beta1 apiserver",
 			test: func() error {
 				// createUpdateCRD works with v1 CRDs and converts to v1beta1 CRDs if needed.
-				crd := s.getV1TestCRD()
+				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
-				c.Assert(k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor), IsNil)
+				require.Nil(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
 				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
@@ -115,11 +108,11 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				// This test will install a v1beta1 CRD to simulate the
 				// scenario where a user already has v1beta1 CRDs installed.
 
-				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
+				require.Nil(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
 
 				// Ensure same name as to-be installed CRD.
-				crd := s.getV1TestCRD()
-				oldCRD := s.getV1beta1TestCRD()
+				crd := getV1TestCRD()
+				oldCRD := getV1beta1TestCRD()
 				oldCRD.ObjectMeta.Name = crd.ObjectMeta.Name
 
 				var err error
@@ -130,7 +123,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 					oldCRD,
 					metav1.CreateOptions{},
 				)
-				c.Assert(err, IsNil)
+				require.NoError(t, err)
 
 				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
@@ -144,11 +137,11 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				// that the apiserver will interoperate between the two
 				// versions (v1 & v1beta1).
 
-				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
+				require.Nil(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
 
 				// Ensure same name as to-be installed CRD.
-				crdToInstall := s.getV1beta1TestCRD()
-				oldCRD := s.getV1TestCRD()
+				crdToInstall := getV1beta1TestCRD()
+				oldCRD := getV1TestCRD()
 				oldCRD.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
 
 				// Pre-install v1 CRD.
@@ -159,17 +152,17 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 					oldCRD,
 					metav1.CreateOptions{},
 				)
-				c.Assert(err, IsNil)
+				require.NoError(t, err)
 
 				// Revert back to v1beta1 apiserver.
 				client.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = v1beta1Support
-				c.Assert(k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor), IsNil)
+				require.Nil(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
 
 				// Retrieve v1 CRD here as that's what CreateUpdateCRD will be
 				// expecting, and change the name to match to-be installed CRD.
 				// This tests that CreateUpdateCRD will fallback on its v1beta1
 				// variant.
-				crd := s.getV1TestCRD()
+				crd := getV1TestCRD()
 				crd.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
 
 				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
@@ -178,43 +171,43 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		c.Log(tt.name)
+		t.Log(tt.name)
 		err := tt.test()
-		c.Assert((err != nil), Equals, tt.wantErr)
+		require.Equal(t, tt.wantErr, err != nil)
 	}
 }
 
-func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoValidation(c *C) {
-	v1CRD := s.getV1TestCRD()
+func TestNeedsUpdateNoValidation(t *testing.T) {
+	v1CRD := getV1TestCRD()
 	v1CRD.Spec.Versions[0].Schema = nil
-	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
+	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
-func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoLabels(c *C) {
-	v1CRD := s.getV1TestCRD()
+func TestNeedsUpdateNoLabels(t *testing.T) {
+	v1CRD := getV1TestCRD()
 	v1CRD.Labels = nil
-	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
+	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
-func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoVersionLabel(c *C) {
-	v1CRD := s.getV1TestCRD()
+func TestNeedsUpdateNoVersionLabel(t *testing.T) {
+	v1CRD := getV1TestCRD()
 	v1CRD.Labels = map[string]string{"test": "test"}
-	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
+	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
-func (s *CiliumV2RegisterSuite) TestNeedsUpdateOlderVersion(c *C) {
-	v1CRD := s.getV1TestCRD()
+func TestNeedsUpdateOlderVersion(t *testing.T) {
+	v1CRD := getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "0.9"
-	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
+	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
-func (s *CiliumV2RegisterSuite) TestNeedsUpdateCorruptedVersion(c *C) {
-	v1CRD := s.getV1TestCRD()
+func TestNeedsUpdateCorruptedVersion(t *testing.T) {
+	v1CRD := getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
-	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
+	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
-func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
+func TestFQDNNameRegex(t *testing.T) {
 	nameRegex := regexp.MustCompile(api.FQDNMatchNameRegexString)
 	patternRegex := regexp.MustCompile(api.FQDNMatchPatternRegexString)
 
@@ -249,23 +242,23 @@ func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
 	}
 
 	for _, f := range badFqdns {
-		c.Assert(nameRegex.MatchString(f), Equals, false, Commentf(f))
-		c.Assert(patternRegex.MatchString(f), Equals, false, Commentf(f))
+		require.Equal(t, false, nameRegex.MatchString(f), f)
+		require.Equal(t, false, patternRegex.MatchString(f), f)
 	}
 
 	for _, f := range goodFqdns {
-		c.Assert(nameRegex.MatchString(f), Equals, true, Commentf(f))
-		c.Assert(patternRegex.MatchString(f), Equals, true, Commentf(f))
+		require.Equal(t, true, nameRegex.MatchString(f), f)
+		require.Equal(t, true, patternRegex.MatchString(f), f)
 	}
 
 	for _, f := range badFqdnPatterns {
-		c.Assert(nameRegex.MatchString(f), Equals, false, Commentf(f))
-		c.Assert(patternRegex.MatchString(f), Equals, false, Commentf(f))
+		require.Equal(t, false, nameRegex.MatchString(f), f)
+		require.Equal(t, false, patternRegex.MatchString(f), f)
 	}
 
 	for _, f := range goodFqdnPatterns {
-		c.Assert(nameRegex.MatchString(f), Equals, false, Commentf(f))
-		c.Assert(patternRegex.MatchString(f), Equals, true, Commentf(f))
+		require.Equal(t, false, nameRegex.MatchString(f), f)
+		require.Equal(t, true, patternRegex.MatchString(f), f)
 	}
 }
 

@@ -6,10 +6,9 @@ package k8s
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/checker"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
@@ -17,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (s *K8sSuite) TestParseNode(c *C) {
+func TestParseNode(t *testing.T) {
 	prevAnnotateK8sNode := option.Config.AnnotateK8sNode
 	option.Config.AnnotateK8sNode = true
 	defer func() {
@@ -48,22 +47,22 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	}
 
 	n := ParseNode(k8sNode, source.Local)
-	c.Assert(n.Name, Equals, "node1")
-	c.Assert(n.IPv4AllocCIDR, NotNil)
-	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
-	c.Assert(n.IPv6AllocCIDR, NotNil)
-	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
-	c.Assert(n.Labels["type"], Equals, "m5.xlarge")
-	c.Assert(len(n.IPAddresses), Equals, 2)
-	c.Assert(n.IPAddresses[0].IP.String(), Equals, "10.254.9.9")
-	c.Assert(n.IPAddresses[0].Type, Equals, nodeAddressing.NodeCiliumInternalIP)
-	c.Assert(n.IPAddresses[1].IP.String(), Equals, "fd00:10:244:1::8ace")
-	c.Assert(n.IPAddresses[1].Type, Equals, nodeAddressing.NodeCiliumInternalIP)
+	require.Equal(t, "node1", n.Name)
+	require.NotNil(t, n.IPv4AllocCIDR)
+	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
+	require.NotNil(t, n.IPv6AllocCIDR)
+	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
+	require.Equal(t, "m5.xlarge", n.Labels["type"])
+	require.Equal(t, 2, len(n.IPAddresses))
+	require.Equal(t, "10.254.9.9", n.IPAddresses[0].IP.String())
+	require.Equal(t, nodeAddressing.NodeCiliumInternalIP, n.IPAddresses[0].Type)
+	require.Equal(t, "fd00:10:244:1::8ace", n.IPAddresses[1].IP.String())
+	require.Equal(t, nodeAddressing.NodeCiliumInternalIP, n.IPAddresses[1].Type)
 
 	for _, key := range []string{"cilium.io/foo", "qux.cilium.io/foo", "fr3d.qux.cilium.io/foo"} {
-		c.Assert(n.Annotations[key], Equals, "value")
+		require.Equal(t, "value", n.Annotations[key])
 	}
-	c.Assert(n.Annotations, Not(checker.HasKey), "other.whatever.io/foo")
+	require.NotContains(t, n.Annotations, "other.whatever.io/foo")
 
 	// No IPv6 annotation
 	k8sNode = &slim_corev1.Node{
@@ -79,10 +78,10 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	}
 
 	n = ParseNode(k8sNode, source.Local)
-	c.Assert(n.Name, Equals, "node2")
-	c.Assert(n.IPv4AllocCIDR, NotNil)
-	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
-	c.Assert(n.IPv6AllocCIDR, IsNil)
+	require.Equal(t, "node2", n.Name)
+	require.NotNil(t, n.IPv4AllocCIDR)
+	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
+	require.Nil(t, n.IPv6AllocCIDR)
 
 	// No IPv6 annotation but PodCIDR with v6
 	k8sNode = &slim_corev1.Node{
@@ -98,11 +97,11 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	}
 
 	n = ParseNode(k8sNode, source.Local)
-	c.Assert(n.Name, Equals, "node2")
-	c.Assert(n.IPv4AllocCIDR, NotNil)
-	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.254.0.0/16")
-	c.Assert(n.IPv6AllocCIDR, NotNil)
-	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
+	require.Equal(t, "node2", n.Name)
+	require.NotNil(t, n.IPv4AllocCIDR)
+	require.Equal(t, "10.254.0.0/16", n.IPv4AllocCIDR.String())
+	require.NotNil(t, n.IPv6AllocCIDR)
+	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 
 	// No IPv4/IPv6 annotations but PodCIDRs with IPv4/IPv6
 	k8sNode = &slim_corev1.Node{
@@ -119,11 +118,11 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	}
 
 	n = ParseNode(k8sNode, source.Local)
-	c.Assert(n.Name, Equals, "node2")
-	c.Assert(n.IPv4AllocCIDR, NotNil)
-	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
-	c.Assert(n.IPv6AllocCIDR, NotNil)
-	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
+	require.Equal(t, "node2", n.Name)
+	require.NotNil(t, n.IPv4AllocCIDR)
+	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
+	require.NotNil(t, n.IPv6AllocCIDR)
+	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 
 	// Node with multiple status addresses of the same type and family
 	expected := []string{"1.2.3.4", "f00d:aaaa:bbbb:cccc:dddd:eeee:0:1", "4.3.2.1", "f00d:aaaa:bbbb:cccc:dddd:eeef:0:1"}
@@ -175,10 +174,10 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	}
 
 	n = ParseNode(k8sNode, source.Local)
-	c.Assert(n.Name, Equals, "node2")
-	c.Assert(n.IPv4AllocCIDR, NotNil)
-	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
-	c.Assert(len(n.IPAddresses), Equals, len(expected))
+	require.Equal(t, "node2", n.Name)
+	require.NotNil(t, n.IPv4AllocCIDR)
+	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
+	require.Equal(t, len(expected), len(n.IPAddresses))
 	addrsFound := 0
 	for _, addr := range n.IPAddresses {
 		for _, expect := range expected {
@@ -187,10 +186,10 @@ func (s *K8sSuite) TestParseNode(c *C) {
 			}
 		}
 	}
-	c.Assert(addrsFound, Equals, len(expected))
+	require.Equal(t, len(expected), addrsFound)
 }
 
-func (s *K8sSuite) TestParseNodeWithoutAnnotations(c *C) {
+func TestParseNodeWithoutAnnotations(t *testing.T) {
 	prevAnnotateK8sNode := option.Config.AnnotateK8sNode
 	option.Config.AnnotateK8sNode = false
 	defer func() {
@@ -219,16 +218,16 @@ func (s *K8sSuite) TestParseNodeWithoutAnnotations(c *C) {
 	}
 
 	n := ParseNode(k8sNode, source.Local)
-	c.Assert(n.Name, Equals, "node1")
-	c.Assert(n.IPv4AllocCIDR, NotNil)
-	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
-	c.Assert(n.IPv6AllocCIDR, IsNil)
-	c.Assert(n.Labels["type"], Equals, "m5.xlarge")
+	require.Equal(t, "node1", n.Name)
+	require.NotNil(t, n.IPv4AllocCIDR)
+	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
+	require.Nil(t, n.IPv6AllocCIDR)
+	require.Equal(t, "m5.xlarge", n.Labels["type"])
 
 	for _, key := range []string{"cilium.io/foo", "qux.cilium.io/foo", "fr3d.qux.cilium.io/foo"} {
-		c.Assert(n.Annotations[key], Equals, "value")
+		require.Equal(t, "value", n.Annotations[key])
 	}
-	c.Assert(n.Annotations, Not(checker.HasKey), "other.whatever.io/foo")
+	require.NotContains(t, n.Annotations, "other.whatever.io/foo")
 
 	// No IPv6 annotation but PodCIDR with v6
 	k8sNode = &slim_corev1.Node{
@@ -244,10 +243,10 @@ func (s *K8sSuite) TestParseNodeWithoutAnnotations(c *C) {
 	}
 
 	n = ParseNode(k8sNode, source.Local)
-	c.Assert(n.Name, Equals, "node2")
-	c.Assert(n.IPv4AllocCIDR, IsNil)
-	c.Assert(n.IPv6AllocCIDR, NotNil)
-	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
+	require.Equal(t, "node2", n.Name)
+	require.Nil(t, n.IPv4AllocCIDR)
+	require.NotNil(t, n.IPv6AllocCIDR)
+	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 }
 
 func Test_ParseNodeAddressType(t *testing.T) {
@@ -334,11 +333,7 @@ func Test_ParseNodeAddressType(t *testing.T) {
 				ciliumNodeType: gotNodeAddress,
 				errExists:      gotErr != nil,
 			}
-			args := []interface{}{res, tt.want}
-			names := []string{"obtained", "expected"}
-			if equal, err := checker.DeepEquals.Check(args, names); !equal {
-				t.Errorf("Failed to ParseNodeAddressType():\n%s", err)
-			}
+			require.EqualValues(t, tt.want, res)
 		})
 	}
 }

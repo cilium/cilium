@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -24,17 +24,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/informer"
 )
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type K8sIntegrationSuite struct{}
-
-var _ = Suite(&K8sIntegrationSuite{})
-
-func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
-}
 
 var nodeSampleJSON = `{
     "apiVersion": "v1",
@@ -414,11 +403,11 @@ var nodeSampleJSON = `{
 }
 `
 
-func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, c *C) {
+func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *testing.B) {
 	n := slim_corev1.Node{}
 	err := json.Unmarshal([]byte(nodeSampleJSON), &n)
 	n.ResourceVersion = "1"
-	c.Assert(err, IsNil)
+	require.NoError(b, err)
 	w := watch.NewFakeWithChanSize(nCycles, false)
 	wg := sync.WaitGroup{}
 
@@ -509,14 +498,14 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 	}
 
 	wg.Add(1)
-	c.ResetTimer()
+	b.ResetTimer()
 	for i := 2; i <= nCycles; i++ {
 		n.ResourceVersion = strconv.Itoa(i)
 		w.Action(watch.Modified, &n)
 	}
 	w.Action(watch.Deleted, &n)
 	wg.Wait()
-	c.StopTimer()
+	b.StopTimer()
 }
 
 func OldEqualV1Node(node1, node2 *slim_corev1.Node) bool {
@@ -534,20 +523,20 @@ func OldCopyObjToV1Node(obj interface{}) *slim_corev1.Node {
 	return node.DeepCopy()
 }
 
-func (k *K8sIntegrationSuite) Benchmark_Informer(ctx context.Context, c *C) {
+func Benchmark_Informer(b *testing.B) {
 	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
 	if err != nil {
-		nCycles = c.N
+		nCycles = b.N
 	}
 
-	k.benchmarkInformer(ctx, nCycles, true, c)
+	benchmarkInformer(context.Background(), nCycles, true, b)
 }
 
-func (k *K8sIntegrationSuite) Benchmark_K8sInformer(ctx context.Context, c *C) {
+func Benchmark_K8sInformer(b *testing.B) {
 	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
 	if err != nil {
-		nCycles = c.N
+		nCycles = b.N
 	}
 
-	k.benchmarkInformer(ctx, nCycles, false, c)
+	benchmarkInformer(context.Background(), nCycles, false, b)
 }
