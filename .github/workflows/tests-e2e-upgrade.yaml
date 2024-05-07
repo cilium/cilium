@@ -258,6 +258,7 @@ jobs:
             # Disable bpf.tproxy=true until https://github.com/cilium/cilium/issues/31918
             # has been resolved.
             misc: 'bpfClockProbe=false,cni.uninstall=false'
+            ciliumendpointslice: 'true'
 
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -271,6 +272,7 @@ jobs:
             encryption: 'wireguard'
             encryption-node: 'false'
             host-fw: 'true'
+            ciliumendpointslice: 'true'
 
     timeout-minutes: 60
     steps:
@@ -320,6 +322,7 @@ jobs:
           mutual-auth: false
           ingress-controller: ${{ matrix.ingress-controller }}
           misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
+          ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
@@ -341,6 +344,7 @@ jobs:
           mutual-auth: false
           ingress-controller: ${{ matrix.ingress-controller }}
           misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
+          ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@bfa4f93a41da410a1b4c9373c1694ca6d5c35ade # v0.16.6
