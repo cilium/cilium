@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -55,30 +54,25 @@ type linuxPrivilegedIPv6OnlyTestSuite struct {
 	linuxPrivilegedBaseTestSuite
 }
 
-var _ = check.Suite(&linuxPrivilegedIPv6OnlyTestSuite{})
-
-func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpSuite(t *testing.T) {
-	testutils.PrivilegedTest(t)
-}
-
 type linuxPrivilegedIPv4OnlyTestSuite struct {
 	linuxPrivilegedBaseTestSuite
-}
-
-var _ = check.Suite(&linuxPrivilegedIPv4OnlyTestSuite{})
-
-func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpSuite(t *testing.T) {
-	testutils.PrivilegedTest(t)
 }
 
 type linuxPrivilegedIPv4AndIPv6TestSuite struct {
 	linuxPrivilegedBaseTestSuite
 }
 
-var _ = check.Suite(&linuxPrivilegedIPv4AndIPv6TestSuite{})
-
-func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpSuite(t *testing.T) {
-	testutils.PrivilegedTest(t)
+func setup(tb testing.TB, family string) *linuxPrivilegedBaseTestSuite {
+	switch family {
+	case "IPv4":
+		return &setupLinuxPrivilegedIPv4OnlyTestSuite(tb).linuxPrivilegedBaseTestSuite
+	case "IPv6":
+		return &setupLinuxPrivilegedIPv6OnlyTestSuite(tb).linuxPrivilegedBaseTestSuite
+	case "dual":
+		return &setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb).linuxPrivilegedBaseTestSuite
+	default:
+		return nil
+	}
 }
 
 const (
@@ -94,7 +88,10 @@ const (
 	mcastNum     = 6
 )
 
-func (s *linuxPrivilegedBaseTestSuite) SetUpTest(t *testing.T, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
+func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) *linuxPrivilegedBaseTestSuite {
+	testutils.PrivilegedTest(tb)
+	s := &linuxPrivilegedBaseTestSuite{}
+
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	rlimit.RemoveMemlock()
@@ -116,7 +113,7 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(t *testing.T, addressing datapa
 		ips = append(ips, s.nodeAddressing.IPv4().PrimaryExternal())
 	}
 	err := setupDummyDevice(dummyExternalDeviceName, ips...)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	ips = []net.IP{}
 	if enableIPv4 {
@@ -126,47 +123,66 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(t *testing.T, addressing datapa
 		ips = append(ips, s.nodeAddressing.IPv6().Router())
 	}
 	err = setupDummyDevice(dummyHostDeviceName, ips...)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
 	err = tunnel.TunnelMap().OpenOrCreate()
-	require.NoError(t, err)
+	require.NoError(tb, err)
+
+	return s
 }
 
-func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(t *testing.T) {
+func setupLinuxPrivilegedIPv6OnlyTestSuite(tb testing.TB) *linuxPrivilegedIPv6OnlyTestSuite {
+	testutils.PrivilegedTest(tb)
+
 	addressing := fakeTypes.NewIPv6OnlyNodeAddressing()
-	s.linuxPrivilegedBaseTestSuite.SetUpTest(t, addressing, true, false)
+	s := &linuxPrivilegedIPv6OnlyTestSuite{
+		linuxPrivilegedBaseTestSuite: *setupLinuxPrivilegedBaseTestSuite(tb, addressing, true, false),
+	}
+
+	tb.Cleanup(func() {
+		tearDownTest(tb)
+	})
+
+	return s
 }
 
-func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpTest(t *testing.T) {
+func setupLinuxPrivilegedIPv4OnlyTestSuite(tb testing.TB) *linuxPrivilegedIPv4OnlyTestSuite {
+	testutils.PrivilegedTest(tb)
+
 	addressing := fakeTypes.NewIPv4OnlyNodeAddressing()
-	s.linuxPrivilegedBaseTestSuite.SetUpTest(t, addressing, false, true)
+	s := &linuxPrivilegedIPv4OnlyTestSuite{
+		linuxPrivilegedBaseTestSuite: *setupLinuxPrivilegedBaseTestSuite(tb, addressing, false, true),
+	}
+
+	tb.Cleanup(func() {
+		tearDownTest(tb)
+	})
+
+	return s
 }
 
-func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(t *testing.T) {
+func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv4AndIPv6TestSuite {
+	testutils.PrivilegedTest(tb)
+
 	addressing := fakeTypes.NewNodeAddressing()
-	s.linuxPrivilegedBaseTestSuite.SetUpTest(t, addressing, true, true)
+	s := &linuxPrivilegedIPv4AndIPv6TestSuite{
+		linuxPrivilegedBaseTestSuite: *setupLinuxPrivilegedBaseTestSuite(tb, addressing, true, true),
+	}
+
+	tb.Cleanup(func() {
+		tearDownTest(tb)
+	})
+	return s
 }
 
-func tearDownTest(t *testing.T) {
+func tearDownTest(tb testing.TB) {
 	ipsec.DeleteXfrm()
 	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 	err := tunnel.TunnelMap().Unpin()
-	require.NoError(t, err)
-}
-
-func (s *linuxPrivilegedIPv6OnlyTestSuite) TearDownTest(t *testing.T) {
-	tearDownTest(t)
-}
-
-func (s *linuxPrivilegedIPv4OnlyTestSuite) TearDownTest(t *testing.T) {
-	tearDownTest(t)
-}
-
-func (s *linuxPrivilegedIPv4AndIPv6TestSuite) TearDownTest(t *testing.T) {
-	tearDownTest(t)
+	require.NoError(tb, err)
 }
 
 func setupDummyDevice(name string, ips ...net.IP) error {
@@ -206,6 +222,50 @@ func removeDevice(name string) {
 	l, err := netlink.LinkByName(name)
 	if err == nil {
 		netlink.LinkDel(l)
+	}
+}
+
+func TestAll(t *testing.T) {
+
+	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
+		t.Run(tt, func(t *testing.T) {
+			t.Run("TestUpdateNodeRoute", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestUpdateNodeRoute(t)
+			})
+			t.Run("TestAuxiliaryPrefixes", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestAuxiliaryPrefixes(t)
+			})
+			t.Run("TestNodeUpdateEncapsulation", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeUpdateEncapsulation(t)
+			})
+			t.Run("TestNodeUpdateEncapsulationWithOverride", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeUpdateEncapsulationWithOverride(t)
+			})
+			t.Run("TestNodeUpdateIDs", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeUpdateIDs(t)
+			})
+			t.Run("TestNodeChurnXFRMLeaks", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeChurnXFRMLeaks(t)
+			})
+			t.Run("TestNodeUpdateDirectRouting", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeUpdateDirectRouting(t)
+			})
+			t.Run("TestAgentRestartOptionChanges", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestAgentRestartOptionChanges(t)
+			})
+			t.Run("TestNodeValidationDirectRouting", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestAgentRestartOptionChanges(t)
+			})
+		})
 	}
 }
 
@@ -776,7 +836,9 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 
 // Tests the same as linuxPrivilegedBaseTestSuite.TestNodeChurnXFRMLeaks just
 // for the subnet encryption. IPv4-only because of https://github.com/cilium/cilium/issues/27280.
-func (s *linuxPrivilegedIPv4OnlyTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
+func TestNodeChurnXFRMLeaks(t *testing.T) {
+	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
+
 	externalNodeDevice := "ipsec_interface"
 
 	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
@@ -1338,7 +1400,8 @@ func neighStateOk(n netlink.Neigh) bool {
 	return false
 }
 
-func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(t *testing.T) {
+func TestArpPingHandlingIPv6(t *testing.T) {
+	s := setupLinuxPrivilegedIPv6OnlyTestSuite(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -1975,7 +2038,8 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(t *testing.T) {
 	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)
 }
 
-func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(t *testing.T) {
+func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
+	s := setupLinuxPrivilegedIPv6OnlyTestSuite(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -2383,7 +2447,8 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(t *
 	assertNoNeigh(veth2, v2IP1)
 }
 
-func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(t *testing.T) {
+func TestArpPingHandlingIPv4(t *testing.T) {
+	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -3016,7 +3081,8 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(t *testing.T) {
 	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)
 }
 
-func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(t *testing.T) {
+func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
+	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -3426,6 +3492,49 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(t *
 
 	assertNoNeigh(veth0, v1IP1)
 	assertNoNeigh(veth2, v2IP1)
+}
+
+func BenchmarkAll(b *testing.B) {
+	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
+		b.Run(tt, func(b *testing.B) {
+			b.Run("BenchmarkNodeUpdate", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNodeUpdate(b)
+			})
+			b.Run("BenchmarkNodeUpdateEncap", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNodeUpdateEncap(b)
+			})
+			b.Run("BenchmarkNodeUpdateDirectRoute", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNodeUpdateDirectRoute(b)
+			})
+			b.Run("BenchmarkNoChangeNodeUpdate", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNoChangeNodeUpdate(b)
+			})
+			b.Run("BenchmarkNoChangeNodeUpdateEncapAll", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNoChangeNodeUpdateEncapAll(b)
+			})
+			b.Run("BenchmarkNoChangeNodeUpdateDirectRouteAll", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNoChangeNodeUpdateDirectRouteAll(b)
+			})
+			b.Run("BenchmarkNodeValidateImplementation", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNodeValidateImplementation(b)
+			})
+			b.Run("BenchmarkNodeValidateImplementationEncap", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNodeValidateImplementationEncap(b)
+			})
+			b.Run("BenchmarkNodeValidateImplementationDirectRoute", func(b *testing.B) {
+				s := setup(b, tt)
+				s.BenchmarkNodeValidateImplementationDirectRoute(b)
+			})
+		})
+	}
 }
 
 func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config datapath.LocalNodeConfiguration) {
