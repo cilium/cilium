@@ -953,16 +953,8 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
-#ifdef CONNTRACK_ACCOUNTING
-	entry.packets = 1;
-	entry.bytes = ctx_full_len(ctx);
-#endif
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
 		    entry.src_sec_id, 0);
-
-	err = map_update_elem(map_main, tuple, &entry, 0);
-	if (unlikely(err < 0))
-		goto err_ct_fill_up;
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
@@ -980,6 +972,16 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		if (unlikely(err < 0))
 			goto err_ct_fill_up;
 	}
+
+#ifdef CONNTRACK_ACCOUNTING
+	entry.packets = 1;
+	entry.bytes = ctx_full_len(ctx);
+#endif
+
+	err = map_update_elem(map_main, tuple, &entry, 0);
+	if (unlikely(err < 0))
+		goto err_ct_fill_up;
+
 	return 0;
 
 err_ct_fill_up:
@@ -1008,16 +1010,8 @@ static __always_inline int ct_create4(const void *map_main,
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
-#ifdef CONNTRACK_ACCOUNTING
-	entry.packets = 1;
-	entry.bytes = ctx_full_len(ctx);
-#endif
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
 		    entry.src_sec_id, 0);
-
-	err = map_update_elem(map_main, tuple, &entry, 0);
-	if (unlikely(err < 0))
-		goto err_ct_fill_up;
 
 	if (map_related != NULL) {
 		/* Create an ICMP entry to relate errors */
@@ -1030,14 +1024,24 @@ static __always_inline int ct_create4(const void *map_main,
 			.flags = tuple->flags | TUPLE_F_RELATED,
 		};
 
-		/* Previous map update succeeded, we could delete it in case
-		 * the below throws an error, but we might as well just let
-		 * it time out.
-		 */
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
 			goto err_ct_fill_up;
 	}
+
+#ifdef CONNTRACK_ACCOUNTING
+	entry.packets = 1;
+	entry.bytes = ctx_full_len(ctx);
+#endif
+
+	/* Previous map update succeeded, we could delete it in case
+	 * the below throws an error, but we might as well just let
+	 * it time out.
+	 */
+	err = map_update_elem(map_main, tuple, &entry, 0);
+	if (unlikely(err < 0))
+		goto err_ct_fill_up;
+
 	return 0;
 
 err_ct_fill_up:
