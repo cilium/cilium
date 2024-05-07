@@ -12,6 +12,8 @@ on:
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
 permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
   # To be able to access the repository with actions/checkout
   contents: read
   # To be able to request the JWT from GitHub's OIDC provider
