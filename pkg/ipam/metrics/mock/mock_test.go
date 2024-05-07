@@ -6,34 +6,26 @@ package mock
 import (
 	"testing"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type MockSuite struct{}
-
-var _ = check.Suite(&MockSuite{})
-
-func (e *MockSuite) TestMock(c *check.C) {
+func TestMock(t *testing.T) {
 	api := NewMockMetrics()
 	api.AllocationAttempt("createInterfaceAndAllocateIP", "foo", "s-1", 0)
-	c.Assert(api.GetAllocationAttempts("createInterfaceAndAllocateIP", "foo", "s-1"), check.Equals, int64(1))
+	require.Equal(t, int64(1), api.GetAllocationAttempts("createInterfaceAndAllocateIP", "foo", "s-1"))
 	api.AddIPAllocation("s-1", 10)
 	api.AddIPAllocation("s-1", 20)
-	c.Assert(api.IPAllocations("s-1"), check.Equals, int64(30))
+	require.Equal(t, int64(30), api.IPAllocations("s-1"))
 	api.SetAllocatedIPs("used", 200)
-	c.Assert(api.AllocatedIPs("used"), check.Equals, 200)
+	require.Equal(t, 200, api.AllocatedIPs("used"))
 	api.SetAvailableInterfaces(10)
-	c.Assert(api.AvailableInterfaces(), check.Equals, 10)
+	require.Equal(t, 10, api.AvailableInterfaces())
 	api.SetInterfaceCandidates(10)
-	c.Assert(api.InterfaceCandidates(), check.Equals, 10)
+	require.Equal(t, 10, api.InterfaceCandidates())
 	api.SetEmptyInterfaceSlots(10)
-	c.Assert(api.EmptyInterfaceSlots(), check.Equals, 10)
+	require.Equal(t, 10, api.EmptyInterfaceSlots())
 	api.SetNodes("at-capacity", 5)
-	c.Assert(api.Nodes("at-capacity"), check.Equals, 5)
+	require.Equal(t, 5, api.Nodes("at-capacity"))
 	api.IncResyncCount()
-	c.Assert(api.ResyncCount(), check.Equals, int64(1))
+	require.Equal(t, int64(1), api.ResyncCount())
 }
