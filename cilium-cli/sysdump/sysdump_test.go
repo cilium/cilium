@@ -345,6 +345,10 @@ func (c *fakeClient) ProxyGet(_ context.Context, namespace, name, url string) (s
 	return fmt.Sprintf("Get from %s/%s/%s", namespace, name, url), nil
 }
 
+func (c *fakeClient) ProxyTCP(_ context.Context, _, _ string, _ uint16, _ func(io.ReadWriteCloser) error) error {
+	panic("implement me")
+}
+
 func (c *fakeClient) GetSecret(_ context.Context, _, _ string, _ metav1.GetOptions) (*corev1.Secret, error) {
 	panic("implement me")
 }
