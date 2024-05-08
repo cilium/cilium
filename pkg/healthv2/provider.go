@@ -199,7 +199,7 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 	if err := r.upsert(types.Status{
 		ID:      r.id,
 		Level:   types.LevelDegraded,
-		Error:   err,
+		Error:   err.Error(),
 		Updated: time.Now(),
 	}); err != nil {
 		logger.WithError(err).Errorf("failed to upsert degraded health status")
