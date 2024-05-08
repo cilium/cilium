@@ -5,6 +5,7 @@ package status
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -153,6 +154,10 @@ func (c *k8sStatusMockClient) CiliumStatus(_ context.Context, _, pod string) (*m
 		return nil, fmt.Errorf("pod %s not found", pod)
 	}
 	return s, nil
+}
+
+func (c *k8sStatusMockClient) KVStoreMeshStatus(_ context.Context, _, _ string) ([]*models.RemoteCluster, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (c *k8sStatusMockClient) CiliumDbgEndpoints(_ context.Context, _, _ string) ([]*models.Endpoint, error) {
