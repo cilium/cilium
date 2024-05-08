@@ -192,8 +192,8 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 			if (memcmp(l2->h_dest, (__u8 *)mac_zero, ETH_ALEN) != 0)
 				test_fatal("dst MAC is not the external svc MAC")
 
-			if (l3->saddr != EGRESS_IP2)
-				test_fatal("src IP hasn't been NATed to egress gateway IP 2");
+			if (l3->saddr != CLIENT_IP)
+				test_fatal("src IP has changed before redirecting to egress iface");
 		} else {
 			if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
 				test_fatal("src MAC is not the client MAC")
@@ -209,47 +209,50 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 			test_fatal("dst IP has changed");
 	}
 
-	/* Lookup the SNAT mapping for the original packet to determine the new source port */
-	struct ipv4_ct_tuple tuple = {
-		.daddr   = CLIENT_IP,
-		.saddr   = EXTERNAL_SVC_IP,
-		.dport   = EXTERNAL_SVC_PORT,
-		.sport   = client_port(test_ctx.test),
-		.nexthdr = IPPROTO_TCP,
-		.flags = TUPLE_F_OUT,
-	};
-	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	/* SNAT happens *after* redirect: */
+	if (!test_ctx.redirect) {
+		/* Lookup the SNAT mapping for the original packet to determine the new source port */
+		struct ipv4_ct_tuple tuple = {
+			.daddr   = CLIENT_IP,
+			.saddr   = EXTERNAL_SVC_IP,
+			.dport   = EXTERNAL_SVC_PORT,
+			.sport   = client_port(test_ctx.test),
+			.nexthdr = IPPROTO_TCP,
+			.flags = TUPLE_F_OUT,
+		};
+		struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
-	if (!ct_entry)
-		test_fatal("no CT entry found");
+		if (!ct_entry)
+			test_fatal("no CT entry found");
 
-	if (ct_entry->tx_packets != test_ctx.tx_packets)
-		test_fatal("bad TX packet count (expected %u, actual %u)",
-			   test_ctx.tx_packets, ct_entry->tx_packets)
-	if (ct_entry->rx_packets != test_ctx.rx_packets)
-		test_fatal("bad RX packet count (expected %u, actual %u)",
-			   test_ctx.rx_packets, ct_entry->rx_packets)
+		if (ct_entry->tx_packets != test_ctx.tx_packets)
+			test_fatal("bad TX packet count (expected %u, actual %u)",
+			test_ctx.tx_packets, ct_entry->tx_packets)
+		if (ct_entry->rx_packets != test_ctx.rx_packets)
+			test_fatal("bad RX packet count (expected %u, actual %u)",
+				test_ctx.rx_packets, ct_entry->rx_packets)
 
-	tuple.saddr = CLIENT_IP;
-	tuple.daddr = EXTERNAL_SVC_IP;
+		tuple.saddr = CLIENT_IP;
+		tuple.daddr = EXTERNAL_SVC_IP;
 
-	struct ipv4_nat_entry *nat_entry = __snat_lookup(&SNAT_MAPPING_IPV4, &tuple);
+		struct ipv4_nat_entry *nat_entry = __snat_lookup(&SNAT_MAPPING_IPV4, &tuple);
 
-	if (!nat_entry)
-		test_fatal("could not find a NAT entry for the packet");
+		if (!nat_entry)
+			test_fatal("could not find a NAT entry for the packet");
 
-	if (test_ctx.dir == CT_INGRESS) {
-		if (l4->source != EXTERNAL_SVC_PORT)
-			test_fatal("src port has changed");
+		if (test_ctx.dir == CT_INGRESS) {
+			if (l4->source != EXTERNAL_SVC_PORT)
+				test_fatal("src port has changed");
 
-		if (l4->dest != client_port(test_ctx.test))
-			test_fatal("dst TCP port hasn't been revSNATed to client port");
-	} else { /* CT_EGRESS */
-		if (l4->source != nat_entry->to_sport)
-			test_fatal("src TCP port hasn't been NATed to egress gateway port");
+			if (l4->dest != client_port(test_ctx.test))
+				test_fatal("dst TCP port hasn't been revSNATed to client port");
+		} else { /* CT_EGRESS */
+			if (l4->source != nat_entry->to_sport)
+				test_fatal("src TCP port hasn't been NATed to egress gateway port");
 
-		if (l4->dest != EXTERNAL_SVC_PORT)
-			test_fatal("dst port has changed");
+			if (l4->dest != EXTERNAL_SVC_PORT)
+				test_fatal("dst port has changed");
+		}
 	}
 
 	test_finish();
