@@ -64,6 +64,7 @@ type K8sStatusCollector struct {
 
 type k8sImplementation interface {
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
+	KVStoreMeshStatus(ctx context.Context, namespace, pod string) ([]*models.RemoteCluster, error)
 	CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
@@ -107,6 +108,26 @@ func (k *K8sStatusCollector) ClusterMeshConnectivity(ctx context.Context, cilium
 
 	c.GlobalServices = status.ClusterMesh.NumGlobalServices
 	for _, cluster := range status.ClusterMesh.Clusters {
+		c.Clusters[cluster.Name] = cluster
+	}
+
+	return c, nil
+}
+
+func (k *K8sStatusCollector) KVStoreMeshConnectivity(ctx context.Context, pod string) (*ClusterMeshAgentConnectivityStatus, error) {
+	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
+	defer cancel()
+
+	c := &ClusterMeshAgentConnectivityStatus{
+		Clusters: map[string]*models.RemoteCluster{},
+	}
+
+	status, err := k.client.KVStoreMeshStatus(ctx, k.params.Namespace, pod)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, cluster := range status {
 		c.Clusters[cluster.Name] = cluster
 	}
 

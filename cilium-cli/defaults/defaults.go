@@ -47,6 +47,7 @@ const (
 	ClusterMeshEtcdMetricsPortName        = "etcd-metrics"
 	ClusterMeshServiceName                = "clustermesh-apiserver"
 	ClusterMeshSecretName                 = "cilium-clustermesh" // Secret which contains the clustermesh configuration
+	ClusterMeshKVStoreMeshSecretName      = "cilium-kvstoremesh" // Secret which contains the kvstoremesh configuration
 	ClusterMeshServerSecretName           = "clustermesh-apiserver-server-cert"
 	ClusterMeshAdminSecretName            = "clustermesh-apiserver-admin-cert"
 	ClusterMeshClientSecretName           = "clustermesh-apiserver-client-cert"

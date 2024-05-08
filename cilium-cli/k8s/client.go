@@ -392,6 +392,30 @@ func (c *Client) CiliumStatus(ctx context.Context, namespace, pod string) (*mode
 	return &statusResponse, nil
 }
 
+// KVStoreMeshStatusNotImplemented is a sentinel error to signal that the status command is not implemented.
+var ErrKVStoreMeshStatusNotImplemented = errors.New("kvstoremesh-dbg status is not available")
+
+func (c *Client) KVStoreMeshStatus(ctx context.Context, namespace, pod string) ([]*models.RemoteCluster, error) {
+	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, pod, defaults.ClusterMeshKVStoreMeshContainerName,
+		[]string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "-o", "json"})
+	if err != nil {
+		// Try to figure out if the status command is not yet supported in this version
+		stderrStr := stderr.String()
+		if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
+			return nil, ErrKVStoreMeshStatusNotImplemented
+		}
+
+		return nil, err
+	}
+
+	statusResponse := make([]*models.RemoteCluster, 0)
+	if err := json.Unmarshal(stdout.Bytes(), &statusResponse); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal response of kvstoremesh-dbg status: %w", err)
+	}
+
+	return statusResponse, nil
+}
+
 func (c *Client) CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error) {
 	stdout, err := c.ExecInPod(ctx, namespace, pod, defaults.AgentContainerName, []string{"cilium", "endpoint", "list", "-o", "json"})
 	if err != nil {
