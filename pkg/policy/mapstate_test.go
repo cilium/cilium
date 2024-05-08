@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -2013,7 +2012,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 		}
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
 			if v2, ok := old.Old[k]; ok {
-				if equals, _ := checker.DeepEqual(v2, v); !equals {
+				if !assert.ObjectsAreEqual(v2, v) {
 					if !v.DatapathEqual(&v2) {
 						wantAdds[k] = struct{}{}
 					}

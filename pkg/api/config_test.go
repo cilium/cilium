@@ -8,8 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-openapi/spec"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseSpecPaths(t *testing.T) {
@@ -110,9 +109,7 @@ func TestParseSpecPaths(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := parseSpecPaths(tc.paths)
-			if ok, msg := checker.DeepEqual(got, tc.expected); !ok {
-				t.Errorf("case %q failed:\n%s", tc.name, msg)
-			}
+			require.Equalf(t, tc.expected, got, "case %q failed", tc.name)
 		})
 	}
 }
@@ -179,12 +176,8 @@ func TestAllowedFlagsToDeniedPaths(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := generateDeniedAPIEndpoints(sampleFlags, tc.allowed)
-			if ok, msg := checker.DeepEqual(got, tc.expected); !ok {
-				t.Errorf("case %q failed:\n%s", tc.name, msg)
-			}
-			if ok, msg := checker.DeepEqual(errors.Unwrap(err), tc.expectedErr); !ok {
-				t.Errorf("case %q error mismatch:\n%s", tc.name, msg)
-			}
+			require.Equalf(t, tc.expected, got, "case %q failed", tc.name)
+			require.Equalf(t, tc.expectedErr, errors.Unwrap(err), "case %q failed", tc.name)
 		})
 	}
 

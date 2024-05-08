@@ -13,9 +13,9 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/checker"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -1125,8 +1125,8 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		ipcacheAfter, err := vm.BpfIPCacheList(true)
 		Expect(err).To(BeNil(), "ipcache can not be dumped")
 		GinkgoPrint(fmt.Sprintf("Local scope identities in IP cache after Cilium restart: %v", ipcacheAfter))
-		equal, diff := checker.DeepEqual(ipcacheBefore, ipcacheAfter)
-		Expect(equal).To(BeTrue(), "CIDR identities were not restored correctly: %s", diff)
+		equal := assert.ObjectsAreEqualValues(ipcacheBefore, ipcacheAfter)
+		Expect(equal).To(BeTrue(), "CIDR identities were not restored correctly")
 
 		// Reapply FQDN policy and check that selectors still have same ids
 		_, err = vm.PolicyRenderAndImport(policy)
@@ -1141,8 +1141,9 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		By("Dumping IP cache after the DNS policy is imported after restart")
 		ipcacheAfterDNSPolicy, err := vm.BpfIPCacheList(true)
 		Expect(err).To(BeNil(), "ipcache can not be dumped")
-		equal, diff = checker.DeepEqual(ipcacheBefore, ipcacheAfterDNSPolicy)
-		Expect(equal).To(BeTrue(), "CIDR identities changed after policy import: %s", diff)
+		equal = assert.ObjectsAreEqualValues(ipcacheBefore, ipcacheAfterDNSPolicy)
+		Expect(equal).To(BeTrue(), "CIDR identities changed after policy import")
+
 		GinkgoPrint(fmt.Sprintf("Local scope identities in IP cache after re-import of DNS policy: %v", ipcacheAfterDNSPolicy))
 
 	})
