@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,47 +26,38 @@ var (
 	})
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
+func TestLookupReservedIdentity(t *testing.T) {
+	testutils.IntegrationTest(t)
 
-type IdentityCacheTestSuite struct{}
-
-var _ = Suite(&IdentityCacheTestSuite{})
-
-func (s *IdentityCacheTestSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
-}
-
-func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
 	<-mgr.InitIdentityAllocator(nil)
 
 	hostID := identity.GetReservedID("host")
-	c.Assert(mgr.LookupIdentityByID(context.TODO(), hostID), Not(IsNil))
+	require.NotNil(t, mgr.LookupIdentityByID(context.TODO(), hostID))
 
 	id := mgr.LookupIdentity(context.TODO(), labels.NewLabelsFromModel([]string{"reserved:host"}))
-	c.Assert(id, Not(IsNil))
-	c.Assert(id.ID, Equals, hostID)
+	require.NotNil(t, id)
+	require.Equal(t, hostID, id.ID)
 
 	worldID := identity.GetReservedID("world")
-	c.Assert(mgr.LookupIdentityByID(context.TODO(), worldID), Not(IsNil))
+	require.NotNil(t, mgr.LookupIdentityByID(context.TODO(), worldID))
 
 	id = mgr.LookupIdentity(context.TODO(), labels.NewLabelsFromModel([]string{"reserved:world"}))
-	c.Assert(id, Not(IsNil))
-	c.Assert(id.ID, Equals, worldID)
+	require.NotNil(t, id)
+	require.Equal(t, worldID, id.ID)
 
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 
 	id = mgr.LookupIdentity(context.TODO(), kvstoreLabels)
-	c.Assert(id, Not(IsNil))
-	c.Assert(id.ID, Equals, identity.ReservedCiliumKVStore)
+	require.NotNil(t, id)
+	require.Equal(t, identity.ReservedCiliumKVStore, id.ID)
 }
 
-func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
+func TestLookupReservedIdentityByLabels(t *testing.T) {
+	testutils.IntegrationTest(t)
+
 	ni, err := identity.ParseNumericIdentity("129")
-	c.Assert(err, IsNil)
+	require.Nil(t, err)
 	identity.AddUserDefinedNumericIdentity(ni, "kvstore")
 	identity.AddReservedIdentity(ni, "kvstore")
 
@@ -159,7 +150,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 			got != nil && tt.want == nil ||
 			got.ID != tt.want.ID:
 
-			c.Errorf("test %s: LookupReservedIdentityByLabels() = %v, want %v", tt.name, got, tt.want)
+			t.Errorf("test %s: LookupReservedIdentityByLabels() = %v, want %v", tt.name, got, tt.want)
 		}
 	}
 }
