@@ -224,6 +224,9 @@ install-container-binary-hubble-relay:
 GIT_VERSION: force
 	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
 
+check_deps:
+	@$(CILIUM_CLI) --help > /dev/null 2>&1 || ( echo "ERROR: '$(CILIUM_CLI)' not found. Please install it." && exit 1)
+
 include Makefile.kind
 
 -include Makefile.docker

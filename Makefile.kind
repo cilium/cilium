@@ -90,7 +90,7 @@ kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh2
 
 .PHONY: kind-connect-clustermesh ## Connect the ClusterMesh clusters.
-kind-connect-clustermesh: kind-clustermesh-ready
+kind-connect-clustermesh: check_deps kind-clustermesh-ready
 	@echo "  CONNECT the two clusters"
 	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
@@ -98,7 +98,7 @@ kind-connect-clustermesh: kind-clustermesh-ready
 
 ENABLE_KVSTOREMESH ?= false
 $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
-kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
+kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
 	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
 	$(CILIUM_CLI) --context=kind-clustermesh1 install \
@@ -124,7 +124,7 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 	$(MAKE) kind-connect-clustermesh
 
 .PHONY: kind-install-cilium-clustermesh-fast
-kind-install-cilium-clustermesh-fast: kind-clustermesh-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into the ClusterMesh clusters and enable ClusterMesh.
+kind-install-cilium-clustermesh-fast: check_deps kind-clustermesh-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into the ClusterMesh clusters and enable ClusterMesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
 	docker pull quay.io/cilium/cilium-ci:latest
 	kind load docker-image --name clustermesh1 quay.io/cilium/cilium-ci:latest
@@ -191,7 +191,7 @@ ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
 endif
 
 .PHONY: kind-install-cilium-fast
-kind-install-cilium-fast: kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
+kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
 	@echo "  INSTALL cilium"
 	docker pull quay.io/cilium/cilium-ci:latest
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
@@ -283,7 +283,7 @@ ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
 endif
 
 .PHONY: kind-install-cilium
-kind-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
+kind-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
@@ -300,7 +300,7 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 
 
 .PHONY: kind-egressgw-install-cilium
-kind-egressgw-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
+kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
@@ -318,12 +318,12 @@ kind-egressgw-install-cilium: kind-ready ## Install a local Cilium version into 
 		>/dev/null 2>&1 &
 
 .PHONY: kind-uninstall-cilium
-kind-uninstall-cilium: ## Uninstall Cilium from the cluster.
+kind-uninstall-cilium: check_deps ## Uninstall Cilium from the cluster.
 	@echo "  UNINSTALL cilium"
 	-$(CILIUM_CLI) uninstall
 
 .PHONY: kind-check-cilium
-kind-check-cilium:
+kind-check-cilium: check_deps
 	@echo "  CHECK  cilium is ready..."
 	$(CILIUM_CLI) status --wait --wait-duration 1s >/dev/null 2>/dev/null
 
