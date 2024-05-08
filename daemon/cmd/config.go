@@ -162,11 +162,11 @@ func getIPLocalReservedPorts(d *Daemon) string {
 		ports = append(ports, strconv.Itoa(wgTypes.ListenPort))
 	}
 
-	// Reserves the VXLAN port. This is not part of the ephemeral port range by
+	// Reserves the tunnel port. This is not part of the ephemeral port range by
 	// default, but is user configurable and thus should be included regardless.
 	// The Linux kernel documentation explicitly allows to reserve ports which
 	// are not part of the ephemeral port range, in which case this is a no-op.
-	if d.tunnelConfig.Protocol() == tunnel.VXLAN {
+	if d.tunnelConfig.Protocol() != tunnel.Disabled {
 		ports = append(ports, fmt.Sprintf("%d", d.tunnelConfig.Port()))
 	}
 
