@@ -14,11 +14,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
-	"github.com/cilium/cilium/pkg/checker"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
@@ -418,8 +418,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				assert.ErrorContains(t, err, tc.errMsg)
 			} else {
 				assert.Nil(t, err)
-				ok, msg := checker.DeepEqual(flow, tc.flow)
-				assert.True(t, ok, msg)
+				require.EqualValues(t, tc.flow, flow)
 			}
 		})
 	}
