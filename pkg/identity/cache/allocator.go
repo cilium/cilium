@@ -286,6 +286,77 @@ func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Co
 	return m.IdentityAllocator.WaitForInitialSync(ctx)
 }
 
+var ErrNonLocalIdentity = fmt.Errorf("labels would result in global identity")
+
+// AllocateLocalIdentity works the same as AllocateIdentity, but it guarantees that the allocated
+// identity will be local-only. If the provided set of labels does not map to a local identity scope,
+// this will return an error.
+func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
+
+	// If this is a reserved, pre-allocated identity, just return that and be done
+	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
+		if option.Config.Debug {
+			log.WithFields(logrus.Fields{
+				logfields.Identity:       reservedIdentity.ID,
+				logfields.IdentityLabels: lbls.String(),
+				"isNew":                  false,
+			}).Debug("Resolving reserved identity")
+		}
+		return reservedIdentity, false, nil
+	}
+
+	if option.Config.Debug {
+		log.WithFields(logrus.Fields{
+			logfields.IdentityLabels: lbls.String(),
+		}).Debug("Resolving local identity")
+	}
+
+	// Allocate according to scope
+	var metricLabel string
+	switch scope := identity.ScopeForLabels(lbls); scope {
+	case identity.IdentityScopeLocal:
+		id, allocated, err = m.localIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
+		metricLabel = identity.NodeLocalIdentityType
+	case identity.IdentityScopeRemoteNode:
+		id, allocated, err = m.localNodeIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
+		metricLabel = identity.RemoteNodeIdentityType
+	default:
+		log.WithFields(logrus.Fields{
+			logfields.Labels: lbls,
+			"scope":          scope,
+		}).Error("BUG: attempt to allocate local identity for labels, but a global identity is required")
+		return nil, false, ErrNonLocalIdentity
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	if allocated {
+		metrics.Identity.WithLabelValues(metricLabel).Inc()
+
+		if notifyOwner {
+			added := IdentityCache{
+				id.ID: id.LabelArray,
+			}
+			m.owner.UpdateIdentities(added, nil)
+		}
+	}
+
+	return
+}
+
+// needsGlobalIdentity returns true if these labels require
+// allocating a global identity
+func needsGlobalIdentity(lbls labels.Labels) bool {
+	// If lbls corresponds to a reserved identity, no global allocation required
+	if identity.LookupReservedIdentityByLabels(lbls) != nil {
+		return false
+	}
+
+	// determine identity scope from labels,
+	return identity.ScopeForLabels(lbls) == identity.IdentityScopeGlobal
+}
+
 // AllocateIdentity allocates an identity described by the specified labels. If
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
@@ -294,59 +365,14 @@ func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Co
 // in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
 // previous numeric identity exists.
 func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
-	isNewLocally := false
+	if !needsGlobalIdentity(lbls) {
+		return m.AllocateLocalIdentity(lbls, notifyOwner, oldNID)
+	}
 
-	// Notify the owner of the newly added identities so that the
-	// cached identities can be updated ASAP, rather than just
-	// relying on the kv-store update events.
-	defer func() {
-		if err == nil {
-			if allocated || isNewLocally {
-				if id.ID.HasLocalScope() {
-					metrics.Identity.WithLabelValues(identity.NodeLocalIdentityType).Inc()
-				} else if id.ID.HasRemoteNodeScope() {
-					metrics.Identity.WithLabelValues(identity.RemoteNodeIdentityType).Inc()
-				} else if id.ID.IsReservedIdentity() {
-					metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
-				} else {
-					metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Inc()
-				}
-			}
-
-			if allocated && notifyOwner {
-				added := IdentityCache{
-					id.ID: id.LabelArray,
-				}
-				m.owner.UpdateIdentities(added, nil)
-			}
-		}
-	}()
 	if option.Config.Debug {
 		log.WithFields(logrus.Fields{
 			logfields.IdentityLabels: lbls.String(),
-		}).Debug("Resolving identity")
-	}
-
-	// If there is only one label with the "reserved" source and a well-known
-	// key, use the well-known identity for that key.
-	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
-		if option.Config.Debug {
-			log.WithFields(logrus.Fields{
-				logfields.Identity:       reservedIdentity.ID,
-				logfields.IdentityLabels: lbls.String(),
-				"isNew":                  false,
-			}).Debug("Resolved reserved identity")
-		}
-		return reservedIdentity, false, nil
-	}
-
-	// If the set of labels uses non-global scope,
-	// then allocate with the appropriate local allocator and return.
-	switch identity.ScopeForLabels(lbls) {
-	case identity.IdentityScopeLocal:
-		return m.localIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
-	case identity.IdentityScopeRemoteNode:
-		return m.localNodeIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
+		}).Debug("Resolving global identity")
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -360,24 +386,39 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	idp, isNew, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls.LabelArray()})
+	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls.LabelArray()})
 	if err != nil {
 		return nil, false, err
 	}
 	if idp > identity.MaxNumericIdentity {
 		return nil, false, fmt.Errorf("%d: numeric identity too large", idp)
 	}
+	id = identity.NewIdentity(identity.NumericIdentity(idp), lbls)
 
 	if option.Config.Debug {
 		log.WithFields(logrus.Fields{
 			logfields.Identity:       idp,
 			logfields.IdentityLabels: lbls.String(),
-			"isNew":                  isNew,
+			"isNew":                  allocated,
 			"isNewLocally":           isNewLocally,
 		}).Debug("Resolved identity")
 	}
 
-	return identity.NewIdentity(identity.NumericIdentity(idp), lbls), isNew, nil
+	if allocated || isNewLocally {
+		metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Inc()
+	}
+
+	// Notify the owner of the newly added identities so that the
+	// cached identities can be updated ASAP, rather than just
+	// relying on the kv-store update events.
+	if allocated && notifyOwner {
+		added := IdentityCache{
+			id.ID: id.LabelArray,
+		}
+		m.owner.UpdateIdentities(added, nil)
+	}
+
+	return id, allocated, nil
 }
 
 func (m *CachingIdentityAllocator) WithholdLocalIdentities(nids []identity.NumericIdentity) {
