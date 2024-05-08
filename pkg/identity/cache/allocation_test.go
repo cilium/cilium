@@ -5,12 +5,12 @@ package cache
 
 import (
 	"context"
+	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
@@ -27,7 +27,17 @@ var fakeConfig = &option.DaemonConfig{
 	K8sNamespace: "kube-system",
 }
 
-func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
+func TestAllocateIdentityReserved(t *testing.T) {
+	for _, be := range []string{"etcd", "consul"} {
+		t.Run(be, func(t *testing.T) {
+			testutils.IntegrationTest(t)
+			kvstore.SetupDummy(t, be)
+			testAllocateIdentityReserved(t)
+		})
+	}
+}
+
+func testAllocateIdentityReserved(t *testing.T) {
 	var (
 		lbls  labels.Labels
 		i     *identity.Identity
@@ -42,78 +52,44 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
 	<-mgr.InitIdentityAllocator(nil)
 
-	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
-	c.Assert(err, IsNil)
-	c.Assert(i.ID, Equals, identity.ReservedIdentityHost)
-	c.Assert(isNew, Equals, false)
+	require.NoError(t, err)
+	require.Equal(t, identity.ReservedIdentityHost, i.ID)
+	require.False(t, isNew)
 
 	lbls = labels.Labels{
 		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
 	}
-	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
-	c.Assert(err, IsNil)
-	c.Assert(i.ID, Equals, identity.ReservedIdentityWorld)
-	c.Assert(isNew, Equals, false)
+	require.NoError(t, err)
+	require.Equal(t, identity.ReservedIdentityWorld, i.ID)
+	require.False(t, isNew)
 
-	c.Assert(identity.IdentityAllocationIsLocal(labels.LabelHealth), Equals, true)
+	require.Equal(t, true, identity.IdentityAllocationIsLocal(labels.LabelHealth))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), labels.LabelHealth, false, identity.InvalidIdentity)
-	c.Assert(err, IsNil)
-	c.Assert(i.ID, Equals, identity.ReservedIdentityHealth)
-	c.Assert(isNew, Equals, false)
+	require.NoError(t, err)
+	require.Equal(t, identity.ReservedIdentityHealth, i.ID)
+	require.False(t, isNew)
 
 	lbls = labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
-	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
-	c.Assert(err, IsNil)
-	c.Assert(i.ID, Equals, identity.ReservedIdentityInit)
-	c.Assert(isNew, Equals, false)
+	require.NoError(t, err)
+	require.Equal(t, identity.ReservedIdentityInit, i.ID)
+	require.False(t, isNew)
 
 	lbls = labels.Labels{
 		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
 	}
-	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
-	c.Assert(err, IsNil)
-	c.Assert(i.ID, Equals, identity.ReservedIdentityUnmanaged)
-	c.Assert(isNew, Equals, false)
-}
-
-type IdentityAllocatorSuite struct{}
-
-func (ias *IdentityAllocatorSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
-}
-
-type IdentityAllocatorEtcdSuite struct {
-	IdentityAllocatorSuite
-}
-
-var _ = Suite(&IdentityAllocatorEtcdSuite{})
-
-func (e *IdentityAllocatorEtcdSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
-}
-
-func (e *IdentityAllocatorEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy(c, "etcd")
-}
-
-type IdentityAllocatorConsulSuite struct {
-	IdentityAllocatorSuite
-}
-
-var _ = Suite(&IdentityAllocatorConsulSuite{})
-
-func (e *IdentityAllocatorConsulSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
-}
-
-func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy(c, "consul")
+	require.NoError(t, err)
+	require.Equal(t, identity.ReservedIdentityUnmanaged, i.ID)
+	require.False(t, isNew)
 }
 
 type dummyOwner struct {
@@ -179,7 +155,17 @@ func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 	}
 }
 
-func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
+func TestEventWatcherBatching(t *testing.T) {
+	for _, be := range []string{"etcd", "consul"} {
+		t.Run(be, func(t *testing.T) {
+			testutils.IntegrationTest(t)
+			kvstore.SetupDummy(t, be)
+			testEventWatcherBatching(t)
+		})
+	}
+}
+
+func testEventWatcherBatching(t *testing.T) {
 	owner := newDummyOwner()
 	events := make(allocator.AllocatorEventChan, 1024)
 	watcher := identityWatcher{
@@ -198,15 +184,15 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 			Key: key,
 		}
 	}
-	c.Assert(owner.WaitUntilID(1033), Not(Equals), 0)
-	c.Assert(owner.GetIdentity(identity.NumericIdentity(1033)), checker.DeepEquals, lbls.LabelArray())
+	require.NotEqual(t, 0, owner.WaitUntilID(1033))
+	require.EqualValues(t, lbls.LabelArray(), owner.GetIdentity(identity.NumericIdentity(1033)))
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
 			Typ: kvstore.EventTypeDelete,
 			ID:  idpool.ID(i),
 		}
 	}
-	c.Assert(owner.WaitUntilID(1033), Not(Equals), 0)
+	require.NotEqual(t, 0, owner.WaitUntilID(1033))
 	for i := 2048; i < 2058; i++ {
 		events <- allocator.AllocatorEvent{
 			Typ: kvstore.EventTypeCreate,
@@ -220,8 +206,8 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 			ID:  idpool.ID(i),
 		}
 	}
-	c.Assert(owner.WaitUntilID(2052), Not(Equals), 0)
-	c.Assert(owner.GetIdentity(identity.NumericIdentity(2052)), IsNil) // Pooling removed the add
+	require.NotEqual(t, 0, owner.WaitUntilID(2052))
+	require.Nil(t, owner.GetIdentity(identity.NumericIdentity(2052))) // Pooling removed the add
 
 	for i := 2053; i < 2058; i++ {
 		events <- allocator.AllocatorEvent{
@@ -229,10 +215,20 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 			ID:  idpool.ID(i),
 		}
 	}
-	c.Assert(owner.WaitUntilID(2057), Not(Equals), 0)
+	require.NotEqual(t, 0, owner.WaitUntilID(2057))
 }
 
-func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
+func TestGetIdentityCache(t *testing.T) {
+	for _, be := range []string{"etcd", "consul"} {
+		t.Run(be, func(t *testing.T) {
+			testutils.IntegrationTest(t)
+			kvstore.SetupDummy(t, be)
+			testGetIdentityCache(t)
+		})
+	}
+}
+
+func testGetIdentityCache(t *testing.T) {
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
@@ -242,10 +238,20 @@ func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 
 	cache := mgr.GetIdentityCache()
 	_, ok := cache[identity.ReservedCiliumKVStore]
-	c.Assert(ok, Equals, true)
+	require.Equal(t, true, ok)
 }
 
-func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
+func TestAllocator(t *testing.T) {
+	for _, be := range []string{"etcd", "consul"} {
+		t.Run(be, func(t *testing.T) {
+			testutils.IntegrationTest(t)
+			kvstore.SetupDummy(t, be)
+			testAllocator(t)
+		})
+	}
+}
+
+func testAllocator(t *testing.T) {
 	lbls1 := labels.NewLabelsFromSortedList("blah=%%//!!;id=foo;user=anna")
 	lbls2 := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
@@ -259,80 +265,90 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
 	id1a, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
-	c.Assert(id1a, Not(IsNil))
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
+	require.NotNil(t, id1a)
+	require.NoError(t, err)
+	require.Equal(t, true, isNew)
 	// Wait for the update event from the KV-store
-	c.Assert(owner.WaitUntilID(id1a.ID), Not(Equals), 0)
-	c.Assert(owner.GetIdentity(id1a.ID), checker.DeepEquals, lbls1.LabelArray())
+	require.NotEqual(t, 0, owner.WaitUntilID(id1a.ID))
+	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
 
 	// reuse the same identity
 	id1b, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
-	c.Assert(id1b, Not(IsNil))
-	c.Assert(isNew, Equals, false)
-	c.Assert(err, IsNil)
-	c.Assert(id1a.ID, Equals, id1b.ID)
+	require.NotNil(t, id1b)
+	require.False(t, isNew)
+	require.NoError(t, err)
+	require.Equal(t, id1b.ID, id1a.ID)
 
 	released, err := mgr.Release(context.Background(), id1a, false)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, false)
+	require.NoError(t, err)
+	require.False(t, released)
 	released, err = mgr.Release(context.Background(), id1b, false)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, true, released)
 	// KV-store still keeps the ID even when a single node has released it.
 	// This also means that we should have not received an event from the
 	// KV-store for the deletion of the identity, so it should still be in
 	// owner's cache.
-	c.Assert(owner.GetIdentity(id1a.ID), checker.DeepEquals, lbls1.LabelArray())
+	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
 
 	id1b, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
-	c.Assert(id1b, Not(IsNil))
-	c.Assert(err, IsNil)
+	require.NotNil(t, id1b)
+	require.NoError(t, err)
 	// the value key should not have been removed so the same ID should be
 	// assigned again and it should not be marked as new
-	c.Assert(isNew, Equals, false)
-	c.Assert(id1a.ID, Equals, id1b.ID)
+	require.False(t, isNew)
+	require.Equal(t, id1b.ID, id1a.ID)
 	// Should still be cached, no new events should have been received.
-	c.Assert(owner.GetIdentity(id1a.ID), checker.DeepEquals, lbls1.LabelArray())
+	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
 
 	ident := mgr.LookupIdentityByID(context.TODO(), id1b.ID)
-	c.Assert(ident, Not(IsNil))
-	c.Assert(lbls1, checker.DeepEquals, ident.Labels)
+	require.NotNil(t, ident)
+	require.EqualValues(t, ident.Labels, lbls1)
 
 	id2, isNew, err := mgr.AllocateIdentity(context.Background(), lbls2, false, identity.InvalidIdentity)
-	c.Assert(id2, Not(IsNil))
-	c.Assert(isNew, Equals, true)
-	c.Assert(err, IsNil)
-	c.Assert(id1a.ID, Not(Equals), id2.ID)
+	require.NotNil(t, id2)
+	require.Equal(t, true, isNew)
+	require.NoError(t, err)
+	require.NotEqual(t, id2.ID, id1a.ID)
 	// Wait for the update event from the KV-store
-	c.Assert(owner.WaitUntilID(id2.ID), Not(Equals), 0)
-	c.Assert(owner.GetIdentity(id2.ID), checker.DeepEquals, lbls2.LabelArray())
+	require.NotEqual(t, 0, owner.WaitUntilID(id2.ID))
+	require.EqualValues(t, lbls2.LabelArray(), owner.GetIdentity(id2.ID))
 
 	id3, isNew, err := mgr.AllocateIdentity(context.Background(), lbls3, false, identity.InvalidIdentity)
-	c.Assert(id3, Not(IsNil))
-	c.Assert(isNew, Equals, true)
-	c.Assert(err, IsNil)
-	c.Assert(id1a.ID, Not(Equals), id3.ID)
-	c.Assert(id2.ID, Not(Equals), id3.ID)
+	require.NotNil(t, id3)
+	require.Equal(t, true, isNew)
+	require.NoError(t, err)
+	require.NotEqual(t, id3.ID, id1a.ID)
+	require.NotEqual(t, id3.ID, id2.ID)
 	// Wait for the update event from the KV-store
-	c.Assert(owner.WaitUntilID(id3.ID), Not(Equals), 0)
-	c.Assert(owner.GetIdentity(id3.ID), checker.DeepEquals, lbls3.LabelArray())
+	require.NotEqual(t, 0, owner.WaitUntilID(id3.ID))
+	require.EqualValues(t, lbls3.LabelArray(), owner.GetIdentity(id3.ID))
 
 	released, err = mgr.Release(context.Background(), id1b, false)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, true, released)
 	released, err = mgr.Release(context.Background(), id2, false)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, true, released)
 	released, err = mgr.Release(context.Background(), id3, false)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, true, released)
 
 	mgr.IdentityAllocator.DeleteAllKeys()
-	c.Assert(owner.WaitUntilID(id3.ID), Not(Equals), 0)
+	require.NotEqual(t, 0, owner.WaitUntilID(id3.ID))
 }
 
-func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
+func TestLocalAllocation(t *testing.T) {
+	for _, be := range []string{"etcd", "consul"} {
+		t.Run(be, func(t *testing.T) {
+			testutils.IntegrationTest(t)
+			kvstore.SetupDummy(t, be)
+			testLocalAllocation(t)
+		})
+	}
+}
+
+func testLocalAllocation(t *testing.T) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
 
 	owner := newDummyOwner()
@@ -344,71 +360,81 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
 	id, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
-	c.Assert(id, Not(IsNil))
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
-	c.Assert(id.ID.HasLocalScope(), Equals, true)
+	require.NotNil(t, id)
+	require.NoError(t, err)
+	require.Equal(t, true, isNew)
+	require.Equal(t, true, id.ID.HasLocalScope())
 	// Wait for the update event from the KV-store
-	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
-	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
+	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
+	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
 
 	// reuse the same identity
 	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
-	c.Assert(id, Not(IsNil))
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, false)
+	require.NotNil(t, id)
+	require.NoError(t, err)
+	require.False(t, isNew)
 
 	cache := mgr.GetIdentityCache()
-	c.Assert(cache[id.ID], Not(IsNil))
+	require.NotNil(t, cache[id.ID])
 
 	// 1st Release, not released
 	released, err := mgr.Release(context.Background(), id, true)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, false)
+	require.NoError(t, err)
+	require.False(t, released)
 
 	// Identity still exists
-	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
+	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
 
 	// 2nd Release, released
 	released, err = mgr.Release(context.Background(), id, true)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, true, released)
 
 	// Wait until the identity is released
-	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
+	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
 	// Identity does not exist any more
-	c.Assert(owner.GetIdentity(id.ID), IsNil)
+	require.Nil(t, owner.GetIdentity(id.ID))
 
 	cache = mgr.GetIdentityCache()
-	c.Assert(cache[id.ID], IsNil)
+	require.Nil(t, cache[id.ID])
 
 	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
-	c.Assert(id, Not(IsNil))
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
-	c.Assert(id.ID.HasLocalScope(), Equals, true)
+	require.NotNil(t, id)
+	require.NoError(t, err)
+	require.Equal(t, true, isNew)
+	require.Equal(t, true, id.ID.HasLocalScope())
 
 	released, err = mgr.Release(context.Background(), id, true)
-	c.Assert(err, IsNil)
-	c.Assert(released, Equals, true)
+	require.NoError(t, err)
+	require.Equal(t, true, released)
 
 	mgr.IdentityAllocator.DeleteAllKeys()
-	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
+	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
+}
+
+func TestAllocatorReset(t *testing.T) {
+	for _, be := range []string{"etcd", "consul"} {
+		t.Run(be, func(t *testing.T) {
+			testutils.IntegrationTest(t)
+			kvstore.SetupDummy(t, be)
+			testAllocatorReset(t)
+		})
+	}
 }
 
 // Test that we can close and reopen the allocator successfully.
-func (s *IdentityCacheTestSuite) TestAllocatorReset(c *C) {
+func testAllocatorReset(t *testing.T) {
 	labels := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	owner := newDummyOwner()
 	mgr := NewCachingIdentityAllocator(owner)
 	testAlloc := func() {
 		id1a, _, err := mgr.AllocateIdentity(context.Background(), labels, false, identity.InvalidIdentity)
-		c.Assert(id1a, Not(IsNil))
-		c.Assert(err, IsNil)
+		require.NotNil(t, id1a)
+		require.NoError(t, err)
 
 		queued, ok := <-owner.updated
-		c.Assert(ok, Equals, true)
-		c.Assert(queued, Equals, id1a.ID)
+		require.Equal(t, true, ok)
+		require.Equal(t, id1a.ID, queued)
 	}
 
 	<-mgr.InitIdentityAllocator(nil)

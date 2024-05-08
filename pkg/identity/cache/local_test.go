@@ -8,29 +8,33 @@ import (
 	"net/netip"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func (s *IdentityCacheTestSuite) TestBumpNextNumericIdentity(c *C) {
+func TestBumpNextNumericIdentity(t *testing.T) {
+	testutils.IntegrationTest(t)
+
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(5)
 	scope := identity.NumericIdentity(0x42_00_00_00)
 	cache := newLocalIdentityCache(scope, minID, maxID, nil)
 
 	for i := minID; i <= maxID; i++ {
-		c.Assert(cache.nextNumericIdentity, Equals, i)
+		require.Equal(t, i, cache.nextNumericIdentity)
 		cache.bumpNextNumericIdentity()
 	}
 
 	// ID must have overflowed and must be back to minID
-	c.Assert(cache.nextNumericIdentity, Equals, minID)
+	require.Equal(t, minID, cache.nextNumericIdentity)
 }
 
-func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
+func TestLocalIdentityCache(t *testing.T) {
+	testutils.IntegrationTest(t)
+
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(5)
 	scope := identity.NumericIdentity(0x42_00_00_00)
 	cache := newLocalIdentityCache(scope, minID, maxID, nil)
@@ -41,9 +45,9 @@ func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
 	// unique label
 	for i := minID; i <= maxID; i++ {
 		id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)}), identity.InvalidIdentity, false)
-		c.Assert(err, IsNil)
-		c.Assert(isNew, Equals, true)
-		c.Assert(id.ID, Equals, scope+i)
+		require.Nil(t, err)
+		require.Equal(t, true, isNew)
+		require.Equal(t, scope+i, id.ID)
 		identities[id.ID] = id
 	}
 
@@ -51,51 +55,51 @@ func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
 	// identities must be returned.
 	for i := minID; i <= maxID; i++ {
 		id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)}), identity.InvalidIdentity, false)
-		c.Assert(isNew, Equals, false)
-		c.Assert(err, IsNil)
+		require.Equal(t, false, isNew)
+		require.Nil(t, err)
 
 		// The returned identity must be identical
-		c.Assert(id, checker.DeepEquals, identities[id.ID])
+		require.EqualValues(t, identities[id.ID], id)
 	}
 
 	// Allocation must fail as we are out of IDs
 	_, _, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{"foo"}), identity.InvalidIdentity, false)
-	c.Assert(err, Not(IsNil))
+	require.NotNil(t, err)
 
 	// release all identities, this must decrement the reference count but not release the identities yet
 	for _, id := range identities {
-		c.Assert(cache.release(id, false), Equals, false)
+		require.Equal(t, false, cache.release(id, false))
 	}
 
 	// lookup must still be successful
 	for i := minID; i <= maxID; i++ {
-		c.Assert(cache.lookup(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)})), Not(IsNil))
-		c.Assert(cache.lookupByID(i|scope), Not(IsNil))
+		require.NotNil(t, cache.lookup(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)})))
+		require.NotNil(t, cache.lookupByID(i|scope))
 	}
 
 	// release the identities a second time, this must cause the identity
 	// to be forgotten
 	for _, id := range identities {
-		c.Assert(cache.release(id, false), Equals, true)
+		require.Equal(t, true, cache.release(id, false))
 	}
 
 	// allocate all identities again
 	for i := minID; i <= maxID; i++ {
 		id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)}), identity.InvalidIdentity, false)
-		c.Assert(err, IsNil)
-		c.Assert(isNew, Equals, true)
+		require.Nil(t, err)
+		require.Equal(t, true, isNew)
 		identities[id.ID] = id
 	}
 
 	// release a random identity in the middle
 	randomID := identity.NumericIdentity(3) | scope
-	c.Assert(cache.release(identities[randomID], false), Equals, true)
+	require.Equal(t, true, cache.release(identities[randomID], false))
 
 	id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{"foo"}), identity.InvalidIdentity, false)
-	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
+	require.Nil(t, err)
+	require.Equal(t, true, isNew)
 	// the selected numeric identity must be the one released before
-	c.Assert(id.ID, Equals, randomID)
+	require.Equal(t, randomID, id.ID)
 }
 
 func TestOldNID(t *testing.T) {
