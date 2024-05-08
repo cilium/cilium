@@ -17,16 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/rate"
-)
-
-const (
-	testPrefix = "test-prefix"
 )
 
 type dummyBackend struct {
@@ -103,6 +98,12 @@ func (d *dummyLock) Comparator() interface{} {
 
 func (d *dummyBackend) Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLocker, error) {
 	return &dummyLock{}, nil
+}
+
+func (d *dummyBackend) setUpdateKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.updateKey = mutator
 }
 
 func (d *dummyBackend) UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
@@ -214,10 +215,6 @@ func (t TestAllocatorKey) PutValue(key any, value any) AllocatorKey {
 
 func (t TestAllocatorKey) Value(any) any {
 	panic("not implemented")
-}
-
-func randomTestName() string {
-	return fmt.Sprintf("%s%s", testPrefix, rand.String(12))
 }
 
 func TestSelectID(t *testing.T) {
@@ -447,13 +444,13 @@ func TestHandleK8sDelete(t *testing.T) {
 	require.True(t, newlyAllocated)
 
 	var counter atomic.Uint32
-	backend.updateKey = func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
+	backend.setUpdateKeyMutator(func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
 		counter.Add(1)
 		if counter.Load() <= 2 {
 			return fmt.Errorf("updateKey failed: %d", counter.Load())
 		}
 		return nil
-	}
+	})
 
 	assertBackendContains := func(t assert.TestingT, id int, key string) {
 		k, err := backend.GetByID(context.TODO(), idpool.ID(id))
@@ -493,13 +490,13 @@ func TestHandleK8sDelete(t *testing.T) {
 
 func TestWatchRemoteKVStore(t *testing.T) {
 	var wg sync.WaitGroup
-	var synced bool
+	var synced atomic.Bool
 
 	run := func(ctx context.Context, rc *RemoteCache) context.CancelFunc {
 		ctx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
-			rc.Watch(ctx, func(context.Context) { synced = true })
+			rc.Watch(ctx, func(context.Context) { synced.Store(true) })
 			wg.Done()
 		}()
 		return cancel
@@ -508,7 +505,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	stop := func(cancel context.CancelFunc) {
 		cancel()
 		wg.Wait()
-		synced = false
+		synced.Store(false)
 	}
 
 	global := Allocator{remoteCaches: make(map[string]*RemoteCache)}
@@ -548,7 +545,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 
 	require.True(t, rc.Synced(), "The cache should now be synchronized")
-	require.True(t, synced, "The on-sync callback should have been executed")
+	require.True(t, synced.Load(), "The on-sync callback should have been executed")
 	stop(cancel)
 	require.False(t, rc.Synced(), "The cache should no longer be synchronized when stopped")
 
@@ -593,7 +590,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
 	require.False(t, rc.Synced(), "The cache should not be synchronized if the ListDone event has not been received")
-	require.False(t, synced, "The on-sync callback should not have been executed if the ListDone event has not been received")
+	require.False(t, synced.Load(), "The on-sync callback should not have been executed if the ListDone event has not been received")
 
 	stop(cancel)
 
