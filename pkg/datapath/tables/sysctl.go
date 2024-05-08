@@ -34,11 +34,11 @@ func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], statedb.Index[*Sy
 }
 
 func (*Sysctl) TableHeader() []string {
-	return []string{"Name", "Value"}
+	return []string{"Name", "Value", "Status"}
 }
 
 func (s *Sysctl) TableRow() []string {
-	return []string{s.Name, s.Val}
+	return []string{s.Name, s.Val, s.Status.String()}
 }
 
 // Sysctl is the representation of a kernel sysctl parameter.
