@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -443,4 +444,25 @@ func testAllocatorReset(t *testing.T) {
 	<-mgr.InitIdentityAllocator(nil)
 	testAlloc()
 	mgr.Close()
+}
+
+func TestAllocateLocally(t *testing.T) {
+	mgr := NewCachingIdentityAllocator(newDummyOwner())
+
+	cidrLbls := labels.NewLabelsFromSortedList("cidr:1.2.3.4/32")
+	podLbls := labels.NewLabelsFromSortedList("k8s:foo=bar")
+
+	assert.False(t, needsGlobalIdentity(cidrLbls))
+	assert.True(t, needsGlobalIdentity(podLbls))
+
+	id, allocated, err := mgr.AllocateLocalIdentity(cidrLbls, false, identity.IdentityScopeLocal+50)
+	assert.Nil(t, err)
+	assert.True(t, allocated)
+	assert.Equal(t, id.ID.Scope(), identity.IdentityScopeLocal)
+	assert.Equal(t, id.ID, identity.IdentityScopeLocal+50)
+
+	id, _, err = mgr.AllocateLocalIdentity(podLbls, false, 0)
+	assert.Error(t, err, ErrNonLocalIdentity)
+	assert.Nil(t, id)
+
 }
