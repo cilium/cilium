@@ -73,6 +73,7 @@ func ToAgentPath(p *gobgp.Path) (*types.Path, error) {
 
 	return &types.Path{
 		NLRI:           nlri,
+		Family:         toAgentFamily(p.Family),
 		PathAttributes: pattrs,
 		AgeNanoseconds: ageNano,
 		Best:           p.Best,
@@ -377,6 +378,13 @@ func toAgentSessionState(s gobgp.PeerState_SessionState) types.SessionState {
 		return types.SessionEstablished
 	default:
 		return types.SessionUnknown
+	}
+}
+
+func toAgentFamily(family *gobgp.Family) types.Family {
+	return types.Family{
+		Afi:  toAgentAfi(family.Afi),
+		Safi: toAgentSafi(family.Safi),
 	}
 }
 
