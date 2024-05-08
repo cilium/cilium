@@ -1692,7 +1692,21 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		goto out;
 
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
+	if (target.egress_gateway) {
+		/* Send packet to the correct egress interface, and SNAT it there. */
+		ret = egress_gw_fib_lookup_and_redirect(ctx, target.addr,
+							tuple.daddr, ext_err);
+		if (ret != CTX_ACT_OK)
+			return ret;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+	}
+#endif
+
 apply_snat:
+
 	*saddr = tuple.saddr;
 	ret = snat_v4_nat(ctx, &tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
 			  &target, trace, ext_err);
@@ -1709,11 +1723,6 @@ apply_snat:
 	 */
 	if (is_defined(IS_BPF_HOST))
 		ctx_snat_done_set(ctx);
-
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (target.egress_gateway)
-		return egress_gw_fib_lookup_and_redirect(ctx, target.addr, tuple.daddr, ext_err);
-#endif
 
 out:
 	if (ret == NAT_PUNT_TO_STACK)
