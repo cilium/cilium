@@ -55,7 +55,7 @@ type Status struct {
 	ID      Identifier
 	Level   Level
 	Message string
-	Error   error
+	Error   string
 	LastOK  time.Time
 	Updated time.Time
 	Stopped time.Time
