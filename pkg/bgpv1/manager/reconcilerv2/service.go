@@ -53,7 +53,6 @@ type ServiceReconciler struct {
 
 func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	if in.SvcDiffStore == nil || in.EPDiffStore == nil || in.LBIPPoolStore == nil {
-		in.Logger.Warn("ServiceReconciler: missing required stores, skipping ServiceReconciler")
 		return ServiceReconcilerOut{}
 	}
 
