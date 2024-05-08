@@ -125,6 +125,7 @@ func init() {
 		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
 		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
 		statedbTableCommand[types.Status](healthv2.HealthTableName),
+		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }
