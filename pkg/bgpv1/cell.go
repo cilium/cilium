@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/metrics"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
@@ -30,7 +31,7 @@ var (
 )
 
 var Cell = cell.Module(
-	"bgp-cp",
+	"bgp-control-plane",
 	"BGP Control Plane",
 
 	// The Controller which is the entry point of the module
@@ -44,6 +45,10 @@ var Cell = cell.Module(
 		newLoadBalancerIPPoolResource,
 		// Provides the module with a stream of events for the CiliumPodIPPool resource.
 		newCiliumPodIPPoolResource,
+		// BGPv2 resources
+		newBGPNodeConfigResource,
+		newBGPPeerConfigResource,
+		newBGPAdvertisementResource,
 	),
 	cell.Provide(
 		// Create a slim Secret store for BGP secrets, which signals the BGP CP upon each resource event.
@@ -59,6 +64,11 @@ var Cell = cell.Module(
 		store.NewBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool],
 		// Create a CiliumPodIPPool store which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool],
+
+		// BGPv2 stores
+		store.NewBGPCPResourceStore[*v2alpha1api.CiliumBGPPeerConfig],
+		store.NewBGPCPResourceStore[*v2alpha1api.CiliumBGPAdvertisement],
+		store.NewBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig],
 	),
 	// BGP Rest API handlers
 	cell.Provide(
@@ -66,8 +76,17 @@ var Cell = cell.Module(
 		api.NewGetRoutesHandler,
 		api.NewGetRoutePoliciesHandler,
 	),
+
+	// provide privates for reconciler v2
+	cell.ProvidePrivate(
+		reconcilerv2.NewCiliumPeerAdvertisement,
+	),
+
 	// Provides the reconcilers used by the route manager to update the config
 	reconciler.ConfigReconcilers,
+
+	// BGP v2 reconcilers
+	reconcilerv2.ConfigReconcilers,
 
 	cell.Invoke(
 		// Invoke bgp controller to trigger the constructor.
@@ -141,4 +160,52 @@ func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonC
 		lc, utils.ListerWatcherFromTyped[*slim_core_v1.SecretList](
 			c.Slim().CoreV1().Secrets(dc.BGPSecretsNamespace),
 		))
+}
+
+func newBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPNodeConfig] {
+	// Do not create this resource if the BGP Control Plane is disabled
+	if !dc.BGPControlPlaneEnabled() {
+		return nil
+	}
+
+	if !c.IsEnabled() {
+		return nil
+	}
+
+	return resource.New[*v2alpha1api.CiliumBGPNodeConfig](
+		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumBGPNodeConfigList](
+			c.CiliumV2alpha1().CiliumBGPNodeConfigs(),
+		), resource.WithMetric("CiliumBGPNodeConfig"))
+}
+
+func newBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeerConfig] {
+	// Do not create this resource if the BGP Control Plane is disabled
+	if !dc.BGPControlPlaneEnabled() {
+		return nil
+	}
+
+	if !c.IsEnabled() {
+		return nil
+	}
+
+	return resource.New[*v2alpha1api.CiliumBGPPeerConfig](
+		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumBGPPeerConfigList](
+			c.CiliumV2alpha1().CiliumBGPPeerConfigs(),
+		), resource.WithMetric("CiliumBGPPeerConfig"))
+}
+
+func newBGPAdvertisementResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPAdvertisement] {
+	// Do not create this resource if the BGP Control Plane is disabled
+	if !dc.BGPControlPlaneEnabled() {
+		return nil
+	}
+
+	if !c.IsEnabled() {
+		return nil
+	}
+
+	return resource.New[*v2alpha1api.CiliumBGPAdvertisement](
+		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumBGPAdvertisementList](
+			c.CiliumV2alpha1().CiliumBGPAdvertisements(),
+		), resource.WithMetric("CiliumBGPAdvertisement"))
 }

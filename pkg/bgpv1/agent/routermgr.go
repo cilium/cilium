@@ -35,6 +35,10 @@ type BGPRouterManager interface {
 	// and disconnect from the peers.
 	ConfigurePeers(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy, ciliumNode *v2api.CiliumNode) error
 
+	// ReconcileInstances evaluates the provided CiliumBGPNodeConfig
+	// and the implementation will configure itself to apply this configuration.
+	ReconcileInstances(ctx context.Context, bgpnc *v2alpha1api.CiliumBGPNodeConfig, ciliumNode *v2api.CiliumNode) error
+
 	// GetPeers fetches BGP peering state from underlying routing daemon.
 	//
 	// List of all peers will be returned and if there are multiple instances of
