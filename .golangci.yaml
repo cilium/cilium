@@ -70,7 +70,7 @@ linters-settings:
             recommendations:
               - testing
               - github.com/stretchr/testify/assert
-            reason: "gocheck has been deprecated, see https://docs.cilium.io/en/latest/contributing/testing/unit/#migrating-tests-off-of-gopkg-in-check-v1"
+            reason: "gocheck has been deprecated, see https://github.com/cilium/cilium/issues/28596"
         - go.uber.org/multierr:
             recommendations:
               - errors
