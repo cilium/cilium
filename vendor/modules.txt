@@ -194,9 +194,6 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.2.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/cilium/checkmate v1.0.3
-## explicit; go 1.11
-github.com/cilium/checkmate
 # github.com/cilium/coverbee v0.3.2
 ## explicit; go 1.18
 github.com/cilium/coverbee

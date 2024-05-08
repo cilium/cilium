@@ -71,6 +71,11 @@ linters-settings:
               - testing
               - github.com/stretchr/testify/assert
             reason: "gocheck has been deprecated, see https://github.com/cilium/cilium/issues/28596"
+        - github.com/cilium/checkmate:
+            recommendations:
+              - github.com/stretchr/testify/assert
+              - github.com/stretchr/testify/require
+            reason: "cilium/checkmate has been deprecated, see https://github.com/cilium/cilium/issues/28596"
         - go.uber.org/multierr:
             recommendations:
               - errors
