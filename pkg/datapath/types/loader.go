@@ -17,7 +17,6 @@ import (
 type Loader interface {
 	CallsMapPath(id uint16) string
 	CustomCallsMapPath(id uint16) string
-	CompileOrLoad(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)

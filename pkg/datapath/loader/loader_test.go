@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -22,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -86,13 +84,13 @@ func getEpDirs(ep *testutils.TestEndpoint) *directoryInfo {
 	}
 }
 
-func testCompileOrLoad(t *testing.T, ep *testutils.TestEndpoint) {
+func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	err := l.compileOrLoad(ctx, ep, getEpDirs(ep), stats)
+	err := l.ReloadDatapath(ctx, ep, stats)
 	require.NoError(t, err)
 }
 
@@ -101,7 +99,7 @@ func testCompileOrLoad(t *testing.T, ep *testutils.TestEndpoint) {
 func TestCompileOrLoadDefaultEndpoint(t *testing.T) {
 	ep := testutils.NewTestEndpoint()
 	initEndpoint(t, &ep)
-	testCompileOrLoad(t, &ep)
+	testReloadDatapath(t, &ep)
 }
 
 // TestCompileOrLoadHostEndpoint is the same as
@@ -114,7 +112,7 @@ func TestCompileOrLoadHostEndpoint(t *testing.T) {
 	hostEp := testutils.NewTestHostEndpoint()
 	initEndpoint(t, &hostEp)
 
-	testCompileOrLoad(t, &hostEp)
+	testReloadDatapath(t, &hostEp)
 }
 
 // TestReload compiles and attaches the datapath multiple times.
@@ -171,7 +169,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.compileOrLoad(ctx, ep, getEpDirs(ep), stats)
+		err = l.ReloadDatapath(ctx, ep, stats)
 	}
 	require.Error(t, err)
 }
@@ -295,32 +293,5 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 			b.Fatal(err)
 		}
 		finalize()
-	}
-}
-
-func TestSubstituteConfiguration(t *testing.T) {
-	testutils.PrivilegedTest(t)
-
-	ignorePrefixes := append(ignoredELFPrefixes, "test_cilium_policy")
-	for _, p := range ignoredELFPrefixes {
-		if strings.HasPrefix(p, "cilium_") {
-			testPrefix := fmt.Sprintf("test_%s", p)
-			ignorePrefixes = append(ignorePrefixes, testPrefix)
-		}
-	}
-	elf.IgnoreSymbolPrefixes(ignorePrefixes)
-
-	setupCompilationDirectories(t)
-
-	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
-	defer cancel()
-
-	ep := testutils.NewTestEndpoint()
-	initEndpoint(t, &ep)
-
-	l := newTestLoader(t)
-	stats := &metrics.SpanStat{}
-	if err := l.CompileOrLoad(ctx, &ep, stats); err != nil {
-		t.Fatal(err)
 	}
 }

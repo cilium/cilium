@@ -5,8 +5,11 @@ package loader
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -161,18 +164,6 @@ func ELFMapSubstitutions(ep datapath.Endpoint) map[string]string {
 		}
 	}
 
-	// Populate the policy map if the host firewall is enabled regardless of the per-endpoint route setting
-	// because all routing is performed by the Linux stack with the chaining mode
-	// even if the per-endpoint route is disabled in the agent
-	if !ep.IsHost() || option.Config.EnableHostFirewall {
-		result[policymap.CallString(templateLxcID)] = policymap.CallString(epID)
-	}
-	// Egress policy map is only used when Envoy Config CRDs are enabled.
-	// Currently the Host EP does not use this.
-	if !ep.IsHost() && option.Config.EnableEnvoyConfig {
-		result[policymap.EgressCallString(templateLxcID)] = policymap.EgressCallString(epID)
-	}
-
 	return result
 }
 
@@ -270,5 +261,29 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	result["SECLABEL_NB"] = uint64(byteorder.HostToNetwork32(identity))
 	result["POLICY_VERDICT_LOG_FILTER"] = uint64(ep.GetPolicyVerdictLogFilter())
 	return result
+}
 
+func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) (*ebpf.CollectionSpec, error) {
+	// Shallow copy to avoid expensive copy of coll.Programs.
+	coll = &ebpf.CollectionSpec{
+		Maps:      maps.Clone(coll.Maps),
+		Programs:  coll.Programs,
+		Types:     coll.Types,
+		ByteOrder: coll.ByteOrder,
+	}
+
+	for name, rename := range renames {
+		mapSpec := coll.Maps[name]
+		if mapSpec == nil {
+			return nil, fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
+		}
+
+		mapSpec = mapSpec.Copy()
+		// NB: We don't change maps[name] since that is referenced
+		// by instructions.
+		mapSpec.Name = rename
+		coll.Maps[name] = mapSpec
+	}
+
+	return coll, nil
 }

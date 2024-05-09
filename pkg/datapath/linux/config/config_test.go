@@ -250,10 +250,6 @@ func TestWriteStaticData(t *testing.T) {
 	}
 	for _, v := range mapSub {
 		t.Logf("Ensuring config has %s", v)
-		if strings.HasPrefix(v, "1/0x") {
-			// Skip tail call map name replacement
-			continue
-		}
 		require.Equal(t, true, bytes.Contains(b, []byte(v)))
 	}
 }
