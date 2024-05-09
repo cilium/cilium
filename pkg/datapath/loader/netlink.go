@@ -43,12 +43,14 @@ type progDefinition struct {
 }
 
 type replaceDatapathOptions struct {
-	device   string           // name of the netlink interface we attach to
-	elf      string           // path to object file
-	programs []progDefinition // programs that we want to attach/replace
-	xdpMode  string           // XDP driver mode, only applies when attaching XDP programs
-	linkDir  string           // path to bpffs dir holding bpf_links for the device/endpoint
-	tcx      bool             // attempt attaching skb programs using tcx
+	device     string            // name of the netlink interface we attach to
+	elf        string            // path to object file
+	programs   []progDefinition  // programs that we want to attach/replace
+	xdpMode    string            // XDP driver mode, only applies when attaching XDP programs
+	linkDir    string            // path to bpffs dir holding bpf_links for the device/endpoint
+	tcx        bool              // attempt attaching skb programs using tcx
+	mapRenames map[string]string // renames from old map name to new map name
+	constants  map[string]uint64 // overrides for constant values
 }
 
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
@@ -65,6 +67,20 @@ type replaceDatapathOptions struct {
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
 func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func(), err error) {
+	l := log.WithField("device", opts.device).WithField("objPath", opts.elf)
+
+	// Load the ELF from disk.
+	l.Debug("Loading CollectionSpec from ELF")
+	spec, err := bpf.LoadCollectionSpec(opts.elf)
+	if err != nil {
+		return nil, fmt.Errorf("loading eBPF ELF %s: %w", opts.elf, err)
+	}
+
+	opts.elf = ""
+	return replaceDatapathFromSpec(ctx, spec, opts)
+}
+
+func replaceDatapathFromSpec(ctx context.Context, spec *ebpf.CollectionSpec, opts replaceDatapathOptions) (_ func(), err error) {
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -74,20 +90,17 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 		return nil, errors.New("opts.linkDir not set in replaceDatapath")
 	}
 
+	if opts.elf != "" {
+		return nil, errors.New("opts.elf is set")
+	}
+
 	link, err := netlink.LinkByName(opts.device)
 	if err != nil {
 		return nil, fmt.Errorf("getting interface %s by name: %w", opts.device, err)
 	}
 
-	l := log.WithField("device", opts.device).WithField("objPath", opts.elf).
+	l := log.WithField("device", opts.device).
 		WithField("ifindex", link.Attrs().Index)
-
-	// Load the ELF from disk.
-	l.Debug("Loading CollectionSpec from ELF")
-	spec, err := bpf.LoadCollectionSpec(opts.elf)
-	if err != nil {
-		return nil, fmt.Errorf("loading eBPF ELF %s: %w", opts.elf, err)
-	}
 
 	revert := func() {
 		// Program replacement unsuccessful, revert bpffs migration.
@@ -103,15 +116,20 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 		}
 	}
 
+	spec, err = renameMaps(spec, opts.mapRenames)
+	if err != nil {
+		return nil, err
+	}
+
 	// Unconditionally repin cilium_calls_* maps to prevent them from being
 	// repopulated by the loader.
-	for key, ms := range spec.Maps {
+	for _, ms := range spec.Maps {
 		if !strings.HasPrefix(ms.Name, "cilium_calls_") {
 			continue
 		}
 
-		if err := bpf.RepinMap(bpf.TCGlobalsPath(), key, ms); err != nil {
-			return nil, fmt.Errorf("repinning map %s: %w", key, err)
+		if err := bpf.RepinMap(bpf.TCGlobalsPath(), ms.Name, ms); err != nil {
+			return nil, fmt.Errorf("repinning map %s: %w", ms.Name, err)
 		}
 
 		defer func() {
@@ -121,7 +139,7 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 				revert = true
 			}
 
-			if err := bpf.FinalizeMap(bpf.TCGlobalsPath(), key, revert); err != nil {
+			if err := bpf.FinalizeMap(bpf.TCGlobalsPath(), ms.Name, revert); err != nil {
 				l.WithError(err).Error("Could not finalize map")
 			}
 		}()
@@ -152,6 +170,7 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: pinPath},
 		},
+		Constants: opts.constants,
 	}
 	if err := bpf.MkdirBPF(pinPath); err != nil {
 		return nil, fmt.Errorf("creating bpffs pin path: %w", err)

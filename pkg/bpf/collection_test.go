@@ -77,7 +77,7 @@ func TestInlineGlobalData(t *testing.T) {
 				Contents: []ebpf.MapKV{{Value: []byte{
 					// var a
 					0x0, 0x0, 0x0, 0x80,
-					// var b has padding since var 3 aligns to 64 bits. Fill the padding
+					// var b has padding since var c aligns to 64 bits. Fill the padding
 					// with garbage to test if it gets masked correctly by the inliner.
 					0x1, 0x0, 0xff, 0xff,
 					// var c
@@ -130,7 +130,7 @@ func TestInlineGlobalData(t *testing.T) {
 	}
 
 	delete(spec.Maps, globalDataMap)
-	if err := inlineGlobalData(spec, map[string]uint64{"bogus": 42}); err != nil {
+	if err := inlineGlobalData(spec, nil); err != nil {
 		t.Fatal("Unexpected error when no global data section is present")
 	}
 }

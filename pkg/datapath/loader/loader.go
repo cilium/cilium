@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"path"
 	"strings"
 	"sync"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
@@ -26,13 +26,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/elf"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -128,11 +128,6 @@ func newLoader(p Params) *loader {
 func (l *loader) init() {
 	l.once.Do(func() {
 		l.templateCache = newObjectCache(l.configWriter, &l.localNodeConfig, option.Config.StateDir)
-		ignorePrefixes := ignoredELFPrefixes
-		if !option.Config.EnableIPv4 {
-			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
-		}
-		elf.IgnoreSymbolPrefixes(ignorePrefixes)
 	})
 	l.templateCache.Update(&l.localNodeConfig)
 }
@@ -154,27 +149,6 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 		Device: ep.InterfaceName(),
 		Scope:  netlink.SCOPE_LINK,
 	})
-}
-
-// We need this function when patching an object file for which symbols were
-// already substituted. During the first symbol substitutions, string symbols
-// were replaced such that:
-//
-//	template_string -> string_for_endpoint
-//
-// Since we only want to replace one int symbol, we can nullify string
-// substitutions with:
-//
-//	string_for_endpoint -> string_for_endpoint
-//
-// We cannot simply pass an empty map as the agent would complain that some
-// symbol had no corresponding values.
-func nullifyStringSubstitutions(strings map[string]string) map[string]string {
-	nullStrings := make(map[string]string)
-	for _, v := range strings {
-		nullStrings[v] = v
-	}
-	return nullStrings
 }
 
 func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
@@ -220,25 +194,15 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 	return
 }
 
-// Since we attach the host endpoint datapath to two different interfaces, we
-// need two different NODE_MAC values. patchHostNetdevDatapath creates a new
-// object file for the native device, from the object file for the host device
-// (cilium_host).
-// Since the two object files should only differ by the values of their
-// NODE_MAC symbols, we can avoid a full compilation.
-func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string) error {
-	hostObj, err := elf.Open(objPath)
-	if err != nil {
-		return err
-	}
-	defer hostObj.Close()
-
+// patchHostNetdevDatapath calculates the changes necessary
+// to attach the host endpoint datapath to different interfaces.
+func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
 	opts := ELFVariableSubstitutions(ep)
 	strings := ELFMapSubstitutions(ep)
 
 	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// The NODE_MAC value is specific to each attachment interface.
@@ -275,13 +239,10 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 		}
 	}
 
-	// Among string substitutions, only the calls map name is specific to each
-	// attachment interface.
-	strings = nullifyStringSubstitutions(strings)
-	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID()))
+	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, templateLxcID)
 	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifIndex))
 
-	return hostObj.Write(dstPath, opts, strings)
+	return opts, strings, nil
 }
 
 func isObsoleteDev(dev string, devices []string) bool {
@@ -379,7 +340,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - cilium_host: ingress and egress
 // - cilium_net: ingress
 // - native devices: ingress and (optionally) egress if certain features require it
-func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string, devices []string) error {
+func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
 	// Warning: here be dragons. There used to be a single loop over
 	// interfaces+objs+progs here from the iproute2 days, but this was never
 	// correct to begin with. Tail call maps were always reused when possible,
@@ -401,18 +362,19 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		{progName: symbolToHostEp, direction: dirIngress},
 		{progName: symbolFromHostEp, direction: dirEgress},
 	}
-	finalize, err := replaceDatapath(ctx,
+
+	finalize, err := replaceDatapathFromSpec(ctx, spec,
 		replaceDatapathOptions{
-			device:   ep.InterfaceName(),
-			elf:      objPath,
-			programs: progs,
-			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), host),
-			tcx:      option.Config.EnableTCX,
+			device:     ep.InterfaceName(),
+			programs:   progs,
+			linkDir:    bpffsDeviceLinksDir(bpf.CiliumPath(), host),
+			tcx:        option.Config.EnableTCX,
+			mapRenames: ELFMapSubstitutions(ep),
+			constants:  ELFVariableSubstitutions(ep),
 		},
 	)
 	if err != nil {
 		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
-			logfields.Path: objPath,
 			logfields.Veth: ep.InterfaceName(),
 		})
 		// Don't log an error here if the context was canceled or timed out;
@@ -433,8 +395,8 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		return fmt.Errorf("device '%s' not found: %w", defaults.SecondHostDevice, err)
 	}
 
-	secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-	if err := l.patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice); err != nil {
+	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(ep, defaults.SecondHostDevice)
+	if err != nil {
 		return err
 	}
 
@@ -442,18 +404,18 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		{progName: symbolToHostEp, direction: dirIngress},
 	}
 
-	finalize, err = replaceDatapath(ctx,
+	finalize, err = replaceDatapathFromSpec(ctx, spec,
 		replaceDatapathOptions{
-			device:   defaults.SecondHostDevice,
-			elf:      secondDevObjPath,
-			programs: progs,
-			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), net),
-			tcx:      option.Config.EnableTCX,
+			device:     defaults.SecondHostDevice,
+			programs:   progs,
+			linkDir:    bpffsDeviceLinksDir(bpf.CiliumPath(), net),
+			tcx:        option.Config.EnableTCX,
+			mapRenames: secondRenames,
+			constants:  secondConsts,
 		},
 	)
 	if err != nil {
 		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
-			logfields.Path: objPath,
 			logfields.Veth: defaults.SecondHostDevice,
 		})
 		if ctx.Err() == nil {
@@ -473,8 +435,8 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
 
-		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := l.patchHostNetdevDatapath(ep, objPath, netdevObjPath, device); err != nil {
+		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(ep, device)
+		if err != nil {
 			return err
 		}
 
@@ -497,18 +459,18 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			}
 		}
 
-		finalize, err := replaceDatapath(ctx,
+		finalize, err := replaceDatapathFromSpec(ctx, spec,
 			replaceDatapathOptions{
-				device:   device,
-				elf:      netdevObjPath,
-				programs: progs,
-				linkDir:  linkDir,
-				tcx:      option.Config.EnableTCX,
+				device:     device,
+				programs:   progs,
+				linkDir:    linkDir,
+				tcx:        option.Config.EnableTCX,
+				mapRenames: netdevRenames,
+				constants:  netdevConsts,
 			},
 		)
 		if err != nil {
 			scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
-				logfields.Path: objPath,
 				logfields.Veth: device,
 			})
 			if ctx.Err() == nil {
@@ -533,10 +495,29 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	return nil
 }
 
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo) error {
-	// Replace the current program
-	objPath := path.Join(dirs.Output, endpointObj)
+// reloadDatapath loads programs in spec into the device used by ep.
+//
+// spec is modified by the method and it is the callers responsibility to copy
+// it if necessary.
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
+
+	// Replace all occurrences of the template endpoint ID with the real ID.
+	for _, name := range []string{
+		policymap.PolicyCallMapName,
+		policymap.PolicyEgressCallMapName,
+	} {
+		pm, ok := spec.Maps[name]
+		if !ok {
+			continue
+		}
+
+		for i, kv := range pm.Contents {
+			if kv.Key == (uint32)(templateLxcID) {
+				pm.Contents[i].Key = (uint32)(ep.GetID())
+			}
+		}
+	}
 
 	if ep.IsHost() {
 		// TODO: react to changes (using the currently ignored watch channel)
@@ -547,8 +528,7 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			devices = append(devices, wgTypes.IfaceName)
 		}
 
-		objPath = path.Join(dirs.Output, hostEndpointObj)
-		if err := l.reloadHostDatapath(ctx, ep, objPath, devices); err != nil {
+		if err := l.reloadHostDatapath(ctx, ep, spec, devices); err != nil {
 			return err
 		}
 	} else {
@@ -567,18 +547,18 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			}
 		}
 
-		finalize, err := replaceDatapath(ctx,
+		finalize, err := replaceDatapathFromSpec(ctx, spec,
 			replaceDatapathOptions{
-				device:   device,
-				elf:      objPath,
-				programs: progs,
-				linkDir:  linkDir,
-				tcx:      option.Config.EnableTCX,
+				device:     device,
+				programs:   progs,
+				linkDir:    linkDir,
+				tcx:        option.Config.EnableTCX,
+				mapRenames: ELFMapSubstitutions(ep),
+				constants:  ELFVariableSubstitutions(ep),
 			},
 		)
 		if err != nil {
 			scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
-				logfields.Path: objPath,
 				logfields.Veth: device,
 			})
 			// Don't log an error here if the context was canceled or timed out;
@@ -643,7 +623,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 	return nil
 }
 
-// CompileOrLoad loads the BPF datapath programs for the specified endpoint.
+// ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
 //
 // It attempts to find a pre-compiled
 // template datapath object to use, to avoid a costly compile operation.
@@ -656,47 +636,6 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	dirs := &directoryInfo{
-		Library: option.Config.BpfDir,
-		Runtime: option.Config.StateDir,
-		State:   ep.StateDir(),
-		Output:  ep.StateDir(),
-	}
-	return l.compileOrLoad(ctx, ep, dirs, stats)
-}
-
-func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, dirs, stats)
-	if err != nil {
-		return err
-	}
-	defer templateFile.Close()
-
-	template, err := elf.NewELF(templateFile, ep.Logger(subsystem))
-	if err != nil {
-		return err
-	}
-	defer template.Close()
-
-	stats.BpfWriteELF.Start()
-	epObj := endpointObj
-	if ep.IsHost() {
-		epObj = hostEndpointObj
-	}
-	dstPath := path.Join(ep.StateDir(), epObj)
-	opts := ELFVariableSubstitutions(ep)
-	strings := ELFMapSubstitutions(ep)
-	if err = template.Write(dstPath, opts, strings); err != nil {
-		stats.BpfWriteELF.End(err == nil)
-		return err
-	}
-	stats.BpfWriteELF.End(err == nil)
-
-	return l.ReloadDatapath(ctx, ep, stats)
-}
-
-// ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
 func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
@@ -704,8 +643,20 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
+
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, &dirs, stats)
+	if err != nil {
+		return err
+	}
+	defer templateFile.Close()
+
+	spec, err := bpf.LoadCollectionSpec(templateFile.Name())
+	if err != nil {
+		return fmt.Errorf("loading eBPF ELF %s: %w", templateFile.Name(), err)
+	}
+
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ctx, ep, &dirs)
+	err = l.reloadDatapath(ctx, ep, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return err
 }

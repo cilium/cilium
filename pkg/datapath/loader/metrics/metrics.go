@@ -12,7 +12,6 @@ import (
 type SpanStat struct {
 	BpfCompilation spanstat.SpanStat
 	BpfWaitForELF  spanstat.SpanStat
-	BpfWriteELF    spanstat.SpanStat
 	BpfLoadProg    spanstat.SpanStat
 }
 
@@ -21,7 +20,6 @@ func (s *SpanStat) GetMap() map[string]*spanstat.SpanStat {
 	return map[string]*spanstat.SpanStat{
 		"bpfCompilation": &s.BpfCompilation,
 		"bpfWaitForELF":  &s.BpfWaitForELF,
-		"bpfWriteELF":    &s.BpfWriteELF,
 		"bpfLoadProg":    &s.BpfLoadProg,
 	}
 }
