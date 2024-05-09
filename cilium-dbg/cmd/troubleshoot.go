@@ -21,7 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
-// TroubleshootCmd represents the troubleshoot command
+// TroubleshootCmd represents the troubleshoot command. Note that this command
+// is additionally registered as a subcommand of the Cilium operator.
 var TroubleshootCmd = &cobra.Command{
 	Use:   "troubleshoot",
 	Short: "Run troubleshooting utilities to check control-plane connectivity",

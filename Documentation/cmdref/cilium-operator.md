@@ -151,4 +151,5 @@ cilium-operator [flags]
 * [cilium-operator hive](cilium-operator_hive.md)	 - Inspect the hive
 * [cilium-operator metrics](cilium-operator_metrics.md)	 - Access metric status of the operator
 * [cilium-operator status](cilium-operator_status.md)	 - Display status of operator
+* [cilium-operator troubleshoot](cilium-operator_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 
