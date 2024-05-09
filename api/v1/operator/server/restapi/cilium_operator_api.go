@@ -22,6 +22,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 )
@@ -49,6 +50,9 @@ func NewCiliumOperatorAPI(spec *loads.Document) *CiliumOperatorAPI {
 		JSONProducer: runtime.JSONProducer(),
 		TxtProducer:  runtime.TextProducer(),
 
+		ClusterGetClusterHandler: cluster.GetClusterHandlerFunc(func(params cluster.GetClusterParams) middleware.Responder {
+			return middleware.NotImplemented("operation cluster.GetCluster has not yet been implemented")
+		}),
 		OperatorGetHealthzHandler: operator.GetHealthzHandlerFunc(func(params operator.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation operator.GetHealthz has not yet been implemented")
 		}),
@@ -94,6 +98,8 @@ type CiliumOperatorAPI struct {
 	//   - text/plain
 	TxtProducer runtime.Producer
 
+	// ClusterGetClusterHandler sets the operation handler for the get cluster operation
+	ClusterGetClusterHandler cluster.GetClusterHandler
 	// OperatorGetHealthzHandler sets the operation handler for the get healthz operation
 	OperatorGetHealthzHandler operator.GetHealthzHandler
 	// MetricsGetMetricsHandler sets the operation handler for the get metrics operation
@@ -178,6 +184,9 @@ func (o *CiliumOperatorAPI) Validate() error {
 		unregistered = append(unregistered, "TxtProducer")
 	}
 
+	if o.ClusterGetClusterHandler == nil {
+		unregistered = append(unregistered, "cluster.GetClusterHandler")
+	}
 	if o.OperatorGetHealthzHandler == nil {
 		unregistered = append(unregistered, "operator.GetHealthzHandler")
 	}
@@ -274,6 +283,10 @@ func (o *CiliumOperatorAPI) initHandlerCache() {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
 
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/cluster"] = cluster.NewGetCluster(o.context, o.ClusterGetClusterHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/netutil"
 
 	"github.com/cilium/cilium/api/v1/operator/server/restapi"
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	"github.com/cilium/hive/cell"
@@ -57,6 +58,7 @@ type apiParams struct {
 
 	Middleware middleware.Builder `name:"cilium-operator-middleware" optional:"true"`
 
+	ClusterGetClusterHandler  cluster.GetClusterHandler
 	OperatorGetHealthzHandler operator.GetHealthzHandler
 	MetricsGetMetricsHandler  metrics.GetMetricsHandler
 }
@@ -66,6 +68,7 @@ func newAPI(p apiParams) *restapi.CiliumOperatorAPI {
 
 	// Construct the API from the provided handlers
 
+	api.ClusterGetClusterHandler = p.ClusterGetClusterHandler
 	api.OperatorGetHealthzHandler = p.OperatorGetHealthzHandler
 	api.MetricsGetMetricsHandler = p.MetricsGetMetricsHandler
 

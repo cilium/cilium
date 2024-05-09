@@ -13,6 +13,7 @@ import (
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 
+	"github.com/cilium/cilium/api/v1/operator/client/cluster"
 	"github.com/cilium/cilium/api/v1/operator/client/metrics"
 	"github.com/cilium/cilium/api/v1/operator/client/operator"
 )
@@ -59,6 +60,7 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *CiliumOper
 
 	cli := new(CiliumOperator)
 	cli.Transport = transport
+	cli.Cluster = cluster.New(transport, formats)
 	cli.Metrics = metrics.New(transport, formats)
 	cli.Operator = operator.New(transport, formats)
 	return cli
@@ -105,6 +107,8 @@ func (cfg *TransportConfig) WithSchemes(schemes []string) *TransportConfig {
 
 // CiliumOperator is a client for cilium operator
 type CiliumOperator struct {
+	Cluster cluster.ClientService
+
 	Metrics metrics.ClientService
 
 	Operator operator.ClientService
@@ -115,6 +119,7 @@ type CiliumOperator struct {
 // SetTransport changes the transport on the client and all its subresources
 func (c *CiliumOperator) SetTransport(transport runtime.ClientTransport) {
 	c.Transport = transport
+	c.Cluster.SetTransport(transport)
 	c.Metrics.SetTransport(transport)
 	c.Operator.SetTransport(transport)
 }
