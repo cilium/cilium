@@ -51,7 +51,7 @@ func newReconcilerConfig(
 ) reconciler.Config[*tables.Sysctl] {
 	return reconciler.Config[*tables.Sysctl]{
 		Table:                     tbl,
-		FullReconcilationInterval: 10 * time.Second,
+		FullReconcilationInterval: 10 * time.Minute,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   5 * time.Second,
 		IncrementalRoundSize:      100,
