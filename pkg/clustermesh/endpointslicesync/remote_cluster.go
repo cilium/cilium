@@ -7,6 +7,7 @@ import (
 	"context"
 	"path"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -31,6 +32,9 @@ type remoteCluster struct {
 
 	clusterAddHooks    []func(string)
 	clusterDeleteHooks []func(string)
+
+	// status is the function which fills the common part of the status.
+	status common.StatusFunc
 
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
@@ -99,4 +103,25 @@ func newSynced() synced {
 // or the given context is canceled.
 func (s *synced) Services(ctx context.Context) error {
 	return s.Wait(ctx, s.services.WaitChannel())
+}
+
+func (rc *remoteCluster) Status() *models.RemoteCluster {
+	status := rc.status()
+
+	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
+
+	status.Synced = &models.RemoteClusterSynced{
+		Services: rc.remoteServices.Synced(),
+		// The operator does not watch nodes, endpoints and identities, hence
+		// let's pretend them to be synchronized by default.
+		Nodes:      true,
+		Endpoints:  true,
+		Identities: true,
+	}
+
+	status.Ready = status.Ready &&
+		status.Synced.Nodes && status.Synced.Services &&
+		status.Synced.Identities && status.Synced.Endpoints
+
+	return status
 }
