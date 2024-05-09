@@ -15,6 +15,7 @@ paths:
   "/metrics/":
     get:
       summary: Retrieve cilium operator metrics
+      description: Returns the metrics exposed by the Cilium operator.
       tags:
       - metrics
       parameters: []
@@ -31,7 +32,7 @@ paths:
   "/healthz":
     get:
       summary: Get health of Cilium operator
-      description: This path will return the status of cilium operator instance.
+      description: Returns the status of cilium operator instance.
       tags:
       - operator
       parameters: []
@@ -50,3 +51,26 @@ paths:
           description: Cilium operator health status not available
           schema:
             type: string
+  "/cluster":
+    get:
+      summary: Get remote clusters connection status
+      description: Returns the list of remote clusters and their status.
+      tags:
+      - cluster
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/RemoteCluster"
+definitions:
+  RemoteCluster:
+    allOf:
+    - "$ref": "../openapi.yaml#/definitions/RemoteCluster"
+    x-go-type:
+      import:
+        package: "github.com/cilium/cilium/api/v1/models"
+        alias: "common"
+      type: "RemoteCluster"

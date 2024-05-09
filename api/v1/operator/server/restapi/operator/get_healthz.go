@@ -37,7 +37,7 @@ func NewGetHealthz(ctx *middleware.Context, handler GetHealthzHandler) *GetHealt
 
 # Get health of Cilium operator
 
-This path will return the status of cilium operator instance.
+Returns the status of cilium operator instance.
 */
 type GetHealthz struct {
 	Context *middleware.Context
