@@ -135,4 +135,5 @@ cilium-operator-generic [flags]
 * [cilium-operator-generic completion](cilium-operator-generic_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator-generic hive](cilium-operator-generic_hive.md)	 - Inspect the hive
 * [cilium-operator-generic metrics](cilium-operator-generic_metrics.md)	 - Access metric status of the operator
+* [cilium-operator-generic status](cilium-operator-generic_status.md)	 - Display status of operator
 
