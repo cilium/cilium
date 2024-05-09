@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"text/tabwriter"
 	"time"
 
+	"github.com/liggitt/tabwriter"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/statedb"
@@ -61,6 +61,17 @@ func newRemoteTable[Obj any](tableName string) *statedb.RemoteTable[Obj] {
 	return table
 }
 
+func newTabWriter(out io.Writer) *tabwriter.Writer {
+	const (
+		minWidth = 6
+		width    = 4
+		padding  = 3
+		padChar  = ' '
+		flags    = tabwriter.RememberWidths
+	)
+	return tabwriter.NewWriter(out, minWidth, width, padding, padChar, flags)
+}
+
 func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Command {
 	var watchInterval time.Duration
 	cmd := &cobra.Command{
@@ -69,7 +80,7 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 		Run: func(cmd *cobra.Command, args []string) {
 			table := newRemoteTable[Obj](tableName)
 
-			w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+			w := newTabWriter(os.Stdout)
 			var obj Obj
 			fmt.Fprintf(w, "%s\n", strings.Join(obj.TableHeader(), "\t"))
 			defer w.Flush()
@@ -82,7 +93,7 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 				iter, errChan := table.LowerBound(context.Background(), statedb.ByRevision[Obj](revision))
 
 				if iter != nil {
-					err := statedb.ProcessEach[Obj](
+					err := statedb.ProcessEach(
 						iter,
 						func(obj Obj, rev statedb.Revision) error {
 							// Remember the latest revision to query from.
