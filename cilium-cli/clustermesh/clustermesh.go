@@ -55,6 +55,8 @@ var (
 	// This can be replaced with cilium/pkg/defaults.MaxConnectedClusters once
 	// changes are merged there.
 	maxConnectedClusters = defaults.ClustermeshMaxConnectedClusters
+
+	errConfigRequiredNotRetrieved = errors.New("remote cluster configuration required but not found")
 )
 
 type k8sClusterMeshImplementation interface {
@@ -119,6 +121,8 @@ type Parameters struct {
 	// or overriding the Cilium CLI for install/upgrade/enable.
 	HelmReleaseName string
 }
+
+type notConnectedError struct{ error }
 
 func (p Parameters) waitTimeout() time.Duration {
 	if p.WaitDuration != time.Duration(0) {
@@ -679,11 +683,11 @@ func remoteClusterStatusToError(status *models.RemoteCluster) error {
 	case status == nil:
 		return errors.New("unknown status")
 	case !status.Connected:
-		return errors.New(status.Status)
+		return notConnectedError{errors.New(status.Status)}
 	case status.Config == nil:
 		return errors.New("remote cluster configuration retrieval status unknown")
 	case status.Config.Required && !status.Config.Retrieved:
-		return errors.New("remote cluster configuration required but not found")
+		return errConfigRequiredNotRetrieved
 	case status.Synced == nil:
 		return errors.New("synchronization status unknown")
 	case !(status.Synced.Nodes && status.Synced.Endpoints && status.Synced.Identities && status.Synced.Services):
@@ -934,13 +938,13 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 	}
 
 	if s.Connectivity != nil {
-		k.outputConnectivityStatus(s.Connectivity, s.KVStoreMesh.Status)
+		k.outputConnectivityStatus(s.Connectivity, s.KVStoreMesh.Status, s.KVStoreMesh.Enabled)
 	}
 
 	return s, err
 }
 
-func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *ConnectivityStatus) {
+func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *ConnectivityStatus, kvstoremeshEnabled bool) {
 	outputStatusReady := func(status *ConnectivityStatus, component string) {
 		if status.NotReady > 0 {
 			k.Log("⚠️  %d/%d %s are not connected to all clusters [min:%d / avg:%.1f / max:%d]",
@@ -1010,7 +1014,7 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 	if errCount > 0 {
 		k.Log("❌ %d Errors:", errCount)
 
-		outputErrors := func(errs status.ErrorCountMapMap) {
+		outputErrors := func(errs status.ErrorCountMapMap, container, cmd string, likelyKVStoreMesh bool) {
 			podNames := maps.Keys(errs)
 			sort.Strings(podNames)
 			for _, podName := range podNames {
@@ -1018,14 +1022,24 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 				for clusterName, a := range clusters {
 					for _, err := range a.Errors {
 						k.Log("  ❌ %s is not connected to cluster %s: %s", podName, clusterName, err)
+						if errors.As(err, &notConnectedError{}) {
+							k.Log("     💡 Run 'kubectl exec -it -n %s %s -c %s -- %s %s' to investigate the cause",
+								k.params.Namespace, podName, container, cmd, clusterName)
+						} else if errors.Is(err, errConfigRequiredNotRetrieved) {
+							if likelyKVStoreMesh {
+								k.Log("     💡 This is likely caused by KVStoreMesh not being connected to the given cluster")
+							} else {
+								k.Log("     💡 Double check if the cluster name matches the one configured in the remote cluster")
+							}
+						}
 					}
 				}
 			}
 		}
 
-		outputErrors(agents.Errors)
+		outputErrors(agents.Errors, defaults.AgentContainerName, "cilium-dbg troubleshoot clustermesh", kvstoremeshEnabled)
 		if kvstoremesh != nil {
-			outputErrors(kvstoremesh.Errors)
+			outputErrors(kvstoremesh.Errors, defaults.ClusterMeshKVStoreMeshContainerName, defaults.ClusterMeshBinaryName+" kvstoremesh-dbg troubleshoot", false)
 		}
 	}
 }
