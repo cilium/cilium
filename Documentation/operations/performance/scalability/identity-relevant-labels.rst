@@ -100,6 +100,9 @@ setting.
 
     kubectl delete pods -n kube-system -l k8s-app=cilium
 
+.. note:: Configuring Cilium with label patterns via ``labels`` Helm value does
+          **not** override the default set of label patterns.
+
 Existing identities will not change as a result of this new configuration. To
 apply the new label pattern setting to existing identities, restart the
 associated pods. Upon restart, new identities will be created. The old
