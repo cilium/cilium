@@ -21,6 +21,7 @@ Inspect StateDB
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
+* [cilium-dbg statedb bandwidth-edts](cilium-dbg_statedb_bandwidth-edts.md)	 - Show contents of table "bandwidth-edts"
 * [cilium-dbg statedb bandwidth-qdiscs](cilium-dbg_statedb_bandwidth-qdiscs.md)	 - Show contents of table "bandwidth-qdiscs"
 * [cilium-dbg statedb devices](cilium-dbg_statedb_devices.md)	 - Show contents of table "devices"
 * [cilium-dbg statedb dump](cilium-dbg_statedb_dump.md)	 - Dump StateDB contents as JSON
