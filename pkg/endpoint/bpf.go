@@ -82,6 +82,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	fw := bufio.NewWriter(w)
 
 	fmt.Fprint(fw, "/*\n")
+	fmt.Fprintln(fw, " * This file is not using during compilation of endpoint programs.")
 
 	epStr64, err := e.base64()
 	if err == nil {
@@ -660,25 +661,15 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
-		if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRewrite {
-			err = e.owner.Datapath().Loader().CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
-			if err == nil {
-				e.getLogger().Info("Rewrote endpoint BPF program")
-			} else if !errors.Is(err, context.Canceled) {
-				e.getLogger().WithError(err).Error("Error while rewriting endpoint BPF program")
-			}
-		} else { // RegenerateWithDatapathLoad
-			err = e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
-			if err == nil {
-				e.getLogger().Info("Reloaded endpoint BPF program")
-			} else {
+		err = e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+		if err != nil {
+			if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")
 			}
-		}
-
-		if err != nil {
 			return err
 		}
+
+		e.getLogger().Info("Reloaded endpoint BPF program")
 		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
 	} else if debugEnabled {
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
@@ -908,23 +899,20 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
-	var headerfileChanged bool
 	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Datapath().Loader().EndpointHash(e)
 	if err != nil {
-		e.getLogger().WithError(err).Warn("Unable to hash header file")
-		datapathRegenCtxt.bpfHeaderfilesHash = ""
-		headerfileChanged = true
-	} else {
-		headerfileChanged = (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
+		return fmt.Errorf("hash header file: %w", err)
+	}
+
+	if datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash {
 		if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
 			logger.WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 				Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 		}
-	}
 
-	if headerfileChanged {
 		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapathRewrite
 	}
+
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapathRewrite {
 		if err := e.writeHeaderfile(nextDir); err != nil {
 			return fmt.Errorf("unable to write header file: %w", err)
@@ -933,16 +921,10 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		if err := os.WriteFile(filepath.Join(nextDir, defaults.TemplateIDPath), []byte(datapathRegenCtxt.bpfHeaderfilesHash+"\n"), 0644); err != nil {
 			return fmt.Errorf("unable to write template id: %w", err)
 		}
-	}
 
-	// Cache endpoint information so that we can release the endpoint lock.
-	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapathRewrite {
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(nextDir)
 	} else {
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
-	}
-	if datapathRegenCtxt.epInfoCache == nil {
-		return fmt.Errorf("Unable to cache endpoint information")
 	}
 
 	return nil
