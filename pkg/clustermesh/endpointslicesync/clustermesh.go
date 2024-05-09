@@ -4,9 +4,11 @@
 package endpointslicesync
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sync/atomic"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
@@ -14,6 +16,7 @@ import (
 	"k8s.io/client-go/informers"
 	cache "k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -75,9 +78,9 @@ type ClusterMesh interface {
 	GlobalServices() *common.GlobalServiceCache
 }
 
-func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) ClusterMesh {
+func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, ClusterMesh) {
 	if !params.Clientset.IsEnabled() || params.ClusterMeshConfig == "" || !params.Cfg.ClusterMeshEnableEndpointSync {
-		return nil
+		return nil, nil
 	}
 
 	log.Info("Endpoint Slice Cluster Mesh synchronization enabled")
@@ -112,7 +115,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) ClusterMesh {
 
 	lc.Append(cm.common)
 	lc.Append(&cm)
-	return &cm
+	return &cm, &cm
 }
 
 // clusterMeshServiceGetter relies on resource.Resource[*slim_corev1.Service]
@@ -200,6 +203,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		globalServices:     cm.globalServices,
 		storeFactory:       cm.storeFactory,
 		synced:             newSynced(),
+		status:             status,
 		clusterAddHooks:    cm.clusterAddHooks,
 		clusterDeleteHooks: cm.clusterDeleteHooks,
 	}
@@ -262,4 +266,21 @@ func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 	})
 
 	return wait.ForAll(ctx, waiters)
+}
+
+// Status returns the status of the ClusterMesh subsystem
+func (cm *clusterMesh) status() []*models.RemoteCluster {
+	var clusters []*models.RemoteCluster
+
+	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
+		rc := rci.(*remoteCluster)
+		clusters = append(clusters, rc.Status())
+		return nil
+	})
+
+	// Sort the remote clusters information to ensure consistent ordering.
+	slices.SortFunc(clusters,
+		func(a, b *models.RemoteCluster) int { return cmp.Compare(a.Name, b.Name) })
+
+	return clusters
 }

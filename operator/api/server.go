@@ -18,6 +18,7 @@ import (
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi"
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	"github.com/cilium/cilium/pkg/api"
@@ -38,6 +39,7 @@ type params struct {
 
 	HealthHandler   operator.GetHealthzHandler
 	MetricsHandler  metrics.GetMetricsHandler
+	ClusterHandler  cluster.GetClusterHandler
 	OperatorAPISpec *operatorApi.Spec
 
 	Logger     logrus.FieldLogger
@@ -56,6 +58,7 @@ type server struct {
 
 	healthHandler  operator.GetHealthzHandler
 	metricsHandler metrics.GetMetricsHandler
+	clusterHandler cluster.GetClusterHandler
 	apiSpec        *operatorApi.Spec
 }
 
@@ -74,6 +77,7 @@ func newServer(
 		address:        p.Cfg.OperatorAPIServeAddr,
 		healthHandler:  p.HealthHandler,
 		metricsHandler: p.MetricsHandler,
+		clusterHandler: p.ClusterHandler,
 		apiSpec:        p.OperatorAPISpec,
 	}
 	p.Lifecycle.Append(server)
@@ -91,6 +95,7 @@ func (s *server) Start(ctx cell.HookContext) error {
 	restAPI.Logger = s.logger.Debugf
 	restAPI.OperatorGetHealthzHandler = s.healthHandler
 	restAPI.MetricsGetMetricsHandler = s.metricsHandler
+	restAPI.ClusterGetClusterHandler = s.clusterHandler
 
 	api.DisableAPIs(s.apiSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
 	srv := operatorApi.NewServer(restAPI)
