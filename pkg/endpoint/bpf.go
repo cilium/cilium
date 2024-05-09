@@ -982,9 +982,7 @@ func (e *Endpoint) deleteMaps() []error {
 
 	// Remove rate limit from bandwidth manager map.
 	if e.bps != 0 {
-		if err := e.owner.Datapath().BandwidthManager().DeleteEndpointBandwidthLimit(e.ID); err != nil {
-			errors = append(errors, fmt.Errorf("removing endpoint from bandwidth manager map: %w", err))
-		}
+		e.owner.Datapath().BandwidthManager().DeleteBandwidthLimit(e.ID)
 	}
 
 	if e.ConntrackLocalLocked() {

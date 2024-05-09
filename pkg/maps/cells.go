@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/maps/authmap"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -49,4 +50,8 @@ var Cell = cell.Module(
 
 	// Provies access to the SRv6 maps.
 	srv6map.Cell,
+
+	// Bandwidth (cilium_throttle) map contains the per-endpoint bandwidth limits.
+	// Provides RWTable[bwmap.Edt] for configuring the limits.
+	bwmap.Cell,
 )
