@@ -126,7 +126,7 @@ The following API flags are compatible with the ``cilium-operator`` flag
 ===================== ====================
 Flag Name             Description
 ===================== ====================
-GetHealthz            This path will return the status of cilium operator
-                      instance.
-GetMetrics            -
+GetCluster            Returns the list of remote clusters and their status.
+GetHealthz            Returns the status of cilium operator instance.
+GetMetrics            Returns the metrics exposed by the Cilium operator.
 ===================== ====================

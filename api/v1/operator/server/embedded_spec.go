@@ -35,9 +35,29 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cluster": {
+      "get": {
+        "description": "Returns the list of remote clusters and their status.",
+        "tags": [
+          "cluster"
+        ],
+        "summary": "Get remote clusters connection status",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/RemoteCluster"
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
-        "description": "This path will return the status of cilium operator instance.",
+        "description": "Returns the status of cilium operator instance.",
         "produces": [
           "text/plain"
         ],
@@ -69,6 +89,7 @@ func init() {
     },
     "/metrics/": {
       "get": {
+        "description": "Returns the metrics exposed by the Cilium operator.",
         "tags": [
           "metrics"
         ],
@@ -91,6 +112,22 @@ func init() {
       }
     }
   },
+  "definitions": {
+    "RemoteCluster": {
+      "allOf": [
+        {
+          "$ref": "../openapi.yaml#/definitions/RemoteCluster"
+        }
+      ],
+      "x-go-type": {
+        "import": {
+          "alias": "common",
+          "package": "github.com/cilium/cilium/api/v1/models"
+        },
+        "type": "RemoteCluster"
+      }
+    }
+  },
   "x-schemes": [
     "unix"
   ]
@@ -110,9 +147,29 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cluster": {
+      "get": {
+        "description": "Returns the list of remote clusters and their status.",
+        "tags": [
+          "cluster"
+        ],
+        "summary": "Get remote clusters connection status",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/RemoteCluster"
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
-        "description": "This path will return the status of cilium operator instance.",
+        "description": "Returns the status of cilium operator instance.",
         "produces": [
           "text/plain"
         ],
@@ -144,6 +201,7 @@ func init() {
     },
     "/metrics/": {
       "get": {
+        "description": "Returns the metrics exposed by the Cilium operator.",
         "tags": [
           "metrics"
         ],
@@ -167,6 +225,69 @@ func init() {
     }
   },
   "definitions": {
+    "RemoteCluster": {
+      "allOf": [
+        {
+          "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
+          "properties": {
+            "config": {
+              "$ref": "#/definitions/remoteClusterConfig"
+            },
+            "connected": {
+              "description": "Indicates whether the connection to the remote kvstore is established",
+              "type": "boolean"
+            },
+            "last-failure": {
+              "description": "Time of last failure that occurred while attempting to reach the cluster",
+              "type": "string",
+              "format": "date-time"
+            },
+            "name": {
+              "description": "Name of the cluster",
+              "type": "string"
+            },
+            "num-endpoints": {
+              "description": "Number of endpoints in the cluster",
+              "type": "integer"
+            },
+            "num-failures": {
+              "description": "Number of failures reaching the cluster",
+              "type": "integer"
+            },
+            "num-identities": {
+              "description": "Number of identities in the cluster",
+              "type": "integer"
+            },
+            "num-nodes": {
+              "description": "Number of nodes in the cluster",
+              "type": "integer"
+            },
+            "num-shared-services": {
+              "description": "Number of services in the cluster",
+              "type": "integer"
+            },
+            "ready": {
+              "description": "Indicates readiness of the remote cluster",
+              "type": "boolean"
+            },
+            "status": {
+              "description": "Status of the control plane",
+              "type": "string"
+            },
+            "synced": {
+              "$ref": "#/definitions/remoteClusterSynced"
+            }
+          }
+        }
+      ],
+      "x-go-type": {
+        "import": {
+          "alias": "common",
+          "package": "github.com/cilium/cilium/api/v1/models"
+        },
+        "type": "RemoteCluster"
+      }
+    },
     "metric": {
       "description": "Metric information",
       "type": "object",
@@ -185,6 +306,52 @@ func init() {
         "value": {
           "description": "Value of the metric",
           "type": "number"
+        }
+      }
+    },
+    "remoteClusterConfig": {
+      "description": "Cluster configuration exposed by the remote cluster\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "cluster-id": {
+          "description": "The Cluster ID advertised by the remote cluster",
+          "type": "integer"
+        },
+        "kvstoremesh": {
+          "description": "Whether the remote cluster information is locally cached by kvstoremesh",
+          "type": "boolean"
+        },
+        "required": {
+          "description": "Whether the configuration is required to be present",
+          "type": "boolean"
+        },
+        "retrieved": {
+          "description": "Whether the configuration has been correctly retrieved",
+          "type": "boolean"
+        },
+        "sync-canaries": {
+          "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
+          "type": "boolean"
+        }
+      }
+    },
+    "remoteClusterSynced": {
+      "description": "Status of the synchronization with the remote cluster, about each resource\ntype. A given resource is considered to be synchronized if the initial\nlist of entries has been completely received from the remote cluster, and\nnew events are currently being watched.\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "endpoints": {
+          "description": "Endpoints synchronization status",
+          "type": "boolean"
+        },
+        "identities": {
+          "description": "Identities synchronization status",
+          "type": "boolean"
+        },
+        "nodes": {
+          "description": "Nodes synchronization status",
+          "type": "boolean"
+        },
+        "services": {
+          "description": "Services synchronization status",
+          "type": "boolean"
         }
       }
     }
