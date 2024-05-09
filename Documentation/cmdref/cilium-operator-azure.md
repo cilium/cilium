@@ -139,4 +139,5 @@ cilium-operator-azure [flags]
 * [cilium-operator-azure hive](cilium-operator-azure_hive.md)	 - Inspect the hive
 * [cilium-operator-azure metrics](cilium-operator-azure_metrics.md)	 - Access metric status of the operator
 * [cilium-operator-azure status](cilium-operator-azure_status.md)	 - Display status of operator
+* [cilium-operator-azure troubleshoot](cilium-operator-azure_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 
