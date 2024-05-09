@@ -7,6 +7,7 @@ sig/policy:
 - changed-files:
   - any-glob-to-any-file:
     - daemon/cmd/policy*
+    - daemon/cmd/fqdn*
     - pkg/fqdn/**
     - pkg/policy/**
     - pkg/identity/**
