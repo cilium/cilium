@@ -5,6 +5,7 @@ package probes
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -386,10 +388,138 @@ func HaveBoundedLoops() error {
 }
 
 // HaveFibIfindex checks if kernel has d1c362e1dd68 ("bpf: Always return target
-// ifindex in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
-// as the new redirect helpers.
-func HaveFibIfindex() error {
-	return features.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer)
+// ifindex in bpf_fib_lookup") which is 5.10+ (and backports). It does so by
+// checking that ifindex has been updated as a result of the RIB lookup even
+// though the bpf_fib_lookup failed (no L2 resolution for the NH)
+func HaveFibIfindex() (err error) {
+	defer func() {
+		if err != nil && !errors.Is(err, ebpf.ErrNotSupported) {
+			log.WithError(err).Fatal("failed to probe HaveFibIfindex")
+		}
+
+		if errors.Is(err, ebpf.ErrNotSupported) {
+			log.Debug("HaveFibIfindex NOT supported")
+		}
+	}()
+
+	ns, err := netns.New()
+	if err != nil {
+		return fmt.Errorf("create netns: %w", err)
+	}
+	defer ns.Close()
+
+	return ns.Do(func() error {
+		lo, err := netlink.LinkByName("lo")
+		if err != nil {
+			return fmt.Errorf("unable to get loopback iface: %w", err)
+		}
+
+		//Create dummy iface
+		dummy := &netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: "dummy",
+			},
+		}
+		if err := netlink.LinkAdd(dummy); err != nil {
+			return fmt.Errorf("unable to create dummy iface: %w", err)
+		}
+
+		//Bring link up on lo&dummy
+		if err := netlink.LinkSetUp(lo); err != nil {
+			return fmt.Errorf("unable to bring up loopback iface: %w", err)
+		}
+		if err := netlink.LinkSetUp(dummy); err != nil {
+			return fmt.Errorf("unable to bring up dummy iface: %w", err)
+		}
+
+		//Addr
+		addrStr := "10.0.0.1/24"
+		addr, _ := netlink.ParseAddr(addrStr)
+		if err := netlink.AddrAdd(dummy, addr); err != nil {
+			return fmt.Errorf("unable to add addr %s to dummy iface: %w", addrStr, err)
+		}
+
+		//Add dummy unresolvable route
+		gwAddrStr := "10.0.0.2"
+		dstCIDR := "1.2.3.4/32"
+		_, dst, _ := net.ParseCIDR(dstCIDR)
+		route := &netlink.Route{
+			LinkIndex: dummy.Attrs().Index,
+			Dst:       dst,
+			Gw:        net.ParseIP(gwAddrStr),
+		}
+		if err := netlink.RouteAdd(route); err != nil {
+			return fmt.Errorf("unable to add route %s via %s dev dummy: %w", dstCIDR, gwAddrStr, err)
+		}
+
+		//netlink stores bytes in NBO, so use Native to conver to uint32
+		nhBe := binary.NativeEndian.Uint32(dst.IP.To4())
+
+		//Attach eBPF program to call bpf_fib_lookup()
+		probe_name := "have_fib_index_probe"
+		progSpec := &ebpf.ProgramSpec{
+			Name:    probe_name,
+			Type:    ebpf.SchedCLS,
+			License: "GPL",
+		}
+
+		progSpec.Instructions = asm.Instructions{
+			//Memset lookup struct
+			asm.Mov.Imm(asm.R2, 0),
+			asm.StoreMem(asm.RFP, -8, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -16, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -24, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -32, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -40, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -48, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -56, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -64, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -72, asm.R2, asm.DWord),
+			asm.StoreMem(asm.RFP, -80, asm.R2, asm.DWord),
+
+			//Set AF_INET
+			asm.Mov.Imm(asm.R2, 2),
+			asm.StoreMem(asm.RFP, -80, asm.R2, asm.DWord),
+
+			//Set dst IP (1.2.3.4)
+			asm.Mov.Imm(asm.R2, int32(nhBe)),
+			asm.StoreMem(asm.RFP, -48, asm.R2, asm.DWord),
+
+			//Set ifindex to lo (1)
+			asm.Mov.Imm(asm.R2, 1),
+			asm.StoreMem(asm.RFP, -72, asm.R2, asm.DWord),
+
+			//Args
+			//R1 (ctx/skbuf) unmodified
+			asm.Mov.Reg(asm.R2, asm.RFP), //struct bpf_fib_lookup
+			asm.Add.Imm(asm.R2, -80),
+			asm.Mov.Imm(asm.R3, 64),                             //len
+			asm.Mov.Imm(asm.R4, unix.BPF_FIB_LOOKUP_SKIP_NEIGH), //L2 NH not resolvable/don't care
+			asm.FnFibLookup.Call(),
+
+			//Recover ifindex to return
+			asm.LoadMem(asm.R0, asm.RFP, -72, asm.Word),
+			asm.Return(),
+		}
+
+		prog, err := ebpf.NewProgram(progSpec)
+		if err != nil {
+			return fmt.Errorf("unable to load eBPF program '%s': %w", probe_name, err)
+		}
+		defer prog.Close()
+
+		pkt := make([]byte, 16)
+		ret, _, err := prog.Test(pkt)
+		if err != nil {
+			return fmt.Errorf("unable to test-run eBPF program '%s': %w", probe_name, err)
+		}
+
+		if int(ret) != dummy.Attrs().Index {
+			return ebpf.ErrNotSupported
+		}
+
+		return nil
+	})
 }
 
 // HaveV2ISA is a wrapper around features.HaveV2ISA() to check if the kernel
@@ -514,7 +644,7 @@ func HaveOuterSourceIPSupport() (err error) {
 	}
 	defer prog.Close()
 
-	pkt := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	pkt := make([]byte, 16)
 	ret, _, err := prog.Test(pkt)
 	if err != nil {
 		return err
