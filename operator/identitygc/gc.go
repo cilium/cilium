@@ -89,6 +89,7 @@ func registerGC(p params) {
 		identity:           p.Identity,
 		authIdentityClient: p.AuthIdentityClient,
 		allocationMode:     p.SharedCfg.IdentityAllocationMode,
+		enableMetrics:      p.SharedCfg.EnableMetrics,
 		gcInterval:         p.Cfg.Interval,
 		heartbeatTimeout:   p.Cfg.HeartbeatTimeout,
 		gcRateInterval:     p.Cfg.RateInterval,
