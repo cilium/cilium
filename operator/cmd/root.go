@@ -275,6 +275,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 
 	cmd.AddCommand(
 		MetricsCmd,
+		StatusCmd,
 		h.Command(),
 	)
 
