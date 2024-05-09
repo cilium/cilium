@@ -114,10 +114,6 @@ func (l *linuxDatapath) BandwidthManager() datapath.BandwidthManager {
 	return l.bwmgr
 }
 
-func (l *linuxDatapath) DeleteEndpointBandwidthLimit(epID uint16) error {
-	return l.bwmgr.DeleteEndpointBandwidthLimit(epID)
-}
-
 func (l *linuxDatapath) Orchestrator() datapath.Orchestrator {
 	return l.orchestrator
 }

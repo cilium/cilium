@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/healthv2"
 	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
 )
 
 var StatedbCmd = &cobra.Command{
@@ -137,6 +138,7 @@ func init() {
 		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
 		statedbTableCommand[types.Status](healthv2.HealthTableName),
 		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
+		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

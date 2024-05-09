@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 )
@@ -27,8 +28,6 @@ const (
 	EgressBandwidth = "kubernetes.io/egress-bandwidth"
 	// IngressBandwidth is the K8s Pod annotation.
 	IngressBandwidth = "kubernetes.io/ingress-bandwidth"
-
-	EnableBBR = "enable-bbr"
 
 	// FqDefaultHorizon represents maximum allowed departure
 	// time delta in future. Given applications can set SO_TXTIME
@@ -69,11 +68,26 @@ func (m *manager) defines() (defines.Map, error) {
 	return cDefinesMap, nil
 }
 
-func (m *manager) DeleteEndpointBandwidthLimit(epID uint16) error {
+func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64) {
 	if m.enabled {
-		return bwmap.Delete(epID)
+		txn := m.params.DB.WriteTxn(m.params.EdtTable)
+		m.params.EdtTable.Insert(
+			txn,
+			bwmap.NewEdt(epID, bytesPerSecond),
+		)
+		txn.Commit()
 	}
-	return nil
+}
+
+func (m *manager) DeleteBandwidthLimit(epID uint16) {
+	if m.enabled {
+		txn := m.params.DB.WriteTxn(m.params.EdtTable)
+		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(epID))
+		if found {
+			m.params.EdtTable.Delete(txn, obj)
+		}
+		txn.Commit()
+	}
 }
 
 func GetBytesPerSec(bandwidth string) (uint64, error) {
@@ -111,7 +125,7 @@ func (m *manager) probe() error {
 		// - https://lpc.events/event/11/contributions/953/
 		// - https://lore.kernel.org/bpf/20220302195519.3479274-1-kafai@fb.com/
 		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbSetTstamp) != nil {
-			return fmt.Errorf("cannot enable --%s, needs kernel 5.18 or newer", EnableBBR)
+			return fmt.Errorf("cannot enable --%s, needs kernel 5.18 or newer", types.EnableBBRFlag)
 		}
 	}
 

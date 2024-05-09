@@ -13,12 +13,12 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -27,7 +27,7 @@ var Cell = cell.Module(
 	"bandwidth-manager",
 	"Linux Bandwidth Manager for EDT-based pacing",
 
-	cell.Config(Config{false, false}),
+	cell.Config(types.DefaultBandwidthConfig),
 	cell.Provide(newBandwidthManager),
 
 	cell.ProvidePrivate(
@@ -36,19 +36,6 @@ var Cell = cell.Module(
 	),
 	cell.Invoke(registerReconciler),
 )
-
-type Config struct {
-	// EnableBandwidthManager enables EDT-based pacing
-	EnableBandwidthManager bool
-
-	// EnableBBR enables BBR TCP congestion control for the node including Pods
-	EnableBBR bool
-}
-
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-bandwidth-manager", def.EnableBandwidthManager, "Enable BPF bandwidth manager")
-	flags.Bool(EnableBBR, def.EnableBBR, "Enable BBR for the bandwidth manager")
-}
 
 func newReconcilerConfig(log logrus.FieldLogger, tbl statedb.RWTable[*tables.BandwidthQDisc], bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
 	return reconciler.Config[*tables.BandwidthQDisc]{
@@ -93,13 +80,15 @@ type bandwidthManagerParams struct {
 	cell.In
 
 	Log          logrus.FieldLogger
-	Config       Config
+	Config       types.BandwidthConfig
 	DaemonConfig *option.DaemonConfig
 	Sysctl       sysctl.Sysctl
+	DB           *statedb.DB
+	EdtTable     statedb.RWTable[bwmap.Edt]
 }
 
 func registerReconciler(
-	cfg Config,
+	cfg types.BandwidthConfig,
 	deriveParams statedb.DeriveParams[*tables.Device, *tables.BandwidthQDisc],
 	config reconciler.Config[*tables.BandwidthQDisc],
 	reconcilerParams reconciler.Params,
