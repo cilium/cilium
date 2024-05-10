@@ -36,9 +36,8 @@ type fakeRemoteCluster struct{}
 func (*fakeRemoteCluster) Run(_ context.Context, _ kvstore.BackendOperations, _ *types.CiliumClusterConfig, ready chan<- error) {
 	close(ready)
 }
-func (*fakeRemoteCluster) ClusterConfigRequired() bool { return false }
-func (*fakeRemoteCluster) Stop()                       {}
-func (*fakeRemoteCluster) Remove()                     {}
+func (*fakeRemoteCluster) Stop()   {}
+func (*fakeRemoteCluster) Remove() {}
 
 func writeFile(t *testing.T, name, content string) {
 	t.Helper()
