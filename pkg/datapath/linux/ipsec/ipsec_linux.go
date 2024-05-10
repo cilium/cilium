@@ -752,12 +752,17 @@ func ipsecDeleteXfrmState(nodeID uint16) error {
 		return err
 	}
 
-	errs := resiliency.NewErrorSet(fmt.Sprintf("failed to delete node (%d) xfrm states", nodeID), len(xfrmStateList))
+	xfrmStatesToDelete := []netlink.XfrmState{}
 	for _, s := range xfrmStateList {
 		if matchesOnNodeID(s.Mark) && ipsec.GetNodeIDFromXfrmMark(s.Mark) == nodeID {
-			if err := netlink.XfrmStateDel(&s); err != nil {
-				errs.Add(fmt.Errorf("failed to delete xfrm state (%s): %w", s.String(), err))
-			}
+			xfrmStatesToDelete = append(xfrmStatesToDelete, s)
+		}
+	}
+
+	errs := resiliency.NewErrorSet(fmt.Sprintf("failed to delete node (%d) xfrm states", nodeID), len(xfrmStateList))
+	for _, s := range xfrmStatesToDelete {
+		if err := netlink.XfrmStateDel(&s); err != nil {
+			errs.Add(fmt.Errorf("failed to delete xfrm state (%s): %w", s.String(), err))
 		}
 	}
 
