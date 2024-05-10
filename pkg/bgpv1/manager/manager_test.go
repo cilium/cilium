@@ -13,6 +13,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -167,7 +168,11 @@ func TestGetRoutes(t *testing.T) {
 				LocalASN:  int64(testRouterASN),
 				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			}
+			cm := mode.NewConfigMode()
+			cm.Set(mode.BGPv1)
+
 			brm := &BGPRouterManager{
+				ConfigMode: cm,
 				Servers: map[int64]*instance.ServerWithConfig{
 					int64(testRouterASN): testSC,
 				},
