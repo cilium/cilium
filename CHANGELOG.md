@@ -1,5 +1,98 @@
 # Changelog
 
+## v1.15.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump go version to 1.22.3 (cilium/cilium#32413, @sayboras)
+* labels: Add controller-uid into default ignore list (Backport PR #32103, Upstream PR #31964, @sayboras)
+
+**Bugfixes:**
+* Agent: add kubeconfigPath to initContainers (Backport PR #32230, Upstream PR #32008, @darox)
+* Avoids drops with "No mapping for NAT masquerade" for ICMP messages by local service backends. (Backport PR #32384, Upstream PR #32155, @julianwiedmann)
+* cilium-cni: Reserve ports that can conflict with transparent DNS proxy (Backport PR #32418, Upstream PR #32128, @gandro)
+* cni: Use correct route MTU when ENI, Azure or Alibaba Cloud IPAM is enabled (Backport PR #32384, Upstream PR #32244, @learnitall)
+* dnsproxy: Fix bug where DNS request timed out too soon (Backport PR #32230, Upstream PR #31999, @gandro)
+* Envoy upstream connections are now unique for each downstream connection when using the original source address of a source pod. (Backport PR #32312, Upstream PR #32270, @jrajahalme)
+* envoy: pass idle timeout configuration option to cilium configmap (Backport PR #32230, Upstream PR #32203, @mhofstetter)
+* Fix failing service connections, when the service requests are transported via cilium's overlay network. (Backport PR #32230, Upstream PR #32116, @julianwiedmann)
+* Fix issue causing clustermesh-apiserver/kvstoremesh to not start when run with a non-root user (Backport PR #31879, Upstream PR #31539, @giorio94)
+* Fix service connection to terminating backend, when the service has no more backends available. (Backport PR #32092, Upstream PR #31840, @julianwiedmann)
+* Fix various bugs related to restart of StatefulSet pods that may result in connectivity issues (Backport PR #32432, Upstream PR #31605, @christarazi)
+* Fixes a bug where Cilium in chained mode removed the `agent-not-ready` taint too early if the primary network is slow in deploying. (Backport PR #32230, Upstream PR #32168, @squeed)
+* Fixes an (unlikely) bug where HostFirewall policies may miss updates to a node's labels. (Backport PR #32384, Upstream PR #30548, @squeed)
+* fqdn: fix memory leak in transparent mode when there was a moderately high number of parallel DNS requests (>100). (Backport PR #32103, Upstream PR #31959, @marseel)
+* Ingress/Gateway API: merge Envoy listeners for HTTP(S) and TLS passthrough (Backport PR #32178, Upstream PR #31646, @mhofstetter)
+* ipam: retry netlink.LinkList call when setting up ENI devices (Backport PR #32230, Upstream PR #32099, @jasonaliyetti)
+* loader: sanitize bpffs directory strings for netdevs (Backport PR #32103, Upstream PR #32090, @rgo3)
+* Prevent Cilium agents from incorrectly restarting an etcd watch against a different etcd instance. (cilium/cilium#32005, @giorio94)
+* tables: Sort node addresses also by public vs private IP (Backport PR #32103, Upstream PR #30579, @joamaki)
+
+**CI Changes:**
+* alibabacloud/eni: avoid racing node mgr in test (Backport PR #31967, Upstream PR #31877, @bimmlerd)
+* ci: Filter supported versions of AKS (Backport PR #32384, Upstream PR #32303, @marseel)
+* ci: Increase timeout for images for l4lb test (Backport PR #32230, Upstream PR #32201, @marseel)
+* ci: Set hubble.relay.retryTimeout=5s (Backport PR #32230, Upstream PR #32066, @chancez)
+* enable kube cache mutation detector (Backport PR #32230, Upstream PR #32069, @aanm)
+* gha: bump post-upgrade timeout in clustermesh upgrade/downgrade tests (Backport PR #32384, Upstream PR #32347, @giorio94)
+* gha: configure fully-qualified DNS names as external targets (Backport PR #32103, Upstream PR #31510, @giorio94)
+* gha: drop double installation of Cilium CLI in conformance-eks (Backport PR #32103, Upstream PR #32042, @giorio94)
+* Miscellaneous improvements to the clustermesh upgrade/downgrade test (Backport PR #32103, Upstream PR #31958, @giorio94)
+* route: dedicated net ns for each subtest of runListRules (Backport PR #32230, Upstream PR #29916, @mhofstetter)
+* test: De-flake xds server_e2e_test (Backport PR #32103, Upstream PR #32004, @jrajahalme)
+* workflows: Fix CI jobs for push events on private forks (Backport PR #32230, Upstream PR #32085, @pchaigno)
+
+**Misc Changes:**
+* bpf: host: simplify MARK_MAGIC_PROXY_EGRESS_EPID handling (Backport PR #32384, Upstream PR #29803, @julianwiedmann)
+* build(deps): bump pydantic from 2.3.0 to 2.4.0 in /Documentation (Backport PR #32230, Upstream PR #32176, @dependabot[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#31954, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#32107, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#32366, @renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#31993, @renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#32238, @renovate[bot])
+* chore(deps): update azure/login action to v2.1.0 (v1.15) (cilium/cilium#31994, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.6 (v1.15) (cilium/cilium#32365, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.9 docker digest to 81811f8 (v1.15) (cilium/cilium#31953, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.9 docker digest to d83472f (v1.15) (cilium/cilium#32257, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to a6d2b38 (v1.15) (cilium/cilium#32364, @renovate[bot])
+* chore(deps): update go to v1.21.10 (v1.15) (cilium/cilium#32417, @renovate[bot])
+* chore(deps): update golangci/golangci-lint-action action to v6 (v1.15) (cilium/cilium#32396, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.3 (v1.15) (cilium/cilium#32108, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (cilium/cilium#31821, @renovate[bot])
+* CI: bump default FQDN datapath timeout from 100 to 250ms (Backport PR #32230, Upstream PR #31866, @squeed)
+* clustermesh: fix panic if the etcd client cannot be created (Backport PR #32384, Upstream PR #32225, @giorio94)
+* docs: Add annotation for Ingress endpoint (Backport PR #32384, Upstream PR #32284, @sayboras)
+* docs: add link to sig-policy meeting (Backport PR #32384, Upstream PR #32340, @squeed)
+* docs: Clean-up Host Firewall documentation, list known issues (Backport PR #32384, Upstream PR #32267, @qmonnet)
+* docs: Fix prometheus port regex (Backport PR #32230, Upstream PR #32030, @JBodkin-Amphora)
+* Docs: mark Tetragon as Stable (Backport PR #31967, Upstream PR #31886, @sharlns)
+* Document Cluster Mesh global services limitations when KPR=false (Backport PR #31967, Upstream PR #31798, @giorio94)
+* endpoint: Skip build queue warning log is context is canceled (Backport PR #32230, Upstream PR #32132, @jrajahalme)
+* Fix helm chart incompatible types for comparison (Backport PR #32230, Upstream PR #32025, @lou-lan)
+* fqdn: Change error log to warning (Backport PR #32384, Upstream PR #32333, @jrajahalme)
+* fqdn: Fix Upgrade Issue Between PortProto Versions (Backport PR #32384, Upstream PR #32325, @nathanjsweet)
+* golangci: Enable errorlint (Backport PR #31783, Upstream PR #31458, @jrajahalme)
+* images: Update bpftool, checkpatch images (Backport PR #31896, Upstream PR #31753, @qmonnet)
+* Improve release organization page (Backport PR #32103, Upstream PR #31970, @joestringer)
+* install/kubernetes: add AppArmor profile to Cilium Daemonset (Backport PR #32384, Upstream PR #32199, @aanm)
+* install/kubernetes: update nodeinit image to latest version (Backport PR #32230, Upstream PR #32181, @tklauser)
+* ipsec: Debug info for transient IPsec upgrade drops (Backport PR #32384, Upstream PR #32240, @pchaigno)
+* l7 policy: add possibility to configure Envoy proxy xff-num-trusted-hops (Backport PR #32260, Upstream PR #32200, @mhofstetter)
+* Remove aks-preview from AKS workflows (Backport PR #32230, Upstream PR #32118, @marseel)
+* Seamlessly downgrade bpf attachments from tcx to tc (Backport PR #32337, Upstream PR #32228, @ti-mo)
+
+**Other Changes:**
+* [1.15] images: update cilium-{runtime,builder} (cilium/cilium#32444, @nebril)
+* [v1.15-backport] Introduce fromEgressProxyRule (cilium/cilium#31922, @jschwinger233)
+* [v1.15] cilium-dbg: remove section with unknown health status. (cilium/cilium#31905, @tommyp1ckles)
+* [v1.15] proxy: skip rule removal if address family is not supported (cilium/cilium#32007, @rgo3)
+* envoy: Bump envoy version to v1.27.5 (cilium/cilium#32077, @sayboras)
+* envoy: Update envoy 1.27.x to 1.28.3 (cilium/cilium#32149, @sayboras)
+* fix k8s versions tested in CI (cilium/cilium#31965, @nbusseneau)
+* install: Update image digests for v1.15.4 (cilium/cilium#31915, @asauber)
+
 ## v1.15.4
 
 Summary of Changes
