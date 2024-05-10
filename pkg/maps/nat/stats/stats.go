@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -59,6 +60,28 @@ func (s NatMapStats) Key() index.Key {
 		" " + s.EndpointIP + ":")
 	k = append(k, index.Uint16(s.RemotePort)...)
 	return k
+}
+
+func (s NatMapStats) addrs() (string, string) {
+	if s.Type == nat.IPv6.String() {
+		return "[" + s.EgressIP + "]", "[" + s.EndpointIP + "]"
+	}
+	return s.EgressIP, s.EndpointIP
+}
+
+func (NatMapStats) TableHeader() []string {
+	return []string{"IPFamily", "Proto", "EgressIP", "RemoteAddr", "Count"}
+}
+
+func (s NatMapStats) TableRow() []string {
+	var raddr string
+	eip, rip := s.addrs()
+	if s.RemotePort == 0 {
+		raddr = rip
+	} else {
+		raddr = fmt.Sprintf("%s:%d", rip, s.RemotePort)
+	}
+	return []string{s.Type, s.Proto, eip, raddr, strconv.Itoa(s.Count)}
 }
 
 type params struct {
