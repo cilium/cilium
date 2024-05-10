@@ -251,7 +251,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
 					   MARK_MAGIC_IDENTITY, ip4, ep,
-					   METRIC_INGRESS, false, false, true,
+					   METRIC_INGRESS, false, true,
 					   cluster_id);
 	}
 
@@ -446,8 +446,7 @@ not_esp:
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep && !(ep->flags & ENDPOINT_F_HOST))
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
-					   ip4, ep, METRIC_INGRESS, false, false, true,
-					   0);
+					   ip4, ep, METRIC_INGRESS, false, true, 0);
 
 	ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
 	if (ret != CTX_ACT_OK)
