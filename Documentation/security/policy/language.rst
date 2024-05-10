@@ -365,6 +365,10 @@ all
    Allowing users to define custom entities is on the roadmap but has not been
    implemented yet (see :gh-issue:`3553`).
 
+.. note:: The ``kube-apiserver`` entity is unavailable in some Kubernetes 
+   distributions, such as Azure AKS and GCP GKE for ingress traffic. You could still use ``cluster`` which
+   is broader.
+
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
