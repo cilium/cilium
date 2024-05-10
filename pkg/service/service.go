@@ -645,7 +645,8 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	// Set L7 LB for this service if registered.
 	l7lbInfo, exists := s.l7lbSvcs[params.Name]
-	if exists && l7lbInfo.ownerRef != empty {
+	// L7 LB redirect is only supported for TCP frontends
+	if exists && l7lbInfo.ownerRef != empty && params.Frontend.L4Addr.Protocol == lb.TCP {
 		params.L7LBProxyPort = l7lbInfo.proxyPort
 	} else {
 		params.L7LBProxyPort = 0
