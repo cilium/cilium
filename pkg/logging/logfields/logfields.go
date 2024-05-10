@@ -32,6 +32,9 @@ const (
 	// EndpointState is the current endpoint state
 	EndpointState = "endpointState"
 
+	// Error is the Go error
+	Error = "error"
+
 	// EventUUID is an event unique identifier
 	EventUUID = "eventID"
 
