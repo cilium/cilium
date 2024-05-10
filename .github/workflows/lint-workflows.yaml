@@ -225,3 +225,27 @@ jobs:
             fi
           done
           exit ${EXIT}
+
+      - name: Validate Commit Status Start Job
+        shell: bash
+        run: |
+          EXIT=0
+          cd src/github.com/cilium/cilium/.github/workflows
+          for FILE in *.yaml; do
+            # we only care about workflows that has ariane workflow_dispatch events
+            IS_ARIANE_DISPATCH=$(yq '.on.workflow_dispatch.inputs.PR-number' $FILE)
+            if [ "$IS_ARIANE_DISPATCH" == "null" ]; then
+                continue
+            fi
+            JOB=$(yq '.jobs | to_entries | .[] | select(.key == "commit-status-start")' $FILE)
+            if [ "$JOB" == "" ]; then
+                echo "commit-status-start job is missing in file $FILE"
+                EXIT=1
+            fi
+            JOB_NAME=$(echo "${JOB}" | yq '.value.name')
+            if [ "$JOB_NAME" != "Commit Status Start" ]; then
+                echo "commit-status-start job name must be set as 'Commit Status Start' in file $FILE"
+                EXIT=1
+            fi
+          done
+          exit ${EXIT}
