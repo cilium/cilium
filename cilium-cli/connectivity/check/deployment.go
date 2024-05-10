@@ -62,8 +62,6 @@ const (
 	testConnDisruptServerDeploymentName = "test-conn-disrupt-server"
 	testConnDisruptServiceName          = "test-conn-disrupt"
 	KindTestConnDisrupt                 = "test-conn-disrupt"
-
-	EchoServerHostPort = 4000
 )
 
 type deploymentParameters struct {
@@ -562,7 +560,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	hostPort := 0
 	if ct.Features[features.HostPort].Enabled {
-		hostPort = EchoServerHostPort
+		hostPort = ct.Params().EchoServerHostPort
 	}
 	dnsConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
