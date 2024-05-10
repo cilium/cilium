@@ -1,5 +1,68 @@
 # Changelog
 
+## v1.13.16
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bugtool: Collect hubble metrics (Backport PR #31887, Upstream PR #31533, @chancez)
+* envoy: Bump go version to 1.21.10 (cilium/cilium#32415, @sayboras)
+* Fix overlapping keys in agent-side service BPF map cache used for retries. In rare cases this bug may have caused retrying of a failed BPF map update for a services entry to be skipped leading to a missing entry. This may have, for example, adversely affected recovering from a full BPF service map after excess services were removed. (Backport PR #31887, Upstream PR #29581, @xyz-li)
+
+**Bugfixes:**
+* Agent: add kubeconfigPath to initContainers (Backport PR #32252, Upstream PR #32008, @darox)
+* cilium-cni: Reserve ports that can conflict with transparent DNS proxy (Backport PR #32420, Upstream PR #32128, @gandro)
+* cni: Allow text-ts log format value (Backport PR #31887, Upstream PR #31686, @sayboras)
+* cni: Use correct route MTU when ENI, Azure or Alibaba Cloud IPAM is enabled (Backport PR #32386, Upstream PR #32244, @learnitall)
+* dnsproxy: Fix bug where DNS request timed out too soon (Backport PR #32252, Upstream PR #31999, @gandro)
+* Envoy upstream connections are now unique for each downstream connection when using the original source address of a source pod. (Backport PR #32330, Upstream PR #32270, @jrajahalme)
+* Fixes an (unlikely) bug where HostFirewall policies may miss updates to a node's labels. (Backport PR #32386, Upstream PR #30548, @squeed)
+* fqdn: fix memory leak in transparent mode when there was a moderately high number of parallel DNS requests (>100). (Backport PR #32053, Upstream PR #31959, @marseel)
+* ipam: retry netlink.LinkList call when setting up ENI devices (Backport PR #32252, Upstream PR #32099, @jasonaliyetti)
+* xds: Avoid xds timeout due to agent restart in envoy DS mode (Backport PR #32053, Upstream PR #31061, @sayboras)
+
+**CI Changes:**
+* [v1.13] Go linter fix backport (cilium/cilium#31983, @tklauser)
+* ci: Filter supported versions of AKS (Backport PR #32386, Upstream PR #32303, @marseel)
+* ci: Increase timeout for images for l4lb test (Backport PR #32252, Upstream PR #32201, @marseel)
+* Miscellaneous improvements to the clustermesh upgrade/downgrade test (Backport PR #32053, Upstream PR #31958, @giorio94)
+* test: De-flake xds server_e2e_test (Backport PR #32053, Upstream PR #32004, @jrajahalme)
+* vagrant: bump box versions to pick up Go 1.20.1 (Backport PR #31796, Upstream PR #23983, @tklauser)
+* workflows: Fix CI jobs for push events on private forks (Backport PR #32252, Upstream PR #32085, @pchaigno)
+
+**Misc Changes:**
+* [v.13] test: Fix Endpoint Test (cilium/cilium#32197, @nathanjsweet)
+* [v1.13] endpoint: Fix Endpoint Integration Tests (cilium/cilium#32171, @nathanjsweet)
+* build(deps): bump pydantic from 2.3.0 to 2.4.0 in /Documentation (Backport PR #32252, Upstream PR #32176, @dependabot[bot])
+* chore(deps): update all github action dependencies (v1.13) (cilium/cilium#32380, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.13.3 (v1.13) (cilium/cilium#32446, @renovate[bot])
+* chore(deps): update go to v1.21.10 (v1.13) (cilium/cilium#32374, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.13.3 (v1.13) (cilium/cilium#32379, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.13) (patch) (cilium/cilium#31831, @renovate[bot])
+* cilium-dbg: avoid leaking file resources (Backport PR #31887, Upstream PR #31750, @tklauser)
+* command/exec: remove unused (*Cmd).WithFilters method (Backport PR #31887, Upstream PR #25642, @tklauser)
+* docs: Fix prometheus port regex (Backport PR #32252, Upstream PR #32030, @JBodkin-Amphora)
+* Docs: mark Tetragon as Stable (Backport PR #32053, Upstream PR #31886, @sharlns)
+* endpoint: Skip build queue warning log is context is canceled (Backport PR #32252, Upstream PR #32132, @jrajahalme)
+* Fix spelling in DNS-based proxy info (Backport PR #31887, Upstream PR #31728, @saintdle)
+* fqdn: Change error log to warning (Backport PR #32386, Upstream PR #32333, @jrajahalme)
+* fqdn: Fix Upgrade Issue Between PortProto Versions (Backport PR #32386, Upstream PR #32325, @nathanjsweet)
+* golangci: Enable errorlint (Backport PR #31796, Upstream PR #31458, @jrajahalme)
+* Improve release organization page (Backport PR #32053, Upstream PR #31970, @joestringer)
+* install/kubernetes: update nodeinit image to latest version (Backport PR #32252, Upstream PR #32181, @tklauser)
+* ipsec: Debug info for transient IPsec upgrade drops (Backport PR #32386, Upstream PR #32240, @pchaigno)
+* Move governance docs to the Cilium community repo (Backport PR #31887, Upstream PR #31692, @katiestruthers)
+* Remove aks-preview from AKS workflows (Backport PR #32252, Upstream PR #32118, @marseel)
+* Remove Hubble-OTel from the roadmap (Backport PR #31887, Upstream PR #31847, @xmulligan)
+
+**Other Changes:**
+* [v1.13-backport] Introduce fromEgressProxyRule (cilium/cilium#31928, @jschwinger233)
+* ci: no longer suppported v1.25 in GKE (cilium/cilium#32182, @marseel)
+* envoy: Bump envoy version to v1.27.5 (cilium/cilium#32079, @sayboras)
+* fix k8s versions tested in CI (cilium/cilium#31968, @nbusseneau)
+* install: Update image digests for v1.13.15 (cilium/cilium#31913, @asauber)
+
 ## v1.13.15
 
 Summary of Changes
