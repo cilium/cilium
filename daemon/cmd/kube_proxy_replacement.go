@@ -52,23 +52,23 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			option.EnableSocketLB, option.EnableHostPort,
 			option.EnableSessionAffinity)
 
-		option.Config.EnableHostPort = true
-		option.Config.EnableNodePort = true
-		option.Config.EnableExternalIPs = true
-		option.Config.EnableSocketLB = true
-		option.Config.EnableSessionAffinity = true
+		option.Config.Volatile().EnableHostPort = true
+		option.Config.Volatile().EnableNodePort = true
+		option.Config.Volatile().EnableExternalIPs = true
+		option.Config.Volatile().EnableSocketLB = true
+		option.Config.Volatile().EnableSessionAffinity = true
 	}
 
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse &&
 		option.Config.EnableEnvoyConfig && !option.Config.EnableIPSec &&
-		!option.Config.EnableNodePort {
+		!option.Config.Volatile().EnableNodePort {
 		// CiliumEnvoyConfig L7 LB only works with bpf node port enabled
 		log.Infof("Auto-enabling %s for %s",
 			option.EnableNodePort, option.EnableEnvoyConfig)
-		option.Config.EnableNodePort = true
+		option.Config.Volatile().EnableNodePort = true
 	}
 
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		if option.Config.EnableIPSec {
 			return fmt.Errorf("IPSec cannot be used with BPF NodePort")
 		}
@@ -95,8 +95,8 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
 		}
 
-		if option.Config.LoadBalancerRSSv4CIDR != "" {
-			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
+		if option.Config.Volatile().LoadBalancerRSSv4CIDR != "" {
+			ip, cidr, err := net.ParseCIDR(option.Config.Volatile().LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
 				err = fmt.Errorf("CIDR is not IPv4 based")
 			}
@@ -107,13 +107,13 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			}
 			if err != nil {
 				return fmt.Errorf("Invalid value for --%s: %s",
-					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
+					option.LoadBalancerRSSv4CIDR, option.Config.Volatile().LoadBalancerRSSv4CIDR)
 			}
-			option.Config.LoadBalancerRSSv4 = *cidr
+			option.Config.Volatile().LoadBalancerRSSv4 = *cidr
 		}
 
-		if option.Config.LoadBalancerRSSv6CIDR != "" {
-			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv6CIDR)
+		if option.Config.Volatile().LoadBalancerRSSv6CIDR != "" {
+			ip, cidr, err := net.ParseCIDR(option.Config.Volatile().LoadBalancerRSSv6CIDR)
 			if ip.To4() != nil {
 				err = fmt.Errorf("CIDR is not IPv6 based")
 			}
@@ -124,12 +124,12 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			}
 			if err != nil {
 				return fmt.Errorf("Invalid value for --%s: %s",
-					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
+					option.LoadBalancerRSSv6CIDR, option.Config.Volatile().LoadBalancerRSSv6CIDR)
 			}
-			option.Config.LoadBalancerRSSv6 = *cidr
+			option.Config.Volatile().LoadBalancerRSSv6 = *cidr
 		}
 
-		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
+		if (option.Config.Volatile().LoadBalancerRSSv4CIDR != "" || option.Config.Volatile().LoadBalancerRSSv6CIDR != "") &&
 			(option.Config.NodePortMode != option.NodePortModeDSR ||
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
 			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
@@ -186,7 +186,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		}
 	}
 
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		if option.Config.TunnelingEnabled() && tunnelConfig.Protocol() == tunnel.VXLAN &&
 			option.Config.LoadBalancerUsesDSR() {
 			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, tunnel.VXLAN)
@@ -223,7 +223,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			}
 		}
 
-		option.Config.EnableHealthDatapath =
+		option.Config.Volatile().EnableHealthDatapath =
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 				option.Config.NodePortMode == option.NodePortModeDSR &&
 				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
@@ -233,7 +233,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		// InstallNoConntrackIptRules can only be enabled when Cilium is
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
-		if !option.Config.KubeProxyReplacementFullyEnabled() {
+		if !option.Config.Volatile().KubeProxyReplacementFullyEnabled() {
 			return fmt.Errorf("%s requires the agent to run with %s=%s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
 		}
@@ -244,7 +244,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		}
 	}
 	if option.Config.BPFSocketLBHostnsOnly {
-		option.Config.EnableSocketLBTracing = false
+		option.Config.Volatile().EnableSocketLBTracing = false
 	}
 
 	if option.Config.DryMode {
@@ -257,7 +257,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
 func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
 		}
@@ -272,15 +272,15 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 			}
 		}
 
-		if option.Config.EnableHealthDatapath {
+		if option.Config.Volatile().EnableHealthDatapath {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
-				option.Config.EnableHealthDatapath = false
+				option.Config.Volatile().EnableHealthDatapath = false
 				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
 			}
 		}
 	}
 
-	if option.Config.EnableSocketLB {
+	if option.Config.Volatile().EnableSocketLB {
 		if err := probes.HaveAttachCgroup(); err != nil {
 			return fmt.Errorf("socketlb enabled, but kernel does not support attaching bpf programs to cgroups: %w", err)
 		}
@@ -296,10 +296,10 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 			}
 		}
 
-		option.Config.EnableSocketLBPeer = true
+		option.Config.Volatile().EnableSocketLBPeer = true
 		if option.Config.EnableIPv4 {
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet4GetPeername); err != nil {
-				option.Config.EnableSocketLBPeer = false
+				option.Config.Volatile().EnableSocketLBPeer = false
 			}
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet4Connect); err != nil {
 				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
@@ -311,7 +311,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 
 		if option.Config.EnableIPv6 {
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet6GetPeername); err != nil {
-				option.Config.EnableSocketLBPeer = false
+				option.Config.Volatile().EnableSocketLBPeer = false
 			}
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet6Connect); err != nil {
 				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
@@ -321,17 +321,17 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 			}
 		}
 
-		if option.Config.EnableSocketLBTracing {
+		if option.Config.Volatile().EnableSocketLBTracing {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
-				option.Config.EnableSocketLBTracing = false
+				option.Config.Volatile().EnableSocketLBTracing = false
 				log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 			}
 		}
 	} else {
-		option.Config.EnableSocketLBTracing = false
+		option.Config.Volatile().EnableSocketLBTracing = false
 	}
 
-	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
+	if option.Config.Volatile().EnableSessionAffinity && option.Config.Volatile().EnableSocketLB {
 		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
 			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
@@ -341,7 +341,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 	}
 
 	if option.Config.BPFSocketLBHostnsOnly {
-		if !option.Config.EnableSocketLB {
+		if !option.Config.Volatile().EnableSocketLB {
 			option.Config.BPFSocketLBHostnsOnly = false
 			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB)
 		} else if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
@@ -359,7 +359,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Device) error {
-	if !option.Config.EnableNodePort {
+	if !option.Config.Volatile().EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
 		return nil
@@ -375,11 +375,11 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
-	if option.Config.EnableMKE && option.Config.EnableSocketLB {
+	if option.Config.EnableMKE && option.Config.Volatile().EnableSocketLB {
 		markHostExtension()
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
+	if !option.Config.Volatile().EnableHostLegacyRouting {
 		msg := ""
 		switch {
 		// Needs host stack for packet handling.
@@ -398,7 +398,7 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 			}
 		}
 		if msg != "" {
-			option.Config.EnableHostLegacyRouting = true
+			option.Config.Volatile().EnableHostLegacyRouting = true
 			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
 		}
 	}
@@ -455,11 +455,11 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 // disableNodePort disables BPF NodePort and friends who are dependent from
 // the latter.
 func disableNodePort() {
-	option.Config.EnableNodePort = false
-	option.Config.EnableHostPort = false
-	option.Config.EnableExternalIPs = false
-	option.Config.EnableSVCSourceRangeCheck = false
-	option.Config.EnableHostLegacyRouting = true
+	option.Config.Volatile().EnableNodePort = false
+	option.Config.Volatile().EnableHostPort = false
+	option.Config.Volatile().EnableExternalIPs = false
+	option.Config.Volatile().EnableSVCSourceRangeCheck = false
+	option.Config.Volatile().EnableHostLegacyRouting = true
 }
 
 // markHostExtension tells the socket LB that MKE managed containers belong

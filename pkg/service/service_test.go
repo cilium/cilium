@@ -166,11 +166,11 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
 	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
 
-	m.prevOptionSessionAffinity = option.Config.EnableSessionAffinity
-	option.Config.EnableSessionAffinity = true
+	m.prevOptionSessionAffinity = option.Config.Volatile().EnableSessionAffinity
+	option.Config.Volatile().EnableSessionAffinity = true
 
-	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
-	option.Config.EnableSVCSourceRangeCheck = true
+	m.prevOptionLBSourceRanges = option.Config.Volatile().EnableSVCSourceRangeCheck
+	option.Config.Volatile().EnableSVCSourceRangeCheck = true
 
 	m.prevOptionNPAlgo = option.Config.NodePortAlg
 	m.prevOptionDPMode = option.Config.DatapathMode
@@ -204,8 +204,8 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 func (m *ManagerTestSuite) TearDownTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
-	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
-	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
+	option.Config.Volatile().EnableSessionAffinity = m.prevOptionSessionAffinity
+	option.Config.Volatile().EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
 	option.Config.NodePortAlg = m.prevOptionNPAlgo
 	option.Config.DatapathMode = m.prevOptionDPMode
 	option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
@@ -2080,7 +2080,7 @@ func (m *ManagerTestSuite) TestRestoreServicesWithLeakedBackends(c *C) {
 
 // Tests backend connections getting destroyed.
 func (m *ManagerTestSuite) TestUpsertServiceWithDeletedBackends(c *C) {
-	option.Config.EnableSocketLB = true
+	option.Config.Volatile().EnableSocketLB = true
 	backends := []*lb.Backend{
 		lb.NewBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),
 		lb.NewBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),

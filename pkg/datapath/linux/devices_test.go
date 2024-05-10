@@ -49,7 +49,7 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 	s.prevConfigDirectRoutingDevice = option.Config.DirectRoutingDevice
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6
-	s.prevConfigEnableNodePort = option.Config.EnableNodePort
+	s.prevConfigEnableNodePort = option.Config.Volatile().EnableNodePort
 	s.prevConfigNodePortAcceleration = option.Config.NodePortAcceleration
 	s.prevConfigRoutingMode = option.Config.RoutingMode
 	s.prevConfigEnableIPv6NDP = option.Config.EnableIPv6NDP
@@ -67,8 +67,8 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 	option.Config.DirectRoutingDevice = s.prevConfigDirectRoutingDevice
 	option.Config.EnableIPv4 = s.prevConfigEnableIPv4
 	option.Config.EnableIPv6 = s.prevConfigEnableIPv6
-	option.Config.EnableNodePort = s.prevConfigEnableNodePort
-	option.Config.EnableHostLegacyRouting = s.prevConfigEnableHostLegacyRouting
+	option.Config.Volatile().EnableNodePort = s.prevConfigEnableNodePort
+	option.Config.Volatile().EnableHostLegacyRouting = s.prevConfigEnableHostLegacyRouting
 	option.Config.NodePortAcceleration = s.prevConfigNodePortAcceleration
 	option.Config.RoutingMode = s.prevConfigRoutingMode
 	option.Config.EnableIPv6NDP = s.prevConfigEnableIPv6NDP
@@ -78,10 +78,10 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 func (s *DevicesSuite) TestDetect(c *C) {
 	s.withFixture(c, func() {
 		option.Config.DirectRoutingDevice = ""
-		option.Config.EnableNodePort = true
+		option.Config.Volatile().EnableNodePort = true
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
-		option.Config.EnableHostLegacyRouting = true
-		option.Config.EnableNodePort = false
+		option.Config.Volatile().EnableHostLegacyRouting = true
+		option.Config.Volatile().EnableNodePort = false
 
 		// 1. No devices, nothing to detect.
 		dm, err := newDeviceManagerForTests(c)
@@ -93,7 +93,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		dm.Stop(c)
 
 		// 2. Nodeport, detection is performed:
-		option.Config.EnableNodePort = true
+		option.Config.Volatile().EnableNodePort = true
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		nodeSetIP(net.ParseIP("192.168.0.1"))
 
@@ -107,7 +107,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		dm.Stop(c)
 
 		// Manually specified devices, no detection is performed
-		option.Config.EnableNodePort = true
+		option.Config.Volatile().EnableNodePort = true
 		nodeSetIP(net.ParseIP("192.168.0.1"))
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 
@@ -143,7 +143,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.RoutingMode = option.RoutingModeTunnel
-		option.Config.EnableNodePort = true
+		option.Config.Volatile().EnableNodePort = true
 		option.Config.NodePortAcceleration = option.NodePortAccelerationNative
 
 		dm, err = newDeviceManagerForTests(c)
@@ -232,7 +232,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 	s.withFixture(c, func() {
-		option.Config.EnableNodePort = true
+		option.Config.Volatile().EnableNodePort = true
 		option.Config.RoutingMode = option.RoutingModeNative
 
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)

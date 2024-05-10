@@ -246,7 +246,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	result["NODE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
 
 	if ep.IsHost() {
-		if option.Config.EnableNodePort {
+		if option.Config.Volatile().EnableNodePort {
 			result["NATIVE_DEV_IFINDEX"] = 0
 		}
 		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {

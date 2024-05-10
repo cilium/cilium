@@ -313,7 +313,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	}
 
 	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
-		!option.Config.EnableSocketLBTracing {
+		!option.Config.Volatile().EnableSocketLBTracing {
 		logger.Debug("Skip pod event using host networking")
 		return err
 	}
@@ -692,7 +692,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 }
 
 func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs []string) error {
-	if !option.Config.EnableHostPort {
+	if !option.Config.Volatile().EnableHostPort {
 		return nil
 	}
 
@@ -768,7 +768,7 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 }
 
 func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
-	if !option.Config.EnableHostPort {
+	if !option.Config.Volatile().EnableHostPort {
 		return nil
 	}
 

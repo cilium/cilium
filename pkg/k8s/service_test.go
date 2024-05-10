@@ -250,10 +250,10 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Type:                     loadbalancer.SVCTypeNodePort,
 	})
 
-	oldNodePort := option.Config.EnableNodePort
-	option.Config.EnableNodePort = true
+	oldNodePort := option.Config.Volatile().EnableNodePort
+	option.Config.Volatile().EnableNodePort = true
 	defer func() {
-		option.Config.EnableNodePort = oldNodePort
+		option.Config.Volatile().EnableNodePort = oldNodePort
 	}()
 	objMeta.Annotations = map[string]string{
 		corev1.DeprecatedAnnotationTopologyAwareHints: "auto",

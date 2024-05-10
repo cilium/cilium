@@ -47,7 +47,7 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 		}
 	}
 
-	if option.Config.DirectRoutingDeviceRequired() {
+	if option.Config.Volatile().DirectRoutingDeviceRequired() {
 		var filter deviceFilter
 		if option.Config.DirectRoutingDevice != "" {
 			filter = deviceFilter(strings.Split(option.Config.DirectRoutingDevice, ","))

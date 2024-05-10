@@ -106,7 +106,7 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 		"-DCALLS_MAP=cilium_calls_xdp",
 	}
 	args = append(args, extraCArgs...)
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		args = append(args, []string{
 			fmt.Sprintf("-DTHIS_MTU=%d", link.Attrs().MTU),
 			fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index),

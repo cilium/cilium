@@ -211,7 +211,7 @@ type L7LBResourceName struct {
 }
 
 func (svc *svcInfo) checkLBSourceRange() bool {
-	if option.Config.EnableSVCSourceRangeCheck {
+	if option.Config.Volatile().EnableSVCSourceRangeCheck {
 		return len(svc.loadBalancerSourceRanges) != 0
 	}
 
@@ -693,7 +693,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		getScopedLog().Debug("Upserting service")
 	}
 
-	if !option.Config.EnableSVCSourceRangeCheck &&
+	if !option.Config.Volatile().EnableSVCSourceRangeCheck &&
 		len(params.LoadBalancerSourceRanges) != 0 {
 		getScopedLog().Warnf("--%s is disabled, ignoring loadBalancerSourceRanges",
 			option.EnableSVCSourceRangeCheck)
@@ -1148,7 +1148,7 @@ func (s *Service) RestoreServices() error {
 	}
 
 	// Remove LB source ranges for no longer existing services
-	if option.Config.EnableSVCSourceRangeCheck {
+	if option.Config.Volatile().EnableSVCSourceRangeCheck {
 		errs = errors.Join(errs, s.restoreAndDeleteOrphanSourceRanges())
 	}
 	return errs
@@ -1286,7 +1286,7 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 	}
 
 	// Remove no longer existing affinity matches
-	if option.Config.EnableSessionAffinity {
+	if option.Config.Volatile().EnableSessionAffinity {
 		if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
 			return stale, err
 		}
@@ -1438,7 +1438,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	//
 	// If L7 LB is configured for this service then BPF level session affinity is not used so
 	// that the L7 proxy port may be passed in a shared union in the service entry.
-	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
+	if option.Config.Volatile().EnableSessionAffinity && !svc.isL7LBService() {
 		if prevSessionAffinity && !svc.sessionAffinity {
 			// Remove backends from the affinity match because the svc's sessionAffinity
 			// has been disabled
@@ -1547,7 +1547,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	}
 
 	// If L7 LB is configured for this service then BPF level session affinity is not used.
-	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
+	if option.Config.Volatile().EnableSessionAffinity && !svc.isL7LBService() {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
 	}
 
@@ -1561,7 +1561,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 		s.lbmap.DeleteBackendByID(id)
 		// With socket-lb, existing client applications can continue to connect to
 		// deleted backends. Destroy any client sockets connected to the backend.
-		if option.Config.EnableSocketLB || option.Config.BPFSocketLBHostnsOnly {
+		if option.Config.Volatile().EnableSocketLB || option.Config.BPFSocketLBHostnsOnly {
 			s.destroyConnectionsToBackend(be)
 		}
 	}
@@ -1801,7 +1801,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 
 	// Delete affinity matches
-	if option.Config.EnableSessionAffinity && svc.sessionAffinity {
+	if option.Config.Volatile().EnableSessionAffinity && svc.sessionAffinity {
 		backendIDs := make([]lb.BackendID, 0, len(svc.backends))
 		for _, b := range svc.backends {
 			backendIDs = append(backendIDs, b.ID)
@@ -1809,7 +1809,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
 	}
 
-	if option.Config.EnableSVCSourceRangeCheck &&
+	if option.Config.Volatile().EnableSVCSourceRangeCheck &&
 		svc.svcType == lb.SVCTypeLoadBalancer {
 		if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
 			svc.loadBalancerSourceRanges, nil, ipv6); err != nil {

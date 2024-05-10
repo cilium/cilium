@@ -1318,12 +1318,12 @@ func initEnv(vp *viper.Viper) {
 			option.Config.EnablePMTUDiscovery = true
 		}
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
-		option.Config.EnableSocketLB = true
+		option.Config.Volatile().EnableSocketLB = true
 		// Socket-LB tracing relies on metadata that's retrieved from Kubernetes.
-		option.Config.EnableSocketLBTracing = false
-		option.Config.EnableHostPort = false
-		option.Config.EnableNodePort = true
-		option.Config.EnableExternalIPs = true
+		option.Config.Volatile().EnableSocketLBTracing = false
+		option.Config.Volatile().EnableHostPort = false
+		option.Config.Volatile().EnableNodePort = true
+		option.Config.Volatile().EnableExternalIPs = true
 		option.Config.RoutingMode = option.RoutingModeNative
 		option.Config.EnableHealthChecking = false
 		option.Config.EnableIPv4Masquerade = false
@@ -1364,7 +1364,7 @@ func initEnv(vp *viper.Viper) {
 		// If devices are required, we don't look at the EncryptInterface, as we
 		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
 		// bpf_host onto physical devices as chosen by configuration.
-		!option.Config.AreDevicesRequired() &&
+		!option.Config.Volatile().AreDevicesRequired() &&
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {

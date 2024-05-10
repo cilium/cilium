@@ -63,7 +63,7 @@ func setup(tb testing.TB) {
 
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to remove memory limits")
 
-	option.Config.EnableHostLegacyRouting = true // Disable obtaining direct routing device.
+	option.Config.Volatile().EnableHostLegacyRouting = true // Disable obtaining direct routing device.
 	node.SetTestLocalNodeStore()
 	node.InitDefaultPrefix("")
 	node.SetInternalIPv4Router(ipv4DummyAddr.AsSlice())

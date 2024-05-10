@@ -181,7 +181,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
+		option.Config.Volatile().EnableSocketLB, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 
@@ -212,7 +212,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	ipv4Nat, ipv6Nat := nat.GlobalMaps(option.Config.EnableIPv4,
-		option.Config.EnableIPv6, option.Config.EnableNodePort)
+		option.Config.EnableIPv6, option.Config.Volatile().EnableNodePort)
 	if ipv4Nat != nil {
 		if err := ipv4Nat.Create(); err != nil {
 			return fmt.Errorf("initializing ipv4nat map: %w", err)
@@ -224,7 +224,7 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing neighbors map: %w", err)
@@ -256,7 +256,7 @@ func (d *Daemon) initMaps() error {
 		lxcmap.LXCMap().DeleteAll()
 	}
 
-	if option.Config.EnableSessionAffinity {
+	if option.Config.Volatile().EnableSessionAffinity {
 		if err := lbmap.AffinityMatchMap.OpenOrCreate(); err != nil {
 			return fmt.Errorf("initializing affinity match map: %w", err)
 		}
@@ -272,7 +272,7 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if option.Config.EnableSVCSourceRangeCheck {
+	if option.Config.Volatile().EnableSVCSourceRangeCheck {
 		if option.Config.EnableIPv4 {
 			if err := lbmap.SourceRange4Map.OpenOrCreate(); err != nil {
 				return fmt.Errorf("initializing source range v4 map: %w", err)

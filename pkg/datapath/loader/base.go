@@ -174,7 +174,7 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 	// the code below, specific to EncryptInterface. Specifically, we will load
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
-	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired() {
+	if !option.Config.EnableIPSec || option.Config.Volatile().AreDevicesRequired() {
 		return nil
 	}
 
@@ -261,7 +261,7 @@ func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 		fmt.Sprintf("-DNODE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 	}
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
 		opts = append(opts, fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index))
 	}
@@ -357,7 +357,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
 
-	if option.Config.EnableHealthDatapath || option.Config.EnableIPIPTermination {
+	if option.Config.Volatile().EnableHealthDatapath || option.Config.EnableIPIPTermination {
 		sysSettings = append(
 			sysSettings,
 			tables.Sysctl{
@@ -420,7 +420,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
 
-	if option.Config.EnableSocketLB {
+	if option.Config.Volatile().EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
 		if err := compileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
 			log.WithError(err).Fatal("failed to compile bpf_sock.c")

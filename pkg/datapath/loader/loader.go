@@ -273,13 +273,13 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 		return err
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
+	if !option.Config.Volatile().EnableHostLegacyRouting {
 		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheEnabled)
 	} else {
 		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	}
 
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 	}
 	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
@@ -491,7 +491,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			{progName: symbolFromHostNetdevEp, direction: dirIngress},
 		}
 
-		if option.Config.AreDevicesRequired() &&
+		if option.Config.Volatile().AreDevicesRequired() &&
 			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
 			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
 			// the rev-NAT xlations.
@@ -551,7 +551,7 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
 		devices := tables.DeviceNames(nativeDevices)
 
-		if option.Config.NeedBPFHostOnWireGuardDevice() {
+		if option.Config.Volatile().NeedBPFHostOnWireGuardDevice() {
 			devices = append(devices, wgTypes.IfaceName)
 		}
 

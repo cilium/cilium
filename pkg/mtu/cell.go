@@ -57,7 +57,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams) MTU {
 				option.Config.EnableIPSec,
 				p.TunnelConfig.ShouldAdaptMTU(),
 				option.Config.EnableWireguard,
-				option.Config.EnableHighScaleIPcache && option.Config.EnableNodePort,
+				option.Config.EnableHighScaleIPcache && option.Config.Volatile().EnableNodePort,
 				configuredMTU,
 				externalIP,
 			)

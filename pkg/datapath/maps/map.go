@@ -78,7 +78,7 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 }
 
 func (ms *MapSweeper) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := ms.HasGlobalCT() || option.Config.EnableNodePort ||
+	globalCTinUse := ms.HasGlobalCT() || option.Config.Volatile().EnableNodePort ||
 		!option.Config.InstallIptRules && option.Config.MasqueradingEnabled()
 
 	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
@@ -174,7 +174,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	if !option.Config.EnableNodePort {
+	if !option.Config.Volatile().EnableNodePort {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 
@@ -191,7 +191,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, "cilium_throttle")
 	}
 
-	if !option.Config.EnableHealthDatapath {
+	if !option.Config.Volatile().EnableHealthDatapath {
 		maps = append(maps, lbmap.HealthProbe6MapName, lbmap.HealthProbe4MapName)
 	}
 
@@ -199,11 +199,11 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
 	}
 
-	if !option.Config.EnableSessionAffinity {
+	if !option.Config.Volatile().EnableSessionAffinity {
 		maps = append(maps, lbmap.Affinity6MapName, lbmap.Affinity4MapName, lbmap.AffinityMatchMapName)
 	}
 
-	if !option.Config.EnableSVCSourceRangeCheck {
+	if !option.Config.Volatile().EnableSVCSourceRangeCheck {
 		maps = append(maps, lbmap.SourceRange6MapName, lbmap.SourceRange4MapName)
 	}
 

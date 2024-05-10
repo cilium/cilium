@@ -45,17 +45,17 @@ type kprConfig struct {
 
 func (cfg *kprConfig) set() {
 	option.Config.KubeProxyReplacement = cfg.kubeProxyReplacement
-	option.Config.EnableSocketLB = cfg.enableSocketLB
-	option.Config.EnableNodePort = cfg.enableNodePort
-	option.Config.EnableHostPort = cfg.enableHostPort
-	option.Config.EnableExternalIPs = cfg.enableExternalIPs
-	option.Config.EnableSessionAffinity = cfg.enableSessionAffinity
+	option.Config.Volatile().EnableSocketLB = cfg.enableSocketLB
+	option.Config.Volatile().EnableNodePort = cfg.enableNodePort
+	option.Config.Volatile().EnableHostPort = cfg.enableHostPort
+	option.Config.Volatile().EnableExternalIPs = cfg.enableExternalIPs
+	option.Config.Volatile().EnableSessionAffinity = cfg.enableSessionAffinity
 	option.Config.EnableIPSec = cfg.enableIPSec
-	option.Config.EnableHostLegacyRouting = cfg.enableHostLegacyRouting
+	option.Config.Volatile().EnableHostLegacyRouting = cfg.enableHostLegacyRouting
 	option.Config.InstallNoConntrackIptRules = cfg.installNoConntrackIptRules
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
-	option.Config.EnableSocketLBTracing = true
+	option.Config.Volatile().EnableSocketLBTracing = true
 	option.Config.RoutingMode = cfg.routingMode
 	option.Config.LoadBalancerDSRDispatch = cfg.dispatchMode
 
@@ -73,17 +73,17 @@ func (cfg *kprConfig) verify(c *C, tc tunnel.Config) {
 		}
 	}
 
-	c.Assert(option.Config.EnableSocketLB, Equals, cfg.enableSocketLB)
-	c.Assert(option.Config.EnableNodePort, Equals, cfg.enableNodePort)
-	c.Assert(option.Config.EnableHostPort, Equals, cfg.enableHostPort)
-	c.Assert(option.Config.EnableExternalIPs, Equals, cfg.enableExternalIPs)
-	c.Assert(option.Config.EnableSessionAffinity, Equals, cfg.enableSessionAffinity)
+	c.Assert(option.Config.Volatile().EnableSocketLB, Equals, cfg.enableSocketLB)
+	c.Assert(option.Config.Volatile().EnableNodePort, Equals, cfg.enableNodePort)
+	c.Assert(option.Config.Volatile().EnableHostPort, Equals, cfg.enableHostPort)
+	c.Assert(option.Config.Volatile().EnableExternalIPs, Equals, cfg.enableExternalIPs)
+	c.Assert(option.Config.Volatile().EnableSessionAffinity, Equals, cfg.enableSessionAffinity)
 	c.Assert(option.Config.EnableIPSec, Equals, cfg.enableIPSec)
-	c.Assert(option.Config.EnableHostLegacyRouting, Equals, cfg.enableHostLegacyRouting)
+	c.Assert(option.Config.Volatile().EnableHostLegacyRouting, Equals, cfg.enableHostLegacyRouting)
 	c.Assert(option.Config.InstallNoConntrackIptRules, Equals, cfg.installNoConntrackIptRules)
 	c.Assert(option.Config.EnableBPFMasquerade, Equals, cfg.enableBPFMasquerade)
 	c.Assert(option.Config.EnableIPv4Masquerade, Equals, cfg.enableIPv4Masquerade)
-	c.Assert(option.Config.EnableSocketLBTracing, Equals, cfg.enableSocketLBTracing)
+	c.Assert(option.Config.Volatile().EnableSocketLBTracing, Equals, cfg.enableSocketLBTracing)
 }
 
 func (s *KPRSuite) SetUpTest(c *C) {

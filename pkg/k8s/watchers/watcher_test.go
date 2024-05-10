@@ -565,10 +565,10 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 }
 
 func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
-	enableNodePortBak := option.Config.EnableNodePort
-	option.Config.EnableNodePort = true
+	enableNodePortBak := option.Config.Volatile().EnableNodePort
+	option.Config.Volatile().EnableNodePort = true
 	defer func() {
-		option.Config.EnableNodePort = enableNodePortBak
+		option.Config.Volatile().EnableNodePort = enableNodePortBak
 	}()
 
 	k8sSvc := &slim_corev1.Service{
@@ -1059,10 +1059,10 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 	// cilium should:
 	// 1) delete the non existing services from the datapath.
 
-	enableNodePortBak := option.Config.EnableNodePort
-	option.Config.EnableNodePort = true
+	enableNodePortBak := option.Config.Volatile().EnableNodePort
+	option.Config.Volatile().EnableNodePort = true
 	defer func() {
-		option.Config.EnableNodePort = enableNodePortBak
+		option.Config.Volatile().EnableNodePort = enableNodePortBak
 	}()
 
 	k8sSvc1stApply := &slim_corev1.Service{
@@ -1369,10 +1369,10 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 	// 1) delete the non existing endpoints from the datapath, i.e., updating
 	//    services without any backend.
 
-	enableNodePortBak := option.Config.EnableNodePort
-	option.Config.EnableNodePort = true
+	enableNodePortBak := option.Config.Volatile().EnableNodePort
+	option.Config.Volatile().EnableNodePort = true
 	defer func() {
-		option.Config.EnableNodePort = enableNodePortBak
+		option.Config.Volatile().EnableNodePort = enableNodePortBak
 	}()
 
 	k8sSvc1stApply := &slim_corev1.Service{
@@ -1671,10 +1671,10 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 }
 
 func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
-	enableNodePortBak := option.Config.EnableNodePort
-	option.Config.EnableNodePort = true
+	enableNodePortBak := option.Config.Volatile().EnableNodePort
+	option.Config.Volatile().EnableNodePort = true
 	defer func() {
-		option.Config.EnableNodePort = enableNodePortBak
+		option.Config.Volatile().EnableNodePort = enableNodePortBak
 	}()
 
 	svc1stApply := &slim_corev1.Service{

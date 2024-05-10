@@ -261,7 +261,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat4MapEntries)
 	cDefinesMap["LB4_SKIP_MAP"] = lbmap.SkipLB4MapName
 
-	if option.Config.EnableSessionAffinity {
+	if option.Config.Volatile().EnableSessionAffinity {
 		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
 		cDefinesMap["LB_AFFINITY_MATCH_MAP"] = lbmap.AffinityMatchMapName
 		if option.Config.EnableIPv4 {
@@ -365,16 +365,16 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_L7_LB"] = "1"
 	}
 
-	if option.Config.EnableSocketLB {
+	if option.Config.Volatile().EnableSocketLB {
 		if option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
 		} else {
 			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
-		if option.Config.EnableSocketLBPeer {
+		if option.Config.Volatile().EnableSocketLBPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
-		if option.Config.EnableSocketLBTracing {
+		if option.Config.Volatile().EnableSocketLBTracing {
 			cDefinesMap["TRACE_SOCK_NOTIFY"] = "1"
 		}
 
@@ -401,11 +401,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NAT_46X64_PREFIX_2"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_3"] = "0"
 
-	if option.Config.EnableNodePort {
-		if option.Config.EnableHealthDatapath {
+	if option.Config.Volatile().EnableNodePort {
+		if option.Config.Volatile().EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
-		if option.Config.EnableMKE && option.Config.EnableSocketLB {
+		if option.Config.EnableMKE && option.Config.Volatile().EnableSocketLB {
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
@@ -424,14 +424,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv4 {
 			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
 			cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
-			if option.Config.EnableHealthDatapath {
+			if option.Config.Volatile().EnableHealthDatapath {
 				cDefinesMap["LB4_HEALTH_MAP"] = lbmap.HealthProbe4MapName
 			}
 		}
 		if option.Config.EnableIPv6 {
 			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
 			cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
-			if option.Config.EnableHealthDatapath {
+			if option.Config.Volatile().EnableHealthDatapath {
 				cDefinesMap["LB6_HEALTH_MAP"] = lbmap.HealthProbe6MapName
 			}
 		}
@@ -491,9 +491,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateInv)
 		}
 		if option.Config.EnableIPv4 {
-			if option.Config.LoadBalancerRSSv4CIDR != "" {
-				ipv4 := byteorder.NetIPv4ToHost32(option.Config.LoadBalancerRSSv4.IP)
-				ones, _ := option.Config.LoadBalancerRSSv4.Mask.Size()
+			if option.Config.Volatile().LoadBalancerRSSv4CIDR != "" {
+				ipv4 := byteorder.NetIPv4ToHost32(option.Config.Volatile().LoadBalancerRSSv4.IP)
+				ones, _ := option.Config.Volatile().LoadBalancerRSSv4.Mask.Size()
 				cDefinesMap["IPV4_RSS_PREFIX"] = fmt.Sprintf("%d", ipv4)
 				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
 			} else {
@@ -502,9 +502,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 		}
 		if option.Config.EnableIPv6 {
-			if option.Config.LoadBalancerRSSv6CIDR != "" {
-				ipv6 := option.Config.LoadBalancerRSSv6.IP
-				ones, _ := option.Config.LoadBalancerRSSv6.Mask.Size()
+			if option.Config.Volatile().LoadBalancerRSSv6CIDR != "" {
+				ipv6 := option.Config.Volatile().LoadBalancerRSSv6.IP
+				ones, _ := option.Config.Volatile().LoadBalancerRSSv6.Mask.Size()
 				extraMacrosMap["IPV6_RSS_PREFIX"] = ipv6.String()
 				fw.WriteString(FmtDefineAddress("IPV6_RSS_PREFIX", ipv6))
 				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
@@ -516,10 +516,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
-		if !option.Config.EnableHostLegacyRouting {
+		if !option.Config.Volatile().EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
-		if option.Config.EnableSVCSourceRangeCheck {
+		if option.Config.Volatile().EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
 			if option.Config.EnableIPv4 {
 				cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName
@@ -567,7 +567,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 
-	if option.Config.DirectRoutingDeviceRequired() {
+	if option.Config.Volatile().DirectRoutingDeviceRequired() {
 		if option.Config.EnableIPv4 {
 			ifindex, ip, ok := h.nodeAddressing.IPv4().DirectRouting()
 			if !ok {
@@ -612,7 +612,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 	}
 
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
 			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
@@ -755,7 +755,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableHealthDatapath {
+	if option.Config.Volatile().EnableHealthDatapath {
 		if option.Config.IPv4Enabled() {
 			ipip4, err := netlink.LinkByName(defaults.IPIPv4Device)
 			if err != nil {
@@ -962,7 +962,7 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 // specified writer. This must be kept in sync with loader.ELFSubstitutions().
 func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e datapath.EndpointConfiguration) {
 	if e.IsHost() {
-		if option.Config.EnableNodePort {
+		if option.Config.Volatile().EnableNodePort {
 			// Values defined here are for the host datapath attached to the
 			// host device and therefore won't be used. We however need to set
 			// non-zero values to prevent the compiler from optimizing them
@@ -1054,7 +1054,7 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e datapath.EndpointC
 	}
 
 	// Add cilium_wg0 if necessary.
-	if option.Config.NeedBPFHostOnWireGuardDevice() {
+	if option.Config.Volatile().NeedBPFHostOnWireGuardDevice() {
 		deviceNames = append(deviceNames, wgtypes.IfaceName)
 	}
 
@@ -1073,7 +1073,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []*tabl
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
+	if !option.Config.Volatile().EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
 		directRoutingIface := option.Config.DirectRoutingDevice
 		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
 		if err != nil {
@@ -1090,7 +1090,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []*tabl
 	if e.IsHost() {
 		// Only used to differentiate between host endpoint template and other templates.
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
-		if option.Config.EnableNodePort {
+		if option.Config.Volatile().EnableNodePort {
 			fmt.Fprintf(fw, "#define DISABLE_LOOPBACK_LB 1\n")
 		}
 	}

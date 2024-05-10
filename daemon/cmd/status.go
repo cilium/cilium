@@ -196,7 +196,7 @@ func (d *Daemon) getRoutingStatus() *models.Routing {
 		InterHostRoutingMode: models.RoutingInterHostRoutingModeTunnel,
 		TunnelProtocol:       d.tunnelConfig.Protocol().String(),
 	}
-	if option.Config.EnableHostLegacyRouting {
+	if option.Config.Volatile().EnableHostLegacyRouting {
 		s.IntraHostRoutingMode = models.RoutingIntraHostRoutingModeLegacy
 	}
 	if option.Config.RoutingMode == option.RoutingModeNative {
@@ -264,7 +264,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
 		BpfSocketLBHostnsOnly: option.Config.BPFSocketLBHostnsOnly,
 	}
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(option.Config.NodePortMode)
 		switch option.Config.LoadBalancerDSRDispatch {
@@ -291,17 +291,17 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		features.NodePort.PortMin = int64(option.Config.NodePortMin)
 		features.NodePort.PortMax = int64(option.Config.NodePortMax)
 	}
-	if option.Config.EnableHostPort {
+	if option.Config.Volatile().EnableHostPort {
 		features.HostPort.Enabled = true
 	}
-	if option.Config.EnableExternalIPs {
+	if option.Config.Volatile().EnableExternalIPs {
 		features.ExternalIPs.Enabled = true
 	}
-	if option.Config.EnableSocketLB {
+	if option.Config.Volatile().EnableSocketLB {
 		features.SocketLB.Enabled = true
 		features.SocketLBTracing.Enabled = true
 	}
-	if option.Config.EnableSessionAffinity {
+	if option.Config.Volatile().EnableSessionAffinity {
 		features.SessionAffinity.Enabled = true
 	}
 	if option.Config.EnableK8sTerminatingEndpoint {

@@ -111,15 +111,15 @@ func Enable(sysctl sysctl.Sysctl) (err error) {
 		enabled[SendMsg4] = true
 		enabled[RecvMsg4] = true
 
-		if option.Config.EnableSocketLBPeer {
+		if option.Config.Volatile().EnableSocketLBPeer {
 			enabled[GetPeerName4] = true
 		}
 
-		if option.Config.EnableNodePort && option.Config.NodePortBindProtection {
+		if option.Config.Volatile().EnableNodePort && option.Config.NodePortBindProtection {
 			enabled[PostBind4] = true
 		}
 
-		if option.Config.EnableHealthDatapath {
+		if option.Config.Volatile().EnableHealthDatapath {
 			enabled[PreBind4] = true
 		}
 	}
@@ -133,15 +133,15 @@ func Enable(sysctl sysctl.Sysctl) (err error) {
 		enabled[SendMsg6] = true
 		enabled[RecvMsg6] = true
 
-		if option.Config.EnableSocketLBPeer {
+		if option.Config.Volatile().EnableSocketLBPeer {
 			enabled[GetPeerName6] = true
 		}
 
-		if option.Config.EnableNodePort && option.Config.NodePortBindProtection {
+		if option.Config.Volatile().EnableNodePort && option.Config.NodePortBindProtection {
 			enabled[PostBind6] = true
 		}
 
-		if option.Config.EnableHealthDatapath {
+		if option.Config.Volatile().EnableHealthDatapath {
 			enabled[PreBind6] = true
 		}
 	}

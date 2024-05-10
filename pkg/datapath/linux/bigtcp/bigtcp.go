@@ -224,7 +224,7 @@ func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig) error {
 		if daemonCfg.EncryptionEnabled() {
 			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
-		if daemonCfg.EnableHostLegacyRouting {
+		if daemonCfg.Volatile().EnableHostLegacyRouting {
 			return errors.New("BIG TCP is not supported with legacy host routing")
 		}
 	}

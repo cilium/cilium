@@ -132,10 +132,10 @@ func (v *SourceRangeValue) New() bpf.MapValue { return &SourceRangeValue{} }
 
 var (
 	// SourceRange4Map is the BPF map for storing IPv4 service source ranges to
-	// check if option.Config.EnableSVCSourceRangeCheck is enabled.
+	// check if option.Config.Volatile().EnableSVCSourceRangeCheck is enabled.
 	SourceRange4Map *bpf.Map
 	// SourceRange6Map is the BPF map for storing IPv6 service source ranges to
-	// check if option.Config.EnableSVCSourceRangeCheck is enabled.
+	// check if option.Config.Volatile().EnableSVCSourceRangeCheck is enabled.
 	SourceRange6Map *bpf.Map
 )
 

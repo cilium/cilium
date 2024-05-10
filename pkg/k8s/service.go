@@ -127,7 +127,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 		return ServiceID{}, nil
 	}
 
-	if svc.Spec.ClusterIP == "" && (!option.Config.EnableNodePort || len(svc.Spec.ExternalIPs) == 0) {
+	if svc.Spec.ClusterIP == "" && (!option.Config.Volatile().EnableNodePort || len(svc.Spec.ExternalIPs) == 0) {
 		return ServiceID{}, nil
 	}
 
@@ -209,7 +209,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 		// surrogate frontends per IP protocol - one with a zero IP addr and
 		// one per each public iface IP addr.
 		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
-			if option.Config.EnableNodePort && nodeAddressing != nil {
+			if option.Config.Volatile().EnableNodePort && nodeAddressing != nil {
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
@@ -495,7 +495,7 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 	// By omitting these IPs in the returned Service object, they
 	// are no longer considered in equality checks and thus save
 	// CPU cycles processing events Cilium will not act upon.
-	if option.Config.EnableNodePort {
+	if option.Config.Volatile().EnableNodePort {
 		k8sExternalIPs = parseIPs(externalIPs)
 		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
 	} else if option.Config.BGPAnnounceLBIP {

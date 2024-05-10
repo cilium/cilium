@@ -55,7 +55,7 @@ func registerDeviceReloader(lc cell.Lifecycle, p deviceReloaderParams) {
 
 // Start listening to changed devices if requested.
 func (d *deviceReloader) Start(ctx cell.HookContext) error {
-	if !d.params.Config.AreDevicesRequired() {
+	if !d.params.Config.Volatile().AreDevicesRequired() {
 		log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
 		return nil
 	}

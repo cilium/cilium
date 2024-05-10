@@ -1356,6 +1356,56 @@ func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 	}
 }
 
+type volatileDaemonConfig struct {
+	EnableSocketLB        bool
+	EnableSocketLBTracing bool
+	EnableSocketLBPeer    bool
+
+	// EnableNodePort enables k8s NodePort service implementation in BPF
+	EnableNodePort bool
+
+	// EnableSVCSourceRangeCheck enables check of loadBalancerSourceRanges
+	// unsafe
+	EnableSVCSourceRangeCheck bool
+
+	// EnableHealthDatapath enables IPIP health probes data path
+	// unsafe
+	EnableHealthDatapath bool
+
+	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
+	// unsafe
+	EnableHostPort bool
+
+	// EnableHostLegacyRouting enables the old routing path via stack.
+	// unsafe
+	EnableHostLegacyRouting bool
+
+	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
+	LoadBalancerRSSv4CIDR string
+	LoadBalancerRSSv4     net.IPNet
+
+	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
+	LoadBalancerRSSv6CIDR string
+	LoadBalancerRSSv6     net.IPNet
+
+	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
+	// unsafe
+	EnableExternalIPs bool
+
+	// EnableSessionAffinity enables a support for service sessionAffinity
+	// unsafe
+	EnableSessionAffinity bool
+
+	base *DaemonConfig
+}
+
+// Volatile provides access to reference to volatile portions of DaemonConfig.
+// This means portions of DaemonConfig that are potentially mutated at runtime
+// and must be accessed following a resolution to promise.Promise[*DaemonConfig].
+func (cfg *DaemonConfig) Volatile() *volatileDaemonConfig {
+	return &cfg.volatile
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	CreationTime        time.Time
@@ -1637,9 +1687,6 @@ type DaemonConfig struct {
 	ConfigDir                     string
 	Debug                         bool
 	DebugVerbose                  []string
-	EnableSocketLB                bool
-	EnableSocketLBTracing         bool
-	EnableSocketLBPeer            bool
 	EnablePolicy                  string
 	EnableTracing                 bool
 	EnableIPIPTermination         bool
@@ -1851,20 +1898,7 @@ type DaemonConfig struct {
 	// Specifies wheather to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
-	// EnableNodePort enables k8s NodePort service implementation in BPF
-	EnableNodePort bool
-
-	// EnableSVCSourceRangeCheck enables check of loadBalancerSourceRanges
-	EnableSVCSourceRangeCheck bool
-
-	// EnableHealthDatapath enables IPIP health probes data path
-	EnableHealthDatapath bool
-
-	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
-	EnableHostPort bool
-
-	// EnableHostLegacyRouting enables the old routing path via stack.
-	EnableHostLegacyRouting bool
+	volatile volatileDaemonConfig
 
 	// NodePortNat46X64 indicates whether NAT46 / NAT64 can be used.
 	NodePortNat46X64 bool
@@ -1885,14 +1919,6 @@ type DaemonConfig struct {
 	// under IPIP dispatch, that is, whether the inner packet will be
 	// translated to the frontend or backend port.
 	LoadBalancerDSRL4Xlate string
-
-	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
-	LoadBalancerRSSv4CIDR string
-	LoadBalancerRSSv4     net.IPNet
-
-	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
-	LoadBalancerRSSv6CIDR string
-	LoadBalancerRSSv6     net.IPNet
 
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
@@ -1936,9 +1962,6 @@ type DaemonConfig struct {
 	// KubeProxyReplacementHealthzBindAddr is the KubeProxyReplacement healthz server bind addr
 	KubeProxyReplacementHealthzBindAddr string
 
-	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
-	EnableExternalIPs bool
-
 	// EnableHostFirewall enables network policies for the host
 	EnableHostFirewall bool
 
@@ -1950,9 +1973,6 @@ type DaemonConfig struct {
 
 	// NodePortMax is the maximum port address for the NodePort range
 	NodePortMax int
-
-	// EnableSessionAffinity enables a support for service sessionAffinity
-	EnableSessionAffinity bool
 
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
@@ -2361,7 +2381,9 @@ type DaemonConfig struct {
 	NodeLabels []string
 }
 
-var (
+var Config *DaemonConfig
+
+func init() {
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
 		CreationTime:                    time.Now(),
@@ -2413,7 +2435,13 @@ var (
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 	}
-)
+
+	// Used for derived config functions to reference both volatile and non-volatile
+	// config.
+	// This singleton will exist for the lifetime of the agent daemon, so it's ok
+	// to have a circular ref.
+	Config.volatile.base = Config
+}
 
 // GetIPv4NativeRoutingCIDR returns the native routing CIDR if configured
 func (c *DaemonConfig) GetIPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
@@ -2500,9 +2528,9 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
-func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
-		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired
+func (c *volatileDaemonConfig) AreDevicesRequired() bool {
+	return c.EnableNodePort || c.base.EnableHostFirewall || c.base.EnableWireguard ||
+		c.base.EnableHighScaleIPcache || c.base.EnableL2Announcements || c.base.ForceDeviceRequired
 }
 
 // When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
@@ -2511,8 +2539,8 @@ func (c *DaemonConfig) AreDevicesRequired() bool {
 // from the remote node, we need to attach bpf_host to the Cilium's WG
 // netdev (otherwise, the WG netdev after decrypting the reply will pass
 // it to the stack which drops the packet).
-func (c *DaemonConfig) NeedBPFHostOnWireGuardDevice() bool {
-	return c.EnableNodePort && c.EnableWireguard && c.EncryptNode
+func (c *volatileDaemonConfig) NeedBPFHostOnWireGuardDevice() bool {
+	return c.EnableNodePort && c.base.EnableWireguard && c.base.EncryptNode
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
@@ -2656,13 +2684,13 @@ func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
 // the current configuration.
-func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
+func (c *volatileDaemonConfig) DirectRoutingDeviceRequired() bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
 
 	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
-	if c.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
+	if c.EnableNodePort && c.base.NodePortAcceleration != NodePortAccelerationDisabled {
 		return true
 	}
 
@@ -2934,8 +2962,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.EgressMasqueradeInterfaces = strings.Join(c.MasqueradeInterfaces, ",")
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
-	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
-	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
+	c.volatile.EnableSocketLB = vp.GetBool(EnableSocketLB)
+	c.volatile.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
@@ -2946,21 +2974,21 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableHealthCheckLoadBalancerIP = vp.GetBool(EnableHealthCheckLoadBalancerIP)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
-	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
+	c.volatile.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
 	c.EnableTracing = vp.GetBool(EnableTracing)
 	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
 	c.EnableUnreachableRoutes = vp.GetBool(EnableUnreachableRoutes)
-	c.EnableNodePort = vp.GetBool(EnableNodePort)
-	c.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)
-	c.EnableHostPort = vp.GetBool(EnableHostPort)
-	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
+	c.volatile.EnableNodePort = vp.GetBool(EnableNodePort)
+	c.volatile.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)
+	c.volatile.EnableHostPort = vp.GetBool(EnableHostPort)
+	c.volatile.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.MaglevTableSize = vp.GetInt(MaglevTableSize)
 	c.MaglevHashSeed = vp.GetString(MaglevHashSeed)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
-	c.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
+	c.volatile.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
 	c.EnableRecorder = vp.GetBool(EnableRecorder)
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
@@ -3040,8 +3068,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.CRDWaitTimeout = vp.GetDuration(CRDWaitTimeout)
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerDSRL4Xlate = vp.GetString(LoadBalancerDSRL4Xlate)
-	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
-	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
+	c.volatile.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
+	c.volatile.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
@@ -3878,7 +3906,7 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 
 // KubeProxyReplacementFullyEnabled returns true if Cilium is _effectively_
 // running in full KPR mode.
-func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
+func (c *volatileDaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 	return c.EnableHostPort &&
 		c.EnableNodePort &&
 		c.EnableExternalIPs &&

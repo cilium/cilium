@@ -369,7 +369,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
+	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.Volatile().EnableNodePort)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 
 	lbmapInitParams := lbmap.InitParams{
@@ -719,12 +719,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// The kube-proxy replacement and host-fw devices detection should happen after
 	// establishing a connection to kube-apiserver, but before starting a k8s watcher.
 	// This is because the device detection requires self (Cilium)Node object,
-	// and the k8s service watcher depends on option.Config.EnableNodePort flag
+	// and the k8s service watcher depends on option.Config.Volatile().EnableNodePort flag
 	// which can be modified after the device detection.
 	var devices []string
 	if d.deviceManager != nil {
 		if devices, err = d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
-			if option.Config.AreDevicesRequired() {
+			if option.Config.Volatile().AreDevicesRequired() {
 				// Fail hard if devices are required to function.
 				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 			}
@@ -746,13 +746,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 		var err error
 		switch {
-		case !option.Config.EnableNodePort:
+		case !option.Config.Volatile().EnableNodePort:
 			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
 				option.EnableNodePort)
 		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)
-		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
+		case option.Config.TunnelingEnabled() && !option.Config.Volatile().EnableSocketLB:
 			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
 				option.EnableSocketLB)
 		}
