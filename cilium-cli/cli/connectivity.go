@@ -38,6 +38,7 @@ func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 
 var params = check.Parameters{
 	ExternalDeploymentPort: 8080,
+	EchoServerHostPort:     4000,
 	Writer:                 os.Stdout,
 	SysdumpOptions: sysdump.Options{
 		LargeSysdumpAbortTimeout: sysdump.DefaultLargeSysdumpAbortTimeout,
@@ -234,6 +235,7 @@ func newConnectivityTests(params check.Parameters) ([]*check.ConnectivityTest, e
 		params := params
 		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
 		params.ExternalDeploymentPort += i
+		params.EchoServerHostPort += i
 		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion)
 		if err != nil {
 			return nil, err
