@@ -5,6 +5,7 @@ package srv6map
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive"
@@ -62,6 +63,32 @@ func TestSIDMapsHive(t *testing.T) {
 
 	// Test map creation
 	require.FileExists(t, bpf.MapPath(sidMapName))
+
+	// Test map iteration
+	k := &SIDKey{
+		SID: netip.MustParseAddr("fd00::1").As16(),
+	}
+
+	v := &SIDValue{
+		VRFID: 1,
+	}
+
+	m, err := OpenSIDMap()
+	require.NoError(t, err)
+
+	require.NoError(t, m.Map.Update(k, v))
+
+	var (
+		keys []*SIDKey
+		vals []*SIDValue
+	)
+	require.NoError(t, m.IterateWithCallback(func(k *SIDKey, v *SIDValue) {
+		keys = append(keys, k)
+		vals = append(vals, v)
+	}))
+
+	require.Contains(t, keys, k)
+	require.Contains(t, vals, v)
 
 	require.NoError(t, hive.Stop(logger, context.TODO()))
 
