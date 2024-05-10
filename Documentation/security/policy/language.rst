@@ -361,6 +361,10 @@ all
     The all entity represents the combination of all known clusters as well
     world and whitelists all communication.
 
+.. note:: The ``kube-apiserver`` entity is unavailable in some Kubernetes 
+   distributions, such as Azure AKS and GCP GKE for ingress traffic. You could still use ``cluster`` which
+   is broader.
+
 Access to/from kube-apiserver
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
