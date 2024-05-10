@@ -13,6 +13,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -200,6 +201,7 @@ func TestControllerSanity(t *testing.T) {
 				BGPMgr:             rtmgr,
 				LocalCiliumNode:    node,
 				BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig](),
+				ConfigMode:         mode.NewConfigMode(),
 			}
 
 			err := c.Reconcile(context.Background())
@@ -265,6 +267,7 @@ func TestDeselection(t *testing.T) {
 		BGPMgr:             rtmgr,
 		LocalCiliumNode:    node,
 		BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig](),
+		ConfigMode:         mode.NewConfigMode(),
 	}
 
 	// First, reconcile with the policy selected
@@ -556,15 +559,15 @@ func TestPolicySelection(t *testing.T) {
 func TestBGPModeSelection(t *testing.T) {
 	var table = []struct {
 		name          string
-		initialMode   agent.ConfigMode
+		initialMode   mode.Mode
 		ciliumNode    *v2api.CiliumNode
 		policy        *v2alpha1api.CiliumBGPPeeringPolicy
 		bgpNodeConfig *v2alpha1api.CiliumBGPNodeConfig
-		expectedMode  agent.ConfigMode
+		expectedMode  mode.Mode
 	}{
 		{
 			name:        "Disabled to BGPv1",
-			initialMode: agent.Disabled,
+			initialMode: mode.Disabled,
 			ciliumNode: &v2api.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
@@ -583,11 +586,11 @@ func TestBGPModeSelection(t *testing.T) {
 				},
 			},
 			bgpNodeConfig: nil,
-			expectedMode:  agent.BGPv1,
+			expectedMode:  mode.BGPv1,
 		},
 		{
 			name:        "Disabled to BGPv2",
-			initialMode: agent.Disabled,
+			initialMode: mode.Disabled,
 			ciliumNode: &v2api.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
@@ -602,11 +605,11 @@ func TestBGPModeSelection(t *testing.T) {
 					Name: "Test Node",
 				},
 			},
-			expectedMode: agent.BGPv2,
+			expectedMode: mode.BGPv2,
 		},
 		{
 			name:        "BGPv1 to BGPv2",
-			initialMode: agent.BGPv1,
+			initialMode: mode.BGPv1,
 			ciliumNode: &v2api.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
@@ -621,11 +624,11 @@ func TestBGPModeSelection(t *testing.T) {
 					Name: "Test Node",
 				},
 			},
-			expectedMode: agent.BGPv2,
+			expectedMode: mode.BGPv2,
 		},
 		{
 			name:        "BGPv2 to BGPv1, BGPNodeConfig present",
-			initialMode: agent.BGPv2,
+			initialMode: mode.BGPv2,
 			ciliumNode: &v2api.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
@@ -648,11 +651,11 @@ func TestBGPModeSelection(t *testing.T) {
 					Name: "Test Node",
 				},
 			},
-			expectedMode: agent.BGPv1,
+			expectedMode: mode.BGPv1,
 		},
 		{
 			name:        "BGPv2 to BGPv1, BGPNodeConfig removed",
-			initialMode: agent.BGPv2,
+			initialMode: mode.BGPv2,
 			ciliumNode: &v2api.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
@@ -671,11 +674,11 @@ func TestBGPModeSelection(t *testing.T) {
 				},
 			},
 			bgpNodeConfig: nil,
-			expectedMode:  agent.BGPv1,
+			expectedMode:  mode.BGPv1,
 		},
 		{
 			name:        "BGPv1 to disabled",
-			initialMode: agent.BGPv1,
+			initialMode: mode.BGPv1,
 			ciliumNode: &v2api.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
@@ -686,11 +689,11 @@ func TestBGPModeSelection(t *testing.T) {
 			},
 			policy:        nil,
 			bgpNodeConfig: nil,
-			expectedMode:  agent.Disabled,
+			expectedMode:  mode.Disabled,
 		},
 		{
 			name:        "BGPv2 to disabled",
-			initialMode: agent.BGPv2,
+			initialMode: mode.BGPv2,
 			ciliumNode: &v2api.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
@@ -701,7 +704,7 @@ func TestBGPModeSelection(t *testing.T) {
 			},
 			policy:        nil,
 			bgpNodeConfig: nil,
-			expectedMode:  agent.Disabled,
+			expectedMode:  mode.Disabled,
 		},
 	}
 
@@ -719,6 +722,9 @@ func TestBGPModeSelection(t *testing.T) {
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{tt.policy}, nil
 			}
 
+			cm := mode.NewConfigMode()
+			cm.Set(tt.initialMode)
+
 			c := agent.Controller{
 				PolicyLister: &agent.MockCiliumBGPPeeringPolicyLister{
 					List_: policyLister,
@@ -733,13 +739,13 @@ func TestBGPModeSelection(t *testing.T) {
 				},
 				LocalCiliumNode:    tt.ciliumNode,
 				BGPNodeConfigStore: mockStore,
-				Mode:               tt.initialMode,
+				ConfigMode:         cm,
 			}
 
 			err := c.Reconcile(context.Background())
 			require.NoError(t, err)
 
-			require.Equal(t, tt.expectedMode, c.Mode)
+			require.Equal(t, tt.expectedMode, cm.Get())
 		})
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
@@ -35,7 +36,7 @@ var Cell = cell.Module(
 	"BGP Control Plane",
 
 	// The Controller which is the entry point of the module
-	cell.Provide(agent.NewController, signaler.NewBGPCPSignaler),
+	cell.Provide(agent.NewController, signaler.NewBGPCPSignaler, mode.NewConfigMode),
 	cell.ProvidePrivate(
 		// BGP Peering Policy resource provides the module with a stream of events for the BGPPeeringPolicy resource.
 		newBGPPeeringPolicyResource,
