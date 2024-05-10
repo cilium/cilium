@@ -8,6 +8,7 @@ package linux
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
@@ -17,7 +18,6 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
@@ -101,7 +101,7 @@ type devicesControllerParams struct {
 	cell.In
 
 	Config      DevicesConfig
-	Log         logrus.FieldLogger
+	Log         *slog.Logger
 	DB          statedb.Handle
 	DeviceTable statedb.RWTable[*tables.Device]
 	RouteTable  statedb.RWTable[*tables.Route]
@@ -112,7 +112,7 @@ type devicesControllerParams struct {
 
 type devicesController struct {
 	params devicesControllerParams
-	log    logrus.FieldLogger
+	log    *slog.Logger
 
 	initialized    chan struct{}
 	filter         deviceFilter
@@ -195,7 +195,7 @@ func (dc *devicesController) subscribeAndProcess(ctx context.Context) {
 	// It cancels the context to unsubscribe from netlink updates
 	// which stops the processing.
 	errorCallback := func(err error) {
-		dc.log.WithError(err).Warn("Netlink error received, restarting")
+		dc.log.Warn("Netlink error received, restarting", logfields.Error, err)
 
 		// Cancel the context to stop the subscriptions.
 		cancel()
@@ -203,19 +203,19 @@ func (dc *devicesController) subscribeAndProcess(ctx context.Context) {
 
 	addrUpdates := make(chan netlink.AddrUpdate)
 	if err := dc.params.NetlinkFuncs.AddrSubscribe(addrUpdates, ctx.Done(), errorCallback); err != nil {
-		dc.log.WithError(err).Warn("AddrSubscribe failed, restarting")
+		dc.log.Warn("AddrSubscribe failed, restarting", logfields.Error, err)
 		return
 	}
 	routeUpdates := make(chan netlink.RouteUpdate)
 	err := dc.params.NetlinkFuncs.RouteSubscribe(routeUpdates, ctx.Done(), errorCallback)
 	if err != nil {
-		dc.log.WithError(err).Warn("RouteSubscribe failed, restarting")
+		dc.log.Warn("RouteSubscribe failed, restarting", logfields.Error, err)
 		return
 	}
 	linkUpdates := make(chan netlink.LinkUpdate)
 	err = dc.params.NetlinkFuncs.LinkSubscribe(linkUpdates, ctx.Done(), errorCallback)
 	if err != nil {
-		dc.log.WithError(err).Warn("LinkSubscribe failed, restarting", err)
+		dc.log.Warn("LinkSubscribe failed, restarting", logfields.Error, err)
 		return
 	}
 
@@ -225,7 +225,7 @@ func (dc *devicesController) subscribeAndProcess(ctx context.Context) {
 	// ends and updates begin.
 	err = dc.initialize()
 	if err != nil {
-		dc.log.WithError(err).Warn("Initialization failed, restarting")
+		dc.log.Warn("Initialization failed, restarting", logfields.Error, err)
 		return
 	}
 
@@ -451,12 +451,12 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				if u.Type == unix.RTM_NEWROUTE {
 					_, _, err := dc.params.RouteTable.Insert(txn, &r)
 					if err != nil {
-						dc.log.WithError(err).WithField(logfields.Route, r).Warn("Failed to insert route")
+						dc.log.Warn("Failed to insert route", logfields.Error, err, "route", r)
 					}
 				} else if u.Type == unix.RTM_DELROUTE {
 					_, _, err := dc.params.RouteTable.Delete(txn, &r)
 					if err != nil {
-						dc.log.WithError(err).WithField(logfields.Route, r).Warn("Failed to delete route")
+						dc.log.Warn("Failed to delete route", logfields.Error, err, "route", r)
 					}
 				}
 			case netlink.LinkUpdate:
@@ -499,13 +499,13 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			// Create or update the device.
 			_, _, err := dc.params.DeviceTable.Insert(txn, d)
 			if err != nil {
-				dc.log.WithError(err).WithField(logfields.Device, d).Warn("Failed to insert route")
+				dc.log.Warn("Failed to insert device", logfields.Error, err, logfields.Device, d)
 			}
 		}
 	}
 	after := dc.deviceNameSet(txn)
 	if !before.Equal(after) {
-		dc.log.WithField(logfields.Devices, after.UnsortedList()).Info("Devices changed")
+		dc.log.Info("Devices changed", logfields.Devices, after.UnsortedList())
 	}
 }
 
