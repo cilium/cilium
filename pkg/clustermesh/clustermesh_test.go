@@ -29,11 +29,6 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
-var (
-	nodes      = map[string]*testNode{}
-	nodesMutex lock.RWMutex
-)
-
 type testNode struct {
 	// Name is the name of the node. This is typically the hostname of the node.
 	Name string
@@ -66,20 +61,27 @@ var testNodeCreator = func() store.Key {
 	return &n
 }
 
-type testObserver struct{}
+type testObserver struct {
+	nodes      map[string]*testNode
+	nodesMutex lock.RWMutex
+}
+
+func newNodesObserver() *testObserver {
+	return &testObserver{nodes: make(map[string]*testNode)}
+}
 
 func (o *testObserver) OnUpdate(k store.Key) {
 	n := k.(*testNode)
-	nodesMutex.Lock()
-	nodes[n.GetKeyName()] = n
-	nodesMutex.Unlock()
+	o.nodesMutex.Lock()
+	o.nodes[n.GetKeyName()] = n
+	o.nodesMutex.Unlock()
 }
 
 func (o *testObserver) OnDelete(k store.NamedKey) {
 	n := k.(*testNode)
-	nodesMutex.Lock()
-	delete(nodes, n.GetKeyName())
-	nodesMutex.Unlock()
+	o.nodesMutex.Lock()
+	delete(o.nodes, n.GetKeyName())
+	o.nodesMutex.Unlock()
 }
 
 func TestClusterMesh(t *testing.T) {
@@ -139,11 +141,12 @@ func TestClusterMesh(t *testing.T) {
 
 	usedIDs := NewClusterMeshUsedIDs()
 	storeFactory := store.NewFactory(store.MetricsProvider())
+	nodesObserver := newNodesObserver()
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
 		NodeKeyCreator:        testNodeCreator,
-		NodeObserver:          &testObserver{},
+		NodeObserver:          nodesObserver,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 		ClusterIDsManager:     usedIDs,
@@ -212,9 +215,9 @@ func TestClusterMesh(t *testing.T) {
 
 	// wait for all cm nodes in both clusters to appear in the node list
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodesMutex.RLock()
-		defer nodesMutex.RUnlock()
-		assert.Len(c, nodes, 3*len(nodeNames))
+		nodesObserver.nodesMutex.RLock()
+		defer nodesObserver.nodesMutex.RUnlock()
+		assert.Len(c, nodesObserver.nodes, 3*len(nodeNames))
 	}, timeout, tick, "Nodes not watched correctly")
 
 	require.NoError(t, os.Remove(config2), "Failed to remove config file for cluster2")
@@ -234,9 +237,9 @@ func TestClusterMesh(t *testing.T) {
 
 	// wait for the nodes of the removed cluster to disappear
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodesMutex.RLock()
-		defer nodesMutex.RUnlock()
-		assert.Len(c, nodes, 2*len(nodeNames))
+		nodesObserver.nodesMutex.RLock()
+		defer nodesObserver.nodesMutex.RUnlock()
+		assert.Len(c, nodesObserver.nodes, 2*len(nodeNames))
 	}, timeout, tick, "Nodes were not drained correctly")
 
 	require.NoError(t, os.Remove(config1), "Failed to remove config file for cluster1")
@@ -249,9 +252,9 @@ func TestClusterMesh(t *testing.T) {
 
 	// wait for the nodes of the removed cluster to disappear
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodesMutex.RLock()
-		defer nodesMutex.RUnlock()
-		assert.Len(c, nodes, 0)
+		nodesObserver.nodesMutex.RLock()
+		defer nodesObserver.nodesMutex.RUnlock()
+		assert.Len(c, nodesObserver.nodes, 0)
 	}, timeout, tick, "Nodes were not drained correctly")
 
 	// Make sure that IDs are freed

@@ -149,7 +149,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			cm := ClusterMesh{
 				conf: Configuration{
 					NodeKeyCreator:        testNodeCreator,
-					NodeObserver:          &testObserver{},
+					NodeObserver:          newNodesObserver(),
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
 					ClusterIDsManager:     NewClusterMeshUsedIDs(),

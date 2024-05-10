@@ -109,7 +109,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           cmtypes.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
 		NodeKeyCreator:        testNodeCreator,
-		NodeObserver:          &testObserver{},
+		NodeObserver:          newNodesObserver(),
 		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
