@@ -91,8 +91,6 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip -6 n",
 		"ss -t -p -a -i -s -n -e",
 		"ss -u -p -a -i -s -n -e",
-		"tc qdisc show",
-		"tc -d -s qdisc show",
 		"uname -a",
 		"top -b -n 1",
 		"uptime",
@@ -122,8 +120,8 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", components.CiliumAgentName),
 		"lsmod",
 		// tc
-		"tc -s qdisc", // Show statistics on queuing disciplines
 		"tc qdisc show",
+		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 	}
 
 	// LB and CT map for debugging services; using bpftool for a reliable dump
