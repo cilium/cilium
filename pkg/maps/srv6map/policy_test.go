@@ -5,6 +5,7 @@ package srv6map
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive"
@@ -68,6 +69,54 @@ func TestPolicyMapsHive(t *testing.T) {
 	require.FileExists(t, bpf.MapPath(policyMapName4))
 	require.FileExists(t, bpf.MapPath(policyMapName6))
 
+	// Test map iteration
+	k4 := &PolicyKey4{
+		PrefixLen: policyStaticPrefixBits + 8,
+		VRFID:     1,
+		DestCIDR:  netip.MustParseAddr("10.0.0.0").As4(),
+	}
+
+	k6 := &PolicyKey6{
+		PrefixLen: policyStaticPrefixBits + 16,
+		VRFID:     1,
+		DestCIDR:  netip.MustParseAddr("fd00::").As16(),
+	}
+
+	v0 := &PolicyValue{
+		SID: netip.MustParseAddr("fd00:0:0:0:1::").As16(),
+	}
+
+	v1 := &PolicyValue{
+		SID: netip.MustParseAddr("fd00:0:0:0:2::").As16(),
+	}
+
+	m4, m6, err := OpenPolicyMaps()
+	require.NoError(t, err)
+
+	require.NoError(t, m4.Map.Update(k4, v0))
+	require.NoError(t, m6.Map.Update(k6, v1))
+
+	var (
+		keys []PolicyKey
+		vals []PolicyValue
+	)
+
+	require.NoError(t, m4.IterateWithCallback(func(k *PolicyKey, v *PolicyValue) {
+		keys = append(keys, *k)
+		vals = append(vals, *v)
+	}))
+
+	require.NoError(t, m6.IterateWithCallback(func(k *PolicyKey, v *PolicyValue) {
+		keys = append(keys, *k)
+		vals = append(vals, *v)
+	}))
+
+	require.Contains(t, keys, PolicyKey{VRFID: 1, DestCIDR: netip.MustParsePrefix("10.0.0.0/8")})
+	require.Contains(t, keys, PolicyKey{VRFID: 1, DestCIDR: netip.MustParsePrefix("fd00::/16")})
+	require.Contains(t, vals, PolicyValue{SID: netip.MustParseAddr("fd00:0:0:0:1::").As16()})
+	require.Contains(t, vals, PolicyValue{SID: netip.MustParseAddr("fd00:0:0:0:2::").As16()})
+
+	// Stop hive
 	require.NoError(t, hive.Stop(logger, context.TODO()))
 
 	// Map should be pinned even after stopping the hive
