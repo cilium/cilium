@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
@@ -54,4 +55,7 @@ var Cell = cell.Module(
 	// Bandwidth (cilium_throttle) map contains the per-endpoint bandwidth limits.
 	// Provides RWTable[bwmap.Edt] for configuring the limits.
 	bwmap.Cell,
+
+	// Provides access to NAT maps.
+	nat.Cell,
 )
