@@ -59,15 +59,6 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		option.Config.EnableSessionAffinity = true
 	}
 
-	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse &&
-		option.Config.EnableEnvoyConfig && !option.Config.EnableIPSec &&
-		!option.Config.EnableNodePort {
-		// CiliumEnvoyConfig L7 LB only works with bpf node port enabled
-		log.Infof("Auto-enabling %s for %s",
-			option.EnableNodePort, option.EnableEnvoyConfig)
-		option.Config.EnableNodePort = true
-	}
-
 	if option.Config.EnableNodePort {
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
