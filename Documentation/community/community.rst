@@ -107,7 +107,7 @@ How to create a Slack channel
 4. Find two Cilium committers to comment in the issue that they approve the
    creation of the Slack channel
 5. Not all Slack channels need to be listed on this page, but you can submit a
-   PR if you would like to include it here.
+   PR if you would like to include it here
 
 Special Interest Groups
 =======================
@@ -115,20 +115,24 @@ Special Interest Groups
 All SIGs
 --------
 
-The following is a list of special interest groups (SIG) that are meeting on a
+The following is a list of special interest groups (SIGs) that are meeting on a
 regular interval. See the respective slack channel for exact meeting cadence
 and meeting links.
 
-====================== ============================================== ================= ============================================================================
-SIG                    Meeting                                        Slack             Description
-====================== ============================================== ================= ============================================================================
-Datapath               On demand                                      ``#sig-datapath`` Development discussions for Linux and eBPF code used in Cilium.
-Documentation          None                                           ``#sig-docs``     Documentation, Helm references, and translations.
-Envoy                  On demand                                      ``#sig-envoy``    Envoy, Istio and maintenance of all L7 protocol parsers.
-Hubble                 During community meeting                       ``#sig-hubble``   All Hubble-related code: Server, UI, CLI and Relay.
-Policy                 `First Tuesday <https://isogo.to/sig-policy>`_ ``#sig-policy``   Network policy and enforcement.
-Release Management     None                                           ``#launchpad``    Release management and backport coordination.
-====================== ============================================== ================= ============================================================================
+====================== ============================================== ======================= ============================================================================
+SIG                    Meeting                                        Slack                   Description
+====================== ============================================== ======================= ============================================================================
+BGP                    None                                           ``#sig-bgp``            Border Gateway Protocol (BGP) discussions.
+Cluster Mesh           None                                           ``#sig-clustermesh``    Cluster Mesh discussions.
+Datapath               On demand                                      ``#sig-datapath``       Development discussions for Linux and eBPF code used in Cilium.
+Documentation          None                                           ``#sig-docs``           Documentation, Helm references, and translations.
+Envoy                  On demand                                      ``#sig-envoy``          Envoy, Istio and maintenance of all L7 protocol parsers.
+Hubble                 During community meeting                       ``#sig-hubble``         All Hubble-related code: Server, UI, CLI and Relay.
+Modularization         None                                           ``#sig-modularization`` Discussions around further modularizing the cilium/cilium codebase.
+Policy                 `First Tuesday <https://isogo.to/sig-policy>`_ ``#sig-policy``         Network policy and enforcement.
+Release Management     None                                           ``#launchpad``          Release management and backport coordination.
+Scalability            Fourth Thursday of the month                   ``#sig-scalability``    Cilium scalability discussions.                                     
+====================== ============================================== ======================= ============================================================================
 
 How to create a SIG
 -------------------
@@ -136,7 +140,7 @@ How to create a SIG
 1. Open a new `GitHub issue in the cilium/cilium repo <https://github.com/cilium/cilium/issues>`_
 2. Specify the title "SIG-Request: <Name>"
 3. Provide a description
-4. Find two Cilium committers to support the SIG.
+4. Find two Cilium committers to support the SIG
 5. Ask on ``#development`` to get the Slack channel and Zoom meeting created
 6. Submit a PR to update the documentation to get your new SIG listed
 
