@@ -94,107 +94,54 @@ func TestValidateRemoteConfig(t *testing.T) {
 		name      string
 		cfg       *CiliumClusterConfig
 		mcc       uint32
-		mode      ValidationMode
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
 		{
-			name:      "Nil config (Backward)",
+			name:      "Nil config",
 			cfg:       nil,
 			mcc:       255,
-			mode:      BackwardCompatible,
-			assertion: assert.NoError,
-		},
-		{
-			name:      "Nil config (Strict)",
-			cfg:       nil,
-			mcc:       255,
-			mode:      Strict,
 			assertion: assert.Error,
 		},
 		{
-			name:      "Empty config (Backward)",
+			name:      "Empty config",
 			cfg:       &CiliumClusterConfig{},
 			mcc:       255,
-			mode:      BackwardCompatible,
-			assertion: assert.NoError,
-		},
-		{
-			name:      "Empty config (Strict)",
-			cfg:       &CiliumClusterConfig{},
-			mcc:       255,
-			mode:      Strict,
 			assertion: assert.Error,
 		},
 		{
-			name:      "Valid config (Backward)",
-			cfg:       &CiliumClusterConfig{ID: 255},
-			mcc:       255,
-			mode:      BackwardCompatible,
-			assertion: assert.NoError,
-		},
-		{
-			name:      "Valid config (Strict)",
+			name:      "Valid config",
 			cfg:       &CiliumClusterConfig{ID: 255, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
 			mcc:       255,
-			mode:      Strict,
 			assertion: assert.NoError,
 		},
 		{
-			name:      "Invalid config (Backward)",
+			name:      "Invalid config",
 			cfg:       &CiliumClusterConfig{ID: 256},
 			mcc:       255,
-			mode:      BackwardCompatible,
-			assertion: assert.Error,
-		},
-		{
-			name:      "Invalid config (Strict)",
-			cfg:       &CiliumClusterConfig{ID: 256},
-			mcc:       255,
-			mode:      Strict,
-			assertion: assert.Error,
-		},
-		// Extended ClusterMesh requires CiliumClusterConfig, so use
-		// BackwardCompatible mode for these tests (most permissive)
-		{
-			name:      "Nil config (ClusterMesh511)",
-			cfg:       nil,
-			mcc:       511,
-			mode:      BackwardCompatible,
-			assertion: assert.Error,
-		},
-		{
-			name:      "Empty config (ClusterMesh511)",
-			cfg:       &CiliumClusterConfig{},
-			mcc:       511,
-			mode:      BackwardCompatible,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Invalid config, MaxConnectedClusters mismatch (ClusterMesh255)",
 			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
 			mcc:       255,
-			mode:      BackwardCompatible,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Valid config (ClusterMesh511)",
 			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
 			mcc:       511,
-			mode:      BackwardCompatible,
 			assertion: assert.NoError,
 		},
 		{
 			name:      "Invalid config, MaxConnectedClusters mismatch (ClusterMesh511)",
 			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
 			mcc:       511,
-			mode:      BackwardCompatible,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Invalid config (ClusterMesh511)",
 			cfg:       &CiliumClusterConfig{ID: 512, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
 			mcc:       511,
-			mode:      BackwardCompatible,
 			assertion: assert.Error,
 		},
 	}
@@ -203,9 +150,9 @@ func TestValidateRemoteConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cinfo := ClusterInfo{MaxConnectedClusters: tt.mcc}
 			// ClusterIDMax needs to be initialized here. This is ordinarily
-			// executed during agent intialization.
+			// executed during agent initialization.
 			cinfo.InitClusterIDMax()
-			tt.assertion(t, cinfo.ValidateRemoteConfig(bool(tt.mode), tt.cfg))
+			tt.assertion(t, cinfo.ValidateRemoteConfig(tt.cfg))
 		})
 	}
 }

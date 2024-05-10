@@ -68,7 +68,7 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := rc.mesh.conf.ClusterInfo.ValidateRemoteConfig(rc.ClusterConfigRequired(), config); err != nil {
+	if err := rc.mesh.conf.ClusterInfo.ValidateRemoteConfig(config); err != nil {
 		ready <- err
 		close(ready)
 		return
@@ -171,10 +171,6 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 		status.Synced.Identities && status.Synced.Endpoints
 
 	return status
-}
-
-func (rc *remoteCluster) ClusterConfigRequired() bool {
-	return rc.mesh.conf.ConfigValidationMode == cmtypes.Strict
 }
 
 func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {

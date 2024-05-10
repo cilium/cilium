@@ -70,8 +70,8 @@ func TestRemoteClusterRun(t *testing.T) {
 		kvs    map[string]string
 	}{
 		{
-			name:   "remote cluster has no cluster config",
-			srccfg: nil,
+			name:   "remote cluster has no capabilities",
+			srccfg: &types.CiliumClusterConfig{ID: 1},
 			kvs: map[string]string{
 				"cilium/state/nodes/v1/foo/bar":      `{"name": "bar"}`,
 				"cilium/state/services/v1/foo/bar":   `{"name": "bar"}`,
@@ -82,6 +82,7 @@ func TestRemoteClusterRun(t *testing.T) {
 		{
 			name: "remote cluster supports sync canaries",
 			srccfg: &types.CiliumClusterConfig{
+				ID: 255,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries:       true,
 					MaxConnectedClusters: 255,
@@ -102,6 +103,7 @@ func TestRemoteClusterRun(t *testing.T) {
 		{
 			name: "remote cluster supports both sync canaries and cached prefixes",
 			srccfg: &types.CiliumClusterConfig{
+				ID: 255,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries:       true,
 					Cached:               true,

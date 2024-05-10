@@ -140,8 +140,6 @@ func (rc *remoteCluster) Remove() {
 	// disappear once the associated lease expires.
 }
 
-func (rc *remoteCluster) ClusterConfigRequired() bool { return false }
-
 // waitForConnection waits for a connection to be established to the remote cluster.
 // If the connection is not established within the timeout, the remote cluster is
 // removed from readiness checks.
