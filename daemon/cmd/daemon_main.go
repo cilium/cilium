@@ -1693,8 +1693,9 @@ type daemonParams struct {
 	MTU                 mtu.MTU
 }
 
-func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
+func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
+	cfgResolver, cfgPromise := promise.New[*option.DaemonConfig]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
@@ -1721,7 +1722,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				startDaemon(daemon, restoredEndpoints, cleaner, params)
 			}
 			daemonResolver.Resolve(daemon)
-
+			cfgResolver.Resolve(option.Config)
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1734,7 +1735,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			return nil
 		},
 	})
-	return daemonPromise
+	return daemonPromise, cfgPromise
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
