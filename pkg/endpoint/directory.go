@@ -47,8 +47,6 @@ func (e *Endpoint) NextDirectoryPath() string {
 // It assumes that oldDir and newDir are an endpoint's old and new state
 // directories (see synchronizeDirectories below).
 func copyExistingState(oldDir, newDir string) error {
-	var err error
-
 	oldDirFile, err := os.Open(oldDir)
 	if err != nil {
 		return fmt.Errorf("failed to open old endpoint state dir: %w", err)
@@ -95,7 +93,7 @@ func copyExistingState(oldDir, newDir string) error {
 // Returns the original regenerationError if regenerationError was non-nil,
 // or if any updates to directories for the endpoint's directories fails.
 // Must be called with endpoint.mutex Lock()ed.
-func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool) error {
+func (e *Endpoint) synchronizeDirectories(origDir string) error {
 	scopedLog := e.getLogger()
 	debugLogEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
 
@@ -111,15 +109,9 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 	// An endpoint directory already exists. We need to back it up before attempting
 	// to move the new directory in its place so we can attempt recovery.
 	case !os.IsNotExist(err):
-		// If the compilation was skipped then we need to copy the old
-		// bpf objects into the new directory
-		if !stateDirComplete {
-			scopedLog.Debug("retaining existing state")
-			err := copyExistingState(origDir, tmpDir)
-			if err != nil {
-				scopedLog.WithError(err).Debugf("unable to copy state "+
-					"from %s into the new directory %s.", tmpDir, origDir)
-			}
+		if err := copyExistingState(origDir, tmpDir); err != nil {
+			scopedLog.WithError(err).Debugf("unable to copy state "+
+				"from %s into the new directory %s.", tmpDir, origDir)
 		}
 
 		// Atomically exchange the two directories.
