@@ -1683,8 +1683,9 @@ type daemonParams struct {
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 }
 
-func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
+func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
+	cfgResolver, cfgPromise := promise.New[*option.DaemonConfig]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
@@ -1714,10 +1715,12 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 					daemonResolver.Reject(err)
 					cancelDaemonCtx()
 					cleaner.Clean()
+					cfgResolver.Reject(err)
 					return err
 				}
 			}
 			daemonResolver.Resolve(daemon)
+			cfgResolver.Resolve(option.Config)
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1727,7 +1730,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			return nil
 		},
 	})
-	return daemonPromise
+	return daemonPromise, cfgPromise
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
