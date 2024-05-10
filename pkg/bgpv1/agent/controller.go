@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/hive"
@@ -49,17 +50,6 @@ func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error
 	return plf()
 }
 
-type ConfigMode int
-
-const (
-	// BGP control plane is not enabled
-	Disabled ConfigMode = iota
-	// BGPv1 mode is enabled, BGP configuration of the agent will rely on matching CiliumBGPPeeringPolicy for the node.
-	BGPv1
-	// BGPv2 mode is enabled, BGP configuration of the agent will rely on CiliumBGPNodeConfig, CiliumBGPAdvertisement and CiliumBGPPeerConfig.
-	BGPv2
-)
-
 // Controller is the agent side BGP Control Plane controller.
 //
 // Controller listens for events and drives BGP related sub-systems
@@ -91,7 +81,7 @@ type Controller struct {
 	BGPMgr BGPRouterManager
 
 	// current configuration state
-	Mode ConfigMode
+	ConfigMode *mode.ConfigMode
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -103,6 +93,7 @@ type ControllerParams struct {
 	JobGroup                job.Group
 	Shutdowner              hive.Shutdowner
 	Sig                     *signaler.BGPCPSignaler
+	ConfigMode              *mode.ConfigMode
 	RouteMgr                BGPRouterManager
 	PolicyResource          resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
 	BGPNodeConfigStore      store.BGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig]
@@ -127,6 +118,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 
 	c := &Controller{
 		Sig:                params.Sig,
+		ConfigMode:         params.ConfigMode,
 		BGPMgr:             params.RouteMgr,
 		PolicyResource:     params.PolicyResource,
 		BGPNodeConfigStore: params.BGPNodeConfigStore,
@@ -245,15 +237,15 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	switch c.Mode {
-	case Disabled:
+	switch c.ConfigMode.Get() {
+	case mode.Disabled:
 		if bgppExists {
 			err = c.reconcileBGPP(ctx, bgpp)
 		} else if bgpncExists {
 			err = c.reconcileBGPNC(ctx, bgpnc)
 		}
 
-	case BGPv1:
+	case mode.BGPv1:
 		if bgppExists {
 			err = c.reconcileBGPP(ctx, bgpp)
 		} else {
@@ -265,7 +257,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 			}
 		}
 
-	case BGPv2:
+	case mode.BGPv2:
 		if bgppExists {
 			// delete bgpv2 and apply bgpv1
 			c.cleanupBGPNC(ctx)
@@ -294,7 +286,7 @@ func (c *Controller) reconcileBGPP(ctx context.Context, policy *v2alpha1api.Cili
 		return fmt.Errorf("failed to configure BGP peers, cannot apply BGP peering policy: %w", err)
 	}
 
-	c.Mode = BGPv1
+	c.ConfigMode.Set(mode.BGPv1)
 	return nil
 }
 
@@ -305,7 +297,7 @@ func (c *Controller) cleanupBGPP(ctx context.Context) {
 		log.WithError(err).Error("failed to cleanup BGP peering policy peers")
 	}
 
-	c.Mode = Disabled
+	c.ConfigMode.Set(mode.Disabled)
 }
 
 func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2alpha1api.CiliumBGPNodeConfig) error {
@@ -314,7 +306,7 @@ func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2alpha1api.Cili
 		return fmt.Errorf("failed to reconcile BGPNodeConfig: %w", err)
 	}
 
-	c.Mode = BGPv2
+	c.ConfigMode.Set(mode.BGPv2)
 	return nil
 }
 
@@ -324,7 +316,7 @@ func (c *Controller) cleanupBGPNC(ctx context.Context) {
 		log.WithError(err).Error("failed to cleanup BGPNodeConfig")
 	}
 
-	c.Mode = Disabled
+	c.ConfigMode.Set(mode.Disabled)
 }
 
 func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
