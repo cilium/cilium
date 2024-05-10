@@ -447,6 +447,13 @@ func (m *Map) Recreate() error {
 	return m.openOrCreate(true)
 }
 
+// IsOpen returns true if the map has been opened.
+func (m *Map) IsOpen() bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.m != nil
+}
+
 // OpenOrCreate attempts to open the Map, or if it does not yet exist, create
 // the Map. If the existing map's attributes such as map type, key/value size,
 // capacity, etc. do not match the Map's attributes, then the map will be
