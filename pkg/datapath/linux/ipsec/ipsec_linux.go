@@ -703,11 +703,15 @@ func ipsecDeleteXfrmState(nodeID uint16) {
 		scopedLog.WithError(err).Warning("Failed to list XFRM states for deletion")
 		return
 	}
+	xfrmStatesToDelete := []netlink.XfrmState{}
 	for _, s := range xfrmStateList {
 		if matchesOnNodeID(s.Mark) && ipsec.GetNodeIDFromXfrmMark(s.Mark) == nodeID {
-			if err := netlink.XfrmStateDel(&s); err != nil {
-				scopedLog.WithError(err).Warning("Failed to delete XFRM state")
-			}
+			xfrmStatesToDelete = append(xfrmStatesToDelete, s)
+		}
+	}
+	for _, s := range xfrmStatesToDelete {
+		if err := netlink.XfrmStateDel(&s); err != nil {
+			scopedLog.WithError(err).Warning("Failed to delete XFRM state")
 		}
 	}
 }
