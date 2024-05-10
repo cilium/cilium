@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
@@ -47,6 +48,7 @@ type LocalInstanceMap map[string]*instance.BGPInstance
 type bgpRouterManagerParams struct {
 	cell.In
 	Logger        logrus.FieldLogger
+	ConfigMode    *mode.ConfigMode
 	Reconcilers   []reconciler.ConfigReconciler   `group:"bgp-config-reconciler"`
 	ReconcilersV2 []reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
 }
@@ -88,6 +90,9 @@ type BGPRouterManager struct {
 
 	Logger logrus.FieldLogger
 
+	// Helper to determine the mode of the agent
+	ConfigMode *mode.ConfigMode
+
 	// BGPv1 servers and reconcilers
 	Servers     LocalASNMap
 	Reconcilers []reconciler.ConfigReconciler
@@ -109,6 +114,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 
 	return &BGPRouterManager{
 		Logger:      params.Logger,
+		ConfigMode:  params.ConfigMode,
 		Servers:     make(LocalASNMap),
 		Reconcilers: activeReconcilers,
 		running:     true, // start with running state set
@@ -387,13 +393,24 @@ func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, err
 	}
 
 	var res []*models.BgpPeer
-
-	for _, s := range m.Servers {
-		getPeerResp, err := s.Server.GetPeerState(ctx)
-		if err != nil {
-			return nil, err
+	switch m.ConfigMode.Get() {
+	case mode.BGPv1:
+		for _, s := range m.Servers {
+			getPeerResp, err := s.Server.GetPeerState(ctx)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, getPeerResp.Peers...)
 		}
-		res = append(res, getPeerResp.Peers...)
+
+	case mode.BGPv2:
+		for _, i := range m.BGPInstances {
+			getPeerResp, err := i.Router.GetPeerState(ctx)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, getPeerResp.Peers...)
+		}
 	}
 	return res, nil
 }
@@ -407,6 +424,17 @@ func (m *BGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpR
 		return nil, fmt.Errorf("bgp router manager is not running")
 	}
 
+	switch m.ConfigMode.Get() {
+	case mode.BGPv1:
+		return m.getRoutesV1(ctx, params)
+	case mode.BGPv2:
+		return m.getRoutesV2(ctx, params)
+	default:
+		return nil, nil
+	}
+}
+
+func (m *BGPRouterManager) getRoutesV1(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
 	// validate router ASN
 	if params.RouterAsn != nil {
 		if _, found := m.Servers[*params.RouterAsn]; !found {
@@ -472,6 +500,86 @@ func (m *BGPRouterManager) getRoutesFromServer(ctx context.Context, sc *instance
 	return api.ToAPIRoutes(rs.Routes, sc.Config.LocalASN, neighbor)
 }
 
+func (m *BGPRouterManager) getRoutesV2(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
+	// validate router ASN
+	if params.RouterAsn != nil {
+		if m.asnExistsInInstances(*params.RouterAsn) {
+			return nil, fmt.Errorf("virtual router with ASN %d does not exist", *params.RouterAsn)
+		}
+	}
+
+	// validate that router ASN is set for the neighbor if there are multiple servers
+	if params.Neighbor != nil && len(m.BGPInstances) > 1 && params.RouterAsn == nil {
+		return nil, fmt.Errorf("multiple virtual routers configured, router ASN must be specified")
+	}
+
+	// determine if we need to retrieve the routes for each peer (in case of adj-rib but no peer specified)
+	tt := types.ParseTableType(params.TableType)
+	allPeers := (tt == types.TableTypeAdjRIBIn || tt == types.TableTypeAdjRIBOut) && (params.Neighbor == nil || *params.Neighbor == "")
+
+	var res []*models.BgpRoute
+	for _, i := range m.BGPInstances {
+		if params.RouterAsn != nil && i.Config.LocalASN != nil && *params.RouterAsn != *i.Config.LocalASN {
+			continue // return routes matching provided router ASN only
+		}
+		if allPeers {
+			// get routes for each peer of the server
+			getPeerResp, err := i.Router.GetPeerState(ctx)
+			if err != nil {
+				return nil, err
+			}
+			for _, peer := range getPeerResp.Peers {
+				params.Neighbor = &peer.PeerAddress
+				routes, err := m.getRoutesFromInstance(ctx, i, params)
+				if err != nil {
+					return nil, err
+				}
+				res = append(res, routes...)
+			}
+		} else {
+			// get routes with provided params
+			routes, err := m.getRoutesFromInstance(ctx, i, params)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, routes...)
+		}
+	}
+	return res, nil
+}
+
+// getRoutesFromInstance retrieves routes from the RIB of the specified BGP instance
+func (m *BGPRouterManager) getRoutesFromInstance(ctx context.Context, i *instance.BGPInstance, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
+	if i.Config.LocalASN == nil {
+		return nil, fmt.Errorf("local ASN not set for instance")
+	}
+
+	req, err := api.ToAgentGetRoutesRequest(params)
+	if err != nil {
+		return nil, err
+	}
+
+	rs, err := i.Router.GetRoutes(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	neighbor := ""
+	if params.Neighbor != nil {
+		neighbor = *params.Neighbor
+	}
+	return api.ToAPIRoutes(rs.Routes, *i.Config.LocalASN, neighbor)
+}
+
+func (m *BGPRouterManager) asnExistsInInstances(asn int64) bool {
+	for _, instance := range m.BGPInstances {
+		if instance.Config.LocalASN != nil && *instance.Config.LocalASN == asn {
+			return true
+		}
+	}
+	return false
+}
+
 // GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
 func (m *BGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
 	m.RLock()
@@ -481,6 +589,17 @@ func (m *BGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.
 		return nil, fmt.Errorf("bgp router manager is not running")
 	}
 
+	switch m.ConfigMode.Get() {
+	case mode.BGPv1:
+		return m.getRoutePoliciesV1(ctx, params)
+	case mode.BGPv2:
+		return m.getRoutePoliciesV2(ctx, params)
+	default:
+		return nil, nil
+	}
+}
+
+func (m *BGPRouterManager) getRoutePoliciesV1(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
 	// validate router ASN
 	if params.RouterAsn != nil {
 		if _, found := m.Servers[*params.RouterAsn]; !found {
@@ -498,6 +617,28 @@ func (m *BGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.
 			return nil, err
 		}
 		res = append(res, api.ToAPIRoutePolicies(rs.Policies, s.Config.LocalASN)...)
+	}
+	return res, nil
+}
+
+func (m *BGPRouterManager) getRoutePoliciesV2(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
+	// validate router ASN
+	if params.RouterAsn != nil {
+		if m.asnExistsInInstances(*params.RouterAsn) {
+			return nil, fmt.Errorf("virtual router with ASN %d does not exist", *params.RouterAsn)
+		}
+	}
+
+	var res []*models.BgpRoutePolicy
+	for _, i := range m.BGPInstances {
+		if params.RouterAsn != nil && i.Config.LocalASN != nil && *params.RouterAsn != *i.Config.LocalASN {
+			continue // return policies matching provided router ASN only
+		}
+		rs, err := i.Router.GetRoutePolicies(ctx)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, api.ToAPIRoutePolicies(rs.Policies, *i.Config.LocalASN)...)
 	}
 	return res, nil
 }
