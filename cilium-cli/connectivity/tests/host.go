@@ -141,7 +141,7 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 		for _, echo := range ct.EchoPods() {
 			echo := echo // copy to avoid memory aliasing when using reference
 
-			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, check.EchoServerHostPort, echo.Path())
+			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, ct.Params().EchoServerHostPort, echo.Path())
 			ep := check.HTTPEndpoint(echo.Name(), baseURL)
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, features.IPFamilyAny).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ct.CurlCommand(ep, features.IPFamilyAny))
