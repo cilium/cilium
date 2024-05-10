@@ -104,10 +104,8 @@ func TestClusterMesh(t *testing.T) {
 	dir := t.TempDir()
 	etcdConfig := []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
-	// cluster3 doesn't have cluster configuration on kvstore. This emulates
-	// the old Cilium version which doesn't support cluster configuration
-	// feature. We should be able to connect to such a cluster for
-	// compatibility.
+	// cluster3 doesn't have cluster configuration on kvstore.
+	// We should not be able to establish a connection in this case.
 	for i, name := range []string{"test2", "cluster1", "cluster2"} {
 		config := types.CiliumClusterConfig{
 			ID: uint32(i + 1),
@@ -164,9 +162,9 @@ func TestClusterMesh(t *testing.T) {
 	}()
 	nodeNames := []string{"foo", "bar", "baz"}
 
-	// wait for all clusters to appear in the list of cm clusters
+	// wait for the two expected clusters to appear in the list of cm clusters
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.Equal(c, 3, cm.NumReadyClusters())
+		assert.Equal(c, 2, cm.NumReadyClusters())
 	}, timeout, tick, "Clusters did not become ready in time")
 
 	// Ensure that ClusterIDs are reserved correctly after connect
@@ -176,7 +174,6 @@ func TestClusterMesh(t *testing.T) {
 
 		assert.Contains(c, usedIDs.UsedClusterIDs, uint32(2))
 		assert.Contains(c, usedIDs.UsedClusterIDs, uint32(3))
-		// cluster3 doesn't have config, so only 2 IDs should be reserved
 		assert.Len(c, usedIDs.UsedClusterIDs, 2)
 	}, timeout, tick, "Cluster IDs were not reserved correctly")
 
@@ -217,14 +214,14 @@ func TestClusterMesh(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		nodesObserver.nodesMutex.RLock()
 		defer nodesObserver.nodesMutex.RUnlock()
-		assert.Len(c, nodesObserver.nodes, 3*len(nodeNames))
+		assert.Len(c, nodesObserver.nodes, 2*len(nodeNames))
 	}, timeout, tick, "Nodes not watched correctly")
 
 	require.NoError(t, os.Remove(config2), "Failed to remove config file for cluster2")
 
 	// wait for the removed cluster to disappear
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.Equal(c, 2, cm.NumReadyClusters())
+		assert.Equal(c, 1, cm.NumReadyClusters())
 	}, timeout, tick, "Cluster2 was not correctly removed")
 
 	// Make sure that ID is freed
@@ -239,7 +236,7 @@ func TestClusterMesh(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		nodesObserver.nodesMutex.RLock()
 		defer nodesObserver.nodesMutex.RUnlock()
-		assert.Len(c, nodesObserver.nodes, 2*len(nodeNames))
+		assert.Len(c, nodesObserver.nodes, 1*len(nodeNames))
 	}, timeout, tick, "Nodes were not drained correctly")
 
 	require.NoError(t, os.Remove(config1), "Failed to remove config file for cluster1")

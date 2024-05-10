@@ -80,8 +80,6 @@ func (rc *remoteCluster) Remove() {
 	rc.globalServices.OnClusterDelete(rc.name)
 }
 
-func (rc *remoteCluster) ClusterConfigRequired() bool { return false }
-
 type synced struct {
 	wait.SyncedCommon
 	services *lock.StoppableWaitGroup

@@ -6,11 +6,18 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path"
 	"time"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+)
+
+var (
+	// ErrClusterConfigNotFound is the sentinel error returned by
+	// GetClusterConfig if the cluster configuration is not found.
+	ErrClusterConfigNotFound = errors.New("not found")
 )
 
 func SetClusterConfig(ctx context.Context, clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
@@ -43,9 +50,8 @@ func GetClusterConfig(ctx context.Context, clusterName string, backend kvstore.B
 		return nil, err
 	}
 
-	// Cluster configuration missing, but it's not an error
 	if val == nil {
-		return nil, nil
+		return nil, ErrClusterConfigNotFound
 	}
 
 	if err := json.Unmarshal(val, &config); err != nil {
@@ -53,14 +59,4 @@ func GetClusterConfig(ctx context.Context, clusterName string, backend kvstore.B
 	}
 
 	return &config, nil
-}
-
-// IsClusterConfigRequired returns whether the remote kvstore guarantees that the
-// cilium cluster config will be eventually created.
-func IsClusterConfigRequired(ctx context.Context, backend kvstore.BackendOperations) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	val, err := backend.Get(ctx, kvstore.HasClusterConfigPath)
-	return val != nil, err
 }

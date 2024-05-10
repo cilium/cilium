@@ -5,7 +5,6 @@ package common
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -36,10 +35,6 @@ type RemoteCluster interface {
 	// Run implements the actual business logic once the connection to the remote cluster has been established.
 	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
 	Run(ctx context.Context, backend kvstore.BackendOperations, config *types.CiliumClusterConfig, ready chan<- error)
-
-	// ClusterConfigRequired returns whether the CiliumClusterConfig is always
-	// expected to be exposed by remote clusters.
-	ClusterConfigRequired() bool
 
 	Stop()
 	Remove()
@@ -189,16 +184,13 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				rc.logger.WithField(logfields.EtcdClusterID, etcdClusterID).Info("Connection to remote cluster established")
 
-				config, err := rc.getClusterConfig(ctx, backend, rc.ClusterConfigRequired())
-				if err == nil && config == nil {
-					rc.logger.Warning("Remote cluster doesn't have cluster configuration, falling back to the old behavior. This is expected when connecting to the old cluster running Cilium without cluster configuration feature.")
-				} else if err == nil {
-					rc.logger.Info("Found remote cluster configuration")
-				} else {
+				config, err := rc.getClusterConfig(ctx, backend)
+				if err != nil {
 					rc.logger.WithError(err).Warning("Unable to get remote cluster configuration")
 					cancel()
 					return err
 				}
+				rc.logger.Info("Found remote cluster configuration")
 
 				ready := make(chan error)
 
@@ -259,26 +251,16 @@ func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOp
 	}
 }
 
-func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations, forceRequired bool) (*types.CiliumClusterConfig, error) {
+func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations) (*types.CiliumClusterConfig, error) {
 	var (
-		err                           error
-		requireConfig                 = forceRequired
 		clusterConfigRetrievalTimeout = 3 * time.Minute
 	)
 
 	ctx, cancel := context.WithTimeout(ctx, clusterConfigRetrievalTimeout)
 	defer cancel()
 
-	if !requireConfig {
-		// Let's check whether the kvstore states that the cluster configuration should be always present.
-		requireConfig, err = cmutils.IsClusterConfigRequired(ctx, backend)
-		if err != nil {
-			return nil, fmt.Errorf("failed to detect whether the cluster configuration is required: %w", err)
-		}
-	}
-
 	rc.mutex.Lock()
-	rc.config = &models.RemoteClusterConfig{Required: requireConfig}
+	rc.config = &models.RemoteClusterConfig{Required: true}
 	rc.mutex.Unlock()
 
 	cfgch := make(chan *types.CiliumClusterConfig)
@@ -299,12 +281,6 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 				return err
 			}
 
-			if config == nil && requireConfig {
-				return errors.New("cluster configuration expected to be present but not found")
-			}
-
-			// We should stop retrying in case we either successfully retrieved the cluster
-			// configuration, or we are not required to wait for it.
 			cfgch <- config
 			return nil
 		},
@@ -315,14 +291,12 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	// Wait until either the configuration is retrieved, or the context expires
 	select {
 	case config := <-cfgch:
-		if config != nil {
-			rc.mutex.Lock()
-			rc.config.Retrieved = true
-			rc.config.ClusterID = int64(config.ID)
-			rc.config.Kvstoremesh = config.Capabilities.Cached
-			rc.config.SyncCanaries = config.Capabilities.SyncedCanaries
-			rc.mutex.Unlock()
-		}
+		rc.mutex.Lock()
+		rc.config.Retrieved = true
+		rc.config.ClusterID = int64(config.ID)
+		rc.config.Kvstoremesh = config.Capabilities.Cached
+		rc.config.SyncCanaries = config.Capabilities.SyncedCanaries
+		rc.mutex.Unlock()
 
 		return config, nil
 	case <-ctx.Done():
