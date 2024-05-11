@@ -2310,6 +2310,9 @@
     },
     "gatewayAPI": {
       "properties": {
+        "enableAlpn": {
+          "type": "boolean"
+        },
         "enableAppProtocol": {
           "type": "boolean"
         },

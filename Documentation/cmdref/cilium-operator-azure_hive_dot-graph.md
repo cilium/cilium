@@ -36,6 +36,7 @@ cilium-operator-azure hive dot-graph [flags]
       --clustermesh-endpoints-per-slice int                  The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-gateway-api-alpn                              Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
       --enable-gateway-api-app-protocol                      Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol
       --enable-gateway-api-proxy-protocol                    Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-gateway-api-secrets-sync                      Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
