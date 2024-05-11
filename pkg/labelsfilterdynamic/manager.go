@@ -58,6 +58,9 @@ type controllerParams struct {
 }
 
 func registerController(params controllerParams) (*controller, error) {
+	if !params.DaemonConfig.DynamicLabelFilterEnabled() {
+		return nil, nil
+	}
 	c := &controller{
 		Signal:                         params.Signal,
 		CiliumNetworkPolicy:            params.CiliumNetworkPolicy,
