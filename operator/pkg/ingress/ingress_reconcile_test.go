@@ -1058,6 +1058,9 @@ type fakeCECTranslator struct {
 	model *model.Model
 }
 
+func (r *fakeCECTranslator) WithUseAlpn(useAlpn bool) {
+}
+
 func (r *fakeCECTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
 	r.model = model
 

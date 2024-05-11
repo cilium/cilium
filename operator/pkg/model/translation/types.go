@@ -21,6 +21,8 @@ type Translator interface {
 // CECTranslator is the interface to take the model and generate required CiliumEnvoyConfig.
 // It might be used as the base for other Translator implementations.
 type CECTranslator interface {
+	// WithUseAlpn enables ALPN
+	WithUseAlpn(useAlpn bool)
 	// Translate translates the model to CiliumEnvoyConfig.
 	Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error)
 }

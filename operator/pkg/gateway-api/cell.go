@@ -37,6 +37,7 @@ var Cell = cell.Module(
 		EnableGatewayAPISecretsSync:   true,
 		EnableGatewayAPIProxyProtocol: false,
 		EnableGatewayAPIAppProtocol:   false,
+		EnableGatewayAPIAlpn:          false,
 		GatewayAPISecretsNamespace:    "cilium-secrets",
 		GatewayAPIXffNumTrustedHops:   0,
 
@@ -63,6 +64,7 @@ type gatewayApiConfig struct {
 	EnableGatewayAPISecretsSync   bool
 	EnableGatewayAPIProxyProtocol bool
 	EnableGatewayAPIAppProtocol   bool
+	EnableGatewayAPIAlpn          bool
 	GatewayAPISecretsNamespace    string
 	GatewayAPIXffNumTrustedHops   uint32
 
@@ -77,6 +79,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.Bool("enable-gateway-api-app-protocol", r.EnableGatewayAPIAppProtocol, "Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol")
+	flags.Bool("enable-gateway-api-alpn", r.EnableGatewayAPIAlpn, "Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API")
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
@@ -133,6 +136,8 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.AgentConfig.EnableIPv6,
 		params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 	)
+
+	cecTranslator.WithUseAlpn(params.GatewayApiConfig.EnableGatewayAPIAlpn)
 
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, params.GatewayApiConfig.GatewayAPIHostnetworkEnabled)
 
