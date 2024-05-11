@@ -274,6 +274,46 @@ func TestNewListener(t *testing.T) {
 		require.Equal(t, []string{"example.com", "example.org"}, listener.GetFilterChains()[4].FilterChainMatch.ServerNames)
 		require.Equal(t, []string{"foo.bar"}, listener.GetFilterChains()[5].FilterChainMatch.ServerNames)
 	})
+
+	t.Run("without TLS with ALPN", func(t *testing.T) {
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, WithAlpn())
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+		require.Len(t, listener.GetListenerFilters(), 1)
+		require.Len(t, listener.GetFilterChains(), 1)
+		// without TLS, ALPN setup is skipped
+		require.Nil(t, listener.GetFilterChains()[0].GetTransportSocket())
+	})
+
+	t.Run("with TLS with ALPN", func(t *testing.T) {
+		res, err := newListener(
+			"dummy-name",
+			"dummy-secret-namespace",
+			true,
+			map[model.TLSSecret][]string{
+				{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
+			},
+			nil,
+			WithAlpn(),
+		)
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+		require.Len(t, listener.GetListenerFilters(), 1)
+		require.Len(t, listener.GetFilterChains(), 2)
+		require.Nil(t, listener.GetFilterChains()[0].GetTransportSocket())
+
+		downstreamContext := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+		err = proto.Unmarshal(listener.GetFilterChains()[1].GetTransportSocket().ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downstreamContext)
+		require.Nil(t, err)
+
+		require.Equal(t, []string{"h2,http/1.1"}, downstreamContext.CommonTlsContext.AlpnProtocols)
+	})
 }
 
 func TestGetHostNetworkListenerAddresses(t *testing.T) {

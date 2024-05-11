@@ -41,6 +41,7 @@ type cecTranslator struct {
 	secretsNamespace string
 	useProxyProtocol bool
 	useAppProtocol   bool
+	useAlpn          bool
 
 	hostNetworkEnabled           bool
 	hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
@@ -67,6 +68,7 @@ func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProt
 		secretsNamespace:             secretsNamespace,
 		useProxyProtocol:             useProxyProtocol,
 		useAppProtocol:               useAppProtocol,
+		useAlpn:                      false,
 		hostNameSuffixMatch:          hostNameSuffixMatch,
 		idleTimeoutSeconds:           idleTimeoutSeconds,
 		xffNumTrustedHops:            xffNumTrustedHops,
@@ -75,6 +77,10 @@ func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProt
 		ipv4Enabled:                  ipv4Enabled,
 		ipv6Enabled:                  ipv6Enabled,
 	}
+}
+
+func (i *cecTranslator) WithUseAlpn(useAlpn bool) {
+	i.useAlpn = useAlpn
 }
 
 func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
@@ -182,6 +188,10 @@ func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 	mutatorFuncs := []ListenerMutator{}
 	if i.useProxyProtocol {
 		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
+	}
+
+	if i.useAlpn {
+		mutatorFuncs = append(mutatorFuncs, WithAlpn())
 	}
 
 	if i.hostNetworkEnabled {
