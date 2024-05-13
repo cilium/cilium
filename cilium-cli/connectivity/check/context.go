@@ -781,6 +781,10 @@ func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.
 	return nil
 }
 
+// multiClusterClientLock protects K8S client instantiation (Scheme registration)
+// for the cluster mesh setup in case of connectivity test concurrency > 1
+var multiClusterClientLock = sync.Mutex{}
+
 // initClients checks if Cilium is installed on the cluster, whether the cluster
 // has multiple nodes, and whether or not monitor aggregation is enabled.
 // TODO(timo): Split this up, it does a lot.
@@ -833,6 +837,8 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 			ct.params.SingleNode = true
 		}
 	} else if ct.params.MultiCluster != "" {
+		multiClusterClientLock.Lock()
+		defer multiClusterClientLock.Unlock()
 		dst, err := k8s.NewClient(ct.params.MultiCluster, "", ct.params.CiliumNamespace)
 		if err != nil {
 			return fmt.Errorf("unable to create Kubernetes client for remote cluster %q: %w", ct.params.MultiCluster, err)
