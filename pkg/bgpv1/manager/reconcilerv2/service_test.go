@@ -430,6 +430,30 @@ var (
 		},
 	}
 
+	eps1LocalTerminating = &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1",
+			Namespace: "non-default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      redSvcKey.Name,
+				Namespace: redSvcKey.Namespace,
+			},
+			EndpointSliceName: "svc-1",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName:    "node1",
+				Terminating: true,
+			},
+			cmtypes.MustParseAddrCluster("2001:db8:1000::1"): {
+				NodeName:    "node1",
+				Terminating: true,
+			},
+		},
+	}
+
 	eps1Remote = &k8s.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "svc-1",
@@ -658,6 +682,36 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			services:   []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			lbIPPools:  []*v2alpha1.CiliumLoadBalancerIPPool{redLBPool},
 			endpoints:  []*k8s.Endpoints{eps1Remote},
+			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths:         ResourceAFPathsMap{},
+				ServiceRoutePolicies: ResourceRoutePolicyMap{},
+				ServiceAdvertisements: PeerAdvertisements{
+					"red-peer-65001": PeerFamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v2alpha1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v2alpha1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+					},
+				},
+				LBPoolRoutePolicies: ResourceRoutePolicyMap{ // route policies will exists even if there are no local eps
+					redLBPoolKey: {
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+						redPeer65001v6LBRPName: redPeer65001v6LBRP,
+					},
+				},
+			},
+		},
+		{
+			name:       "Service (LB) with advertisement(LB) - matching labels (eTP=local, backends are terminating)",
+			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{redPeerConfig},
+			services:   []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
+			lbIPPools:  []*v2alpha1.CiliumLoadBalancerIPPool{redLBPool},
+			endpoints:  []*k8s.Endpoints{eps1LocalTerminating},
 			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
