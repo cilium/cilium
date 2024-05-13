@@ -36,7 +36,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  location: westeurope
+  location: westus2
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
   # renovate: datasource=github-releases depName=cilium/cilium
   cilium_version: v1.15.4
@@ -66,6 +66,17 @@ jobs:
           client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_PR_SUBSCRIPTION_ID }}
+
+      # Temporary workaround due to the issue: https://github.com/Azure/azure-cli/issues/28708
+      - name: Fetch OIDC token every 4 mins
+        shell: bash
+        run: |
+          while true; do
+            token=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq .value -r)
+            az login --service-principal -u ${{ secrets.AZURE_PR_CLIENT_ID }} -t ${{ secrets.AZURE_PR_TENANT_ID }} --federated-token $token --output none
+            # Sleep for 4 minutes
+            sleep 240
+          done &
 
       - name: Install aks-preview CLI extension
         run: |
