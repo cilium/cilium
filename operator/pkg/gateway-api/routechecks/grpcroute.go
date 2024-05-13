@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -111,6 +112,10 @@ func (g *GRPCRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv
 
 	g.gateways[parent] = gw
 	return gw, nil
+}
+
+func (g *GRPCRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
+	return nil, fmt.Errorf("GAMMA support is not implemented in this reconciler")
 }
 
 func (g *GRPCRouteInput) GetHostnames() []gatewayv1beta1.Hostname {
