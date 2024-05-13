@@ -40,21 +40,16 @@ type remoteCluster struct {
 	synced synced
 }
 
-func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *types.CiliumClusterConfig, ready chan<- error) {
-	var capabilities types.CiliumClusterConfigCapabilities
-	if config != nil {
-		capabilities = config.Capabilities
-	}
-
+func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config types.CiliumClusterConfig, ready chan<- error) {
 	var mgr store.WatchStoreManager
-	if capabilities.SyncedCanaries {
+	if config.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
 		mgr = store.NewWatchStoreManagerImmediate(rc.name)
 	}
 
 	adapter := func(prefix string) string { return prefix }
-	if capabilities.Cached {
+	if config.Capabilities.Cached {
 		adapter = kvstore.StateToCachePrefix
 	}
 

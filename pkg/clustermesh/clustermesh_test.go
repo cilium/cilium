@@ -119,7 +119,7 @@ func TestClusterMesh(t *testing.T) {
 			config.Capabilities.SyncedCanaries = true
 		}
 
-		err := cmutils.SetClusterConfig(ctx, name, &config, kvstore.Client())
+		err := cmutils.SetClusterConfig(ctx, name, config, kvstore.Client())
 		require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 	}
 
@@ -184,7 +184,7 @@ func TestClusterMesh(t *testing.T) {
 			MaxConnectedClusters: 255,
 		},
 	}
-	err := cmutils.SetClusterConfig(ctx, "cluster1", &config, kvstore.Client())
+	err := cmutils.SetClusterConfig(ctx, "cluster1", config, kvstore.Client())
 	require.NoErrorf(t, err, "Failed to set cluster config for cluster1")
 	// Ugly hack to trigger config update
 	etcdConfigNew := append(etcdConfig, []byte("\n")...)

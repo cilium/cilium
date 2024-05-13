@@ -97,14 +97,14 @@ func TestRemoteClusterRun(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		srccfg *types.CiliumClusterConfig
-		dstcfg *types.CiliumClusterConfig
+		srccfg types.CiliumClusterConfig
+		dstcfg types.CiliumClusterConfig
 		kvs    map[string]string
 	}{
 		{
-			name:   "remote cluster has no cluster config",
-			srccfg: nil,
-			dstcfg: &types.CiliumClusterConfig{
+			name:   "remote cluster has empty cluster config",
+			srccfg: types.CiliumClusterConfig{},
+			dstcfg: types.CiliumClusterConfig{
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries: true,
 					Cached:         true,
@@ -119,12 +119,12 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 		{
 			name: "remote cluster supports the synced canaries",
-			srccfg: &types.CiliumClusterConfig{
+			srccfg: types.CiliumClusterConfig{
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries: true,
 				},
 			},
-			dstcfg: &types.CiliumClusterConfig{
+			dstcfg: types.CiliumClusterConfig{
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries: true,
 					Cached:         true,
@@ -139,13 +139,13 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 		{
 			name: "remote cluster supports the cached prefixes",
-			srccfg: &types.CiliumClusterConfig{
+			srccfg: types.CiliumClusterConfig{
 				ID: 10,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					Cached: true,
 				},
 			},
-			dstcfg: &types.CiliumClusterConfig{
+			dstcfg: types.CiliumClusterConfig{
 				ID: 10,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries: true,
@@ -161,14 +161,14 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 		{
 			name: "remote cluster supports both synced canaries and cached prefixes",
-			srccfg: &types.CiliumClusterConfig{
+			srccfg: types.CiliumClusterConfig{
 				ID: 10,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries: true,
 					Cached:         true,
 				},
 			},
-			dstcfg: &types.CiliumClusterConfig{
+			dstcfg: types.CiliumClusterConfig{
 				ID: 10,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries: true,
@@ -199,7 +199,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			remoteClient := &remoteEtcdClientWrapper{
 				BackendOperations: kvstore.Client(),
 				name:              "foo",
-				cached:            tt.srccfg != nil && tt.srccfg.Capabilities.Cached,
+				cached:            tt.srccfg.Capabilities.Cached,
 				kvs:               tt.kvs,
 			}
 			st := store.NewFactory(store.MetricsProvider())
@@ -253,7 +253,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			}
 
 			// Assert that synced canaries have been watched if expected
-			require.Equal(t, tt.srccfg != nil && tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
+			require.Equal(t, tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
 		})
 	}
 }
@@ -316,7 +316,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		rc.Run(ctx, remoteClient, &cfg, ready)
+		rc.Run(ctx, remoteClient, cfg, ready)
 		rc.Stop()
 		wg.Done()
 	}()

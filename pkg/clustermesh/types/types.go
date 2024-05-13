@@ -13,6 +13,8 @@ const (
 	// ClusterIDMin is the minimum value of the cluster ID
 	ClusterIDMin    = 0
 	ClusterIDExt511 = 511
+
+	ClusterIDUnset = ClusterIDMin
 )
 
 // ClusterIDMax is the maximum value of the cluster ID

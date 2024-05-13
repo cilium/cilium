@@ -368,7 +368,7 @@ func startServer(
 		},
 	}
 
-	if err := cmutils.SetClusterConfig(context.Background(), cinfo.Name, &config, backend); err != nil {
+	if err := cmutils.SetClusterConfig(context.Background(), cinfo.Name, config, backend); err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 

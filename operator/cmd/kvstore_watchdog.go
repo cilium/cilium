@@ -107,7 +107,7 @@ func startKvstoreWatchdog() {
 				cfg := cmtypes.CiliumClusterConfig{
 					ID:           option.Config.ClusterID,
 					Capabilities: cmtypes.CiliumClusterConfigCapabilities{MaxConnectedClusters: option.Config.MaxConnectedClusters}}
-				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, &cfg, kvstore.Client()); err != nil {
+				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
 					log.WithError(err).Warning("Unable to set local cluster config")
 				}
 			}
