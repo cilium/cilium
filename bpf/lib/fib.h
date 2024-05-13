@@ -261,11 +261,18 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
  */
 static __always_inline int
 fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
-	      __be32 ipv4_src, __be32 ipv4_dst, int flags) {
+	      __be32 ipv4_src, __be32 ipv4_dst, int flags)
+{
+
 	fib_params->l.family	= AF_INET;
 	fib_params->l.ifindex	= ctx_get_ifindex(ctx);
 	fib_params->l.ipv4_src	= ipv4_src;
 	fib_params->l.ipv4_dst	= ipv4_dst;
+
+#if __ctx_is == __ctx_skb
+	if (flags & BPF_FIB_LOOKUP_MARK)
+		fib_params->l.mark = ctx->mark;
+#endif
 
 	return fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
 }
@@ -273,7 +280,8 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4 __maybe_unused, const bool needs_l2_check,
-		bool allow_neigh_map, __s8 *fib_err __maybe_unused, int *oif)
+		bool allow_neigh_map, int flags,
+		__s8 *fib_err __maybe_unused, int *oif)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
 	int ret;
@@ -283,7 +291,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 #endif
 
 	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
-		ret = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
+		ret = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, flags);
 		*fib_err = (__s8)ret;
 
 		ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
