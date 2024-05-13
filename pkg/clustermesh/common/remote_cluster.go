@@ -5,6 +5,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -186,7 +187,14 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				config, err := rc.getClusterConfig(ctx, backend)
 				if err != nil {
-					rc.logger.WithError(err).Warning("Unable to get remote cluster configuration")
+					lgr := rc.logger
+					if errors.Is(err, cmutils.ErrClusterConfigNotFound) {
+						lgr = lgr.WithField(logfields.Hint,
+							"If KVStoreMesh is enabled, check whether it is connected to the target cluster."+
+								" Additionally, ensure that the cluster name is correct.")
+					}
+
+					lgr.WithError(err).Warning("Unable to get remote cluster configuration")
 					cancel()
 					return err
 				}
@@ -254,6 +262,8 @@ func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOp
 func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations) (types.CiliumClusterConfig, error) {
 	var (
 		clusterConfigRetrievalTimeout = 3 * time.Minute
+		lastError                     = context.Canceled
+		lastErrorLock                 lock.Mutex
 	)
 
 	ctx, cancel := context.WithTimeout(ctx, clusterConfigRetrievalTimeout)
@@ -278,6 +288,9 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 			rc.logger.Debug("Retrieving cluster configuration from remote kvstore")
 			config, err := cmutils.GetClusterConfig(ctx, rc.name, backend)
 			if err != nil {
+				lastErrorLock.Lock()
+				lastError = err
+				lastErrorLock.Unlock()
 				return err
 			}
 
@@ -300,7 +313,9 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 
 		return config, nil
 	case <-ctx.Done():
-		return types.CiliumClusterConfig{}, fmt.Errorf("failed to retrieve cluster configuration")
+		lastErrorLock.Lock()
+		defer lastErrorLock.Unlock()
+		return types.CiliumClusterConfig{}, fmt.Errorf("failed to retrieve cluster configuration: %w", lastError)
 	}
 }
 
