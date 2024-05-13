@@ -142,6 +142,9 @@ func installFromProxyRoutesIPv4(ipv4 net.IP, device string) error {
 	if err := route.ReplaceRule(fromIngressProxyRule); err != nil {
 		return fmt.Errorf("inserting ipv4 from ingress proxy routing rule %v: %w", fromIngressProxyRule, err)
 	}
+	if err := route.ReplaceRule(fromEgressProxyRule); err != nil {
+		return fmt.Errorf("inserting ipv4 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
+	}
 	if err := route.Upsert(fromProxyToCiliumHostRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute4, err)
 	}
@@ -152,22 +155,18 @@ func installFromProxyRoutesIPv4(ipv4 net.IP, device string) error {
 	return nil
 }
 
-// removeFromIngressProxyRoutesIPv4 ensures routes and rules for traffic from the proxy are removed.
-func removeFromIngressProxyRoutesIPv4() error {
+// removeFromProxyRoutesIPv4 ensures routes and rules for traffic from the proxy are removed.
+func removeFromProxyRoutesIPv4() error {
 	if err := route.DeleteRule(netlink.FAMILY_V4, fromIngressProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
 		return fmt.Errorf("removing ipv4 from ingress proxy routing rule: %w", err)
+	}
+	if err := route.DeleteRule(netlink.FAMILY_V4, fromEgressProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
+		return fmt.Errorf("removing ipv4 from egress proxy routing rule: %w", err)
 	}
 	if err := route.DeleteRouteTable(linux_defaults.RouteTableFromProxy, netlink.FAMILY_V4); err != nil {
 		return fmt.Errorf("removing ipv4 from proxy route table: %w", err)
 	}
 
-	return nil
-}
-
-func removeFromEgressProxyRoutesIPv4() error {
-	if err := route.DeleteRule(netlink.FAMILY_V4, fromEgressProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
-		return fmt.Errorf("removing ipv4 from egress proxy routing rule: %w", err)
-	}
 	return nil
 }
 
@@ -194,6 +193,9 @@ func installFromProxyRoutesIPv6(ipv6 net.IP, device string) error {
 	if err := route.ReplaceRuleIPv6(fromIngressProxyRule); err != nil {
 		return fmt.Errorf("inserting ipv6 from ingress proxy routing rule %v: %w", fromIngressProxyRule, err)
 	}
+	if err := route.ReplaceRuleIPv6(fromEgressProxyRule); err != nil {
+		return fmt.Errorf("inserting ipv6 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
+	}
 	if err := route.Upsert(fromProxyToCiliumHostRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute6, err)
 	}
@@ -204,25 +206,21 @@ func installFromProxyRoutesIPv6(ipv6 net.IP, device string) error {
 	return nil
 }
 
-// removeFromIngressProxyRoutesIPv6 ensures routes and rules for traffic from the proxy are removed.
-func removeFromIngressProxyRoutesIPv6() error {
+// removeFromProxyRoutesIPv6 ensures routes and rules for traffic from the proxy are removed.
+func removeFromProxyRoutesIPv6() error {
 	if err := route.DeleteRule(netlink.FAMILY_V6, fromIngressProxyRule); err != nil {
 		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
 			return fmt.Errorf("removing ipv6 from ingress proxy routing rule: %w", err)
+		}
+	}
+	if err := route.DeleteRule(netlink.FAMILY_V6, fromEgressProxyRule); err != nil {
+		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			return fmt.Errorf("removing ipv6 from egress proxy routing rule: %w", err)
 		}
 	}
 	if err := route.DeleteRouteTable(linux_defaults.RouteTableFromProxy, netlink.FAMILY_V6); err != nil {
 		return fmt.Errorf("removing ipv6 from proxy route table: %w", err)
 	}
 
-	return nil
-}
-
-func removeFromEgressProxyRoutesIPv6() error {
-	if err := route.DeleteRule(netlink.FAMILY_V6, fromEgressProxyRule); err != nil {
-		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
-			return fmt.Errorf("removing ipv6 from egress proxy routing rule: %w", err)
-		}
-	}
 	return nil
 }

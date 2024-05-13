@@ -88,7 +88,7 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName))
 
 				// Remove routes installed before.
-				assert.NoError(t, removeFromIngressProxyRoutesIPv4())
+				assert.NoError(t, removeFromProxyRoutesIPv4())
 
 				rules, err = route.ListRules(netlink.FAMILY_V4, &fromIngressProxyRule)
 				assert.NoError(t, err)
@@ -175,7 +175,7 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName))
 
 				// Remove routes installed before.
-				assert.NoError(t, removeFromIngressProxyRoutesIPv6())
+				assert.NoError(t, removeFromProxyRoutesIPv6())
 
 				rules, err = route.ListRules(netlink.FAMILY_V6, &fromIngressProxyRule)
 				assert.NoError(t, err)

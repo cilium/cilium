@@ -408,15 +408,12 @@ func (p *Proxy) ReinstallRoutingRules() error {
 			return err
 		}
 
-		if err := removeFromEgressProxyRoutesIPv4(); err != nil {
-			return err
-		}
 		if requireFromProxyRoutes() {
 			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice); err != nil {
 				return err
 			}
 		} else {
-			if err := removeFromIngressProxyRoutesIPv4(); err != nil {
+			if err := removeFromProxyRoutesIPv4(); err != nil {
 				return err
 			}
 		}
@@ -424,7 +421,7 @@ func (p *Proxy) ReinstallRoutingRules() error {
 		if err := removeToProxyRoutesIPv4(); err != nil {
 			return err
 		}
-		if err := removeFromIngressProxyRoutesIPv4(); err != nil {
+		if err := removeFromProxyRoutesIPv4(); err != nil {
 			return err
 		}
 	}
@@ -434,9 +431,6 @@ func (p *Proxy) ReinstallRoutingRules() error {
 			return err
 		}
 
-		if err := removeFromEgressProxyRoutesIPv6(); err != nil {
-			return err
-		}
 		if requireFromProxyRoutes() {
 			ipv6, err := getCiliumNetIPv6()
 			if err != nil {
@@ -446,7 +440,7 @@ func (p *Proxy) ReinstallRoutingRules() error {
 				return err
 			}
 		} else {
-			if err := removeFromIngressProxyRoutesIPv6(); err != nil {
+			if err := removeFromProxyRoutesIPv6(); err != nil {
 				return err
 			}
 		}
@@ -454,7 +448,7 @@ func (p *Proxy) ReinstallRoutingRules() error {
 		if err := removeToProxyRoutesIPv6(); err != nil {
 			return err
 		}
-		if err := removeFromIngressProxyRoutesIPv6(); err != nil {
+		if err := removeFromProxyRoutesIPv6(); err != nil {
 			return err
 		}
 	}
