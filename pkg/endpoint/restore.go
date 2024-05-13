@@ -43,15 +43,6 @@ var (
 	initialGlobalIdentitiesControllerGroup = controller.NewGroup("initial-global-identities")
 )
 
-// hostObjFileName is the name of the host object file.
-const hostObjFileName = "bpf_host.o"
-
-func hasHostObjectFile(epDir string) bool {
-	hostObjFilepath := filepath.Join(epDir, hostObjFileName)
-	_, err := os.Stat(hostObjFilepath)
-	return err == nil
-}
-
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
 func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter,
@@ -75,7 +66,6 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 	possibleEPs := map[uint16]*Endpoint{}
 	for _, epDirName := range completeEPDirNames {
 		epDir := filepath.Join(basePath, epDirName)
-		isHost := hasHostObjectFile(epDir)
 
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.EndpointID: epDirName,
@@ -105,7 +95,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 
 		// We need to save the host endpoint ID as we'll need it to regenerate
 		// other endpoints.
-		if isHost {
+		if ep.IsHost() {
 			node.SetEndpointID(ep.GetID())
 		}
 	}
