@@ -67,6 +67,9 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 	return &moduleReporter{
 		id: types.Identifier{Module: mid},
 		upsert: func(s types.Status) error {
+			// This will be used for any other relevant timestamps.
+			s.Updated = time.Now()
+
 			if p.stopped.Load() {
 				return fmt.Errorf("provider is stopped, no more updates will take place")
 			}
@@ -76,11 +79,16 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 			if found && !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", s.ID)
 			}
+
 			s.Count = 1
-			// If a similar status already exists, increment count, otherwise start back
-			// at zero.
-			if found && old.Level == s.Level && old.Message == s.Message {
+			if found {
 				s.Count = old.Count + 1
+				if old.Level != s.Level {
+					s.LastChange = s.Updated
+				}
+			} else {
+				// Init last change to now if this is the first upsert on this key.
+				s.LastChange = s.Updated
 			}
 			if _, _, err := p.statusTable.Insert(tx, s); err != nil {
 				return fmt.Errorf("upsert status %s: %w", s, err)
@@ -179,13 +187,10 @@ func (r *moduleReporter) OK(msg string) {
 	if r.stopped.Load() {
 		logger.WithField("id", r.id).Warn("report on stopped reporter")
 	}
-	ts := time.Now()
 	if err := r.upsert(types.Status{
 		ID:      r.id,
 		Level:   types.LevelOK,
 		Message: msg,
-		LastOK:  ts,
-		Updated: ts,
 	}); err != nil {
 		logger.WithError(err).Errorf("failed to upsert ok health status")
 	}
@@ -196,10 +201,9 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 		logger.WithField("id", r.id).Warn("report on stopped reporter")
 	}
 	if err := r.upsert(types.Status{
-		ID:      r.id,
-		Level:   types.LevelDegraded,
-		Error:   err,
-		Updated: time.Now(),
+		ID:    r.id,
+		Level: types.LevelDegraded,
+		Error: err,
 	}); err != nil {
 		logger.WithError(err).Errorf("failed to upsert degraded health status")
 	}

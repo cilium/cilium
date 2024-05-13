@@ -72,7 +72,7 @@ func TestProvider(t *testing.T) {
 
 			assert.Len(degraded, 1)
 			assert.Equal(fmt.Errorf("err0"), degraded[0].Error)
-			assert.Equal(degraded[0].Count, uint64(1))
+			assert.Equal(degraded[0].Count, uint64(2), "ensure total update count is correct")
 
 			ok := byLevel(db, statusTable, types.LevelOK)
 			assert.Len(ok, 2)

@@ -56,12 +56,19 @@ type Status struct {
 	Level   Level
 	Message string
 	Error   error
-	LastOK  time.Time
+
+	// Updated is the time of the last update.
 	Updated time.Time
 	Stopped time.Time
 	// Final is the final message set when a status is stopped.
 	Final string
+
+	// Count is the total number of times this status has been updated,
+	// initialized upon the first upsert of a status with this ID.
 	Count uint64
+
+	// LastChange is the time of the last level state transition.
+	LastChange time.Time
 }
 
 func (Status) TableHeader() []string {
@@ -69,7 +76,7 @@ func (Status) TableHeader() []string {
 }
 
 func (s Status) TableRow() []string {
-	return []string{s.ID.Module.String(), s.ID.Component.String(), string(s.Level), s.Message, s.LastOK.Format(time.RFC3339),
+	return []string{s.ID.Module.String(), s.ID.Component.String(), string(s.Level), s.Message, s.LastChange.Format(time.RFC3339),
 		s.Updated.Format(time.RFC3339), fmt.Sprintf("%d", s.Count)}
 }
 

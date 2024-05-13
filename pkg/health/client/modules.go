@@ -109,7 +109,7 @@ func upsertTree(r *node, report *types.Status, stack []string) {
 	if len(stack) == 1 {
 		name := stack[0]
 		meta := fmt.Sprintf("[%s] %s", strings.ToUpper(string(report.Level)), report.Message)
-		meta += fmt.Sprintf(" (%s, x%d)", ToAgeHuman(report.Updated), report.Count)
+		meta += fmt.Sprintf(" (%s, x%d)", ToAgeHuman(report.LastChange), report.Count)
 		for _, c := range r.nodes {
 			if c.val == name {
 				c.meta = meta
