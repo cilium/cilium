@@ -39,6 +39,8 @@ const (
 	// falling back to the backward compatible behavior. It must be set before that
 	// the agents have the possibility to connect to the kvstore (that is, when
 	// it is not yet exposed). The corresponding values is ignored.
+	// Starting from v1.16, Cilium always expects the cluster configuration to be
+	// present. This key is now deprecated and shall be removed in Cilium v1.17.
 	HasClusterConfigPath = BaseKeyPrefix + "/.has-cluster-config"
 
 	// ClusterConfigPrefix is the kvstore prefix to cluster configuration
