@@ -126,6 +126,26 @@ func TestLBServiceReconciler(t *testing.T) {
 		},
 	}
 
+	eps1IPv4LocalTerminating := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName:    "node1",
+				Terminating: true,
+			},
+		},
+	}
+
 	eps1IPv4Remote := &k8s.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "svc-1-ipv4",
@@ -445,6 +465,16 @@ func TestLBServiceReconciler(t *testing.T) {
 			advertised:         map[resource.Key][]string{},
 			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
 			upsertedEndpoints:  []*k8s.Endpoints{},
+			updated:            map[resource.Key][]string{},
+		},
+		// Service with terminating endpoint
+		{
+			name:               "etp-local-terminating-endpoint",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4LocalTerminating},
 			updated:            map[resource.Key][]string{},
 		},
 		// externalTrafficPolicy=Local && IPv4 && single slice && local endpoint
