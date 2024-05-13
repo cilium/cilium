@@ -4,13 +4,13 @@ description: Setup and test cilium connectivity and connection disruption status
 inputs:
   job-name:
     required: true
-    type: string
+    description: 'Job name used in Cilium CLI outputs'
   operation-cmd:
     required: true
-    type: string
+    description: 'CLI commands to run'
   extra-connectivity-test-flags:
     required: false
-    type: string
+    description: 'Cilium CLI connectivity tests extra flags'
 
 runs:
   using: composite

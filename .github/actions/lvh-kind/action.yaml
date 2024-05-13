@@ -4,19 +4,19 @@ description: Creates K8s cluster inside LVH VM, and then exposes K8s cluster to 
 inputs:
   kernel:
     required: true
-    type: string
+    description: 'Linux kernel version'
   kind-params:
     required: true
-    type: string
+    description: 'Kind parameters'
   kind-image:
     required: true
-    type: string
+    description: 'Kind image'
   kind-config:
     required: false
-    type: string
+    description: 'Optional Kind configuration'
   test-name:
     required: true
-    type: string
+    description: 'Test name'
 
 runs:
   using: composite
