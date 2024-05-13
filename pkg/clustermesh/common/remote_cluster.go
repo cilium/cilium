@@ -34,7 +34,7 @@ var (
 type RemoteCluster interface {
 	// Run implements the actual business logic once the connection to the remote cluster has been established.
 	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
-	Run(ctx context.Context, backend kvstore.BackendOperations, config *types.CiliumClusterConfig, ready chan<- error)
+	Run(ctx context.Context, backend kvstore.BackendOperations, config types.CiliumClusterConfig, ready chan<- error)
 
 	Stop()
 	Remove()
@@ -251,7 +251,7 @@ func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOp
 	}
 }
 
-func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations) (*types.CiliumClusterConfig, error) {
+func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations) (types.CiliumClusterConfig, error) {
 	var (
 		clusterConfigRetrievalTimeout = 3 * time.Minute
 	)
@@ -263,7 +263,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	rc.config = &models.RemoteClusterConfig{Required: true}
 	rc.mutex.Unlock()
 
-	cfgch := make(chan *types.CiliumClusterConfig)
+	cfgch := make(chan types.CiliumClusterConfig)
 	defer close(cfgch)
 
 	// We retry here rather than simply returning an error and relying on the external
@@ -300,7 +300,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 
 		return config, nil
 	case <-ctx.Done():
-		return nil, fmt.Errorf("failed to retrieve cluster configuration")
+		return types.CiliumClusterConfig{}, fmt.Errorf("failed to retrieve cluster configuration")
 	}
 }
 

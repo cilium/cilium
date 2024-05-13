@@ -20,7 +20,7 @@ var (
 	ErrClusterConfigNotFound = errors.New("not found")
 )
 
-func SetClusterConfig(ctx context.Context, clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
+func SetClusterConfig(ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
 	key := path.Join(kvstore.ClusterConfigPrefix, clusterName)
 
 	val, err := json.Marshal(config)
@@ -39,7 +39,7 @@ func SetClusterConfig(ctx context.Context, clusterName string, config *cmtypes.C
 	return nil
 }
 
-func GetClusterConfig(ctx context.Context, clusterName string, backend kvstore.BackendOperations) (*cmtypes.CiliumClusterConfig, error) {
+func GetClusterConfig(ctx context.Context, clusterName string, backend kvstore.BackendOperations) (cmtypes.CiliumClusterConfig, error) {
 	var config cmtypes.CiliumClusterConfig
 
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
@@ -47,16 +47,16 @@ func GetClusterConfig(ctx context.Context, clusterName string, backend kvstore.B
 
 	val, err := backend.Get(ctx, path.Join(kvstore.ClusterConfigPrefix, clusterName))
 	if err != nil {
-		return nil, err
+		return cmtypes.CiliumClusterConfig{}, err
 	}
 
 	if val == nil {
-		return nil, ErrClusterConfigNotFound
+		return cmtypes.CiliumClusterConfig{}, ErrClusterConfigNotFound
 	}
 
 	if err := json.Unmarshal(val, &config); err != nil {
-		return nil, err
+		return cmtypes.CiliumClusterConfig{}, err
 	}
 
-	return &config, nil
+	return config, nil
 }

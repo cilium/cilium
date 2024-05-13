@@ -55,7 +55,7 @@ type remoteCluster struct {
 	logger logrus.FieldLogger
 }
 
-func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg *types.CiliumClusterConfig, ready chan<- error) {
+func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg types.CiliumClusterConfig, ready chan<- error) {
 	// Closing the synced.connected channel cancels the timeout goroutine.
 	// Ensure we do not attempt to close the channel more than once.
 	select {
@@ -65,37 +65,29 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	}
 
 	dstcfg := types.CiliumClusterConfig{
+		ID: srccfg.ID,
 		Capabilities: types.CiliumClusterConfigCapabilities{
-			SyncedCanaries: true,
-			Cached:         true,
+			SyncedCanaries:       true,
+			Cached:               true,
+			MaxConnectedClusters: srccfg.Capabilities.MaxConnectedClusters,
 		},
 	}
 
-	if srccfg != nil {
-		dstcfg.ID = srccfg.ID
-		dstcfg.Capabilities.MaxConnectedClusters = srccfg.Capabilities.MaxConnectedClusters
-	}
-
-	if err := cmutils.SetClusterConfig(ctx, rc.name, &dstcfg, rc.localBackend); err != nil {
+	if err := cmutils.SetClusterConfig(ctx, rc.name, dstcfg, rc.localBackend); err != nil {
 		ready <- fmt.Errorf("failed to propagate cluster configuration: %w", err)
 		close(ready)
 		return
 	}
 
-	var capabilities types.CiliumClusterConfigCapabilities
-	if srccfg != nil {
-		capabilities = srccfg.Capabilities
-	}
-
 	var mgr store.WatchStoreManager
-	if capabilities.SyncedCanaries {
+	if srccfg.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
 		mgr = store.NewWatchStoreManagerImmediate(rc.name)
 	}
 
 	adapter := func(prefix string) string { return prefix }
-	if capabilities.Cached {
+	if srccfg.Capabilities.Cached {
 		adapter = kvstore.StateToCachePrefix
 	}
 
@@ -109,7 +101,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
 		suffix := ipcache.DefaultAddressSpace
-		if capabilities.Cached {
+		if srccfg.Capabilities.Cached {
 			suffix = rc.name
 		}
 
@@ -118,7 +110,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
 		var suffix string
-		if capabilities.Cached {
+		if srccfg.Capabilities.Cached {
 			suffix = rc.name
 		}
 

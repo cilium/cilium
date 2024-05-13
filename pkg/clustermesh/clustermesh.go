@@ -144,6 +144,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
 		name:         name,
+		clusterID:    cmtypes.ClusterIDUnset,
 		mesh:         cm,
 		usedIDs:      cm.conf.ClusterIDsManager,
 		status:       status,

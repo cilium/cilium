@@ -88,7 +88,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 				MaxConnectedClusters: 255,
 			},
 		}
-		err := cmutils.SetClusterConfig(ctx, cluster, &config, kvstore.Client())
+		err := cmutils.SetClusterConfig(ctx, cluster, config, kvstore.Client())
 		require.NoError(tb, err)
 	}
 
