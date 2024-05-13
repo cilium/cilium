@@ -12,13 +12,13 @@ inputs:
     default: 'disabled'
   endpoint-routes:
     description: 'Enable endpoint routes'
-    default: false
+    default: 'false'
   ipv6:
     description: 'Enable IPv6'
-    default: true
+    default: 'true'
   kpr:
     description: 'Enable kube-proxy replacement'
-    default: false
+    default: 'false'
   lb-mode:
     description: 'KPR load-balancer mode'
     default: 'snat'
@@ -30,22 +30,22 @@ inputs:
     default: ''
   encryption-node:
     description: 'Enable node-to-node encryption (WireGuard only)'
-    default: false
+    default: 'false'
   encryption-overlay:
     description: 'Encrypt the overlay itself (IPsec only)'
-    default: false
+    default: 'false'
   egress-gateway:
     description: 'Enable egress gateway'
-    default: false
+    default: 'false'
   host-fw:
     description: 'Enable host firewall'
-    default: false
+    default: 'false'
   mutual-auth:
     description: 'Enable mTLS-based Mutual Authentication'
-    default: true
+    default: 'true'
   ingress-controller:
     description: 'Enable ingress controller, required kubeProxyReplacement'
-    default: false
+    default: 'false'
   devices:
     description: 'List of native devices to attach datapath programs'
     default: ''
@@ -54,7 +54,7 @@ inputs:
     default: ''
   ciliumendpointslice:
     description: 'Enable CiliumEndpointSlice'
-    default: false
+    default: 'false'
 outputs:
   config:
     description: 'Cilium installation config'
