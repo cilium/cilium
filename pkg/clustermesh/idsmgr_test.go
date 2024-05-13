@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
 func TestClusterIDsManagerProvisioner(t *testing.T) {
@@ -28,4 +30,8 @@ func TestClusterMeshUsedIDs(t *testing.T) {
 
 	mgr.ReleaseClusterID(250)
 	require.NoError(t, mgr.ReserveClusterID(55), "Reserving a released cluster ID should succeed")
+
+	require.Error(t, mgr.ReserveClusterID(types.ClusterIDUnset), "Reserving ClusterID 0 should fail")
+	mgr.ReleaseClusterID(types.ClusterIDUnset)
+	require.Error(t, mgr.ReserveClusterID(types.ClusterIDUnset), "Releasing ClusterID 0 should be a no-op")
 }
