@@ -85,7 +85,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		})
 
 		// run the actual validators
-		for _, fn := range []routechecks.CheckGatewayFunc{
+		for _, fn := range []routechecks.CheckParentFunc{
 			routechecks.CheckGatewayAllowedForNamespace,
 			routechecks.CheckGatewayRouteKindAllowed,
 			routechecks.CheckGatewayMatchingPorts,

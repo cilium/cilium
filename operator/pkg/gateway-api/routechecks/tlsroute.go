@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +41,6 @@ func (t *TLSRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condit
 	t.mergeStatusConditions(ref, []metav1.Condition{
 		condition,
 	})
-
 }
 
 func (t *TLSRouteInput) SetAllParentCondition(condition metav1.Condition) {
@@ -53,7 +53,6 @@ func (t *TLSRouteInput) SetAllParentCondition(condition metav1.Condition) {
 			condition,
 		})
 	}
-
 }
 
 func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentReference, updates []metav1.Condition) {
@@ -141,6 +140,10 @@ func (t *TLSRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1
 	t.gateways[parent] = gw
 
 	return gw, nil
+}
+
+func (t *TLSRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
+	return nil, fmt.Errorf("GAMMA support is not implemented in this reconciler")
 }
 
 func (t *TLSRouteInput) Log() *logrus.Entry {

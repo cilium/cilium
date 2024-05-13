@@ -28,6 +28,8 @@ const (
 	backendServiceIndex       = "backendServiceIndex"
 	backendServiceImportIndex = "backendServiceImportIndex"
 	gatewayIndex              = "gatewayIndex"
+	gammaBackendServiceIndex  = "gammaBackendServiceIndex"
+	gammaListenerServiceIndex = "gammaListenerServiceIndex"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string) func(object client.Object) bool {
