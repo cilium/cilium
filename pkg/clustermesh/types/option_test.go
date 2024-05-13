@@ -92,55 +92,49 @@ func TestClusterInfoValidate(t *testing.T) {
 func TestValidateRemoteConfig(t *testing.T) {
 	tests := []struct {
 		name      string
-		cfg       *CiliumClusterConfig
+		cfg       CiliumClusterConfig
 		mcc       uint32
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
 		{
-			name:      "Nil config",
-			cfg:       nil,
-			mcc:       255,
-			assertion: assert.Error,
-		},
-		{
 			name:      "Empty config",
-			cfg:       &CiliumClusterConfig{},
+			cfg:       CiliumClusterConfig{},
 			mcc:       255,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Valid config",
-			cfg:       &CiliumClusterConfig{ID: 255, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
+			cfg:       CiliumClusterConfig{ID: 255, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
 			mcc:       255,
 			assertion: assert.NoError,
 		},
 		{
 			name:      "Invalid config",
-			cfg:       &CiliumClusterConfig{ID: 256},
+			cfg:       CiliumClusterConfig{ID: 256},
 			mcc:       255,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Invalid config, MaxConnectedClusters mismatch (ClusterMesh255)",
-			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
+			cfg:       CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
 			mcc:       255,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Valid config (ClusterMesh511)",
-			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
+			cfg:       CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
 			mcc:       511,
 			assertion: assert.NoError,
 		},
 		{
 			name:      "Invalid config, MaxConnectedClusters mismatch (ClusterMesh511)",
-			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
+			cfg:       CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
 			mcc:       511,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Invalid config (ClusterMesh511)",
-			cfg:       &CiliumClusterConfig{ID: 512, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
+			cfg:       CiliumClusterConfig{ID: 512, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
 			mcc:       511,
 			assertion: assert.Error,
 		},

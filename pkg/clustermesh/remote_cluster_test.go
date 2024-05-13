@@ -66,12 +66,12 @@ func TestRemoteClusterRun(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		srccfg *types.CiliumClusterConfig
+		srccfg types.CiliumClusterConfig
 		kvs    map[string]string
 	}{
 		{
 			name:   "remote cluster has no capabilities",
-			srccfg: &types.CiliumClusterConfig{ID: 1},
+			srccfg: types.CiliumClusterConfig{ID: 1},
 			kvs: map[string]string{
 				"cilium/state/nodes/v1/foo/bar":      `{"name": "bar"}`,
 				"cilium/state/services/v1/foo/bar":   `{"name": "bar"}`,
@@ -81,7 +81,7 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 		{
 			name: "remote cluster supports sync canaries",
-			srccfg: &types.CiliumClusterConfig{
+			srccfg: types.CiliumClusterConfig{
 				ID: 255,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries:       true,
@@ -102,7 +102,7 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 		{
 			name: "remote cluster supports both sync canaries and cached prefixes",
-			srccfg: &types.CiliumClusterConfig{
+			srccfg: types.CiliumClusterConfig{
 				ID: 255,
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries:       true,
@@ -200,7 +200,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			}, timeout, tick, "Identities are not watched correctly")
 
 			// Assert that synced canaries have been watched if expected
-			require.Equal(t, tt.srccfg != nil && tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
+			require.Equal(t, tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
 		})
 	}
 }

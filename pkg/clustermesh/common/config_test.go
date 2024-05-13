@@ -33,7 +33,7 @@ var (
 
 type fakeRemoteCluster struct{}
 
-func (*fakeRemoteCluster) Run(_ context.Context, _ kvstore.BackendOperations, _ *types.CiliumClusterConfig, ready chan<- error) {
+func (*fakeRemoteCluster) Run(_ context.Context, _ kvstore.BackendOperations, _ types.CiliumClusterConfig, ready chan<- error) {
 	close(ready)
 }
 func (*fakeRemoteCluster) Stop()   {}
