@@ -446,7 +446,6 @@ Makefile* @cilium/build
 /pkg/debug @cilium/sig-agent
 /pkg/ebpf @cilium/sig-datapath
 /pkg/egressgateway/ @cilium/egress-gateway
-/pkg/elf @cilium/loader
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointcleanup/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
