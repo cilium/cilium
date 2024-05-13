@@ -462,7 +462,7 @@ endpointsLoop:
 		}
 
 		for _, be := range eps.Backends {
-			if be.NodeName == localNodeName {
+			if !be.Terminating && be.NodeName == localNodeName {
 				// At least one endpoint is available on this node. We
 				// can add service to the local services set.
 				ls.Insert(svcKey)
