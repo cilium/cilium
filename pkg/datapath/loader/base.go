@@ -163,7 +163,7 @@ func cleanIngressQdisc(devices []string) error {
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
-func (l *loader) reinitializeIPSec(ctx context.Context) error {
+func (l *loader) reinitializeIPSec() error {
 	// We need to take care not to load bpf_network and bpf_host onto the same
 	// device. If devices are required, we load bpf_host and hence don't need
 	// the code below, specific to EncryptInterface. Specifically, we will load
@@ -204,7 +204,7 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
-	coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
+	coll, finalize, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return fmt.Errorf("loading %s: %w", networkObj, err)
 	}
@@ -449,7 +449,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 			log.WithError(err).Fatal("failed to compile encryption programs")
 		}
 
-		if err := l.reinitializeIPSec(ctx); err != nil {
+		if err := l.reinitializeIPSec(); err != nil {
 			return err
 		}
 	}

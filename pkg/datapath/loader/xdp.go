@@ -162,7 +162,7 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
+	coll, finalize, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,6 @@
 package loader
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -51,12 +50,7 @@ func directionToParent(dir string) uint32 {
 // For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
-func loadDatapath(ctx context.Context, spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (_ *ebpf.Collection, _ func(), err error) {
-	// Avoid unnecessarily loading a prog.
-	if err := ctx.Err(); err != nil {
-		return nil, nil, err
-	}
-
+func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (_ *ebpf.Collection, _ func(), err error) {
 	revert := func() {
 		// Program replacement unsuccessful, revert bpffs migration.
 		log.Debug("Reverting bpffs map migration")
