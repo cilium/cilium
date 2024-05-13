@@ -42,6 +42,7 @@
 #include "lib/l4.h"
 #include "lib/drop.h"
 #include "lib/encap.h"
+#include "lib/encrypt.h"
 #include "lib/nat.h"
 #include "lib/lb.h"
 #include "lib/nodeport.h"
@@ -1333,31 +1334,6 @@ int cil_from_host(struct __ctx_buff *ctx)
 	return handle_netdev(ctx, true);
 }
 
-#if defined(ENABLE_ENCRYPTED_OVERLAY)
-/*
- * If the traffic should be encrypted then CTX_ACT_REDIRECT is returned.
- * Unless an error occurred, and the caller can return this code to TC.
- *
- * CTX_ACT_OK is returned if the traffic should continue normal processing.
- *
- * IS_ERR can be used to determine if this function ran into an error.
- */
-static __always_inline int do_encrypt_overlay(struct __ctx_buff *ctx)
-{
-	int ret = CTX_ACT_OK;
-	struct iphdr __maybe_unused *ipv4;
-	void __maybe_unused *data, *data_end = NULL;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ipv4))
-		return DROP_INVALID;
-
-	if (vxlan_get_vni(data, data_end, ipv4) == ENCRYPTED_OVERLAY_ID)
-		ret = encrypt_overlay_and_redirect(ctx, data, data_end, ipv4);
-
-	return ret;
-};
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
-
 /*
  * to-netdev is attached as a tc egress filter to one or more physical devices
  * managed by Cilium (e.g., eth0).
@@ -1466,11 +1442,11 @@ skip_host_firewall:
 #endif
 
 #if defined(ENABLE_ENCRYPTED_OVERLAY)
-	if (ctx_is_overlay(ctx)) {
-		/* Determine if this is overlay traffic that should be recirculated
+	if (ctx_is_overlay(ctx) && get_identity(ctx) == ENCRYPTED_OVERLAY_ID) {
+		/* This is overlay traffic that should be recirculated
 		 * to the stack for XFRM encryption.
 		 */
-		ret = do_encrypt_overlay(ctx);
+		ret = encrypt_overlay_and_redirect(ctx);
 		if (ret == CTX_ACT_REDIRECT) {
 			/* we are redirecting back into the stack, so TRACE_TO_STACK
 			 * for tracepoint

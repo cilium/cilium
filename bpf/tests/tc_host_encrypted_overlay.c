@@ -115,7 +115,7 @@ int tc_host_encrypted_overlay_01_setup(struct __ctx_buff *ctx)
 	node_v4_add_entry(NODE2_IP, NODE2_ID, NODE2_SPI);
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
-	ctx_set_overlay_mark(ctx);
+	set_identity_mark(ctx, ENCRYPTED_OVERLAY_ID, MARK_MAGIC_OVERLAY);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
