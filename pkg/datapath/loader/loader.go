@@ -340,20 +340,14 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - cilium_host: cil_to_host ingress and cil_from_host to egress
 // - cilium_net: cil_to_host to ingress
 // - native devices: cil_from_netdev to ingress and (optionally) cil_to_netdev to egress if certain features require it
-func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
-	// Warning: here be dragons. There used to be a single loop over
-	// interfaces+objs+progs here from the iproute2 days, but this was never
-	// correct to begin with. Tail call maps were always reused when possible,
-	// causing control flow to transition through invalid states as new tail calls
-	// were sequentially upserted into the array.
-
+func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
 	// Replace programs on cilium_host.
 	host, err := netlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
 	}
 
-	coll, finalize, err := loadDatapath(ctx, spec, ELFMapSubstitutions(ep), ELFVariableSubstitutions(ep))
+	coll, finalize, err := loadDatapath(spec, ELFMapSubstitutions(ep), ELFVariableSubstitutions(ep))
 	if err != nil {
 		return err
 	}
@@ -383,7 +377,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 		return err
 	}
 
-	coll, finalize, err = loadDatapath(ctx, spec, secondRenames, secondConsts)
+	coll, finalize, err = loadDatapath(spec, secondRenames, secondConsts)
 	if err != nil {
 		return err
 	}
@@ -412,7 +406,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 			return err
 		}
 
-		coll, finalize, err := loadDatapath(ctx, spec, netdevRenames, netdevConsts)
+		coll, finalize, err := loadDatapath(spec, netdevRenames, netdevConsts)
 		if err != nil {
 			return err
 		}
@@ -464,7 +458,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	// Replace all occurrences of the template endpoint ID with the real ID.
@@ -493,11 +487,11 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, spec 
 			devices = append(devices, wgTypes.IfaceName)
 		}
 
-		if err := l.reloadHostDatapath(ctx, ep, spec, devices); err != nil {
+		if err := l.reloadHostDatapath(ep, spec, devices); err != nil {
 			return err
 		}
 	} else {
-		coll, finalize, err := loadDatapath(ctx, spec, ELFMapSubstitutions(ep), ELFVariableSubstitutions(ep))
+		coll, finalize, err := loadDatapath(spec, ELFMapSubstitutions(ep), ELFVariableSubstitutions(ep))
 		if err != nil {
 			return err
 		}
@@ -562,7 +556,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
-	coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
+	coll, finalize, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -616,7 +610,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 	}
 
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ctx, ep, spec)
+	err = l.reloadDatapath(ep, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return err
 }

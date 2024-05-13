@@ -138,7 +138,7 @@ func TestReload(t *testing.T) {
 		spec, err := bpf.LoadCollectionSpec(objPath)
 		require.NoError(t, err)
 
-		coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
+		coll, finalize, err := loadDatapath(spec, nil, nil)
 		require.NoError(t, err)
 
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolFromEndpoint],
@@ -285,7 +285,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
+		coll, finalize, err := loadDatapath(spec, nil, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
