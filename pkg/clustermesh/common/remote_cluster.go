@@ -394,7 +394,7 @@ func (rc *remoteCluster) onInsert() {
 // In this case, we don't want to drain the known entries, otherwise
 // we would break existing connections when the agent gets restarted.
 func (rc *remoteCluster) onStop() {
-	rc.controllers.RemoveAllAndWait()
+	_ = rc.controllers.RemoveControllerAndWait(rc.remoteConnectionControllerName)
 	close(rc.changed)
 	rc.Stop()
 }
