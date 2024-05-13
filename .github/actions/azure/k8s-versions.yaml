@@ -1,7 +1,7 @@
 # List of k8s version for AKS tests
 ---
 include:
-  - version: "1.26"
+  - version: "1.27"
     location: westus2
     index: 1
     default: true
