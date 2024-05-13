@@ -241,6 +241,7 @@
 /.github/workflows/*hubble*.yaml @cilium/sig-hubble @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ipsec*.yaml @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ingress*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
+/.github/actions/cl2-modules/ @cilium/sig-scalability
 /.github/workflows/*scale*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/contributing
