@@ -20,6 +20,10 @@ import (
 // attachSKBProgram attaches prog to device using tcx if available and enabled,
 // or legacy tc as a fallback.
 func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
+	if prog == nil {
+		return fmt.Errorf("program %s is nil", progName)
+	}
+
 	if tcxEnabled {
 		// Attach using tcx if available. This is seamless on interfaces with
 		// existing tc programs since attaching tcx disables legacy tc evaluation.
