@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -115,7 +116,7 @@ func TestCompileOrLoadHostEndpoint(t *testing.T) {
 	testReloadDatapath(t, &hostEp)
 }
 
-// TestReload compiles and attaches the datapath multiple times.
+// TestReload compiles and attaches the datapath.
 func TestReload(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
@@ -127,26 +128,27 @@ func TestReload(t *testing.T) {
 	err := compileDatapath(ctx, dirInfo, false, log)
 	require.NoError(t, err)
 
+	l, err := netlink.LinkByName(ep.InterfaceName())
+	require.NoError(t, err)
+
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	progs := []progDefinition{
-		{progName: symbolFromEndpoint, direction: dirIngress},
-		{progName: symbolToEndpoint, direction: dirEgress},
-	}
-	opts := replaceDatapathOptions{
-		device:   ep.InterfaceName(),
-		elf:      objPath,
-		programs: progs,
-		linkDir:  testutils.TempBPFFS(t),
-		tcx:      true,
-	}
-	finalize, err := replaceDatapath(ctx, opts)
-	require.NoError(t, err)
-	finalize()
+	linkDir := testutils.TempBPFFS(t)
 
-	finalize, err = replaceDatapath(ctx, opts)
+	for range 2 {
+		spec, err := bpf.LoadCollectionSpec(objPath)
+		require.NoError(t, err)
 
-	require.NoError(t, err)
-	finalize()
+		coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
+		require.NoError(t, err)
+
+		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolFromEndpoint],
+			symbolFromEndpoint, linkDir, netlink.HANDLE_MIN_INGRESS, true))
+		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolToEndpoint],
+			symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS, true))
+
+		finalize()
+		coll.Close()
+	}
 }
 
 func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
@@ -276,22 +278,18 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	}
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	linkDir := testutils.TempBPFFS(b)
-	progs := []progDefinition{{progName: symbolFromEndpoint, direction: dirIngress}}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		finalize, err := replaceDatapath(ctx,
-			replaceDatapathOptions{
-				device:   ep.InterfaceName(),
-				elf:      objPath,
-				programs: progs,
-				linkDir:  linkDir,
-				tcx:      true,
-			},
-		)
+		spec, err := bpf.LoadCollectionSpec(objPath)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
 		finalize()
+		coll.Close()
 	}
 }

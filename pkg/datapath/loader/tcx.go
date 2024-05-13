@@ -50,6 +50,10 @@ func upsertTCXProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 //
 // progName is typically the Program's key in CollectionSpec.Programs.
 func attachTCX(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
+	if err := bpf.MkdirBPF(bpffsDir); err != nil {
+		return fmt.Errorf("creating bpffs link dir for tcx attachment to device %s: %w", device.Attrs().Name, err)
+	}
+
 	l, err := link.AttachTCX(link.TCXOptions{
 		Program:   prog,
 		Attach:    attach,
