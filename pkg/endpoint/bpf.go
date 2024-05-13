@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -927,6 +928,10 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapathRewrite {
 		if err := e.writeHeaderfile(nextDir); err != nil {
 			return fmt.Errorf("unable to write header file: %w", err)
+		}
+
+		if err := os.WriteFile(filepath.Join(nextDir, defaults.TemplateIDPath), []byte(datapathRegenCtxt.bpfHeaderfilesHash+"\n"), 0644); err != nil {
+			return fmt.Errorf("unable to write template id: %w", err)
 		}
 	}
 
