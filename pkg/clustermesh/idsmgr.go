@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -48,6 +49,10 @@ func NewClusterMeshUsedIDs() *ClusterMeshUsedIDs {
 }
 
 func (cm *ClusterMeshUsedIDs) ReserveClusterID(clusterID uint32) error {
+	if clusterID == cmtypes.ClusterIDUnset {
+		return fmt.Errorf("clusterID %d is reserved", clusterID)
+	}
+
 	cm.UsedClusterIDsMutex.Lock()
 	defer cm.UsedClusterIDsMutex.Unlock()
 
