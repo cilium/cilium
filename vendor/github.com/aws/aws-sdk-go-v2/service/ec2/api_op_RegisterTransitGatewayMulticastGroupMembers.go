@@ -13,11 +13,14 @@ import (
 
 // Registers members (network interfaces) with the transit gateway multicast
 // group. A member is a network interface associated with a supported EC2 instance
-// that receives multicast traffic. For information about supported instances, see
-// Multicast Consideration (https://docs.aws.amazon.com/vpc/latest/tgw/transit-gateway-limits.html#multicast-limits)
-// in Amazon VPC Transit Gateways. After you add the members, use
-// SearchTransitGatewayMulticastGroups (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayMulticastGroups.html)
-// to verify that the members were added to the transit gateway multicast group.
+// that receives multicast traffic. For information about supported instances, see [Multicast Consideration]
+// in Amazon VPC Transit Gateways.
+//
+// After you add the members, use [SearchTransitGatewayMulticastGroups] to verify that the members were added to the
+// transit gateway multicast group.
+//
+// [SearchTransitGatewayMulticastGroups]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayMulticastGroups.html
+// [Multicast Consideration]: https://docs.aws.amazon.com/vpc/latest/tgw/transit-gateway-limits.html#multicast-limits
 func (c *Client) RegisterTransitGatewayMulticastGroupMembers(ctx context.Context, params *RegisterTransitGatewayMulticastGroupMembersInput, optFns ...func(*Options)) (*RegisterTransitGatewayMulticastGroupMembersOutput, error) {
 	if params == nil {
 		params = &RegisterTransitGatewayMulticastGroupMembersInput{}

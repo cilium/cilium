@@ -11,10 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the specified Dedicated Hosts or all your Dedicated Hosts. The
-// results describe only the Dedicated Hosts in the Region you're currently using.
-// All listed instances consume capacity on your Dedicated Host. Dedicated Hosts
-// that have recently been released are listed with the state released .
+// Describes the specified Dedicated Hosts or all your Dedicated Hosts.
+//
+// The results describe only the Dedicated Hosts in the Region you're currently
+// using. All listed instances consume capacity on your Dedicated Host. Dedicated
+// Hosts that have recently been released are listed with the state released .
 func (c *Client) DescribeHosts(ctx context.Context, params *DescribeHostsInput, optFns ...func(*Options)) (*DescribeHostsOutput, error) {
 	if params == nil {
 		params = &DescribeHostsInput{}
@@ -33,16 +34,22 @@ func (c *Client) DescribeHosts(ctx context.Context, params *DescribeHostsInput, 
 type DescribeHostsInput struct {
 
 	// The filters.
+	//
 	//   - auto-placement - Whether auto-placement is enabled or disabled ( on | off ).
+	//
 	//   - availability-zone - The Availability Zone of the host.
+	//
 	//   - client-token - The idempotency token that you provided when you allocated
 	//   the host.
+	//
 	//   - host-reservation-id - The ID of the reservation assigned to this host.
+	//
 	//   - instance-type - The instance type size that the Dedicated Host is configured
 	//   to support.
+	//
 	//   - state - The allocation state of the Dedicated Host ( available |
-	//   under-assessment | permanent-failure | released | released-permanent-failure
-	//   ).
+	//   under-assessment | permanent-failure | released | released-permanent-failure ).
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
 	Filter []types.Filter
@@ -53,8 +60,10 @@ type DescribeHostsInput struct {
 	// The maximum number of results to return for the request in a single page. The
 	// remaining results can be seen by sending another request with the returned
 	// nextToken value. This value can be between 5 and 500. If maxResults is given a
-	// larger value than 500, you receive an error. You cannot specify this parameter
-	// and the host IDs parameter in the same request.
+	// larger value than 500, you receive an error.
+	//
+	// You cannot specify this parameter and the host IDs parameter in the same
+	// request.
 	MaxResults *int32
 
 	// The token to use to retrieve the next page of results.
@@ -166,8 +175,10 @@ type DescribeHostsPaginatorOptions struct {
 	// The maximum number of results to return for the request in a single page. The
 	// remaining results can be seen by sending another request with the returned
 	// nextToken value. This value can be between 5 and 500. If maxResults is given a
-	// larger value than 500, you receive an error. You cannot specify this parameter
-	// and the host IDs parameter in the same request.
+	// larger value than 500, you receive an error.
+	//
+	// You cannot specify this parameter and the host IDs parameter in the same
+	// request.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

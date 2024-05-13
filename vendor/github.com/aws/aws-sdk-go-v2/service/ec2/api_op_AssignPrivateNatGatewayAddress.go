@@ -12,8 +12,9 @@ import (
 )
 
 // Assigns one or more private IPv4 addresses to a private NAT gateway. For more
-// information, see Work with NAT gateways (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html#nat-gateway-working-with)
-// in the Amazon VPC User Guide.
+// information, see [Work with NAT gateways]in the Amazon VPC User Guide.
+//
+// [Work with NAT gateways]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html#nat-gateway-working-with
 func (c *Client) AssignPrivateNatGatewayAddress(ctx context.Context, params *AssignPrivateNatGatewayAddressInput, optFns ...func(*Options)) (*AssignPrivateNatGatewayAddressOutput, error) {
 	if params == nil {
 		params = &AssignPrivateNatGatewayAddressInput{}

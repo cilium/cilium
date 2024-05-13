@@ -15,11 +15,15 @@ import (
 // resource or resources. When you specify an existing tag key, the value is
 // overwritten with the new value. Each resource can have a maximum of 50 tags.
 // Each tag consists of a key and optional value. Tag keys must be unique per
-// resource. For more information about tags, see Tag your Amazon EC2 resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
-// in the Amazon Elastic Compute Cloud User Guide. For more information about
-// creating IAM policies that control users' access to resources based on tags, see
-// Supported resource-level permissions for Amazon EC2 API actions (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-iam-actions-resources.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// resource.
+//
+// For more information about tags, see [Tag your Amazon EC2 resources] in the Amazon Elastic Compute Cloud User
+// Guide. For more information about creating IAM policies that control users'
+// access to resources based on tags, see [Supported resource-level permissions for Amazon EC2 API actions]in the Amazon Elastic Compute Cloud User
+// Guide.
+//
+// [Supported resource-level permissions for Amazon EC2 API actions]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-iam-actions-resources.html
+// [Tag your Amazon EC2 resources]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html
 func (c *Client) CreateTags(ctx context.Context, params *CreateTagsInput, optFns ...func(*Options)) (*CreateTagsOutput, error) {
 	if params == nil {
 		params = &CreateTagsInput{}
@@ -37,8 +41,10 @@ func (c *Client) CreateTags(ctx context.Context, params *CreateTagsInput, optFns
 
 type CreateTagsInput struct {
 
-	// The IDs of the resources, separated by spaces. Constraints: Up to 1000 resource
-	// IDs. We recommend breaking up this request into smaller batches.
+	// The IDs of the resources, separated by spaces.
+	//
+	// Constraints: Up to 1000 resource IDs. We recommend breaking up this request
+	// into smaller batches.
 	//
 	// This member is required.
 	Resources []string

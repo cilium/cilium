@@ -13,17 +13,20 @@ import (
 
 // Returns a list of instance types with the specified instance attributes. You
 // can use the response to preview the instance types without launching instances.
-// Note that the response does not consider capacity. When you specify multiple
-// parameters, you get instance types that satisfy all of the specified parameters.
-// If you specify multiple values for a parameter, you get instance types that
-// satisfy any of the specified values. For more information, see Preview instance
-// types with specified attributes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html#spotfleet-get-instance-types-from-instance-requirements)
-// , Attribute-based instance type selection for EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html)
-// , Attribute-based instance type selection for Spot Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html)
-// , and Spot placement score (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html)
-// in the Amazon EC2 User Guide, and Creating an Auto Scaling group using
-// attribute-based instance type selection (https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-asg-instance-type-requirements.html)
-// in the Amazon EC2 Auto Scaling User Guide.
+// Note that the response does not consider capacity.
+//
+// When you specify multiple parameters, you get instance types that satisfy all
+// of the specified parameters. If you specify multiple values for a parameter, you
+// get instance types that satisfy any of the specified values.
+//
+// For more information, see [Preview instance types with specified attributes], [Attribute-based instance type selection for EC2 Fleet], [Attribute-based instance type selection for Spot Fleet], and [Spot placement score] in the Amazon EC2 User Guide, and [Creating an Auto Scaling group using attribute-based instance type selection] in the
+// Amazon EC2 Auto Scaling User Guide.
+//
+// [Attribute-based instance type selection for EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html
+// [Preview instance types with specified attributes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html#spotfleet-get-instance-types-from-instance-requirements
+// [Spot placement score]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html
+// [Attribute-based instance type selection for Spot Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html
+// [Creating an Auto Scaling group using attribute-based instance type selection]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-asg-instance-type-requirements.html
 func (c *Client) GetInstanceTypesFromInstanceRequirements(ctx context.Context, params *GetInstanceTypesFromInstanceRequirementsInput, optFns ...func(*Options)) (*GetInstanceTypesFromInstanceRequirementsOutput, error) {
 	if params == nil {
 		params = &GetInstanceTypesFromInstanceRequirementsInput{}
@@ -64,8 +67,9 @@ type GetInstanceTypesFromInstanceRequirementsInput struct {
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -182,8 +186,9 @@ var _ GetInstanceTypesFromInstanceRequirementsAPIClient = (*Client)(nil)
 type GetInstanceTypesFromInstanceRequirementsPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

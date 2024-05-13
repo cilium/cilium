@@ -17,15 +17,22 @@ import (
 
 // Describes the progress of the AMI store tasks. You can describe the store tasks
 // for specified AMIs. If you don't specify the AMIs, you get a paginated list of
-// store tasks from the last 31 days. For each AMI task, the response indicates if
-// the task is InProgress , Completed , or Failed . For tasks InProgress , the
-// response shows the estimated progress as a percentage. Tasks are listed in
-// reverse chronological order. Currently, only tasks from the past 31 days can be
-// viewed. To use this API, you must have the required permissions. For more
-// information, see Permissions for storing and restoring AMIs using Amazon S3 (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html#ami-s3-permissions)
-// in the Amazon EC2 User Guide. For more information, see Store and restore an
-// AMI using Amazon S3 (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html)
-// in the Amazon EC2 User Guide.
+// store tasks from the last 31 days.
+//
+// For each AMI task, the response indicates if the task is InProgress , Completed
+// , or Failed . For tasks InProgress , the response shows the estimated progress
+// as a percentage.
+//
+// Tasks are listed in reverse chronological order. Currently, only tasks from the
+// past 31 days can be viewed.
+//
+// To use this API, you must have the required permissions. For more information,
+// see [Permissions for storing and restoring AMIs using Amazon S3]in the Amazon EC2 User Guide.
+//
+// For more information, see [Store and restore an AMI using Amazon S3] in the Amazon EC2 User Guide.
+//
+// [Store and restore an AMI using Amazon S3]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html
+// [Permissions for storing and restoring AMIs using Amazon S3]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html#ami-s3-permissions
 func (c *Client) DescribeStoreImageTasks(ctx context.Context, params *DescribeStoreImageTasksInput, optFns ...func(*Options)) (*DescribeStoreImageTasksOutput, error) {
 	if params == nil {
 		params = &DescribeStoreImageTasksInput{}
@@ -50,10 +57,13 @@ type DescribeStoreImageTasksInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - task-state - Returns tasks in a certain state ( InProgress | Completed |
 	//   Failed )
+	//
 	//   - bucket - Returns task information for tasks that targeted a specific bucket.
 	//   For the filter value, specify the bucket name.
+	//
 	// When you specify the ImageIds parameter, any filters that you specify are
 	// ignored. To use the filters, you must remove the ImageIds parameter.
 	Filters []types.Filter
@@ -64,8 +74,11 @@ type DescribeStoreImageTasksInput struct {
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// . You cannot specify this parameter and the ImageIds parameter in the same call.
+	// information, see [Pagination].
+	//
+	// You cannot specify this parameter and the ImageIds parameter in the same call.
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -179,8 +192,11 @@ var _ DescribeStoreImageTasksAPIClient = (*Client)(nil)
 type DescribeStoreImageTasksPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// . You cannot specify this parameter and the ImageIds parameter in the same call.
+	// information, see [Pagination].
+	//
+	// You cannot specify this parameter and the ImageIds parameter in the same call.
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -295,12 +311,13 @@ type StoreImageTaskCompleteWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeStoreImageTasksInput, *DescribeStoreImageTasksOutput, error) (bool, error)
 }
 

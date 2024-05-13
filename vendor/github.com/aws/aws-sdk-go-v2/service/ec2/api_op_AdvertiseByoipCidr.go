@@ -12,17 +12,21 @@ import (
 )
 
 // Advertises an IPv4 or IPv6 address range that is provisioned for use with your
-// Amazon Web Services resources through bring your own IP addresses (BYOIP). You
-// can perform this operation at most once every 10 seconds, even if you specify
-// different address ranges each time. We recommend that you stop advertising the
-// BYOIP CIDR from other locations when you advertise it from Amazon Web Services.
-// To minimize down time, you can configure your Amazon Web Services resources to
-// use an address from a BYOIP CIDR before it is advertised, and then
-// simultaneously stop advertising it from the current location and start
-// advertising it through Amazon Web Services. It can take a few minutes before
-// traffic to the specified addresses starts routing to Amazon Web Services because
-// of BGP propagation delays. To stop advertising the BYOIP CIDR, use
-// WithdrawByoipCidr .
+// Amazon Web Services resources through bring your own IP addresses (BYOIP).
+//
+// You can perform this operation at most once every 10 seconds, even if you
+// specify different address ranges each time.
+//
+// We recommend that you stop advertising the BYOIP CIDR from other locations when
+// you advertise it from Amazon Web Services. To minimize down time, you can
+// configure your Amazon Web Services resources to use an address from a BYOIP CIDR
+// before it is advertised, and then simultaneously stop advertising it from the
+// current location and start advertising it through Amazon Web Services.
+//
+// It can take a few minutes before traffic to the specified addresses starts
+// routing to Amazon Web Services because of BGP propagation delays.
+//
+// To stop advertising the BYOIP CIDR, use WithdrawByoipCidr.
 func (c *Client) AdvertiseByoipCidr(ctx context.Context, params *AdvertiseByoipCidrInput, optFns ...func(*Options)) (*AdvertiseByoipCidrOutput, error) {
 	if params == nil {
 		params = &AdvertiseByoipCidrInput{}
@@ -55,17 +59,24 @@ type AdvertiseByoipCidrInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// If you have Local Zones (https://docs.aws.amazon.com/local-zones/latest/ug/how-local-zones-work.html)
-	// enabled, you can choose a network border group for Local Zones when you
-	// provision and advertise a BYOIPv4 CIDR. Choose the network border group
+	// If you have [Local Zones] enabled, you can choose a network border group for Local Zones
+	// when you provision and advertise a BYOIPv4 CIDR. Choose the network border group
 	// carefully as the EIP and the Amazon Web Services resource it is associated with
-	// must reside in the same network border group. You can provision BYOIP address
-	// ranges to and advertise them in the following Local Zone network border groups:
+	// must reside in the same network border group.
+	//
+	// You can provision BYOIP address ranges to and advertise them in the following
+	// Local Zone network border groups:
+	//
 	//   - us-east-1-dfw-2
+	//
 	//   - us-west-2-lax-1
+	//
 	//   - us-west-2-phx-2
+	//
 	// You cannot provision or advertise BYOIPv6 address ranges in Local Zones at this
 	// time.
+	//
+	// [Local Zones]: https://docs.aws.amazon.com/local-zones/latest/ug/how-local-zones-work.html
 	NetworkBorderGroup *string
 
 	noSmithyDocumentSerde

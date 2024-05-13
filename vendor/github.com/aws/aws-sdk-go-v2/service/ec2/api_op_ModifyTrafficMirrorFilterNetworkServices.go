@@ -11,13 +11,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Allows or restricts mirroring network services. By default, Amazon DNS network
-// services are not eligible for Traffic Mirror. Use AddNetworkServices to add
-// network services to a Traffic Mirror filter. When a network service is added to
-// the Traffic Mirror filter, all traffic related to that network service will be
-// mirrored. When you no longer want to mirror network services, use
-// RemoveNetworkServices to remove the network services from the Traffic Mirror
-// filter.
+// Allows or restricts mirroring network services.
+//
+// By default, Amazon DNS network services are not eligible for Traffic Mirror.
+// Use AddNetworkServices to add network services to a Traffic Mirror filter. When
+// a network service is added to the Traffic Mirror filter, all traffic related to
+// that network service will be mirrored. When you no longer want to mirror network
+// services, use RemoveNetworkServices to remove the network services from the
+// Traffic Mirror filter.
 func (c *Client) ModifyTrafficMirrorFilterNetworkServices(ctx context.Context, params *ModifyTrafficMirrorFilterNetworkServicesInput, optFns ...func(*Options)) (*ModifyTrafficMirrorFilterNetworkServicesOutput, error) {
 	if params == nil {
 		params = &ModifyTrafficMirrorFilterNetworkServicesInput{}

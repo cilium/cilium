@@ -11,9 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Delete the scope for an IPAM. You cannot delete the default scopes. For more
-// information, see Delete a scope (https://docs.aws.amazon.com/vpc/latest/ipam/delete-scope-ipam.html)
-// in the Amazon VPC IPAM User Guide.
+// Delete the scope for an IPAM. You cannot delete the default scopes.
+//
+// For more information, see [Delete a scope] in the Amazon VPC IPAM User Guide.
+//
+// [Delete a scope]: https://docs.aws.amazon.com/vpc/latest/ipam/delete-scope-ipam.html
 func (c *Client) DeleteIpamScope(ctx context.Context, params *DeleteIpamScopeInput, optFns ...func(*Options)) (*DeleteIpamScopeOutput, error) {
 	if params == nil {
 		params = &DeleteIpamScopeInput{}

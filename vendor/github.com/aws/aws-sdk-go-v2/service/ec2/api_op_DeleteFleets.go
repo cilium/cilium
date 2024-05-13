@@ -11,25 +11,36 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified EC2 Fleets. After you delete an EC2 Fleet, it launches no
-// new instances. You must also specify whether a deleted EC2 Fleet should
-// terminate its instances. If you choose to terminate the instances, the EC2 Fleet
-// enters the deleted_terminating state. Otherwise, the EC2 Fleet enters the
-// deleted_running state, and the instances continue to run until they are
-// interrupted or you terminate them manually. For instant fleets, EC2 Fleet must
-// terminate the instances when the fleet is deleted. Up to 1000 instances can be
-// terminated in a single request to delete instant fleets. A deleted instant
-// fleet with running instances is not supported. Restrictions
+// Deletes the specified EC2 Fleets.
+//
+// After you delete an EC2 Fleet, it launches no new instances.
+//
+// You must also specify whether a deleted EC2 Fleet should terminate its
+// instances. If you choose to terminate the instances, the EC2 Fleet enters the
+// deleted_terminating state. Otherwise, the EC2 Fleet enters the deleted_running
+// state, and the instances continue to run until they are interrupted or you
+// terminate them manually.
+//
+// For instant fleets, EC2 Fleet must terminate the instances when the fleet is
+// deleted. Up to 1000 instances can be terminated in a single request to delete
+// instant fleets. A deleted instant fleet with running instances is not supported.
+//
+// Restrictions
+//
 //   - You can delete up to 25 fleets of type instant in a single request.
+//
 //   - You can delete up to 100 fleets of type maintain or request in a single
 //     request.
+//
 //   - You can delete up to 125 fleets in a single request, provided you do not
 //     exceed the quota for each fleet type, as specified above.
+//
 //   - If you exceed the specified number of fleets to delete, no fleets are
 //     deleted.
 //
-// For more information, see Delete an EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#delete-fleet)
-// in the Amazon EC2 User Guide.
+// For more information, see [Delete an EC2 Fleet] in the Amazon EC2 User Guide.
+//
+// [Delete an EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#delete-fleet
 func (c *Client) DeleteFleets(ctx context.Context, params *DeleteFleetsInput, optFns ...func(*Options)) (*DeleteFleetsOutput, error) {
 	if params == nil {
 		params = &DeleteFleetsInput{}
@@ -47,18 +58,22 @@ func (c *Client) DeleteFleets(ctx context.Context, params *DeleteFleetsInput, op
 
 type DeleteFleetsInput struct {
 
-	// The IDs of the EC2 Fleets. Constraints: In a single request, you can specify up
-	// to 25 instant fleet IDs and up to 100 maintain or request fleet IDs.
+	// The IDs of the EC2 Fleets.
+	//
+	// Constraints: In a single request, you can specify up to 25 instant fleet IDs
+	// and up to 100 maintain or request fleet IDs.
 	//
 	// This member is required.
 	FleetIds []string
 
 	// Indicates whether to terminate the associated instances when the EC2 Fleet is
-	// deleted. The default is to terminate the instances. To let the instances
-	// continue to run after the EC2 Fleet is deleted, specify no-terminate-instances .
-	// Supported only for fleets of type maintain and request . For instant fleets,
-	// you cannot specify NoTerminateInstances . A deleted instant fleet with running
-	// instances is not supported.
+	// deleted. The default is to terminate the instances.
+	//
+	// To let the instances continue to run after the EC2 Fleet is deleted, specify
+	// no-terminate-instances . Supported only for fleets of type maintain and request .
+	//
+	// For instant fleets, you cannot specify NoTerminateInstances . A deleted instant
+	// fleet with running instances is not supported.
 	//
 	// This member is required.
 	TerminateInstances *bool

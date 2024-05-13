@@ -30,21 +30,22 @@ func (c *Client) StartDeviceAuthorization(ctx context.Context, params *StartDevi
 type StartDeviceAuthorizationInput struct {
 
 	// The unique identifier string for the client that is registered with IAM
-	// Identity Center. This value should come from the persisted result of the
-	// RegisterClient API operation.
+	// Identity Center. This value should come from the persisted result of the RegisterClientAPI
+	// operation.
 	//
 	// This member is required.
 	ClientId *string
 
 	// A secret string that is generated for the client. This value should come from
-	// the persisted result of the RegisterClient API operation.
+	// the persisted result of the RegisterClientAPI operation.
 	//
 	// This member is required.
 	ClientSecret *string
 
-	// The URL for the Amazon Web Services access portal. For more information, see
-	// Using the Amazon Web Services access portal (https://docs.aws.amazon.com/singlesignon/latest/userguide/using-the-portal.html)
+	// The URL for the Amazon Web Services access portal. For more information, see [Using the Amazon Web Services access portal]
 	// in the IAM Identity Center User Guide.
+	//
+	// [Using the Amazon Web Services access portal]: https://docs.aws.amazon.com/singlesignon/latest/userguide/using-the-portal.html
 	//
 	// This member is required.
 	StartUrl *string

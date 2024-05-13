@@ -29,7 +29,7 @@ func (c *Client) DeleteLocalGatewayRouteTable(ctx context.Context, params *Delet
 
 type DeleteLocalGatewayRouteTableInput struct {
 
-	// The ID of the local gateway route table.
+	//  The ID of the local gateway route table.
 	//
 	// This member is required.
 	LocalGatewayRouteTableId *string

@@ -17,15 +17,22 @@ import (
 	"time"
 )
 
-// Describes the specified EBS volumes or all of your EBS volumes. If you are
-// describing a long list of volumes, we recommend that you paginate the output to
-// make the list more manageable. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-// . For more information about EBS volumes, see Amazon EBS volumes (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes.html)
-// in the Amazon EBS User Guide. We strongly recommend using only paginated
-// requests. Unpaginated requests are susceptible to throttling and timeouts. The
-// order of the elements in the response, including those within nested structures,
-// might vary. Applications should not assume the elements appear in a particular
-// order.
+// Describes the specified EBS volumes or all of your EBS volumes.
+//
+// If you are describing a long list of volumes, we recommend that you paginate
+// the output to make the list more manageable. For more information, see [Pagination].
+//
+// For more information about EBS volumes, see [Amazon EBS volumes] in the Amazon EBS User Guide.
+//
+// We strongly recommend using only paginated requests. Unpaginated requests are
+// susceptible to throttling and timeouts.
+//
+// The order of the elements in the response, including those within nested
+// structures, might vary. Applications should not assume the elements appear in a
+// particular order.
+//
+// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+// [Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes.html
 func (c *Client) DescribeVolumes(ctx context.Context, params *DescribeVolumesInput, optFns ...func(*Options)) (*DescribeVolumesOutput, error) {
 	if params == nil {
 		params = &DescribeVolumesInput{}
@@ -50,32 +57,49 @@ type DescribeVolumesInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - attachment.attach-time - The time stamp when the attachment initiated.
+	//
 	//   - attachment.delete-on-termination - Whether the volume is deleted on instance
 	//   termination.
+	//
 	//   - attachment.device - The device name specified in the block device mapping
 	//   (for example, /dev/sda1 ).
+	//
 	//   - attachment.instance-id - The ID of the instance the volume is attached to.
+	//
 	//   - attachment.status - The attachment state ( attaching | attached | detaching
 	//   ).
+	//
 	//   - availability-zone - The Availability Zone in which the volume was created.
+	//
 	//   - create-time - The time stamp when the volume was created.
+	//
 	//   - encrypted - Indicates whether the volume is encrypted ( true | false )
+	//
 	//   - multi-attach-enabled - Indicates whether the volume is enabled for
 	//   Multi-Attach ( true | false )
+	//
 	//   - fast-restored - Indicates whether the volume was created from a snapshot
 	//   that is enabled for fast snapshot restore ( true | false ).
+	//
 	//   - size - The size of the volume, in GiB.
+	//
 	//   - snapshot-id - The snapshot from which the volume was created.
+	//
 	//   - status - The state of the volume ( creating | available | in-use | deleting
 	//   | deleted | error ).
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//
 	//   - volume-id - The volume ID.
+	//
 	//   - volume-type - The Amazon EBS volume type ( gp2 | gp3 | io1 | io2 | st1 | sc1
 	//   | standard )
 	Filters []types.Filter
@@ -84,8 +108,9 @@ type DescribeVolumesInput struct {
 	// between 5 and 500; if you specify a value larger than 500, only 500 items are
 	// returned. If this parameter is not used, then all items are returned. You cannot
 	// specify this parameter and the volume IDs parameter in the same request. For
-	// more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// more information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -203,8 +228,9 @@ type DescribeVolumesPaginatorOptions struct {
 	// between 5 and 500; if you specify a value larger than 500, only 500 items are
 	// returned. If this parameter is not used, then all items are returned. You cannot
 	// specify this parameter and the volume IDs parameter in the same request. For
-	// more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// more information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -316,12 +342,13 @@ type VolumeAvailableWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeVolumesInput, *DescribeVolumesOutput, error) (bool, error)
 }
 
@@ -527,12 +554,13 @@ type VolumeDeletedWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeVolumesInput, *DescribeVolumesOutput, error) (bool, error)
 }
 
@@ -726,12 +754,13 @@ type VolumeInUseWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeVolumesInput, *DescribeVolumesOutput, error) (bool, error)
 }
 

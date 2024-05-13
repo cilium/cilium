@@ -12,8 +12,9 @@ import (
 
 // Enables access to the EC2 serial console of all instances for your account. By
 // default, access to the EC2 serial console is disabled for your account. For more
-// information, see Manage account access to the EC2 serial console (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-access-to-serial-console.html#serial-console-account-access)
-// in the Amazon EC2 User Guide.
+// information, see [Manage account access to the EC2 serial console]in the Amazon EC2 User Guide.
+//
+// [Manage account access to the EC2 serial console]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-access-to-serial-console.html#serial-console-account-access
 func (c *Client) EnableSerialConsoleAccess(ctx context.Context, params *EnableSerialConsoleAccessInput, optFns ...func(*Options)) (*EnableSerialConsoleAccessOutput, error) {
 	if params == nil {
 		params = &EnableSerialConsoleAccessInput{}

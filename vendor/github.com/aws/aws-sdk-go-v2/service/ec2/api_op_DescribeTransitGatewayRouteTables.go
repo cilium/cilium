@@ -37,13 +37,18 @@ type DescribeTransitGatewayRouteTablesInput struct {
 	DryRun *bool
 
 	// One or more filters. The possible values are:
+	//
 	//   - default-association-route-table - Indicates whether this is the default
 	//   association route table for the transit gateway ( true | false ).
+	//
 	//   - default-propagation-route-table - Indicates whether this is the default
 	//   propagation route table for the transit gateway ( true | false ).
+	//
 	//   - state - The state of the route table ( available | deleting | deleted |
 	//   pending ).
+	//
 	//   - transit-gateway-id - The ID of the transit gateway.
+	//
 	//   - transit-gateway-route-table-id - The ID of the transit gateway route table.
 	Filters []types.Filter
 

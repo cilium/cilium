@@ -13,8 +13,11 @@ import (
 
 // Describes the longer ID format settings for all resource types in a specific
 // Region. This request is useful for performing a quick audit to determine whether
-// a specific Region is fully opted in for longer IDs (17-character IDs). This
-// request only returns information about resource types that support longer IDs.
+// a specific Region is fully opted in for longer IDs (17-character IDs).
+//
+// This request only returns information about resource types that support longer
+// IDs.
+//
 // The following resource types support longer IDs: bundle | conversion-task |
 // customer-gateway | dhcp-options | elastic-ip-allocation | elastic-ip-association
 // | export-task | flow-log | image | import-task | instance | internet-gateway |

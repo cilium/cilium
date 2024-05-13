@@ -18,9 +18,12 @@ import (
 	"time"
 )
 
-// Describes the specified key pairs or all of your key pairs. For more
-// information about key pairs, see Amazon EC2 key pairs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// Describes the specified key pairs or all of your key pairs.
+//
+// For more information about key pairs, see [Amazon EC2 key pairs] in the Amazon Elastic Compute Cloud
+// User Guide.
+//
+// [Amazon EC2 key pairs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html
 func (c *Client) DescribeKeyPairs(ctx context.Context, params *DescribeKeyPairsInput, optFns ...func(*Options)) (*DescribeKeyPairsOutput, error) {
 	if params == nil {
 		params = &DescribeKeyPairsInput{}
@@ -45,21 +48,30 @@ type DescribeKeyPairsInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - key-pair-id - The ID of the key pair.
+	//
 	//   - fingerprint - The fingerprint of the key pair.
+	//
 	//   - key-name - The name of the key pair.
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
 	Filters []types.Filter
 
-	// If true , the public key material is included in the response. Default: false
+	// If true , the public key material is included in the response.
+	//
+	// Default: false
 	IncludePublicKey *bool
 
-	// The key pair names. Default: Describes all of your key pairs.
+	// The key pair names.
+	//
+	// Default: Describes all of your key pairs.
 	KeyNames []string
 
 	// The IDs of the key pairs.
@@ -195,12 +207,13 @@ type KeyPairExistsWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeKeyPairsInput, *DescribeKeyPairsOutput, error) (bool, error)
 }
 

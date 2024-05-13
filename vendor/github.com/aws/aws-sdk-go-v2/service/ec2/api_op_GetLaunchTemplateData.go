@@ -12,10 +12,12 @@ import (
 )
 
 // Retrieves the configuration data of the specified instance. You can use this
-// data to create a launch template. This action calls on other describe actions to
-// get instance information. Depending on your instance configuration, you may need
-// to allow the following actions in your IAM policy: DescribeSpotInstanceRequests
-// , DescribeInstanceCreditSpecifications , DescribeVolumes , and
+// data to create a launch template.
+//
+// This action calls on other describe actions to get instance information.
+// Depending on your instance configuration, you may need to allow the following
+// actions in your IAM policy: DescribeSpotInstanceRequests ,
+// DescribeInstanceCreditSpecifications , DescribeVolumes , and
 // DescribeInstanceAttribute . Or, you can allow describe* depending on your
 // instance requirements.
 func (c *Client) GetLaunchTemplateData(ctx context.Context, params *GetLaunchTemplateDataInput, optFns ...func(*Options)) (*GetLaunchTemplateDataOutput, error) {

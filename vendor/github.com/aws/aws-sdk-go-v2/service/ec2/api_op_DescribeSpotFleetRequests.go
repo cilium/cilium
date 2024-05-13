@@ -11,8 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes your Spot Fleet requests. Spot Fleet requests are deleted 48 hours
-// after they are canceled and their instances are terminated.
+// Describes your Spot Fleet requests.
+//
+// Spot Fleet requests are deleted 48 hours after they are canceled and their
+// instances are terminated.
 func (c *Client) DescribeSpotFleetRequests(ctx context.Context, params *DescribeSpotFleetRequestsInput, optFns ...func(*Options)) (*DescribeSpotFleetRequestsOutput, error) {
 	if params == nil {
 		params = &DescribeSpotFleetRequestsInput{}
@@ -39,8 +41,9 @@ type DescribeSpotFleetRequestsInput struct {
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token to include in another request to get the next page of items. This
@@ -158,8 +161,9 @@ var _ DescribeSpotFleetRequestsAPIClient = (*Client)(nil)
 type DescribeSpotFleetRequestsPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

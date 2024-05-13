@@ -11,10 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Accepts a request to attach a VPC to a transit gateway. The VPC attachment must
-// be in the pendingAcceptance state. Use DescribeTransitGatewayVpcAttachments to
-// view your pending VPC attachment requests. Use RejectTransitGatewayVpcAttachment
-// to reject a VPC attachment request.
+// Accepts a request to attach a VPC to a transit gateway.
+//
+// The VPC attachment must be in the pendingAcceptance state. Use DescribeTransitGatewayVpcAttachments to view your
+// pending VPC attachment requests. Use RejectTransitGatewayVpcAttachmentto reject a VPC attachment request.
 func (c *Client) AcceptTransitGatewayVpcAttachment(ctx context.Context, params *AcceptTransitGatewayVpcAttachmentInput, optFns ...func(*Options)) (*AcceptTransitGatewayVpcAttachmentOutput, error) {
 	if params == nil {
 		params = &AcceptTransitGatewayVpcAttachmentInput{}

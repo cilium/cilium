@@ -12,9 +12,11 @@ import (
 
 // Establishes a trust relationship between Reachability Analyzer and
 // Organizations. This operation must be performed by the management account for
-// the organization. After you establish a trust relationship, a user in the
-// management account or a delegated administrator account can run a cross-account
-// analysis using resources from the member accounts.
+// the organization.
+//
+// After you establish a trust relationship, a user in the management account or a
+// delegated administrator account can run a cross-account analysis using resources
+// from the member accounts.
 func (c *Client) EnableReachabilityAnalyzerOrganizationSharing(ctx context.Context, params *EnableReachabilityAnalyzerOrganizationSharingInput, optFns ...func(*Options)) (*EnableReachabilityAnalyzerOrganizationSharingOutput, error) {
 	if params == nil {
 		params = &EnableReachabilityAnalyzerOrganizationSharingInput{}

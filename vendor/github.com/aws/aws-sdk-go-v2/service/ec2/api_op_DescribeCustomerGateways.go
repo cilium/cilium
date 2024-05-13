@@ -15,9 +15,12 @@ import (
 	"time"
 )
 
-// Describes one or more of your VPN customer gateways. For more information, see
-// Amazon Web Services Site-to-Site VPN (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html)
-// in the Amazon Web Services Site-to-Site VPN User Guide.
+// Describes one or more of your VPN customer gateways.
+//
+// For more information, see [Amazon Web Services Site-to-Site VPN] in the Amazon Web Services Site-to-Site VPN User
+// Guide.
+//
+// [Amazon Web Services Site-to-Site VPN]: https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html
 func (c *Client) DescribeCustomerGateways(ctx context.Context, params *DescribeCustomerGatewaysInput, optFns ...func(*Options)) (*DescribeCustomerGatewaysOutput, error) {
 	if params == nil {
 		params = &DescribeCustomerGatewaysInput{}
@@ -36,7 +39,9 @@ func (c *Client) DescribeCustomerGateways(ctx context.Context, params *DescribeC
 // Contains the parameters for DescribeCustomerGateways.
 type DescribeCustomerGatewaysInput struct {
 
-	// One or more customer gateway IDs. Default: Describes all your customer gateways.
+	// One or more customer gateway IDs.
+	//
+	// Default: Describes all your customer gateways.
 	CustomerGatewayIds []string
 
 	// Checks whether you have the required permissions for the action, without
@@ -46,19 +51,26 @@ type DescribeCustomerGatewaysInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - bgp-asn - The customer gateway's Border Gateway Protocol (BGP) Autonomous
 	//   System Number (ASN).
+	//
 	//   - customer-gateway-id - The ID of the customer gateway.
+	//
 	//   - ip-address - The IP address of the customer gateway device's external
 	//   interface.
+	//
 	//   - state - The state of the customer gateway ( pending | available | deleting |
 	//   deleted ).
+	//
 	//   - type - The type of customer gateway. Currently, the only supported type is
 	//   ipsec.1 .
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
 	Filters []types.Filter
@@ -196,12 +208,13 @@ type CustomerGatewayAvailableWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeCustomerGatewaysInput, *DescribeCustomerGatewaysOutput, error) (bool, error)
 }
 

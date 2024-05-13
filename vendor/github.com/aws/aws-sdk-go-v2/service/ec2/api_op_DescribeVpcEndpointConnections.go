@@ -37,12 +37,17 @@ type DescribeVpcEndpointConnectionsInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - ip-address-type - The IP address type ( ipv4 | ipv6 ).
+	//
 	//   - service-id - The ID of the service.
+	//
 	//   - vpc-endpoint-owner - The ID of the Amazon Web Services account ID that owns
 	//   the endpoint.
+	//
 	//   - vpc-endpoint-state - The state of the endpoint ( pendingAcceptance | pending
 	//   | available | deleting | deleted | rejected | failed ).
+	//
 	//   - vpc-endpoint-id - The ID of the endpoint.
 	Filters []types.Filter
 

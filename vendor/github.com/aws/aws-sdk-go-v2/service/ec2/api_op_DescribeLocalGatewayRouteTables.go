@@ -37,13 +37,19 @@ type DescribeLocalGatewayRouteTablesInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - local-gateway-id - The ID of a local gateway.
+	//
 	//   - local-gateway-route-table-arn - The Amazon Resource Name (ARN) of the local
 	//   gateway route table.
+	//
 	//   - local-gateway-route-table-id - The ID of a local gateway route table.
+	//
 	//   - outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
+	//
 	//   - owner-id - The ID of the Amazon Web Services account that owns the local
 	//   gateway route table.
+	//
 	//   - state - The state of the local gateway route table.
 	Filters []types.Filter
 

@@ -11,11 +11,15 @@ import (
 )
 
 // Disables deregistration protection for an AMI. When deregistration protection
-// is disabled, the AMI can be deregistered. If you chose to include a 24-hour
-// cooldown period when you enabled deregistration protection for the AMI, then,
-// when you disable deregistration protection, you won’t immediately be able to
-// deregister the AMI. For more information, see Protect an AMI from deregistration (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html#ami-deregistration-protection)
-// in the Amazon EC2 User Guide.
+// is disabled, the AMI can be deregistered.
+//
+// If you chose to include a 24-hour cooldown period when you enabled
+// deregistration protection for the AMI, then, when you disable deregistration
+// protection, you won’t immediately be able to deregister the AMI.
+//
+// For more information, see [Protect an AMI from deregistration] in the Amazon EC2 User Guide.
+//
+// [Protect an AMI from deregistration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html#ami-deregistration-protection
 func (c *Client) DisableImageDeregistrationProtection(ctx context.Context, params *DisableImageDeregistrationProtectionInput, optFns ...func(*Options)) (*DisableImageDeregistrationProtectionOutput, error) {
 	if params == nil {
 		params = &DisableImageDeregistrationProtectionInput{}

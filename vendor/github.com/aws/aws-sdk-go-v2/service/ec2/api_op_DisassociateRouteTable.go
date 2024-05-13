@@ -10,11 +10,13 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disassociates a subnet or gateway from a route table. After you perform this
-// action, the subnet no longer uses the routes in the route table. Instead, it
-// uses the routes in the VPC's main route table. For more information about route
-// tables, see Route tables (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
-// in the Amazon VPC User Guide.
+// Disassociates a subnet or gateway from a route table.
+//
+// After you perform this action, the subnet no longer uses the routes in the
+// route table. Instead, it uses the routes in the VPC's main route table. For more
+// information about route tables, see [Route tables]in the Amazon VPC User Guide.
+//
+// [Route tables]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
 func (c *Client) DisassociateRouteTable(ctx context.Context, params *DisassociateRouteTableInput, optFns ...func(*Options)) (*DisassociateRouteTableOutput, error) {
 	if params == nil {
 		params = &DisassociateRouteTableInput{}

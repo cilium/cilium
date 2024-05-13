@@ -16,40 +16,57 @@ import (
 )
 
 // Describes the specified EBS snapshots available to you or all of the EBS
-// snapshots available to you. The snapshots available to you include public
-// snapshots, private snapshots that you own, and private snapshots owned by other
-// Amazon Web Services accounts for which you have explicit create volume
-// permissions. The create volume permissions fall into the following categories:
+// snapshots available to you.
+//
+// The snapshots available to you include public snapshots, private snapshots that
+// you own, and private snapshots owned by other Amazon Web Services accounts for
+// which you have explicit create volume permissions.
+//
+// The create volume permissions fall into the following categories:
+//
 //   - public: The owner of the snapshot granted create volume permissions for the
 //     snapshot to the all group. All Amazon Web Services accounts have create volume
 //     permissions for these snapshots.
+//
 //   - explicit: The owner of the snapshot granted create volume permissions to a
 //     specific Amazon Web Services account.
+//
 //   - implicit: An Amazon Web Services account has implicit create volume
 //     permissions for all snapshots it owns.
 //
 // The list of snapshots returned can be filtered by specifying snapshot IDs,
 // snapshot owners, or Amazon Web Services accounts with create volume permissions.
 // If no options are specified, Amazon EC2 returns all snapshots for which you have
-// create volume permissions. If you specify one or more snapshot IDs, only
-// snapshots that have the specified IDs are returned. If you specify an invalid
-// snapshot ID, an error is returned. If you specify a snapshot ID for which you do
-// not have access, it is not included in the returned results. If you specify one
-// or more snapshot owners using the OwnerIds option, only snapshots from the
-// specified owners and for which you have access are returned. The results can
-// include the Amazon Web Services account IDs of the specified owners, amazon for
-// snapshots owned by Amazon, or self for snapshots that you own. If you specify a
-// list of restorable users, only snapshots with create snapshot permissions for
-// those users are returned. You can specify Amazon Web Services account IDs (if
-// you own the snapshots), self for snapshots for which you own or have explicit
-// permissions, or all for public snapshots. If you are describing a long list of
-// snapshots, we recommend that you paginate the output to make the list more
-// manageable. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-// . To get the state of fast snapshot restores for a snapshot, use
-// DescribeFastSnapshotRestores . For more information about EBS snapshots, see
-// Amazon EBS snapshots (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-snapshots.html)
-// in the Amazon EBS User Guide. We strongly recommend using only paginated
-// requests. Unpaginated requests are susceptible to throttling and timeouts.
+// create volume permissions.
+//
+// If you specify one or more snapshot IDs, only snapshots that have the specified
+// IDs are returned. If you specify an invalid snapshot ID, an error is returned.
+// If you specify a snapshot ID for which you do not have access, it is not
+// included in the returned results.
+//
+// If you specify one or more snapshot owners using the OwnerIds option, only
+// snapshots from the specified owners and for which you have access are returned.
+// The results can include the Amazon Web Services account IDs of the specified
+// owners, amazon for snapshots owned by Amazon, or self for snapshots that you
+// own.
+//
+// If you specify a list of restorable users, only snapshots with create snapshot
+// permissions for those users are returned. You can specify Amazon Web Services
+// account IDs (if you own the snapshots), self for snapshots for which you own or
+// have explicit permissions, or all for public snapshots.
+//
+// If you are describing a long list of snapshots, we recommend that you paginate
+// the output to make the list more manageable. For more information, see [Pagination].
+//
+// To get the state of fast snapshot restores for a snapshot, use DescribeFastSnapshotRestores.
+//
+// For more information about EBS snapshots, see [Amazon EBS snapshots] in the Amazon EBS User Guide.
+//
+// We strongly recommend using only paginated requests. Unpaginated requests are
+// susceptible to throttling and timeouts.
+//
+// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+// [Amazon EBS snapshots]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-snapshots.html
 func (c *Client) DescribeSnapshots(ctx context.Context, params *DescribeSnapshotsInput, optFns ...func(*Options)) (*DescribeSnapshotsOutput, error) {
 	if params == nil {
 		params = &DescribeSnapshotsInput{}
@@ -74,26 +91,39 @@ type DescribeSnapshotsInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - description - A description of the snapshot.
+	//
 	//   - encrypted - Indicates whether the snapshot is encrypted ( true | false )
+	//
 	//   - owner-alias - The owner alias, from an Amazon-maintained list ( amazon ).
 	//   This is not the user-configured Amazon Web Services account alias set using the
 	//   IAM console. We recommend that you use the related parameter instead of this
 	//   filter.
+	//
 	//   - owner-id - The Amazon Web Services account ID of the owner. We recommend
 	//   that you use the related parameter instead of this filter.
+	//
 	//   - progress - The progress of the snapshot, as a percentage (for example, 80%).
+	//
 	//   - snapshot-id - The snapshot ID.
+	//
 	//   - start-time - The time stamp when the snapshot was initiated.
+	//
 	//   - status - The status of the snapshot ( pending | completed | error ).
+	//
 	//   - storage-tier - The storage tier of the snapshot ( archive | standard ).
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//
 	//   - volume-id - The ID of the volume the snapshot is for.
+	//
 	//   - volume-size - The size of the volume, in GiB.
 	Filters []types.Filter
 
@@ -101,8 +131,9 @@ type DescribeSnapshotsInput struct {
 	// between 5 and 1,000; if this value is larger than 1,000, only 1,000 results are
 	// returned. If this parameter is not used, then the request returns all snapshots.
 	// You cannot specify this parameter and the snapshot IDs parameter in the same
-	// request. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// request. For more information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -117,8 +148,9 @@ type DescribeSnapshotsInput struct {
 	// snapshot.
 	RestorableByUserIds []string
 
-	// The snapshot IDs. Default: Describes the snapshots for which you have create
-	// volume permissions.
+	// The snapshot IDs.
+	//
+	// Default: Describes the snapshots for which you have create volume permissions.
 	SnapshotIds []string
 
 	noSmithyDocumentSerde
@@ -229,8 +261,9 @@ type DescribeSnapshotsPaginatorOptions struct {
 	// between 5 and 1,000; if this value is larger than 1,000, only 1,000 results are
 	// returned. If this parameter is not used, then the request returns all snapshots.
 	// You cannot specify this parameter and the snapshot IDs parameter in the same
-	// request. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// request. For more information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -342,12 +375,13 @@ type SnapshotCompletedWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeSnapshotsInput, *DescribeSnapshotsOutput, error) (bool, error)
 }
 

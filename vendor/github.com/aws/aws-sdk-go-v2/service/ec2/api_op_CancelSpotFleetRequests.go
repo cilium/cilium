@@ -11,13 +11,18 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Cancels the specified Spot Fleet requests. After you cancel a Spot Fleet
-// request, the Spot Fleet launches no new instances. You must also specify whether
-// a canceled Spot Fleet request should terminate its instances. If you choose to
-// terminate the instances, the Spot Fleet request enters the cancelled_terminating
-// state. Otherwise, the Spot Fleet request enters the cancelled_running state and
-// the instances continue to run until they are interrupted or you terminate them
-// manually. Restrictions
+// Cancels the specified Spot Fleet requests.
+//
+// After you cancel a Spot Fleet request, the Spot Fleet launches no new instances.
+//
+// You must also specify whether a canceled Spot Fleet request should terminate
+// its instances. If you choose to terminate the instances, the Spot Fleet request
+// enters the cancelled_terminating state. Otherwise, the Spot Fleet request
+// enters the cancelled_running state and the instances continue to run until they
+// are interrupted or you terminate them manually.
+//
+// Restrictions
+//
 //   - You can delete up to 100 fleets in a single request. If you exceed the
 //     specified number, no fleets are deleted.
 func (c *Client) CancelSpotFleetRequests(ctx context.Context, params *CancelSpotFleetRequestsInput, optFns ...func(*Options)) (*CancelSpotFleetRequestsOutput, error) {
@@ -38,16 +43,18 @@ func (c *Client) CancelSpotFleetRequests(ctx context.Context, params *CancelSpot
 // Contains the parameters for CancelSpotFleetRequests.
 type CancelSpotFleetRequestsInput struct {
 
-	// The IDs of the Spot Fleet requests. Constraint: You can specify up to 100 IDs
-	// in a single request.
+	// The IDs of the Spot Fleet requests.
+	//
+	// Constraint: You can specify up to 100 IDs in a single request.
 	//
 	// This member is required.
 	SpotFleetRequestIds []string
 
 	// Indicates whether to terminate the associated instances when the Spot Fleet
-	// request is canceled. The default is to terminate the instances. To let the
-	// instances continue to run after the Spot Fleet request is canceled, specify
-	// no-terminate-instances .
+	// request is canceled. The default is to terminate the instances.
+	//
+	// To let the instances continue to run after the Spot Fleet request is canceled,
+	// specify no-terminate-instances .
 	//
 	// This member is required.
 	TerminateInstances *bool

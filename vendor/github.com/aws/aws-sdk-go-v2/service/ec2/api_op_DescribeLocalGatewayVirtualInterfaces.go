@@ -36,15 +36,23 @@ type DescribeLocalGatewayVirtualInterfacesInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - local-address - The local address.
+	//
 	//   - local-bgp-asn - The Border Gateway Protocol (BGP) Autonomous System Number
 	//   (ASN) of the local gateway.
+	//
 	//   - local-gateway-id - The ID of the local gateway.
+	//
 	//   - local-gateway-virtual-interface-id - The ID of the virtual interface.
+	//
 	//   - owner-id - The ID of the Amazon Web Services account that owns the local
 	//   gateway virtual interface.
+	//
 	//   - peer-address - The peer address.
+	//
 	//   - peer-bgp-asn - The peer BGP ASN.
+	//
 	//   - vlan - The ID of the VLAN.
 	Filters []types.Filter
 

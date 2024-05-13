@@ -43,8 +43,10 @@ type DescribeNetworkInsightsAnalysesInput struct {
 	DryRun *bool
 
 	// The filters. The following are the possible values:
+	//
 	//   - path-found - A Boolean value that indicates whether a feasible path is
 	//   found.
+	//
 	//   - status - The status of the analysis (running | succeeded | failed).
 	Filters []types.Filter
 

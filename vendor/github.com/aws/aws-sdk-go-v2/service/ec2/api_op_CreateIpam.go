@@ -14,9 +14,11 @@ import (
 // Create an IPAM. Amazon VPC IP Address Manager (IPAM) is a VPC feature that you
 // can use to automate your IP address management workflows including assigning,
 // tracking, troubleshooting, and auditing IP addresses across Amazon Web Services
-// Regions and accounts throughout your Amazon Web Services Organization. For more
-// information, see Create an IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html)
-// in the Amazon VPC IPAM User Guide.
+// Regions and accounts throughout your Amazon Web Services Organization.
+//
+// For more information, see [Create an IPAM] in the Amazon VPC IPAM User Guide.
+//
+// [Create an IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html
 func (c *Client) CreateIpam(ctx context.Context, params *CreateIpamInput, optFns ...func(*Options)) (*CreateIpamOutput, error) {
 	if params == nil {
 		params = &CreateIpamInput{}
@@ -35,8 +37,9 @@ func (c *Client) CreateIpam(ctx context.Context, params *CreateIpamInput, optFns
 type CreateIpamInput struct {
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
-	// of the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// of the request. For more information, see [Ensuring Idempotency].
+	//
+	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// A description for the IPAM.
@@ -51,9 +54,12 @@ type CreateIpamInput struct {
 	// The operating Regions for the IPAM. Operating Regions are Amazon Web Services
 	// Regions where the IPAM is allowed to manage IP address CIDRs. IPAM only
 	// discovers and monitors resources in the Amazon Web Services Regions you select
-	// as operating Regions. For more information about operating Regions, see Create
-	// an IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html) in the
-	// Amazon VPC IPAM User Guide.
+	// as operating Regions.
+	//
+	// For more information about operating Regions, see [Create an IPAM] in the Amazon VPC IPAM User
+	// Guide.
+	//
+	// [Create an IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html
 	OperatingRegions []types.AddIpamOperatingRegion
 
 	// The key/value combination of a tag assigned to the resource. Use the tag key in
@@ -64,7 +70,9 @@ type CreateIpamInput struct {
 
 	// IPAM is offered in a Free Tier and an Advanced Tier. For more information about
 	// the features available in each tier and the costs associated with the tiers, see
-	// Amazon VPC pricing > IPAM tab (http://aws.amazon.com/vpc/pricing/) .
+	// [Amazon VPC pricing > IPAM tab].
+	//
+	// [Amazon VPC pricing > IPAM tab]: http://aws.amazon.com/vpc/pricing/
 	Tier types.IpamTier
 
 	noSmithyDocumentSerde

@@ -14,8 +14,8 @@ import (
 
 // Returns a quote and exchange information for exchanging one or more specified
 // Convertible Reserved Instances for a new Convertible Reserved Instance. If the
-// exchange cannot be performed, the reason is returned in the response. Use
-// AcceptReservedInstancesExchangeQuote to perform the exchange.
+// exchange cannot be performed, the reason is returned in the response. Use AcceptReservedInstancesExchangeQuoteto
+// perform the exchange.
 func (c *Client) GetReservedInstancesExchangeQuote(ctx context.Context, params *GetReservedInstancesExchangeQuoteInput, optFns ...func(*Options)) (*GetReservedInstancesExchangeQuoteOutput, error) {
 	if params == nil {
 		params = &GetReservedInstancesExchangeQuoteInput{}

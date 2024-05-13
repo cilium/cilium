@@ -11,16 +11,24 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies a subnet attribute. You can only modify one attribute at a time. Use
-// this action to modify subnets on Amazon Web Services Outposts.
+// Modifies a subnet attribute. You can only modify one attribute at a time.
+//
+// Use this action to modify subnets on Amazon Web Services Outposts.
+//
 //   - To modify a subnet on an Outpost rack, set both MapCustomerOwnedIpOnLaunch
 //     and CustomerOwnedIpv4Pool . These two parameters act as a single attribute.
+//
 //   - To modify a subnet on an Outpost server, set either EnableLniAtDeviceIndex
 //     or DisableLniAtDeviceIndex .
 //
 // For more information about Amazon Web Services Outposts, see the following:
-//   - Outpost servers (https://docs.aws.amazon.com/outposts/latest/userguide/how-servers-work.html)
-//   - Outpost racks (https://docs.aws.amazon.com/outposts/latest/userguide/how-racks-work.html)
+//
+// [Outpost servers]
+//
+// [Outpost racks]
+//
+// [Outpost servers]: https://docs.aws.amazon.com/outposts/latest/userguide/how-servers-work.html
+// [Outpost racks]: https://docs.aws.amazon.com/outposts/latest/userguide/how-racks-work.html
 func (c *Client) ModifySubnetAttribute(ctx context.Context, params *ModifySubnetAttributeInput, optFns ...func(*Options)) (*ModifySubnetAttributeOutput, error) {
 	if params == nil {
 		params = &ModifySubnetAttributeInput{}
@@ -46,16 +54,19 @@ type ModifySubnetAttributeInput struct {
 	// Specify true to indicate that network interfaces created in the specified
 	// subnet should be assigned an IPv6 address. This includes a network interface
 	// that's created when launching an instance into the subnet (the instance
-	// therefore receives an IPv6 address). If you enable the IPv6 addressing feature
-	// for your subnet, your network interface or instance only receives an IPv6
-	// address if it's created using version 2016-11-15 or later of the Amazon EC2 API.
+	// therefore receives an IPv6 address).
+	//
+	// If you enable the IPv6 addressing feature for your subnet, your network
+	// interface or instance only receives an IPv6 address if it's created using
+	// version 2016-11-15 or later of the Amazon EC2 API.
 	AssignIpv6AddressOnCreation *types.AttributeBooleanValue
 
-	// The customer-owned IPv4 address pool associated with the subnet. You must set
-	// this value when you specify true for MapCustomerOwnedIpOnLaunch .
+	// The customer-owned IPv4 address pool associated with the subnet.
+	//
+	// You must set this value when you specify true for MapCustomerOwnedIpOnLaunch .
 	CustomerOwnedIpv4Pool *string
 
-	// Specify true to indicate that local network interfaces at the current position
+	//  Specify true to indicate that local network interfaces at the current position
 	// should be disabled.
 	DisableLniAtDeviceIndex *types.AttributeBooleanValue
 
@@ -63,7 +74,7 @@ type ModifySubnetAttributeInput struct {
 	// subnet should return synthetic IPv6 addresses for IPv4-only destinations.
 	EnableDns64 *types.AttributeBooleanValue
 
-	// Indicates the device position for local network interfaces in this subnet. For
+	//  Indicates the device position for local network interfaces in this subnet. For
 	// example, 1 indicates local network interfaces in this subnet are the secondary
 	// network interface (eth1). A local network interface cannot be the primary
 	// network interface (eth0).
@@ -78,17 +89,20 @@ type ModifySubnetAttributeInput struct {
 	EnableResourceNameDnsARecordOnLaunch *types.AttributeBooleanValue
 
 	// Specify true to indicate that network interfaces attached to instances created
-	// in the specified subnet should be assigned a customer-owned IPv4 address. When
-	// this value is true , you must specify the customer-owned IP pool using
+	// in the specified subnet should be assigned a customer-owned IPv4 address.
+	//
+	// When this value is true , you must specify the customer-owned IP pool using
 	// CustomerOwnedIpv4Pool .
 	MapCustomerOwnedIpOnLaunch *types.AttributeBooleanValue
 
 	// Specify true to indicate that network interfaces attached to instances created
-	// in the specified subnet should be assigned a public IPv4 address. Amazon Web
-	// Services charges for all public IPv4 addresses, including public IPv4 addresses
-	// associated with running instances and Elastic IP addresses. For more
-	// information, see the Public IPv4 Address tab on the Amazon VPC pricing page (http://aws.amazon.com/vpc/pricing/)
-	// .
+	// in the specified subnet should be assigned a public IPv4 address.
+	//
+	// Amazon Web Services charges for all public IPv4 addresses, including public
+	// IPv4 addresses associated with running instances and Elastic IP addresses. For
+	// more information, see the Public IPv4 Address tab on the [Amazon VPC pricing page].
+	//
+	// [Amazon VPC pricing page]: http://aws.amazon.com/vpc/pricing/
 	MapPublicIpOnLaunch *types.AttributeBooleanValue
 
 	// The type of hostname to assign to instances in the subnet at launch. For

@@ -46,19 +46,25 @@ type CreateClientVpnEndpointInput struct {
 	// This member is required.
 	ClientCidrBlock *string
 
-	// Information about the client connection logging options. If you enable client
-	// connection logging, data about client connections is sent to a Cloudwatch Logs
-	// log stream. The following information is logged:
+	// Information about the client connection logging options.
+	//
+	// If you enable client connection logging, data about client connections is sent
+	// to a Cloudwatch Logs log stream. The following information is logged:
+	//
 	//   - Client connection requests
+	//
 	//   - Client connection results (successful and unsuccessful)
+	//
 	//   - Reasons for unsuccessful client connection requests
+	//
 	//   - Client connection termination time
 	//
 	// This member is required.
 	ConnectionLogOptions *types.ConnectionLogOptions
 
-	// The ARN of the server certificate. For more information, see the Certificate
-	// Manager User Guide (https://docs.aws.amazon.com/acm/latest/userguide/) .
+	// The ARN of the server certificate. For more information, see the [Certificate Manager User Guide].
+	//
+	// [Certificate Manager User Guide]: https://docs.aws.amazon.com/acm/latest/userguide/
 	//
 	// This member is required.
 	ServerCertificateArn *string
@@ -71,8 +77,9 @@ type CreateClientVpnEndpointInput struct {
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// A brief description of the Client VPN endpoint.
@@ -94,23 +101,33 @@ type CreateClientVpnEndpointInput struct {
 	SecurityGroupIds []string
 
 	// Specify whether to enable the self-service portal for the Client VPN endpoint.
+	//
 	// Default Value: enabled
 	SelfServicePortal types.SelfServicePortal
 
-	// The maximum VPN session duration time in hours. Valid values: 8 | 10 | 12 | 24
+	// The maximum VPN session duration time in hours.
+	//
+	// Valid values: 8 | 10 | 12 | 24
+	//
 	// Default value: 24
 	SessionTimeoutHours *int32
 
-	// Indicates whether split-tunnel is enabled on the Client VPN endpoint. By
-	// default, split-tunnel on a VPN endpoint is disabled. For information about
-	// split-tunnel VPN endpoints, see Split-tunnel Client VPN endpoint (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
-	// in the Client VPN Administrator Guide.
+	// Indicates whether split-tunnel is enabled on the Client VPN endpoint.
+	//
+	// By default, split-tunnel on a VPN endpoint is disabled.
+	//
+	// For information about split-tunnel VPN endpoints, see [Split-tunnel Client VPN endpoint] in the Client VPN
+	// Administrator Guide.
+	//
+	// [Split-tunnel Client VPN endpoint]: https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html
 	SplitTunnel *bool
 
 	// The tags to apply to the Client VPN endpoint during creation.
 	TagSpecifications []types.TagSpecification
 
-	// The transport protocol to be used by the VPN session. Default value: udp
+	// The transport protocol to be used by the VPN session.
+	//
+	// Default value: udp
 	TransportProtocol types.TransportProtocol
 
 	// The ID of the VPC to associate with the Client VPN endpoint. If no security
@@ -119,7 +136,10 @@ type CreateClientVpnEndpointInput struct {
 	VpcId *string
 
 	// The port number to assign to the Client VPN endpoint for TCP and UDP traffic.
-	// Valid Values: 443 | 1194 Default Value: 443
+	//
+	// Valid Values: 443 | 1194
+	//
+	// Default Value: 443
 	VpnPort *int32
 
 	noSmithyDocumentSerde

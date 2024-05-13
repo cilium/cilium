@@ -11,9 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Replaces an entry (rule) in a network ACL. For more information, see Network
-// ACLs (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html) in
-// the Amazon VPC User Guide.
+// Replaces an entry (rule) in a network ACL. For more information, see [Network ACLs] in the
+// Amazon VPC User Guide.
+//
+// [Network ACLs]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html
 func (c *Client) ReplaceNetworkAclEntry(ctx context.Context, params *ReplaceNetworkAclEntryInput, optFns ...func(*Options)) (*ReplaceNetworkAclEntryOutput, error) {
 	if params == nil {
 		params = &ReplaceNetworkAclEntryInput{}
@@ -31,8 +32,9 @@ func (c *Client) ReplaceNetworkAclEntry(ctx context.Context, params *ReplaceNetw
 
 type ReplaceNetworkAclEntryInput struct {
 
-	// Indicates whether to replace the egress rule. Default: If no value is
-	// specified, we replace the ingress rule.
+	// Indicates whether to replace the egress rule.
+	//
+	// Default: If no value is specified, we replace the ingress rule.
 	//
 	// This member is required.
 	Egress *bool

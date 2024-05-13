@@ -13,12 +13,16 @@ import (
 
 // Describes the Availability Zones, Local Zones, and Wavelength Zones that are
 // available to you. If there is an event impacting a zone, you can use this
-// request to view the state and any provided messages for that zone. For more
-// information about Availability Zones, Local Zones, and Wavelength Zones, see
-// Regions and zones (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
-// in the Amazon Elastic Compute Cloud User Guide. The order of the elements in the
-// response, including those within nested structures, might vary. Applications
-// should not assume the elements appear in a particular order.
+// request to view the state and any provided messages for that zone.
+//
+// For more information about Availability Zones, Local Zones, and Wavelength
+// Zones, see [Regions and zones]in the Amazon Elastic Compute Cloud User Guide.
+//
+// The order of the elements in the response, including those within nested
+// structures, might vary. Applications should not assume the elements appear in a
+// particular order.
+//
+// [Regions and zones]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
 func (c *Client) DescribeAvailabilityZones(ctx context.Context, params *DescribeAvailabilityZonesInput, optFns ...func(*Options)) (*DescribeAvailabilityZonesOutput, error) {
 	if params == nil {
 		params = &DescribeAvailabilityZonesInput{}
@@ -37,8 +41,10 @@ func (c *Client) DescribeAvailabilityZones(ctx context.Context, params *Describe
 type DescribeAvailabilityZonesInput struct {
 
 	// Include all Availability Zones, Local Zones, and Wavelength Zones regardless of
-	// your opt-in status. If you do not use this parameter, the results include only
-	// the zones for the Regions where you have chosen the option to opt in.
+	// your opt-in status.
+	//
+	// If you do not use this parameter, the results include only the zones for the
+	// Regions where you have chosen the option to opt in.
 	AllAvailabilityZones *bool
 
 	// Checks whether you have the required permissions for the action, without
@@ -48,26 +54,36 @@ type DescribeAvailabilityZonesInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - group-name - For Availability Zones, use the Region name. For Local Zones,
 	//   use the name of the group associated with the Local Zone (for example,
 	//   us-west-2-lax-1 ) For Wavelength Zones, use the name of the group associated
 	//   with the Wavelength Zone (for example, us-east-1-wl1 ).
+	//
 	//   - message - The Zone message.
+	//
 	//   - opt-in-status - The opt-in status ( opted-in | not-opted-in |
 	//   opt-in-not-required ).
+	//
 	//   - parent-zone-id - The ID of the zone that handles some of the Local Zone and
 	//   Wavelength Zone control plane operations, such as API calls.
+	//
 	//   - parent-zone-name - The ID of the zone that handles some of the Local Zone
 	//   and Wavelength Zone control plane operations, such as API calls.
+	//
 	//   - region-name - The name of the Region for the Zone (for example, us-east-1 ).
+	//
 	//   - state - The state of the Availability Zone, the Local Zone, or the
 	//   Wavelength Zone ( available ).
+	//
 	//   - zone-id - The ID of the Availability Zone (for example, use1-az1 ), the
 	//   Local Zone (for example, usw2-lax1-az1 ), or the Wavelength Zone (for example,
 	//   us-east-1-wl1-bos-wlz-1 ).
+	//
 	//   - zone-name - The name of the Availability Zone (for example, us-east-1a ),
 	//   the Local Zone (for example, us-west-2-lax-1a ), or the Wavelength Zone (for
 	//   example, us-east-1-wl1-bos-wlz-1 ).
+	//
 	//   - zone-type - The type of zone ( availability-zone | local-zone |
 	//   wavelength-zone ).
 	Filters []types.Filter

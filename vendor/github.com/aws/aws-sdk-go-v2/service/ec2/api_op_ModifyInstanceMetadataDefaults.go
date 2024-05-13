@@ -12,12 +12,14 @@ import (
 )
 
 // Modifies the default instance metadata service (IMDS) settings at the account
-// level in the specified Amazon Web Services  Region. To remove a parameter's
-// account-level default setting, specify no-preference . If an account-level
-// setting is cleared with no-preference , then the instance launch considers the
-// other instance metadata settings. For more information, see Order of precedence
-// for instance metadata options (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence)
-// in the Amazon EC2 User Guide.
+// level in the specified Amazon Web Services  Region.
+//
+// To remove a parameter's account-level default setting, specify no-preference .
+// If an account-level setting is cleared with no-preference , then the instance
+// launch considers the other instance metadata settings. For more information, see
+// [Order of precedence for instance metadata options]in the Amazon EC2 User Guide.
+//
+// [Order of precedence for instance metadata options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence
 func (c *Client) ModifyInstanceMetadataDefaults(ctx context.Context, params *ModifyInstanceMetadataDefaultsInput, optFns ...func(*Options)) (*ModifyInstanceMetadataDefaultsOutput, error) {
 	if params == nil {
 		params = &ModifyInstanceMetadataDefaultsInput{}
@@ -46,20 +48,24 @@ type ModifyInstanceMetadataDefaultsInput struct {
 	HttpEndpoint types.DefaultInstanceMetadataEndpointState
 
 	// The maximum number of hops that the metadata token can travel. To indicate no
-	// preference, specify -1 . Possible values: Integers from 1 to 64 , and -1 to
-	// indicate no preference
+	// preference, specify -1 .
+	//
+	// Possible values: Integers from 1 to 64 , and -1 to indicate no preference
 	HttpPutResponseHopLimit *int32
 
 	// Indicates whether IMDSv2 is required.
+	//
 	//   - optional – IMDSv2 is optional, which means that you can use either IMDSv2 or
 	//   IMDSv1.
+	//
 	//   - required – IMDSv2 is required, which means that IMDSv1 is disabled, and you
 	//   must use IMDSv2.
 	HttpTokens types.MetadataDefaultHttpTokensState
 
 	// Enables or disables access to an instance's tags from the instance metadata.
-	// For more information, see Work with instance tags using the instance metadata (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS)
-	// in the Amazon EC2 User Guide.
+	// For more information, see [Work with instance tags using the instance metadata]in the Amazon EC2 User Guide.
+	//
+	// [Work with instance tags using the instance metadata]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS
 	InstanceMetadataTags types.DefaultInstanceMetadataTagsState
 
 	noSmithyDocumentSerde

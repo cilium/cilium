@@ -36,8 +36,11 @@ type DescribeSecurityGroupRulesInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - group-id - The ID of the security group.
+	//
 	//   - security-group-rule-id - The ID of the security group rule.
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
@@ -47,8 +50,9 @@ type DescribeSecurityGroupRulesInput struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. This value
 	// can be between 5 and 1000. If this parameter is not specified, then all items
-	// are returned. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// are returned. For more information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -166,8 +170,9 @@ type DescribeSecurityGroupRulesPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. This value
 	// can be between 5 and 1000. If this parameter is not specified, then all items
-	// are returned. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// are returned. For more information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

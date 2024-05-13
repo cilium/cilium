@@ -12,8 +12,11 @@ import (
 )
 
 // Gets the current state of block public access for snapshots setting for the
-// account and Region. For more information, see Block public access for snapshots (https://docs.aws.amazon.com/ebs/latest/userguide/block-public-access-snapshots.html)
-// in the Amazon EBS User Guide.
+// account and Region.
+//
+// For more information, see [Block public access for snapshots] in the Amazon EBS User Guide.
+//
+// [Block public access for snapshots]: https://docs.aws.amazon.com/ebs/latest/userguide/block-public-access-snapshots.html
 func (c *Client) GetSnapshotBlockPublicAccessState(ctx context.Context, params *GetSnapshotBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetSnapshotBlockPublicAccessStateOutput, error) {
 	if params == nil {
 		params = &GetSnapshotBlockPublicAccessStateInput{}
@@ -42,14 +45,16 @@ type GetSnapshotBlockPublicAccessStateInput struct {
 
 type GetSnapshotBlockPublicAccessStateOutput struct {
 
-	// The current state of block public access for snapshots. Possible values
-	// include:
+	// The current state of block public access for snapshots. Possible values include:
+	//
 	//   - block-all-sharing - All public sharing of snapshots is blocked. Users in the
 	//   account can't request new public sharing. Additionally, snapshots that were
 	//   already publicly shared are treated as private and are not publicly available.
+	//
 	//   - block-new-sharing - Only new public sharing of snapshots is blocked. Users
 	//   in the account can't request new public sharing. However, snapshots that were
 	//   already publicly shared, remain publicly available.
+	//
 	//   - unblocked - Public sharing is not blocked. Users can publicly share
 	//   snapshots.
 	State types.SnapshotBlockPublicAccessState

@@ -13,9 +13,12 @@ import (
 
 // Creates a virtual private gateway. A virtual private gateway is the endpoint on
 // the VPC side of your VPN connection. You can create a virtual private gateway
-// before creating the VPC itself. For more information, see Amazon Web Services
-// Site-to-Site VPN (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in
-// the Amazon Web Services Site-to-Site VPN User Guide.
+// before creating the VPC itself.
+//
+// For more information, see [Amazon Web Services Site-to-Site VPN] in the Amazon Web Services Site-to-Site VPN User
+// Guide.
+//
+// [Amazon Web Services Site-to-Site VPN]: https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html
 func (c *Client) CreateVpnGateway(ctx context.Context, params *CreateVpnGatewayInput, optFns ...func(*Options)) (*CreateVpnGatewayOutput, error) {
 	if params == nil {
 		params = &CreateVpnGatewayInput{}
@@ -41,8 +44,9 @@ type CreateVpnGatewayInput struct {
 
 	// A private Autonomous System Number (ASN) for the Amazon side of a BGP session.
 	// If you're using a 16-bit ASN, it must be in the 64512 to 65534 range. If you're
-	// using a 32-bit ASN, it must be in the 4200000000 to 4294967294 range. Default:
-	// 64512
+	// using a 32-bit ASN, it must be in the 4200000000 to 4294967294 range.
+	//
+	// Default: 64512
 	AmazonSideAsn *int64
 
 	// The Availability Zone for the virtual private gateway.

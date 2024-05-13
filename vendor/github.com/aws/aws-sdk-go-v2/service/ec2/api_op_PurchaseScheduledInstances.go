@@ -11,14 +11,17 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// You can no longer purchase Scheduled Instances. Purchases the Scheduled
-// Instances with the specified schedule. Scheduled Instances enable you to
-// purchase Amazon EC2 compute capacity by the hour for a one-year term. Before you
-// can purchase a Scheduled Instance, you must call
-// DescribeScheduledInstanceAvailability to check for available schedules and
-// obtain a purchase token. After you purchase a Scheduled Instance, you must call
-// RunScheduledInstances during each scheduled time period. After you purchase a
-// Scheduled Instance, you can't cancel, modify, or resell your purchase.
+// You can no longer purchase Scheduled Instances.
+//
+// Purchases the Scheduled Instances with the specified schedule.
+//
+// Scheduled Instances enable you to purchase Amazon EC2 compute capacity by the
+// hour for a one-year term. Before you can purchase a Scheduled Instance, you must
+// call DescribeScheduledInstanceAvailabilityto check for available schedules and obtain a purchase token. After you
+// purchase a Scheduled Instance, you must call RunScheduledInstancesduring each scheduled time period.
+//
+// After you purchase a Scheduled Instance, you can't cancel, modify, or resell
+// your purchase.
 func (c *Client) PurchaseScheduledInstances(ctx context.Context, params *PurchaseScheduledInstancesInput, optFns ...func(*Options)) (*PurchaseScheduledInstancesOutput, error) {
 	if params == nil {
 		params = &PurchaseScheduledInstancesInput{}
@@ -43,8 +46,9 @@ type PurchaseScheduledInstancesInput struct {
 	PurchaseRequests []types.PurchaseRequest
 
 	// Unique, case-sensitive identifier that ensures the idempotency of the request.
-	// For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// For more information, see [Ensuring Idempotency].
+	//
+	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
