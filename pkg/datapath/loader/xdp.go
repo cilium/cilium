@@ -157,22 +157,25 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
 	}
 
-	progs := []progDefinition{{progName: symbolFromHostNetdevXDP, direction: ""}}
-	finalize, err := replaceDatapath(ctx,
-		replaceDatapathOptions{
-			device:   xdpDev,
-			elf:      objPath,
-			programs: progs,
-			xdpMode:  xdpMode,
-			linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), iface),
-		},
-	)
+	spec, err := bpf.LoadCollectionSpec(objPath)
+	if err != nil {
+		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
+	}
+
+	coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
 	if err != nil {
 		return err
 	}
+	defer coll.Close()
+
+	if err := attachXDPProgram(iface, coll.Programs[symbolFromHostNetdevXDP], symbolFromHostNetdevXDP,
+		bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode)); err != nil {
+		return fmt.Errorf("interface %s: %w", xdpDev, err)
+	}
+
 	finalize()
 
-	return err
+	return nil
 }
 
 // attachXDPProgram attaches prog with the given progName to link.
@@ -180,6 +183,10 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 // bpffsDir should exist and point to the links/ subdirectory in the per-device
 // bpffs directory.
 func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir string, flags link.XDPAttachFlags) error {
+	if prog == nil {
+		return fmt.Errorf("program %s is nil", progName)
+	}
+
 	// Attempt to open and update an existing link.
 	pin := filepath.Join(bpffsDir, progName)
 	err := bpf.UpdateLink(pin, prog)
@@ -206,6 +213,10 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 
 	default:
 		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
+	}
+
+	if err := bpf.MkdirBPF(bpffsDir); err != nil {
+		return fmt.Errorf("creating bpffs link dir for xdp attachment to device %s: %w", iface.Attrs().Name, err)
 	}
 
 	// Create a new link. This will only succeed on nodes that support bpf_link

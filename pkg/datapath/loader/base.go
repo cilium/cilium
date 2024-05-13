@@ -199,37 +199,42 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 		return nil
 	}
 
-	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
+	spec, err := bpf.LoadCollectionSpec(networkObj)
+	if err != nil {
+		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
+	}
+
+	coll, finalize, err := loadDatapath(ctx, spec, nil, nil)
+	if err != nil {
+		return fmt.Errorf("loading %s: %w", networkObj, err)
+	}
+	defer coll.Close()
+
 	var errs error
 	for _, iface := range interfaces {
 		device, err := netlink.LinkByName(iface)
 		if err != nil {
-			return fmt.Errorf("retrieving device %s: %w", iface, err)
+			errs = errors.Join(errs, fmt.Errorf("retrieving device %s: %w", iface, err))
+			continue
 		}
 
-		finalize, err := replaceDatapath(ctx,
-			replaceDatapathOptions{
-				device:   iface,
-				elf:      networkObj,
-				programs: progs,
-				linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), device),
-				tcx:      option.Config.EnableTCX,
-			},
-		)
-		if err != nil {
-			log.WithField(logfields.Interface, iface).WithError(err).Error("Load encryption network failed")
-			// collect errors, but keep trying replacing other interfaces.
-			errs = errors.Join(errs, err)
-		} else {
-			log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
-			// Defer map removal until all interfaces' progs have been replaced.
-			defer finalize()
+		if err := attachSKBProgram(device, coll.Programs[symbolFromNetwork], symbolFromNetwork,
+			bpffsDeviceLinksDir(bpf.CiliumPath(), device), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+
+			// Collect errors, keep attaching to other interfaces.
+			errs = errors.Join(errs, fmt.Errorf("interface %s: %w", iface, err))
+			continue
 		}
+
+		log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
 	}
 
 	if errs != nil {
 		return fmt.Errorf("failed to load encryption program: %w", errs)
 	}
+
+	// Defer map removal until all interfaces' progs have been replaced.
+	finalize()
 
 	return nil
 }
