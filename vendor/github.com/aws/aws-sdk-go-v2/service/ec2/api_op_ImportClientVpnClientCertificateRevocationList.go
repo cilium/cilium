@@ -12,8 +12,10 @@ import (
 
 // Uploads a client certificate revocation list to the specified Client VPN
 // endpoint. Uploading a client certificate revocation list overwrites the existing
-// client certificate revocation list. Uploading a client certificate revocation
-// list resets existing client connections.
+// client certificate revocation list.
+//
+// Uploading a client certificate revocation list resets existing client
+// connections.
 func (c *Client) ImportClientVpnClientCertificateRevocationList(ctx context.Context, params *ImportClientVpnClientCertificateRevocationListInput, optFns ...func(*Options)) (*ImportClientVpnClientCertificateRevocationListOutput, error) {
 	if params == nil {
 		params = &ImportClientVpnClientCertificateRevocationListInput{}
@@ -31,9 +33,10 @@ func (c *Client) ImportClientVpnClientCertificateRevocationList(ctx context.Cont
 
 type ImportClientVpnClientCertificateRevocationListInput struct {
 
-	// The client certificate revocation list file. For more information, see Generate
-	// a Client Certificate Revocation List (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/cvpn-working-certificates.html#cvpn-working-certificates-generate)
-	// in the Client VPN Administrator Guide.
+	// The client certificate revocation list file. For more information, see [Generate a Client Certificate Revocation List] in the
+	// Client VPN Administrator Guide.
+	//
+	// [Generate a Client Certificate Revocation List]: https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/cvpn-working-certificates.html#cvpn-working-certificates-generate
 	//
 	// This member is required.
 	CertificateRevocationList *string

@@ -12,12 +12,17 @@ import (
 )
 
 // Registers sources (network interfaces) with the specified transit gateway
-// multicast group. A multicast source is a network interface attached to a
-// supported instance that sends multicast traffic. For information about supported
-// instances, see Multicast Considerations (https://docs.aws.amazon.com/vpc/latest/tgw/transit-gateway-limits.html#multicast-limits)
-// in Amazon VPC Transit Gateways. After you add the source, use
-// SearchTransitGatewayMulticastGroups (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayMulticastGroups.html)
-// to verify that the source was added to the multicast group.
+// multicast group.
+//
+// A multicast source is a network interface attached to a supported instance that
+// sends multicast traffic. For information about supported instances, see [Multicast Considerations]in
+// Amazon VPC Transit Gateways.
+//
+// After you add the source, use [SearchTransitGatewayMulticastGroups] to verify that the source was added to the
+// multicast group.
+//
+// [SearchTransitGatewayMulticastGroups]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayMulticastGroups.html
+// [Multicast Considerations]: https://docs.aws.amazon.com/vpc/latest/tgw/transit-gateway-limits.html#multicast-limits
 func (c *Client) RegisterTransitGatewayMulticastGroupSources(ctx context.Context, params *RegisterTransitGatewayMulticastGroupSourcesInput, optFns ...func(*Options)) (*RegisterTransitGatewayMulticastGroupSourcesOutput, error) {
 	if params == nil {
 		params = &RegisterTransitGatewayMulticastGroupSourcesInput{}

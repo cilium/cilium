@@ -12,9 +12,9 @@ import (
 
 // Retrieves the access status of your account to the EC2 serial console of all
 // instances. By default, access to the EC2 serial console is disabled for your
-// account. For more information, see Manage account access to the EC2 serial
-// console (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-access-to-serial-console.html#serial-console-account-access)
-// in the Amazon EC2 User Guide.
+// account. For more information, see [Manage account access to the EC2 serial console]in the Amazon EC2 User Guide.
+//
+// [Manage account access to the EC2 serial console]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-access-to-serial-console.html#serial-console-account-access
 func (c *Client) GetSerialConsoleAccessStatus(ctx context.Context, params *GetSerialConsoleAccessStatusInput, optFns ...func(*Options)) (*GetSerialConsoleAccessStatusOutput, error) {
 	if params == nil {
 		params = &GetSerialConsoleAccessStatusInput{}

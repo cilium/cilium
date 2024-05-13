@@ -11,8 +11,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Accepts the Convertible Reserved Instance exchange quote described in the
-// GetReservedInstancesExchangeQuote call.
+// Accepts the Convertible Reserved Instance exchange quote described in the GetReservedInstancesExchangeQuote call.
 func (c *Client) AcceptReservedInstancesExchangeQuote(ctx context.Context, params *AcceptReservedInstancesExchangeQuoteInput, optFns ...func(*Options)) (*AcceptReservedInstancesExchangeQuoteOutput, error) {
 	if params == nil {
 		params = &AcceptReservedInstancesExchangeQuoteInput{}

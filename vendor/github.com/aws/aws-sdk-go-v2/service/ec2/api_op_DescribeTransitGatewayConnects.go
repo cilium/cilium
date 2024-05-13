@@ -36,12 +36,17 @@ type DescribeTransitGatewayConnectsInput struct {
 	DryRun *bool
 
 	// One or more filters. The possible values are:
+	//
 	//   - options.protocol - The tunnel protocol ( gre ).
+	//
 	//   - state - The state of the attachment ( initiating | initiatingRequest |
 	//   pendingAcceptance | rollingBack | pending | available | modifying | deleting |
 	//   deleted | failed | rejected | rejecting | failing ).
+	//
 	//   - transit-gateway-attachment-id - The ID of the Connect attachment.
+	//
 	//   - transit-gateway-id - The ID of the transit gateway.
+	//
 	//   - transport-transit-gateway-attachment-id - The ID of the transit gateway
 	//   attachment from which the Connect attachment was created.
 	Filters []types.Filter

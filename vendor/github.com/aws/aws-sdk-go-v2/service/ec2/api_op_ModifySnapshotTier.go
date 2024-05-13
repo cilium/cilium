@@ -15,8 +15,10 @@ import (
 // Archives an Amazon EBS snapshot. When you archive a snapshot, it is converted
 // to a full snapshot that includes all of the blocks of data that were written to
 // the volume at the time the snapshot was created, and moved from the standard
-// tier to the archive tier. For more information, see Archive Amazon EBS snapshots (https://docs.aws.amazon.com/ebs/latest/userguide/snapshot-archive.html)
-// in the Amazon EBS User Guide.
+// tier to the archive tier. For more information, see [Archive Amazon EBS snapshots]in the Amazon EBS User
+// Guide.
+//
+// [Archive Amazon EBS snapshots]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshot-archive.html
 func (c *Client) ModifySnapshotTier(ctx context.Context, params *ModifySnapshotTierInput, optFns ...func(*Options)) (*ModifySnapshotTierOutput, error) {
 	if params == nil {
 		params = &ModifySnapshotTierInput{}

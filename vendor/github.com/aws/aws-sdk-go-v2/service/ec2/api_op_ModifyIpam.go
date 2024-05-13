@@ -37,9 +37,12 @@ type ModifyIpamInput struct {
 	// Choose the operating Regions for the IPAM. Operating Regions are Amazon Web
 	// Services Regions where the IPAM is allowed to manage IP address CIDRs. IPAM only
 	// discovers and monitors resources in the Amazon Web Services Regions you select
-	// as operating Regions. For more information about operating Regions, see Create
-	// an IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html) in the
-	// Amazon VPC IPAM User Guide.
+	// as operating Regions.
+	//
+	// For more information about operating Regions, see [Create an IPAM] in the Amazon VPC IPAM User
+	// Guide.
+	//
+	// [Create an IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html
 	AddOperatingRegions []types.AddIpamOperatingRegion
 
 	// The description of the IPAM you want to modify.
@@ -56,7 +59,9 @@ type ModifyIpamInput struct {
 
 	// IPAM is offered in a Free Tier and an Advanced Tier. For more information about
 	// the features available in each tier and the costs associated with the tiers, see
-	// Amazon VPC pricing > IPAM tab (http://aws.amazon.com/vpc/pricing/) .
+	// [Amazon VPC pricing > IPAM tab].
+	//
+	// [Amazon VPC pricing > IPAM tab]: http://aws.amazon.com/vpc/pricing/
 	Tier types.IpamTier
 
 	noSmithyDocumentSerde

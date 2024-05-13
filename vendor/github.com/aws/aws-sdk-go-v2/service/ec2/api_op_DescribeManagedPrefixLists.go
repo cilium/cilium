@@ -12,8 +12,9 @@ import (
 )
 
 // Describes your managed prefix lists and any Amazon Web Services-managed prefix
-// lists. To view the entries for your prefix list, use GetManagedPrefixListEntries
-// .
+// lists.
+//
+// To view the entries for your prefix list, use GetManagedPrefixListEntries.
 func (c *Client) DescribeManagedPrefixLists(ctx context.Context, params *DescribeManagedPrefixListsInput, optFns ...func(*Options)) (*DescribeManagedPrefixListsOutput, error) {
 	if params == nil {
 		params = &DescribeManagedPrefixListsInput{}
@@ -38,8 +39,11 @@ type DescribeManagedPrefixListsInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - owner-id - The ID of the prefix list owner.
+	//
 	//   - prefix-list-id - The ID of the prefix list.
+	//
 	//   - prefix-list-name - The name of the prefix list.
 	Filters []types.Filter
 

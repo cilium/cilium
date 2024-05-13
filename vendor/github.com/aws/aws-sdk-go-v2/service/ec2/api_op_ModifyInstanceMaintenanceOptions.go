@@ -14,8 +14,9 @@ import (
 // Modifies the recovery behavior of your instance to disable simplified automatic
 // recovery or set the recovery behavior to default. The default configuration will
 // not enable simplified automatic recovery for an unsupported instance type. For
-// more information, see Simplified automatic recovery (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-recover.html#instance-configuration-recovery)
-// .
+// more information, see [Simplified automatic recovery].
+//
+// [Simplified automatic recovery]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-recover.html#instance-configuration-recovery
 func (c *Client) ModifyInstanceMaintenanceOptions(ctx context.Context, params *ModifyInstanceMaintenanceOptionsInput, optFns ...func(*Options)) (*ModifyInstanceMaintenanceOptionsOutput, error) {
 	if params == nil {
 		params = &ModifyInstanceMaintenanceOptionsInput{}

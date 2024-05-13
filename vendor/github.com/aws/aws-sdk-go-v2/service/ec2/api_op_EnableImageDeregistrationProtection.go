@@ -11,11 +11,14 @@ import (
 )
 
 // Enables deregistration protection for an AMI. When deregistration protection is
-// enabled, the AMI can't be deregistered. To allow the AMI to be deregistered, you
-// must first disable deregistration protection using
-// DisableImageDeregistrationProtection . For more information, see Protect an AMI
-// from deregistration (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html#ami-deregistration-protection)
-// in the Amazon EC2 User Guide.
+// enabled, the AMI can't be deregistered.
+//
+// To allow the AMI to be deregistered, you must first disable deregistration
+// protection using DisableImageDeregistrationProtection.
+//
+// For more information, see [Protect an AMI from deregistration] in the Amazon EC2 User Guide.
+//
+// [Protect an AMI from deregistration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html#ami-deregistration-protection
 func (c *Client) EnableImageDeregistrationProtection(ctx context.Context, params *EnableImageDeregistrationProtectionInput, optFns ...func(*Options)) (*EnableImageDeregistrationProtectionOutput, error) {
 	if params == nil {
 		params = &EnableImageDeregistrationProtectionInput{}

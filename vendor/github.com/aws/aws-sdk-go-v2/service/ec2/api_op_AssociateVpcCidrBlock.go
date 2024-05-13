@@ -13,12 +13,16 @@ import (
 
 // Associates a CIDR block with your VPC. You can associate a secondary IPv4 CIDR
 // block, an Amazon-provided IPv6 CIDR block, or an IPv6 CIDR block from an IPv6
-// address pool that you provisioned through bring your own IP addresses ( BYOIP (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html)
-// ). You must specify one of the following in the request: an IPv4 CIDR block, an
-// IPv6 pool, or an Amazon-provided IPv6 CIDR block. For more information about
-// associating CIDR blocks with your VPC and applicable restrictions, see IP
-// addressing for your VPCs and subnets (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-ip-addressing.html)
-// in the Amazon VPC User Guide.
+// address pool that you provisioned through bring your own IP addresses ([BYOIP] ).
+//
+// You must specify one of the following in the request: an IPv4 CIDR block, an
+// IPv6 pool, or an Amazon-provided IPv6 CIDR block.
+//
+// For more information about associating CIDR blocks with your VPC and applicable
+// restrictions, see [IP addressing for your VPCs and subnets]in the Amazon VPC User Guide.
+//
+// [BYOIP]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html
+// [IP addressing for your VPCs and subnets]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-ip-addressing.html
 func (c *Client) AssociateVpcCidrBlock(ctx context.Context, params *AssociateVpcCidrBlockInput, optFns ...func(*Options)) (*AssociateVpcCidrBlockOutput, error) {
 	if params == nil {
 		params = &AssociateVpcCidrBlockInput{}
@@ -50,36 +54,45 @@ type AssociateVpcCidrBlockInput struct {
 	CidrBlock *string
 
 	// Associate a CIDR allocated from an IPv4 IPAM pool to a VPC. For more
-	// information about Amazon VPC IP Address Manager (IPAM), see What is IPAM? (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html)
-	// in the Amazon VPC IPAM User Guide.
+	// information about Amazon VPC IP Address Manager (IPAM), see [What is IPAM?]in the Amazon VPC
+	// IPAM User Guide.
+	//
+	// [What is IPAM?]: https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html
 	Ipv4IpamPoolId *string
 
 	// The netmask length of the IPv4 CIDR you would like to associate from an Amazon
-	// VPC IP Address Manager (IPAM) pool. For more information about IPAM, see What
-	// is IPAM? (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html) in
-	// the Amazon VPC IPAM User Guide.
+	// VPC IP Address Manager (IPAM) pool. For more information about IPAM, see [What is IPAM?]in the
+	// Amazon VPC IPAM User Guide.
+	//
+	// [What is IPAM?]: https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html
 	Ipv4NetmaskLength *int32
 
 	// An IPv6 CIDR block from the IPv6 address pool. You must also specify Ipv6Pool
-	// in the request. To let Amazon choose the IPv6 CIDR block for you, omit this
-	// parameter.
+	// in the request.
+	//
+	// To let Amazon choose the IPv6 CIDR block for you, omit this parameter.
 	Ipv6CidrBlock *string
 
 	// The name of the location from which we advertise the IPV6 CIDR block. Use this
-	// parameter to limit the CIDR block to this location. You must set
-	// AmazonProvidedIpv6CidrBlock to true to use this parameter. You can have one
-	// IPv6 CIDR block association per network border group.
+	// parameter to limit the CIDR block to this location.
+	//
+	// You must set AmazonProvidedIpv6CidrBlock to true to use this parameter.
+	//
+	// You can have one IPv6 CIDR block association per network border group.
 	Ipv6CidrBlockNetworkBorderGroup *string
 
 	// Associates a CIDR allocated from an IPv6 IPAM pool to a VPC. For more
-	// information about Amazon VPC IP Address Manager (IPAM), see What is IPAM? (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html)
-	// in the Amazon VPC IPAM User Guide.
+	// information about Amazon VPC IP Address Manager (IPAM), see [What is IPAM?]in the Amazon VPC
+	// IPAM User Guide.
+	//
+	// [What is IPAM?]: https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html
 	Ipv6IpamPoolId *string
 
 	// The netmask length of the IPv6 CIDR you would like to associate from an Amazon
-	// VPC IP Address Manager (IPAM) pool. For more information about IPAM, see What
-	// is IPAM? (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html) in
-	// the Amazon VPC IPAM User Guide.
+	// VPC IP Address Manager (IPAM) pool. For more information about IPAM, see [What is IPAM?]in the
+	// Amazon VPC IPAM User Guide.
+	//
+	// [What is IPAM?]: https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html
 	Ipv6NetmaskLength *int32
 
 	// The ID of an IPv6 address pool from which to allocate the IPv6 CIDR block.

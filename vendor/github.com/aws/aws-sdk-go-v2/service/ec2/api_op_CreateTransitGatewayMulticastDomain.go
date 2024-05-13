@@ -11,10 +11,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a multicast domain using the specified transit gateway. The transit
-// gateway must be in the available state before you create a domain. Use
-// DescribeTransitGateways (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGateways.html)
-// to see the state of transit gateway.
+// Creates a multicast domain using the specified transit gateway.
+//
+// The transit gateway must be in the available state before you create a domain.
+// Use [DescribeTransitGateways]to see the state of transit gateway.
+//
+// [DescribeTransitGateways]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGateways.html
 func (c *Client) CreateTransitGatewayMulticastDomain(ctx context.Context, params *CreateTransitGatewayMulticastDomainInput, optFns ...func(*Options)) (*CreateTransitGatewayMulticastDomainOutput, error) {
 	if params == nil {
 		params = &CreateTransitGatewayMulticastDomainInput{}

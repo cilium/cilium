@@ -13,10 +13,12 @@ import (
 
 // Restores an archived Amazon EBS snapshot for use temporarily or permanently, or
 // modifies the restore period or restore type for a snapshot that was previously
-// temporarily restored. For more information see Restore an archived snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/working-with-snapshot-archiving.html#restore-archived-snapshot)
-// and modify the restore period or restore type for a temporarily restored
-// snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/working-with-snapshot-archiving.html#modify-temp-restore-period)
-// in the Amazon EBS User Guide.
+// temporarily restored.
+//
+// For more information see [Restore an archived snapshot] and [modify the restore period or restore type for a temporarily restored snapshot] in the Amazon EBS User Guide.
+//
+// [Restore an archived snapshot]: https://docs.aws.amazon.com/ebs/latest/userguide/working-with-snapshot-archiving.html#restore-archived-snapshot
+// [modify the restore period or restore type for a temporarily restored snapshot]: https://docs.aws.amazon.com/ebs/latest/userguide/working-with-snapshot-archiving.html#modify-temp-restore-period
 func (c *Client) RestoreSnapshotTier(ctx context.Context, params *RestoreSnapshotTierInput, optFns ...func(*Options)) (*RestoreSnapshotTierOutput, error) {
 	if params == nil {
 		params = &RestoreSnapshotTierInput{}
@@ -52,9 +54,10 @@ type RestoreSnapshotTierInput struct {
 
 	// Specifies the number of days for which to temporarily restore an archived
 	// snapshot. Required for temporary restores only. The snapshot will be
-	// automatically re-archived after this period. To temporarily restore an archived
-	// snapshot, specify the number of days and omit the PermanentRestore parameter or
-	// set it to false .
+	// automatically re-archived after this period.
+	//
+	// To temporarily restore an archived snapshot, specify the number of days and
+	// omit the PermanentRestore parameter or set it to false .
 	TemporaryRestoreDays *int32
 
 	noSmithyDocumentSerde

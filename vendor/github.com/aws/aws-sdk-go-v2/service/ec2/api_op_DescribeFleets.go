@@ -11,11 +11,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the specified EC2 Fleet or all of your EC2 Fleets. If a fleet is of
-// type instant , you must specify the fleet ID in the request, otherwise the fleet
-// does not appear in the response. For more information, see Describe your EC2
-// Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#monitor-ec2-fleet)
-// in the Amazon EC2 User Guide.
+// Describes the specified EC2 Fleet or all of your EC2 Fleets.
+//
+// If a fleet is of type instant , you must specify the fleet ID in the request,
+// otherwise the fleet does not appear in the response.
+//
+// For more information, see [Describe your EC2 Fleet] in the Amazon EC2 User Guide.
+//
+// [Describe your EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#monitor-ec2-fleet
 func (c *Client) DescribeFleets(ctx context.Context, params *DescribeFleetsInput, optFns ...func(*Options)) (*DescribeFleetsOutput, error) {
 	if params == nil {
 		params = &DescribeFleetsInput{}
@@ -40,26 +43,34 @@ type DescribeFleetsInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - activity-status - The progress of the EC2 Fleet ( error |
 	//   pending-fulfillment | pending-termination | fulfilled ).
+	//
 	//   - excess-capacity-termination-policy - Indicates whether to terminate running
 	//   instances if the target capacity is decreased below the current EC2 Fleet size (
 	//   true | false ).
+	//
 	//   - fleet-state - The state of the EC2 Fleet ( submitted | active | deleted |
 	//   failed | deleted-running | deleted-terminating | modifying ).
+	//
 	//   - replace-unhealthy-instances - Indicates whether EC2 Fleet should replace
 	//   unhealthy instances ( true | false ).
+	//
 	//   - type - The type of request ( instant | request | maintain ).
 	Filters []types.Filter
 
-	// The IDs of the EC2 Fleets. If a fleet is of type instant , you must specify the
-	// fleet ID, otherwise it does not appear in the response.
+	// The IDs of the EC2 Fleets.
+	//
+	// If a fleet is of type instant , you must specify the fleet ID, otherwise it does
+	// not appear in the response.
 	FleetIds []string
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -172,8 +183,9 @@ var _ DescribeFleetsAPIClient = (*Client)(nil)
 type DescribeFleetsPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

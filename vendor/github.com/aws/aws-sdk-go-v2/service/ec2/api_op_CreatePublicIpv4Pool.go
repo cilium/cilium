@@ -14,9 +14,9 @@ import (
 // Creates a public IPv4 address pool. A public IPv4 pool is an EC2 IP address
 // pool required for the public IPv4 CIDRs that you own and bring to Amazon Web
 // Services to manage with IPAM. IPv6 addresses you bring to Amazon Web Services,
-// however, use IPAM pools only. To monitor the status of pool creation, use
-// DescribePublicIpv4Pools (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribePublicIpv4Pools.html)
-// .
+// however, use IPAM pools only. To monitor the status of pool creation, use [DescribePublicIpv4Pools].
+//
+// [DescribePublicIpv4Pools]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribePublicIpv4Pools.html
 func (c *Client) CreatePublicIpv4Pool(ctx context.Context, params *CreatePublicIpv4PoolInput, optFns ...func(*Options)) (*CreatePublicIpv4PoolOutput, error) {
 	if params == nil {
 		params = &CreatePublicIpv4PoolInput{}

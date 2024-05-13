@@ -43,17 +43,23 @@ type GetSecurityGroupsForVpcInput struct {
 
 	// The filters. If using multiple filters, the results include security groups
 	// which match all filters.
+	//
 	//   - group-id : The security group ID.
+	//
 	//   - description : The security group's description.
+	//
 	//   - group-name : The security group name.
+	//
 	//   - owner-id : The security group owner ID.
+	//
 	//   - primary-vpc-id : The VPC ID in which the security group was created.
 	Filters []types.Filter
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -170,8 +176,9 @@ var _ GetSecurityGroupsForVpcAPIClient = (*Client)(nil)
 type GetSecurityGroupsForVpcPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

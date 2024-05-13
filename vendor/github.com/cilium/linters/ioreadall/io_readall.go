@@ -4,6 +4,7 @@
 package ioreadall
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"strings"
@@ -38,7 +39,7 @@ func init() {
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspct, ok := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	if !ok {
-		return nil, fmt.Errorf("analyzer is not type *inspector.Inspector")
+		return nil, errors.New("analyzer is not type *inspector.Inspector")
 	}
 
 	ignoreMap := make(map[string]struct{})

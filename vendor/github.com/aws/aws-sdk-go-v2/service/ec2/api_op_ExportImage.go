@@ -11,9 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Exports an Amazon Machine Image (AMI) to a VM file. For more information, see
-// Exporting a VM directly from an Amazon Machine Image (AMI) (https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport_image.html)
+// Exports an Amazon Machine Image (AMI) to a VM file. For more information, see [Exporting a VM directly from an Amazon Machine Image (AMI)]
 // in the VM Import/Export User Guide.
+//
+// [Exporting a VM directly from an Amazon Machine Image (AMI)]: https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport_image.html
 func (c *Client) ExportImage(ctx context.Context, params *ExportImageInput, optFns ...func(*Options)) (*ExportImageOutput, error) {
 	if params == nil {
 		params = &ExportImageInput{}

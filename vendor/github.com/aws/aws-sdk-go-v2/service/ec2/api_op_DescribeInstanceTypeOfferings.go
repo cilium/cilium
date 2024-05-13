@@ -38,29 +38,35 @@ type DescribeInstanceTypeOfferingsInput struct {
 	DryRun *bool
 
 	// One or more filters. Filter names and values are case-sensitive.
-	//   - instance-type - The instance type. For a list of possible values, see
-	//   Instance (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Instance.html)
-	//   .
-	//   - location - The location. For a list of possible identifiers, see Regions
-	//   and Zones (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
-	//   .
+	//
+	//   - instance-type - The instance type. For a list of possible values, see [Instance].
+	//
+	//   - location - The location. For a list of possible identifiers, see [Regions and Zones].
+	//
+	// [Instance]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Instance.html
+	// [Regions and Zones]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
 	Filters []types.Filter
 
 	// The location type.
+	//
 	//   - availability-zone - The Availability Zone. When you specify a location
 	//   filter, it must be an Availability Zone for the current Region.
+	//
 	//   - availability-zone-id - The AZ ID. When you specify a location filter, it
 	//   must be an AZ ID for the current Region.
+	//
 	//   - outpost - The Outpost ARN. When you specify a location filter, it must be an
 	//   Outpost ARN for the current Region.
+	//
 	//   - region - The current Region. If you specify a location filter, it must match
 	//   the current Region.
 	LocationType types.LocationType
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -174,8 +180,9 @@ var _ DescribeInstanceTypeOfferingsAPIClient = (*Client)(nil)
 type DescribeInstanceTypeOfferingsPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

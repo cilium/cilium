@@ -15,13 +15,19 @@ import (
 // Reserved Instances, you purchase the right to launch instances for a period of
 // time. During that time period, you do not receive insufficient capacity errors,
 // and you pay a lower usage rate than the rate charged for On-Demand instances for
-// the actual time used. If you have listed your own Reserved Instances for sale in
-// the Reserved Instance Marketplace, they will be excluded from these results.
-// This is to ensure that you do not purchase your own Reserved Instances. For more
-// information, see Reserved Instance Marketplace (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html)
-// in the Amazon EC2 User Guide. The order of the elements in the response,
-// including those within nested structures, might vary. Applications should not
-// assume the elements appear in a particular order.
+// the actual time used.
+//
+// If you have listed your own Reserved Instances for sale in the Reserved
+// Instance Marketplace, they will be excluded from these results. This is to
+// ensure that you do not purchase your own Reserved Instances.
+//
+// For more information, see [Reserved Instance Marketplace] in the Amazon EC2 User Guide.
+//
+// The order of the elements in the response, including those within nested
+// structures, might vary. Applications should not assume the elements appear in a
+// particular order.
+//
+// [Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
 func (c *Client) DescribeReservedInstancesOfferings(ctx context.Context, params *DescribeReservedInstancesOfferingsInput, optFns ...func(*Options)) (*DescribeReservedInstancesOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesOfferingsInput{}
@@ -50,24 +56,33 @@ type DescribeReservedInstancesOfferingsInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - availability-zone - The Availability Zone where the Reserved Instance can be
 	//   used.
+	//
 	//   - duration - The duration of the Reserved Instance (for example, one year or
 	//   three years), in seconds ( 31536000 | 94608000 ).
+	//
 	//   - fixed-price - The purchase price of the Reserved Instance (for example,
 	//   9800.0).
+	//
 	//   - instance-type - The instance type that is covered by the reservation.
+	//
 	//   - marketplace - Set to true to show only Reserved Instance Marketplace
 	//   offerings. When this filter is not used, which is the default behavior, all
 	//   offerings from both Amazon Web Services and the Reserved Instance Marketplace
 	//   are listed.
+	//
 	//   - product-description - The Reserved Instance product platform description (
 	//   Linux/UNIX | Linux with SQL Server Standard | Linux with SQL Server Web |
 	//   Linux with SQL Server Enterprise | SUSE Linux | Red Hat Enterprise Linux |
 	//   Red Hat Enterprise Linux with HA | Windows | Windows with SQL Server Standard
 	//   | Windows with SQL Server Web | Windows with SQL Server Enterprise ).
+	//
 	//   - reserved-instances-offering-id - The Reserved Instances offering ID.
+	//
 	//   - scope - The scope of the Reserved Instance ( Availability Zone or Region ).
+	//
 	//   - usage-price - The usage price of the Reserved Instance, per hour (for
 	//   example, 0.84).
 	Filters []types.Filter
@@ -77,30 +92,39 @@ type DescribeReservedInstancesOfferingsInput struct {
 
 	// The tenancy of the instances covered by the reservation. A Reserved Instance
 	// with a tenancy of dedicated is applied to instances that run in a VPC on
-	// single-tenant hardware (i.e., Dedicated Instances). Important: The host value
-	// cannot be used with this parameter. Use the default or dedicated values only.
+	// single-tenant hardware (i.e., Dedicated Instances).
+	//
+	// Important: The host value cannot be used with this parameter. Use the default
+	// or dedicated values only.
+	//
 	// Default: default
 	InstanceTenancy types.Tenancy
 
 	// The instance type that the reservation will cover (for example, m1.small ). For
-	// more information, see Instance types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
-	// in the Amazon EC2 User Guide.
+	// more information, see [Instance types]in the Amazon EC2 User Guide.
+	//
+	// [Instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
 	InstanceType types.InstanceType
 
 	// The maximum duration (in seconds) to filter when searching for offerings.
+	//
 	// Default: 94608000 (3 years)
 	MaxDuration *int64
 
 	// The maximum number of instances to filter when searching for offerings.
+	//
 	// Default: 20
 	MaxInstanceCount *int32
 
 	// The maximum number of results to return for the request in a single page. The
 	// remaining results of the initial request can be seen by sending another request
-	// with the returned NextToken value. The maximum is 100. Default: 100
+	// with the returned NextToken value. The maximum is 100.
+	//
+	// Default: 100
 	MaxResults *int32
 
 	// The minimum duration (in seconds) to filter when searching for offerings.
+	//
 	// Default: 2592000 (1 month)
 	MinDuration *int64
 
@@ -230,7 +254,9 @@ var _ DescribeReservedInstancesOfferingsAPIClient = (*Client)(nil)
 type DescribeReservedInstancesOfferingsPaginatorOptions struct {
 	// The maximum number of results to return for the request in a single page. The
 	// remaining results of the initial request can be seen by sending another request
-	// with the returned NextToken value. The maximum is 100. Default: 100
+	// with the returned NextToken value. The maximum is 100.
+	//
+	// Default: 100
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

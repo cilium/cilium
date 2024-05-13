@@ -12,10 +12,14 @@ import (
 )
 
 // Creates a Connect peer for a specified transit gateway Connect attachment
-// between a transit gateway and an appliance. The peer address and transit gateway
-// address must be the same IP address family (IPv4 or IPv6). For more information,
-// see Connect peers (https://docs.aws.amazon.com/vpc/latest/tgw/tgw-connect.html#tgw-connect-peer)
-// in the Transit Gateways Guide.
+// between a transit gateway and an appliance.
+//
+// The peer address and transit gateway address must be the same IP address family
+// (IPv4 or IPv6).
+//
+// For more information, see [Connect peers] in the Transit Gateways Guide.
+//
+// [Connect peers]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-connect.html#tgw-connect-peer
 func (c *Client) CreateTransitGatewayConnectPeer(ctx context.Context, params *CreateTransitGatewayConnectPeerInput, optFns ...func(*Options)) (*CreateTransitGatewayConnectPeerOutput, error) {
 	if params == nil {
 		params = &CreateTransitGatewayConnectPeerInput{}

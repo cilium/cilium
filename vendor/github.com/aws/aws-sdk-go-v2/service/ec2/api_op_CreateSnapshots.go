@@ -13,14 +13,17 @@ import (
 
 // Creates crash-consistent snapshots of multiple EBS volumes and stores the data
 // in S3. Volumes are chosen by specifying an instance. Any attached volumes will
-// produce one snapshot each that is crash-consistent across the instance. You can
-// include all of the volumes currently attached to the instance, or you can
-// exclude the root volume or specific data (non-root) volumes from the
-// multi-volume snapshot set. You can create multi-volume snapshots of instances in
-// a Region and instances on an Outpost. If you create snapshots from an instance
-// in a Region, the snapshots must be stored in the same Region as the instance. If
-// you create snapshots from an instance on an Outpost, the snapshots can be stored
-// on the same Outpost as the instance, or in the Region for that Outpost.
+// produce one snapshot each that is crash-consistent across the instance.
+//
+// You can include all of the volumes currently attached to the instance, or you
+// can exclude the root volume or specific data (non-root) volumes from the
+// multi-volume snapshot set.
+//
+// You can create multi-volume snapshots of instances in a Region and instances on
+// an Outpost. If you create snapshots from an instance in a Region, the snapshots
+// must be stored in the same Region as the instance. If you create snapshots from
+// an instance on an Outpost, the snapshots can be stored on the same Outpost as
+// the instance, or in the Region for that Outpost.
 func (c *Client) CreateSnapshots(ctx context.Context, params *CreateSnapshotsInput, optFns ...func(*Options)) (*CreateSnapshotsOutput, error) {
 	if params == nil {
 		params = &CreateSnapshotsInput{}
@@ -46,7 +49,7 @@ type CreateSnapshotsInput struct {
 	// Copies the tags from the specified volume to corresponding snapshot.
 	CopyTagsFromSource types.CopyTagsFromSource
 
-	// A description propagated to every snapshot specified by the instance.
+	//  A description propagated to every snapshot specified by the instance.
 	Description *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -57,17 +60,21 @@ type CreateSnapshotsInput struct {
 
 	// The Amazon Resource Name (ARN) of the Outpost on which to create the local
 	// snapshots.
+	//
 	//   - To create snapshots from an instance in a Region, omit this parameter. The
 	//   snapshots are created in the same Region as the instance.
+	//
 	//   - To create snapshots from an instance on an Outpost and store the snapshots
 	//   in the Region, omit this parameter. The snapshots are created in the Region for
 	//   the Outpost.
+	//
 	//   - To create snapshots from an instance on an Outpost and store the snapshots
 	//   on an Outpost, specify the ARN of the destination Outpost. The snapshots must be
 	//   created on the same Outpost as the instance.
-	// For more information, see  Create multi-volume local snapshots from instances
-	// on an Outpost (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#create-multivol-snapshot)
-	// in the Amazon EBS User Guide.
+	//
+	// For more information, see [Create multi-volume local snapshots from instances on an Outpost] in the Amazon EBS User Guide.
+	//
+	// [Create multi-volume local snapshots from instances on an Outpost]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#create-multivol-snapshot
 	OutpostArn *string
 
 	// Tags to apply to every snapshot specified by the instance.

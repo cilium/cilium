@@ -10,9 +10,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disable the IPAM account. For more information, see Enable integration with
-// Organizations (https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html)
-// in the Amazon VPC IPAM User Guide.
+// Disable the IPAM account. For more information, see [Enable integration with Organizations] in the Amazon VPC IPAM
+// User Guide.
+//
+// [Enable integration with Organizations]: https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html
 func (c *Client) DisableIpamOrganizationAdminAccount(ctx context.Context, params *DisableIpamOrganizationAdminAccountInput, optFns ...func(*Options)) (*DisableIpamOrganizationAdminAccountOutput, error) {
 	if params == nil {
 		params = &DisableIpamOrganizationAdminAccountInput{}

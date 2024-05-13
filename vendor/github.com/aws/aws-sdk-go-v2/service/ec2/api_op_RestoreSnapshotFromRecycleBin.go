@@ -12,9 +12,10 @@ import (
 	"time"
 )
 
-// Restores a snapshot from the Recycle Bin. For more information, see Restore
-// snapshots from the Recycle Bin (https://docs.aws.amazon.com/ebs/latest/userguide/recycle-bin-working-with-snaps.html#recycle-bin-restore-snaps)
-// in the Amazon EBS User Guide.
+// Restores a snapshot from the Recycle Bin. For more information, see [Restore snapshots from the Recycle Bin] in the
+// Amazon EBS User Guide.
+//
+// [Restore snapshots from the Recycle Bin]: https://docs.aws.amazon.com/ebs/latest/userguide/recycle-bin-working-with-snaps.html#recycle-bin-restore-snaps
 func (c *Client) RestoreSnapshotFromRecycleBin(ctx context.Context, params *RestoreSnapshotFromRecycleBinInput, optFns ...func(*Options)) (*RestoreSnapshotFromRecycleBinOutput, error) {
 	if params == nil {
 		params = &RestoreSnapshotFromRecycleBinInput{}
@@ -55,8 +56,9 @@ type RestoreSnapshotFromRecycleBinOutput struct {
 	Encrypted *bool
 
 	// The ARN of the Outpost on which the snapshot is stored. For more information,
-	// see Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html)
-	// in the Amazon EBS User Guide.
+	// see [Amazon EBS local snapshots on Outposts]in the Amazon EBS User Guide.
+	//
+	// [Amazon EBS local snapshots on Outposts]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html
 	OutpostArn *string
 
 	// The ID of the Amazon Web Services account that owns the EBS snapshot.

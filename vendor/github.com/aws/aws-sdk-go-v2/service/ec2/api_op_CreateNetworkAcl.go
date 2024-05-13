@@ -12,9 +12,11 @@ import (
 )
 
 // Creates a network ACL in a VPC. Network ACLs provide an optional layer of
-// security (in addition to security groups) for the instances in your VPC. For
-// more information, see Network ACLs (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html)
-// in the Amazon VPC User Guide.
+// security (in addition to security groups) for the instances in your VPC.
+//
+// For more information, see [Network ACLs] in the Amazon VPC User Guide.
+//
+// [Network ACLs]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html
 func (c *Client) CreateNetworkAcl(ctx context.Context, params *CreateNetworkAclInput, optFns ...func(*Options)) (*CreateNetworkAclOutput, error) {
 	if params == nil {
 		params = &CreateNetworkAclInput{}
@@ -38,8 +40,9 @@ type CreateNetworkAclInput struct {
 	VpcId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [Ensuring idempotency].
+	//
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without

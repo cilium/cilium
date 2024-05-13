@@ -12,8 +12,11 @@ import (
 )
 
 // Describes the default credit option for CPU usage of a burstable performance
-// instance family. For more information, see Burstable performance instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
-// in the Amazon EC2 User Guide.
+// instance family.
+//
+// For more information, see [Burstable performance instances] in the Amazon EC2 User Guide.
+//
+// [Burstable performance instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html
 func (c *Client) GetDefaultCreditSpecification(ctx context.Context, params *GetDefaultCreditSpecificationInput, optFns ...func(*Options)) (*GetDefaultCreditSpecificationOutput, error) {
 	if params == nil {
 		params = &GetDefaultCreditSpecificationInput{}

@@ -13,8 +13,9 @@ import (
 
 // Creates a data feed for Spot Instances, enabling you to view Spot Instance
 // usage logs. You can create one data feed per Amazon Web Services account. For
-// more information, see Spot Instance data feed (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html)
-// in the Amazon EC2 User Guide for Linux Instances.
+// more information, see [Spot Instance data feed]in the Amazon EC2 User Guide for Linux Instances.
+//
+// [Spot Instance data feed]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html
 func (c *Client) CreateSpotDatafeedSubscription(ctx context.Context, params *CreateSpotDatafeedSubscriptionInput, optFns ...func(*Options)) (*CreateSpotDatafeedSubscriptionOutput, error) {
 	if params == nil {
 		params = &CreateSpotDatafeedSubscriptionInput{}
@@ -34,8 +35,9 @@ func (c *Client) CreateSpotDatafeedSubscription(ctx context.Context, params *Cre
 type CreateSpotDatafeedSubscriptionInput struct {
 
 	// The name of the Amazon S3 bucket in which to store the Spot Instance data feed.
-	// For more information about bucket names, see Rules for bucket naming (https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html#bucketnamingrules)
-	// in the Amazon S3 Developer Guide.
+	// For more information about bucket names, see [Rules for bucket naming]in the Amazon S3 Developer Guide.
+	//
+	// [Rules for bucket naming]: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html#bucketnamingrules
 	//
 	// This member is required.
 	Bucket *string

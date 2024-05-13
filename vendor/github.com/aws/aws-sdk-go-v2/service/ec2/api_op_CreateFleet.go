@@ -14,10 +14,14 @@ import (
 
 // Creates an EC2 Fleet that contains the configuration information for On-Demand
 // Instances and Spot Instances. Instances are launched immediately if there is
-// available capacity. A single EC2 Fleet can include multiple launch
-// specifications that vary by instance type, AMI, Availability Zone, or subnet.
-// For more information, see EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html)
-// in the Amazon EC2 User Guide.
+// available capacity.
+//
+// A single EC2 Fleet can include multiple launch specifications that vary by
+// instance type, AMI, Availability Zone, or subnet.
+//
+// For more information, see [EC2 Fleet] in the Amazon EC2 User Guide.
+//
+// [EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html
 func (c *Client) CreateFleet(ctx context.Context, params *CreateFleetInput, optFns ...func(*Options)) (*CreateFleetOutput, error) {
 	if params == nil {
 		params = &CreateFleetInput{}
@@ -46,8 +50,9 @@ type CreateFleetInput struct {
 	TargetCapacitySpecification *types.TargetCapacitySpecificationRequest
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [Ensuring idempotency].
+	//
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Reserved.
@@ -61,6 +66,7 @@ type CreateFleetInput struct {
 
 	// Indicates whether running instances should be terminated if the total target
 	// capacity of the EC2 Fleet is decreased below the current size of the EC2 Fleet.
+	//
 	// Supported only for fleets of type maintain .
 	ExcessCapacityTerminationPolicy types.FleetExcessCapacityTerminationPolicy
 
@@ -68,22 +74,27 @@ type CreateFleetInput struct {
 	OnDemandOptions *types.OnDemandOptionsRequest
 
 	// Indicates whether EC2 Fleet should replace unhealthy Spot Instances. Supported
-	// only for fleets of type maintain . For more information, see EC2 Fleet health
-	// checks (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#ec2-fleet-health-checks)
-	// in the Amazon EC2 User Guide.
+	// only for fleets of type maintain . For more information, see [EC2 Fleet health checks] in the Amazon EC2
+	// User Guide.
+	//
+	// [EC2 Fleet health checks]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#ec2-fleet-health-checks
 	ReplaceUnhealthyInstances *bool
 
 	// Describes the configuration of Spot Instances in an EC2 Fleet.
 	SpotOptions *types.SpotOptionsRequest
 
 	// The key-value pair for tagging the EC2 Fleet request on creation. For more
-	// information, see Tag your resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources)
-	// . If the fleet type is instant , specify a resource type of fleet to tag the
-	// fleet or instance to tag the instances at launch. If the fleet type is maintain
-	// or request , specify a resource type of fleet to tag the fleet. You cannot
-	// specify a resource type of instance . To tag instances at launch, specify the
-	// tags in a launch template (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template)
-	// .
+	// information, see [Tag your resources].
+	//
+	// If the fleet type is instant , specify a resource type of fleet to tag the
+	// fleet or instance to tag the instances at launch.
+	//
+	// If the fleet type is maintain or request , specify a resource type of fleet to
+	// tag the fleet. You cannot specify a resource type of instance . To tag instances
+	// at launch, specify the tags in a [launch template].
+	//
+	// [launch template]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template
+	// [Tag your resources]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources
 	TagSpecifications []types.TagSpecification
 
 	// Indicates whether running instances should be terminated when the EC2 Fleet
@@ -91,18 +102,23 @@ type CreateFleetInput struct {
 	TerminateInstancesWithExpiration *bool
 
 	// The fleet type. The default value is maintain .
+	//
 	//   - maintain - The EC2 Fleet places an asynchronous request for your desired
 	//   capacity, and continues to maintain your desired Spot capacity by replenishing
 	//   interrupted Spot Instances.
+	//
 	//   - request - The EC2 Fleet places an asynchronous one-time request for your
 	//   desired capacity, but does submit Spot requests in alternative capacity pools if
 	//   Spot capacity is unavailable, and does not maintain Spot capacity if Spot
 	//   Instances are interrupted.
+	//
 	//   - instant - The EC2 Fleet places a synchronous one-time request for your
 	//   desired capacity, and returns errors for any instances that could not be
 	//   launched.
-	// For more information, see EC2 Fleet request types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-request-type.html)
-	// in the Amazon EC2 User Guide.
+	//
+	// For more information, see [EC2 Fleet request types] in the Amazon EC2 User Guide.
+	//
+	// [EC2 Fleet request types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-request-type.html
 	Type types.FleetType
 
 	// The start date and time of the request, in UTC format (for example,

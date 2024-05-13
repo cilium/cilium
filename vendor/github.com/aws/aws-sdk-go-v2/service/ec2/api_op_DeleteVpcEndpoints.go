@@ -11,12 +11,17 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified VPC endpoints. When you delete a gateway endpoint, we
-// delete the endpoint routes in the route tables for the endpoint. When you delete
-// a Gateway Load Balancer endpoint, we delete its endpoint network interfaces. You
-// can only delete Gateway Load Balancer endpoints when the routes that are
-// associated with the endpoint are deleted. When you delete an interface endpoint,
-// we delete its endpoint network interfaces.
+// Deletes the specified VPC endpoints.
+//
+// When you delete a gateway endpoint, we delete the endpoint routes in the route
+// tables for the endpoint.
+//
+// When you delete a Gateway Load Balancer endpoint, we delete its endpoint
+// network interfaces. You can only delete Gateway Load Balancer endpoints when the
+// routes that are associated with the endpoint are deleted.
+//
+// When you delete an interface endpoint, we delete its endpoint network
+// interfaces.
 func (c *Client) DeleteVpcEndpoints(ctx context.Context, params *DeleteVpcEndpointsInput, optFns ...func(*Options)) (*DeleteVpcEndpointsOutput, error) {
 	if params == nil {
 		params = &DeleteVpcEndpointsInput{}

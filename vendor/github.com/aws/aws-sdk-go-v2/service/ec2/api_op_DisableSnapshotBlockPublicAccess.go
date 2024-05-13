@@ -13,12 +13,15 @@ import (
 
 // Disables the block public access for snapshots setting at the account level for
 // the specified Amazon Web Services Region. After you disable block public access
-// for snapshots in a Region, users can publicly share snapshots in that Region. If
-// block public access is enabled in block-all-sharing mode, and you disable block
-// public access, all snapshots that were previously publicly shared are no longer
-// treated as private and they become publicly accessible again. For more
-// information, see Block public access for snapshots (https://docs.aws.amazon.com/ebs/latest/userguide/block-public-access-snapshots.html)
-// in the Amazon EBS User Guide .
+// for snapshots in a Region, users can publicly share snapshots in that Region.
+//
+// If block public access is enabled in block-all-sharing mode, and you disable
+// block public access, all snapshots that were previously publicly shared are no
+// longer treated as private and they become publicly accessible again.
+//
+// For more information, see [Block public access for snapshots] in the Amazon EBS User Guide .
+//
+// [Block public access for snapshots]: https://docs.aws.amazon.com/ebs/latest/userguide/block-public-access-snapshots.html
 func (c *Client) DisableSnapshotBlockPublicAccess(ctx context.Context, params *DisableSnapshotBlockPublicAccessInput, optFns ...func(*Options)) (*DisableSnapshotBlockPublicAccessOutput, error) {
 	if params == nil {
 		params = &DisableSnapshotBlockPublicAccessInput{}

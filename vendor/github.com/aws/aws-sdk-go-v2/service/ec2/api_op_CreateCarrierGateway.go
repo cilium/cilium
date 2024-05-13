@@ -11,9 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a carrier gateway. For more information about carrier gateways, see
-// Carrier gateways (https://docs.aws.amazon.com/wavelength/latest/developerguide/how-wavelengths-work.html#wavelength-carrier-gateway)
-// in the Amazon Web Services Wavelength Developer Guide.
+// Creates a carrier gateway. For more information about carrier gateways, see [Carrier gateways] in
+// the Amazon Web Services Wavelength Developer Guide.
+//
+// [Carrier gateways]: https://docs.aws.amazon.com/wavelength/latest/developerguide/how-wavelengths-work.html#wavelength-carrier-gateway
 func (c *Client) CreateCarrierGateway(ctx context.Context, params *CreateCarrierGatewayInput, optFns ...func(*Options)) (*CreateCarrierGatewayOutput, error) {
 	if params == nil {
 		params = &CreateCarrierGatewayInput{}
@@ -37,8 +38,9 @@ type CreateCarrierGatewayInput struct {
 	VpcId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without

@@ -30,7 +30,9 @@ func (c *Client) CreateManagedPrefixList(ctx context.Context, params *CreateMana
 
 type CreateManagedPrefixListInput struct {
 
-	// The IP address type. Valid Values: IPv4 | IPv6
+	// The IP address type.
+	//
+	// Valid Values: IPv4 | IPv6
 	//
 	// This member is required.
 	AddressFamily *string
@@ -40,15 +42,20 @@ type CreateManagedPrefixListInput struct {
 	// This member is required.
 	MaxEntries *int32
 
-	// A name for the prefix list. Constraints: Up to 255 characters in length. The
-	// name cannot start with com.amazonaws .
+	// A name for the prefix list.
+	//
+	// Constraints: Up to 255 characters in length. The name cannot start with
+	// com.amazonaws .
 	//
 	// This member is required.
 	PrefixListName *string
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// . Constraints: Up to 255 UTF-8 characters in length.
+	// request. For more information, see [Ensuring Idempotency].
+	//
+	// Constraints: Up to 255 UTF-8 characters in length.
+	//
+	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without

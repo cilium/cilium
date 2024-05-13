@@ -12,11 +12,15 @@ import (
 )
 
 // Creates an Amazon FPGA Image (AFI) from the specified design checkpoint (DCP).
+//
 // The create operation is asynchronous. To verify that the AFI is ready for use,
-// check the output logs. An AFI contains the FPGA bitstream that is ready to
-// download to an FPGA. You can securely deploy an AFI on multiple FPGA-accelerated
-// instances. For more information, see the Amazon Web Services FPGA Hardware
-// Development Kit (https://github.com/aws/aws-fpga/) .
+// check the output logs.
+//
+// An AFI contains the FPGA bitstream that is ready to download to an FPGA. You
+// can securely deploy an AFI on multiple FPGA-accelerated instances. For more
+// information, see the [Amazon Web Services FPGA Hardware Development Kit].
+//
+// [Amazon Web Services FPGA Hardware Development Kit]: https://github.com/aws/aws-fpga/
 func (c *Client) CreateFpgaImage(ctx context.Context, params *CreateFpgaImageInput, optFns ...func(*Options)) (*CreateFpgaImageOutput, error) {
 	if params == nil {
 		params = &CreateFpgaImageInput{}
@@ -41,8 +45,9 @@ type CreateFpgaImageInput struct {
 	InputStorageLocation *types.StorageLocation
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [Ensuring Idempotency].
+	//
+	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// A description for the AFI.

@@ -38,20 +38,29 @@ type DescribeTransitGatewayAttachmentsInput struct {
 	DryRun *bool
 
 	// One or more filters. The possible values are:
+	//
 	//   - association.state - The state of the association ( associating | associated
 	//   | disassociating ).
+	//
 	//   - association.transit-gateway-route-table-id - The ID of the route table for
 	//   the transit gateway.
+	//
 	//   - resource-id - The ID of the resource.
+	//
 	//   - resource-owner-id - The ID of the Amazon Web Services account that owns the
 	//   resource.
+	//
 	//   - resource-type - The resource type. Valid values are vpc | vpn |
 	//   direct-connect-gateway | peering | connect .
+	//
 	//   - state - The state of the attachment. Valid values are available | deleted |
 	//   deleting | failed | failing | initiatingRequest | modifying |
 	//   pendingAcceptance | pending | rollingBack | rejected | rejecting .
+	//
 	//   - transit-gateway-attachment-id - The ID of the attachment.
+	//
 	//   - transit-gateway-id - The ID of the transit gateway.
+	//
 	//   - transit-gateway-owner-id - The ID of the Amazon Web Services account that
 	//   owns the transit gateway.
 	Filters []types.Filter

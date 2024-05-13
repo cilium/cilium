@@ -16,18 +16,25 @@ import (
 )
 
 // Retrieves the encrypted administrator password for a running Windows instance.
+//
 // The Windows password is generated at boot by the EC2Config service or EC2Launch
 // scripts (Windows Server 2016 and later). This usually only happens the first
-// time an instance is launched. For more information, see EC2Config (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/UsingConfig_WinAMI.html)
-// and EC2Launch (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2launch.html)
-// in the Amazon EC2 User Guide. For the EC2Config service, the password is not
-// generated for rebundled AMIs unless Ec2SetPassword is enabled before bundling.
+// time an instance is launched. For more information, see [EC2Config]and [EC2Launch] in the Amazon EC2
+// User Guide.
+//
+// For the EC2Config service, the password is not generated for rebundled AMIs
+// unless Ec2SetPassword is enabled before bundling.
+//
 // The password is encrypted using the key pair that you specified when you
-// launched the instance. You must provide the corresponding key pair file. When
-// you launch an instance, password generation and encryption may take a few
+// launched the instance. You must provide the corresponding key pair file.
+//
+// When you launch an instance, password generation and encryption may take a few
 // minutes. If you try to retrieve the password before it's available, the output
 // returns an empty string. We recommend that you wait up to 15 minutes after
 // launching an instance before trying to retrieve the generated password.
+//
+// [EC2Launch]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2launch.html
+// [EC2Config]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/UsingConfig_WinAMI.html
 func (c *Client) GetPasswordData(ctx context.Context, params *GetPasswordDataInput, optFns ...func(*Options)) (*GetPasswordDataOutput, error) {
 	if params == nil {
 		params = &GetPasswordDataInput{}
@@ -198,12 +205,13 @@ type PasswordDataAvailableWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *GetPasswordDataInput, *GetPasswordDataOutput, error) (bool, error)
 }
 

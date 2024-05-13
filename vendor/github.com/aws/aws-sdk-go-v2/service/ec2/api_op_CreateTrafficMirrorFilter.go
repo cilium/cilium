@@ -11,12 +11,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a Traffic Mirror filter. A Traffic Mirror filter is a set of rules that
-// defines the traffic to mirror. By default, no traffic is mirrored. To mirror
-// traffic, use CreateTrafficMirrorFilterRule (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilterRule.htm)
-// to add Traffic Mirror rules to the filter. The rules you add define what traffic
-// gets mirrored. You can also use ModifyTrafficMirrorFilterNetworkServices (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyTrafficMirrorFilterNetworkServices.html)
-// to mirror supported network services.
+// Creates a Traffic Mirror filter.
+//
+// A Traffic Mirror filter is a set of rules that defines the traffic to mirror.
+//
+// By default, no traffic is mirrored. To mirror traffic, use [CreateTrafficMirrorFilterRule] to add Traffic
+// Mirror rules to the filter. The rules you add define what traffic gets mirrored.
+// You can also use [ModifyTrafficMirrorFilterNetworkServices]to mirror supported network services.
+//
+// [CreateTrafficMirrorFilterRule]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilterRule.htm
+// [ModifyTrafficMirrorFilterNetworkServices]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyTrafficMirrorFilterNetworkServices.html
 func (c *Client) CreateTrafficMirrorFilter(ctx context.Context, params *CreateTrafficMirrorFilterInput, optFns ...func(*Options)) (*CreateTrafficMirrorFilterOutput, error) {
 	if params == nil {
 		params = &CreateTrafficMirrorFilterInput{}
@@ -35,8 +39,9 @@ func (c *Client) CreateTrafficMirrorFilter(ctx context.Context, params *CreateTr
 type CreateTrafficMirrorFilterInput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// The description of the Traffic Mirror filter.
@@ -57,8 +62,9 @@ type CreateTrafficMirrorFilterInput struct {
 type CreateTrafficMirrorFilterOutput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Information about the Traffic Mirror filter.

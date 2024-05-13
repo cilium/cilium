@@ -13,9 +13,10 @@ import (
 
 // Remove the association between your Autonomous System Number (ASN) and your
 // BYOIP CIDR. You may want to use this action to disassociate an ASN from a CIDR
-// or if you want to swap ASNs. For more information, see Tutorial: Bring your ASN
-// to IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html) in
-// the Amazon VPC IPAM guide.
+// or if you want to swap ASNs. For more information, see [Tutorial: Bring your ASN to IPAM]in the Amazon VPC IPAM
+// guide.
+//
+// [Tutorial: Bring your ASN to IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html
 func (c *Client) DisassociateIpamByoasn(ctx context.Context, params *DisassociateIpamByoasnInput, optFns ...func(*Options)) (*DisassociateIpamByoasnOutput, error) {
 	if params == nil {
 		params = &DisassociateIpamByoasnInput{}

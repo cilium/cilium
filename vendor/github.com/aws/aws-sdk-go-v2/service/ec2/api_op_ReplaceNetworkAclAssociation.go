@@ -12,8 +12,11 @@ import (
 
 // Changes which network ACL a subnet is associated with. By default when you
 // create a subnet, it's automatically associated with the default network ACL. For
-// more information, see Network ACLs (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html)
-// in the Amazon VPC User Guide. This is an idempotent operation.
+// more information, see [Network ACLs]in the Amazon VPC User Guide.
+//
+// This is an idempotent operation.
+//
+// [Network ACLs]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html
 func (c *Client) ReplaceNetworkAclAssociation(ctx context.Context, params *ReplaceNetworkAclAssociationInput, optFns ...func(*Options)) (*ReplaceNetworkAclAssociationOutput, error) {
 	if params == nil {
 		params = &ReplaceNetworkAclAssociationInput{}

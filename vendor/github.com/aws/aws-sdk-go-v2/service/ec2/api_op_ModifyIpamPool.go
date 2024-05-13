@@ -11,9 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modify the configurations of an IPAM pool. For more information, see Modify a
-// pool (https://docs.aws.amazon.com/vpc/latest/ipam/mod-pool-ipam.html) in the
-// Amazon VPC IPAM User Guide.
+// Modify the configurations of an IPAM pool.
+//
+// For more information, see [Modify a pool] in the Amazon VPC IPAM User Guide.
+//
+// [Modify a pool]: https://docs.aws.amazon.com/vpc/latest/ipam/mod-pool-ipam.html
 func (c *Client) ModifyIpamPool(ctx context.Context, params *ModifyIpamPoolInput, optFns ...func(*Options)) (*ModifyIpamPoolOutput, error) {
 	if params == nil {
 		params = &ModifyIpamPoolInput{}
@@ -37,8 +39,9 @@ type ModifyIpamPoolInput struct {
 	IpamPoolId *string
 
 	// Add tag allocation rules to a pool. For more information about allocation
-	// rules, see Create a top-level pool (https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html)
-	// in the Amazon VPC IPAM User Guide.
+	// rules, see [Create a top-level pool]in the Amazon VPC IPAM User Guide.
+	//
+	// [Create a top-level pool]: https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html
 	AddAllocationResourceTags []types.RequestIpamResourceTag
 
 	// The default netmask length for allocations added to this pool. If, for example,
@@ -66,7 +69,9 @@ type ModifyIpamPoolInput struct {
 	// might be imported and subsequently marked as noncompliant. If IPAM discovers
 	// multiple CIDRs that overlap, IPAM will import the largest CIDR only. If IPAM
 	// discovers multiple CIDRs with matching CIDRs, IPAM will randomly import one of
-	// them only. A locale must be set on the pool for this feature to work.
+	// them only.
+	//
+	// A locale must be set on the pool for this feature to work.
 	AutoImport *bool
 
 	// Clear the default netmask length allocation rule for this pool.

@@ -11,11 +11,13 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Exports a running or stopped instance to an Amazon S3 bucket. For information
-// about the prerequisites for your Amazon S3 bucket, supported operating systems,
-// image formats, and known limitations for the types of instances you can export,
-// see Exporting an instance as a VM Using VM Import/Export (https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html)
-// in the VM Import/Export User Guide.
+// Exports a running or stopped instance to an Amazon S3 bucket.
+//
+// For information about the prerequisites for your Amazon S3 bucket, supported
+// operating systems, image formats, and known limitations for the types of
+// instances you can export, see [Exporting an instance as a VM Using VM Import/Export]in the VM Import/Export User Guide.
+//
+// [Exporting an instance as a VM Using VM Import/Export]: https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html
 func (c *Client) CreateInstanceExportTask(ctx context.Context, params *CreateInstanceExportTaskInput, optFns ...func(*Options)) (*CreateInstanceExportTaskOutput, error) {
 	if params == nil {
 		params = &CreateInstanceExportTaskInput{}

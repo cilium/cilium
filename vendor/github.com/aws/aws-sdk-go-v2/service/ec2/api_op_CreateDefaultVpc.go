@@ -13,10 +13,13 @@ import (
 
 // Creates a default VPC with a size /16 IPv4 CIDR block and a default subnet in
 // each Availability Zone. For more information about the components of a default
-// VPC, see Default VPCs (https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html)
-// in the Amazon VPC User Guide. You cannot specify the components of the default
-// VPC yourself. If you deleted your previous default VPC, you can create a default
-// VPC. You cannot have more than one default VPC per Region.
+// VPC, see [Default VPCs]in the Amazon VPC User Guide. You cannot specify the components of the
+// default VPC yourself.
+//
+// If you deleted your previous default VPC, you can create a default VPC. You
+// cannot have more than one default VPC per Region.
+//
+// [Default VPCs]: https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html
 func (c *Client) CreateDefaultVpc(ctx context.Context, params *CreateDefaultVpcInput, optFns ...func(*Options)) (*CreateDefaultVpcOutput, error) {
 	if params == nil {
 		params = &CreateDefaultVpcInput{}

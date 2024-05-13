@@ -16,8 +16,11 @@ import (
 // causes traffic from the subnet or gateway to be routed according to the routes
 // in the route table. The action returns an association ID, which you need in
 // order to disassociate the route table later. A route table can be associated
-// with multiple subnets. For more information, see Route tables (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
-// in the Amazon VPC User Guide.
+// with multiple subnets.
+//
+// For more information, see [Route tables] in the Amazon VPC User Guide.
+//
+// [Route tables]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
 func (c *Client) AssociateRouteTable(ctx context.Context, params *AssociateRouteTableInput, optFns ...func(*Options)) (*AssociateRouteTableOutput, error) {
 	if params == nil {
 		params = &AssociateRouteTableInput{}

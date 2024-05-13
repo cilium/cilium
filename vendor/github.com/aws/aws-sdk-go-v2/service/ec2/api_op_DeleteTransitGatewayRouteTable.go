@@ -12,9 +12,9 @@ import (
 )
 
 // Deletes the specified transit gateway route table. If there are any route
-// tables associated with the transit gateway route table, you must first run
-// DisassociateRouteTable before you can delete the transit gateway route table.
-// This removes any route tables associated with the transit gateway route table.
+// tables associated with the transit gateway route table, you must first run DisassociateRouteTable
+// before you can delete the transit gateway route table. This removes any route
+// tables associated with the transit gateway route table.
 func (c *Client) DeleteTransitGatewayRouteTable(ctx context.Context, params *DeleteTransitGatewayRouteTableInput, optFns ...func(*Options)) (*DeleteTransitGatewayRouteTableOutput, error) {
 	if params == nil {
 		params = &DeleteTransitGatewayRouteTableInput{}

@@ -11,14 +11,19 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the Regions that are enabled for your account, or all Regions. For a
-// list of the Regions supported by Amazon EC2, see Amazon Elastic Compute Cloud
-// endpoints and quotas (https://docs.aws.amazon.com/general/latest/gr/ec2-service.html)
-// . For information about enabling and disabling Regions for your account, see
-// Managing Amazon Web Services Regions (https://docs.aws.amazon.com/general/latest/gr/rande-manage.html)
-// in the Amazon Web Services General Reference. The order of the elements in the
-// response, including those within nested structures, might vary. Applications
-// should not assume the elements appear in a particular order.
+// Describes the Regions that are enabled for your account, or all Regions.
+//
+// For a list of the Regions supported by Amazon EC2, see [Amazon Elastic Compute Cloud endpoints and quotas].
+//
+// For information about enabling and disabling Regions for your account, see [Managing Amazon Web Services Regions] in
+// the Amazon Web Services General Reference.
+//
+// The order of the elements in the response, including those within nested
+// structures, might vary. Applications should not assume the elements appear in a
+// particular order.
+//
+// [Managing Amazon Web Services Regions]: https://docs.aws.amazon.com/general/latest/gr/rande-manage.html
+// [Amazon Elastic Compute Cloud endpoints and quotas]: https://docs.aws.amazon.com/general/latest/gr/ec2-service.html
 func (c *Client) DescribeRegions(ctx context.Context, params *DescribeRegionsInput, optFns ...func(*Options)) (*DescribeRegionsOutput, error) {
 	if params == nil {
 		params = &DescribeRegionsInput{}
@@ -47,10 +52,13 @@ type DescribeRegionsInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - endpoint - The endpoint of the Region (for example,
 	//   ec2.us-east-1.amazonaws.com ).
+	//
 	//   - opt-in-status - The opt-in status of the Region ( opt-in-not-required |
 	//   opted-in | not-opted-in ).
+	//
 	//   - region-name - The name of the Region (for example, us-east-1 ).
 	Filters []types.Filter
 

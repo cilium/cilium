@@ -11,8 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disassociates an IAM instance profile from a running or stopped instance. Use
-// DescribeIamInstanceProfileAssociations to get the association ID.
+// Disassociates an IAM instance profile from a running or stopped instance.
+//
+// Use DescribeIamInstanceProfileAssociations to get the association ID.
 func (c *Client) DisassociateIamInstanceProfile(ctx context.Context, params *DisassociateIamInstanceProfileInput, optFns ...func(*Options)) (*DisassociateIamInstanceProfileOutput, error) {
 	if params == nil {
 		params = &DisassociateIamInstanceProfileInput{}

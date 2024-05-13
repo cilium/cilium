@@ -29,12 +29,12 @@ func (c *Client) DeleteCoipCidr(ctx context.Context, params *DeleteCoipCidrInput
 
 type DeleteCoipCidrInput struct {
 
-	// A customer-owned IP address range that you want to delete.
+	//  A customer-owned IP address range that you want to delete.
 	//
 	// This member is required.
 	Cidr *string
 
-	// The ID of the customer-owned address pool.
+	//  The ID of the customer-owned address pool.
 	//
 	// This member is required.
 	CoipPoolId *string
@@ -50,7 +50,7 @@ type DeleteCoipCidrInput struct {
 
 type DeleteCoipCidrOutput struct {
 
-	// Information about a range of customer-owned IP addresses.
+	//  Information about a range of customer-owned IP addresses.
 	CoipCidr *types.CoipCidr
 
 	// Metadata pertaining to the operation's result.

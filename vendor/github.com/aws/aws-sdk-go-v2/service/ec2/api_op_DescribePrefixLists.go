@@ -13,8 +13,9 @@ import (
 
 // Describes available Amazon Web Services services in a prefix list format, which
 // includes the prefix list name and prefix list ID of the service and the IP
-// address range for the service. We recommend that you use
-// DescribeManagedPrefixLists instead.
+// address range for the service.
+//
+// We recommend that you use DescribeManagedPrefixLists instead.
 func (c *Client) DescribePrefixLists(ctx context.Context, params *DescribePrefixListsInput, optFns ...func(*Options)) (*DescribePrefixListsOutput, error) {
 	if params == nil {
 		params = &DescribePrefixListsInput{}
@@ -39,7 +40,9 @@ type DescribePrefixListsInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - prefix-list-id : The ID of a prefix list.
+	//
 	//   - prefix-list-name : The name of a prefix list.
 	Filters []types.Filter
 

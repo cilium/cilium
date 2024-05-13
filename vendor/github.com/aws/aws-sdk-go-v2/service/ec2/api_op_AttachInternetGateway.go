@@ -11,9 +11,10 @@ import (
 )
 
 // Attaches an internet gateway or a virtual private gateway to a VPC, enabling
-// connectivity between the internet and the VPC. For more information, see
-// Internet gateways (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html)
-// in the Amazon VPC User Guide.
+// connectivity between the internet and the VPC. For more information, see [Internet gateways]in the
+// Amazon VPC User Guide.
+//
+// [Internet gateways]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html
 func (c *Client) AttachInternetGateway(ctx context.Context, params *AttachInternetGatewayInput, optFns ...func(*Options)) (*AttachInternetGatewayOutput, error) {
 	if params == nil {
 		params = &AttachInternetGatewayInput{}

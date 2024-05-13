@@ -13,9 +13,10 @@ import (
 
 // Creates a Connect attachment from a specified transit gateway attachment. A
 // Connect attachment is a GRE-based tunnel attachment that you can use to
-// establish a connection between a transit gateway and an appliance. A Connect
-// attachment uses an existing VPC or Amazon Web Services Direct Connect attachment
-// as the underlying transport mechanism.
+// establish a connection between a transit gateway and an appliance.
+//
+// A Connect attachment uses an existing VPC or Amazon Web Services Direct Connect
+// attachment as the underlying transport mechanism.
 func (c *Client) CreateTransitGatewayConnect(ctx context.Context, params *CreateTransitGatewayConnectInput, optFns ...func(*Options)) (*CreateTransitGatewayConnectOutput, error) {
 	if params == nil {
 		params = &CreateTransitGatewayConnectInput{}

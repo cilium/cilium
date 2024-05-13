@@ -11,9 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Provision a CIDR to a public IPv4 pool. For more information about IPAM, see
-// What is IPAM? (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html)
-// in the Amazon VPC IPAM User Guide.
+// Provision a CIDR to a public IPv4 pool.
+//
+// For more information about IPAM, see [What is IPAM?] in the Amazon VPC IPAM User Guide.
+//
+// [What is IPAM?]: https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html
 func (c *Client) ProvisionPublicIpv4PoolCidr(ctx context.Context, params *ProvisionPublicIpv4PoolCidrInput, optFns ...func(*Options)) (*ProvisionPublicIpv4PoolCidrOutput, error) {
 	if params == nil {
 		params = &ProvisionPublicIpv4PoolCidrInput{}

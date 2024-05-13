@@ -11,9 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disables Elastic IP address transfer. For more information, see Transfer
-// Elastic IP addresses (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro)
-// in the Amazon Virtual Private Cloud User Guide.
+// Disables Elastic IP address transfer. For more information, see [Transfer Elastic IP addresses] in the Amazon
+// Virtual Private Cloud User Guide.
+//
+// [Transfer Elastic IP addresses]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro
 func (c *Client) DisableAddressTransfer(ctx context.Context, params *DisableAddressTransferInput, optFns ...func(*Options)) (*DisableAddressTransferOutput, error) {
 	if params == nil {
 		params = &DisableAddressTransferInput{}

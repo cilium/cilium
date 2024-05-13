@@ -11,10 +11,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This action is deprecated. Restores an Elastic IP address that was previously
-// moved to the EC2-VPC platform back to the EC2-Classic platform. You cannot move
-// an Elastic IP address that was originally allocated for use in EC2-VPC. The
-// Elastic IP address must not be associated with an instance or network interface.
+// This action is deprecated.
+//
+// Restores an Elastic IP address that was previously moved to the EC2-VPC
+// platform back to the EC2-Classic platform. You cannot move an Elastic IP address
+// that was originally allocated for use in EC2-VPC. The Elastic IP address must
+// not be associated with an instance or network interface.
 func (c *Client) RestoreAddressToClassic(ctx context.Context, params *RestoreAddressToClassicInput, optFns ...func(*Options)) (*RestoreAddressToClassicOutput, error) {
 	if params == nil {
 		params = &RestoreAddressToClassicInput{}

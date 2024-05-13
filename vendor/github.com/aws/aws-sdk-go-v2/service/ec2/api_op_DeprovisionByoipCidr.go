@@ -13,9 +13,10 @@ import (
 
 // Releases the specified address range that you provisioned for use with your
 // Amazon Web Services resources through bring your own IP addresses (BYOIP) and
-// deletes the corresponding address pool. Before you can release an address range,
-// you must stop advertising it using WithdrawByoipCidr and you must not have any
-// IP addresses allocated from its address range.
+// deletes the corresponding address pool.
+//
+// Before you can release an address range, you must stop advertising it using WithdrawByoipCidr
+// and you must not have any IP addresses allocated from its address range.
 func (c *Client) DeprovisionByoipCidr(ctx context.Context, params *DeprovisionByoipCidrInput, optFns ...func(*Options)) (*DeprovisionByoipCidrOutput, error) {
 	if params == nil {
 		params = &DeprovisionByoipCidrInput{}

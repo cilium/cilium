@@ -11,14 +11,20 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a Traffic Mirror session. A Traffic Mirror session actively copies
-// packets from a Traffic Mirror source to a Traffic Mirror target. Create a
-// filter, and then assign it to the session to define a subset of the traffic to
-// mirror, for example all TCP traffic. The Traffic Mirror source and the Traffic
-// Mirror target (monitoring appliances) can be in the same VPC, or in a different
-// VPC connected via VPC peering or a transit gateway. By default, no traffic is
-// mirrored. Use CreateTrafficMirrorFilter (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilter.htm)
-// to create filter rules that specify the traffic to mirror.
+// Creates a Traffic Mirror session.
+//
+// A Traffic Mirror session actively copies packets from a Traffic Mirror source
+// to a Traffic Mirror target. Create a filter, and then assign it to the session
+// to define a subset of the traffic to mirror, for example all TCP traffic.
+//
+// The Traffic Mirror source and the Traffic Mirror target (monitoring appliances)
+// can be in the same VPC, or in a different VPC connected via VPC peering or a
+// transit gateway.
+//
+// By default, no traffic is mirrored. Use [CreateTrafficMirrorFilter] to create filter rules that specify
+// the traffic to mirror.
+//
+// [CreateTrafficMirrorFilter]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilter.htm
 func (c *Client) CreateTrafficMirrorSession(ctx context.Context, params *CreateTrafficMirrorSessionInput, optFns ...func(*Options)) (*CreateTrafficMirrorSessionOutput, error) {
 	if params == nil {
 		params = &CreateTrafficMirrorSessionInput{}
@@ -43,7 +49,9 @@ type CreateTrafficMirrorSessionInput struct {
 
 	// The session number determines the order in which sessions are evaluated when an
 	// interface is used by multiple sessions. The first session with a matching filter
-	// is the one that mirrors the packets. Valid values are 1-32766.
+	// is the one that mirrors the packets.
+	//
+	// Valid values are 1-32766.
 	//
 	// This member is required.
 	SessionNumber *int32
@@ -59,8 +67,9 @@ type CreateTrafficMirrorSessionInput struct {
 	TrafficMirrorTargetId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// The description of the Traffic Mirror session.
@@ -76,20 +85,24 @@ type CreateTrafficMirrorSessionInput struct {
 	// header. Do not specify this parameter when you want to mirror the entire packet.
 	// To mirror a subset of the packet, set this to the length (in bytes) that you
 	// want to mirror. For example, if you set this value to 100, then the first 100
-	// bytes that meet the filter criteria are copied to the target. If you do not want
-	// to mirror the entire packet, use the PacketLength parameter to specify the
-	// number of bytes in each packet to mirror. For sessions with Network Load
-	// Balancer (NLB) Traffic Mirror targets the default PacketLength will be set to
-	// 8500. Valid values are 1-8500. Setting a PacketLength greater than 8500 will
-	// result in an error response.
+	// bytes that meet the filter criteria are copied to the target.
+	//
+	// If you do not want to mirror the entire packet, use the PacketLength parameter
+	// to specify the number of bytes in each packet to mirror.
+	//
+	// For sessions with Network Load Balancer (NLB) Traffic Mirror targets the
+	// default PacketLength will be set to 8500. Valid values are 1-8500. Setting a
+	// PacketLength greater than 8500 will result in an error response.
 	PacketLength *int32
 
 	// The tags to assign to a Traffic Mirror session.
 	TagSpecifications []types.TagSpecification
 
 	// The VXLAN ID for the Traffic Mirror session. For more information about the
-	// VXLAN protocol, see RFC 7348 (https://tools.ietf.org/html/rfc7348) . If you do
-	// not specify a VirtualNetworkId , an account-wide unique id is chosen at random.
+	// VXLAN protocol, see [RFC 7348]. If you do not specify a VirtualNetworkId , an account-wide
+	// unique id is chosen at random.
+	//
+	// [RFC 7348]: https://tools.ietf.org/html/rfc7348
 	VirtualNetworkId *int32
 
 	noSmithyDocumentSerde
@@ -98,8 +111,9 @@ type CreateTrafficMirrorSessionInput struct {
 type CreateTrafficMirrorSessionOutput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Information about the Traffic Mirror session.

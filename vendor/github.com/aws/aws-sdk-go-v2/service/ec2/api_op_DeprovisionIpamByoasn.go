@@ -13,9 +13,11 @@ import (
 
 // Deprovisions your Autonomous System Number (ASN) from your Amazon Web Services
 // account. This action can only be called after any BYOIP CIDR associations are
-// removed from your Amazon Web Services account with DisassociateIpamByoasn (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DisassociateIpamByoasn.html)
-// . For more information, see Tutorial: Bring your ASN to IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html)
+// removed from your Amazon Web Services account with [DisassociateIpamByoasn]. For more information, see [Tutorial: Bring your ASN to IPAM]
 // in the Amazon VPC IPAM guide.
+//
+// [DisassociateIpamByoasn]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DisassociateIpamByoasn.html
+// [Tutorial: Bring your ASN to IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html
 func (c *Client) DeprovisionIpamByoasn(ctx context.Context, params *DeprovisionIpamByoasnInput, optFns ...func(*Options)) (*DeprovisionIpamByoasnOutput, error) {
 	if params == nil {
 		params = &DeprovisionIpamByoasnInput{}

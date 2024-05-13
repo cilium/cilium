@@ -11,11 +11,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more of the Reserved Instances that you purchased. For more
-// information about Reserved Instances, see Reserved Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html)
-// in the Amazon EC2 User Guide. The order of the elements in the response,
-// including those within nested structures, might vary. Applications should not
-// assume the elements appear in a particular order.
+// Describes one or more of the Reserved Instances that you purchased.
+//
+// For more information about Reserved Instances, see [Reserved Instances] in the Amazon EC2 User
+// Guide.
+//
+// The order of the elements in the response, including those within nested
+// structures, might vary. Applications should not assume the elements appear in a
+// particular order.
+//
+// [Reserved Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html
 func (c *Client) DescribeReservedInstances(ctx context.Context, params *DescribeReservedInstancesInput, optFns ...func(*Options)) (*DescribeReservedInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesInput{}
@@ -41,32 +46,45 @@ type DescribeReservedInstancesInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - availability-zone - The Availability Zone where the Reserved Instance can be
 	//   used.
+	//
 	//   - duration - The duration of the Reserved Instance (one year or three years),
 	//   in seconds ( 31536000 | 94608000 ).
+	//
 	//   - end - The time when the Reserved Instance expires (for example,
 	//   2015-08-07T11:54:42.000Z).
+	//
 	//   - fixed-price - The purchase price of the Reserved Instance (for example,
 	//   9800.0).
+	//
 	//   - instance-type - The instance type that is covered by the reservation.
+	//
 	//   - scope - The scope of the Reserved Instance ( Region or Availability Zone ).
+	//
 	//   - product-description - The Reserved Instance product platform description (
 	//   Linux/UNIX | Linux with SQL Server Standard | Linux with SQL Server Web |
 	//   Linux with SQL Server Enterprise | SUSE Linux | Red Hat Enterprise Linux |
 	//   Red Hat Enterprise Linux with HA | Windows | Windows with SQL Server Standard
 	//   | Windows with SQL Server Web | Windows with SQL Server Enterprise ).
+	//
 	//   - reserved-instances-id - The ID of the Reserved Instance.
+	//
 	//   - start - The time at which the Reserved Instance purchase request was placed
 	//   (for example, 2014-08-07T11:54:42.000Z).
+	//
 	//   - state - The state of the Reserved Instance ( payment-pending | active |
 	//   payment-failed | retired ).
+	//
 	//   - tag: - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//
 	//   - usage-price - The usage price of the Reserved Instance, per hour (for
 	//   example, 0.84).
 	Filters []types.Filter
@@ -79,8 +97,10 @@ type DescribeReservedInstancesInput struct {
 	// Instance offering type.
 	OfferingType types.OfferingTypeValues
 
-	// One or more Reserved Instance IDs. Default: Describes all your Reserved
-	// Instances, or only those otherwise specified.
+	// One or more Reserved Instance IDs.
+	//
+	// Default: Describes all your Reserved Instances, or only those otherwise
+	// specified.
 	ReservedInstancesIds []string
 
 	noSmithyDocumentSerde

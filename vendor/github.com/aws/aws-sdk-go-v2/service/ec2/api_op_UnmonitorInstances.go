@@ -11,9 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disables detailed monitoring for a running instance. For more information, see
-// Monitoring your instances and volumes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html)
+// Disables detailed monitoring for a running instance. For more information, see [Monitoring your instances and volumes]
 // in the Amazon EC2 User Guide.
+//
+// [Monitoring your instances and volumes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html
 func (c *Client) UnmonitorInstances(ctx context.Context, params *UnmonitorInstancesInput, optFns ...func(*Options)) (*UnmonitorInstancesOutput, error) {
 	if params == nil {
 		params = &UnmonitorInstancesInput{}

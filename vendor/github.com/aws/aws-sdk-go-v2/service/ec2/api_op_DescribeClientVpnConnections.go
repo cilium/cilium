@@ -42,7 +42,9 @@ type DescribeClientVpnConnectionsInput struct {
 	DryRun *bool
 
 	// One or more filters. Filter names and values are case-sensitive.
+	//
 	//   - connection-id - The ID of the connection.
+	//
 	//   - username - For Active Directory client authentication, the user name of the
 	//   client who established the client connection.
 	Filters []types.Filter

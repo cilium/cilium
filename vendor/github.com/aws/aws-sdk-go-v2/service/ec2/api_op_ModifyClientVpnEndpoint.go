@@ -42,12 +42,17 @@ type ModifyClientVpnEndpointInput struct {
 	// Amazon Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
 
-	// Information about the client connection logging options. If you enable client
-	// connection logging, data about client connections is sent to a Cloudwatch Logs
-	// log stream. The following information is logged:
+	// Information about the client connection logging options.
+	//
+	// If you enable client connection logging, data about client connections is sent
+	// to a Cloudwatch Logs log stream. The following information is logged:
+	//
 	//   - Client connection requests
+	//
 	//   - Client connection results (successful and unsuccessful)
+	//
 	//   - Reasons for unsuccessful client connection requests
+	//
 	//   - Client connection termination time
 	ConnectionLogOptions *types.ConnectionLogOptions
 
@@ -74,20 +79,29 @@ type ModifyClientVpnEndpointInput struct {
 	// provisioned in Certificate Manager (ACM).
 	ServerCertificateArn *string
 
-	// The maximum VPN session duration time in hours. Valid values: 8 | 10 | 12 | 24
+	// The maximum VPN session duration time in hours.
+	//
+	// Valid values: 8 | 10 | 12 | 24
+	//
 	// Default value: 24
 	SessionTimeoutHours *int32
 
-	// Indicates whether the VPN is split-tunnel. For information about split-tunnel
-	// VPN endpoints, see Split-tunnel Client VPN endpoint (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
-	// in the Client VPN Administrator Guide.
+	// Indicates whether the VPN is split-tunnel.
+	//
+	// For information about split-tunnel VPN endpoints, see [Split-tunnel Client VPN endpoint] in the Client VPN
+	// Administrator Guide.
+	//
+	// [Split-tunnel Client VPN endpoint]: https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html
 	SplitTunnel *bool
 
 	// The ID of the VPC to associate with the Client VPN endpoint.
 	VpcId *string
 
 	// The port number to assign to the Client VPN endpoint for TCP and UDP traffic.
-	// Valid Values: 443 | 1194 Default Value: 443
+	//
+	// Valid Values: 443 | 1194
+	//
+	// Default Value: 443
 	VpnPort *int32
 
 	noSmithyDocumentSerde

@@ -42,9 +42,12 @@ type GetTransitGatewayRouteTableAssociationsInput struct {
 	DryRun *bool
 
 	// One or more filters. The possible values are:
+	//
 	//   - resource-id - The ID of the resource.
+	//
 	//   - resource-type - The resource type. Valid values are vpc | vpn |
 	//   direct-connect-gateway | peering | connect .
+	//
 	//   - transit-gateway-attachment-id - The ID of the attachment.
 	Filters []types.Filter
 

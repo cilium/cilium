@@ -16,11 +16,16 @@ import (
 // create volume permissions, but you cannot do both in a single operation. If you
 // need to both add and remove account IDs for a snapshot, you must use multiple
 // operations. You can make up to 500 modifications to a snapshot in a single
-// operation. Encrypted snapshots and snapshots with Amazon Web Services
-// Marketplace product codes cannot be made public. Snapshots encrypted with your
-// default KMS key cannot be shared with other accounts. For more information about
-// modifying snapshot permissions, see Share a snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)
-// in the Amazon EBS User Guide.
+// operation.
+//
+// Encrypted snapshots and snapshots with Amazon Web Services Marketplace product
+// codes cannot be made public. Snapshots encrypted with your default KMS key
+// cannot be shared with other accounts.
+//
+// For more information about modifying snapshot permissions, see [Share a snapshot] in the Amazon
+// EBS User Guide.
+//
+// [Share a snapshot]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html
 func (c *Client) ModifySnapshotAttribute(ctx context.Context, params *ModifySnapshotAttributeInput, optFns ...func(*Options)) (*ModifySnapshotAttributeOutput, error) {
 	if params == nil {
 		params = &ModifySnapshotAttributeInput{}

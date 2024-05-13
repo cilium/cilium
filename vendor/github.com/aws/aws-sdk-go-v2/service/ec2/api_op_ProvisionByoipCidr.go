@@ -14,18 +14,22 @@ import (
 // Provisions an IPv4 or IPv6 address range for use with your Amazon Web Services
 // resources through bring your own IP addresses (BYOIP) and creates a
 // corresponding address pool. After the address range is provisioned, it is ready
-// to be advertised using AdvertiseByoipCidr . Amazon Web Services verifies that
-// you own the address range and are authorized to advertise it. You must ensure
-// that the address range is registered to you and that you created an RPKI ROA to
-// authorize Amazon ASNs 16509 and 14618 to advertise the address range. For more
-// information, see Bring your own IP addresses (BYOIP) (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html)
-// in the Amazon Elastic Compute Cloud User Guide. Provisioning an address range is
-// an asynchronous operation, so the call returns immediately, but the address
-// range is not ready to use until its status changes from pending-provision to
-// provisioned . To monitor the status of an address range, use DescribeByoipCidrs
-// . To allocate an Elastic IP address from your IPv4 address pool, use
-// AllocateAddress with either the specific address from the address pool or the ID
-// of the address pool.
+// to be advertised using AdvertiseByoipCidr.
+//
+// Amazon Web Services verifies that you own the address range and are authorized
+// to advertise it. You must ensure that the address range is registered to you and
+// that you created an RPKI ROA to authorize Amazon ASNs 16509 and 14618 to
+// advertise the address range. For more information, see [Bring your own IP addresses (BYOIP)]in the Amazon Elastic
+// Compute Cloud User Guide.
+//
+// Provisioning an address range is an asynchronous operation, so the call returns
+// immediately, but the address range is not ready to use until its status changes
+// from pending-provision to provisioned . To monitor the status of an address
+// range, use DescribeByoipCidrs. To allocate an Elastic IP address from your IPv4 address pool, use AllocateAddress
+// with either the specific address from the address pool or the ID of the address
+// pool.
+//
+// [Bring your own IP addresses (BYOIP)]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html
 func (c *Client) ProvisionByoipCidr(ctx context.Context, params *ProvisionByoipCidrInput, optFns ...func(*Options)) (*ProvisionByoipCidrOutput, error) {
 	if params == nil {
 		params = &ProvisionByoipCidrInput{}
@@ -68,24 +72,33 @@ type ProvisionByoipCidrInput struct {
 	// Reserved.
 	MultiRegion *bool
 
-	// If you have Local Zones (https://docs.aws.amazon.com/local-zones/latest/ug/how-local-zones-work.html)
-	// enabled, you can choose a network border group for Local Zones when you
-	// provision and advertise a BYOIPv4 CIDR. Choose the network border group
+	// If you have [Local Zones] enabled, you can choose a network border group for Local Zones
+	// when you provision and advertise a BYOIPv4 CIDR. Choose the network border group
 	// carefully as the EIP and the Amazon Web Services resource it is associated with
-	// must reside in the same network border group. You can provision BYOIP address
-	// ranges to and advertise them in the following Local Zone network border groups:
+	// must reside in the same network border group.
+	//
+	// You can provision BYOIP address ranges to and advertise them in the following
+	// Local Zone network border groups:
+	//
 	//   - us-east-1-dfw-2
+	//
 	//   - us-west-2-lax-1
+	//
 	//   - us-west-2-phx-2
+	//
 	// You cannot provision or advertise BYOIPv6 address ranges in Local Zones at this
 	// time.
+	//
+	// [Local Zones]: https://docs.aws.amazon.com/local-zones/latest/ug/how-local-zones-work.html
 	NetworkBorderGroup *string
 
 	// The tags to apply to the address pool.
 	PoolTagSpecifications []types.TagSpecification
 
 	// (IPv6 only) Indicate whether the address range will be publicly advertised to
-	// the internet. Default: true
+	// the internet.
+	//
+	// Default: true
 	PubliclyAdvertisable *bool
 
 	noSmithyDocumentSerde

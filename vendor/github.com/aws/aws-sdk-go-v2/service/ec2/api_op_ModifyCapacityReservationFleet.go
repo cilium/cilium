@@ -11,12 +11,13 @@ import (
 	"time"
 )
 
-// Modifies a Capacity Reservation Fleet. When you modify the total target
-// capacity of a Capacity Reservation Fleet, the Fleet automatically creates new
-// Capacity Reservations, or modifies or cancels existing Capacity Reservations in
-// the Fleet to meet the new total target capacity. When you modify the end date
-// for the Fleet, the end dates for all of the individual Capacity Reservations in
-// the Fleet are updated accordingly.
+// Modifies a Capacity Reservation Fleet.
+//
+// When you modify the total target capacity of a Capacity Reservation Fleet, the
+// Fleet automatically creates new Capacity Reservations, or modifies or cancels
+// existing Capacity Reservations in the Fleet to meet the new total target
+// capacity. When you modify the end date for the Fleet, the end dates for all of
+// the individual Capacity Reservations in the Fleet are updated accordingly.
 func (c *Client) ModifyCapacityReservationFleet(ctx context.Context, params *ModifyCapacityReservationFleetInput, optFns ...func(*Options)) (*ModifyCapacityReservationFleetOutput, error) {
 	if params == nil {
 		params = &ModifyCapacityReservationFleetInput{}
@@ -47,26 +48,30 @@ type ModifyCapacityReservationFleetInput struct {
 
 	// The date and time at which the Capacity Reservation Fleet expires. When the
 	// Capacity Reservation Fleet expires, its state changes to expired and all of the
-	// Capacity Reservations in the Fleet expire. The Capacity Reservation Fleet
-	// expires within an hour after the specified time. For example, if you specify
-	// 5/31/2019 , 13:30:55 , the Capacity Reservation Fleet is guaranteed to expire
-	// between 13:30:55 and 14:30:55 on 5/31/2019 . You can't specify EndDate and
-	// RemoveEndDate in the same request.
+	// Capacity Reservations in the Fleet expire.
+	//
+	// The Capacity Reservation Fleet expires within an hour after the specified time.
+	// For example, if you specify 5/31/2019 , 13:30:55 , the Capacity Reservation
+	// Fleet is guaranteed to expire between 13:30:55 and 14:30:55 on 5/31/2019 .
+	//
+	// You can't specify EndDate and RemoveEndDate in the same request.
 	EndDate *time.Time
 
 	// Indicates whether to remove the end date from the Capacity Reservation Fleet.
 	// If you remove the end date, the Capacity Reservation Fleet does not expire and
 	// it remains active until you explicitly cancel it using the
-	// CancelCapacityReservationFleet action. You can't specify RemoveEndDate and
-	// EndDate in the same request.
+	// CancelCapacityReservationFleet action.
+	//
+	// You can't specify RemoveEndDate and EndDate in the same request.
 	RemoveEndDate *bool
 
 	// The total number of capacity units to be reserved by the Capacity Reservation
 	// Fleet. This value, together with the instance type weights that you assign to
 	// each instance type used by the Fleet determine the number of instances for which
 	// the Fleet reserves capacity. Both values are based on units that make sense for
-	// your workload. For more information, see Total target capacity (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/crfleet-concepts.html#target-capacity)
-	// in the Amazon EC2 User Guide.
+	// your workload. For more information, see [Total target capacity]in the Amazon EC2 User Guide.
+	//
+	// [Total target capacity]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/crfleet-concepts.html#target-capacity
 	TotalTargetCapacity *int32
 
 	noSmithyDocumentSerde

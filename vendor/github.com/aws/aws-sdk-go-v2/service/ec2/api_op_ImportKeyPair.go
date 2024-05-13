@@ -12,13 +12,16 @@ import (
 )
 
 // Imports the public key from an RSA or ED25519 key pair that you created with a
-// third-party tool. Compare this with CreateKeyPair , in which Amazon Web Services
-// creates the key pair and gives the keys to you (Amazon Web Services keeps a copy
-// of the public key). With ImportKeyPair, you create the key pair and give Amazon
-// Web Services just the public key. The private key is never transferred between
-// you and Amazon Web Services. For more information about key pairs, see Amazon
-// EC2 key pairs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// third-party tool. Compare this with CreateKeyPair, in which Amazon Web Services creates the
+// key pair and gives the keys to you (Amazon Web Services keeps a copy of the
+// public key). With ImportKeyPair, you create the key pair and give Amazon Web
+// Services just the public key. The private key is never transferred between you
+// and Amazon Web Services.
+//
+// For more information about key pairs, see [Amazon EC2 key pairs] in the Amazon Elastic Compute Cloud
+// User Guide.
+//
+// [Amazon EC2 key pairs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html
 func (c *Client) ImportKeyPair(ctx context.Context, params *ImportKeyPairInput, optFns ...func(*Options)) (*ImportKeyPairOutput, error) {
 	if params == nil {
 		params = &ImportKeyPairInput{}
@@ -63,9 +66,11 @@ type ImportKeyPairOutput struct {
 
 	//   - For RSA key pairs, the key fingerprint is the MD5 public key fingerprint as
 	//   specified in section 4 of RFC 4716.
+	//
 	//   - For ED25519 key pairs, the key fingerprint is the base64-encoded SHA-256
-	//   digest, which is the default for OpenSSH, starting with OpenSSH 6.8 (http://www.openssh.com/txt/release-6.8)
-	//   .
+	//   digest, which is the default for OpenSSH, starting with [OpenSSH 6.8].
+	//
+	// [OpenSSH 6.8]: http://www.openssh.com/txt/release-6.8
 	KeyFingerprint *string
 
 	// The key pair name that you provided.

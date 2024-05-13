@@ -12,8 +12,9 @@ import (
 
 // Enable an Organizations member account as the IPAM admin account. You cannot
 // select the Organizations management account as the IPAM admin account. For more
-// information, see Enable integration with Organizations (https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html)
-// in the Amazon VPC IPAM User Guide.
+// information, see [Enable integration with Organizations]in the Amazon VPC IPAM User Guide.
+//
+// [Enable integration with Organizations]: https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html
 func (c *Client) EnableIpamOrganizationAdminAccount(ctx context.Context, params *EnableIpamOrganizationAdminAccountInput, optFns ...func(*Options)) (*EnableIpamOrganizationAdminAccountOutput, error) {
 	if params == nil {
 		params = &EnableIpamOrganizationAdminAccountInput{}

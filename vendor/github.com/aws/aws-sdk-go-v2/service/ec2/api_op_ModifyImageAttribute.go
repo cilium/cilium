@@ -12,12 +12,16 @@ import (
 )
 
 // Modifies the specified attribute of the specified AMI. You can specify only one
-// attribute at a time. To specify the attribute, you can use the Attribute
-// parameter, or one of the following parameters: Description , ImdsSupport , or
-// LaunchPermission . Images with an Amazon Web Services Marketplace product code
-// cannot be made public. To enable the SriovNetSupport enhanced networking
-// attribute of an image, enable SriovNetSupport on an instance and create an AMI
-// from the instance.
+// attribute at a time.
+//
+// To specify the attribute, you can use the Attribute parameter, or one of the
+// following parameters: Description , ImdsSupport , or LaunchPermission .
+//
+// Images with an Amazon Web Services Marketplace product code cannot be made
+// public.
+//
+// To enable the SriovNetSupport enhanced networking attribute of an image, enable
+// SriovNetSupport on an instance and create an AMI from the instance.
 func (c *Client) ModifyImageAttribute(ctx context.Context, params *ModifyImageAttributeInput, optFns ...func(*Options)) (*ModifyImageAttributeOutput, error) {
 	if params == nil {
 		params = &ModifyImageAttributeInput{}
@@ -41,8 +45,9 @@ type ModifyImageAttributeInput struct {
 	// This member is required.
 	ImageId *string
 
-	// The name of the attribute to modify. Valid values: description | imdsSupport |
-	// launchPermission
+	// The name of the attribute to modify.
+	//
+	// Valid values: description | imdsSupport | launchPermission
 	Attribute *string
 
 	// A new description for the AMI.
@@ -58,10 +63,13 @@ type ModifyImageAttributeInput struct {
 	// from this AMI will have HttpTokens automatically set to required so that, by
 	// default, the instance requires that IMDSv2 is used when requesting instance
 	// metadata. In addition, HttpPutResponseHopLimit is set to 2 . For more
-	// information, see Configure the AMI (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html#configure-IMDS-new-instances-ami-configuration)
-	// in the Amazon EC2 User Guide. Do not use this parameter unless your AMI software
-	// supports IMDSv2. After you set the value to v2.0 , you can't undo it. The only
-	// way to “reset” your AMI is to create a new AMI from the underlying snapshot.
+	// information, see [Configure the AMI]in the Amazon EC2 User Guide.
+	//
+	// Do not use this parameter unless your AMI software supports IMDSv2. After you
+	// set the value to v2.0 , you can't undo it. The only way to “reset” your AMI is
+	// to create a new AMI from the underlying snapshot.
+	//
+	// [Configure the AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html#configure-IMDS-new-instances-ami-configuration
 	ImdsSupport *types.AttributeValue
 
 	// A new launch permission for the AMI.

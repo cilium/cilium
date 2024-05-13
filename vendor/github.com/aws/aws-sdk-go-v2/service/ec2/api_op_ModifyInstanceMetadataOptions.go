@@ -17,8 +17,9 @@ import (
 // API responds with a state of “pending”. After the parameter modifications are
 // successfully applied to the instance, the state of the modifications changes
 // from “pending” to “applied” in subsequent describe-instances API calls. For more
-// information, see Instance metadata and user data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
-// in the Amazon EC2 User Guide.
+// information, see [Instance metadata and user data]in the Amazon EC2 User Guide.
+//
+// [Instance metadata and user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
 func (c *Client) ModifyInstanceMetadataOptions(ctx context.Context, params *ModifyInstanceMetadataOptionsInput, optFns ...func(*Options)) (*ModifyInstanceMetadataOptionsOutput, error) {
 	if params == nil {
 		params = &ModifyInstanceMetadataOptionsInput{}
@@ -48,8 +49,9 @@ type ModifyInstanceMetadataOptionsInput struct {
 	DryRun *bool
 
 	// Enables or disables the HTTP metadata endpoint on your instances. If this
-	// parameter is not specified, the existing state is maintained. If you specify a
-	// value of disabled , you cannot access your instance metadata.
+	// parameter is not specified, the existing state is maintained.
+	//
+	// If you specify a value of disabled , you cannot access your instance metadata.
 	HttpEndpoint types.InstanceMetadataEndpointState
 
 	// Enables or disables the IPv6 endpoint for the instance metadata service.
@@ -58,36 +60,45 @@ type ModifyInstanceMetadataOptionsInput struct {
 
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel. If no
-	// parameter is specified, the existing state is maintained. Possible values:
-	// Integers from 1 to 64
+	// parameter is specified, the existing state is maintained.
+	//
+	// Possible values: Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
 	// Indicates whether IMDSv2 is required.
+	//
 	//   - optional - IMDSv2 is optional. You can choose whether to send a session
 	//   token in your instance metadata retrieval requests. If you retrieve IAM role
 	//   credentials without a session token, you receive the IMDSv1 role credentials. If
 	//   you retrieve IAM role credentials using a valid session token, you receive the
 	//   IMDSv2 role credentials.
+	//
 	//   - required - IMDSv2 is required. You must send a session token in your
 	//   instance metadata retrieval requests. With this option, retrieving the IAM role
 	//   credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
 	//   available.
+	//
 	// Default:
+	//
 	//   - If the value of ImdsSupport for the Amazon Machine Image (AMI) for your
 	//   instance is v2.0 and the account level default is set to no-preference , the
 	//   default is required .
+	//
 	//   - If the value of ImdsSupport for the Amazon Machine Image (AMI) for your
 	//   instance is v2.0 , but the account level default is set to V1 or V2 , the
 	//   default is optional .
+	//
 	// The default value can also be affected by other combinations of parameters. For
-	// more information, see Order of precedence for instance metadata options (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence)
-	// in the Amazon EC2 User Guide.
+	// more information, see [Order of precedence for instance metadata options]in the Amazon EC2 User Guide.
+	//
+	// [Order of precedence for instance metadata options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#instance-metadata-options-order-of-precedence
 	HttpTokens types.HttpTokensState
 
 	// Set to enabled to allow access to instance tags from the instance metadata. Set
 	// to disabled to turn off access to instance tags from the instance metadata. For
-	// more information, see Work with instance tags using the instance metadata (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS)
-	// .
+	// more information, see [Work with instance tags using the instance metadata].
+	//
+	// [Work with instance tags using the instance metadata]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS
 	InstanceMetadataTags types.InstanceMetadataTagsState
 
 	noSmithyDocumentSerde

@@ -31,12 +31,14 @@ func (c *Client) DescribeMacHosts(ctx context.Context, params *DescribeMacHostsI
 type DescribeMacHostsInput struct {
 
 	// The filters.
+	//
 	//   - availability-zone - The Availability Zone of the EC2 Mac Dedicated Host.
+	//
 	//   - instance-type - The instance type size that the EC2 Mac Dedicated Host is
 	//   configured to support.
 	Filters []types.Filter
 
-	// The IDs of the EC2 Mac Dedicated Hosts.
+	//  The IDs of the EC2 Mac Dedicated Hosts.
 	HostIds []string
 
 	// The maximum number of results to return for the request in a single page. The
@@ -53,7 +55,7 @@ type DescribeMacHostsInput struct {
 
 type DescribeMacHostsOutput struct {
 
-	// Information about the EC2 Mac Dedicated Hosts.
+	//  Information about the EC2 Mac Dedicated Hosts.
 	MacHosts []types.MacHost
 
 	// The token to use to retrieve the next page of results.

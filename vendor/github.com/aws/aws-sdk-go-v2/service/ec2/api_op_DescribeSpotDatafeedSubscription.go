@@ -11,9 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the data feed for Spot Instances. For more information, see Spot
-// Instance data feed (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html)
-// in the Amazon EC2 User Guide for Linux Instances.
+// Describes the data feed for Spot Instances. For more information, see [Spot Instance data feed] in the
+// Amazon EC2 User Guide for Linux Instances.
+//
+// [Spot Instance data feed]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html
 func (c *Client) DescribeSpotDatafeedSubscription(ctx context.Context, params *DescribeSpotDatafeedSubscriptionInput, optFns ...func(*Options)) (*DescribeSpotDatafeedSubscriptionOutput, error) {
 	if params == nil {
 		params = &DescribeSpotDatafeedSubscriptionInput{}

@@ -11,22 +11,31 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Adds the specified inbound (ingress) rules to a security group. An inbound rule
-// permits instances to receive traffic from the specified IPv4 or IPv6 address
-// range, the IP address ranges that are specified by a prefix list, or the
-// instances that are associated with a destination security group. For more
-// information, see Security group rules (https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html)
-// . You must specify exactly one of the following sources: an IPv4 or IPv6 address
+// Adds the specified inbound (ingress) rules to a security group.
+//
+// An inbound rule permits instances to receive traffic from the specified IPv4 or
+// IPv6 address range, the IP address ranges that are specified by a prefix list,
+// or the instances that are associated with a destination security group. For more
+// information, see [Security group rules].
+//
+// You must specify exactly one of the following sources: an IPv4 or IPv6 address
 // range, a prefix list, or a security group. You must specify a protocol for each
 // rule (for example, TCP). If the protocol is TCP or UDP, you must also specify a
 // port or port range. If the protocol is ICMP or ICMPv6, you must also specify the
-// ICMP/ICMPv6 type and code. Rule changes are propagated to instances associated
-// with the security group as quickly as possible. However, a small delay might
-// occur. For examples of rules that you can add to security groups for specific
-// access scenarios, see Security group rules for different use cases (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-rules-reference.html)
-// in the Amazon EC2 User Guide. For more information about security group quotas,
-// see Amazon VPC quotas (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html)
-// in the Amazon VPC User Guide.
+// ICMP/ICMPv6 type and code.
+//
+// Rule changes are propagated to instances associated with the security group as
+// quickly as possible. However, a small delay might occur.
+//
+// For examples of rules that you can add to security groups for specific access
+// scenarios, see [Security group rules for different use cases]in the Amazon EC2 User Guide.
+//
+// For more information about security group quotas, see [Amazon VPC quotas] in the Amazon VPC User
+// Guide.
+//
+// [Amazon VPC quotas]: https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html
+// [Security group rules]: https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html
+// [Security group rules for different use cases]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-rules-reference.html
 func (c *Client) AuthorizeSecurityGroupIngress(ctx context.Context, params *AuthorizeSecurityGroupIngressInput, optFns ...func(*Options)) (*AuthorizeSecurityGroupIngressOutput, error) {
 	if params == nil {
 		params = &AuthorizeSecurityGroupIngressInput{}
@@ -44,9 +53,12 @@ func (c *Client) AuthorizeSecurityGroupIngress(ctx context.Context, params *Auth
 
 type AuthorizeSecurityGroupIngressInput struct {
 
-	// The IPv4 address range, in CIDR format. To specify an IPv6 address range, use
-	// IP permissions instead. To specify multiple rules and descriptions for the
-	// rules, use IP permissions instead.
+	// The IPv4 address range, in CIDR format.
+	//
+	// To specify an IPv6 address range, use IP permissions instead.
+	//
+	// To specify multiple rules and descriptions for the rules, use IP permissions
+	// instead.
 	CidrIp *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -56,8 +68,10 @@ type AuthorizeSecurityGroupIngressInput struct {
 	DryRun *bool
 
 	// If the protocol is TCP or UDP, this is the start of the port range. If the
-	// protocol is ICMP, this is the ICMP type or -1 (all ICMP types). To specify
-	// multiple rules and descriptions for the rules, use IP permissions instead.
+	// protocol is ICMP, this is the ICMP type or -1 (all ICMP types).
+	//
+	// To specify multiple rules and descriptions for the rules, use IP permissions
+	// instead.
 	FromPort *int32
 
 	// The ID of the security group.
@@ -72,23 +86,31 @@ type AuthorizeSecurityGroupIngressInput struct {
 	// The permissions for the security group rules.
 	IpPermissions []types.IpPermission
 
-	// The IP protocol name ( tcp , udp , icmp ) or number (see Protocol Numbers (http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-	// ). To specify all protocols, use -1 . To specify icmpv6 , use IP permissions
-	// instead. If you specify a protocol other than one of the supported values,
-	// traffic is allowed on all ports, regardless of any ports that you specify. To
-	// specify multiple rules and descriptions for the rules, use IP permissions
+	// The IP protocol name ( tcp , udp , icmp ) or number (see [Protocol Numbers]). To specify all
+	// protocols, use -1 .
+	//
+	// To specify icmpv6 , use IP permissions instead.
+	//
+	// If you specify a protocol other than one of the supported values, traffic is
+	// allowed on all ports, regardless of any ports that you specify.
+	//
+	// To specify multiple rules and descriptions for the rules, use IP permissions
 	// instead.
+	//
+	// [Protocol Numbers]: http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 	IpProtocol *string
 
-	// [Default VPC] The name of the source security group. The rule grants full ICMP,
-	// UDP, and TCP access. To create a rule with a specific protocol and port range,
-	// specify a set of IP permissions instead.
+	// [Default VPC] The name of the source security group.
+	//
+	// The rule grants full ICMP, UDP, and TCP access. To create a rule with a
+	// specific protocol and port range, specify a set of IP permissions instead.
 	SourceSecurityGroupName *string
 
 	// The Amazon Web Services account ID for the source security group, if the source
-	// security group is in a different account. The rule grants full ICMP, UDP, and
-	// TCP access. To create a rule with a specific protocol and port range, use IP
-	// permissions instead.
+	// security group is in a different account.
+	//
+	// The rule grants full ICMP, UDP, and TCP access. To create a rule with a
+	// specific protocol and port range, use IP permissions instead.
 	SourceSecurityGroupOwnerId *string
 
 	// The tags applied to the security group rule.
@@ -96,8 +118,9 @@ type AuthorizeSecurityGroupIngressInput struct {
 
 	// If the protocol is TCP or UDP, this is the end of the port range. If the
 	// protocol is ICMP, this is the ICMP code or -1 (all ICMP codes). If the start
-	// port is -1 (all ICMP types), then the end port must be -1 (all ICMP codes). To
-	// specify multiple rules and descriptions for the rules, use IP permissions
+	// port is -1 (all ICMP types), then the end port must be -1 (all ICMP codes).
+	//
+	// To specify multiple rules and descriptions for the rules, use IP permissions
 	// instead.
 	ToPort *int32
 

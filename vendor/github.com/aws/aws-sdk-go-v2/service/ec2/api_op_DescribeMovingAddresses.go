@@ -11,9 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This action is deprecated. Describes your Elastic IP addresses that are being
-// moved from or being restored to the EC2-Classic platform. This request does not
-// return information about any other Elastic IP addresses in your account.
+// This action is deprecated.
+//
+// Describes your Elastic IP addresses that are being moved from or being restored
+// to the EC2-Classic platform. This request does not return information about any
+// other Elastic IP addresses in your account.
 func (c *Client) DescribeMovingAddresses(ctx context.Context, params *DescribeMovingAddressesInput, optFns ...func(*Options)) (*DescribeMovingAddressesOutput, error) {
 	if params == nil {
 		params = &DescribeMovingAddressesInput{}
@@ -38,6 +40,7 @@ type DescribeMovingAddressesInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - moving-status - The status of the Elastic IP address ( MovingToVpc |
 	//   RestoringToClassic ).
 	Filters []types.Filter
@@ -46,6 +49,7 @@ type DescribeMovingAddressesInput struct {
 	// remaining results of the initial request can be seen by sending another request
 	// with the returned NextToken value. This value can be between 5 and 1000; if
 	// MaxResults is given a value outside of this range, an error is returned.
+	//
 	// Default: If no value is provided, the default is 1000.
 	MaxResults *int32
 
@@ -164,6 +168,7 @@ type DescribeMovingAddressesPaginatorOptions struct {
 	// remaining results of the initial request can be seen by sending another request
 	// with the returned NextToken value. This value can be between 5 and 1000; if
 	// MaxResults is given a value outside of this range, an error is returned.
+	//
 	// Default: If no value is provided, the default is 1000.
 	Limit int32
 

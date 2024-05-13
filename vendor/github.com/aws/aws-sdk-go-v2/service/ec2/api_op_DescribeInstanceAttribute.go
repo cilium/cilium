@@ -33,8 +33,9 @@ func (c *Client) DescribeInstanceAttribute(ctx context.Context, params *Describe
 
 type DescribeInstanceAttributeInput struct {
 
-	// The instance attribute. Note: The enaSupport attribute is not supported at this
-	// time.
+	// The instance attribute.
+	//
+	// Note: The enaSupport attribute is not supported at this time.
 	//
 	// This member is required.
 	Attribute types.InstanceAttributeName

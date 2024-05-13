@@ -15,9 +15,12 @@ import (
 // between scopes and ignore resource CIDRs that you do not want to manage. If set
 // to false, the resource will not be tracked for overlap, it cannot be
 // auto-imported into a pool, and it will be removed from any pool it has an
-// allocation in. For more information, see Move resource CIDRs between scopes (https://docs.aws.amazon.com/vpc/latest/ipam/move-resource-ipam.html)
-// and Change the monitoring state of resource CIDRs (https://docs.aws.amazon.com/vpc/latest/ipam/change-monitoring-state-ipam.html)
-// in the Amazon VPC IPAM User Guide.
+// allocation in.
+//
+// For more information, see [Move resource CIDRs between scopes] and [Change the monitoring state of resource CIDRs] in the Amazon VPC IPAM User Guide.
+//
+// [Change the monitoring state of resource CIDRs]: https://docs.aws.amazon.com/vpc/latest/ipam/change-monitoring-state-ipam.html
+// [Move resource CIDRs between scopes]: https://docs.aws.amazon.com/vpc/latest/ipam/move-resource-ipam.html
 func (c *Client) ModifyIpamResourceCidr(ctx context.Context, params *ModifyIpamResourceCidrInput, optFns ...func(*Options)) (*ModifyIpamResourceCidrOutput, error) {
 	if params == nil {
 		params = &ModifyIpamResourceCidrInput{}

@@ -18,8 +18,10 @@ import (
 // Sysprep steps, rebooting as required. Then it creates a set of reserved
 // snapshots that are used for subsequent launches. The reserved snapshots are
 // automatically replenished as they are used, depending on your settings for
-// launch frequency. You can only change these settings for Windows AMIs that you
-// own or that have been shared with you.
+// launch frequency.
+//
+// You can only change these settings for Windows AMIs that you own or that have
+// been shared with you.
 func (c *Client) EnableFastLaunch(ctx context.Context, params *EnableFastLaunchInput, optFns ...func(*Options)) (*EnableFastLaunchOutput, error) {
 	if params == nil {
 		params = &EnableFastLaunchInput{}

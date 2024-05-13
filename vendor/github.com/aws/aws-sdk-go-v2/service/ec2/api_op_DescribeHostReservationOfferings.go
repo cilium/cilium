@@ -11,14 +11,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the Dedicated Host reservations that are available to purchase. The
-// results describe all of the Dedicated Host reservation offerings, including
+// Describes the Dedicated Host reservations that are available to purchase.
+//
+// The results describe all of the Dedicated Host reservation offerings, including
 // offerings that might not match the instance family and Region of your Dedicated
 // Hosts. When purchasing an offering, ensure that the instance family and Region
 // of the offering matches that of the Dedicated Hosts with which it is to be
-// associated. For more information about supported instance types, see Dedicated
-// Hosts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-overview.html)
-// in the Amazon EC2 User Guide.
+// associated. For more information about supported instance types, see [Dedicated Hosts]in the
+// Amazon EC2 User Guide.
+//
+// [Dedicated Hosts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-overview.html
 func (c *Client) DescribeHostReservationOfferings(ctx context.Context, params *DescribeHostReservationOfferingsInput, optFns ...func(*Options)) (*DescribeHostReservationOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeHostReservationOfferingsInput{}
@@ -37,7 +39,9 @@ func (c *Client) DescribeHostReservationOfferings(ctx context.Context, params *D
 type DescribeHostReservationOfferingsInput struct {
 
 	// The filters.
+	//
 	//   - instance-family - The instance family of the offering (for example, m4 ).
+	//
 	//   - payment-option - The payment option ( NoUpfront | PartialUpfront |
 	//   AllUpfront ).
 	Filter []types.Filter

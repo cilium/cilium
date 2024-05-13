@@ -29,7 +29,7 @@ func (c *Client) DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociation(ct
 
 type DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociationInput struct {
 
-	// The ID of the local gateway route table virtual interface group association.
+	//  The ID of the local gateway route table virtual interface group association.
 	//
 	// This member is required.
 	LocalGatewayRouteTableVirtualInterfaceGroupAssociationId *string

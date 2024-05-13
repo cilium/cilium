@@ -42,14 +42,21 @@ type GetTransitGatewayPrefixListReferencesInput struct {
 	DryRun *bool
 
 	// One or more filters. The possible values are:
+	//
 	//   - attachment.resource-id - The ID of the resource for the attachment.
+	//
 	//   - attachment.resource-type - The type of resource for the attachment. Valid
 	//   values are vpc | vpn | direct-connect-gateway | peering .
+	//
 	//   - attachment.transit-gateway-attachment-id - The ID of the attachment.
+	//
 	//   - is-blackhole - Whether traffic matching the route is blocked ( true | false
 	//   ).
+	//
 	//   - prefix-list-id - The ID of the prefix list.
+	//
 	//   - prefix-list-owner-id - The ID of the owner of the prefix list.
+	//
 	//   - state - The state of the prefix list reference ( pending | available |
 	//   modifying | deleting ).
 	Filters []types.Filter

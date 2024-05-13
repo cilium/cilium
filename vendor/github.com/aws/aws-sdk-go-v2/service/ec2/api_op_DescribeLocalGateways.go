@@ -37,10 +37,14 @@ type DescribeLocalGatewaysInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - local-gateway-id - The ID of a local gateway.
+	//
 	//   - outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
+	//
 	//   - owner-id - The ID of the Amazon Web Services account that owns the local
 	//   gateway.
+	//
 	//   - state - The state of the association.
 	Filters []types.Filter
 

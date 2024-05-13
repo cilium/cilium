@@ -2,7 +2,6 @@
 # Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a
 # reference.
 run:
-  go: '1.20'
   timeout: 1m
 linters:
   disable-all: true
@@ -13,13 +12,15 @@ linters:
     - bodyclose
     - containedctx
     - contextcheck
+    - copyloopvar
     - decorder
     - dogsled
     - dupl
     - dupword
     - durationcheck
-    - errchkjson
+    - err113
     - errcheck
+    - errchkjson
     - errname
     - errorlint
     - exhaustive
@@ -30,18 +31,18 @@ linters:
     - goconst
     - gocritic
     - godot
-    - goerr113
     - gofmt
     - goheader
     - goimports
-    - gomnd
     - goprintffuncname
     - gosec
     - gosimple
     - govet
     - grouper
+    - importas
     - ineffassign
     - interfacebloat
+    - intrange
     - ireturn
     - makezero
     - mirror
@@ -52,14 +53,17 @@ linters:
     - nilerr
     - noctx
     - nosprintfhostport
+    - perfsprint
     - prealloc
     - predeclared
     - reassign
     - revive
     - rowserrcheck
+    - sloglint
     - staticcheck
     - tagalign
     - tenv
+    - testifylint
     - thelper
     - tparallel
     - typecheck
@@ -88,5 +92,5 @@ linters-settings:
 issues:
   exclude-use-default: false # default rules exclude doc comments check :(
   exclude-rules:
-    - linters: [goerr113]
+    - linters: [err113]
       text: "do not define dynamic errors, use wrapped static errors instead"

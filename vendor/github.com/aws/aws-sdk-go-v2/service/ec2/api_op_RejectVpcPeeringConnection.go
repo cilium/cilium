@@ -11,10 +11,9 @@ import (
 )
 
 // Rejects a VPC peering connection request. The VPC peering connection must be in
-// the pending-acceptance state. Use the DescribeVpcPeeringConnections request to
-// view your outstanding VPC peering connection requests. To delete an active VPC
-// peering connection, or to delete a VPC peering connection request that you
-// initiated, use DeleteVpcPeeringConnection .
+// the pending-acceptance state. Use the DescribeVpcPeeringConnections request to view your outstanding VPC
+// peering connection requests. To delete an active VPC peering connection, or to
+// delete a VPC peering connection request that you initiated, use DeleteVpcPeeringConnection.
 func (c *Client) RejectVpcPeeringConnection(ctx context.Context, params *RejectVpcPeeringConnectionInput, optFns ...func(*Options)) (*RejectVpcPeeringConnectionOutput, error) {
 	if params == nil {
 		params = &RejectVpcPeeringConnectionInput{}

@@ -11,14 +11,19 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a target for your Traffic Mirror session. A Traffic Mirror target is
-// the destination for mirrored traffic. The Traffic Mirror source and the Traffic
-// Mirror target (monitoring appliances) can be in the same VPC, or in different
-// VPCs connected via VPC peering or a transit gateway. A Traffic Mirror target can
-// be a network interface, a Network Load Balancer, or a Gateway Load Balancer
-// endpoint. To use the target in a Traffic Mirror session, use
-// CreateTrafficMirrorSession (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorSession.htm)
-// .
+// Creates a target for your Traffic Mirror session.
+//
+// A Traffic Mirror target is the destination for mirrored traffic. The Traffic
+// Mirror source and the Traffic Mirror target (monitoring appliances) can be in
+// the same VPC, or in different VPCs connected via VPC peering or a transit
+// gateway.
+//
+// A Traffic Mirror target can be a network interface, a Network Load Balancer, or
+// a Gateway Load Balancer endpoint.
+//
+// To use the target in a Traffic Mirror session, use [CreateTrafficMirrorSession].
+//
+// [CreateTrafficMirrorSession]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorSession.htm
 func (c *Client) CreateTrafficMirrorTarget(ctx context.Context, params *CreateTrafficMirrorTargetInput, optFns ...func(*Options)) (*CreateTrafficMirrorTargetOutput, error) {
 	if params == nil {
 		params = &CreateTrafficMirrorTargetInput{}
@@ -37,8 +42,9 @@ func (c *Client) CreateTrafficMirrorTarget(ctx context.Context, params *CreateTr
 type CreateTrafficMirrorTargetInput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// The description of the Traffic Mirror target.
@@ -69,8 +75,9 @@ type CreateTrafficMirrorTargetInput struct {
 type CreateTrafficMirrorTargetOutput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [How to ensure idempotency].
+	//
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Information about the Traffic Mirror target.

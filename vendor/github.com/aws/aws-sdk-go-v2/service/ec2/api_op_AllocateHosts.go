@@ -41,53 +41,68 @@ type AllocateHostsInput struct {
 	// latency between your workloads. This parameter is supported only if you specify
 	// OutpostArn. If you are allocating the Dedicated Hosts in a Region, omit this
 	// parameter.
+	//
 	//   - If you specify this parameter, you can omit Quantity. In this case, Amazon
 	//   EC2 allocates a Dedicated Host on each specified hardware asset.
+	//
 	//   - If you specify both AssetIds and Quantity, then the value for Quantity must
 	//   be equal to the number of asset IDs specified.
 	AssetIds []string
 
 	// Indicates whether the host accepts any untargeted instance launches that match
 	// its instance type configuration, or if it only accepts Host tenancy instance
-	// launches that specify its unique host ID. For more information, see
-	// Understanding auto-placement and affinity (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-dedicated-hosts-work.html#dedicated-hosts-understanding)
-	// in the Amazon EC2 User Guide. Default: on
+	// launches that specify its unique host ID. For more information, see [Understanding auto-placement and affinity]in the
+	// Amazon EC2 User Guide.
+	//
+	// Default: on
+	//
+	// [Understanding auto-placement and affinity]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-dedicated-hosts-work.html#dedicated-hosts-understanding
 	AutoPlacement types.AutoPlacement
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [Ensuring Idempotency].
+	//
+	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Indicates whether to enable or disable host maintenance for the Dedicated Host.
-	// For more information, see Host maintenance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-maintenance.html)
-	// in the Amazon EC2 User Guide.
+	// For more information, see [Host maintenance]in the Amazon EC2 User Guide.
+	//
+	// [Host maintenance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-maintenance.html
 	HostMaintenance types.HostMaintenance
 
 	// Indicates whether to enable or disable host recovery for the Dedicated Host.
-	// Host recovery is disabled by default. For more information, see Host recovery (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-recovery.html)
-	// in the Amazon EC2 User Guide. Default: off
+	// Host recovery is disabled by default. For more information, see [Host recovery]in the Amazon
+	// EC2 User Guide.
+	//
+	// Default: off
+	//
+	// [Host recovery]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-recovery.html
 	HostRecovery types.HostRecovery
 
 	// Specifies the instance family to be supported by the Dedicated Hosts. If you
 	// specify an instance family, the Dedicated Hosts support multiple instance types
-	// within that instance family. If you want the Dedicated Hosts to support a
-	// specific instance type only, omit this parameter and specify InstanceType
-	// instead. You cannot specify InstanceFamily and InstanceType in the same request.
+	// within that instance family.
+	//
+	// If you want the Dedicated Hosts to support a specific instance type only, omit
+	// this parameter and specify InstanceType instead. You cannot specify
+	// InstanceFamily and InstanceType in the same request.
 	InstanceFamily *string
 
 	// Specifies the instance type to be supported by the Dedicated Hosts. If you
 	// specify an instance type, the Dedicated Hosts support instances of the specified
-	// instance type only. If you want the Dedicated Hosts to support multiple instance
-	// types in a specific instance family, omit this parameter and specify
-	// InstanceFamily instead. You cannot specify InstanceType and InstanceFamily in
-	// the same request.
+	// instance type only.
+	//
+	// If you want the Dedicated Hosts to support multiple instance types in a
+	// specific instance family, omit this parameter and specify InstanceFamily
+	// instead. You cannot specify InstanceType and InstanceFamily in the same request.
 	InstanceType *string
 
 	// The Amazon Resource Name (ARN) of the Amazon Web Services Outpost on which to
 	// allocate the Dedicated Host. If you specify OutpostArn, you can optionally
-	// specify AssetIds. If you are allocating the Dedicated Host in a Region, omit
-	// this parameter.
+	// specify AssetIds.
+	//
+	// If you are allocating the Dedicated Host in a Region, omit this parameter.
 	OutpostArn *string
 
 	// The number of Dedicated Hosts to allocate to your account with these

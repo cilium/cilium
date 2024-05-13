@@ -31,6 +31,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/internal/analysisflags"
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/internal/analysisinternal"
 	"golang.org/x/tools/internal/diff"
 	"golang.org/x/tools/internal/robustio"
 )
@@ -432,6 +433,8 @@ func applyFixes(roots []*action) error {
 
 	// Now we've got a set of valid edits for each file. Apply them.
 	for path, edits := range editsByPath {
+		// TODO(adonovan): this should really work on the same
+		// gulp from the file system that fed the analyzer (see #62292).
 		contents, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -766,6 +769,7 @@ func (act *action) execOnce() {
 		AllObjectFacts:    act.allObjectFacts,
 		AllPackageFacts:   act.allPackageFacts,
 	}
+	pass.ReadFile = analysisinternal.MakeReadFile(pass)
 	act.pass = pass
 
 	var err error
