@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -679,30 +678,6 @@ func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *
 		return err
 	}
 	defer template.Close()
-
-	symPath := path.Join(ep.StateDir(), defaults.TemplatePath)
-	if _, err := os.Stat(symPath); err == nil {
-		if err = os.RemoveAll(symPath); err != nil {
-			return &os.PathError{
-				Op:   "Failed to remove old symlink",
-				Path: symPath,
-				Err:  err,
-			}
-		}
-	} else if !os.IsNotExist(err) {
-		return &os.PathError{
-			Op:   "Failed to locate symlink",
-			Path: symPath,
-			Err:  err,
-		}
-	}
-	if err := os.Symlink(templateFile.Name(), symPath); err != nil {
-		return &os.PathError{
-			Op:   fmt.Sprintf("Failed to create symlink to %s", templateFile.Name()),
-			Path: symPath,
-			Err:  err,
-		}
-	}
 
 	stats.BpfWriteELF.Start()
 	epObj := endpointObj

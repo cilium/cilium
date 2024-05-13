@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,9 +20,6 @@ import (
 const (
 	shaTitle       = "Datapath SHA"
 	endpointsTitle = "Endpoint(s)"
-
-	noSHA     = "<No template used>"
-	brokenSHA = "<Template path invalid>"
 )
 
 var (
@@ -52,24 +50,17 @@ func isEndpointID(name string) bool {
 // getTemplateSHA returns the SHA that should be reported to the user for
 // the specified endpoint ID.
 func getTemplateSHA(epID string) string {
-	// Get symlink from endpointDir
-	templateSymlink := filepath.Join(stateDir, epID, defaults.TemplatePath)
-	f, err := os.Lstat(templateSymlink)
+	contents, err := os.ReadFile(filepath.Join(stateDir, epID, defaults.TemplateIDPath))
 	if err != nil {
-		return noSHA
-	}
-	if f.Mode()&os.ModeSymlink == 0 {
-		return brokenSHA
+		return fmt.Sprintf("<missing %s>", defaults.TemplateIDPath)
 	}
 
-	template, err := os.Readlink(templateSymlink)
-	if err != nil {
-		return brokenSHA
+	templateID := string(bytes.TrimSpace(contents))
+	if _, err := os.Stat(filepath.Join(templatesDir, templateID)); err != nil {
+		return "<template path invalid>"
 	}
-	if _, err = os.Stat(template); err != nil {
-		return brokenSHA
-	}
-	return filepath.Base(filepath.Dir(template))
+
+	return templateID
 }
 
 func dumpShaList() {
