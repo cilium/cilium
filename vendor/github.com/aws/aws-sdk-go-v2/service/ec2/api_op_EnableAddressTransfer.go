@@ -11,9 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Enables Elastic IP address transfer. For more information, see Transfer Elastic
-// IP addresses (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro)
-// in the Amazon Virtual Private Cloud User Guide.
+// Enables Elastic IP address transfer. For more information, see [Transfer Elastic IP addresses] in the Amazon
+// Virtual Private Cloud User Guide.
+//
+// [Transfer Elastic IP addresses]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro
 func (c *Client) EnableAddressTransfer(ctx context.Context, params *EnableAddressTransferInput, optFns ...func(*Options)) (*EnableAddressTransferOutput, error) {
 	if params == nil {
 		params = &EnableAddressTransferInput{}

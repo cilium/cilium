@@ -12,13 +12,16 @@ import (
 )
 
 // Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance that is
-// either running or stopped. If you customized your instance with instance store
-// volumes or Amazon EBS volumes in addition to the root device volume, the new AMI
-// contains block device mapping information for those volumes. When you launch an
-// instance from this new AMI, the instance automatically launches with those
-// additional volumes. For more information, see Create an Amazon EBS-backed Linux
-// AMI (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// either running or stopped.
+//
+// If you customized your instance with instance store volumes or Amazon EBS
+// volumes in addition to the root device volume, the new AMI contains block device
+// mapping information for those volumes. When you launch an instance from this new
+// AMI, the instance automatically launches with those additional volumes.
+//
+// For more information, see [Create an Amazon EBS-backed Linux AMI] in the Amazon Elastic Compute Cloud User Guide.
+//
+// [Create an Amazon EBS-backed Linux AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
 func (c *Client) CreateImage(ctx context.Context, params *CreateImageInput, optFns ...func(*Options)) (*CreateImageOutput, error) {
 	if params == nil {
 		params = &CreateImageInput{}
@@ -41,22 +44,28 @@ type CreateImageInput struct {
 	// This member is required.
 	InstanceId *string
 
-	// A name for the new image. Constraints: 3-128 alphanumeric characters,
-	// parentheses (()), square brackets ([]), spaces ( ), periods (.), slashes (/),
-	// dashes (-), single quotes ('), at-signs (@), or underscores(_)
+	// A name for the new image.
+	//
+	// Constraints: 3-128 alphanumeric characters, parentheses (()), square brackets
+	// ([]), spaces ( ), periods (.), slashes (/), dashes (-), single quotes ('),
+	// at-signs (@), or underscores(_)
 	//
 	// This member is required.
 	Name *string
 
-	// The block device mappings. When using the CreateImage action:
+	// The block device mappings.
+	//
+	// When using the CreateImage action:
+	//
 	//   - You can't change the volume size using the VolumeSize parameter. If you
 	//   want a different volume size, you must first change the volume size of the
 	//   source instance.
+	//
 	//   - You can't modify the encryption status of existing volumes or snapshots. To
 	//   create an AMI with volumes or snapshots that have a different encryption status
 	//   (for example, where the source volume and snapshots are unencrypted, and you
-	//   want to create an AMI with encrypted volumes or snapshots), use the CopyImage
-	//   action.
+	//   want to create an AMI with encrypted volumes or snapshots), use the CopyImageaction.
+	//
 	//   - The only option that can be changed for existing mappings or snapshots is
 	//   DeleteOnTermination .
 	BlockDeviceMappings []types.BlockDeviceMapping
@@ -72,27 +81,35 @@ type CreateImageInput struct {
 
 	// Indicates whether or not the instance should be automatically rebooted before
 	// creating the image. Specify one of the following values:
+	//
 	//   - true - The instance is not rebooted before creating the image. This creates
 	//   crash-consistent snapshots that include only the data that has been written to
 	//   the volumes at the time the snapshots are created. Buffered data and data in
 	//   memory that has not yet been written to the volumes is not included in the
 	//   snapshots.
+	//
 	//   - false - The instance is rebooted before creating the image. This ensures
 	//   that all buffered data and data in memory is written to the volumes before the
 	//   snapshots are created.
+	//
 	// Default: false
 	NoReboot *bool
 
 	// The tags to apply to the AMI and snapshots on creation. You can tag the AMI,
 	// the snapshots, or both.
+	//
 	//   - To tag the AMI, the value for ResourceType must be image .
+	//
 	//   - To tag the snapshots that are created of the root volume and of other
 	//   Amazon EBS volumes that are attached to the instance, the value for
 	//   ResourceType must be snapshot . The same tag is applied to all of the
 	//   snapshots that are created.
-	// If you specify other values for ResourceType , the request fails. To tag an AMI
-	// or snapshot after it has been created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html)
-	// .
+	//
+	// If you specify other values for ResourceType , the request fails.
+	//
+	// To tag an AMI or snapshot after it has been created, see [CreateTags].
+	//
+	// [CreateTags]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html
 	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde

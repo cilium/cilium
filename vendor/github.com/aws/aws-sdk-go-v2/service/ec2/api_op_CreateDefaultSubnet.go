@@ -13,8 +13,9 @@ import (
 
 // Creates a default subnet with a size /20 IPv4 CIDR block in the specified
 // Availability Zone in your default VPC. You can have only one default subnet per
-// Availability Zone. For more information, see Create a default subnet (https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html#create-default-subnet)
-// in the Amazon VPC User Guide.
+// Availability Zone. For more information, see [Create a default subnet]in the Amazon VPC User Guide.
+//
+// [Create a default subnet]: https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html#create-default-subnet
 func (c *Client) CreateDefaultSubnet(ctx context.Context, params *CreateDefaultSubnetInput, optFns ...func(*Options)) (*CreateDefaultSubnetOutput, error) {
 	if params == nil {
 		params = &CreateDefaultSubnetInput{}

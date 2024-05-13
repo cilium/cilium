@@ -36,7 +36,9 @@ type DescribeTrafficMirrorFiltersInput struct {
 	DryRun *bool
 
 	// One or more filters. The possible values are:
+	//
 	//   - description : The Traffic Mirror filter description.
+	//
 	//   - traffic-mirror-filter-id : The ID of the Traffic Mirror filter.
 	Filters []types.Filter
 

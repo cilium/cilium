@@ -29,7 +29,7 @@ func (c *Client) CreateLocalGatewayRouteTable(ctx context.Context, params *Creat
 
 type CreateLocalGatewayRouteTableInput struct {
 
-	// The ID of the local gateway.
+	//  The ID of the local gateway.
 	//
 	// This member is required.
 	LocalGatewayId *string
@@ -40,10 +40,10 @@ type CreateLocalGatewayRouteTableInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The mode of the local gateway route table.
+	//  The mode of the local gateway route table.
 	Mode types.LocalGatewayRouteTableMode
 
-	// The tags assigned to the local gateway route table.
+	//  The tags assigned to the local gateway route table.
 	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde

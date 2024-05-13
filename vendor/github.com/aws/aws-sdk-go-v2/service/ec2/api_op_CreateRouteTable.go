@@ -12,9 +12,11 @@ import (
 )
 
 // Creates a route table for the specified VPC. After you create a route table,
-// you can add routes and associate the table with a subnet. For more information,
-// see Route tables (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
-// in the Amazon VPC User Guide.
+// you can add routes and associate the table with a subnet.
+//
+// For more information, see [Route tables] in the Amazon VPC User Guide.
+//
+// [Route tables]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
 func (c *Client) CreateRouteTable(ctx context.Context, params *CreateRouteTableInput, optFns ...func(*Options)) (*CreateRouteTableOutput, error) {
 	if params == nil {
 		params = &CreateRouteTableInput{}
@@ -38,8 +40,9 @@ type CreateRouteTableInput struct {
 	VpcId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
-	// .
+	// the request. For more information, see [Ensuring idempotency].
+	//
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without

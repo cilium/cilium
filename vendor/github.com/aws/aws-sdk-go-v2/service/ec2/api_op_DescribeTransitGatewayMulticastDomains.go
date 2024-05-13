@@ -36,9 +36,12 @@ type DescribeTransitGatewayMulticastDomainsInput struct {
 	DryRun *bool
 
 	// One or more filters. The possible values are:
+	//
 	//   - state - The state of the transit gateway multicast domain. Valid values are
 	//   pending | available | deleting | deleted .
+	//
 	//   - transit-gateway-id - The ID of the transit gateway.
+	//
 	//   - transit-gateway-multicast-domain-id - The ID of the transit gateway
 	//   multicast domain.
 	Filters []types.Filter

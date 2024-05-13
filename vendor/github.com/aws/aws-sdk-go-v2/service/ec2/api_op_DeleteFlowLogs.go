@@ -29,7 +29,9 @@ func (c *Client) DeleteFlowLogs(ctx context.Context, params *DeleteFlowLogsInput
 
 type DeleteFlowLogsInput struct {
 
-	// One or more flow log IDs. Constraint: Maximum of 1000 flow log IDs.
+	// One or more flow log IDs.
+	//
+	// Constraint: Maximum of 1000 flow log IDs.
 	//
 	// This member is required.
 	FlowLogIds []string

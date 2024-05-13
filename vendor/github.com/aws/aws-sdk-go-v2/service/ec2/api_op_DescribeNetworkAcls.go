@@ -11,9 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more of your network ACLs. For more information, see Network
-// ACLs (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html) in
-// the Amazon VPC User Guide.
+// Describes one or more of your network ACLs.
+//
+// For more information, see [Network ACLs] in the Amazon VPC User Guide.
+//
+// [Network ACLs]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html
 func (c *Client) DescribeNetworkAcls(ctx context.Context, params *DescribeNetworkAclsInput, optFns ...func(*Options)) (*DescribeNetworkAclsOutput, error) {
 	if params == nil {
 		params = &DescribeNetworkAclsInput{}
@@ -38,43 +40,65 @@ type DescribeNetworkAclsInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
 	//   - association.association-id - The ID of an association ID for the ACL.
+	//
 	//   - association.network-acl-id - The ID of the network ACL involved in the
 	//   association.
+	//
 	//   - association.subnet-id - The ID of the subnet involved in the association.
+	//
 	//   - default - Indicates whether the ACL is the default network ACL for the VPC.
+	//
 	//   - entry.cidr - The IPv4 CIDR range specified in the entry.
+	//
 	//   - entry.icmp.code - The ICMP code specified in the entry, if any.
+	//
 	//   - entry.icmp.type - The ICMP type specified in the entry, if any.
+	//
 	//   - entry.ipv6-cidr - The IPv6 CIDR range specified in the entry.
+	//
 	//   - entry.port-range.from - The start of the port range specified in the entry.
+	//
 	//   - entry.port-range.to - The end of the port range specified in the entry.
+	//
 	//   - entry.protocol - The protocol specified in the entry ( tcp | udp | icmp or a
 	//   protocol number).
+	//
 	//   - entry.rule-action - Allows or denies the matching traffic ( allow | deny ).
+	//
 	//   - entry.egress - A Boolean that indicates the type of rule. Specify true for
 	//   egress rules, or false for ingress rules.
+	//
 	//   - entry.rule-number - The number of an entry (in other words, rule) in the set
 	//   of ACL entries.
+	//
 	//   - network-acl-id - The ID of the network ACL.
+	//
 	//   - owner-id - The ID of the Amazon Web Services account that owns the network
 	//   ACL.
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//
 	//   - vpc-id - The ID of the VPC for the network ACL.
 	Filters []types.Filter
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
-	// The IDs of the network ACLs. Default: Describes all your network ACLs.
+	// The IDs of the network ACLs.
+	//
+	// Default: Describes all your network ACLs.
 	NetworkAclIds []string
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -188,8 +212,9 @@ var _ DescribeNetworkAclsAPIClient = (*Client)(nil)
 type DescribeNetworkAclsPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

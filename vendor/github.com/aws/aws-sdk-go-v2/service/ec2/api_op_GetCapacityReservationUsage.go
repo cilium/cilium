@@ -46,8 +46,9 @@ type GetCapacityReservationUsageInput struct {
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token to use to retrieve the next page of results.
@@ -77,15 +78,20 @@ type GetCapacityReservationUsageOutput struct {
 
 	// The current state of the Capacity Reservation. A Capacity Reservation can be in
 	// one of the following states:
+	//
 	//   - active - The Capacity Reservation is active and the capacity is available
 	//   for your use.
+	//
 	//   - expired - The Capacity Reservation expired automatically at the date and
 	//   time specified in your request. The reserved capacity is no longer available for
 	//   your use.
+	//
 	//   - cancelled - The Capacity Reservation was cancelled. The reserved capacity is
 	//   no longer available for your use.
+	//
 	//   - pending - The Capacity Reservation request was successful but the capacity
 	//   provisioning is still pending.
+	//
 	//   - failed - The Capacity Reservation request has failed. A request might fail
 	//   due to invalid request parameters, capacity constraints, or instance limit
 	//   constraints. Failed requests are retained for 60 minutes.

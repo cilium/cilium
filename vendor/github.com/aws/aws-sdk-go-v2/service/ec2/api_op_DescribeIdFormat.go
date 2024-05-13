@@ -14,21 +14,23 @@ import (
 // Describes the ID format settings for your resources on a per-Region basis, for
 // example, to view which resource types are enabled for longer IDs. This request
 // only returns information about resource types whose ID formats can be modified;
-// it does not return information about other resource types. The following
-// resource types support longer IDs: bundle | conversion-task | customer-gateway
-// | dhcp-options | elastic-ip-allocation | elastic-ip-association | export-task |
-// flow-log | image | import-task | instance | internet-gateway | network-acl |
-// network-acl-association | network-interface | network-interface-attachment |
-// prefix-list | reservation | route-table | route-table-association |
-// security-group | snapshot | subnet | subnet-cidr-block-association | volume |
-// vpc | vpc-cidr-block-association | vpc-endpoint | vpc-peering-connection |
-// vpn-connection | vpn-gateway . These settings apply to the IAM user who makes
-// the request; they do not apply to the entire Amazon Web Services account. By
-// default, an IAM user defaults to the same settings as the root user, unless they
-// explicitly override the settings by running the ModifyIdFormat command.
-// Resources created with longer IDs are visible to all IAM users, regardless of
-// these settings and provided that they have permission to use the relevant
-// Describe command for the resource type.
+// it does not return information about other resource types.
+//
+// The following resource types support longer IDs: bundle | conversion-task |
+// customer-gateway | dhcp-options | elastic-ip-allocation | elastic-ip-association
+// | export-task | flow-log | image | import-task | instance | internet-gateway |
+// network-acl | network-acl-association | network-interface |
+// network-interface-attachment | prefix-list | reservation | route-table |
+// route-table-association | security-group | snapshot | subnet |
+// subnet-cidr-block-association | volume | vpc | vpc-cidr-block-association |
+// vpc-endpoint | vpc-peering-connection | vpn-connection | vpn-gateway .
+//
+// These settings apply to the IAM user who makes the request; they do not apply
+// to the entire Amazon Web Services account. By default, an IAM user defaults to
+// the same settings as the root user, unless they explicitly override the settings
+// by running the ModifyIdFormatcommand. Resources created with longer IDs are visible to all
+// IAM users, regardless of these settings and provided that they have permission
+// to use the relevant Describe command for the resource type.
 func (c *Client) DescribeIdFormat(ctx context.Context, params *DescribeIdFormatInput, optFns ...func(*Options)) (*DescribeIdFormatOutput, error) {
 	if params == nil {
 		params = &DescribeIdFormatInput{}

@@ -10,10 +10,13 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This action is deprecated. Disables ClassicLink DNS support for a VPC. If
-// disabled, DNS hostnames resolve to public IP addresses when addressed between a
-// linked EC2-Classic instance and instances in the VPC to which it's linked. You
-// must specify a VPC ID in the request.
+// This action is deprecated.
+//
+// Disables ClassicLink DNS support for a VPC. If disabled, DNS hostnames resolve
+// to public IP addresses when addressed between a linked EC2-Classic instance and
+// instances in the VPC to which it's linked.
+//
+// You must specify a VPC ID in the request.
 func (c *Client) DisableVpcClassicLinkDnsSupport(ctx context.Context, params *DisableVpcClassicLinkDnsSupportInput, optFns ...func(*Options)) (*DisableVpcClassicLinkDnsSupportOutput, error) {
 	if params == nil {
 		params = &DisableVpcClassicLinkDnsSupportInput{}

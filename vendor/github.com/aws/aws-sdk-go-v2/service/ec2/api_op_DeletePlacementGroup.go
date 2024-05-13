@@ -12,8 +12,9 @@ import (
 
 // Deletes the specified placement group. You must terminate all instances in the
 // placement group before you can delete the placement group. For more information,
-// see Placement groups (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
-// in the Amazon EC2 User Guide.
+// see [Placement groups]in the Amazon EC2 User Guide.
+//
+// [Placement groups]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html
 func (c *Client) DeletePlacementGroup(ctx context.Context, params *DeletePlacementGroupInput, optFns ...func(*Options)) (*DeletePlacementGroupOutput, error) {
 	if params == nil {
 		params = &DeletePlacementGroupInput{}

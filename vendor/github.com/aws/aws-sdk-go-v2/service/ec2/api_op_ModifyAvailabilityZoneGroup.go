@@ -12,8 +12,11 @@ import (
 )
 
 // Changes the opt-in status of the Local Zone and Wavelength Zone group for your
-// account. Use DescribeAvailabilityZones (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html)
-// to view the value for GroupName .
+// account.
+//
+// Use [DescribeAvailabilityZones] to view the value for GroupName .
+//
+// [DescribeAvailabilityZones]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html
 func (c *Client) ModifyAvailabilityZoneGroup(ctx context.Context, params *ModifyAvailabilityZoneGroupInput, optFns ...func(*Options)) (*ModifyAvailabilityZoneGroupOutput, error) {
 	if params == nil {
 		params = &ModifyAvailabilityZoneGroupInput{}
@@ -38,9 +41,10 @@ type ModifyAvailabilityZoneGroupInput struct {
 	GroupName *string
 
 	// Indicates whether you are opted in to the Local Zone group or Wavelength Zone
-	// group. The only valid value is opted-in . You must contact Amazon Web Services
-	// Support (https://console.aws.amazon.com/support/home#/case/create%3FissueType=customer-service%26serviceCode=general-info%26getting-started%26categoryCode=using-aws%26services)
-	// to opt out of a Local Zone or Wavelength Zone group.
+	// group. The only valid value is opted-in . You must contact [Amazon Web Services Support] to opt out of a
+	// Local Zone or Wavelength Zone group.
+	//
+	// [Amazon Web Services Support]: https://console.aws.amazon.com/support/home#/case/create%3FissueType=customer-service%26serviceCode=general-info%26getting-started%26categoryCode=using-aws%26services
 	//
 	// This member is required.
 	OptInStatus types.ModifyAvailabilityZoneOptInStatus

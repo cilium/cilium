@@ -39,7 +39,9 @@ type DescribeTrunkInterfaceAssociationsInput struct {
 	DryRun *bool
 
 	// One or more filters.
+	//
 	//   - gre-key - The ID of a trunk interface association.
+	//
 	//   - interface-protocol - The interface protocol. Valid values are VLAN and GRE .
 	Filters []types.Filter
 

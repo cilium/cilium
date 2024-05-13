@@ -15,13 +15,19 @@ import (
 // own and an accepter VPC with which to create the connection. The accepter VPC
 // can belong to another Amazon Web Services account and can be in a different
 // Region to the requester VPC. The requester VPC and accepter VPC cannot have
-// overlapping CIDR blocks. Limitations and rules apply to a VPC peering
-// connection. For more information, see the limitations (https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html#vpc-peering-limitations)
-// section in the VPC Peering Guide. The owner of the accepter VPC must accept the
-// peering request to activate the peering connection. The VPC peering connection
-// request expires after 7 days, after which it cannot be accepted or rejected. If
-// you create a VPC peering connection request between VPCs with overlapping CIDR
-// blocks, the VPC peering connection has a status of failed .
+// overlapping CIDR blocks.
+//
+// Limitations and rules apply to a VPC peering connection. For more information,
+// see the [limitations]section in the VPC Peering Guide.
+//
+// The owner of the accepter VPC must accept the peering request to activate the
+// peering connection. The VPC peering connection request expires after 7 days,
+// after which it cannot be accepted or rejected.
+//
+// If you create a VPC peering connection request between VPCs with overlapping
+// CIDR blocks, the VPC peering connection has a status of failed .
+//
+// [limitations]: https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html#vpc-peering-limitations
 func (c *Client) CreateVpcPeeringConnection(ctx context.Context, params *CreateVpcPeeringConnectionInput, optFns ...func(*Options)) (*CreateVpcPeeringConnectionOutput, error) {
 	if params == nil {
 		params = &CreateVpcPeeringConnectionInput{}
@@ -50,13 +56,15 @@ type CreateVpcPeeringConnectionInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The Amazon Web Services account ID of the owner of the accepter VPC. Default:
-	// Your Amazon Web Services account ID
+	// The Amazon Web Services account ID of the owner of the accepter VPC.
+	//
+	// Default: Your Amazon Web Services account ID
 	PeerOwnerId *string
 
 	// The Region code for the accepter VPC, if the accepter VPC is located in a
-	// Region other than the Region in which you make the request. Default: The Region
-	// in which you make the request.
+	// Region other than the Region in which you make the request.
+	//
+	// Default: The Region in which you make the request.
 	PeerRegion *string
 
 	// The ID of the VPC with which you are creating the VPC peering connection. You

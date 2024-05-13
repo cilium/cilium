@@ -16,22 +16,30 @@ import (
 // Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3.
 // You can copy a snapshot within the same Region, from one Region to another, or
 // from a Region to an Outpost. You can't copy a snapshot from an Outpost to a
-// Region, from one Outpost to another, or within the same Outpost. You can use the
-// snapshot to create EBS volumes or Amazon Machine Images (AMIs). When copying
-// snapshots to a Region, copies of encrypted EBS snapshots remain encrypted.
-// Copies of unencrypted snapshots remain unencrypted, unless you enable encryption
-// for the snapshot copy operation. By default, encrypted snapshot copies use the
-// default Key Management Service (KMS) KMS key; however, you can specify a
-// different KMS key. To copy an encrypted snapshot that has been shared from
-// another account, you must have permissions for the KMS key used to encrypt the
-// snapshot. Snapshots copied to an Outpost are encrypted by default using the
-// default encryption key for the Region, or a different key that you specify in
-// the request using KmsKeyId. Outposts do not support unencrypted snapshots. For
-// more information, Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#ami)
-// in the Amazon EBS User Guide. Snapshots created by copying another snapshot have
-// an arbitrary volume ID that should not be used for any purpose. For more
-// information, see Copy an Amazon EBS snapshot (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-copy-snapshot.html)
-// in the Amazon EBS User Guide.
+// Region, from one Outpost to another, or within the same Outpost.
+//
+// You can use the snapshot to create EBS volumes or Amazon Machine Images (AMIs).
+//
+// When copying snapshots to a Region, copies of encrypted EBS snapshots remain
+// encrypted. Copies of unencrypted snapshots remain unencrypted, unless you enable
+// encryption for the snapshot copy operation. By default, encrypted snapshot
+// copies use the default Key Management Service (KMS) KMS key; however, you can
+// specify a different KMS key. To copy an encrypted snapshot that has been shared
+// from another account, you must have permissions for the KMS key used to encrypt
+// the snapshot.
+//
+// Snapshots copied to an Outpost are encrypted by default using the default
+// encryption key for the Region, or a different key that you specify in the
+// request using KmsKeyId. Outposts do not support unencrypted snapshots. For more
+// information, [Amazon EBS local snapshots on Outposts]in the Amazon EBS User Guide.
+//
+// Snapshots created by copying another snapshot have an arbitrary volume ID that
+// should not be used for any purpose.
+//
+// For more information, see [Copy an Amazon EBS snapshot] in the Amazon EBS User Guide.
+//
+// [Copy an Amazon EBS snapshot]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-copy-snapshot.html
+// [Amazon EBS local snapshots on Outposts]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#ami
 func (c *Client) CopySnapshot(ctx context.Context, params *CopySnapshotInput, optFns ...func(*Options)) (*CopySnapshotOutput, error) {
 	if params == nil {
 		params = &CopySnapshotInput{}
@@ -66,9 +74,11 @@ type CopySnapshotInput struct {
 	// Only specify this parameter when copying a snapshot from an Amazon Web Services
 	// Region to an Outpost. The snapshot must be in the Region for the destination
 	// Outpost. You cannot copy a snapshot from an Outpost to a Region, from one
-	// Outpost to another, or within the same Outpost. For more information, see Copy
-	// snapshots from an Amazon Web Services Region to an Outpost (https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#copy-snapshots)
-	// in the Amazon EBS User Guide.
+	// Outpost to another, or within the same Outpost.
+	//
+	// For more information, see [Copy snapshots from an Amazon Web Services Region to an Outpost] in the Amazon EBS User Guide.
+	//
+	// [Copy snapshots from an Amazon Web Services Region to an Outpost]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#copy-snapshots
 	DestinationOutpostArn *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -81,20 +91,27 @@ type CopySnapshotInput struct {
 	// enabled, enable encryption using this parameter. Otherwise, omit this parameter.
 	// Encrypted snapshots are encrypted, even if you omit this parameter and
 	// encryption by default is not enabled. You cannot set this parameter to false.
-	// For more information, see Amazon EBS encryption (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html)
-	// in the Amazon EBS User Guide.
+	// For more information, see [Amazon EBS encryption]in the Amazon EBS User Guide.
+	//
+	// [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
 	Encrypted *bool
 
 	// The identifier of the Key Management Service (KMS) KMS key to use for Amazon
 	// EBS encryption. If this parameter is not specified, your KMS key for Amazon EBS
-	// is used. If KmsKeyId is specified, the encrypted state must be true . You can
-	// specify the KMS key using any of the following:
+	// is used. If KmsKeyId is specified, the encrypted state must be true .
+	//
+	// You can specify the KMS key using any of the following:
+	//
 	//   - Key ID. For example, 1234abcd-12ab-34cd-56ef-1234567890ab.
+	//
 	//   - Key alias. For example, alias/ExampleAlias.
+	//
 	//   - Key ARN. For example,
 	//   arn:aws:kms:us-east-1:012345678910:key/1234abcd-12ab-34cd-56ef-1234567890ab.
+	//
 	//   - Alias ARN. For example,
 	//   arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
+	//
 	// Amazon Web Services authenticates the KMS key asynchronously. Therefore, if you
 	// specify an ID, alias, or ARN that is not valid, the action can appear to
 	// complete, but eventually fails.
@@ -102,16 +119,19 @@ type CopySnapshotInput struct {
 
 	// When you copy an encrypted source snapshot using the Amazon EC2 Query API, you
 	// must supply a pre-signed URL. This parameter is optional for unencrypted
-	// snapshots. For more information, see Query requests (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html)
-	// . The PresignedUrl should use the snapshot source endpoint, the CopySnapshot
+	// snapshots. For more information, see [Query requests].
+	//
+	// The PresignedUrl should use the snapshot source endpoint, the CopySnapshot
 	// action, and include the SourceRegion , SourceSnapshotId , and DestinationRegion
 	// parameters. The PresignedUrl must be signed using Amazon Web Services Signature
 	// Version 4. Because EBS snapshots are stored in Amazon S3, the signing algorithm
-	// for this parameter uses the same logic that is described in Authenticating
-	// Requests: Using Query Parameters (Amazon Web Services Signature Version 4) (https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html)
-	// in the Amazon Simple Storage Service API Reference. An invalid or improperly
-	// signed PresignedUrl will cause the copy operation to fail asynchronously, and
-	// the snapshot will move to an error state.
+	// for this parameter uses the same logic that is described in [Authenticating Requests: Using Query Parameters (Amazon Web Services Signature Version 4)]in the Amazon
+	// Simple Storage Service API Reference. An invalid or improperly signed
+	// PresignedUrl will cause the copy operation to fail asynchronously, and the
+	// snapshot will move to an error state.
+	//
+	// [Authenticating Requests: Using Query Parameters (Amazon Web Services Signature Version 4)]: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
+	// [Query requests]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html
 	PresignedUrl *string
 
 	// The tags to apply to the new snapshot.

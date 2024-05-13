@@ -32,8 +32,11 @@ func (c *Client) ModifyLaunchTemplate(ctx context.Context, params *ModifyLaunchT
 type ModifyLaunchTemplateInput struct {
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// . Constraint: Maximum 128 ASCII characters.
+	// request. For more information, see [Ensuring idempotency].
+	//
+	// Constraint: Maximum 128 ASCII characters.
+	//
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// The version number of the launch template to set as the default version.
@@ -45,12 +48,16 @@ type ModifyLaunchTemplateInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The ID of the launch template. You must specify either the launch template ID
-	// or the launch template name, but not both.
+	// The ID of the launch template.
+	//
+	// You must specify either the launch template ID or the launch template name, but
+	// not both.
 	LaunchTemplateId *string
 
-	// The name of the launch template. You must specify either the launch template ID
-	// or the launch template name, but not both.
+	// The name of the launch template.
+	//
+	// You must specify either the launch template ID or the launch template name, but
+	// not both.
 	LaunchTemplateName *string
 
 	noSmithyDocumentSerde

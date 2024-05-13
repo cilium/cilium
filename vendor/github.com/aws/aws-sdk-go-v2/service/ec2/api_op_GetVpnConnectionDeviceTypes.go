@@ -13,9 +13,10 @@ import (
 
 // Obtain a list of customer gateway devices for which sample configuration files
 // can be provided. The request has no additional parameters. You can also see the
-// list of device types with sample configuration files available under Your
-// customer gateway device (https://docs.aws.amazon.com/vpn/latest/s2svpn/your-cgw.html)
-// in the Amazon Web Services Site-to-Site VPN User Guide.
+// list of device types with sample configuration files available under [Your customer gateway device]in the
+// Amazon Web Services Site-to-Site VPN User Guide.
+//
+// [Your customer gateway device]: https://docs.aws.amazon.com/vpn/latest/s2svpn/your-cgw.html
 func (c *Client) GetVpnConnectionDeviceTypes(ctx context.Context, params *GetVpnConnectionDeviceTypesInput, optFns ...func(*Options)) (*GetVpnConnectionDeviceTypesOutput, error) {
 	if params == nil {
 		params = &GetVpnConnectionDeviceTypesInput{}

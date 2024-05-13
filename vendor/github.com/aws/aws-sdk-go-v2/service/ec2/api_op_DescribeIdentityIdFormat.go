@@ -15,17 +15,22 @@ import (
 // role, or root user. For example, you can view the resource types that are
 // enabled for longer IDs. This request only returns information about resource
 // types whose ID formats can be modified; it does not return information about
-// other resource types. For more information, see Resource IDs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/resource-ids.html)
-// in the Amazon Elastic Compute Cloud User Guide. The following resource types
-// support longer IDs: bundle | conversion-task | customer-gateway | dhcp-options
-// | elastic-ip-allocation | elastic-ip-association | export-task | flow-log |
-// image | import-task | instance | internet-gateway | network-acl |
-// network-acl-association | network-interface | network-interface-attachment |
-// prefix-list | reservation | route-table | route-table-association |
-// security-group | snapshot | subnet | subnet-cidr-block-association | volume |
-// vpc | vpc-cidr-block-association | vpc-endpoint | vpc-peering-connection |
-// vpn-connection | vpn-gateway . These settings apply to the principal specified
-// in the request. They do not apply to the principal that makes the request.
+// other resource types. For more information, see [Resource IDs]in the Amazon Elastic Compute
+// Cloud User Guide.
+//
+// The following resource types support longer IDs: bundle | conversion-task |
+// customer-gateway | dhcp-options | elastic-ip-allocation | elastic-ip-association
+// | export-task | flow-log | image | import-task | instance | internet-gateway |
+// network-acl | network-acl-association | network-interface |
+// network-interface-attachment | prefix-list | reservation | route-table |
+// route-table-association | security-group | snapshot | subnet |
+// subnet-cidr-block-association | volume | vpc | vpc-cidr-block-association |
+// vpc-endpoint | vpc-peering-connection | vpn-connection | vpn-gateway .
+//
+// These settings apply to the principal specified in the request. They do not
+// apply to the principal that makes the request.
+//
+// [Resource IDs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/resource-ids.html
 func (c *Client) DescribeIdentityIdFormat(ctx context.Context, params *DescribeIdentityIdFormatInput, optFns ...func(*Options)) (*DescribeIdentityIdFormatOutput, error) {
 	if params == nil {
 		params = &DescribeIdentityIdFormatInput{}

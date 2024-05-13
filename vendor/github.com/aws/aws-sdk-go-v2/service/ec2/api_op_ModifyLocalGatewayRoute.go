@@ -38,7 +38,7 @@ type ModifyLocalGatewayRouteInput struct {
 	// match the CIDR of an existing route in the table.
 	DestinationCidrBlock *string
 
-	// The ID of the prefix list. Use a prefix list in place of DestinationCidrBlock .
+	//  The ID of the prefix list. Use a prefix list in place of DestinationCidrBlock .
 	// You cannot use DestinationPrefixListId and DestinationCidrBlock in the same
 	// request.
 	DestinationPrefixListId *string
@@ -49,7 +49,7 @@ type ModifyLocalGatewayRouteInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The ID of the virtual interface group.
+	//  The ID of the virtual interface group.
 	LocalGatewayVirtualInterfaceGroupId *string
 
 	// The ID of the network interface.

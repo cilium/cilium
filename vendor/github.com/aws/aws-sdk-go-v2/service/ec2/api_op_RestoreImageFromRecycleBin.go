@@ -10,8 +10,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Restores an AMI from the Recycle Bin. For more information, see Recycle Bin (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html)
-// in the Amazon EC2 User Guide.
+// Restores an AMI from the Recycle Bin. For more information, see [Recycle Bin] in the Amazon
+// EC2 User Guide.
+//
+// [Recycle Bin]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html
 func (c *Client) RestoreImageFromRecycleBin(ctx context.Context, params *RestoreImageFromRecycleBinInput, optFns ...func(*Options)) (*RestoreImageFromRecycleBinOutput, error) {
 	if params == nil {
 		params = &RestoreImageFromRecycleBinInput{}

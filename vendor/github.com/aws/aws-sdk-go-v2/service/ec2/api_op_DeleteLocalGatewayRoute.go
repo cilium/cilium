@@ -37,7 +37,7 @@ type DeleteLocalGatewayRouteInput struct {
 	// The CIDR range for the route. This must match the CIDR for the route exactly.
 	DestinationCidrBlock *string
 
-	// Use a prefix list in place of DestinationCidrBlock . You cannot use
+	//  Use a prefix list in place of DestinationCidrBlock . You cannot use
 	// DestinationPrefixListId and DestinationCidrBlock in the same request.
 	DestinationPrefixListId *string
 

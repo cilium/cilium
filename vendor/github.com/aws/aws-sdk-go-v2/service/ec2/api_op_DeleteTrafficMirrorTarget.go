@@ -10,8 +10,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified Traffic Mirror target. You cannot delete a Traffic Mirror
-// target that is in use by a Traffic Mirror session.
+// Deletes the specified Traffic Mirror target.
+//
+// You cannot delete a Traffic Mirror target that is in use by a Traffic Mirror
+// session.
 func (c *Client) DeleteTrafficMirrorTarget(ctx context.Context, params *DeleteTrafficMirrorTargetInput, optFns ...func(*Options)) (*DeleteTrafficMirrorTargetOutput, error) {
 	if params == nil {
 		params = &DeleteTrafficMirrorTargetInput{}

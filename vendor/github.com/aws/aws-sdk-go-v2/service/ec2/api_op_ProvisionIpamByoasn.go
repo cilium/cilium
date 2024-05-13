@@ -13,9 +13,10 @@ import (
 
 // Provisions your Autonomous System Number (ASN) for use in your Amazon Web
 // Services account. This action requires authorization context for Amazon to bring
-// the ASN to an Amazon Web Services account. For more information, see Tutorial:
-// Bring your ASN to IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html)
-// in the Amazon VPC IPAM guide.
+// the ASN to an Amazon Web Services account. For more information, see [Tutorial: Bring your ASN to IPAM]in the
+// Amazon VPC IPAM guide.
+//
+// [Tutorial: Bring your ASN to IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html
 func (c *Client) ProvisionIpamByoasn(ctx context.Context, params *ProvisionIpamByoasnInput, optFns ...func(*Options)) (*ProvisionIpamByoasnOutput, error) {
 	if params == nil {
 		params = &ProvisionIpamByoasnInput{}

@@ -11,9 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified event window. For more information, see Define event
-// windows for scheduled events (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html)
-// in the Amazon EC2 User Guide.
+// Deletes the specified event window.
+//
+// For more information, see [Define event windows for scheduled events] in the Amazon EC2 User Guide.
+//
+// [Define event windows for scheduled events]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html
 func (c *Client) DeleteInstanceEventWindow(ctx context.Context, params *DeleteInstanceEventWindowInput, optFns ...func(*Options)) (*DeleteInstanceEventWindowOutput, error) {
 	if params == nil {
 		params = &DeleteInstanceEventWindowInput{}

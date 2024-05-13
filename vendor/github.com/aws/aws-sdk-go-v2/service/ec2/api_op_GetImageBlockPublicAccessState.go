@@ -11,9 +11,11 @@ import (
 )
 
 // Gets the current state of block public access for AMIs at the account level in
-// the specified Amazon Web Services Region. For more information, see Block
-// public access to your AMIs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis)
-// in the Amazon EC2 User Guide.
+// the specified Amazon Web Services Region.
+//
+// For more information, see [Block public access to your AMIs] in the Amazon EC2 User Guide.
+//
+// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis
 func (c *Client) GetImageBlockPublicAccessState(ctx context.Context, params *GetImageBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetImageBlockPublicAccessStateOutput, error) {
 	if params == nil {
 		params = &GetImageBlockPublicAccessStateInput{}
@@ -43,9 +45,13 @@ type GetImageBlockPublicAccessStateInput struct {
 type GetImageBlockPublicAccessStateOutput struct {
 
 	// The current state of block public access for AMIs at the account level in the
-	// specified Amazon Web Services Region. Possible values:
+	// specified Amazon Web Services Region.
+	//
+	// Possible values:
+	//
 	//   - block-new-sharing - Any attempt to publicly share your AMIs in the specified
 	//   Region is blocked.
+	//
 	//   - unblocked - Your AMIs in the specified Region can be publicly shared.
 	ImageBlockPublicAccessState *string
 

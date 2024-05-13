@@ -11,8 +11,10 @@ import (
 )
 
 // Disassociates an Elastic IP address from the instance or network interface it's
-// associated with. This is an idempotent operation. If you perform the operation
-// more than once, Amazon EC2 doesn't return an error.
+// associated with.
+//
+// This is an idempotent operation. If you perform the operation more than once,
+// Amazon EC2 doesn't return an error.
 func (c *Client) DisassociateAddress(ctx context.Context, params *DisassociateAddressInput, optFns ...func(*Options)) (*DisassociateAddressOutput, error) {
 	if params == nil {
 		params = &DisassociateAddressInput{}

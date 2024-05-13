@@ -15,9 +15,11 @@ import (
 // pool is a collection of contiguous IP addresses CIDRs. Pools enable you to
 // organize your IP addresses according to your routing and security needs. For
 // example, if you have separate routing and security needs for development and
-// production applications, you can create a pool for each. For more information,
-// see Create a top-level pool (https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html)
-// in the Amazon VPC IPAM User Guide.
+// production applications, you can create a pool for each.
+//
+// For more information, see [Create a top-level pool] in the Amazon VPC IPAM User Guide.
+//
+// [Create a top-level pool]: https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html
 func (c *Client) CreateIpamPool(ctx context.Context, params *CreateIpamPoolInput, optFns ...func(*Options)) (*CreateIpamPoolOutput, error) {
 	if params == nil {
 		params = &CreateIpamPoolInput{}
@@ -78,7 +80,9 @@ type CreateIpamPoolInput struct {
 	// might be imported and subsequently marked as noncompliant. If IPAM discovers
 	// multiple CIDRs that overlap, IPAM will import the largest CIDR only. If IPAM
 	// discovers multiple CIDRs with matching CIDRs, IPAM will randomly import one of
-	// them only. A locale must be set on the pool for this feature to work.
+	// them only.
+	//
+	// A locale must be set on the pool for this feature to work.
 	AutoImport *bool
 
 	// Limits which service in Amazon Web Services that the pool can be used in.
@@ -86,8 +90,9 @@ type CreateIpamPoolInput struct {
 	AwsService types.IpamPoolAwsService
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
-	// of the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
+	// of the request. For more information, see [Ensuring Idempotency].
+	//
+	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// A description for the IPAM pool.
@@ -105,18 +110,20 @@ type CreateIpamPoolInput struct {
 	// allocate a CIDR for a VPC, for example, from an IPAM pool that shares a locale
 	// with the VPC’s Region. Note that once you choose a Locale for a pool, you cannot
 	// modify it. If you do not choose a locale, resources in Regions others than the
-	// IPAM's home region cannot use CIDRs from this pool. Possible values: Any Amazon
-	// Web Services Region, such as us-east-1.
+	// IPAM's home region cannot use CIDRs from this pool.
+	//
+	// Possible values: Any Amazon Web Services Region, such as us-east-1.
 	Locale *string
 
 	// The IP address source for pools in the public scope. Only used for provisioning
 	// IP address CIDRs to pools in the public scope. Default is byoip . For more
-	// information, see Create IPv6 pools (https://docs.aws.amazon.com/vpc/latest/ipam/intro-create-ipv6-pools.html)
-	// in the Amazon VPC IPAM User Guide. By default, you can add only one
-	// Amazon-provided IPv6 CIDR block to a top-level IPv6 pool if PublicIpSource is
-	// amazon . For information on increasing the default limit, see  Quotas for your
-	// IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/quotas-ipam.html) in the
-	// Amazon VPC IPAM User Guide.
+	// information, see [Create IPv6 pools]in the Amazon VPC IPAM User Guide. By default, you can add
+	// only one Amazon-provided IPv6 CIDR block to a top-level IPv6 pool if
+	// PublicIpSource is amazon . For information on increasing the default limit, see [Quotas for your IPAM]
+	// in the Amazon VPC IPAM User Guide.
+	//
+	// [Create IPv6 pools]: https://docs.aws.amazon.com/vpc/latest/ipam/intro-create-ipv6-pools.html
+	// [Quotas for your IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/quotas-ipam.html
 	PublicIpSource types.IpamPoolPublicIpSource
 
 	// Determines if the pool is publicly advertisable. This option is not available

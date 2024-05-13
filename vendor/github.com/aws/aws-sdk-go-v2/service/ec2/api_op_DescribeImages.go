@@ -19,17 +19,23 @@ import (
 )
 
 // Describes the specified images (AMIs, AKIs, and ARIs) available to you or all
-// of the images available to you. The images available to you include public
-// images, private images that you own, and private images owned by other Amazon
-// Web Services accounts for which you have explicit launch permissions. Recently
-// deregistered images appear in the returned results for a short interval and then
-// return empty results. After all instances that reference a deregistered AMI are
-// terminated, specifying the ID of the image will eventually return an error
-// indicating that the AMI ID cannot be found. We strongly recommend using only
-// paginated requests. Unpaginated requests are susceptible to throttling and
-// timeouts. The order of the elements in the response, including those within
-// nested structures, might vary. Applications should not assume the elements
-// appear in a particular order.
+// of the images available to you.
+//
+// The images available to you include public images, private images that you own,
+// and private images owned by other Amazon Web Services accounts for which you
+// have explicit launch permissions.
+//
+// Recently deregistered images appear in the returned results for a short
+// interval and then return empty results. After all instances that reference a
+// deregistered AMI are terminated, specifying the ID of the image will eventually
+// return an error indicating that the AMI ID cannot be found.
+//
+// We strongly recommend using only paginated requests. Unpaginated requests are
+// susceptible to throttling and timeouts.
+//
+// The order of the elements in the response, including those within nested
+// structures, might vary. Applications should not assume the elements appear in a
+// particular order.
 func (c *Client) DescribeImages(ctx context.Context, params *DescribeImagesInput, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
 	if params == nil {
 		params = &DescribeImagesInput{}
@@ -54,95 +60,138 @@ type DescribeImagesInput struct {
 	DryRun *bool
 
 	// Scopes the images by users with explicit launch permissions. Specify an Amazon
-	// Web Services account ID, self (the sender of the request), or all (public
-	// AMIs).
+	// Web Services account ID, self (the sender of the request), or all (public AMIs).
+	//
 	//   - If you specify an Amazon Web Services account ID that is not your own, only
 	//   AMIs shared with that specific Amazon Web Services account ID are returned.
 	//   However, AMIs that are shared with the account’s organization or organizational
 	//   unit (OU) are not returned.
+	//
 	//   - If you specify self or your own Amazon Web Services account ID, AMIs shared
 	//   with your account are returned. In addition, AMIs that are shared with the
 	//   organization or OU of which you are member are also returned.
+	//
 	//   - If you specify all , all public AMIs are returned.
 	ExecutableUsers []string
 
 	// The filters.
+	//
 	//   - architecture - The image architecture ( i386 | x86_64 | arm64 | x86_64_mac |
 	//   arm64_mac ).
+	//
 	//   - block-device-mapping.delete-on-termination - A Boolean value that indicates
 	//   whether the Amazon EBS volume is deleted on instance termination.
+	//
 	//   - block-device-mapping.device-name - The device name specified in the block
 	//   device mapping (for example, /dev/sdh or xvdh ).
+	//
 	//   - block-device-mapping.snapshot-id - The ID of the snapshot used for the
 	//   Amazon EBS volume.
+	//
 	//   - block-device-mapping.volume-size - The volume size of the Amazon EBS volume,
 	//   in GiB.
+	//
 	//   - block-device-mapping.volume-type - The volume type of the Amazon EBS volume (
 	//   io1 | io2 | gp2 | gp3 | sc1 | st1 | standard ).
+	//
 	//   - block-device-mapping.encrypted - A Boolean that indicates whether the Amazon
 	//   EBS volume is encrypted.
+	//
 	//   - creation-date - The time when the image was created, in the ISO 8601 format
 	//   in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for example,
 	//   2021-09-29T11:04:43.305Z . You can use a wildcard ( * ), for example,
 	//   2021-09-29T* , which matches an entire day.
+	//
 	//   - description - The description of the image (provided during image creation).
+	//
 	//   - ena-support - A Boolean that indicates whether enhanced networking with ENA
 	//   is enabled.
+	//
 	//   - hypervisor - The hypervisor type ( ovm | xen ).
+	//
 	//   - image-id - The ID of the image.
+	//
 	//   - image-type - The image type ( machine | kernel | ramdisk ).
+	//
 	//   - is-public - A Boolean that indicates whether the image is public.
+	//
 	//   - kernel-id - The kernel ID.
+	//
 	//   - manifest-location - The location of the image manifest.
+	//
 	//   - name - The name of the AMI (provided during image creation).
+	//
 	//   - owner-alias - The owner alias ( amazon | aws-marketplace ). The valid
 	//   aliases are defined in an Amazon-maintained list. This is not the Amazon Web
 	//   Services account alias that can be set using the IAM console. We recommend that
 	//   you use the Owner request parameter instead of this filter.
+	//
 	//   - owner-id - The Amazon Web Services account ID of the owner. We recommend
 	//   that you use the Owner request parameter instead of this filter.
+	//
 	//   - platform - The platform. The only supported value is windows .
+	//
 	//   - product-code - The product code.
+	//
 	//   - product-code.type - The type of the product code ( marketplace ).
+	//
 	//   - ramdisk-id - The RAM disk ID.
+	//
 	//   - root-device-name - The device name of the root device volume (for example,
 	//   /dev/sda1 ).
+	//
 	//   - root-device-type - The type of the root device volume ( ebs | instance-store
 	//   ).
+	//
 	//   - source-instance-id - The ID of the instance that the AMI was created from if
 	//   the AMI was created using CreateImage. This filter is applicable only if the AMI
-	//   was created using CreateImage (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html)
-	//   .
+	//   was created using [CreateImage].
+	//
 	//   - state - The state of the image ( available | pending | failed ).
+	//
 	//   - state-reason-code - The reason code for the state change.
+	//
 	//   - state-reason-message - The message for the state change.
+	//
 	//   - sriov-net-support - A value of simple indicates that enhanced networking
 	//   with the Intel 82599 VF interface is enabled.
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//
 	//   - virtualization-type - The virtualization type ( paravirtual | hvm ).
+	//
+	// [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html
 	Filters []types.Filter
 
-	// The image IDs. Default: Describes all images available to you.
+	// The image IDs.
+	//
+	// Default: Describes all images available to you.
 	ImageIds []string
 
-	// Specifies whether to include deprecated AMIs. Default: No deprecated AMIs are
-	// included in the response. If you are the AMI owner, all deprecated AMIs appear
-	// in the response regardless of what you specify for this parameter.
+	// Specifies whether to include deprecated AMIs.
+	//
+	// Default: No deprecated AMIs are included in the response.
+	//
+	// If you are the AMI owner, all deprecated AMIs appear in the response regardless
+	// of what you specify for this parameter.
 	IncludeDeprecated *bool
 
-	// Specifies whether to include disabled AMIs. Default: No disabled AMIs are
-	// included in the response.
+	// Specifies whether to include disabled AMIs.
+	//
+	// Default: No disabled AMIs are included in the response.
 	IncludeDisabled *bool
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -261,8 +310,9 @@ var _ DescribeImagesAPIClient = (*Client)(nil)
 type DescribeImagesPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
-	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// .
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -374,12 +424,13 @@ type ImageAvailableWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeImagesInput, *DescribeImagesOutput, error) (bool, error)
 }
 
@@ -585,12 +636,13 @@ type ImageExistsWaiterOptions struct {
 
 	// Retryable is function that can be used to override the service defined
 	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
 	Retryable func(context.Context, *DescribeImagesInput, *DescribeImagesOutput, error) (bool, error)
 }
 

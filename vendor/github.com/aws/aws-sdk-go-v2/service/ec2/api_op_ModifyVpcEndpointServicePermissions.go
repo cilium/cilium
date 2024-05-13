@@ -13,10 +13,12 @@ import (
 
 // Modifies the permissions for your VPC endpoint service. You can add or remove
 // permissions for service consumers (Amazon Web Services accounts, users, and IAM
-// roles) to connect to your endpoint service. If you grant permissions to all
-// principals, the service is public. Any users who know the name of a public
-// service can send a request to attach an endpoint. If the service does not
-// require manual approval, attachments are automatically approved.
+// roles) to connect to your endpoint service.
+//
+// If you grant permissions to all principals, the service is public. Any users
+// who know the name of a public service can send a request to attach an endpoint.
+// If the service does not require manual approval, attachments are automatically
+// approved.
 func (c *Client) ModifyVpcEndpointServicePermissions(ctx context.Context, params *ModifyVpcEndpointServicePermissionsInput, optFns ...func(*Options)) (*ModifyVpcEndpointServicePermissionsOutput, error) {
 	if params == nil {
 		params = &ModifyVpcEndpointServicePermissionsInput{}
