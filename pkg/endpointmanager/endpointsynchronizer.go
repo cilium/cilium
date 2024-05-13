@@ -51,8 +51,8 @@ type EndpointSynchronizer struct {
 // CiliumEndpoint objects have the same name as the pod they represent.
 func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
 	var (
-		endpointID     = e.ID
-		controllerName = endpoint.EndpointSyncControllerName(endpointID)
+		endpointKey    = e.GetK8sNamespaceAndPodName()
+		controllerName = endpoint.EndpointSyncControllerName(endpointKey)
 		scopedLog      = e.Logger(subsysEndpointSync).WithFields(logrus.Fields{
 			"controller": controllerName,
 			"endpointID": e.ID,
@@ -402,7 +402,7 @@ func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *ciliu
 // CEP from Kubernetes once the endpoint is stopped / removed from the
 // Cilium agent.
 func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
-	controllerName := endpoint.EndpointSyncControllerName(e.ID)
+	controllerName := endpoint.EndpointSyncControllerName(e.GetK8sNamespaceAndPodName())
 
 	scopedLog := e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 

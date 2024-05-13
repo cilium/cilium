@@ -473,9 +473,9 @@ type policyRepoGetter interface {
 }
 
 // EndpointSyncControllerName returns the controller name to synchronize
-// endpoint in to kubernetes.
-func EndpointSyncControllerName(epID uint16) string {
-	return "sync-to-k8s-ciliumendpoint (" + strconv.FormatUint(uint64(epID), 10) + ")"
+// an endpoint into kubernetes.
+func EndpointSyncControllerName(name string) string {
+	return "sync-to-k8s-ciliumendpoint (" + name + ")"
 }
 
 // SetAllocator sets the identity allocator for this endpoint.
@@ -2295,7 +2295,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 
 	// Trigger the sync-to-k8s-ciliumendpoint controller to sync the new
 	// endpoint's identity.
-	e.controllers.TriggerController(EndpointSyncControllerName(e.ID))
+	e.controllers.TriggerController(EndpointSyncControllerName(e.GetK8sNamespaceAndPodName()))
 
 	e.unlock()
 
