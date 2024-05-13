@@ -745,6 +745,8 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 {
 	bool snat_done __maybe_unused = ctx_snat_done(ctx);
 	struct trace_ctx __maybe_unused trace;
+	struct bpf_tunnel_key tunnel_key = {};
+	__u32 src_sec_identity = UNKNOWN_ID;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
 	__s8 ext_err = 0;
@@ -773,7 +775,14 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
 
-	ctx_set_overlay_mark(ctx);
+	/* We might see some unexpected packets without tunnel_key (eg. IPv6 ND).
+	 * No need to worry, the geneve/vxlan kernel drivers will drop them.
+	 */
+	if (!ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0))
+		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id,
+							 ctx_get_protocol(ctx));
+
+	set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_OVERLAY);
 
 #ifdef ENABLE_NODEPORT
 	if (snat_done) {
@@ -785,7 +794,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 out:
 #endif
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
