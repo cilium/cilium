@@ -194,6 +194,10 @@ struct {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
+#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
+#include "act.h"
+#endif
+
 static __always_inline bool lb_is_svc_proto(__u8 proto)
 {
 	switch (proto) {
@@ -913,6 +917,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_err;
 
+#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
+		_lb_act_conn_open(ct_state->rev_nat_index, backend->zone);
+#endif
+
 		break;
 	case CT_REPLY:
 		backend_id = state->backend_id;
@@ -922,6 +930,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		 * session we are likely to get a TCP RST.
 		 */
 		backend = lb6_lookup_backend(ctx, backend_id);
+#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
+		if (state->closing && backend)
+			_lb_act_conn_closed(svc->rev_nat_index, backend->zone);
+#endif
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.
@@ -1556,6 +1568,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_err;
 
+#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
+		_lb_act_conn_open(state->rev_nat_index, backend->zone);
+#endif
+
 		break;
 	case CT_REPLY:
 		backend_id = state->backend_id;
@@ -1565,6 +1581,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 * session we are likely to get a TCP RST.
 		 */
 		backend = lb4_lookup_backend(ctx, backend_id);
+#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
+		if (state->closing && backend)
+			_lb_act_conn_closed(svc->rev_nat_index, backend->zone);
+#endif
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.

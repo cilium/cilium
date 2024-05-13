@@ -345,6 +345,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			} else {
 				entry->tx_closing = 1;
 			}
+			if (ct_state)
+				ct_state->closing = 1;
 
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
