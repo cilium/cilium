@@ -419,7 +419,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[Nod
 	ipv6PublicIndex, ipv6PrivateIndex := -1, -1
 
 	// Do a first pass to pick the addresses.
-	for i, addr := range SortedAddresses(dev.Addrs) {
+	for _, addr := range SortedAddresses(dev.Addrs) {
 		// We keep the scope-based address filtering as was introduced
 		// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
 		skip := addr.Scope > RouteScope(n.AddressScopeMax) || addr.Addr.IsLoopback()
@@ -432,6 +432,9 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[Nod
 			continue
 		}
 
+		// index to which this address is appended.
+		index := len(addrs)
+
 		isPublic := ip.IsPublicAddr(addr.Addr.AsSlice())
 		primary := false
 		if addr.Addr.Is4() {
@@ -440,10 +443,10 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[Nod
 				primary = true
 			}
 			if ipv4PublicIndex < 0 && isPublic {
-				ipv4PublicIndex = i
+				ipv4PublicIndex = index
 			}
 			if ipv4PrivateIndex < 0 && !isPublic {
-				ipv4PrivateIndex = i
+				ipv4PrivateIndex = index
 			}
 		}
 
@@ -454,10 +457,10 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[Nod
 			}
 
 			if ipv6PublicIndex < 0 && isPublic {
-				ipv6PublicIndex = i
+				ipv6PublicIndex = index
 			}
 			if ipv6PrivateIndex < 0 && !isPublic {
-				ipv6PrivateIndex = i
+				ipv6PrivateIndex = index
 			}
 		}
 
