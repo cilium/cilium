@@ -20,8 +20,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -93,7 +93,7 @@ func testCompileOrLoad(t *testing.T, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	err := l.compileOrLoad(ctx, ep, getEpDirs(ep), types.LoaderContext{}, stats)
+	err := l.compileOrLoad(ctx, ep, getEpDirs(ep), datapath.LoaderContext{}, stats)
 	require.NoError(t, err)
 }
 
@@ -172,7 +172,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.compileOrLoad(ctx, ep, getEpDirs(ep), types.LoaderContext{}, stats)
+		err = l.compileOrLoad(ctx, ep, getEpDirs(ep), datapath.LoaderContext{}, stats)
 	}
 	require.Error(t, err)
 }
@@ -205,7 +205,7 @@ func TestBPFMasqAddrs(t *testing.T) {
 
 	l := newTestLoader(t)
 
-	lctx := types.LoaderContext{}
+	lctx := datapath.LoaderContext{}
 
 	masq4, masq6 := l.bpfMasqAddrs(lctx, "test")
 	require.Equal(t, masq4.IsValid(), false)
@@ -327,7 +327,7 @@ func TestSubstituteConfiguration(t *testing.T) {
 	l := newTestLoader(t)
 	stats := &metrics.SpanStat{}
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, t.TempDir())
-	if err := l.CompileOrLoad(ctx, &ep, types.LoaderContext{}, stats); err != nil {
+	if err := l.CompileOrLoad(ctx, &ep, datapath.LoaderContext{}, stats); err != nil {
 		t.Fatal(err)
 	}
 }

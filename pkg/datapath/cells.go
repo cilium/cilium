@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/addressing"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
@@ -81,7 +82,7 @@ var Cell = cell.Module(
 	tables.NodeAddressCell,
 
 	// Provides the legacy accessor for the above, the NodeAddressing interface.
-	tables.NodeAddressingCell,
+	addressing.NodeAddressingCell,
 
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.

@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -144,7 +143,7 @@ type Daemon struct {
 	// implement all aspects of an agent
 	datapath datapath.Datapath
 
-	loader loader.Loader
+	loader datapath.Loader
 
 	// nodeDiscovery defines the node discovery logic of the agent
 	nodeDiscovery  *nodediscovery.NodeDiscovery

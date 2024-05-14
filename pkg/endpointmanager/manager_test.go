@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apiv1 "github.com/cilium/cilium/api/v1/models"
-	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -85,7 +84,7 @@ func (s *EndpointManagerSuite) Datapath() datapath.Datapath {
 	return nil
 }
 
-func (s *EndpointManagerSuite) Loader() loader.Loader {
+func (s *EndpointManagerSuite) Loader() datapath.Loader {
 	return nil
 }
 

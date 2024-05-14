@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,8 +21,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -67,9 +66,6 @@ import (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
-	db                 *statedb.DB
-	devices            statedb.Table[*tables.Device]
-	nodeAddrs          statedb.Table[tables.NodeAddress]
 	log                logrus.FieldLogger
 	nodeMap            nodemap.MapV2
 	nodeAddressing     datapath.NodeAddressing
@@ -87,9 +83,6 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 	}
 	return &HeaderfileWriter{
 		nodeMap:            p.NodeMap,
-		db:                 p.DB,
-		devices:            p.Devices,
-		nodeAddrs:          p.NodeAddresses,
 		nodeAddressing:     p.NodeAddressing,
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
@@ -103,28 +96,23 @@ func writeIncludes(w io.Writer) (int, error) {
 }
 
 // WriteNodeConfig writes the local node configuration to the specified writer.
-func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
-	txn := h.db.ReadTxn()
-
+func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, lctx datapath.LoaderContext, cfg *datapath.LocalNodeConfiguration) error {
 	extraMacrosMap := make(dpdef.Map)
 	cDefinesMap := make(dpdef.Map)
 
-	var nativeDevices []*tables.Device
-	if h.db != nil && h.devices != nil {
-		txn := h.db.ReadTxn()
-		nativeDevices, _ = tables.SelectedDevices(h.devices, txn)
-	}
+	nativeDevices := lctx.Devices
 
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
 
-	routerIP := node.GetIPv6Router()
-	hostIP := node.GetIPv6()
+	ipv6InternalIP := lctx.LocalNode.GetCiliumInternalIP(true)
+	ipv6NodeIP := lctx.LocalNode.GetNodeIP(true)
+	ipv4InternalIP := lctx.LocalNode.GetCiliumInternalIP(false)
+	ipv4NodeIP := lctx.LocalNode.GetNodeIP(false)
 
 	var ipv4NodePortAddrs, ipv6NodePortAddrs []netip.Addr
-	iter, _ := h.nodeAddrs.All(txn)
-	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+	for _, addr := range lctx.NodeAddrs {
 		if !addr.NodePort {
 			continue
 		}
@@ -132,38 +120,43 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			ipv4NodePortAddrs = append(ipv4NodePortAddrs, addr.Addr)
 		} else {
 			ipv6NodePortAddrs = append(ipv6NodePortAddrs, addr.Addr)
-
 		}
 	}
 
 	fmt.Fprintf(fw, "/*\n")
 	if option.Config.EnableIPv6 {
-		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
-		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
+		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", ipv6NodeIP)
+		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", ipv6InternalIP)
 		fmt.Fprintf(fw, " cilium.v6.nodeport.str %v\n", ipv6NodePortAddrs)
 		fmt.Fprintf(fw, "\n")
 	}
-	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetIPv4().String())
-	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4Router().String())
+	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", ipv4NodeIP)
+	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", ipv4InternalIP)
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", ipv4NodePortAddrs)
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
-		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
+		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, ipv6InternalIP))
 	}
-	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4Router()))
+	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, ipv4InternalIP))
 	fmt.Fprintf(fw, " */\n\n")
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
 
 	if option.Config.EnableIPv6 {
-		extraMacrosMap["ROUTER_IP"] = routerIP.String()
-		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
+		extraMacrosMap["ROUTER_IP"] = ipv6InternalIP.String()
+		fw.WriteString(defineIPv6("ROUTER_IP", ipv6InternalIP))
 	}
 
 	if option.Config.EnableIPv4 {
-		ipv4GW := node.GetInternalIPv4Router()
-		loopbackIPv4 := node.GetIPv4Loopback()
-		ipv4Range := node.GetIPv4AllocRange()
+		if ipv4InternalIP == nil {
+			return errors.New("internal IPv4 not defined")
+		}
+		ipv4Range := lctx.LocalNode.IPv4AllocCIDR
+		if ipv4Range == nil {
+			return errors.New("IPv4 range not defined")
+		}
+		ipv4GW := ipv4InternalIP
+		loopbackIPv4 := lctx.LocalNode.IPv4Loopback
 		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
 		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(loopbackIPv4))
 		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(ipv4Range.Mask)))
@@ -176,8 +169,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableIPv6 {
-		extraMacrosMap["HOST_IP"] = hostIP.String()
-		fw.WriteString(defineIPv6("HOST_IP", hostIP))
+		if ipv6NodeIP == nil {
+			return errors.New("internal IPv6 not defined")
+		}
+		extraMacrosMap["HOST_IP"] = ipv6NodeIP.String()
+		fw.WriteString(defineIPv6("HOST_IP", ipv6NodeIP))
 	}
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
@@ -339,11 +335,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictModeCIDR.Addr()))
 		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictModeCIDR.Bits())
 
-		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(node.GetIPv4()))
+		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4NodeIP))
 
-		ipv4Interface, ok := netip.AddrFromSlice(node.GetIPv4().To4())
+		ipv4Interface, ok := netip.AddrFromSlice(ipv4NodeIP)
 		if !ok {
-			return fmt.Errorf("unable to parse node IPv4 address %s", node.GetIPv4())
+			return fmt.Errorf("unable to parse node IPv4 address %s", ipv4NodeIP)
 		}
 
 		if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
@@ -610,7 +606,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableIPSec {
-		nodeAddress := node.GetIPv4()
+		nodeAddress := ipv4NodeIP
 		if nodeAddress == nil {
 			return errors.New("external IPv4 node address is required when IPSec is enabled, but none found")
 		}
@@ -1048,17 +1044,10 @@ func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e dat
 }
 
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
-func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, lctx datapath.LoaderContext, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 
-	var (
-		nativeDevices []*tables.Device
-		deviceNames   []string
-	)
-	if h.db != nil && h.devices != nil {
-		nativeDevices, _ = tables.SelectedDevices(h.devices, h.db.ReadTxn())
-		deviceNames = tables.DeviceNames(nativeDevices)
-	}
+	deviceNames := slices.Clone(lctx.DeviceNames)
 
 	// Add cilium_wg0 if necessary.
 	if option.Config.NeedBPFHostOnWireGuardDevice() {
@@ -1068,7 +1057,7 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e datapath.EndpointC
 	writeIncludes(w)
 	h.writeStaticData(deviceNames, fw, e)
 
-	return h.writeTemplateConfig(fw, nativeDevices, e)
+	return h.writeTemplateConfig(fw, lctx.Devices, e)
 }
 
 func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []*tables.Device, e datapath.EndpointConfiguration) error {
@@ -1125,11 +1114,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []*tabl
 }
 
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
-func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, lctx datapath.LoaderContext, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
-	var nativeDevices []*tables.Device
-	if h.db != nil && h.devices != nil {
-		nativeDevices, _ = tables.SelectedDevices(h.devices, h.db.ReadTxn())
-	}
-	return h.writeTemplateConfig(fw, nativeDevices, e)
+	return h.writeTemplateConfig(fw, lctx.Devices, e)
 }

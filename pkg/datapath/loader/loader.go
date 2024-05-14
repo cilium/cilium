@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -136,7 +135,7 @@ func (l *loader) init() {
 		}
 		elf.IgnoreSymbolPrefixes(ignorePrefixes)
 	})
-	l.templateCache.Update(&l.localNodeConfig)
+	l.templateCache.Update(datapath.LoaderContext{}, &l.localNodeConfig)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -179,7 +178,7 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 	return nullStrings
 }
 
-func (l *loader) bpfMasqAddrs(lctx types.LoaderContext, ifName string) (masq4, masq6 netip.Addr) {
+func (l *loader) bpfMasqAddrs(lctx datapath.LoaderContext, ifName string) (masq4, masq6 netip.Addr) {
 	if l.cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
@@ -220,7 +219,7 @@ func (l *loader) bpfMasqAddrs(lctx types.LoaderContext, ifName string) (masq4, m
 // (cilium_host).
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
-func (l *loader) patchHostNetdevDatapath(lctx types.LoaderContext, ep datapath.Endpoint, objPath, dstPath, ifName string) error {
+func (l *loader) patchHostNetdevDatapath(lctx datapath.LoaderContext, ep datapath.Endpoint, objPath, dstPath, ifName string) error {
 	hostObj, err := elf.Open(objPath)
 	if err != nil {
 		return err
@@ -373,7 +372,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - cilium_host: ingress and egress
 // - cilium_net: ingress
 // - native devices: ingress and (optionally) egress if certain features require it
-func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string, lctx types.LoaderContext) error {
+func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string, lctx datapath.LoaderContext) error {
 	// Warning: here be dragons. There used to be a single loop over
 	// interfaces+objs+progs here from the iproute2 days, but this was never
 	// correct to begin with. Tail call maps were always reused when possible,
@@ -527,7 +526,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	return nil
 }
 
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, lctx types.LoaderContext) error {
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, lctx datapath.LoaderContext) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 	device := ep.InterfaceName()
@@ -648,7 +647,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, lctx types.LoaderContext, stats *metrics.SpanStat) error {
+func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, lctx datapath.LoaderContext, stats *metrics.SpanStat) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -658,8 +657,8 @@ func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, lctx t
 	return l.compileOrLoad(ctx, ep, dirs, lctx, stats)
 }
 
-func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, lctx types.LoaderContext, stats *metrics.SpanStat) error {
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, dirs, stats)
+func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, lctx datapath.LoaderContext, stats *metrics.SpanStat) error {
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, lctx, ep, dirs, stats)
 	if err != nil {
 		return err
 	}
@@ -712,7 +711,7 @@ func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *
 }
 
 // ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx types.LoaderContext, stats *metrics.SpanStat) (err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx datapath.LoaderContext, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,

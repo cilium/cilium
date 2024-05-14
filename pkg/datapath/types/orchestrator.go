@@ -5,6 +5,7 @@ package types
 
 import (
 	"context"
+	"io"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 )
@@ -17,4 +18,5 @@ type Orchestrator interface {
 	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
+	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
 }

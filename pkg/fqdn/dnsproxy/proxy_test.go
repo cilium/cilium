@@ -23,7 +23,6 @@ import (
 	"golang.org/x/exp/maps"
 	"sigs.k8s.io/yaml"
 
-	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -178,7 +177,7 @@ func (s *DNSProxyTestSuite) Datapath() datapath.Datapath {
 	return nil
 }
 
-func (s *DNSProxyTestSuite) Loader() loader.Loader {
+func (s *DNSProxyTestSuite) Loader() datapath.Loader {
 	return nil
 }
 

@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -299,7 +298,7 @@ func (ds *DaemonSuite) Datapath() datapath.Datapath {
 	return ds.d.datapath
 }
 
-func (ds *DaemonSuite) Loader() loaderTypes.Loader {
+func (ds *DaemonSuite) Loader() datapath.Loader {
 	return ds.d.loader
 }
 

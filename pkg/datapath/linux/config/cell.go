@@ -5,12 +5,10 @@ package config
 
 import (
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 )
@@ -24,9 +22,6 @@ type WriterParams struct {
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
 	Sysctl             sysctl.Sysctl
-	DB                 *statedb.DB
-	Devices            statedb.Table[*tables.Device]
-	NodeAddresses      statedb.Table[tables.NodeAddress]
 }
 
 var Cell = cell.Module(
