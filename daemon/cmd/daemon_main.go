@@ -835,11 +835,11 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
 	option.BindEnv(vp, option.DNSProxyConcurrencyProcessingGracePeriod)
 
-	flags.Int(option.DNSProxyLockCount, 131, "Array size containing mutexes which protect against parallel handling of DNS response names. Preferably use prime numbers")
+	flags.Int(option.DNSProxyLockCount, defaults.DNSProxyLockCount, "Array size containing mutexes which protect against parallel handling of DNS response names. Preferably use prime numbers")
 	flags.MarkHidden(option.DNSProxyLockCount)
 	option.BindEnv(vp, option.DNSProxyLockCount)
 
-	flags.Duration(option.DNSProxyLockTimeout, 500*time.Millisecond, fmt.Sprintf("Timeout when acquiring the locks controlled by --%s", option.DNSProxyLockCount))
+	flags.Duration(option.DNSProxyLockTimeout, defaults.DNSProxyLockTimeout, fmt.Sprintf("Timeout when acquiring the locks controlled by --%s", option.DNSProxyLockCount))
 	flags.MarkHidden(option.DNSProxyLockTimeout)
 	option.BindEnv(vp, option.DNSProxyLockTimeout)
 
