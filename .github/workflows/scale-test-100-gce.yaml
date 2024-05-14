@@ -215,6 +215,7 @@ jobs:
           export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
           export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=2.0
+          export CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST=true
 
           # CL2 hardcodes module paths to live in ./testing/load, even
           # if the path given is relative.
