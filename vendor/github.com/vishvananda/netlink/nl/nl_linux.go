@@ -565,6 +565,11 @@ done:
 			}
 
 			if m.Header.Type == unix.NLMSG_DONE || m.Header.Type == unix.NLMSG_ERROR {
+				// NLMSG_DONE might have no payload, if so assume no error.
+				if m.Header.Type == unix.NLMSG_DONE && len(m.Data) == 0 {
+					break done
+				}
+
 				native := NativeEndian()
 				errno := int32(native.Uint32(m.Data[0:4]))
 				if errno == 0 {
@@ -903,6 +908,22 @@ func ParseRouteAttr(b []byte) ([]syscall.NetlinkRouteAttr, error) {
 		b = b[alen:]
 	}
 	return attrs, nil
+}
+
+// ParseRouteAttrAsMap parses provided buffer that contains raw RtAttrs and returns a map of parsed
+// atttributes indexed by attribute type or error if occured.
+func ParseRouteAttrAsMap(b []byte) (map[uint16]syscall.NetlinkRouteAttr, error) {
+	attrMap := make(map[uint16]syscall.NetlinkRouteAttr)
+
+	attrs, err := ParseRouteAttr(b)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, attr := range attrs {
+		attrMap[attr.Attr.Type] = attr
+	}
+	return attrMap, nil
 }
 
 func netlinkRouteAttrAndValue(b []byte) (*unix.RtAttr, []byte, int, error) {

@@ -204,6 +204,10 @@ func RouteAppend(route *Route) error {
 	return ErrNotImplemented
 }
 
+func RouteChange(route *Route) error {
+	return ErrNotImplemented
+}
+
 func RouteDel(route *Route) error {
 	return ErrNotImplemented
 }

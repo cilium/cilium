@@ -33,6 +33,7 @@ type LinkAttrs struct {
 	MasterIndex    int         // must be the index of a bridge
 	Namespace      interface{} // nil | NsPid | NsFd
 	Alias          string
+	AltNames       []string
 	Statistics     *LinkStatistics
 	Promisc        int
 	Allmulti       int

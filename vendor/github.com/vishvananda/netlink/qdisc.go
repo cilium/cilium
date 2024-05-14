@@ -28,6 +28,8 @@ type Qdisc interface {
 	Type() string
 }
 
+type QdiscStatistics ClassStatistics
+
 // QdiscAttrs represents a netlink qdisc. A qdisc is associated with a link,
 // has a handle, a parent and a refcnt. The root qdisc of a device should
 // have parent == HANDLE_ROOT.
@@ -37,6 +39,7 @@ type QdiscAttrs struct {
 	Parent       uint32
 	Refcnt       uint32 // read only
 	IngressBlock *uint32
+	Statistics   *QdiscStatistics
 }
 
 func (q QdiscAttrs) String() string {
@@ -215,6 +218,19 @@ func (qdisc *Tbf) Attrs() *QdiscAttrs {
 
 func (qdisc *Tbf) Type() string {
 	return "tbf"
+}
+
+// Clsact is a qdisc for adding filters
+type Clsact struct {
+	QdiscAttrs
+}
+
+func (qdisc *Clsact) Attrs() *QdiscAttrs {
+	return &qdisc.QdiscAttrs
+}
+
+func (qdisc *Clsact) Type() string {
+	return "clsact"
 }
 
 // Ingress is a qdisc for adding ingress filters

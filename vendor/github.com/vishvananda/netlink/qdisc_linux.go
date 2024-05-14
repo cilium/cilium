@@ -234,6 +234,8 @@ func qdiscPayload(req *nl.NetlinkRequest, qdisc Qdisc) error {
 		if reorder.Probability > 0 {
 			options.AddRtAttr(nl.TCA_NETEM_REORDER, reorder.Serialize())
 		}
+	case *Clsact:
+		options = nil
 	case *Ingress:
 		// ingress filters must use the proper handle
 		if qdisc.Attrs().Parent != HANDLE_INGRESS {
@@ -392,6 +394,8 @@ func (h *Handle) QdiscList(link Link) ([]Qdisc, error) {
 					qdisc = &Netem{}
 				case "sfq":
 					qdisc = &Sfq{}
+				case "clsact":
+					qdisc = &Clsact{}
 				default:
 					qdisc = &GenericQdisc{QdiscType: qdiscType}
 				}
@@ -458,6 +462,18 @@ func (h *Handle) QdiscList(link Link) ([]Qdisc, error) {
 				ingressBlock := new(uint32)
 				*ingressBlock = native.Uint32(attr.Value)
 				base.IngressBlock = ingressBlock
+			case nl.TCA_STATS:
+				s, err := parseTcStats(attr.Value)
+				if err != nil {
+					return nil, err
+				}
+				base.Statistics = (*QdiscStatistics)(s)
+			case nl.TCA_STATS2:
+				s, err := parseTcStats2(attr.Value)
+				if err != nil {
+					return nil, err
+				}
+				base.Statistics = (*QdiscStatistics)(s)
 			}
 		}
 		*qdisc.Attrs() = base
