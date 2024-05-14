@@ -15,8 +15,97 @@ func (in *LoaderContext) DeepEqual(other *LoaderContext) bool {
 		return false
 	}
 
-	if !in.LocalNode.DeepEqual(&other.LocalNode) {
+	if ((in.NodeIPv4 != nil) && (other.NodeIPv4 != nil)) || ((in.NodeIPv4 == nil) != (other.NodeIPv4 == nil)) {
+		in, other := &in.NodeIPv4, &other.NodeIPv4
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.NodeIPv6 != nil) && (other.NodeIPv6 != nil)) || ((in.NodeIPv6 == nil) != (other.NodeIPv6 == nil)) {
+		in, other := &in.NodeIPv6, &other.NodeIPv6
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.InternalIPv4 != nil) && (other.InternalIPv4 != nil)) || ((in.InternalIPv4 == nil) != (other.InternalIPv4 == nil)) {
+		in, other := &in.InternalIPv4, &other.InternalIPv4
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.InternalIPv6 != nil) && (other.InternalIPv6 != nil)) || ((in.InternalIPv6 == nil) != (other.InternalIPv6 == nil)) {
+		in, other := &in.InternalIPv6, &other.InternalIPv6
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if (in.RangeIPv4 == nil) != (other.RangeIPv4 == nil) {
 		return false
+	} else if in.RangeIPv4 != nil {
+		if !in.RangeIPv4.DeepEqual(other.RangeIPv4) {
+			return false
+		}
+	}
+
+	if ((in.LoopbackIPv4 != nil) && (other.LoopbackIPv4 != nil)) || ((in.LoopbackIPv4 == nil) != (other.LoopbackIPv4 == nil)) {
+		in, other := &in.LoopbackIPv4, &other.LoopbackIPv4
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
 	}
 
 	if ((in.Devices != nil) && (other.Devices != nil)) || ((in.Devices == nil) != (other.Devices == nil)) {

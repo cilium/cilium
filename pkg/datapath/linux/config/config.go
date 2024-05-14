@@ -106,11 +106,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, lctx datapath.LoaderCont
 
 	writeIncludes(w)
 
-	ipv6InternalIP := lctx.LocalNode.GetCiliumInternalIP(true)
-	ipv6NodeIP := lctx.LocalNode.GetNodeIP(true)
-	ipv4InternalIP := lctx.LocalNode.GetCiliumInternalIP(false)
-	ipv4NodeIP := lctx.LocalNode.GetNodeIP(false)
-
 	var ipv4NodePortAddrs, ipv6NodePortAddrs []netip.Addr
 	for _, addr := range lctx.NodeAddrs {
 		if !addr.NodePort {
@@ -125,41 +120,40 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, lctx datapath.LoaderCont
 
 	fmt.Fprintf(fw, "/*\n")
 	if option.Config.EnableIPv6 {
-		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", ipv6NodeIP)
-		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", ipv6InternalIP)
+		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", lctx.NodeIPv6)
+		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", lctx.InternalIPv6)
 		fmt.Fprintf(fw, " cilium.v6.nodeport.str %v\n", ipv6NodePortAddrs)
 		fmt.Fprintf(fw, "\n")
 	}
-	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", ipv4NodeIP)
-	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", ipv4InternalIP)
+	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", lctx.NodeIPv4)
+	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", lctx.InternalIPv4)
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", ipv4NodePortAddrs)
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
-		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, ipv6InternalIP))
+		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, lctx.InternalIPv6))
 	}
-	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, ipv4InternalIP))
+	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, lctx.InternalIPv4))
 	fmt.Fprintf(fw, " */\n\n")
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
 
 	if option.Config.EnableIPv6 {
-		extraMacrosMap["ROUTER_IP"] = ipv6InternalIP.String()
-		fw.WriteString(defineIPv6("ROUTER_IP", ipv6InternalIP))
+		extraMacrosMap["ROUTER_IP"] = lctx.InternalIPv6.String()
+		fw.WriteString(defineIPv6("ROUTER_IP", lctx.InternalIPv6))
 	}
 
 	if option.Config.EnableIPv4 {
-		if ipv4InternalIP == nil {
+		if lctx.InternalIPv4 == nil {
 			return errors.New("internal IPv4 not defined")
 		}
-		ipv4Range := lctx.LocalNode.IPv4AllocCIDR
-		if ipv4Range == nil {
+		if lctx.RangeIPv4 == nil {
 			return errors.New("IPv4 range not defined")
 		}
-		ipv4GW := ipv4InternalIP
-		loopbackIPv4 := lctx.LocalNode.IPv4Loopback
+		ipv4GW := lctx.InternalIPv4
+		loopbackIPv4 := lctx.LoopbackIPv4
 		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
 		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(loopbackIPv4))
-		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(ipv4Range.Mask)))
+		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(lctx.RangeIPv4.Mask)))
 
 		if option.Config.EnableIPv4FragmentsTracking {
 			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
@@ -169,11 +163,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, lctx datapath.LoaderCont
 	}
 
 	if option.Config.EnableIPv6 {
-		if ipv6NodeIP == nil {
+		if lctx.NodeIPv6 == nil {
 			return errors.New("internal IPv6 not defined")
 		}
-		extraMacrosMap["HOST_IP"] = ipv6NodeIP.String()
-		fw.WriteString(defineIPv6("HOST_IP", ipv6NodeIP))
+		extraMacrosMap["HOST_IP"] = lctx.NodeIPv6.String()
+		fw.WriteString(defineIPv6("HOST_IP", lctx.NodeIPv6))
 	}
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
@@ -335,11 +329,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, lctx datapath.LoaderCont
 		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictModeCIDR.Addr()))
 		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictModeCIDR.Bits())
 
-		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4NodeIP))
+		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(lctx.NodeIPv4))
 
-		ipv4Interface, ok := netip.AddrFromSlice(ipv4NodeIP)
+		ipv4Interface, ok := netip.AddrFromSlice(lctx.NodeIPv4)
 		if !ok {
-			return fmt.Errorf("unable to parse node IPv4 address %s", ipv4NodeIP)
+			return fmt.Errorf("unable to parse node IPv4 address %s", lctx.NodeIPv4)
 		}
 
 		if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
@@ -606,7 +600,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, lctx datapath.LoaderCont
 	}
 
 	if option.Config.EnableIPSec {
-		nodeAddress := ipv4NodeIP
+		nodeAddress := lctx.NodeIPv4
 		if nodeAddress == nil {
 			return errors.New("external IPv4 node address is required when IPSec is enabled, but none found")
 		}
