@@ -459,7 +459,6 @@ Makefile* @cilium/build
 /pkg/fqdn/ @cilium/fqdn
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/gops/ @cilium/sig-agent
-/pkg/healthv2/ @cilium/sig-foundations
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble

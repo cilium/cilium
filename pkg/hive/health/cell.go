@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package healthv2
+package health
 
 import (
 	"github.com/cilium/hive/cell"
@@ -9,11 +9,11 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
-	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 )
 
 var Cell = cell.Module(
-	"healthv2",
+	"health",
 	"Modular Health Provider V2",
 	cell.ProvidePrivate(newTablesPrivate),
 	cell.Provide(

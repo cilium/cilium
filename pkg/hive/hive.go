@@ -17,8 +17,8 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/healthv2"
-	healthTypes "github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -40,7 +40,7 @@ func New(cells ...cell.Cell) *Hive {
 	cells = append(
 		slices.Clone(cells),
 
-		healthv2.Cell,
+		health.Cell,
 		job.Cell,
 		statedb.Cell,
 
@@ -48,7 +48,7 @@ func New(cells ...cell.Cell) *Hive {
 			NewStateDBMetrics,
 			NewStateDBReconcilerMetrics,
 			func() logrus.FieldLogger { return logging.DefaultLogger },
-			func(provider healthTypes.Provider) cell.Health {
+			func(provider types.Provider) cell.Health {
 				return provider.ForModule(nil)
 			},
 		))
@@ -57,7 +57,7 @@ func New(cells ...cell.Cell) *Hive {
 		func(log logrus.FieldLogger, mid cell.ModuleID) logrus.FieldLogger {
 			return log.WithField(logfields.LogSubsys, string(mid))
 		},
-		func(hp healthTypes.Provider, fmid cell.FullModuleID) cell.Health {
+		func(hp types.Provider, fmid cell.FullModuleID) cell.Health {
 			return hp.ForModule(fmid)
 		},
 	}

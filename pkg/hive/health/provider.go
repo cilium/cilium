@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package healthv2
+package health
 
 import (
 	"context"
@@ -12,13 +12,13 @@ import (
 
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "healthv2")
+var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "health")
 
 type HealthProviderParams struct {
 	cell.In
