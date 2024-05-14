@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package healthv2
+package health
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 )
 
 func allStatus(db *statedb.DB, statusTable statedb.RWTable[types.Status]) []types.Status {

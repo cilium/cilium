@@ -48,7 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/healthv2/types"
+	hiveHealth "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -207,7 +207,7 @@ type Daemon struct {
 	// read-only map of all the hive settings
 	settings cellSettings
 
-	healthV2Provider types.Provider
+	healthProvider hiveHealth.Provider
 
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
@@ -444,7 +444,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		envoyXdsServer:       params.EnvoyXdsServer,
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
-		healthV2Provider:     params.HealthV2Provider,
+		healthProvider:       params.HealthV2Provider,
 		bigTCPConfig:         params.BigTCPConfig,
 		tunnelConfig:         params.TunnelConfig,
 		bwManager:            params.BandwidthManager,
