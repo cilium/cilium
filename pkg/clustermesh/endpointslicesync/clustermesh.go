@@ -6,6 +6,7 @@ package endpointslicesync
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"slices"
@@ -75,6 +76,7 @@ type ClusterMesh interface {
 	// This should NOT be called after the Start hook.
 	RegisterClusterServiceDeleteHook(clusterServiceDeleteHook func(*serviceStore.ClusterService))
 
+	ServicesSynced(ctx context.Context) error
 	GlobalServices() *common.GlobalServiceCache
 }
 
@@ -237,9 +239,10 @@ func (cm *clusterMesh) Start(startCtx cell.HookContext) error {
 	}
 
 	go func() {
-		// Wait for clustermesh services to be synced
-		cm.ServicesSynced(cm.context)
-
+		if err := cm.ServicesSynced(cm.context); err != nil &&
+			!errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+			log.Warnf("Error waiting for cluster mesh services to be synced: %s", err)
+		}
 		cm.endpointSliceMeshController.Run(cm.context, cm.concurrentClusterMeshEndpointSync)
 	}()
 
