@@ -1224,8 +1224,8 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 		return send_drop_notify(ctx, sec_label, id, 0, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
-		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
-				  TRACE_REASON_UNKNOWN, 0);
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0,
+				  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_UNKNOWN, 0);
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
@@ -1441,7 +1441,8 @@ skip_host_firewall:
 			 * for tracepoint
 			 */
 			send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
-					  0, TRACE_REASON_ENCRYPT_OVERLAY, 0);
+					  TRACE_IFINDEX_UNKNOWN,
+					  TRACE_REASON_ENCRYPT_OVERLAY, 0);
 			return ret;
 		}
 		if (IS_ERR(ret))
@@ -1510,7 +1511,7 @@ exit:
 		goto drop_err;
 
 	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
-			  0, trace.reason, trace.monitor);
+			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
 
 	return ret;
 

@@ -467,7 +467,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
-					  0, 0, 0, trace.reason,
+					  0, 0, TRACE_IFINDEX_UNKNOWN, trace.reason,
 					  trace.monitor);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
@@ -548,7 +548,7 @@ ct_recreate6:
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  *dst_sec_identity, 0, 0,
+					  *dst_sec_identity, 0, TRACE_IFINDEX_UNKNOWN,
 					  trace.reason, trace.monitor);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT,
 						  ext_err);
@@ -588,7 +588,7 @@ ct_recreate6:
 	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, 0,
-				  bpf_ntohs(proxy_port), 0,
+				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
 				  trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
@@ -729,8 +729,8 @@ pass_to_stack:
 #ifdef TUNNEL_MODE
 encrypt_to_stack:
 #endif
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity, 0, 0,
-			  trace.reason, trace.monitor);
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity, 0,
+			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
@@ -905,7 +905,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
-					  0, 0, 0, trace.reason,
+					  0, 0, TRACE_IFINDEX_UNKNOWN, trace.reason,
 					  trace.monitor);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
@@ -1015,7 +1015,7 @@ ct_recreate4:
 		 */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
-					  *dst_sec_identity, 0, 0,
+					  *dst_sec_identity, 0, TRACE_IFINDEX_UNKNOWN,
 					  trace.reason, trace.monitor);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 						  ext_err);
@@ -1069,7 +1069,7 @@ ct_recreate4:
 	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, 0,
-				  bpf_ntohs(proxy_port), 0,
+				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
 				  trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
@@ -1323,8 +1323,8 @@ pass_to_stack:
 #if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 encrypt_to_stack:
 #endif
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity, 0, 0,
-			  trace.reason, trace.monitor);
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity, 0,
+			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
@@ -1466,8 +1466,9 @@ int cil_from_container(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	reset_queue_mapping(ctx);
 
-	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, 0, 0, 0,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, 0, 0,
+			  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_UNKNOWN,
+			  TRACE_PAYLOAD_LEN);
 
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
@@ -2365,7 +2366,7 @@ int handle_policy_egress(struct __ctx_buff *ctx)
 
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
 	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, 0, 0,
-			  0 /*ifindex*/,
+			  TRACE_IFINDEX_UNKNOWN,
 			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 
 	switch (proto) {
