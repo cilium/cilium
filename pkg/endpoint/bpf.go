@@ -62,13 +62,13 @@ func (e *Endpoint) policyMapPath() string {
 
 // callsMapPath returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) callsMapPath() string {
-	return e.owner.Datapath().Loader().CallsMapPath(e.ID)
+	return e.owner.Loader().CallsMapPath(e.ID)
 }
 
 // callsCustomMapPath returns the path to cilium custom tail calls map of an
 // endpoint.
 func (e *Endpoint) customCallsMapPath() string {
-	return e.owner.Datapath().Loader().CustomCallsMapPath(e.ID)
+	return e.owner.Loader().CustomCallsMapPath(e.ID)
 }
 
 // writeInformationalComments writes annotations to the specified writer,
@@ -899,7 +899,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
-	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Datapath().Loader().EndpointHash(e)
+	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Loader().EndpointHash(e)
 	if err != nil {
 		return fmt.Errorf("hash header file: %w", err)
 	}

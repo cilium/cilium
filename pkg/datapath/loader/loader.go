@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -81,8 +82,6 @@ type loader struct {
 	hostDpInitialized     chan struct{}
 
 	sysctl          sysctl.Sysctl
-	db              *statedb.DB
-	nodeAddrs       statedb.Table[tables.NodeAddress]
 	prefilter       datapath.PreFilter
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
@@ -94,8 +93,6 @@ type Params struct {
 	cell.In
 
 	Config          Config
-	DB              *statedb.DB
-	NodeAddrs       statedb.Table[tables.NodeAddress]
 	Sysctl          sysctl.Sysctl
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
@@ -108,8 +105,6 @@ type Params struct {
 func newLoader(p Params) *loader {
 	return &loader{
 		cfg:               p.Config,
-		db:                p.DB,
-		nodeAddrs:         p.NodeAddrs,
 		sysctl:            p.Sysctl,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
@@ -148,13 +143,16 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 	})
 }
 
-func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
+func (l *loader) bpfMasqAddrs(lctx types.LoaderContext, ifName string) (masq4, masq6 netip.Addr) {
 	if l.cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	find := func(iter statedb.Iterator[tables.NodeAddress]) bool {
-		for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+	find := func(name string) bool {
+		for _, addr := range lctx.NodeAddrs {
+			if addr.DeviceName != name {
+				continue
+			}
 			if !addr.Primary {
 				continue
 			}
@@ -173,19 +171,8 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 	}
 
 	// Try to find suitable masquerade address first from the given interface.
-	txn := l.db.ReadTxn()
-	iter := l.nodeAddrs.List(
-		txn,
-		tables.NodeAddressDeviceNameIndex.Query(ifName),
-	)
-	if !find(iter) {
-		// No suitable masquerade addresses were found for this device. Try the fallback
-		// addresses.
-		iter = l.nodeAddrs.List(
-			txn,
-			tables.NodeAddressDeviceNameIndex.Query(tables.WildcardDeviceName),
-		)
-		find(iter)
+	if !find(ifName) {
+		find(tables.WildcardDeviceName)
 	}
 
 	return
@@ -193,7 +180,7 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 
 // patchHostNetdevDatapath calculates the changes necessary
 // to attach the host endpoint datapath to different interfaces.
-func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
+func (l *loader) patchHostNetdevDatapath(lctx types.LoaderContext, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
 	opts := ELFVariableSubstitutions(ep)
 	strings := ELFMapSubstitutions(ep)
 
@@ -224,7 +211,7 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (m
 		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 	}
 	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
-		ipv4, ipv6 := l.bpfMasqAddrs(ifName)
+		ipv4, ipv6 := l.bpfMasqAddrs(lctx, ifName)
 
 		if option.Config.EnableIPv4Masquerade && ipv4.IsValid() {
 			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4.AsSlice()))
@@ -337,7 +324,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - cilium_host: ingress and egress
 // - cilium_net: ingress
 // - native devices: ingress and (optionally) egress if certain features require it
-func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
+func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, lctx types.LoaderContext) error {
 	// Warning: here be dragons. There used to be a single loop over
 	// interfaces+objs+progs here from the iproute2 days, but this was never
 	// correct to begin with. Tail call maps were always reused when possible,
@@ -392,7 +379,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 		return fmt.Errorf("device '%s' not found: %w", defaults.SecondHostDevice, err)
 	}
 
-	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(ep, defaults.SecondHostDevice)
+	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(lctx, ep, defaults.SecondHostDevice)
 	if err != nil {
 		return err
 	}
@@ -423,7 +410,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 	defer finalize()
 
 	// Replace programs on physical devices.
-	for _, device := range devices {
+	for _, device := range lctx.DeviceNames {
 		iface, err := netlink.LinkByName(device)
 		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")
@@ -432,7 +419,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
 
-		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(ep, device)
+		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(lctx, ep, device)
 		if err != nil {
 			return err
 		}
@@ -480,7 +467,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 
 	// call at the end of the function so that we can easily detect if this removes necessary
 	// programs that have just been attached.
-	if err := removeObsoleteNetdevPrograms(devices); err != nil {
+	if err := removeObsoleteNetdevPrograms(lctx.DeviceNames); err != nil {
 		log.WithError(err).Error("Failed to remove obsolete netdev programs")
 	}
 
@@ -496,8 +483,10 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, devices []string, spec *ebpf.CollectionSpec) error {
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx types.LoaderContext, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
+
+	lctx.DeviceNames = slices.Clone(lctx.DeviceNames)
 
 	// Replace all occurrences of the template endpoint ID with the real ID.
 	for _, name := range []string{
@@ -518,10 +507,10 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, devic
 
 	if ep.IsHost() {
 		if option.Config.NeedBPFHostOnWireGuardDevice() {
-			devices = append(devices, wgTypes.IfaceName)
+			lctx.DeviceNames = append(lctx.DeviceNames, wgTypes.IfaceName)
 		}
 
-		if err := l.reloadHostDatapath(ctx, ep, spec, devices); err != nil {
+		if err := l.reloadHostDatapath(ctx, ep, spec, lctx); err != nil {
 			return err
 		}
 	} else {
@@ -629,7 +618,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) (err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx types.LoaderContext, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -649,7 +638,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, devic
 	}
 
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ctx, ep, devices, spec)
+	err = l.reloadDatapath(ctx, ep, lctx, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return err
 }

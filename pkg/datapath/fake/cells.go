@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	loader "github.com/cilium/cilium/pkg/datapath/loader"
+	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -53,7 +55,8 @@ var Cell = cell.Module(
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() *wg.Agent { return nil },
-		func() types.Loader { return &fakeTypes.FakeLoader{} },
+		func() loaderTypes.Loader { return &fakeTypes.FakeLoader{} },
+		loader.NewCompilationLock,
 		func() sysctl.Sysctl { return &Sysctl{} },
 
 		tables.NewDeviceTable,

@@ -56,10 +56,12 @@ func getLocalNode() LocalNode {
 type Addresses struct {
 	mu lock.RWMutex
 
-	IPv4LoopbackSet chan struct{}
-	ipv4Loopback    net.IP
-	RouterInfoSet   chan struct{}
-	routerInfo      RouterInfo
+	ipv4LoopBackIsSet bool
+	IPv4LoopbackSet   chan struct{}
+	ipv4Loopback      net.IP
+	routerInfoIsSet   bool
+	RouterInfoSet     chan struct{}
+	routerInfo        RouterInfo
 }
 
 type RouterInfo interface {
@@ -177,8 +179,11 @@ func GetIPv4Loopback() net.IP {
 func SetIPv4Loopback(ip net.IP) {
 	Addrs.mu.Lock()
 	Addrs.ipv4Loopback = clone(ip)
+	if !Addrs.ipv4LoopBackIsSet {
+		close(Addrs.IPv4LoopbackSet)
+		Addrs.ipv4LoopBackIsSet = true
+	}
 	Addrs.mu.Unlock()
-	close(Addrs.IPv4LoopbackSet)
 }
 
 // GetIPv4AllocRange returns the IPv4 allocation prefix of this node
@@ -259,8 +264,11 @@ func GetRouterInfo() RouterInfo {
 func SetRouterInfo(info RouterInfo) {
 	Addrs.mu.Lock()
 	Addrs.routerInfo = info
+	if !Addrs.routerInfoIsSet {
+		close(Addrs.RouterInfoSet)
+		Addrs.routerInfoIsSet = true
+	}
 	Addrs.mu.Unlock()
-	close(Addrs.RouterInfoSet)
 }
 
 // GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading

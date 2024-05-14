@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -407,4 +408,9 @@ func setupRouteToVtepCidr() error {
 // Datapath returns a reference to the datapath implementation.
 func (d *Daemon) Datapath() datapath.Datapath {
 	return d.datapath
+}
+
+// Loader returns a reference to the loader implementation.
+func (d *Daemon) Loader() loader.Loader {
+	return d.loader
 }

@@ -8,7 +8,10 @@ import (
 	"io"
 	"net/netip"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -20,7 +23,6 @@ var _ datapath.Datapath = (*FakeDatapath)(nil)
 type FakeDatapath struct {
 	node           *FakeNodeHandler
 	nodeAddressing datapath.NodeAddressing
-	loader         datapath.Loader
 	lbmap          *mockmaps.LBMockMap
 }
 
@@ -33,7 +35,6 @@ func NewDatapathWithNodeAddressing(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
 		node:           NewNodeHandler(),
 		nodeAddressing: na,
-		loader:         &FakeLoader{},
 		lbmap:          mockmaps.NewLBMockMap(),
 	}
 }
@@ -98,10 +99,6 @@ func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
 func (m *FakeDatapath) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 }
 
-func (f *FakeDatapath) Loader() datapath.Loader {
-	return f.loader
-}
-
 func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
 	return nil
 }
@@ -126,15 +123,17 @@ func (f *FakeDatapath) Orchestrator() datapath.Orchestrator {
 type FakeLoader struct {
 }
 
-func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) error {
+var _ loader.Loader = &FakeLoader{}
+
+func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, lctx loader.LoaderContext, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, devices []string, stats *metrics.SpanStat) error {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx loader.LoaderContext, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string, devices []string) error {
+func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string, lctx loader.LoaderContext) error {
 	panic("implement me")
 }
 
@@ -153,8 +152,16 @@ func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
 	return ""
 }
 
+func (f *FakeLoader) DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
+	return nil
+}
+
+func (f *FakeLoader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
+	return nil, nil
+}
+
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, devices []string) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, lctx loader.LoaderContext) error {
 	return nil
 }
 
