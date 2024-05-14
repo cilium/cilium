@@ -30,12 +30,12 @@
 #define DIRECT_ROUTING_IFINDEX	25
 
 #define ctx_redirect mock_ctx_redirect
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		  __u32 flags __maybe_unused);
 
 #define fib_lookup mock_fib_lookup
-static __always_inline __maybe_unused long
+static  __maybe_unused long
 mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		__maybe_unused int plen, __maybe_unused __u32 flags);
 
@@ -44,7 +44,7 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		  __u32 flags __maybe_unused)
 {
@@ -54,7 +54,7 @@ mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __may
 	return CTX_ACT_REDIRECT;
 }
 
-static __always_inline __maybe_unused long
+static  __maybe_unused long
 mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		__maybe_unused int plen, __maybe_unused __u32 flags)
 {

@@ -83,7 +83,7 @@ struct {
 #endif /* CIDR6_FILTER */
 #endif /* ENABLE_PREFILTER */
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 {
 	if (verdict == CTX_ACT_OK)
@@ -199,7 +199,7 @@ out:
 	return bpf_xdp_exit(ctx, ret);
 }
 
-static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
+static  int check_v4_lb(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
 	int ret;
@@ -209,14 +209,14 @@ static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
 					  METRIC_INGRESS);
 }
 #else
-static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
+static  int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
 #ifdef ENABLE_PREFILTER
-static __always_inline int check_v4(struct __ctx_buff *ctx)
+static  int check_v4(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -241,7 +241,7 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 #endif /* CIDR4_FILTER */
 }
 #else
-static __always_inline int check_v4(struct __ctx_buff *ctx)
+static  int check_v4(struct __ctx_buff *ctx)
 {
 	return check_v4_lb(ctx);
 }
@@ -278,7 +278,7 @@ drop_err:
 					  CTX_ACT_DROP, METRIC_INGRESS);
 }
 
-static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
+static  int check_v6_lb(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
 	int ret;
@@ -288,14 +288,14 @@ static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
 					  METRIC_INGRESS);
 }
 #else
-static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
+static  int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
 #ifdef ENABLE_PREFILTER
-static __always_inline int check_v6(struct __ctx_buff *ctx)
+static  int check_v6(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -320,14 +320,14 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 #endif /* CIDR6_FILTER */
 }
 #else
-static __always_inline int check_v6(struct __ctx_buff *ctx)
+static  int check_v6(struct __ctx_buff *ctx)
 {
 	return check_v6_lb(ctx);
 }
 #endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV6 */
 
-static __always_inline int check_filters(struct __ctx_buff *ctx)
+static  int check_filters(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 	__u16 proto;

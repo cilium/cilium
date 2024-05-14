@@ -35,7 +35,7 @@
 		: "r0", "r1", "r2", "r3", "r4", "r5");		\
 }
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
 {
 	if (__builtin_constant_p(slot))

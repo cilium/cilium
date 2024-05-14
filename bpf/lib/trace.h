@@ -84,7 +84,7 @@ enum {
  */
 #define update_trace_metrics(ctx, obs_point, reason) \
 	_update_trace_metrics(ctx, obs_point, reason, __MAGIC_LINE__, __MAGIC_FILE__)
-static __always_inline void
+static  void
 _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 		      enum trace_reason reason, __u16 line, __u8 file)
 {
@@ -158,7 +158,7 @@ struct trace_notify {
 	};
 };
 
-static __always_inline bool
+static  bool
 emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 {
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {
@@ -191,7 +191,7 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 #define send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor) \
 		_send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, \
 		__MAGIC_LINE__, __MAGIC_FILE__)
-static __always_inline void
+static  void
 _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
 		   enum trace_reason reason, __u32 monitor, __u16 line, __u8 file)
@@ -222,7 +222,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 			 &msg, sizeof(msg));
 }
 
-static __always_inline void
+static  void
 send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __be32 orig_addr, __u16 dst_id,
 		   __u32 ifindex, enum trace_reason reason, __u32 monitor)
@@ -254,7 +254,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 			 &msg, sizeof(msg));
 }
 
-static __always_inline void
+static  void
 send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, const union v6addr *orig_addr,
 		   __u16 dst_id, __u32 ifindex, enum trace_reason reason,
@@ -288,7 +288,7 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 			 &msg, sizeof(msg));
 }
 #else
-static __always_inline void
+static  void
 send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		  __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		  __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
@@ -297,7 +297,7 @@ send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	update_trace_metrics(ctx, obs_point, reason);
 }
 
-static __always_inline void
+static  void
 send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		   __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
@@ -307,7 +307,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 	update_trace_metrics(ctx, obs_point, reason);
 }
 
-static __always_inline void
+static  void
 send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		   union v6addr *orig_addr __maybe_unused,

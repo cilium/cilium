@@ -106,7 +106,7 @@ struct {
 	},
 };
 
-static __always_inline int
+static  int
 pktgen(struct __ctx_buff *ctx, bool v4)
 {
 	struct pktgen builder;
@@ -146,7 +146,7 @@ pktgen(struct __ctx_buff *ctx, bool v4)
  *     SRC_IP -> NODEPORT_IP:NODEPORT_PORT -> DST_IP:DST_PORT
  *
  */
-static __always_inline int
+static  int
 setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 {
 	/*
@@ -191,7 +191,7 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	return TEST_ERROR;
 }
 
-static __always_inline int
+static  int
 check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 {
 	void *data;

@@ -19,7 +19,7 @@ struct {
 	__uint(max_entries, NODEPORT_NEIGH6_SIZE);
 } NODEPORT_NEIGH6 __section_maps_btf;
 
-static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
+static  int neigh_record_ip6(struct __ctx_buff *ctx)
 {
 	union macaddr smac = {}, *mac;
 	void *data, *data_end;
@@ -41,12 +41,12 @@ static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 	return 0;
 }
 
-static __always_inline union macaddr *neigh_lookup_ip6(const union v6addr *addr)
+static  union macaddr *neigh_lookup_ip6(const union v6addr *addr)
 {
 	return map_lookup_elem(&NODEPORT_NEIGH6, addr);
 }
 #else
-static __always_inline union macaddr *
+static  union macaddr *
 neigh_lookup_ip6(const union v6addr *addr __maybe_unused)
 {
 	return NULL;
@@ -62,7 +62,7 @@ struct {
 	__uint(max_entries, NODEPORT_NEIGH4_SIZE);
 } NODEPORT_NEIGH4 __section_maps_btf;
 
-static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
+static  int neigh_record_ip4(struct __ctx_buff *ctx)
 {
 	union macaddr smac = {}, *mac;
 	void *data, *data_end;
@@ -84,12 +84,12 @@ static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 	return 0;
 }
 
-static __always_inline union macaddr *neigh_lookup_ip4(const __be32 *addr)
+static  union macaddr *neigh_lookup_ip4(const __be32 *addr)
 {
 	return map_lookup_elem(&NODEPORT_NEIGH4, addr);
 }
 #else
-static __always_inline union macaddr *
+static  union macaddr *
 neigh_lookup_ip4(const __be32 *addr __maybe_unused)
 {
 	return NULL;

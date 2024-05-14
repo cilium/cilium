@@ -6,7 +6,7 @@
 /* Manual slow versions, but doesn't matter for the sake of testing here.
  * Mainly to make sure we don't end up using the overridden builtin.
  */
-static __always_inline __u32 __cmp_mem(const void *x, const void *y, __u32 len)
+static  __u32 __cmp_mem(const void *x, const void *y, __u32 len)
 {
 	const __u8 *x8 = x, *y8 = y;
 	__u32 i;
@@ -19,7 +19,7 @@ static __always_inline __u32 __cmp_mem(const void *x, const void *y, __u32 len)
 	return 0;
 }
 
-static __always_inline void __cpy_mem(void *d, void *s, __u32 len)
+static  void __cpy_mem(void *d, void *s, __u32 len)
 {
 	__u8 *d8 = d, *s8 = s;
 	__u32 i;
@@ -37,7 +37,7 @@ static void __fill_rnd(void *buff, __u32 len)
 		dest[i] = random();
 }
 
-static __always_inline bool __corrupt_mem(void *d, __u32 len)
+static  bool __corrupt_mem(void *d, __u32 len)
 {
 	bool corrupted = random() % 2 == 1;
 	__u32 pos = random() % len;

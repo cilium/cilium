@@ -17,7 +17,7 @@
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
-static __always_inline int
+static  int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
@@ -43,7 +43,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 				  NULL, 0, ifindex);
 }
 
-static __always_inline int
+static  int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_unused,
 				 __be32 tunnel_endpoint,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
@@ -66,7 +66,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
  * returns CTX_ACT_REDIRECT on successful redirect to tunnel device.
  * On error returns a DROP_* reason.
  */
-static __always_inline int
+static  int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 			       __u8 encrypt_key __maybe_unused,
 			       __u32 seclabel, __u32 dstid,
@@ -86,7 +86,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 /* __encap_and_redirect_lxc() is a variant of encap_and_redirect_lxc()
  * that requires a valid tunnel_endpoint.
  */
-static __always_inline int
+static  int
 __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 			 __u8 encrypt_key __maybe_unused, __u32 seclabel,
 			 __u32 dstid, const struct trace_ctx *trace)
@@ -114,7 +114,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  * handling), a DROP_* reason on error, and finally on successful redirect returns
  * CTX_ACT_REDIRECT.
  */
-static __always_inline int
+static  int
 encap_and_redirect_lxc(struct __ctx_buff *ctx,
 		       __be32 tunnel_endpoint __maybe_unused,
 		       __u32 src_ip __maybe_unused,
@@ -155,7 +155,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 }
 
-static __always_inline int
+static  int
 encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 			  __u8 encrypt_key __maybe_unused,
 			  __u32 seclabel, const struct trace_ctx *trace)
@@ -177,7 +177,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 }
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
-static __always_inline __be16
+static  __be16
 tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
@@ -189,7 +189,7 @@ tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)
 #endif
 }
 
-static __always_inline __be16
+static  __be16
 tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
@@ -202,7 +202,7 @@ tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 }
 
 #if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-static __always_inline int
+static  int
 __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			__u32 tunnel_endpoint,
 			__u32 seclabel, __u32 dstid, __u32 vni,
@@ -230,7 +230,7 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 				  opt_len, ifindex);
 }
 
-static __always_inline void
+static  void
 set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
 {
 	memset(gopt, 0, sizeof(*gopt));
@@ -241,7 +241,7 @@ set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
 	gopt->port = port;
 }
 
-static __always_inline void
+static  void
 set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 		    struct geneve_dsr_opt6 *gopt)
 {

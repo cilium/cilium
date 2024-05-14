@@ -7,7 +7,7 @@
 #include "compiler.h"
 
 #if defined(__bpf__)
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 map_array_get_32(const __u32 *array, __u32 index, const __u32 limit)
 {
 	__u32 datum = 0;

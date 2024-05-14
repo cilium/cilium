@@ -94,7 +94,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static __always_inline int
+static  int
 _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 		  __u32 src, __u32 dst, __u32 dst_id,
 		  __u32 reason, __u32 exitcode, enum metric_dir direction)
@@ -124,7 +124,7 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	return exitcode;
 }
 #else
-static __always_inline
+static
 int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 		      struct __ctx_buff *ctx, __u32 src __maybe_unused,
 		      __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,

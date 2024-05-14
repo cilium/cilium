@@ -72,7 +72,7 @@
 /* Mock out get_tunnel_key to emulate input from tunnel device */
 #define skb_get_tunnel_key mock_skb_get_tunnel_key
 
-static __always_inline
+static
 int mock_skb_get_tunnel_key(struct __ctx_buff *ctx __maybe_unused, struct bpf_tunnel_key *to,
 			    __u32 size __maybe_unused, __u32 flags __maybe_unused)
 {
@@ -91,7 +91,7 @@ int mock_skb_get_tunnel_key(struct __ctx_buff *ctx __maybe_unused, struct bpf_tu
 
 #define _send_drop_notify mock_send_drop_notify
 
-static __always_inline
+static
 int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 			  struct __ctx_buff *ctx, __u32 src __maybe_unused,
 			  __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
@@ -125,7 +125,7 @@ struct {
 	},
 };
 
-static __always_inline int
+static  int
 pktgen_to_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
@@ -153,7 +153,7 @@ pktgen_to_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 	return 0;
 }
 
-static __always_inline int
+static  int
 pktgen_from_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;

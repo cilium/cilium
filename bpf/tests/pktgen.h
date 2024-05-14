@@ -181,7 +181,7 @@ struct pktgen {
 	enum pkt_layer layers[PKT_BUILDER_LAYERS];
 };
 
-static __always_inline
+static
 void pktgen__init(struct pktgen *builder, struct __ctx_buff *ctx)
 {
 	builder->cur_off = 0;
@@ -193,7 +193,7 @@ void pktgen__init(struct pktgen *builder, struct __ctx_buff *ctx)
 	}
 };
 
-static __always_inline
+static
 int pktgen__free_layer(const struct pktgen *builder)
 {
 	#pragma unroll
@@ -205,7 +205,7 @@ int pktgen__free_layer(const struct pktgen *builder)
 	return -1;
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 void *pktgen__push_rawhdr(struct pktgen *builder, __u32 hdrsize, enum pkt_layer type)
 {
@@ -240,7 +240,7 @@ void *pktgen__push_rawhdr(struct pktgen *builder, __u32 hdrsize, enum pkt_layer 
 }
 
 /* Push an empty ethernet header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 {
@@ -248,7 +248,7 @@ struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 }
 
 /* helper to set the source and destination mac address at the same time */
-static __always_inline
+static
 void ethhdr__set_macs(struct ethhdr *l2, unsigned char *src, unsigned char *dst)
 {
 	memcpy(l2->h_source, src, ETH_ALEN);
@@ -256,7 +256,7 @@ void ethhdr__set_macs(struct ethhdr *l2, unsigned char *src, unsigned char *dst)
 }
 
 /* Push an empty IPv4 header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 {
@@ -269,14 +269,14 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 }
 
 /* helper to set the source and destination ipv6 address at the same time */
-static __always_inline
+static
 void ipv6hdr__set_addrs(struct ipv6hdr *l3, __u8 *src, __u8 *dst)
 {
 	memcpy((__u8 *)&l3->saddr, src, 16);
 	memcpy((__u8 *)&l3->daddr, dst, 16);
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct ipv6hdr *pktgen__push_ipv6hdr(struct pktgen *builder)
 {
@@ -284,7 +284,7 @@ struct ipv6hdr *pktgen__push_ipv6hdr(struct pktgen *builder)
 }
 
 /* Push a IPv4 header with sane defaults and options onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct iphdr *pktgen__push_default_iphdr_with_options(struct pktgen *builder,
 						      __u8 option_words)
@@ -305,14 +305,14 @@ struct iphdr *pktgen__push_default_iphdr_with_options(struct pktgen *builder,
 	return hdr;
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
 {
 	return pktgen__push_default_iphdr_with_options(builder, 0);
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder,
 							  __u8 nexthdr,
@@ -348,7 +348,7 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	return hdr;
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
 {
@@ -366,14 +366,14 @@ struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
 }
 
 /* Push an empty ARP header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct arphdreth *pktgen__push_arphdr_ethernet(struct pktgen *builder)
 {
 	return pktgen__push_rawhdr(builder, sizeof(struct arphdreth), PKT_LAYER_ARP);
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct arphdreth *pktgen__push_default_arphdr_ethernet(struct pktgen *builder)
 {
@@ -390,7 +390,7 @@ struct arphdreth *pktgen__push_default_arphdr_ethernet(struct pktgen *builder)
 }
 
 /* Push an empty TCP header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct tcphdr *pktgen__push_tcphdr(struct pktgen *builder)
 {
@@ -398,7 +398,7 @@ struct tcphdr *pktgen__push_tcphdr(struct pktgen *builder)
 }
 
 /* Push a TCP header with sane defaults onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 {
@@ -419,7 +419,7 @@ struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 	return hdr;
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct icmp6hdr *pktgen__push_icmp6hdr(struct pktgen *builder)
 {
@@ -427,7 +427,7 @@ struct icmp6hdr *pktgen__push_icmp6hdr(struct pktgen *builder)
 }
 
 /* Push an empty ESP header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct ip_esp_hdr *pktgen__push_esphdr(struct pktgen *builder)
 {
@@ -435,7 +435,7 @@ struct ip_esp_hdr *pktgen__push_esphdr(struct pktgen *builder)
 }
 
 /* Push a ESP header with sane defaults onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct ip_esp_hdr *pktgen__push_default_esphdr(struct pktgen *builder)
 {
@@ -451,7 +451,7 @@ struct ip_esp_hdr *pktgen__push_default_esphdr(struct pktgen *builder)
 }
 
 /* Push an empty SCTP header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 {
@@ -459,14 +459,14 @@ struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 }
 
 /* Push an empty UDP header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct udphdr *pktgen__push_udphdr(struct pktgen *builder)
 {
 	return pktgen__push_rawhdr(builder, sizeof(struct udphdr), PKT_LAYER_UDP);
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct udphdr *pktgen__push_default_udphdr(struct pktgen *builder)
 {
@@ -481,14 +481,14 @@ struct udphdr *pktgen__push_default_udphdr(struct pktgen *builder)
 }
 
 /* Push an empty VXLAN header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct vxlanhdr *pktgen__push_vxlanhdr(struct pktgen *builder)
 {
 	return pktgen__push_rawhdr(builder, sizeof(struct vxlanhdr), PKT_LAYER_VXLAN);
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct vxlanhdr *pktgen__push_default_vxlanhdr(struct pktgen *builder)
 {
@@ -505,7 +505,7 @@ struct vxlanhdr *pktgen__push_default_vxlanhdr(struct pktgen *builder)
 }
 
 /* Push an empty GENEVE header onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct genevehdr *pktgen__push_genevehdr(struct pktgen *builder,
 					 __u8 option_bytes)
@@ -515,7 +515,7 @@ struct genevehdr *pktgen__push_genevehdr(struct pktgen *builder,
 	return pktgen__push_rawhdr(builder, length, PKT_LAYER_GENEVE);
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct genevehdr *pktgen__push_default_genevehdr_with_options(struct pktgen *builder,
 							      __u8 option_bytes)
@@ -530,7 +530,7 @@ struct genevehdr *pktgen__push_default_genevehdr_with_options(struct pktgen *bui
 	return hdr;
 }
 
-static __always_inline
+static
 __attribute__((warn_unused_result))
 struct genevehdr *pktgen__push_default_genevehdr(struct pktgen *builder)
 {
@@ -545,7 +545,7 @@ struct genevehdr *pktgen__push_default_genevehdr(struct pktgen *builder)
 }
 
 /* Push room for x bytes of data onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 void *pktgen__push_data_room(struct pktgen *builder, int len)
 {
@@ -578,7 +578,7 @@ void *pktgen__push_data_room(struct pktgen *builder, int len)
 }
 
 /* Push data onto the packet */
-static __always_inline
+static
 __attribute__((warn_unused_result))
 void *pktgen__push_data(struct pktgen *builder, void *data, int len)
 {
@@ -594,7 +594,7 @@ void *pktgen__push_data(struct pktgen *builder, void *data, int len)
 	return pkt_data;
 }
 
-static __always_inline struct iphdr *
+static  struct iphdr *
 pktgen__push_ipv4_packet(struct pktgen *builder,
 			 __u8 *smac, __u8 *dmac,
 			 __be32 saddr, __be32 daddr)
@@ -618,7 +618,7 @@ pktgen__push_ipv4_packet(struct pktgen *builder,
 	return l3;
 }
 
-static __always_inline struct tcphdr *
+static  struct tcphdr *
 pktgen__push_ipv4_tcp_packet(struct pktgen *builder,
 			     __u8 *smac, __u8 *dmac,
 			     __be32 saddr, __be32 daddr,
@@ -641,7 +641,7 @@ pktgen__push_ipv4_tcp_packet(struct pktgen *builder,
 	return l4;
 }
 
-static __always_inline struct udphdr *
+static  struct udphdr *
 pktgen__push_ipv4_udp_packet(struct pktgen *builder,
 			     __u8 *smac, __u8 *dmac,
 			     __be32 saddr, __be32 daddr,
@@ -664,7 +664,7 @@ pktgen__push_ipv4_udp_packet(struct pktgen *builder,
 	return l4;
 }
 
-static __always_inline struct tcphdr *
+static  struct tcphdr *
 pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 			     __u8 *smac, __u8 *dmac,
 			     __u8 *saddr, __u8 *daddr,
@@ -696,7 +696,7 @@ pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 	return l4;
 }
 
-static __always_inline struct icmp6hdr *
+static  struct icmp6hdr *
 pktgen__push_ipv6_icmp6_packet(struct pktgen *builder,
 			       __u8 *smac, __u8 *dmac,
 			       __u8 *saddr, __u8 *daddr,
@@ -729,7 +729,7 @@ pktgen__push_ipv6_icmp6_packet(struct pktgen *builder,
 	return l4;
 }
 
-static __always_inline void pktgen__finish_eth(const struct pktgen *builder, int i)
+static  void pktgen__finish_eth(const struct pktgen *builder, int i)
 {
 	struct ethhdr *eth_layer;
 	__u64 layer_off;
@@ -764,7 +764,7 @@ static __always_inline void pktgen__finish_eth(const struct pktgen *builder, int
 	}
 }
 
-static __always_inline void pktgen__finish_ipv4(const struct pktgen *builder, int i)
+static  void pktgen__finish_ipv4(const struct pktgen *builder, int i)
 {
 	struct iphdr *ipv4_layer;
 	__u64 layer_off;
@@ -809,7 +809,7 @@ static __always_inline void pktgen__finish_ipv4(const struct pktgen *builder, in
 	ipv4_layer->tot_len = __bpf_htons(v4len);
 }
 
-static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, int i)
+static  void pktgen__finish_ipv6(const struct pktgen *builder, int i)
 {
 	struct ipv6hdr *ipv6_layer;
 	__u64 layer_off;
@@ -866,7 +866,7 @@ static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, in
 	ipv6_layer->payload_len = __bpf_htons(v6len);
 }
 
-static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder, int i)
+static  void pktgen__finish_ipv6_opt(const struct pktgen *builder, int i)
 {
 	struct ipv6_opt_hdr *ipv6_opt_layer;
 	__u64 layer_off;
@@ -909,7 +909,7 @@ static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder
 	}
 }
 
-static __always_inline void pktgen__finish_tcp(const struct pktgen *builder, int i)
+static  void pktgen__finish_tcp(const struct pktgen *builder, int i)
 {
 	struct tcphdr *tcp_layer;
 	__u64 layer_off;
@@ -945,7 +945,7 @@ static __always_inline void pktgen__finish_tcp(const struct pktgen *builder, int
 	tcp_layer->doff = (__u16)hdr_size / 4;
 }
 
-static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int i)
+static  void pktgen__finish_udp(const struct pktgen *builder, int i)
 {
 	struct udphdr *udp_layer;
 	__u64 layer_off;
@@ -963,7 +963,7 @@ static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int
 		return;
 }
 
-static __always_inline void pktgen__finish_geneve(const struct pktgen *builder, int i)
+static  void pktgen__finish_geneve(const struct pktgen *builder, int i)
 {
 	struct genevehdr *geneve_layer;
 	__u64 layer_off;
@@ -995,7 +995,7 @@ static __always_inline void pktgen__finish_geneve(const struct pktgen *builder, 
 /* Do a finishing pass on all the layers, which will set correct next layer
  * fields and length values. TODO checksum calculation?
  */
-static __always_inline
+static
 void pktgen__finish(const struct pktgen *builder)
 {
 	#pragma unroll

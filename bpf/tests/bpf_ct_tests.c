@@ -19,7 +19,7 @@
 #include <lib/conntrack_map.h>
 #include <lib/time.h>
 
-__always_inline int mkpkt(void *dst, bool first)
+ int mkpkt(void *dst, bool first)
 {
 	void *orig = dst;
 	struct ethhdr *l2 = dst;

@@ -48,7 +48,7 @@ __u64 mock_get_socket_cookie(const struct __sk_buff *ctx __maybe_unused)
 
 #define ctx_redirect mock_ctx_redirect
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
 {

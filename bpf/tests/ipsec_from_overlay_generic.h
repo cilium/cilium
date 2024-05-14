@@ -67,7 +67,7 @@ struct {
 };
 
 #define tail_call_dynamic mock_tail_call_dynamic
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 		       const void *map __maybe_unused, __u32 slot __maybe_unused)
 {

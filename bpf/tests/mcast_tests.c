@@ -17,7 +17,7 @@
 #include <linux/in.h>
 #include "../lib/mcast.h"
 
-static __always_inline int default_packet(struct __ctx_buff *ctx)
+static  int default_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *eh;
@@ -38,7 +38,7 @@ static __always_inline int default_packet(struct __ctx_buff *ctx)
 	return 0;
 }
 
-static __always_inline int igmpv3_join_packet(struct __ctx_buff *ctx)
+static  int igmpv3_join_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *eh;

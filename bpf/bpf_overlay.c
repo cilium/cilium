@@ -44,7 +44,7 @@
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
 
 #ifdef ENABLE_IPV6
-static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
+static  int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
@@ -181,7 +181,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
+static  int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
 #ifdef HOST_IFINDEX
 	if (1) {
@@ -203,7 +203,7 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 }
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
+static  int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 							__u32 src_sec_identity,
 							__s8 *ext_err)
 {
@@ -273,7 +273,7 @@ int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 }
 #endif
 
-static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
+static  int handle_ipv4(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
@@ -531,7 +531,7 @@ pass_to_stack:
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPSEC
-static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
+static  bool is_esp(struct __ctx_buff *ctx, __u16 proto)
 {
 	void *data, *data_end;
 	__u8 protocol = 0;

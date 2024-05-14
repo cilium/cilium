@@ -33,7 +33,7 @@
 		__it_fwd(a, op); __it_fwd(b, op);	\
 	} while (0)
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __bpf_memset_builtin(void *d, __u8 c, __u64 len)
 {
 	/* Everything non-zero or non-const (currently unsupported) as c
@@ -42,7 +42,7 @@ __bpf_memset_builtin(void *d, __u8 c, __u64 len)
 	__builtin_memset(d, c, len);
 }
 
-static __always_inline void __bpf_memzero(void *d, __u64 len)
+static  void __bpf_memzero(void *d, __u64 len)
 {
 #if __clang_major__ >= 10
 	if (!__builtin_constant_p(len))
@@ -128,7 +128,7 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 #endif
 }
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __bpf_no_builtin_memset(void *d __maybe_unused, __u8 c __maybe_unused,
 			__u64 len __maybe_unused)
 {
@@ -138,7 +138,7 @@ __bpf_no_builtin_memset(void *d __maybe_unused, __u8 c __maybe_unused,
 /* Redirect any direct use in our code to throw an error. */
 #define __builtin_memset	__bpf_no_builtin_memset
 
-static __always_inline __nobuiltin("memset") void memset(void *d, int c,
+static  __nobuiltin("memset") void memset(void *d, int c,
 							 __u64 len)
 {
 	if (__builtin_constant_p(len) && __builtin_constant_p(c) && c == 0)
@@ -147,14 +147,14 @@ static __always_inline __nobuiltin("memset") void memset(void *d, int c,
 		__bpf_memset_builtin(d, (__u8)c, len);
 }
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __bpf_memcpy_builtin(void *d, const void *s, __u64 len)
 {
 	/* Explicit opt-in for __builtin_memcpy(). */
 	__builtin_memcpy(d, s, len);
 }
 
-static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
+static  void __bpf_memcpy(void *d, const void *s, __u64 len)
 {
 #if __clang_major__ >= 10
 	if (!__builtin_constant_p(len))
@@ -241,7 +241,7 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 #endif
 }
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __bpf_no_builtin_memcpy(void *d __maybe_unused, const void *s __maybe_unused,
 			__u64 len __maybe_unused)
 {
@@ -251,13 +251,13 @@ __bpf_no_builtin_memcpy(void *d __maybe_unused, const void *s __maybe_unused,
 /* Redirect any direct use in our code to throw an error. */
 #define __builtin_memcpy	__bpf_no_builtin_memcpy
 
-static __always_inline __nobuiltin("memcpy") void memcpy(void *d, const void *s,
+static  __nobuiltin("memcpy") void memcpy(void *d, const void *s,
 							 __u64 len)
 {
 	return __bpf_memcpy(d, s, len);
 }
 
-static __always_inline __maybe_unused __u64
+static  __maybe_unused __u64
 __bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
 {
 	/* Explicit opt-in for __builtin_memcmp(). We use the bcmp builtin
@@ -272,7 +272,7 @@ __bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
 	return __builtin_bcmp(x, y, len);
 }
 
-static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
+static  __u64 __bpf_memcmp(const void *x, const void *y,
 					  __u64 len)
 {
 #if __clang_major__ >= 10
@@ -347,7 +347,7 @@ static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 #endif
 }
 
-static __always_inline __maybe_unused __u64
+static  __maybe_unused __u64
 __bpf_no_builtin_memcmp(const void *x __maybe_unused,
 			const void *y __maybe_unused, __u64 len __maybe_unused)
 {
@@ -361,27 +361,27 @@ __bpf_no_builtin_memcmp(const void *x __maybe_unused,
 /* Modified for our needs in that we only return either zero (x and y
  * are equal) or non-zero (x and y are non-equal).
  */
-static __always_inline __nobuiltin("memcmp") __u64 memcmp(const void *x,
+static  __nobuiltin("memcmp") __u64 memcmp(const void *x,
 							  const void *y,
 							  __u64 len)
 {
 	return __bpf_memcmp(x, y, len);
 }
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __bpf_memmove_builtin(void *d, const void *s, __u64 len)
 {
 	/* Explicit opt-in for __builtin_memmove(). */
 	__builtin_memmove(d, s, len);
 }
 
-static __always_inline void __bpf_memmove_bwd(void *d, const void *s, __u64 len)
+static  void __bpf_memmove_bwd(void *d, const void *s, __u64 len)
 {
 	/* Our internal memcpy implementation walks backwards by default. */
 	__bpf_memcpy(d, s, len);
 }
 
-static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
+static  void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 {
 #if __clang_major__ >= 10
 	if (!__builtin_constant_p(len))
@@ -460,7 +460,7 @@ static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 #endif
 }
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __bpf_no_builtin_memmove(void *d __maybe_unused, const void *s __maybe_unused,
 			 __u64 len __maybe_unused)
 {
@@ -470,7 +470,7 @@ __bpf_no_builtin_memmove(void *d __maybe_unused, const void *s __maybe_unused,
 /* Redirect any direct use in our code to throw an error. */
 #define __builtin_memmove	__bpf_no_builtin_memmove
 
-static __always_inline void __bpf_memmove(void *d, const void *s, __u64 len)
+static  void __bpf_memmove(void *d, const void *s, __u64 len)
 {
 	/* Note, the forward walking memmove() might not work with on-stack data
 	 * since we'll end up walking the memory unaligned even when __align_stack_8
@@ -487,7 +487,7 @@ static __always_inline void __bpf_memmove(void *d, const void *s, __u64 len)
 		return __bpf_memmove_bwd(d, s, len);
 }
 
-static __always_inline __nobuiltin("memmove") void memmove(void *d,
+static  __nobuiltin("memmove") void memmove(void *d,
 							   const void *s,
 							   __u64 len)
 {

@@ -36,13 +36,13 @@ struct egressgw_test_ctx {
 	__u32 status_code;
 };
 
-static __always_inline __be16 client_port(__u16 t)
+static  __be16 client_port(__u16 t)
 {
 	return CLIENT_PORT + bpf_htons(t);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY
-static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr,
+static  void add_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr,
 						      __be32 gateway_ip, __be32 egress_ip)
 {
 	struct egress_gw_policy_key in_key = {
@@ -59,7 +59,7 @@ static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr
 	map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
 }
 
-static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr)
+static  void del_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr)
 {
 	struct egress_gw_policy_key in_key = {
 		.lpm_key = { EGRESS_PREFIX_LEN(cidr), {} },
@@ -71,7 +71,7 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 }
 #endif /* ENABLE_EGRESS_GATEWAY */
 
-static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
+static  int egressgw_pktgen(struct __ctx_buff *ctx,
 					   struct egressgw_test_ctx test_ctx)
 {
 	struct pktgen builder;
@@ -141,7 +141,7 @@ static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
+static  int egressgw_snat_check(const struct __ctx_buff *ctx,
 					       struct egressgw_test_ctx test_ctx)
 {
 	void *data, *data_end;
@@ -250,7 +250,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 	test_finish();
 }
 
-static __always_inline int egressgw_status_check(const struct __ctx_buff *ctx,
+static  int egressgw_status_check(const struct __ctx_buff *ctx,
 						 struct egressgw_test_ctx test_ctx)
 {
 	void *data, *data_end;

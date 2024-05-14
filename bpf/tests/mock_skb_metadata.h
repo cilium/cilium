@@ -29,7 +29,7 @@ struct {
 	__uint(max_entries, 1);
 } mock_skb_meta_map __section_maps_btf;
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 mock_skb_store_meta(struct __sk_buff *ctx __maybe_unused, const __u32 off,
 		    __u32 data)
 {
@@ -43,7 +43,7 @@ mock_skb_store_meta(struct __sk_buff *ctx __maybe_unused, const __u32 off,
 	meta->cb[off] = data;
 }
 
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 mock_skb_load_meta(const struct __sk_buff *ctx __maybe_unused, const __u32 off)
 {
 	__u32 idx = 0;
@@ -56,7 +56,7 @@ mock_skb_load_meta(const struct __sk_buff *ctx __maybe_unused, const __u32 off)
 	return meta->cb[off];
 }
 
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 mock_skb_load_and_clear_meta(struct __sk_buff *ctx __maybe_unused, const __u32 off)
 {
 	__u32 val = mock_skb_load_meta(ctx, off);

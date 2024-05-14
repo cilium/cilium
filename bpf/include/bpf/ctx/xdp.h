@@ -34,7 +34,7 @@
 #define __CTX_OFF_MAX			0xff
 
 #ifndef HAVE_XDP_LOAD_BYTES
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 xdp_load_bytes(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 {
 	void *from;
@@ -64,7 +64,7 @@ xdp_load_bytes(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 #endif
 
 #ifndef HAVE_XDP_STORE_BYTES
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 		const __u64 len, __u64 flags __maybe_unused)
 {
@@ -116,7 +116,7 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 #define get_hash_recalc(ctx)		get_hash(ctx)
 
 #define DEFINE_FUNC_CTX_POINTER(FIELD)						\
-static __always_inline void *							\
+static  void *							\
 ctx_ ## FIELD(const struct xdp_md *ctx)						\
 {										\
 	void *ptr;								\
@@ -138,19 +138,19 @@ DEFINE_FUNC_CTX_POINTER(data_end)
 DEFINE_FUNC_CTX_POINTER(data_meta)
 #undef DEFINE_FUNC_CTX_POINTER
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __csum_replace_by_diff(__sum16 *sum, __wsum diff)
 {
 	*sum = csum_fold(csum_add(diff, ~csum_unfold(*sum)));
 }
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 __csum_replace_by_4(__sum16 *sum, __wsum from, __wsum to)
 {
 	__csum_replace_by_diff(sum, csum_add(~from, to));
 }
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 l3_csum_replace(const struct xdp_md *ctx, __u64 off, const __u32 from,
 		__u32 to,
 		__u32 flags)
@@ -186,7 +186,7 @@ l3_csum_replace(const struct xdp_md *ctx, __u64 off, const __u32 from,
 
 #define CSUM_MANGLED_0		((__sum16)0xffff)
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 		__u32 flags)
 {
@@ -226,7 +226,7 @@ l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 	return ret;
 }
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 ctx_change_proto(struct xdp_md *ctx __maybe_unused,
 		 const __be16 proto __maybe_unused,
 		 const __u64 flags __maybe_unused)
@@ -264,13 +264,13 @@ ctx_change_proto(struct xdp_md *ctx __maybe_unused,
 	return ret;
 }
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 ctx_adjust_troom(struct xdp_md *ctx, const __s32 len_diff)
 {
 	return xdp_adjust_tail(ctx, len_diff);
 }
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		 const __u64 flags __maybe_unused)
 {
@@ -340,7 +340,7 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	return ret;
 }
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 {
 	if ((__u32)ifindex == ctx->ingress_ifindex)
@@ -349,7 +349,7 @@ ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 	return redirect(ifindex, flags);
 }
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
 		  int ifindex __maybe_unused,
 		  const __u32 flags __maybe_unused)
@@ -359,13 +359,13 @@ ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
 }
 
 #ifdef HAVE_XDP_GET_BUFF_LEN
-static __always_inline __maybe_unused __u64
+static  __maybe_unused __u64
 ctx_full_len(const struct xdp_md *ctx)
 {
 	return xdp_get_buff_len((struct xdp_md *)ctx);
 }
 #else
-static __always_inline __maybe_unused __u64
+static  __maybe_unused __u64
 ctx_full_len(const struct xdp_md *ctx)
 {
 	__u64 len;
@@ -384,7 +384,7 @@ ctx_full_len(const struct xdp_md *ctx)
 }
 #endif
 
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 ctx_wire_len(const struct xdp_md *ctx)
 {
 	return ctx_full_len(ctx);
@@ -398,7 +398,7 @@ struct {
 	__uint(max_entries, 1);
 } cilium_xdp_scratch __section_maps_btf;
 
-static __always_inline __maybe_unused void
+static  __maybe_unused void
 ctx_store_meta(struct xdp_md *ctx __maybe_unused, const __u64 off, __u32 datum)
 {
 	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
@@ -408,7 +408,7 @@ ctx_store_meta(struct xdp_md *ctx __maybe_unused, const __u64 off, __u32 datum)
 	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
 }
 
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 {
 	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
@@ -419,7 +419,7 @@ ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 	return 0;
 }
 
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 ctx_load_and_clear_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 {
 	__u32 val, zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
@@ -434,7 +434,7 @@ ctx_load_and_clear_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off
 	return 0;
 }
 
-static __always_inline __maybe_unused __u16
+static  __maybe_unused __u16
 ctx_get_protocol(const struct xdp_md *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
@@ -446,13 +446,13 @@ ctx_get_protocol(const struct xdp_md *ctx)
 	return eth->h_proto;
 }
 
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 ctx_get_ifindex(const struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;
 }
 
-static __always_inline __maybe_unused __u32
+static  __maybe_unused __u32
 ctx_get_ingress_ifindex(const struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;

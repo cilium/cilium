@@ -68,7 +68,7 @@ struct {
 } PER_CLUSTER_CT_ANY6 __section_maps_btf;
 #endif
 
-static __always_inline void *
+static  void *
 get_ct_map6(const struct ipv6_ct_tuple *tuple)
 {
 	if (tuple->nexthdr == IPPROTO_TCP)
@@ -77,7 +77,7 @@ get_ct_map6(const struct ipv6_ct_tuple *tuple)
 	return &CT_MAP_ANY6;
 }
 
-static __always_inline void *
+static  void *
 get_cluster_ct_map6(const struct ipv6_ct_tuple *tuple, __u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -92,7 +92,7 @@ get_cluster_ct_map6(const struct ipv6_ct_tuple *tuple, __u32 cluster_id __maybe_
 	return get_ct_map6(tuple);
 }
 
-static __always_inline void *
+static  void *
 get_cluster_ct_any_map6(__u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -172,7 +172,7 @@ struct {
 #endif
 #endif
 
-static __always_inline void *
+static  void *
 get_ct_map4(const struct ipv4_ct_tuple *tuple)
 {
 	if (tuple->nexthdr == IPPROTO_TCP)
@@ -181,7 +181,7 @@ get_ct_map4(const struct ipv4_ct_tuple *tuple)
 	return &CT_MAP_ANY4;
 }
 
-static __always_inline void *
+static  void *
 get_cluster_ct_map4(const struct ipv4_ct_tuple *tuple, __u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -196,7 +196,7 @@ get_cluster_ct_map4(const struct ipv4_ct_tuple *tuple, __u32 cluster_id __maybe_
 	return get_ct_map4(tuple);
 }
 
-static __always_inline void *
+static  void *
 get_cluster_ct_any_map4(__u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING

@@ -33,7 +33,7 @@ struct {
 	},
 };
 
-static __always_inline int
+static  int
 pktgen_from_lxc(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;

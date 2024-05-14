@@ -20,7 +20,7 @@
  * use layer accounting and will fail when pushing an ipv4 header past its
  * assumed layer
  */
-static __always_inline void
+static  void
 mk_data(const __u8 *buff) {
 	struct ethhdr *eth = (struct ethhdr *)buff;
 
@@ -34,7 +34,7 @@ mk_data(const __u8 *buff) {
 	ipv4->daddr = v4_pod_two;
 }
 
-static __always_inline int
+static  int
 mk_packet(struct __ctx_buff *ctx) {
 	struct pktgen builder;
 	struct udphdr *l4;
@@ -75,7 +75,7 @@ mk_packet(struct __ctx_buff *ctx) {
 }
 
 PKTGEN("tc", "vxlan_get_vni_success")
-static __always_inline int
+static  int
 pktgen_vxlan_mock_check3(struct __ctx_buff *ctx) {
 	return mk_packet(ctx);
 }
@@ -95,7 +95,7 @@ int check3(struct __ctx_buff *ctx)
 }
 
 PKTGEN("tc", "vxlan_get_inner_ipv4_success")
-static __always_inline int
+static  int
 pktgen_vxlan_mock_check4(struct __ctx_buff *ctx) {
 	return mk_packet(ctx);
 }
@@ -119,7 +119,7 @@ int check4(struct __ctx_buff *ctx)
 }
 
 PKTGEN("tc", "vxlan_rewrite_vni_success")
-static __always_inline int
+static  int
 pktgen_vxlan_mock_check5(struct __ctx_buff *ctx) {
 	return mk_packet(ctx);
 }

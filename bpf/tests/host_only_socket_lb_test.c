@@ -22,7 +22,7 @@
 /* Replace the get_netns_cookie with a version that returns
  * the HOST_NETNS_COOKIE when destination is DST_PORT_HOSTNS
  */
-static __always_inline
+static
 int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 {
 	return addr->user_port == DST_PORT_HOSTNS ? HOST_NETNS_COOKIE : 1;

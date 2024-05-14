@@ -7,30 +7,30 @@
 #include "compiler.h"
 #include "helpers.h"
 
-static __always_inline __sum16 csum_fold(__wsum csum)
+static  __sum16 csum_fold(__wsum csum)
 {
 	csum = (csum & 0xffff) + (csum >> 16);
 	csum = (csum & 0xffff) + (csum >> 16);
 	return (__sum16)~csum;
 }
 
-static __always_inline __wsum csum_unfold(__sum16 csum)
+static  __wsum csum_unfold(__sum16 csum)
 {
 	return (__wsum)csum;
 }
 
-static __always_inline __wsum csum_add(__wsum csum, __wsum addend)
+static  __wsum csum_add(__wsum csum, __wsum addend)
 {
 	csum += addend;
 	return csum + (csum < addend);
 }
 
-static __always_inline __wsum csum_sub(__wsum csum, __wsum addend)
+static  __wsum csum_sub(__wsum csum, __wsum addend)
 {
 	return csum_add(csum, ~addend);
 }
 
-static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
+static  __wsum csum_diff(const void *from, __u32 size_from,
 					const void *to,   __u32 size_to,
 					__u32 seed)
 {

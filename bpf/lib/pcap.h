@@ -45,7 +45,7 @@ struct capture_msg {
 	struct pcap_pkthdr hdr;
 };
 
-static __always_inline void cilium_capture(struct __ctx_buff *ctx,
+static  void cilium_capture(struct __ctx_buff *ctx,
 					   const __u8 subtype,
 					   const __u16 rule_id,
 					   const __u64 tstamp,
@@ -74,7 +74,7 @@ static __always_inline void cilium_capture(struct __ctx_buff *ctx,
 			 &msg, sizeof(msg));
 }
 
-static __always_inline void __cilium_capture_in(struct __ctx_buff *ctx,
+static  void __cilium_capture_in(struct __ctx_buff *ctx,
 						__u16 rule_id, __u32 cap_len)
 {
 	/* For later pcap file generation, we export boot time to the RB
@@ -85,7 +85,7 @@ static __always_inline void __cilium_capture_in(struct __ctx_buff *ctx,
 		       bpf_ktime_cache_set(boot_ns), cap_len);
 }
 
-static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
+static  void __cilium_capture_out(struct __ctx_buff *ctx,
 						 __u16 rule_id, __u32 cap_len)
 {
 	cilium_capture(ctx, CAPTURE_EGRESS, rule_id,
@@ -155,7 +155,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } CAPTURE4_RULES __section_maps_btf;
 
-static __always_inline void
+static  void
 cilium_capture4_masked_key(const struct capture4_wcard *orig,
 			   const struct capture4_wcard *mask,
 			   struct capture4_wcard *out)
@@ -214,7 +214,7 @@ cilium_capture4_masked_key(const struct capture4_wcard *orig,
 	},
 #endif /* PREFIX_MASKS4 */
 
-static __always_inline struct capture_rule *
+static  struct capture_rule *
 cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 {
 	struct capture4_wcard prefix_masks[] = { PREFIX_MASKS4 };
@@ -266,7 +266,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } CAPTURE6_RULES __section_maps_btf;
 
-static __always_inline void
+static  void
 cilium_capture6_masked_key(const struct capture6_wcard *orig,
 			   const struct capture6_wcard *mask,
 			   struct capture6_wcard *out)
@@ -335,7 +335,7 @@ cilium_capture6_masked_key(const struct capture6_wcard *orig,
 	},
 #endif /* PREFIX_MASKS6 */
 
-static __always_inline struct capture_rule *
+static  struct capture_rule *
 cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 {
 	struct capture6_wcard prefix_masks[] = { PREFIX_MASKS6 };
@@ -380,7 +380,7 @@ _Pragma("unroll")
 }
 #endif /* ENABLE_IPV6 */
 
-static __always_inline struct capture_rule *
+static  struct capture_rule *
 cilium_capture_classify_wcard(struct __ctx_buff *ctx)
 {
 	struct capture_rule *ret = NULL;
@@ -405,7 +405,7 @@ cilium_capture_classify_wcard(struct __ctx_buff *ctx)
 	return ret;
 }
 
-static __always_inline bool
+static  bool
 cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
 			 __u16 *rule_id __maybe_unused,
 			 __u16 *cap_len __maybe_unused)
@@ -429,7 +429,7 @@ cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
 	return false;
 }
 
-static __always_inline bool
+static  bool
 cilium_capture_cached(struct __ctx_buff *ctx __maybe_unused,
 		      __u16 *rule_id __maybe_unused,
 		      __u32 *cap_len __maybe_unused)
@@ -452,7 +452,7 @@ cilium_capture_cached(struct __ctx_buff *ctx __maybe_unused,
 	return false;
 }
 
-static __always_inline void
+static  void
 cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
 {
 	__u16 cap_len;
@@ -462,7 +462,7 @@ cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
 		__cilium_capture_in(ctx, rule_id, cap_len);
 }
 
-static __always_inline void
+static  void
 cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 {
 	__u32 cap_len;
@@ -478,12 +478,12 @@ cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 
 #else /* ENABLE_CAPTURE */
 
-static __always_inline void
+static  void
 cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
 {
 }
 
-static __always_inline void
+static  void
 cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 {
 }

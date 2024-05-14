@@ -78,13 +78,13 @@ struct {
 /* lookup a subscriber map for the given ipv4 multicast group
  * returns a void pointer to a inner subscriper map if one exists
  */
-static __always_inline void *mcast_lookup_subscriber_map(__be32 *group)
+static  void *mcast_lookup_subscriber_map(__be32 *group)
 {
 	return map_lookup_elem(&cilium_mcast_group_outer_v4_map, group);
 }
 
 /* returns 1 if ip4 header is followed by an IGMP payload, 0 if not */
-static __always_inline bool mcast_ipv4_is_igmp(const struct iphdr *ip4)
+static  bool mcast_ipv4_is_igmp(const struct iphdr *ip4)
 {
 	if (ip4->protocol == IPPROTO_IGMP)
 		return 1;
@@ -95,7 +95,7 @@ static __always_inline bool mcast_ipv4_is_igmp(const struct iphdr *ip4)
  * a call to 'mcast_ipv4_is_igmp' must be used prior to this call to ensure an
  * igmp message follows the ipv4 header
  */
-static __always_inline __s32 mcast_ipv4_igmp_type(const struct iphdr *ip4,
+static  __s32 mcast_ipv4_igmp_type(const struct iphdr *ip4,
 						  const void *data,
 						  const void *data_end)
 {
@@ -111,7 +111,7 @@ static __always_inline __s32 mcast_ipv4_igmp_type(const struct iphdr *ip4,
 
 /* add a subscriber to a subscriber map */
 /* returns 1 on success or DROP_INVALID for error */
-static __always_inline __s32 mcast_ipv4_add_subscriber(void *map,
+static  __s32 mcast_ipv4_add_subscriber(void *map,
 						       struct mcast_subscriber_v4 *sub)
 {
 	if ((map_update_elem(map, &sub->saddr, sub, BPF_ANY) != 0))
@@ -121,13 +121,13 @@ static __always_inline __s32 mcast_ipv4_add_subscriber(void *map,
 
 /* remove a subscriber to a subscriber map */
 /* always returns 1 */
-static __always_inline void mcast_ipv4_remove_subscriber(void *map,
+static  void mcast_ipv4_remove_subscriber(void *map,
 							 struct mcast_subscriber_v4 *sub)
 {
 	map_delete_elem(map, &sub->saddr);
 }
 
-static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
+static  __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
 								    void *group_map,
 								    const struct iphdr *ip4,
 								    const void *data,
@@ -212,7 +212,7 @@ static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
 	return DROP_IGMP_HANDLED;
 }
 
-static __always_inline __s32 mcast_ipv4_handle_v2_membership_report(void *ctx,
+static  __s32 mcast_ipv4_handle_v2_membership_report(void *ctx,
 								    void *group_map,
 								    const struct iphdr *ip4,
 								    const void *data,
@@ -245,7 +245,7 @@ static __always_inline __s32 mcast_ipv4_handle_v2_membership_report(void *ctx,
 	return DROP_IGMP_HANDLED;
 }
 
-static __always_inline __s32 mcast_ipv4_handle_igmp_leave(void *group_map,
+static  __s32 mcast_ipv4_handle_igmp_leave(void *group_map,
 							  const struct iphdr *ip4,
 							  const void *data,
 							  const void *data_end)
@@ -276,7 +276,7 @@ static __always_inline __s32 mcast_ipv4_handle_igmp_leave(void *group_map,
 }
 
 /* ipv4 igmp handler which dispatches to specific igmp message handlers */
-static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
+static  __s32 mcast_ipv4_handle_igmp(void *ctx,
 						    struct iphdr *ip4,
 						    void *data,
 						    void *data_end)
@@ -312,7 +312,7 @@ static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
 /* encodes a multicast mac address given a ipv4 group address
  * results are in big endian format and written directly into 'mac'
  */
-static __always_inline void mcast_encode_ipv4_mac(union macaddr *mac,
+static  void mcast_encode_ipv4_mac(union macaddr *mac,
 						  const __u8 group[4])
 {
 	mac->addr[0] = 0x01;

@@ -85,7 +85,7 @@ struct {
 	},
 };
 
-static __always_inline int
+static  int
 pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
@@ -113,7 +113,7 @@ pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 	return 0;
 }
 
-static __always_inline int
+static  int
 pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;

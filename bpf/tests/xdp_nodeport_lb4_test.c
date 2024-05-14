@@ -45,7 +45,7 @@ struct {
 
 static long (*bpf_xdp_adjust_tail)(struct xdp_md *xdp_md, int delta) = (void *)65;
 
-static __always_inline int build_packet(struct __ctx_buff *ctx)
+static  int build_packet(struct __ctx_buff *ctx)
 {
 	/* Create room for our packet to be crafted */
 	unsigned int data_len = ctx->data_end - ctx->data;

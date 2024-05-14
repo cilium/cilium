@@ -26,13 +26,13 @@
 # define HOST_NETNS_COOKIE   get_netns_cookie(NULL)
 #endif
 
-static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
+static  __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
 	/* Check for 127.0.0.0/8 range, RFC3330. */
 	return (daddr & bpf_htonl(0xff000000)) == bpf_htonl(0x7f000000);
 }
 
-static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *daddr)
+static  __maybe_unused bool is_v6_loopback(const union v6addr *daddr)
 {
 	/* Check for ::1/128, RFC4291. */
 	union v6addr loopback = { .addr[15] = 1, };
@@ -41,7 +41,7 @@ static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *da
 }
 
 /* Hack due to missing narrow ctx access. */
-static __always_inline __maybe_unused __be16
+static  __maybe_unused __be16
 ctx_dst_port(const struct bpf_sock_addr *ctx)
 {
 	volatile __u32 dport = ctx->user_port;
@@ -49,7 +49,7 @@ ctx_dst_port(const struct bpf_sock_addr *ctx)
 	return (__be16)dport;
 }
 
-static __always_inline __maybe_unused __be16
+static  __maybe_unused __be16
 ctx_src_port(const struct bpf_sock *ctx)
 {
 	volatile __u16 sport = (__u16)ctx->src_port;
@@ -57,13 +57,13 @@ ctx_src_port(const struct bpf_sock *ctx)
 	return (__be16)bpf_htons(sport);
 }
 
-static __always_inline __maybe_unused
+static  __maybe_unused
 void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 {
 	ctx->user_port = (__u32)dport;
 }
 
-static __always_inline __maybe_unused bool task_in_extended_hostns(void)
+static  __maybe_unused bool task_in_extended_hostns(void)
 {
 #ifdef ENABLE_MKE
 	/* Extension for non-Cilium managed containers on MKE. */
@@ -73,7 +73,7 @@ static __always_inline __maybe_unused bool task_in_extended_hostns(void)
 #endif
 }
 
-static __always_inline __maybe_unused bool
+static  __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 {
 #ifdef HAVE_NETNS_COOKIE
@@ -90,7 +90,7 @@ ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 #endif
 }
 
-static __always_inline __maybe_unused
+static  __maybe_unused
 bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_HEALTH_CHECK
@@ -102,14 +102,14 @@ bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
 	return false;
 }
 
-static __always_inline __maybe_unused
+static  __maybe_unused
 __u64 sock_select_slot(struct bpf_sock_addr *ctx)
 {
 	return ctx->protocol == IPPROTO_TCP ?
 	       get_prandom_u32() : sock_local_cookie(ctx);
 }
 
-static __always_inline __maybe_unused
+static  __maybe_unused
 bool sock_proto_enabled(__u32 proto)
 {
 	switch (proto) {
@@ -141,7 +141,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } LB4_SKIP_MAP __section_maps_btf;
 
-static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
+static  int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       const struct lb4_key *orig_key,
 					       __u16 rev_nat_id)
@@ -165,7 +165,7 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	return ret;
 }
 
-static __always_inline bool
+static  bool
 sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 {
 	if (lb4_to_lb6_service(svc))
@@ -183,7 +183,7 @@ sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 }
 
 #ifdef ENABLE_NODEPORT
-static __always_inline struct lb4_service *
+static  struct lb4_service *
 sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
 		      const bool include_remote_hosts __maybe_unused,
 		      const bool inv_match __maybe_unused,
@@ -216,7 +216,7 @@ wildcard_lookup:
 }
 #endif /* ENABLE_NODEPORT */
 
-static __always_inline struct lb4_service *
+static  struct lb4_service *
 sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
@@ -265,7 +265,7 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
  * a socket lookup for the backend <ip, port> in its namespace, ns1, and skip
  * service translation.
  */
-static __always_inline bool
+static  bool
 sock4_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
 				 __be32 address __maybe_unused, __be16 port __maybe_unused)
 {
@@ -288,7 +288,7 @@ sock4_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
 }
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
-static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
+static  int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full,
 					     const bool udp_only)
 {
@@ -438,7 +438,7 @@ out:
 	return 0;
 }
 
-static __always_inline int
+static  int
 __sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 {
 	int ret = lb_skip_l4_dnat() ? SYS_PROCEED : SYS_REJECT;
@@ -479,7 +479,7 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 }
 
 #ifdef ENABLE_NODEPORT
-static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
+static  int __sock4_post_bind(struct bpf_sock *ctx,
 					     struct bpf_sock *ctx_full)
 {
 	struct lb4_service *svc;
@@ -528,13 +528,13 @@ int cil_sock4_post_bind(struct bpf_sock *ctx)
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HEALTH_CHECK
-static __always_inline void sock4_auto_bind(struct bpf_sock_addr *ctx)
+static  void sock4_auto_bind(struct bpf_sock_addr *ctx)
 {
 	ctx->user_ip4 = 0;
 	ctx_set_port(ctx, 0);
 }
 
-static __always_inline int __sock4_pre_bind(struct bpf_sock_addr *ctx,
+static  int __sock4_pre_bind(struct bpf_sock_addr *ctx,
 					    struct bpf_sock_addr *ctx_full)
 {
 	/* Code compiled in here guarantees that get_socket_cookie() is
@@ -573,7 +573,7 @@ int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
+static  int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
 	struct ipv4_revnat_entry *val;
@@ -666,7 +666,7 @@ struct {
 	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
 } LB6_SKIP_MAP __section_maps_btf;
 
-static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
+static  int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const struct lb6_key *orig_key,
 					       __u16 rev_nat_index)
@@ -690,11 +690,11 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 	return ret;
 }
 
-static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
+static  void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
 					       union v6addr *addr);
 
 #ifdef ENABLE_LOCAL_REDIRECT_POLICY
-static __always_inline bool
+static  bool
 sock6_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
 				 const __be16 port __maybe_unused)
 {
@@ -718,7 +718,7 @@ sock6_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 #endif /* ENABLE_IPV6 */
 
-static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
+static  void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
 					       union v6addr *addr)
 {
 	addr->p1 = ctx->user_ip6[0];
@@ -732,7 +732,7 @@ static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
 }
 
 #ifdef ENABLE_NODEPORT
-static __always_inline void ctx_get_v6_src_address(const struct bpf_sock *ctx,
+static  void ctx_get_v6_src_address(const struct bpf_sock *ctx,
 						   union v6addr *addr)
 {
 	addr->p1 = ctx->src_ip6[0];
@@ -746,7 +746,7 @@ static __always_inline void ctx_get_v6_src_address(const struct bpf_sock *ctx,
 }
 #endif /* ENABLE_NODEPORT */
 
-static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
+static  void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 					       const union v6addr *addr)
 {
 	ctx->user_ip6[0] = addr->p1;
@@ -759,7 +759,7 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 	barrier();
 }
 
-static __always_inline __maybe_unused bool
+static  __maybe_unused bool
 sock6_skip_xlate(struct lb6_service *svc, const union v6addr *address)
 {
 	if (lb6_to_lb4_service(svc))
@@ -777,7 +777,7 @@ sock6_skip_xlate(struct lb6_service *svc, const union v6addr *address)
 }
 
 #ifdef ENABLE_NODEPORT
-static __always_inline __maybe_unused struct lb6_service *
+static  __maybe_unused struct lb6_service *
 sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
 		      const bool include_remote_hosts __maybe_unused,
 		      const bool inv_match __maybe_unused,
@@ -810,7 +810,7 @@ wildcard_lookup:
 }
 #endif /* ENABLE_NODEPORT */
 
-static __always_inline __maybe_unused struct lb6_service *
+static  __maybe_unused struct lb6_service *
 sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
@@ -835,7 +835,7 @@ sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
 	return NULL;
 }
 
-static __always_inline
+static
 int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 			 const bool udp_only __maybe_unused)
 {
@@ -867,7 +867,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 }
 
 #ifdef ENABLE_NODEPORT
-static __always_inline int
+static  int
 sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
@@ -888,7 +888,7 @@ sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 	return 0;
 }
 
-static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
+static  int __sock6_post_bind(struct bpf_sock *ctx)
 {
 	struct lb6_service *svc;
 	struct lb6_key key = {
@@ -932,7 +932,7 @@ int cil_sock6_post_bind(struct bpf_sock *ctx)
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HEALTH_CHECK
-static __always_inline int
+static  int
 sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
@@ -959,7 +959,7 @@ sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 }
 
 #ifdef ENABLE_IPV6
-static __always_inline void sock6_auto_bind(struct bpf_sock_addr *ctx)
+static  void sock6_auto_bind(struct bpf_sock_addr *ctx)
 {
 	union v6addr zero = {};
 
@@ -968,7 +968,7 @@ static __always_inline void sock6_auto_bind(struct bpf_sock_addr *ctx)
 }
 #endif
 
-static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
+static  int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 {
 	__sock_cookie key __maybe_unused;
 	struct lb6_health val = {
@@ -1008,7 +1008,7 @@ int cil_sock6_pre_bind(struct bpf_sock_addr *ctx)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
+static  int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 					     const bool udp_only)
 {
 #ifdef ENABLE_IPV6
@@ -1127,7 +1127,7 @@ out:
 #endif /* ENABLE_IPV6 */
 }
 
-static __always_inline int
+static  int
 __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 {
 	int ret = lb_skip_l4_dnat() ? SYS_PROCEED : SYS_REJECT;
@@ -1179,7 +1179,7 @@ int cil_sock6_connect(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
-static __always_inline int
+static  int
 sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
@@ -1209,7 +1209,7 @@ sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 	return -ENXIO;
 }
 
-static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
+static  int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 {
 #ifdef ENABLE_IPV6
 	struct ipv6_revnat_tuple key = {};

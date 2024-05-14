@@ -36,7 +36,7 @@ struct {
 } IPV4_FRAG_DATAGRAMS_MAP __section_maps_btf;
 #endif
 
-static __always_inline int
+static  int
 ipv4_csum_update_by_value(struct __ctx_buff *ctx, int l3_off, __u64 old_val,
 			  __u64 new_val, __u32 len)
 {
@@ -44,20 +44,20 @@ ipv4_csum_update_by_value(struct __ctx_buff *ctx, int l3_off, __u64 old_val,
 			       old_val, new_val, len);
 }
 
-static __always_inline int
+static  int
 ipv4_csum_update_by_diff(struct __ctx_buff *ctx, int l3_off, __u64 diff)
 {
 	return l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
 			       0, diff, 0);
 }
 
-static __always_inline int ipv4_load_daddr(struct __ctx_buff *ctx, int off,
+static  int ipv4_load_daddr(struct __ctx_buff *ctx, int off,
 					   __u32 *dst)
 {
 	return ctx_load_bytes(ctx, off + offsetof(struct iphdr, daddr), dst, 4);
 }
 
-static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
+static  int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 					struct iphdr *ip4)
 {
 	__u8 new_ttl, ttl = ip4->ttl;
@@ -75,12 +75,12 @@ static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 	return 0;
 }
 
-static __always_inline int ipv4_hdrlen(const struct iphdr *ip4)
+static  int ipv4_hdrlen(const struct iphdr *ip4)
 {
 	return ip4->ihl * 4;
 }
 
-static __always_inline bool ipv4_is_fragment(const struct iphdr *ip4)
+static  bool ipv4_is_fragment(const struct iphdr *ip4)
 {
 	/* The frag_off portion of the header consists of:
 	 *
@@ -94,26 +94,26 @@ static __always_inline bool ipv4_is_fragment(const struct iphdr *ip4)
 	return ip4->frag_off & bpf_htons(0x3FFF);
 }
 
-static __always_inline bool ipv4_is_not_first_fragment(const struct iphdr *ip4)
+static  bool ipv4_is_not_first_fragment(const struct iphdr *ip4)
 {
 	/* Ignore "More fragments" bit to catch all fragments but the first */
 	return ip4->frag_off & bpf_htons(0x1FFF);
 }
 
 /* Simply a reverse of ipv4_is_not_first_fragment to avoid double negative. */
-static __always_inline bool ipv4_has_l4_header(const struct iphdr *ip4)
+static  bool ipv4_has_l4_header(const struct iphdr *ip4)
 {
 	return !ipv4_is_not_first_fragment(ip4);
 }
 
-static __always_inline bool ipv4_is_in_subnet(__be32 addr,
+static  bool ipv4_is_in_subnet(__be32 addr,
 					      __be32 subnet, int prefixlen)
 {
 	return (addr & bpf_htonl(~((1 << (32 - prefixlen)) - 1))) == subnet;
 }
 
 #ifdef ENABLE_IPV4_FRAGMENTS
-static __always_inline int
+static  int
 ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 		      struct ipv4_frag_l4ports *ports)
 {
@@ -128,7 +128,7 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 	return 0;
 }
 
-static __always_inline int
+static  int
 ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 			  const struct iphdr *ip4, int l4_off,
 			  enum ct_dir ct_dir,
@@ -179,7 +179,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 }
 #endif
 
-static __always_inline int
+static  int
 ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
 		   int l4_off, enum ct_dir dir __maybe_unused,
 		   __be16 *ports, bool *has_l4_header __maybe_unused)

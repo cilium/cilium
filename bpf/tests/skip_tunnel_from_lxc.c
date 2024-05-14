@@ -57,7 +57,7 @@ struct {
 	},
 };
 
-static __always_inline int
+static  int
 pktgen_from_lxc(struct __ctx_buff *ctx, bool v4)
 {
 	struct pktgen builder;
@@ -89,7 +89,7 @@ pktgen_from_lxc(struct __ctx_buff *ctx, bool v4)
 	return 0;
 }
 
-static __always_inline int
+static  int
 setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 {
 	/*
@@ -117,7 +117,7 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 	return TEST_ERROR;
 }
 
-static __always_inline int
+static  int
 check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 {
 	void *data;

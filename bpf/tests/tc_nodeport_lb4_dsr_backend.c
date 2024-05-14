@@ -59,7 +59,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #define ctx_redirect mock_ctx_redirect
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
 {
@@ -275,7 +275,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-static __always_inline int build_reply(struct __ctx_buff *ctx)
+static  int build_reply(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -301,7 +301,7 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	return 0;
 }
 
-static __always_inline int check_reply(const struct __ctx_buff *ctx)
+static  int check_reply(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;

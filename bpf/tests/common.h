@@ -261,7 +261,7 @@ test_result_cursor = 0;
 #define CHECK(progtype, name) __section(progtype "/test/" name "/check")
 
 #define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)	\
-static __always_inline int __##NAME(IPTYPE addr)		\
+static  int __##NAME(IPTYPE addr)		\
 {								\
 	int prefixes[] = { PREFIXES };				\
 	const int size = ARRAY_SIZE(prefixes);			\

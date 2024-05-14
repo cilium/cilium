@@ -24,7 +24,7 @@
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		       __u32 flags __maybe_unused)
 {
@@ -58,7 +58,7 @@ struct {
  *            \---------------------------/
  */
 
-static __always_inline int build_packet(struct __ctx_buff *ctx,
+static  int build_packet(struct __ctx_buff *ctx,
 					__be16 sport)
 {
 	struct pktgen builder;

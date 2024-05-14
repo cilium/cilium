@@ -27,12 +27,12 @@
 #define SECCTX_FROM_IPCACHE 1
 
 #define ctx_redirect mock_ctx_redirect
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused);
 
 #define fib_lookup mock_fib_lookup
-static __always_inline __maybe_unused long
+static  __maybe_unused long
 mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused);
 
@@ -53,7 +53,7 @@ static int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
 
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
 {
@@ -63,7 +63,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	return CTX_ACT_OK;
 }
 
-static __always_inline __maybe_unused long
+static  __maybe_unused long
 mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused)
 {

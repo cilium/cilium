@@ -58,7 +58,7 @@ static volatile const __u8 *backend_node_mac = mac_six;
 static bool fail_fib;
 
 #define ctx_redirect mock_ctx_redirect
-static __always_inline __maybe_unused int
+static  __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		  __u32 flags __maybe_unused)
 {

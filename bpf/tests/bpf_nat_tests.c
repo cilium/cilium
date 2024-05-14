@@ -27,7 +27,7 @@
 
 static char pkt[100];
 
-__always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
+ int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 {
 	void *orig = dst;
 

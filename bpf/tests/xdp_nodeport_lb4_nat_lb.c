@@ -297,7 +297,7 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-static __always_inline int build_reply(struct __ctx_buff *ctx)
+static  int build_reply(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -323,7 +323,7 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	return 0;
 }
 
-static __always_inline int check_reply(const struct __ctx_buff *ctx)
+static  int check_reply(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;

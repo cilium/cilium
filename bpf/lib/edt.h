@@ -14,14 +14,14 @@
  * from here, hence nothing to be set.
  */
 #if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
-static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
+static  void edt_set_aggregate(struct __ctx_buff *ctx,
 					      __u32 aggregate)
 {
 	/* 16 bit as current used aggregate, and preserved in host ns. */
 	ctx->queue_mapping = aggregate;
 }
 
-static __always_inline __u32 edt_get_aggregate(struct __ctx_buff *ctx)
+static  __u32 edt_get_aggregate(struct __ctx_buff *ctx)
 {
 	__u32 aggregate = ctx->queue_mapping;
 
@@ -33,7 +33,7 @@ static __always_inline __u32 edt_get_aggregate(struct __ctx_buff *ctx)
 	return aggregate;
 }
 
-static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
+static  int edt_sched_departure(struct __ctx_buff *ctx)
 {
 	__u64 delay, now, t, t_next;
 	struct edt_id aggregate;
@@ -76,7 +76,7 @@ static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
 	return CTX_ACT_OK;
 }
 #else
-static __always_inline void
+static  void
 edt_set_aggregate(struct __ctx_buff *ctx __maybe_unused,
 		  __u32 aggregate __maybe_unused)
 {

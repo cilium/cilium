@@ -50,7 +50,7 @@ struct {
 #define BACKEND_ID1 7
 #define BACKEND_ID2 42
 
-static __always_inline int craft_packet(struct __ctx_buff *ctx)
+static  int craft_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *eh;

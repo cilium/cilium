@@ -40,12 +40,12 @@
 #define ACTION_UNKNOWN_ICMP6_NS DROP_UNKNOWN_TARGET
 #endif
 
-static __always_inline int icmp6_load_type(struct __ctx_buff *ctx, int l4_off, __u8 *type)
+static  int icmp6_load_type(struct __ctx_buff *ctx, int l4_off, __u8 *type)
 {
 	return ctx_load_bytes(ctx, l4_off + ICMP6_TYPE_OFFSET, type, sizeof(*type));
 }
 
-static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
+static  int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 {
 	union macaddr smac, dmac = NODE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
@@ -95,7 +95,7 @@ static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
  *
  * Send an ICMPv6 nadv reply in return to an ICMPv6 ndisc.
  */
-static __always_inline int
+static  int
 send_icmp6_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
 		     const union macaddr *mac, bool to_router)
 {
@@ -159,7 +159,7 @@ send_icmp6_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
 	return icmp6_send_reply(ctx, nh_off);
 }
 
-static __always_inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
+static  __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 						 struct ipv6hdr *ipv6hdr)
 {
 	__be32 sum;
@@ -171,7 +171,7 @@ static __always_inline __be32 compute_icmp6_csum(char data[80], __u16 payload_le
 	return sum;
 }
 
-static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
+static  int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 						      int nh_off)
 {
 	/* FIXME: Fix code below to not require this init */
@@ -279,7 +279,7 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
+static  int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 						    int nh_off, enum metric_dir direction)
 {
 	ctx_store_meta(ctx, 0, nh_off);
@@ -289,7 +289,7 @@ static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 }
 #endif
 
-static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
+static  int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 {
 	union v6addr target, router;
 	struct endpoint_info *ep;
@@ -357,7 +357,7 @@ int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
+static  int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
 					   enum metric_dir direction,
 					   __s8 *ext_err)
 {
@@ -367,7 +367,7 @@ static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
 	return tail_call_internal(ctx, CILIUM_CALL_HANDLE_ICMP6_NS, ext_err);
 }
 
-static __always_inline bool
+static  bool
 is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 {
 	__u8 type;
@@ -379,7 +379,7 @@ is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 	       (type == ICMP6_NS_MSG_TYPE || type == ICMP6_NA_MSG_TYPE);
 }
 
-static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
+static  int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 					    enum metric_dir direction,
 					    __s8 *ext_err)
 {
@@ -398,7 +398,7 @@ static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 	return 0;
 }
 
-static __always_inline int
+static  int
 icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle_ns)
 {
 	__u8 type;

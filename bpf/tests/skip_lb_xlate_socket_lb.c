@@ -27,7 +27,7 @@
  * populated in real CGROUP_SOCK_ADDR hooks, we use it only for testing to
  * mock netns_cookies for different source pods.
  */
-static __always_inline
+static
 int test_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 {
 	struct bpf_sock *sk = addr->sk;

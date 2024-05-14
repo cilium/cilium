@@ -58,12 +58,12 @@
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
 #define FROM_HOST_FLAG_HOST_ID (1 << 2)
 
-static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
+static  bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
 	VLAN_FILTER(ifindex, vlan_id);
 }
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
-static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
+static  int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
 	 * cilium_host (peer) to ensure the packet is being considered to be
@@ -83,14 +83,14 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 # define SECCTX_FROM_IPCACHE	0
 #endif
 
-static __always_inline bool identity_from_ipcache_ok(void)
+static  bool identity_from_ipcache_ok(void)
 {
 	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;
 }
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32
+static  __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		   __u32 srcid_from_ipcache, __u32 *sec_identity,
 		   const bool from_host)
@@ -136,7 +136,7 @@ struct {
 	__uint(max_entries, 1);
 } CT_TAIL_CALL_BUFFER6 __section_maps_btf;
 
-static __always_inline int
+static  int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,
 	    const bool from_host __maybe_unused,
@@ -226,7 +226,7 @@ skip_host_firewall:
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
+static  int
 handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		 __s8 *ext_err __maybe_unused)
 {
@@ -403,7 +403,7 @@ skip_tunnel:
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
+static  int
 tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -418,20 +418,20 @@ tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_CONT_FROM_HOST)
-static __always_inline
+static
 int tail_handle_ipv6_cont_from_host(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6_cont(ctx, true);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_CONT_FROM_NETDEV)
-static __always_inline
+static
 int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6_cont(ctx, false);
 }
 
-static __always_inline int
+static  int
 tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -482,7 +482,7 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 }
 
 # ifdef ENABLE_HOST_FIREWALL
-static __always_inline int
+static  int
 handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		      struct trace_ctx *trace, __s8 *ext_err)
 {
@@ -518,7 +518,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline __u32
+static  __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		   __u32 srcid_from_proxy, __u32 *sec_identity,
 		   const bool from_host)
@@ -566,7 +566,7 @@ struct {
 	__uint(max_entries, 1);
 } CT_TAIL_CALL_BUFFER4 __section_maps_btf;
 
-static __always_inline int
+static  int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,
 	    const bool from_host __maybe_unused,
@@ -653,7 +653,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
+static  int
 handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		 __s8 *ext_err __maybe_unused)
 {
@@ -859,7 +859,7 @@ skip_tunnel:
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
+static  int
 tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -874,20 +874,20 @@ tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_CONT_FROM_HOST)
-static __always_inline
+static
 int tail_handle_ipv4_cont_from_host(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4_cont(ctx, true);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_CONT_FROM_NETDEV)
-static __always_inline
+static
 int tail_handle_ipv4_cont_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4_cont(ctx, false);
 }
 
-static __always_inline int
+static  int
 tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -938,7 +938,7 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 }
 
 #ifdef ENABLE_HOST_FIREWALL
-static __always_inline int
+static  int
 handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		      struct trace_ctx *trace, __s8 *ext_err)
 {
@@ -961,7 +961,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_IPV4 */
 
 #if defined(ENABLE_IPSEC) && defined(TUNNEL_MODE)
-static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
+static  int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_ENCRYPTED,
@@ -1003,7 +1003,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 #endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
 #ifdef ENABLE_L2_ANNOUNCEMENTS
-static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
+static  int handle_l2_announcement(struct __ctx_buff *ctx)
 {
 	union macaddr mac = NODE_MAC;
 	union macaddr smac;
@@ -1044,7 +1044,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 };
 #endif
 
-static __always_inline int
+static  int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
 	enum trace_point trace = from_host ? TRACE_FROM_HOST :
@@ -1200,7 +1200,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
  *
  * Handle netdev traffic coming towards the Cilium-managed network.
  */
-static __always_inline int
+static  int
 handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 {
 	__u16 proto;
@@ -1317,7 +1317,7 @@ int cil_from_host(struct __ctx_buff *ctx)
  *
  * IS_ERR can be used to determine if this function ran into an error.
  */
-static __always_inline int do_encrypt_overlay(struct __ctx_buff *ctx)
+static  int do_encrypt_overlay(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 	struct iphdr __maybe_unused *ipv4;
@@ -1610,7 +1610,7 @@ out:
 #if defined(ENABLE_HOST_FIREWALL)
 #ifdef ENABLE_IPV6
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
-static __always_inline
+static
 int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 {
 	struct trace_ctx __maybe_unused trace = {
@@ -1631,7 +1631,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPV4
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
-static __always_inline
+static
 int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 {
 	struct trace_ctx __maybe_unused trace = {
@@ -1650,7 +1650,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV4 */
 
-static __always_inline int
+static  int
 /* Handles packet from a local endpoint entering the host namespace. Applies
  * ingress host policies.
  */
@@ -1707,7 +1707,7 @@ out:
  * endpoint's namespace. Applies egress host policies before handling
  * control back to bpf_lxc.
  */
-static __always_inline int
+static  int
 from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 {
 	struct trace_ctx trace = {

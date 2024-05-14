@@ -51,7 +51,7 @@
  * [1]: Knuth. The Art of Computer Programming (2nd edition), vol. 3, sec. 6.4,
  * ex. 9 (page 550, solution on page 729).
  */
-static __always_inline __u32 hash_32(__u32 key, __u32 bits)
+static  __u32 hash_32(__u32 key, __u32 bits)
 {
 	return (key * U32MAX_DIV_GOLDEN_RATIO) >> (32 - bits);
 }
