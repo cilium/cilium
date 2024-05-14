@@ -432,7 +432,7 @@ jobs:
           ./cilium-cli upgrade \
             ${{ steps.cilium-newest-config.outputs.config }}
 
-          ./cilium-cli status --wait
+          ./cilium-cli status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
@@ -463,7 +463,7 @@ jobs:
           ./cilium-cli upgrade \
             ${{ steps.cilium-stable-config.outputs.config }}
 
-          ./cilium-cli status --wait
+          ./cilium-cli status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
