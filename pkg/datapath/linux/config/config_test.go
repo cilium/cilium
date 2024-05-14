@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -65,15 +66,16 @@ func (b *badWriter) Write(p []byte) (int, error) {
 type writeFn func(io.Writer, datapath.LoaderContext, datapath.ConfigWriter) error
 
 func testLoaderContext() datapath.LoaderContext {
-	n := node.LocalNode{}
-	node.SetDefaultPrefix(option.Config, "", &n)
-	n.SetCiliumInternalIP(ipv4DummyAddr.AsSlice())
-	n.IPv4Loopback = ipv4DummyAddr.AsSlice()
 	return datapath.LoaderContext{
-		LocalNode:   n,
-		Devices:     []*tables.Device{},
-		DeviceNames: []string{},
-		NodeAddrs:   []tables.NodeAddress{},
+		NodeIPv4:     ipv4DummyAddr.AsSlice(),
+		NodeIPv6:     ipv6DummyAddr.AsSlice(),
+		InternalIPv4: ipv4DummyAddr.AsSlice(),
+		InternalIPv6: ipv6DummyAddr.AsSlice(),
+		RangeIPv4:    cidr.MustParseCIDR("10.147.0.0/16"),
+		LoopbackIPv4: ipv4DummyAddr.AsSlice(),
+		Devices:      []*tables.Device{},
+		DeviceNames:  []string{},
+		NodeAddrs:    []tables.NodeAddress{},
 	}
 }
 

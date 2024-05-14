@@ -11,10 +11,10 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/node"
 )
 
 // LoaderContext are the external inputs to the loader resolved by the orchestrator.
@@ -22,7 +22,11 @@ import (
 // be unified so we don't need to pass both this and LoccalNodeConfiguration to the ConfigWriter.
 // +deepequal-gen=true
 type LoaderContext struct {
-	LocalNode   node.LocalNode
+	NodeIPv4, NodeIPv6         net.IP
+	InternalIPv4, InternalIPv6 net.IP
+	RangeIPv4                  *cidr.CIDR
+	LoopbackIPv4               net.IP
+
 	Devices     []*tables.Device
 	DeviceNames []string
 	NodeAddrs   []tables.NodeAddress

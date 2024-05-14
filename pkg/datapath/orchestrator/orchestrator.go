@@ -20,6 +20,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -31,10 +32,14 @@ import (
 const (
 	// minReinitInterval is the minimum interval to wait between reinitializations.
 	minReinitInterval = 500 * time.Millisecond
+
+	// reinitRetryDuration is the time to wait before retrying failed reinitialization.
+	reinitRetryDuration = 10 * time.Second
 )
 
 type orchestrator struct {
 	params        orchestratorParams
+	initDone      bool
 	dbInitialized chan struct{}
 	trigger       chan reinitializeRequest
 }
@@ -108,17 +113,23 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 
 	health.OK("Initializing")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
-	var loaderContext, prevContext datapath.LoaderContext
-	loaderContext.LocalNode = localNode
-
-	var request reinitializeRequest
+	var (
+		prevContext datapath.LoaderContext
+		request     reinitializeRequest
+		retryChan   <-chan time.Time
+	)
+	retryTimer, stopRetryTimer := inctimer.New()
+	defer stopRetryTimer()
 	for {
-		devsWatch, addrsWatch := o.updateLoaderContext(&loaderContext)
+		loaderContext, devsWatch, addrsWatch := o.getLoaderContext(&localNode)
 
 		if !prevContext.DeepEqual(&loaderContext) {
 			if err := o.reinitialize(ctx, request, loaderContext); err != nil {
 				health.Degraded("Failed to reinitialize datapath", err)
+				retryChan = retryTimer.After(reinitRetryDuration)
 			} else {
+				retryChan = nil
+				stopRetryTimer()
 				health.OK("OK")
 			}
 			prevContext = loaderContext
@@ -131,7 +142,8 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			return ctx.Err()
 		case <-devsWatch:
 		case <-addrsWatch:
-		case loaderContext.LocalNode = <-localNodes:
+		case <-retryChan:
+		case localNode = <-localNodes:
 		case request = <-o.trigger:
 		}
 
@@ -143,7 +155,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	}
 }
 
-func (o *orchestrator) updateLoaderContext(lctx *datapath.LoaderContext) (devWatch, addrWatch <-chan struct{}) {
+func (o *orchestrator) getLoaderContext(node *node.LocalNode) (lctx datapath.LoaderContext, devWatch, addrWatch <-chan struct{}) {
 	txn := o.params.DB.ReadTxn()
 	nativeDevices, devsWatch := tables.SelectedDevices(o.params.Devices, txn)
 	addrs, addrsWatch := o.params.NodeAddresses.All(txn)
@@ -152,13 +164,13 @@ func (o *orchestrator) updateLoaderContext(lctx *datapath.LoaderContext) (devWat
 	lctx.NodeAddrs = statedb.Collect(
 		statedb.Filter(addrs,
 			func(a tables.NodeAddress) bool { return a.DeviceName != tables.WildcardDeviceName }))
-	return devsWatch, addrsWatch
-}
-
-func (o *orchestrator) getLoaderContext(ctx context.Context) (lctx datapath.LoaderContext) {
-	o.updateLoaderContext(&lctx)
-	lctx.LocalNode, _ = o.params.LocalNodeStore.Get(ctx)
-	return
+	lctx.InternalIPv4 = node.GetCiliumInternalIP(false)
+	lctx.InternalIPv6 = node.GetCiliumInternalIP(true)
+	lctx.LoopbackIPv4 = node.IPv4Loopback
+	lctx.NodeIPv4 = node.GetNodeIP(false)
+	lctx.NodeIPv6 = node.GetNodeIP(true)
+	lctx.RangeIPv4 = node.IPv4AllocCIDR
+	return lctx, devsWatch, addrsWatch
 }
 
 func (o *orchestrator) Reinitialize(ctx context.Context) error {
@@ -187,7 +199,10 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		errs = append(errs, err)
 	}
 
-	close(o.dbInitialized)
+	if !o.initDone {
+		close(o.dbInitialized)
+		o.initDone = true
+	}
 
 	reason := "Devices changed"
 	if req.ctx != nil {
@@ -223,7 +238,8 @@ func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint,
 		return ctx.Err()
 	}
 
-	lctx := o.getLoaderContext(ctx)
+	node, _ := o.params.LocalNodeStore.Get(ctx)
+	lctx, _, _ := o.getLoaderContext(&node)
 	return o.params.Loader.ReloadDatapath(ctx, ep, lctx, stats)
 }
 
@@ -234,7 +250,8 @@ func (o *orchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string)
 		return ctx.Err()
 	}
 
-	lctx := o.getLoaderContext(ctx)
+	node, _ := o.params.LocalNodeStore.Get(ctx)
+	lctx, _, _ := o.getLoaderContext(&node)
 	return o.params.Loader.ReinitializeXDP(ctx, extraCArgs, lctx)
 }
 
@@ -250,6 +267,7 @@ func (o *orchestrator) Unload(ep datapath.Endpoint) {
 
 func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
 	<-o.dbInitialized
-	lctx := o.getLoaderContext(context.Background())
+	node, _ := o.params.LocalNodeStore.Get(context.Background())
+	lctx, _, _ := o.getLoaderContext(&node)
 	return o.params.ConfigWriter.WriteEndpointConfig(w, lctx, cfg)
 }
