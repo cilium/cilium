@@ -36,7 +36,7 @@ var (
 )
 
 // metadata contains the ipcache metadata. Mainily it holds a map which maps IP
-// prefixes (x.x.x.x/32) to a set of information (PrefixInfo).
+// prefixes (x.x.x.x/32) to a set of information (prefixInfo).
 //
 // When allocating an identity to associate with each prefix, the
 // identity allocation routines will merge this set of labels into the
@@ -52,13 +52,13 @@ var (
 //	labels.Labels
 //	source.Source
 //	end
-//	subgraph PrefixInfo
+//	subgraph prefixInfo
 //	UA[ResourceID]-->LA[resourceInfo]
 //	UB[ResourceID]-->LB[resourceInfo]
 //	...
 //	end
 //	subgraph identityMetadata
-//	IP_Prefix-->PrefixInfo
+//	IP_Prefix-->prefixInfo
 //	end
 //
 // ```
@@ -71,7 +71,7 @@ type metadata struct {
 	lock.RWMutex
 
 	// m is the actual map containing the mappings.
-	m map[netip.Prefix]PrefixInfo
+	m map[netip.Prefix]prefixInfo
 
 	// queued* handle updates into the IPCache. Whenever a label is added
 	// or removed from a specific IP prefix, that prefix is added into
@@ -106,7 +106,7 @@ type metadata struct {
 
 func newMetadata() *metadata {
 	return &metadata{
-		m:              make(map[netip.Prefix]PrefixInfo),
+		m:              make(map[netip.Prefix]prefixInfo),
 		queuedPrefixes: make(map[netip.Prefix]struct{}),
 		queuedRevision: 1,
 
@@ -168,7 +168,7 @@ func (m *metadata) waitForRevision(rev uint64) {
 
 func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource types.ResourceID, info ...IPMetadata) {
 	if _, ok := m.m[prefix]; !ok {
-		m.m[prefix] = make(PrefixInfo)
+		m.m[prefix] = make(prefixInfo)
 	}
 	if _, ok := m.m[prefix][resource]; !ok {
 		m.m[prefix][resource] = &resourceInfo{
@@ -191,7 +191,7 @@ func (ipc *IPCache) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source
 	return ipc.metadata.getLocked(prefix).Source()
 }
 
-func (m *metadata) getLocked(prefix netip.Prefix) PrefixInfo {
+func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
 	return m.m[prefix]
 }
 
@@ -472,7 +472,7 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 
 // resolveIdentity will either return a previously-allocated identity for the
 // given prefix or allocate a new one corresponding to the labels associated
-// with the specified PrefixInfo.
+// with the specified prefixInfo.
 //
 // This function will take an additional reference on the returned identity.
 // The caller *must* ensure that this reference is eventually released via
@@ -484,7 +484,7 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 //   - If the entry is not inserted (for instance, because the bpf IPCache map
 //     already has the same IP -> identity entry in the map), immediately release
 //     the reference.
-func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, info PrefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
 	// Override identities always take precedence
 	if identityOverrideLabels, ok := info.identityOverride(); ok {
 		return ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
