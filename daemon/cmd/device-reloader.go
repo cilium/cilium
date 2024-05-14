@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -35,6 +36,7 @@ type deviceReloader struct {
 	devsChanged  <-chan struct{}
 	prevDevices  []string
 	jg           job.Group
+	limiter      *rate.Limiter
 }
 
 // registerDeviceReloader provides the device reloader to the hive. The device reloader reloads the
@@ -55,6 +57,8 @@ func (d *deviceReloader) Start(ctx cell.HookContext) error {
 	c := make(chan struct{})
 	close(c)
 	d.addrsChanged = c
+
+	d.limiter = rate.NewLimiter(time.Millisecond*500, 1)
 
 	jg := d.params.Jobs.NewGroup(d.params.Health)
 	jg.Add(job.Timer("device-reloader", d.reload, time.Second))
@@ -83,6 +87,12 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	case <-d.devsChanged:
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+
+	// Rate-limit to avoid reinitializing too often and to allow NodeAddress table
+	// to update.
+	if err := d.limiter.Wait(ctx); err != nil {
+		return err
 	}
 
 	// Note that the consumers may see inconsistent state in between updates to
