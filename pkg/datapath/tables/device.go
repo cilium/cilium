@@ -97,6 +97,13 @@ type Device struct {
 	NotSelectedReason string // Reason why this device was not selected
 }
 
+func (d *Device) DeepEqual(other *Device) bool {
+	// The [Device] struct is immutable, thus referential equality is enough. In the
+	// use-cases for this we only care about whether we point to the same instance of the
+	// device struct.
+	return d == other
+}
+
 func (d *Device) DeepCopy() *Device {
 	copy := *d
 	copy.Addrs = slices.Clone(d.Addrs)

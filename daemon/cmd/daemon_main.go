@@ -44,7 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -1623,7 +1622,7 @@ type daemonParams struct {
 	Lifecycle            cell.Lifecycle
 	Clientset            k8sClient.Clientset
 	Datapath             datapath.Datapath
-	Loader               loader.Loader
+	Loader               datapath.Loader
 	WGAgent              *wireguard.Agent
 	LocalNodeStore       *node.LocalNodeStore
 	Shutdowner           hive.Shutdowner

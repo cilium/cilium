@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -121,7 +121,7 @@ func (l *loader) init() {
 	l.once.Do(func() {
 		l.templateCache = newObjectCache(l.configWriter, &l.localNodeConfig, option.Config.StateDir)
 	})
-	l.templateCache.Update(&l.localNodeConfig)
+	l.templateCache.Update(datapath.LoaderContext{}, &l.localNodeConfig)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -618,7 +618,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx types.LoaderContext, stats *metrics.SpanStat) (err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx datapath.LoaderContext, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -626,7 +626,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx 
 		Output:  ep.StateDir(),
 	}
 
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, &dirs, stats)
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, lctx, ep, &dirs, stats)
 	if err != nil {
 		return err
 	}

@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -29,7 +28,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -59,7 +57,7 @@ func (l *loader) writeNetdevHeader(dir string) error {
 	return nil
 }
 
-func (l *loader) writeNodeConfigHeader() error {
+func (l *loader) writeNodeConfigHeader(lctx datapath.LoaderContext) error {
 	nodeConfigPath := option.Config.GetNodeConfigPath()
 	f, err := os.Create(nodeConfigPath)
 	if err != nil {
@@ -67,7 +65,7 @@ func (l *loader) writeNodeConfigHeader() error {
 	}
 	defer f.Close()
 
-	if err = l.templateCache.WriteNodeConfig(f, &l.localNodeConfig); err != nil {
+	if err = l.templateCache.WriteNodeConfig(f, lctx, &l.localNodeConfig); err != nil {
 		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
 	}
 	return nil
@@ -301,7 +299,7 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string, lctx types.LoaderContext) error {
+func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string, lctx datapath.LoaderContext) error {
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 	return l.reinitializeXDPLocked(ctx, extraCArgs, lctx.DeviceNames)
@@ -311,7 +309,7 @@ func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string, lctx 
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, lctx types.LoaderContext) error {
+func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, lctx datapath.LoaderContext) error {
 	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -328,10 +326,10 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 
 	var nodeIPv4, nodeIPv6 net.IP
 	if option.Config.EnableIPv4 {
-		nodeIPv4 = node.GetInternalIPv4Router()
+		nodeIPv4 = lctx.LocalNode.GetCiliumInternalIP(false)
 	}
 	if option.Config.EnableIPv6 {
-		nodeIPv6 = node.GetIPv6Router()
+		nodeIPv6 = lctx.LocalNode.GetCiliumInternalIP(true)
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
@@ -383,7 +381,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 		return err
 	}
 
-	if err := l.writeNodeConfigHeader(); err != nil {
+	if err := l.writeNodeConfigHeader(lctx); err != nil {
 		log.WithError(err).Error("Unable to write node config header")
 		return err
 	}

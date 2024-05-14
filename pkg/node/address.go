@@ -28,10 +28,7 @@ import (
 const preferPublicIP bool = true
 
 var (
-	Addrs Addresses = Addresses{
-		IPv4LoopbackSet: make(chan struct{}),
-		RouterInfoSet:   make(chan struct{}),
-	}
+	addrs addresses
 
 	// localNode holds the current state of the local "types.Node".
 	// This is defined here until all uses of the getters and
@@ -53,15 +50,9 @@ func getLocalNode() LocalNode {
 	return n
 }
 
-type Addresses struct {
-	mu lock.RWMutex
-
-	ipv4LoopBackIsSet bool
-	IPv4LoopbackSet   chan struct{}
-	ipv4Loopback      net.IP
-	routerInfoIsSet   bool
-	RouterInfoSet     chan struct{}
-	routerInfo        RouterInfo
+type addresses struct {
+	mu         lock.RWMutex
+	routerInfo RouterInfo
 }
 
 type RouterInfo interface {
@@ -168,22 +159,15 @@ func clone(ip net.IP) net.IP {
 	return dup
 }
 
-// GetIPv4Loopback returns the loopback IPv4 address of this node.
 func GetIPv4Loopback() net.IP {
-	Addrs.mu.RLock()
-	defer Addrs.mu.RUnlock()
-	return clone(Addrs.ipv4Loopback)
+	return getLocalNode().IPv4Loopback
 }
 
 // SetIPv4Loopback sets the loopback IPv4 address of this node.
 func SetIPv4Loopback(ip net.IP) {
-	Addrs.mu.Lock()
-	Addrs.ipv4Loopback = clone(ip)
-	if !Addrs.ipv4LoopBackIsSet {
-		close(Addrs.IPv4LoopbackSet)
-		Addrs.ipv4LoopBackIsSet = true
-	}
-	Addrs.mu.Unlock()
+	localNode.Update(func(n *LocalNode) {
+		n.IPv4Loopback = ip
+	})
 }
 
 // GetIPv4AllocRange returns the IPv4 allocation prefix of this node
@@ -255,20 +239,16 @@ func GetK8sExternalIPv4() net.IP {
 
 // GetRouterInfo returns additional information for the router, the cilium_host interface.
 func GetRouterInfo() RouterInfo {
-	Addrs.mu.RLock()
-	defer Addrs.mu.RUnlock()
-	return Addrs.routerInfo
+	addrs.mu.RLock()
+	defer addrs.mu.RUnlock()
+	return addrs.routerInfo
 }
 
 // SetRouterInfo sets additional information for the router, the cilium_host interface.
 func SetRouterInfo(info RouterInfo) {
-	Addrs.mu.Lock()
-	Addrs.routerInfo = info
-	if !Addrs.routerInfoIsSet {
-		close(Addrs.RouterInfoSet)
-		Addrs.routerInfoIsSet = true
-	}
-	Addrs.mu.Unlock()
+	addrs.mu.Lock()
+	addrs.routerInfo = info
+	addrs.mu.Unlock()
 }
 
 // GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading

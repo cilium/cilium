@@ -186,7 +186,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		return err
 	}
 
-	if err = e.owner.Datapath().WriteEndpointConfig(f, e); err != nil {
+	if err = e.owner.Datapath().Orchestrator().WriteEndpointConfig(f, e); err != nil {
 		return err
 	}
 

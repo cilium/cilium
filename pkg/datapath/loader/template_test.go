@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -21,11 +22,12 @@ func TestWrap(t *testing.T) {
 	realEP := testutils.NewTestEndpoint()
 	template := wrap(&realEP)
 	cfg := configWriterForTest(t)
+	lctx := datapath.LoaderContext{}
 
 	// Write the configuration that should be the same, and verify it is.
-	err := cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
+	err := cfg.WriteTemplateConfig(&realEPBuffer, lctx, &realEP)
 	require.NoError(t, err)
-	err = cfg.WriteTemplateConfig(&templateBuffer, template)
+	err = cfg.WriteTemplateConfig(&templateBuffer, lctx, template)
 	require.NoError(t, err)
 	require.Equal(t, realEPBuffer.String(), templateBuffer.String())
 
@@ -35,9 +37,9 @@ func TestWrap(t *testing.T) {
 	// define every bit of static data differently in the templates.
 	realEPBuffer.Reset()
 	templateBuffer.Reset()
-	err = cfg.WriteEndpointConfig(&realEPBuffer, &realEP)
+	err = cfg.WriteEndpointConfig(&realEPBuffer, lctx, &realEP)
 	require.NoError(t, err)
-	err = cfg.WriteEndpointConfig(&templateBuffer, template)
+	err = cfg.WriteEndpointConfig(&templateBuffer, lctx, template)
 	require.NoError(t, err)
 
 	require.NotEqual(t, realEPBuffer.String(), templateBuffer.String())

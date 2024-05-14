@@ -6,7 +6,6 @@ package regeneration
 import (
 	"context"
 
-	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -28,7 +27,7 @@ type Owner interface {
 	Datapath() datapath.Datapath
 
 	// Loader returns a reference to the loader implementation.
-	Loader() loader.Loader
+	Loader() datapath.Loader
 
 	// GetDNSRules creates a fresh copy of DNS rules that can be used when
 	// endpoint is restored on a restart.

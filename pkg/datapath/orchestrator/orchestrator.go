@@ -6,6 +6,7 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"io"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -47,7 +47,8 @@ type reinitializeRequest struct {
 type orchestratorParams struct {
 	cell.In
 
-	Loader          types.Loader
+	Loader          datapath.Loader
+	ConfigWriter    datapath.ConfigWriter
 	TunnelConfig    tunnel.Config
 	MTU             mtu.MTU
 	IPTablesManager *iptables.Manager
@@ -77,24 +78,17 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 }
 
 func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error {
-
-	// The loader is implicitly dependant on a few global variables being initialized.
-	// Since we have not yet been able to add these to hive we have to wait for them to be initialized.
-	// And can't assume they are ready when we start running.
-	if option.Config.EnableIPv4 {
-		health.OK("Waiting for loopback IP")
-		<-node.Addrs.IPv4LoopbackSet
-	}
-
-	// Wait until the local node has the internal IP (cilium_host) allocated.
+	// Wait until the local node has the loopback IP and internal IP (cilium_host) allocated before
+	// proceeding. These are needed by the config file writer and we cannot proceed without them.
 	health.OK("Waiting for Cilium internal IP")
-	_, err := stream.First(ctx,
+	localNodes := stream.ToChannel(ctx,
 		stream.Filter(o.params.LocalNodeStore,
 			func(n node.LocalNode) bool {
 				if option.Config.EnableIPv4 {
+					loopback := n.IPv4Loopback != nil
 					ipv4GW := n.GetCiliumInternalIP(false) != nil
 					ipv4Range := n.IPv4AllocCIDR != nil
-					if !ipv4GW || !ipv4Range {
+					if !ipv4GW || !ipv4Range || !loopback {
 						return false
 					}
 				}
@@ -106,24 +100,28 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				}
 				return true
 			}))
-	if err != nil {
-		return err
+	localNode, ok := <-localNodes
+	if !ok {
+		// Context cancelled.
+		return nil
 	}
 
 	health.OK("Initializing")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
-	var prevContext types.LoaderContext
-	newContext, devsWatch, addrsWatch := o.getLoaderContext()
+	var loaderContext, prevContext datapath.LoaderContext
+	loaderContext.LocalNode = localNode
 
 	var request reinitializeRequest
 	for {
-		if !prevContext.Equal(newContext) {
-			if err := o.reinitialize(ctx, request, newContext); err != nil {
+		devsWatch, addrsWatch := o.updateLoaderContext(&loaderContext)
+
+		if !prevContext.DeepEqual(&loaderContext) {
+			if err := o.reinitialize(ctx, request, loaderContext); err != nil {
 				health.Degraded("Failed to reinitialize datapath", err)
 			} else {
 				health.OK("OK")
 			}
-			prevContext = newContext
+			prevContext = loaderContext
 		}
 
 		request = reinitializeRequest{}
@@ -133,6 +131,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			return ctx.Err()
 		case <-devsWatch:
 		case <-addrsWatch:
+		case loaderContext.LocalNode = <-localNodes:
 		case request = <-o.trigger:
 		}
 
@@ -141,20 +140,25 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		if err := limiter.Wait(ctx); err != nil {
 			return err
 		}
-
-		newContext, devsWatch, addrsWatch = o.getLoaderContext()
 	}
 }
 
-func (o *orchestrator) getLoaderContext() (lctx types.LoaderContext, devWatch, addrWatch <-chan struct{}) {
+func (o *orchestrator) updateLoaderContext(lctx *datapath.LoaderContext) (devWatch, addrWatch <-chan struct{}) {
 	txn := o.params.DB.ReadTxn()
 	nativeDevices, devsWatch := tables.SelectedDevices(o.params.Devices, txn)
 	addrs, addrsWatch := o.params.NodeAddresses.All(txn)
-	newCtx := types.LoaderContext{
-		DeviceNames: tables.DeviceNames(nativeDevices),
-		NodeAddrs:   statedb.Collect(addrs),
-	}
-	return newCtx, devsWatch, addrsWatch
+	lctx.Devices = nativeDevices
+	lctx.DeviceNames = tables.DeviceNames(nativeDevices)
+	lctx.NodeAddrs = statedb.Collect(
+		statedb.Filter(addrs,
+			func(a tables.NodeAddress) bool { return a.DeviceName != tables.WildcardDeviceName }))
+	return devsWatch, addrsWatch
+}
+
+func (o *orchestrator) getLoaderContext(ctx context.Context) (lctx datapath.LoaderContext) {
+	o.updateLoaderContext(&lctx)
+	lctx.LocalNode, _ = o.params.LocalNodeStore.Get(ctx)
+	return
 }
 
 func (o *orchestrator) Reinitialize(ctx context.Context) error {
@@ -166,7 +170,7 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	return <-errChan
 }
 
-func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, lctx types.LoaderContext) error {
+func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, lctx datapath.LoaderContext) error {
 	if req.ctx != nil {
 		ctx = req.ctx
 	}
@@ -219,8 +223,7 @@ func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint,
 		return ctx.Err()
 	}
 
-	lctx, _, _ := o.getLoaderContext()
-
+	lctx := o.getLoaderContext(ctx)
 	return o.params.Loader.ReloadDatapath(ctx, ep, lctx, stats)
 }
 
@@ -231,8 +234,7 @@ func (o *orchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string)
 		return ctx.Err()
 	}
 
-	lctx, _, _ := o.getLoaderContext()
-
+	lctx := o.getLoaderContext(ctx)
 	return o.params.Loader.ReinitializeXDP(ctx, extraCArgs, lctx)
 }
 
@@ -244,4 +246,10 @@ func (o *orchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string,
 func (o *orchestrator) Unload(ep datapath.Endpoint) {
 	<-o.dbInitialized
 	o.params.Loader.Unload(ep)
+}
+
+func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
+	<-o.dbInitialized
+	lctx := o.getLoaderContext(context.Background())
+	return o.params.ConfigWriter.WriteEndpointConfig(w, lctx, cfg)
 }

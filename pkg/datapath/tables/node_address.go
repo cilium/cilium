@@ -55,6 +55,13 @@ type NodeAddress struct {
 	DeviceName string
 }
 
+func (n *NodeAddress) DeepEqual(other *NodeAddress) bool {
+	return n.Addr == other.Addr &&
+		n.NodePort == other.NodePort &&
+		n.Primary == other.Primary &&
+		n.DeviceName == other.DeviceName
+}
+
 func (n *NodeAddress) IP() net.IP {
 	return n.Addr.AsSlice()
 }

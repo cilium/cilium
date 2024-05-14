@@ -18,8 +18,9 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -202,7 +203,7 @@ func TestBPFMasqAddrs(t *testing.T) {
 
 	l := newTestLoader(t)
 
-	lctx := types.LoaderContext{}
+	lctx := datapath.LoaderContext{}
 
 	masq4, masq6 := l.bpfMasqAddrs(lctx, "test")
 	require.Equal(t, masq4.IsValid(), false)

@@ -23,15 +23,17 @@ var (
 
 // datapathHash represents a unique enumeration of the datapath implementation.
 type datapathHash struct {
+	lctx datapath.LoaderContext
 	hash.Hash
 }
 
 // newDatapathHash creates a new datapath hash based on the contents of the datapath
 // template files under bpf/.
-func newDatapathHash() *datapathHash {
+func newDatapathHash(lctx datapath.LoaderContext) *datapathHash {
 	d := sha256.New()
 	io.WriteString(d, datapathSHA256)
 	return &datapathHash{
+		lctx: lctx,
 		Hash: d,
 	}
 }
@@ -42,18 +44,18 @@ func newDatapathHash() *datapathHash {
 //
 //	hash := hashDatapath(dp, nodeCfg, netdevCfg, ep)
 //	hashStr := hash.sumEndpoint(ep)
-func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, netdevCfg datapath.DeviceConfiguration, epCfg datapath.EndpointConfiguration) *datapathHash {
-	d := newDatapathHash()
+func hashDatapath(lctx datapath.LoaderContext, c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, netdevCfg datapath.DeviceConfiguration, epCfg datapath.EndpointConfiguration) *datapathHash {
+	d := newDatapathHash(lctx)
 
 	// Writes won't fail; it's an in-memory hash.
 	if nodeCfg != nil {
-		_ = c.WriteNodeConfig(d, nodeCfg)
+		_ = c.WriteNodeConfig(d, lctx, nodeCfg)
 	}
 	if netdevCfg != nil {
 		_ = c.WriteNetdevConfig(d, option.Config.Opts)
 	}
 	if epCfg != nil {
-		_ = c.WriteTemplateConfig(d, epCfg)
+		_ = c.WriteTemplateConfig(d, lctx, epCfg)
 	}
 
 	return d
@@ -67,9 +69,9 @@ func (d *datapathHash) sumEndpoint(c datapath.ConfigWriter, epCfg datapath.Endpo
 		return "", err
 	}
 	if staticData {
-		c.WriteEndpointConfig(result, epCfg)
+		c.WriteEndpointConfig(result, d.lctx, epCfg)
 	} else {
-		c.WriteTemplateConfig(result, epCfg)
+		c.WriteTemplateConfig(result, d.lctx, epCfg)
 	}
 	return result.String(), nil
 }

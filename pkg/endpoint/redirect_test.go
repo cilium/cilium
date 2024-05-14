@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
-	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
@@ -159,7 +158,7 @@ func (d *DummyOwner) Datapath() datapath.Datapath {
 	return nil
 }
 
-func (d *DummyOwner) Loader() loader.Loader {
+func (d *DummyOwner) Loader() datapath.Loader {
 	return nil
 }
 
