@@ -27,7 +27,7 @@
  * The following list of files is static, but it is validated during build with
  * the pkg/datapath/loader/check-sources.sh tool.
  */
-static __always_inline int
+static __maybe_unused int
 __id_for_file(const char *const header_name)
 {
 	/* @@ source files list begin */

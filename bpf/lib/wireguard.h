@@ -16,7 +16,7 @@
 
 #include "lib/proxy.h"
 
-static __always_inline int
+static __maybe_unused int
 wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 {
 	struct remote_endpoint_info *dst = NULL;
@@ -165,7 +165,7 @@ out:
 #ifdef ENCRYPTION_STRICT_MODE
 
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
-static __always_inline bool
+static __maybe_unused bool
 strict_allow(struct __ctx_buff *ctx) {
 	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
 	bool __maybe_unused in_strict_cidr = false;

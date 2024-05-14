@@ -16,7 +16,7 @@
 
 # ifdef ENABLE_IPV6
 #  ifndef ENABLE_MASQUERADE_IPV6
-static __always_inline int
+static __maybe_unused int
 ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 					 enum ct_status ct_ret, __s8 *ext_err)
 {
@@ -41,7 +41,7 @@ ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_
 }
 #  endif /* ENABLE_MASQUERADE_IPV6 */
 
-static __always_inline bool
+static __maybe_unused bool
 ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, struct ipv6hdr *ip6,
 			       struct ct_buffer6 *ct_buffer)
@@ -166,7 +166,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 					ip6, &ct_buffer, trace, ext_err);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
@@ -276,7 +276,7 @@ out:
 	return verdict;
 }
 
-static __always_inline int
+static __maybe_unused int
 ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
@@ -298,7 +298,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 # ifdef ENABLE_IPV4
 #  ifndef ENABLE_MASQUERADE_IPV4
-static __always_inline int
+static __maybe_unused int
 ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 					 enum ct_status ct_ret, __s8 *ext_err)
 {
@@ -323,7 +323,7 @@ ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_
 }
 #  endif /* ENABLE_MASQUERADE_IPV4 */
 
-static __always_inline bool
+static __maybe_unused bool
 ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, struct iphdr *ip4,
 			       struct ct_buffer4 *ct_buffer)
@@ -441,7 +441,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	return __ipv4_host_policy_egress(ctx, src_id == HOST_ID, ip4, &ct_buffer, trace, ext_err);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
@@ -554,7 +554,7 @@ out:
 	return verdict;
 }
 
-static __always_inline int
+static __maybe_unused int
 ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {

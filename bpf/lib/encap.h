@@ -177,7 +177,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 }
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
-static __always_inline __be16
+static __maybe_unused __be16
 tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
@@ -189,7 +189,7 @@ tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)
 #endif
 }
 
-static __always_inline __be16
+static __maybe_unused __be16
 tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
@@ -230,7 +230,7 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 				  opt_len, ifindex);
 }
 
-static __always_inline void
+static __maybe_unused void
 set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
 {
 	memset(gopt, 0, sizeof(*gopt));
@@ -241,7 +241,7 @@ set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
 	gopt->port = port;
 }
 
-static __always_inline void
+static __maybe_unused void
 set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 		    struct geneve_dsr_opt6 *gopt)
 {

@@ -82,7 +82,7 @@ enum {
  */
 #define update_trace_metrics(ctx, obs_point, reason) \
 	_update_trace_metrics(ctx, obs_point, reason, __MAGIC_LINE__, __MAGIC_FILE__)
-static __always_inline void
+static __maybe_unused void
 _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 		      enum trace_reason reason, __u16 line, __u8 file)
 {
@@ -156,7 +156,7 @@ struct trace_notify {
 	};
 };
 
-static __always_inline bool
+static __maybe_unused bool
 emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 {
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {

@@ -9,7 +9,7 @@
 #include "utime.h"
 #include "signal.h"
 
-static __always_inline int
+static __maybe_unused int
 auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remote_node_ip,
 	    __u8 auth_type)
 {

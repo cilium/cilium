@@ -23,7 +23,7 @@
  * @arg ip4		Pointer to IPv4 header. NULL for IPv6 packet.
  * @arg proxy_port	Proxy port
  */
-static __always_inline int
+static __maybe_unused int
 ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 			      __be16 proxy_port)
 {
@@ -62,7 +62,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 }
 
 #ifdef ENABLE_IPV4
-static __always_inline int
+static __maybe_unused int
 ctx_redirect_to_proxy_hairpin_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 				   __be16 proxy_port)
 {
@@ -71,7 +71,7 @@ ctx_redirect_to_proxy_hairpin_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline int
+static __maybe_unused int
 ctx_redirect_to_proxy_hairpin_ipv6(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	return ctx_redirect_to_proxy_hairpin(ctx, NULL, proxy_port);

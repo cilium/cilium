@@ -38,7 +38,7 @@ struct policy_verdict_notify {
 	__u16	pad2; /* align with 64 bits */
 };
 
-static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
+static __maybe_unused bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 {
 	/* Make dir being volatile to avoid compiler optimizing out
 	 * filter (thinking it to be zero).
@@ -48,7 +48,7 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 	return ((filter & d) > 0);
 }
 
-static __always_inline void
+static __maybe_unused void
 send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict, __u16 proxy_port,
 			   __u8 match_type, __u8 is_audited, __u8 auth_type)
@@ -82,7 +82,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 			 &msg, sizeof(msg));
 }
 #else
-static __always_inline void
+static __maybe_unused void
 send_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused,
 			   __u32 remote_label __maybe_unused, __u16 dst_port __maybe_unused,
 			   __u8 proto __maybe_unused, __u8 dir __maybe_unused,

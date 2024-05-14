@@ -29,7 +29,7 @@ struct srv6_srh {
 	      - 4))
 #  define SRV6_VRF_PREFIX4_LEN(PREFIX) (SRV6_VRF_STATIC_PREFIX4 + (PREFIX))
 #  define SRV6_VRF_IPV4_PREFIX SRV6_VRF_PREFIX4_LEN(32)
-static __always_inline __u32*
+static __maybe_unused __u32*
 srv6_lookup_vrf4(__be32 sip, __be32 dip)
 {
 	struct srv6_vrf_key4 key = {
@@ -48,7 +48,7 @@ srv6_lookup_vrf4(__be32 sip, __be32 dip)
 	      - 4))
 #  define SRV6_POLICY_PREFIX4_LEN(PREFIX) (SRV6_POLICY_STATIC_PREFIX4 + (PREFIX))
 #  define SRV6_POLICY_IPV4_PREFIX SRV6_POLICY_PREFIX4_LEN(32)
-static __always_inline union v6addr *
+static __maybe_unused union v6addr *
 srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 {
 	struct srv6_policy_key4 key = {
@@ -68,7 +68,7 @@ srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 	      - 4))
 #  define SRV6_VRF_PREFIX6_LEN(PREFIX) (SRV6_VRF_STATIC_PREFIX6 + (PREFIX))
 #  define SRV6_VRF_IPV6_PREFIX SRV6_VRF_PREFIX6_LEN(32)
-static __always_inline __u32*
+static __maybe_unused __u32*
 srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
 {
 	struct srv6_vrf_key6 key = {
@@ -88,7 +88,7 @@ srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
 # define SRV6_POLICY_PREFIX6_LEN(PREFIX) (SRV6_POLICY_STATIC_PREFIX6 + (PREFIX))
 # define SRV6_POLICY_IPV6_PREFIX SRV6_POLICY_PREFIX6_LEN(128)
 
-static __always_inline union v6addr *
+static __maybe_unused union v6addr *
 srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 {
 	struct srv6_policy_key6 key = {
@@ -99,7 +99,7 @@ srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 	return map_lookup_elem(&SRV6_POLICY_MAP6, &key);
 }
 
-static __always_inline __u32
+static __maybe_unused __u32
 srv6_lookup_sid(const struct in6_addr *sid)
 {
 	__u32 *vrf_id;
@@ -110,7 +110,7 @@ srv6_lookup_sid(const struct in6_addr *sid)
 	return 0;
 }
 
-static __always_inline bool
+static __maybe_unused bool
 is_srv6_packet(const struct ipv6hdr *ip6)
 {
 #ifdef ENABLE_SRV6_SRH_ENCAP
@@ -122,7 +122,7 @@ is_srv6_packet(const struct ipv6hdr *ip6)
 }
 
 # ifndef SKIP_SRV6_HANDLING
-static __always_inline int
+static __maybe_unused int
 srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		   __u8 nexthdr, union v6addr *saddr, struct in6_addr *sid)
 {
@@ -183,7 +183,7 @@ srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 	return 0;
 }
 
-static __always_inline int
+static __maybe_unused int
 srv6_decapsulation(struct __ctx_buff *ctx)
 {
 	__u16 new_proto = bpf_htons(ETH_P_IP);
@@ -247,7 +247,7 @@ parse_outer_ipv6: __maybe_unused;
 	return 0;
 }
 
-static __always_inline int
+static __maybe_unused int
 srv6_create_state_entry(struct __ctx_buff *ctx)
 {
 	struct srv6_ipv6_2tuple *outer_ips;
@@ -292,7 +292,7 @@ srv6_create_state_entry(struct __ctx_buff *ctx)
 }
 
 #  ifdef ENABLE_IPV4
-static __always_inline struct srv6_ipv6_2tuple *
+static __maybe_unused struct srv6_ipv6_2tuple *
 srv6_lookup_state_entry4(struct iphdr *ip4)
 {
 	return map_lookup_elem(&SRV6_STATE_MAP4,
@@ -300,14 +300,14 @@ srv6_lookup_state_entry4(struct iphdr *ip4)
 }
 #  endif /* ENABLE_IPV4 */
 
-static __always_inline struct srv6_ipv6_2tuple *
+static __maybe_unused struct srv6_ipv6_2tuple *
 srv6_lookup_state_entry6(struct ipv6hdr *ip6)
 {
 	return map_lookup_elem(&SRV6_STATE_MAP6,
 			       (struct srv6_ipv6_2tuple *)&ip6->saddr);
 }
 
-static __always_inline int
+static __maybe_unused int
 srv6_handling4(struct __ctx_buff *ctx, union v6addr *src_sid,
 	       struct in6_addr *dst_sid)
 {
@@ -344,7 +344,7 @@ srv6_handling4(struct __ctx_buff *ctx, union v6addr *src_sid,
 				  src_sid, dst_sid);
 }
 
-static __always_inline int
+static __maybe_unused int
 srv6_handling6(struct __ctx_buff *ctx, union v6addr *src_sid,
 	       struct in6_addr *dst_sid)
 {
@@ -370,7 +370,7 @@ srv6_handling6(struct __ctx_buff *ctx, union v6addr *src_sid,
 				  src_sid, dst_sid);
 }
 
-static __always_inline int
+static __maybe_unused int
 srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 {
 	void *data, *data_end;
@@ -408,7 +408,7 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 	}
 }
 
-static __always_inline int
+static __maybe_unused int
 srv6_reply(struct __ctx_buff *ctx)
 {
 	struct srv6_ipv6_2tuple *outer_ips;
@@ -448,7 +448,7 @@ srv6_reply(struct __ctx_buff *ctx)
 	return CTX_ACT_OK;
 }
 
-static __always_inline void
+static __maybe_unused void
 srv6_load_meta_sid(struct __ctx_buff *ctx, struct in6_addr *sid)
 {
 	sid->s6_addr32[0] = ctx_load_meta(ctx, CB_SRV6_SID_1);
@@ -457,7 +457,7 @@ srv6_load_meta_sid(struct __ctx_buff *ctx, struct in6_addr *sid)
 	sid->s6_addr32[3] = ctx_load_meta(ctx, CB_SRV6_SID_4);
 }
 
-static __always_inline void
+static __maybe_unused void
 srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
 {
 	ctx_store_meta(ctx, CB_SRV6_SID_1, sid->p1);

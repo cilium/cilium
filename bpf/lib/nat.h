@@ -41,26 +41,26 @@ struct nat_entry {
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
 
-static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
+static __maybe_unused __u16 __snat_clamp_port_range(__u16 start, __u16 end,
 						     __u16 val)
 {
 	return (val % (__u16)(end - start)) + start;
 }
 
-static __always_inline __maybe_unused __u16
+static __maybe_unused __maybe_unused __u16
 __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
 	return val >= start && val <= end ? val :
 	       __snat_clamp_port_range(start, end, (__u16)get_prandom_u32());
 }
 
-static __always_inline __maybe_unused void *
+static __maybe_unused __maybe_unused void *
 __snat_lookup(const void *map, const void *tuple)
 {
 	return map_lookup_elem(map, tuple);
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 __snat_update(const void *map, const void *otuple, const void *ostate,
 	      const void *rtuple, const void *rstate)
 {
@@ -152,7 +152,7 @@ struct {
 } IP_MASQ_AGENT_IPV4 __section_maps_btf;
 #endif
 
-static __always_inline void *
+static __maybe_unused void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
@@ -162,7 +162,7 @@ get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 	return &SNAT_MAPPING_IPV4;
 }
 
-static __always_inline
+static __maybe_unused
 struct ipv4_nat_entry *snat_v4_lookup(const struct ipv4_ct_tuple *tuple)
 {
 	return __snat_lookup(&SNAT_MAPPING_IPV4, tuple);
@@ -416,7 +416,7 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	return 0;
 }
 
-static __always_inline bool
+static __maybe_unused bool
 snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
 		     const struct ipv4_ct_tuple *tuple)
 {
@@ -430,7 +430,7 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
 	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 snat_v4_rev_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_tuple *tuple)
 {
 	__u16 dport = bpf_ntohs(tuple->dport);
@@ -442,7 +442,7 @@ snat_v4_rev_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4
  * - extracted from a request packet,
  * - on CT_NEW (ie. the tuple is reversed)
  */
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
 		   __be32 to_saddr, __be16 to_sport, __s8 *ext_err)
 {
@@ -469,7 +469,7 @@ snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
 	return CTX_ACT_OK;
 }
 
-static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
+static __maybe_unused void snat_v4_init_tuple(const struct iphdr *ip4,
 					       enum nat_dir dir,
 					       struct ipv4_ct_tuple *tuple)
 {
@@ -644,7 +644,7 @@ skip_egress_gateway:
 	return NAT_PUNT_TO_STACK;
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 				    bool has_l4_header)
 {
@@ -805,7 +805,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			     port_off, trace, ext_err);
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx,
 					__u64 inner_l3_off,
 					struct ipv4_nat_entry **state)
@@ -874,7 +874,7 @@ snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx,
 				       tuple.dport, (*state)->to_dport, port_off);
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
@@ -958,14 +958,14 @@ rewrite:
 				       tuple.dport, to_dport, port_off);
 }
 #else
-static __always_inline __maybe_unused
+static __maybe_unused __maybe_unused
 int snat_v4_nat(struct __ctx_buff *ctx __maybe_unused,
 		const struct ipv4_nat_target *target __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
 
-static __always_inline __maybe_unused
+static __maybe_unused __maybe_unused
 int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 		    const struct ipv4_nat_target *target __maybe_unused)
 {
@@ -1032,7 +1032,7 @@ struct {
 } IP_MASQ_AGENT_IPV6 __section_maps_btf;
 #endif
 
-static __always_inline void *
+static __maybe_unused void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
@@ -1042,13 +1042,13 @@ get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 	return &SNAT_MAPPING_IPV6;
 }
 
-static __always_inline
+static __maybe_unused
 struct ipv6_nat_entry *snat_v6_lookup(const struct ipv6_ct_tuple *tuple)
 {
 	return __snat_lookup(&SNAT_MAPPING_IPV6, tuple);
 }
 
-static __always_inline int snat_v6_update(struct ipv6_ct_tuple *otuple,
+static __maybe_unused int snat_v6_update(struct ipv6_ct_tuple *otuple,
 					  struct ipv6_nat_entry *ostate,
 					  struct ipv6_ct_tuple *rtuple,
 					  struct ipv6_nat_entry *rstate)
@@ -1173,7 +1173,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 	return snat_v6_new_mapping(ctx, tuple, tmp, target, needs_ct, ext_err);
 }
 
-static __always_inline int
+static __maybe_unused int
 snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct ipv6_ct_tuple *tuple,
 			       struct ipv6_nat_entry **state,
@@ -1257,7 +1257,7 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off, int l4
 	return 0;
 }
 
-static __always_inline bool
+static __maybe_unused bool
 snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
 		     const struct ipv6_ct_tuple *tuple)
 {
@@ -1266,7 +1266,7 @@ snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
 	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 snat_v6_rev_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6_ct_tuple *tuple)
 {
 	__u16 dport = bpf_ntohs(tuple->dport);
@@ -1274,7 +1274,7 @@ snat_v6_rev_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6
 	return dport < target->min_port || dport > target->max_port;
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
 		   __be16 to_sport, __s8 *ext_err)
 {
@@ -1301,7 +1301,7 @@ snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
 	return CTX_ACT_OK;
 }
 
-static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
+static __maybe_unused void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 					       enum nat_dir dir,
 					       struct ipv6_ct_tuple *tuple)
 {
@@ -1310,7 +1310,7 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 	tuple->flags = dir;
 }
 
-static __always_inline int
+static __maybe_unused int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv6_ct_tuple *tuple __maybe_unused,
 			 int l4_off __maybe_unused,
@@ -1487,7 +1487,7 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, int off,
 			     trace, ext_err);
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       __u32 inner_l3_off,
 				       struct ipv6_nat_entry **state)
@@ -1568,7 +1568,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       tuple.dport, (*state)->to_dport, port_off);
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
@@ -1658,14 +1658,14 @@ rewrite:
 				       tuple.dport, to_dport, port_off);
 }
 #else
-static __always_inline __maybe_unused
+static __maybe_unused __maybe_unused
 int snat_v6_nat(struct __ctx_buff *ctx __maybe_unused,
 		const struct ipv6_nat_target *target __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
 
-static __always_inline __maybe_unused
+static __maybe_unused __maybe_unused
 int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 		    const struct ipv6_nat_target *target __maybe_unused)
 {
@@ -1674,7 +1674,7 @@ int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 #endif
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
-static __always_inline int
+static __maybe_unused int
 snat_remap_rfc8215(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
 {
 	union v6addr src6, dst6;
@@ -1684,7 +1684,7 @@ snat_remap_rfc8215(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
 	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 __snat_v6_has_v4_complete(struct ipv6_ct_tuple *tuple6,
 			  const struct ipv4_ct_tuple *tuple4)
 {
@@ -1697,7 +1697,7 @@ __snat_v6_has_v4_complete(struct ipv6_ct_tuple *tuple6,
 	return snat_v6_lookup(tuple6);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 snat_v6_has_v4_match_rfc8215(const struct ipv4_ct_tuple *tuple4)
 {
 	struct ipv6_ct_tuple tuple6;
@@ -1707,7 +1707,7 @@ snat_v6_has_v4_match_rfc8215(const struct ipv4_ct_tuple *tuple4)
 	return __snat_v6_has_v4_complete(&tuple6, tuple4);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 {
 	struct ipv6_ct_tuple tuple6;
@@ -1717,7 +1717,7 @@ snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 	return __snat_v6_has_v4_complete(&tuple6, tuple4);
 }
 #else
-static __always_inline bool
+static __maybe_unused bool
 snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
 {
 	return false;

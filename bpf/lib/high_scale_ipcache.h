@@ -15,7 +15,7 @@
 	      - sizeof(__u32)))
 #define WORLD_CIDR_PREFIX_LEN4(PREFIX) (WORLD_CIDR_STATIC_PREFIX4 + (PREFIX))
 
-static __always_inline __maybe_unused bool
+static __maybe_unused __maybe_unused bool
 world_cidrs_lookup4(__u32 addr)
 {
 	__u8 *matches;
@@ -29,7 +29,7 @@ world_cidrs_lookup4(__u32 addr)
 	return matches != NULL;
 }
 
-static __always_inline bool
+static __maybe_unused bool
 needs_encapsulation(__u32 addr)
 {
 # ifndef ENABLE_ROUTING
@@ -50,7 +50,7 @@ needs_encapsulation(__u32 addr)
 	return !world_cidrs_lookup4(addr);
 }
 
-static __always_inline int
+static __maybe_unused int
 decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 {
 	struct geneve_dsr_opt4 dsr_opt __maybe_unused;

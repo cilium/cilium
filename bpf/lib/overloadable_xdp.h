@@ -7,59 +7,59 @@
 #include <linux/udp.h>
 #include <linux/ip.h>
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 bpf_clear_meta(struct xdp_md *ctx __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 get_identity(struct xdp_md *ctx __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_identity_mark(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused,
 		  __u32 magic __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_identity_meta(struct xdp_md *ctx __maybe_unused,
 		__u32 identity __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_encrypt_key_mark(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused,
 		     __u32 node_id __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_encrypt_key_meta(struct __sk_buff *ctx __maybe_unused, __u8 key __maybe_unused,
 		     __u32 node_id __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_set_cluster_id_mark(struct xdp_md *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused __u32
+static __maybe_unused __maybe_unused __u32
 ctx_get_cluster_id_mark(struct __sk_buff *ctx __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 redirect_self(struct xdp_md *ctx __maybe_unused)
 {
 	return XDP_TX;
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 redirect_neigh(int ifindex __maybe_unused,
 	       struct bpf_redir_neigh *params __maybe_unused,
 	       int plen __maybe_unused,
@@ -68,7 +68,7 @@ redirect_neigh(int ifindex __maybe_unused,
 	return XDP_DROP;
 }
 
-static __always_inline __maybe_unused bool
+static __maybe_unused __maybe_unused bool
 neigh_resolver_available(void)
 {
 	return false;
@@ -77,7 +77,7 @@ neigh_resolver_available(void)
 #define RECIRC_MARKER	5 /* tail call recirculation */
 #define XFER_MARKER	6 /* xdp -> skb meta transfer */
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_skip_nodeport_clear(struct xdp_md *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
@@ -85,7 +85,7 @@ ctx_skip_nodeport_clear(struct xdp_md *ctx __maybe_unused)
 #endif
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_skip_nodeport_set(struct xdp_md *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
@@ -93,7 +93,7 @@ ctx_skip_nodeport_set(struct xdp_md *ctx __maybe_unused)
 #endif
 }
 
-static __always_inline __maybe_unused bool
+static __maybe_unused __maybe_unused bool
 ctx_skip_nodeport(struct xdp_md *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
@@ -103,13 +103,13 @@ ctx_skip_nodeport(struct xdp_md *ctx __maybe_unused)
 #endif
 }
 
-static __always_inline __maybe_unused __u32
+static __maybe_unused __maybe_unused __u32
 ctx_get_xfer(struct xdp_md *ctx __maybe_unused, __u32 off __maybe_unused)
 {
 	return 0; /* Only intended for SKB context. */
 }
 
-static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
+static __maybe_unused __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
 							__u32 meta)
 {
 	__u32 val = ctx_load_meta(ctx, XFER_MARKER);
@@ -118,7 +118,7 @@ static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
 	ctx_store_meta(ctx, XFER_MARKER, val);
 }
 
-static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
+static __maybe_unused __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 {
 	__u32 meta_xfer = ctx_load_meta(ctx, XFER_MARKER);
 	/* We transfer data from XFER_MARKER. This specifically
@@ -136,7 +136,7 @@ static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 	}
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 ctx_change_head(struct xdp_md *ctx __maybe_unused,
 		__u32 head_room __maybe_unused,
 		__u64 flags __maybe_unused)
@@ -144,19 +144,19 @@ ctx_change_head(struct xdp_md *ctx __maybe_unused,
 	return 0; /* Only intended for SKB context. */
 }
 
-static __always_inline void ctx_snat_done_set(struct xdp_md *ctx)
+static __maybe_unused void ctx_snat_done_set(struct xdp_md *ctx)
 {
 	ctx_set_xfer(ctx, XFER_PKT_SNAT_DONE);
 }
 
-static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
+static __maybe_unused bool ctx_snat_done(struct xdp_md *ctx)
 {
 	/* shouldn't be needed, there's no relevant Egress hook in XDP */
 	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
 }
 
 #ifdef HAVE_ENCAP
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		   __u32 daddr, __u32 seclabel __maybe_unused,
 		   __u32 vni __maybe_unused, void *opt, __u32 opt_len, int *ifindex)
@@ -241,7 +241,7 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	return CTX_ACT_REDIRECT;
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 ctx_set_tunnel_opt(struct xdp_md *ctx, void *opt, __u32 opt_len)
 {
 	const __u32 geneve_off = ETH_HLEN + sizeof(struct iphdr) + sizeof(struct udphdr);

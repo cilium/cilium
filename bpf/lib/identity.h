@@ -6,7 +6,7 @@
 
 #include "dbg.h"
 
-static __always_inline bool identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
+static __maybe_unused bool identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
 {
 	return range_start <= identity && identity <= range_end;
 }
@@ -14,12 +14,12 @@ static __always_inline bool identity_in_range(__u32 identity, __u32 range_start,
 #define IDENTITY_LOCAL_SCOPE_MASK 0xFF000000
 #define IDENTITY_LOCAL_SCOPE_REMOTE_NODE 0x02000000
 
-static __always_inline bool identity_is_host(__u32 identity)
+static __maybe_unused bool identity_is_host(__u32 identity)
 {
 	return identity == HOST_ID;
 }
 
-static __always_inline bool identity_is_remote_node(__u32 identity)
+static __maybe_unused bool identity_is_remote_node(__u32 identity)
 {
 	/* KUBE_APISERVER_NODE_ID is the reserved identity that corresponds to
 	 * the labels 'reserved:remote-node' and 'reserved:kube-apiserver'. As
@@ -45,7 +45,7 @@ static __always_inline bool identity_is_remote_node(__u32 identity)
 		(identity & IDENTITY_LOCAL_SCOPE_MASK) == IDENTITY_LOCAL_SCOPE_REMOTE_NODE;
 }
 
-static __always_inline bool identity_is_node(__u32 identity)
+static __maybe_unused bool identity_is_node(__u32 identity)
 {
 	return identity_is_host(identity) || identity_is_remote_node(identity);
 }
@@ -70,7 +70,7 @@ static __always_inline bool identity_is_node(__u32 identity)
  *
  * Identities 128 and higher are guaranteed to be generated based on user input.
  */
-static __always_inline bool identity_is_reserved(__u32 identity)
+static __maybe_unused bool identity_is_reserved(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 		return identity < UNMANAGED_ID || identity_is_remote_node(identity) ||
@@ -88,7 +88,7 @@ static __always_inline bool identity_is_reserved(__u32 identity)
  * - ReservedIdentityWorld
  * - ReservedIdentityWorldIPv4
  */
-static __always_inline bool identity_is_world_ipv4(__u32 identity)
+static __maybe_unused bool identity_is_world_ipv4(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 		return identity == WORLD_ID || identity == WORLD_IPV4_ID;
@@ -105,7 +105,7 @@ static __always_inline bool identity_is_world_ipv4(__u32 identity)
  * - ReservedIdentityWorld
  * - ReservedIdentityWorldIPv6
  */
-static __always_inline bool identity_is_world_ipv6(__u32 identity)
+static __maybe_unused bool identity_is_world_ipv6(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 		return identity == WORLD_ID || identity == WORLD_IPV6_ID;
@@ -118,7 +118,7 @@ static __always_inline bool identity_is_world_ipv6(__u32 identity)
  * identity_is_cidr_range is used to determine whether an identity is assigned
  * to a CIDR range.
  */
-static __always_inline bool identity_is_cidr_range(__u32 identity)
+static __maybe_unused bool identity_is_cidr_range(__u32 identity)
 {
 	return identity_in_range(identity, CIDR_IDENTITY_RANGE_START, CIDR_IDENTITY_RANGE_END);
 }
@@ -143,7 +143,7 @@ static __always_inline bool identity_is_cidr_range(__u32 identity)
  * - ReservedIdentityIngress
  * - all other identifies
  */
-static __always_inline bool identity_is_cluster(__u32 identity)
+static __maybe_unused bool identity_is_cluster(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 	if (identity == WORLD_ID || identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
@@ -160,7 +160,7 @@ static __always_inline bool identity_is_cluster(__u32 identity)
 }
 
 #if __ctx_is == __ctx_skb
-static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, __u32 *identity)
+static __maybe_unused __u32 inherit_identity_from_host(struct __ctx_buff *ctx, __u32 *identity)
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
@@ -240,7 +240,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
  * identity_is_local is used to determine whether an identity is locally
  * allocated.
  */
-static __always_inline bool identity_is_local(__u32 identity)
+static __maybe_unused bool identity_is_local(__u32 identity)
 {
 	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
 }

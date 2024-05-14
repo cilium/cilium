@@ -54,7 +54,7 @@ struct ct_buffer6 {
 };
 #endif
 
-static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
+static __maybe_unused enum ct_action ct_tcp_select_action(union tcp_flags flags)
 {
 	if (unlikely(flags.value & (TCP_FLAG_RST | TCP_FLAG_FIN)))
 		return ACTION_CLOSE;
@@ -65,7 +65,7 @@ static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags
 	return ACTION_UNSPEC;
 }
 
-static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry)
+static __maybe_unused bool ct_entry_seen_both_syns(const struct ct_entry *entry)
 {
 	bool rx_syn = entry->rx_flags_seen & TCP_FLAG_SYN;
 	bool tx_syn = entry->tx_flags_seen & TCP_FLAG_SYN;
@@ -92,7 +92,7 @@ static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry
  * - Zero if this flow was recently monitored.
  * - Non-zero if this flow has not been monitored recently.
  */
-static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
+static __maybe_unused __u32 __ct_update_timeout(struct ct_entry *entry,
 						 __u32 lifetime, enum ct_dir dir,
 						 union tcp_flags flags,
 						 __u8 report_mask)
@@ -164,7 +164,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
  * If CT_REPORT_INTERVAL has elapsed since the last update, updates the
  * last_updated timestamp and returns true. Otherwise returns false.
  */
-static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
+static __maybe_unused __u32 ct_update_timeout(struct ct_entry *entry,
 					       bool tcp, enum ct_dir dir,
 					       union tcp_flags seen_flags)
 {
@@ -188,7 +188,7 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 				   CT_REPORT_FLAGS);
 }
 
-static __always_inline void
+static __maybe_unused void
 ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		     enum ct_dir dir, bool syn)
 {
@@ -211,29 +211,29 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 	}
 }
 
-static __always_inline void ct_reset_seen_flags(struct ct_entry *entry)
+static __maybe_unused void ct_reset_seen_flags(struct ct_entry *entry)
 {
 	entry->rx_flags_seen = 0;
 	entry->tx_flags_seen = 0;
 }
 
-static __always_inline void ct_reset_closing(struct ct_entry *entry)
+static __maybe_unused void ct_reset_closing(struct ct_entry *entry)
 {
 	entry->rx_closing = 0;
 	entry->tx_closing = 0;
 }
 
-static __always_inline bool ct_entry_alive(const struct ct_entry *entry)
+static __maybe_unused bool ct_entry_alive(const struct ct_entry *entry)
 {
 	return !entry->rx_closing || !entry->tx_closing;
 }
 
-static __always_inline bool ct_entry_closing(const struct ct_entry *entry)
+static __maybe_unused bool ct_entry_closing(const struct ct_entry *entry)
 {
 	return entry->tx_closing || entry->rx_closing;
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ct_entry_expired_rebalance(const struct ct_entry *entry)
 {
 	__u32 wait_time = bpf_sec_to_mono(CT_SERVICE_CLOSE_REBALANCE);
@@ -244,7 +244,7 @@ ct_entry_expired_rebalance(const struct ct_entry *entry)
 	return READ_ONCE(entry->last_tx_report) + wait_time <= bpf_mono_now();
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 		       __u32 ct_entry_types, const struct ct_state *state)
 {
@@ -359,7 +359,7 @@ ct_new: __maybe_unused;
 	return CT_NEW;
 }
 
-static __always_inline __u8
+static __maybe_unused __u8
 ct_lookup_select_tuple_type(enum ct_dir dir, enum ct_scope scope)
 {
 	if (dir == CT_SERVICE)
@@ -386,7 +386,7 @@ ct_lookup_select_tuple_type(enum ct_dir dir, enum ct_scope scope)
  * flow is a reply.
  */
 #define DEFINE_FUNC_CT_IS_REPLY(FAMILY)						\
-static __always_inline bool							\
+static __maybe_unused bool							\
 ct_is_reply ## FAMILY(const void *map,						\
 		      struct ipv ## FAMILY ## _ct_tuple *tuple)			\
 {										\
@@ -404,7 +404,7 @@ ct_is_reply ## FAMILY(const void *map,						\
 	return is_reply;							\
 }
 
-static __always_inline int
+static __maybe_unused int
 ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 {
 	void *data, *data_end;
@@ -436,7 +436,7 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 	return CTX_ACT_OK;
 }
 
-static __always_inline void ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
+static __maybe_unused void ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
 {
 	if (tuple->flags & TUPLE_F_IN)
 		tuple->flags &= ~TUPLE_F_IN;
@@ -444,7 +444,7 @@ static __always_inline void ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
 		tuple->flags |= TUPLE_F_IN;
 }
 
-static __always_inline void
+static __maybe_unused void
 ipv6_ct_tuple_swap_addrs(struct ipv6_ct_tuple *tuple)
 {
 	union v6addr tmp_addr = {};
@@ -454,7 +454,7 @@ ipv6_ct_tuple_swap_addrs(struct ipv6_ct_tuple *tuple)
 	ipv6_addr_copy(&tuple->daddr, &tmp_addr);
 }
 
-static __always_inline void
+static __maybe_unused void
 ipv6_ct_tuple_swap_ports(struct ipv6_ct_tuple *tuple)
 {
 	__be16 tmp;
@@ -469,21 +469,21 @@ ipv6_ct_tuple_swap_ports(struct ipv6_ct_tuple *tuple)
 	tuple->dport = tmp;
 }
 
-static __always_inline void
+static __maybe_unused void
 __ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
 	ipv6_ct_tuple_swap_addrs(tuple);
 	ipv6_ct_tuple_swap_ports(tuple);
 }
 
-static __always_inline void
+static __maybe_unused void
 ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
 	__ipv6_ct_tuple_reverse(tuple);
 	ct_flip_tuple_dir6(tuple);
 }
 
-static __always_inline int
+static __maybe_unused int
 ct_extract_ports6(struct __ctx_buff *ctx, int off, struct ipv6_ct_tuple *tuple)
 {
 	switch (tuple->nexthdr) {
@@ -635,7 +635,7 @@ static __always_inline int ct_lookup6(const void *map,
 			    CT_ENTRY_ANY, ct_state, monitor);
 }
 
-static __always_inline int
+static __maybe_unused int
 ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 {
 	void *data, *data_end;
@@ -665,7 +665,7 @@ ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 	return CTX_ACT_OK;
 }
 
-static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
+static __maybe_unused void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
 {
 	if (tuple->flags & TUPLE_F_IN)
 		tuple->flags &= ~TUPLE_F_IN;
@@ -673,7 +673,7 @@ static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
 		tuple->flags |= TUPLE_F_IN;
 }
 
-static __always_inline void
+static __maybe_unused void
 ipv4_ct_tuple_swap_addrs(struct ipv4_ct_tuple *tuple)
 {
 	__be32 tmp_addr = tuple->saddr;
@@ -682,7 +682,7 @@ ipv4_ct_tuple_swap_addrs(struct ipv4_ct_tuple *tuple)
 	tuple->daddr = tmp_addr;
 }
 
-static __always_inline void
+static __maybe_unused void
 ipv4_ct_tuple_swap_ports(struct ipv4_ct_tuple *tuple)
 {
 	__be16 tmp;
@@ -697,27 +697,27 @@ ipv4_ct_tuple_swap_ports(struct ipv4_ct_tuple *tuple)
 	tuple->dport = tmp;
 }
 
-static __always_inline void
+static __maybe_unused void
 __ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 {
 	ipv4_ct_tuple_swap_addrs(tuple);
 	ipv4_ct_tuple_swap_ports(tuple);
 }
 
-static __always_inline void
+static __maybe_unused void
 ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 {
 	__ipv4_ct_tuple_reverse(tuple);
 	ct_flip_tuple_dir4(tuple);
 }
 
-static __always_inline __be32
+static __maybe_unused __be32
 ipv4_ct_reverse_tuple_saddr(const struct ipv4_ct_tuple *rtuple)
 {
 	return rtuple->daddr;
 }
 
-static __always_inline __be32
+static __maybe_unused __be32
 ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
 {
 	return rtuple->saddr;
@@ -908,7 +908,7 @@ static __always_inline int ct_lookup4(const void *map,
 			    dir, SCOPE_BIDIR, CT_ENTRY_ANY, ct_state, monitor);
 }
 
-static __always_inline void
+static __maybe_unused void
 ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 		     enum ct_dir dir)
 {
@@ -1052,7 +1052,7 @@ err_ct_fill_up:
 }
 
 #ifndef DISABLE_LOOPBACK_LB
-static __always_inline bool
+static __maybe_unused bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 			      __u16 *rev_nat_index)
 {
@@ -1072,7 +1072,7 @@ ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 }
 #endif
 
-static __always_inline bool
+static __maybe_unused bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 			       __u16 *rev_nat_index, bool check_dsr)
 {
@@ -1094,7 +1094,7 @@ __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
  * (saddr=client,daddr=backend) tuple. So, to derive whether the reply packet
  * backend => client belongs to the LB flow we can query the CT_EGRESS entry.
  */
-static __always_inline bool
+static __maybe_unused bool
 ct_has_nodeport_egress_entry4(const void *map,
 			      struct ipv4_ct_tuple *ingress_tuple,
 			      __u16 *rev_nat_index, bool check_dsr)
@@ -1112,7 +1112,7 @@ ct_has_nodeport_egress_entry4(const void *map,
 	return __ct_has_nodeport_egress_entry(entry, rev_nat_index, check_dsr);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 {
 	__u8 prev_flags = ingress_tuple->flags;
@@ -1128,7 +1128,7 @@ ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 	return 0;
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ct_has_nodeport_egress_entry6(const void *map,
 			      struct ipv6_ct_tuple *ingress_tuple,
 			      __u16 *rev_nat_index, bool check_dsr)
@@ -1146,7 +1146,7 @@ ct_has_nodeport_egress_entry6(const void *map,
 	return __ct_has_nodeport_egress_entry(entry, rev_nat_index, check_dsr);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 {
 	__u8 prev_flags = ingress_tuple->flags;
@@ -1162,7 +1162,7 @@ ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 	return 0;
 }
 
-static __always_inline void
+static __maybe_unused void
 ct_update_svc_entry(const void *map, const void *tuple,
 		    __u32 backend_id, __u16 rev_nat_index)
 {
@@ -1176,7 +1176,7 @@ ct_update_svc_entry(const void *map, const void *tuple,
 	entry->rev_nat_index = rev_nat_index;
 }
 
-static __always_inline void
+static __maybe_unused void
 ct_update_dsr(const void *map, const void *tuple, const bool dsr)
 {
 	struct ct_entry *entry;
@@ -1188,7 +1188,7 @@ ct_update_dsr(const void *map, const void *tuple, const bool dsr)
 	entry->dsr_internal = dsr;
 }
 
-static __always_inline void
+static __maybe_unused void
 ct_update_nodeport(const void *map, const void *tuple, const bool node_port)
 {
 	struct ct_entry *entry;

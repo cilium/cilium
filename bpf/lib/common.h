@@ -156,7 +156,7 @@ union v6addr {
 	__u8 addr[16];
 } __packed;
 
-static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
+static __maybe_unused bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 						      int l2_off, __u16 *proto)
 {
 	const __u64 tot_len = l2_off + ETH_HLEN;
@@ -184,13 +184,13 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 	return true;
 }
 
-static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
+static __maybe_unused bool validate_ethertype(struct __ctx_buff *ctx,
 					       __u16 *proto)
 {
 	return validate_ethertype_l2_off(ctx, 0, proto);
 }
 
-static __always_inline __maybe_unused bool
+static __maybe_unused __maybe_unused bool
 ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 			 void **l3, const __u32 l3_len, const bool pull,
 			 __u32 l3_off)
@@ -215,7 +215,7 @@ ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	return true;
 }
 
-static __always_inline __maybe_unused bool
+static __maybe_unused __maybe_unused bool
 __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 		       void **l3, const __u32 l3_off, const __u32 l3_len,
 		       const bool pull)
@@ -224,7 +224,7 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 					l3_off);
 }
 
-static __always_inline __u32 get_tunnel_id(__u32 identity)
+static __maybe_unused __u32 get_tunnel_id(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 	if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
@@ -233,7 +233,7 @@ static __always_inline __u32 get_tunnel_id(__u32 identity)
 	return identity;
 }
 
-static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto  __maybe_unused)
+static __maybe_unused __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto  __maybe_unused)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 	if (tunnel_id == WORLD_ID) {
@@ -793,7 +793,7 @@ struct encrypt_config {
 /**
  * or_encrypt_key - mask and shift key into encryption format
  */
-static __always_inline __u32 or_encrypt_key(__u8 key)
+static __maybe_unused __u32 or_encrypt_key(__u8 key)
 {
 	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
 }
@@ -1173,7 +1173,7 @@ struct ct_state {
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
 
-static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
+static __maybe_unused bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
 	return ct_state->from_l7lb;
@@ -1199,7 +1199,7 @@ struct lb6_src_range_key {
 	union v6addr addr;
 };
 
-static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
+static __maybe_unused int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 				       int ifindex __maybe_unused,
 				       bool needs_backlog __maybe_unused,
 				       bool from_tunnel)
@@ -1222,7 +1222,7 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	return ctx_redirect_peer(ctx, ifindex, 0);
 }
 
-static __always_inline __u64 ctx_adjust_hroom_flags(void)
+static __maybe_unused __u64 ctx_adjust_hroom_flags(void)
 {
 #ifdef HAVE_CSUM_LEVEL
 	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;

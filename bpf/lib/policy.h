@@ -11,7 +11,7 @@
 #include "eps.h"
 #include "maps.h"
 
-static __always_inline int
+static __maybe_unused int
 __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *policy,
 		    __s8 *ext_err, __u16 *proxy_port)
 {
@@ -33,7 +33,7 @@ __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
+static __maybe_unused int
 __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		    __u32 remote_id, __u16 ethertype __maybe_unused, __u16 dport,
 		    __u8 proto, int off __maybe_unused, int dir,
@@ -196,7 +196,7 @@ check_l4_policy:
  *   - CTX_ACT_OK if the policy allows this traffic based only on labels/L3/L4
  *   - Negative error code if the packet should be dropped
  */
-static __always_inline int
+static __maybe_unused int
 policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
 		   __u16 ethertype, __u16 dport, __u8 proto, int l4_off,
 		   bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
@@ -223,7 +223,7 @@ policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 
 	return ret;
 }
 
-static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx, const void *map,
+static __maybe_unused int policy_can_ingress6(struct __ctx_buff *ctx, const void *map,
 					       const struct ipv6_ct_tuple *tuple,
 					       int l4_off,  __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
@@ -234,7 +234,7 @@ static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx, const voi
 				 ext_err, proxy_port);
 }
 
-static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
+static __maybe_unused int policy_can_ingress4(struct __ctx_buff *ctx,
 		const void *map,
 					       const struct ipv4_ct_tuple *tuple,
 					       int l4_off, bool is_untracked_fragment,
@@ -248,13 +248,13 @@ static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
 }
 
 #ifdef HAVE_ENCAP
-static __always_inline bool is_encap(__u16 dport, __u8 proto)
+static __maybe_unused bool is_encap(__u16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP && dport == bpf_htons(TUNNEL_PORT);
 }
 #endif
 
-static __always_inline int
+static __maybe_unused int
 policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
 		  __u16 ethertype, __u16 dport, __u8 proto, int l4_off, __u8 *match_type,
 		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
@@ -281,7 +281,7 @@ policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 d
 	return ret;
 }
 
-static __always_inline int policy_can_egress6(struct __ctx_buff *ctx, const void *map,
+static __maybe_unused int policy_can_egress6(struct __ctx_buff *ctx, const void *map,
 					      const struct ipv6_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
@@ -292,7 +292,7 @@ static __always_inline int policy_can_egress6(struct __ctx_buff *ctx, const void
 				 ext_err, proxy_port);
 }
 
-static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void *map,
+static __maybe_unused int policy_can_egress4(struct __ctx_buff *ctx, const void *map,
 					      const struct ipv4_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
@@ -310,12 +310,12 @@ static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void
  * Will cause the packet to ignore the policy enforcement verdict for allow rules and
  * be considered accepted despite of the policy outcome. Has no effect on deny rules.
  */
-static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
+static __maybe_unused void policy_mark_skip(struct __ctx_buff *ctx)
 {
 	ctx_store_meta(ctx, CB_POLICY, 1);
 }
 
-static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
+static __maybe_unused void policy_clear_mark(struct __ctx_buff *ctx)
 {
 	ctx_store_meta(ctx, CB_POLICY, 0);
 }

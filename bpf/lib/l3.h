@@ -26,7 +26,7 @@
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
+static __maybe_unused int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
 				   __u8 __maybe_unused direction)
 {
@@ -50,7 +50,7 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 }
 #endif /* ENABLE_IPV6 */
 
-static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
+static __maybe_unused int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
 				   struct iphdr *ip4)
 {
@@ -70,7 +70,7 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 }
 
 #ifndef SKIP_POLICY_MAP
-static __always_inline int
+static __maybe_unused int
 l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 		  __u32 magic __maybe_unused,
 		  const struct endpoint_info *ep __maybe_unused,
@@ -134,7 +134,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
  * Depending on the configuration, it may also enforce ingress policies for the
  * destination pod via a tail call.
  */
-static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
+static __maybe_unused int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel, __u32 magic,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
@@ -160,7 +160,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
  * Depending on the configuration, it may also enforce ingress policies for the
  * destination pod via a tail call.
  */
-static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
+static __maybe_unused int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel, __u32 magic,
 					       struct iphdr *ip4,
 					       const struct endpoint_info *ep,

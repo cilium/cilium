@@ -19,7 +19,7 @@
  * This can be done by calling 'vxlan_skb_is_vxlan_v4'
  *
  */
-static __always_inline __u32
+static __maybe_unused __u32
 vxlan_get_vni(const void *data, const void *data_end,
 	      const struct iphdr *ipv4)
 {
@@ -46,7 +46,7 @@ vxlan_get_vni(const void *data, const void *data_end,
  * Returns 'true' if 'inner' now points to a bounds-checked inner IPv4 header.
  * Returns 'false' if an error occurred.
  */
-static __always_inline bool
+static __maybe_unused bool
 vxlan_get_inner_ipv4(const void *data, const void *data_end,
 		     const struct iphdr *ipv4, struct iphdr **inner) {
 	int l3_size = ipv4->ihl * 4;
@@ -74,7 +74,7 @@ vxlan_get_inner_ipv4(const void *data, const void *data_end,
  *
  * This can be done by calling 'vxlan_skb_is_vxlan_v4'
  */
-static __always_inline bool
+static __maybe_unused bool
 vxlan_rewrite_vni(void *ctx, const void *data, const void *data_end,
 		  const struct iphdr *ipv4, __u32 vni)
 {

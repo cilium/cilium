@@ -26,7 +26,7 @@ struct csum_offset {
  * For unknown L4 protocols or L4 protocols which do not have a checksum
  * field, off is initialied to 0.
  */
-static __always_inline void csum_l4_offset_and_flags(__u8 nexthdr,
+static __maybe_unused void csum_l4_offset_and_flags(__u8 nexthdr,
 						     struct csum_offset *off)
 {
 	switch (nexthdr) {
@@ -71,7 +71,7 @@ static __always_inline void csum_l4_offset_and_flags(__u8 nexthdr,
  * @arg to	To value or a csum diff
  * @arg flags	Additional flags to be passed to l4_csum_replace()
  */
-static __always_inline int csum_l4_replace(struct __ctx_buff *ctx, __u64 l4_off,
+static __maybe_unused int csum_l4_replace(struct __ctx_buff *ctx, __u64 l4_off,
 					   const struct csum_offset *csum,
 					   __be32 from, __be32 to, int flags)
 {

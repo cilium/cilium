@@ -23,7 +23,7 @@
  */
 #define update_metrics(bytes, direction, reason) \
 		_update_metrics(bytes, direction, reason, __MAGIC_LINE__, __MAGIC_FILE__)
-static __always_inline void _update_metrics(__u64 bytes, __u8 direction,
+static __maybe_unused void _update_metrics(__u64 bytes, __u8 direction,
 					    __u8 reason, __u16 line, __u8 file)
 {
 	struct metrics_value *entry, new_entry = {};
@@ -50,7 +50,7 @@ static __always_inline void _update_metrics(__u64 bytes, __u8 direction,
  * @direction:	1: Ingress 2: Egress 3: Service
  * Convert a CT direction into the corresponding one for metrics.
  */
-static __always_inline enum metric_dir ct_to_metrics_dir(enum ct_dir ct_dir)
+static __maybe_unused enum metric_dir ct_to_metrics_dir(enum ct_dir ct_dir)
 {
 	switch (ct_dir) {
 	case CT_INGRESS:

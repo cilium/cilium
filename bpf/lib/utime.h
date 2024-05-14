@@ -16,7 +16,7 @@
  */
 #define UTIME_SHIFT 9
 
-static __always_inline __u64
+static __maybe_unused __u64
 _utime_get_offset()
 {
 	__u32 index = RUNTIME_CONFIG_UTIME_OFFSET;
@@ -33,7 +33,7 @@ _utime_get_offset()
  * Return the current time in "utime" unit (512 ns per unit) that is directly
  * comparable to expirations times in bpf maps.
  */
-static __always_inline __u64
+static __maybe_unused __u64
 utime_get_time()
 {
 	return (ktime_get_ns() >> UTIME_SHIFT) + _utime_get_offset();

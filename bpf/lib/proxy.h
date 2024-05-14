@@ -11,7 +11,7 @@
 #endif
 
 #ifdef ENABLE_TPROXY
-static __always_inline int
+static __maybe_unused int
 assign_socket_tcp(struct __ctx_buff *ctx,
 		  struct bpf_sock_tuple *tuple, __u32 len, bool established)
 {
@@ -41,7 +41,7 @@ out:
 	return result;
 }
 
-static __always_inline int
+static __maybe_unused int
 assign_socket_udp(struct __ctx_buff *ctx,
 		  struct bpf_sock_tuple *tuple, __u32 len,
 		  bool established __maybe_unused)
@@ -66,7 +66,7 @@ out:
 	return result;
 }
 
-static __always_inline int
+static __maybe_unused int
 assign_socket(struct __ctx_buff *ctx,
 	      struct bpf_sock_tuple *tuple, __u32 len,
 	      __u8 nexthdr, bool established)
@@ -89,7 +89,7 @@ assign_socket(struct __ctx_buff *ctx,
  * combine_ports joins the specified ports in a manner consistent with
  * pkg/monitor/dataapth_debug.go to report the ports ino monitor messages.
  */
-static __always_inline __u32
+static __maybe_unused __u32
 combine_ports(__u16 dport, __u16 sport)
 {
 	return (bpf_ntohs(dport) << 16) | bpf_ntohs(sport);
@@ -106,7 +106,7 @@ combine_ports(__u16 dport, __u16 sport)
  * Prefetch the proxy socket and associate with the ctx. Must be run on tc	\
  * ingress. Will modify 'tuple'!						\
  */										\
-static __always_inline int							\
+static __maybe_unused int							\
 NAME(struct __ctx_buff *ctx, const CT_TUPLE_TYPE * ct_tuple,			\
      __be16 proxy_port, void *tproxy_addr)					\
 {										\
@@ -197,7 +197,7 @@ CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
  *   a BPF program configured upon ingress to transfer the cb[] to the mark
  *   before passing the traffic up to the stack towards the proxy.
  */
-static __always_inline int
+static __maybe_unused int
 __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 			__be16 proxy_port, bool from_host __maybe_unused,
 			bool ipv4 __maybe_unused)
@@ -238,7 +238,7 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 }
 
 #ifdef ENABLE_IPV4
-static __always_inline int
+static __maybe_unused int
 ctx_redirect_to_proxy4(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 		       __be16 proxy_port, bool from_host __maybe_unused)
 {
@@ -247,7 +247,7 @@ ctx_redirect_to_proxy4(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-static __always_inline int
+static __maybe_unused int
 ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 		       __be16 proxy_port, bool from_host __maybe_unused)
 {
@@ -265,7 +265,7 @@ ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
  * Note that it doesn't fully initialize 'tuple' as the directionality	\
  * bit is unused in the proxy paths.					\
  */									\
-static __always_inline int						\
+static __maybe_unused int						\
 NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 {									\
 	int err;							\
@@ -292,7 +292,7 @@ IP_TUPLE_EXTRACT_FN(extract_tuple6, ipv6)
  * the packet towards the proxy. It is designed to run as the first function
  * that accesses the context from the current BPF program.
  */
-static __always_inline int
+static __maybe_unused int
 ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	int ret = CTX_ACT_OK;
@@ -361,7 +361,7 @@ out: __maybe_unused;
 /**
  * tc_index_from_ingress_proxy - returns true if packet originates from ingress proxy
  */
-static __always_inline bool tc_index_from_ingress_proxy(struct __ctx_buff *ctx)
+static __maybe_unused bool tc_index_from_ingress_proxy(struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 #ifdef DEBUG
@@ -375,7 +375,7 @@ static __always_inline bool tc_index_from_ingress_proxy(struct __ctx_buff *ctx)
 /**
  * tc_index_from_egress_proxy - returns true if packet originates from egress proxy
  */
-static __always_inline bool tc_index_from_egress_proxy(struct __ctx_buff *ctx)
+static __maybe_unused bool tc_index_from_egress_proxy(struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 #ifdef DEBUG

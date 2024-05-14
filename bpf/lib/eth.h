@@ -22,7 +22,7 @@ union macaddr {
 	__u8 addr[6];
 };
 
-static __always_inline int eth_addrcmp(const union macaddr *a,
+static __maybe_unused int eth_addrcmp(const union macaddr *a,
 				       const union macaddr *b)
 {
 	int tmp;
@@ -34,7 +34,7 @@ static __always_inline int eth_addrcmp(const union macaddr *a,
 	return tmp;
 }
 
-static __always_inline int eth_is_bcast(const union macaddr *a)
+static __maybe_unused int eth_is_bcast(const union macaddr *a)
 {
 	union macaddr bcast;
 
@@ -47,19 +47,19 @@ static __always_inline int eth_is_bcast(const union macaddr *a)
 		return 0;
 }
 
-static __always_inline int eth_load_saddr(struct __ctx_buff *ctx, __u8 *mac,
+static __maybe_unused int eth_load_saddr(struct __ctx_buff *ctx, __u8 *mac,
 					  int off)
 {
 	return ctx_load_bytes(ctx, off + ETH_ALEN, mac, ETH_ALEN);
 }
 
-static __always_inline int eth_store_saddr_aligned(struct __ctx_buff *ctx,
+static __maybe_unused int eth_store_saddr_aligned(struct __ctx_buff *ctx,
 						   const __u8 *mac, int off)
 {
 	return ctx_store_bytes(ctx, off + ETH_ALEN, mac, ETH_ALEN, 0);
 }
 
-static __always_inline int eth_store_saddr(struct __ctx_buff *ctx,
+static __maybe_unused int eth_store_saddr(struct __ctx_buff *ctx,
 					   const __u8 *mac, int off)
 {
 #if !CTX_DIRECT_WRITE_OK
@@ -78,19 +78,19 @@ static __always_inline int eth_store_saddr(struct __ctx_buff *ctx,
 #endif
 }
 
-static __always_inline int eth_load_daddr(struct __ctx_buff *ctx, __u8 *mac,
+static __maybe_unused int eth_load_daddr(struct __ctx_buff *ctx, __u8 *mac,
 					  int off)
 {
 	return ctx_load_bytes(ctx, off, mac, ETH_ALEN);
 }
 
-static __always_inline int eth_store_daddr_aligned(struct __ctx_buff *ctx,
+static __maybe_unused int eth_store_daddr_aligned(struct __ctx_buff *ctx,
 						   const __u8 *mac, int off)
 {
 	return ctx_store_bytes(ctx, off, mac, ETH_ALEN, 0);
 }
 
-static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
+static __maybe_unused int eth_store_daddr(struct __ctx_buff *ctx,
 					   const __u8 *mac, int off)
 {
 #if !CTX_DIRECT_WRITE_OK
@@ -109,7 +109,7 @@ static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
 #endif
 }
 
-static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
+static __maybe_unused int eth_store_proto(struct __ctx_buff *ctx,
 					   const __u16 proto, int off)
 {
 	return ctx_store_bytes(ctx, off + ETH_ALEN + ETH_ALEN,

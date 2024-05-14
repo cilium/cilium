@@ -11,7 +11,7 @@
 
 #define JHASH_INITVAL	0xdeadbeef
 
-static __always_inline __u32 rol32(__u32 word, __u32 shift)
+static __maybe_unused __u32 rol32(__u32 word, __u32 shift)
 {
 	return (word << shift) | (word >> ((-shift) & 31));
 }
@@ -37,7 +37,7 @@ static __always_inline __u32 rol32(__u32 word, __u32 shift)
 	c ^= b; c -= rol32(b, 24);		\
 }
 
-static __always_inline __u32 jhash(const void *key, __u32 length,
+static __maybe_unused __u32 jhash(const void *key, __u32 length,
 				   __u32 initval)
 {
 	const unsigned char *k = key;
@@ -81,7 +81,7 @@ static __always_inline __u32 jhash(const void *key, __u32 length,
 	return c;
 }
 
-static __always_inline __u32 __jhash_nwords(__u32 a, __u32 b, __u32 c,
+static __maybe_unused __u32 __jhash_nwords(__u32 a, __u32 b, __u32 c,
 					    __u32 initval)
 {
 	a += initval;
@@ -91,18 +91,18 @@ static __always_inline __u32 __jhash_nwords(__u32 a, __u32 b, __u32 c,
 	return c;
 }
 
-static __always_inline __u32 jhash_3words(__u32 a, __u32 b, __u32 c,
+static __maybe_unused __u32 jhash_3words(__u32 a, __u32 b, __u32 c,
 					  __u32 initval)
 {
 	return __jhash_nwords(a, b, c, initval + JHASH_INITVAL + (3 << 2));
 }
 
-static __always_inline __u32 jhash_2words(__u32 a, __u32 b, __u32 initval)
+static __maybe_unused __u32 jhash_2words(__u32 a, __u32 b, __u32 initval)
 {
 	return __jhash_nwords(a, b, 0, initval + JHASH_INITVAL + (2 << 2));
 }
 
-static __always_inline __u32 jhash_1word(__u32 a, __u32 initval)
+static __maybe_unused __u32 jhash_1word(__u32 a, __u32 initval)
 {
 	return __jhash_nwords(a, 0, 0, initval + JHASH_INITVAL + (1 << 2));
 }

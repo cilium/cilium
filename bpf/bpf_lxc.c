@@ -72,7 +72,7 @@
 #ifdef ENABLE_PER_PACKET_LB
 
 #ifdef ENABLE_IPV4
-static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
+static __maybe_unused int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
 						       __s8 *ext_err)
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -126,7 +126,7 @@ skip_service_lookup:
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
+static __maybe_unused int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
 						       __s8 *ext_err)
 {
 	struct ipv6_ct_tuple tuple = {};
@@ -189,7 +189,7 @@ skip_service_lookup:
 #endif
 
 #ifdef ENABLE_IPV4
-static __always_inline void *
+static __maybe_unused void *
 select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 	       struct ipv4_ct_tuple *tuple)
 {
@@ -205,7 +205,7 @@ select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 #endif
 
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
-static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
+static __maybe_unused int drop_for_direction(struct __ctx_buff *ctx,
 					      enum ct_dir dir, __u32 reason,
 					      __s8 ext_err)
 {
@@ -251,7 +251,7 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 __section_tail(CILIUM_MAP_CALLS, ID)						\
-static __always_inline								\
+static __maybe_unused								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
 	struct ct_buffer4 ct_buffer = {};					\
@@ -297,7 +297,7 @@ int NAME(struct __ctx_buff *ctx)						\
 
 #define TAIL_CT_LOOKUP6(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 __section_tail(CILIUM_MAP_CALLS, ID)						\
-static __always_inline								\
+static __maybe_unused								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
 	struct ct_buffer6 ct_buffer = {};					\
@@ -351,7 +351,7 @@ int NAME(struct __ctx_buff *ctx)						\
  * We encode it so that custom programs can retrieve it and use it at their
  * convenience.
  */
-static __always_inline int
+static __maybe_unused int
 encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 {
 	__u32 custom_meta = 0;
@@ -382,7 +382,7 @@ struct {
  * In the case of the caller doing the service translation it passes in state via CB,
  * which we take in with lb6_ctx_restore_state().
  */
-static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_sec_identity,
+static __maybe_unused int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_sec_identity,
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
@@ -738,7 +738,7 @@ encrypt_to_stack:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC_CONT)
-static __always_inline
+static __maybe_unused
 int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_sec_identity = 0;
@@ -765,7 +765,7 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont)
 
-static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
+static __maybe_unused int __tail_handle_ipv6(struct __ctx_buff *ctx,
 					      __s8 *ext_err __maybe_unused)
 {
 	void *data, *data_end;
@@ -818,7 +818,7 @@ struct {
  * In the case of the caller doing the service translation it passes in state via CB,
  * which we take in with lb4_ctx_restore_state().
  */
-static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_sec_identity,
+static __maybe_unused int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_sec_identity,
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
@@ -1330,7 +1330,7 @@ encrypt_to_stack:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC_CONT)
-static __always_inline
+static __maybe_unused
 int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_sec_identity = 0;
@@ -1358,7 +1358,7 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
 
-static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
+static __maybe_unused int __tail_handle_ipv4(struct __ctx_buff *ctx,
 					      __s8 *ext_err __maybe_unused)
 {
 	void *data, *data_end;
@@ -1661,7 +1661,7 @@ skip_policy_enforcement:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
-static __always_inline
+static __maybe_unused
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
 	struct ipv6_ct_tuple tuple = {};
@@ -2019,7 +2019,7 @@ skip_policy_enforcement:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
-static __always_inline
+static __maybe_unused
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -2101,7 +2101,7 @@ drop_err:
 				    ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ipv4_to_endpoint_is_hairpin_flow(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
 	__be16 client_port, backend_port, service_port;

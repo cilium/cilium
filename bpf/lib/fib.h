@@ -11,7 +11,7 @@
 #include "neigh.h"
 #include "l3.h"
 
-static __always_inline int
+static __maybe_unused int
 maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 __u32 ifindex __maybe_unused,
 		 bool *l2_hdr_required __maybe_unused)
@@ -35,7 +35,7 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 	return 0;
 }
 
-static __always_inline bool fib_ok(int ret)
+static __maybe_unused bool fib_ok(int ret)
 {
 	return likely(ret == CTX_ACT_TX || ret == CTX_ACT_REDIRECT);
 }
@@ -201,7 +201,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
  * after the function returns 'fib_params' will have the results of the fib lookup
  * if successful.
  */
-static __always_inline int
+static __maybe_unused int
 fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	      const struct in6_addr *ipv6_src, const struct in6_addr *ipv6_dst,
 	      int flags)
@@ -259,7 +259,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
  * after the function returns 'fib_params' will have the results of the fib lookup
  * if successful.
  */
-static __always_inline int
+static __maybe_unused int
 fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	      __be32 ipv4_src, __be32 ipv4_dst, int flags) {
 	fib_params->l.family	= AF_INET;

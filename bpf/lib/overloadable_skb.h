@@ -9,7 +9,7 @@
 #include "lib/clustermesh.h"
 
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 bpf_clear_meta(struct __sk_buff *ctx)
 {
 	__u32 zero = 0;
@@ -42,7 +42,7 @@ bpf_clear_meta(struct __sk_buff *ctx)
  * The agent flag 'max-connected-clusters' can effect the allocation of bits
  * for identity and cluster_id in the mark (see comment in set_identity_mark).
  */
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 get_identity(const struct __sk_buff *ctx)
 {
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
@@ -55,7 +55,7 @@ get_identity(const struct __sk_buff *ctx)
 /**
  * get_epid - returns source endpoint identity from the mark field
  */
-static __always_inline __maybe_unused __u32
+static __maybe_unused __maybe_unused __u32
 get_epid(const struct __sk_buff *ctx)
 {
 	return ctx->mark >> 16;
@@ -78,7 +78,7 @@ get_epid(const struct __sk_buff *ctx)
  * like the following:
  * CIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
  */
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_identity_mark(struct __sk_buff *ctx, __u32 identity, __u32 magic)
 {
 	__u32 cluster_id = (identity >> IDENTITY_LEN) & CLUSTER_ID_MAX;
@@ -90,7 +90,7 @@ set_identity_mark(struct __sk_buff *ctx, __u32 identity, __u32 magic)
 	ctx->mark |= (identity & IDENTITY_MAX) << 16 | cluster_id_lower | cluster_id_upper;
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->cb[CB_ENCRYPT_IDENTITY] = identity;
@@ -99,13 +99,13 @@ set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 /**
  * set_encrypt_key - pushes 8 bit key, 16 bit node ID, and encryption marker into ctx mark value.
  */
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 {
 	ctx->mark = or_encrypt_key(key) | node_id << 16;
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 {
 	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key) | node_id << 16;
@@ -114,7 +114,7 @@ set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 /**
  * set_cluster_id_mark - sets the cluster_id mark.
  */
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
 {
 	__u32 cluster_id_lower = (cluster_id & 0xFF);
@@ -123,7 +123,7 @@ ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
 	ctx->mark |=  cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
 }
 
-static __always_inline __maybe_unused __u32
+static __maybe_unused __maybe_unused __u32
 ctx_get_cluster_id_mark(struct __sk_buff *ctx)
 {
 	__u32 ret = 0;
@@ -139,7 +139,7 @@ ctx_get_cluster_id_mark(struct __sk_buff *ctx)
 	return ret;
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 redirect_self(const struct __sk_buff *ctx)
 {
 	/* Looping back the packet into the originating netns. We xmit into the
@@ -148,13 +148,13 @@ redirect_self(const struct __sk_buff *ctx)
 	return ctx_redirect(ctx, ctx->ifindex, 0);
 }
 
-static __always_inline __maybe_unused bool
+static __maybe_unused __maybe_unused bool
 neigh_resolver_available(void)
 {
 	return is_defined(HAVE_FIB_NEIGH);
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_skip_nodeport_clear(struct __sk_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
@@ -162,7 +162,7 @@ ctx_skip_nodeport_clear(struct __sk_buff *ctx __maybe_unused)
 #endif
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_skip_nodeport_set(struct __sk_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
@@ -170,7 +170,7 @@ ctx_skip_nodeport_set(struct __sk_buff *ctx __maybe_unused)
 #endif
 }
 
-static __always_inline __maybe_unused bool
+static __maybe_unused __maybe_unused bool
 ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
@@ -183,13 +183,13 @@ ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 }
 
 #ifdef ENABLE_HOST_FIREWALL
-static __always_inline void
+static __maybe_unused void
 ctx_skip_host_fw_set(struct __sk_buff *ctx)
 {
 	ctx->tc_index |= TC_INDEX_F_SKIP_HOST_FIREWALL;
 }
 
-static __always_inline bool
+static __maybe_unused bool
 ctx_skip_host_fw(struct __sk_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
@@ -199,7 +199,7 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 }
 #endif /* ENABLE_HOST_FIREWALL */
 
-static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
+static __maybe_unused __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
 							 __u32 off)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
@@ -208,42 +208,42 @@ static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
 	return !ctx_no_room(data_meta + off + 1, data) ? data_meta[off] : 0;
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_set_xfer(struct __sk_buff *ctx __maybe_unused, __u32 meta __maybe_unused)
 {
 	/* Only possible from XDP -> SKB. */
 }
 
-static __always_inline __maybe_unused void
+static __maybe_unused __maybe_unused void
 ctx_move_xfer(struct __sk_buff *ctx __maybe_unused)
 {
 	/* Only possible from XDP -> SKB. */
 }
 
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
 {
 	return skb_change_head(ctx, head_room, flags);
 }
 
-static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)
+static __maybe_unused void ctx_snat_done_set(struct __sk_buff *ctx)
 {
 	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
 	ctx->mark |= MARK_MAGIC_SNAT_DONE;
 }
 
-static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
+static __maybe_unused bool ctx_snat_done(const struct __sk_buff *ctx)
 {
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }
 
-static __always_inline void ctx_set_overlay_mark(struct __sk_buff *ctx)
+static __maybe_unused void ctx_set_overlay_mark(struct __sk_buff *ctx)
 {
 	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
 	ctx->mark |= MARK_MAGIC_OVERLAY;
 }
 
-static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
+static __maybe_unused bool ctx_is_overlay(const struct __sk_buff *ctx)
 {
 	if (!is_defined(HAVE_ENCAP))
 		return false;
@@ -252,7 +252,7 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 }
 
 #ifdef HAVE_ENCAP
-static __always_inline __maybe_unused int
+static __maybe_unused __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 		   __be16 src_port __maybe_unused, __u32 node_id,
 		   __u32 seclabel, __u32 vni __maybe_unused,

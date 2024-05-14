@@ -63,7 +63,7 @@ struct trace_sock_notify {
 	__u8 pad : 7;
 } __packed;
 
-static __always_inline enum l4_protocol
+static __maybe_unused enum l4_protocol
 parse_protocol(__u32 l4_proto) {
 	switch (l4_proto) {
 	case IPPROTO_TCP:
@@ -75,7 +75,7 @@ parse_protocol(__u32 l4_proto) {
 	}
 }
 
-static __always_inline void
+static __maybe_unused void
 send_trace_sock_notify4(struct __ctx_sock *ctx,
 			enum xlate_point xlate_point,
 			__u32 dst_ip, __u16 dst_port)
@@ -100,7 +100,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
-static __always_inline void
+static __maybe_unused void
 send_trace_sock_notify6(struct __ctx_sock *ctx,
 			enum xlate_point xlate_point,
 			union v6addr *dst_addr,
@@ -125,14 +125,14 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 #else
-static __always_inline void
+static __maybe_unused void
 send_trace_sock_notify4(struct __ctx_sock *ctx __maybe_unused,
 			enum xlate_point xlate_point __maybe_unused,
 			__u32 dst_ip __maybe_unused, __u16 dst_port __maybe_unused)
 {
 }
 
-static __always_inline void
+static __maybe_unused void
 send_trace_sock_notify6(struct __ctx_sock *ctx __maybe_unused,
 			enum xlate_point xlate_point __maybe_unused,
 			union v6addr *dst_addr __maybe_unused,

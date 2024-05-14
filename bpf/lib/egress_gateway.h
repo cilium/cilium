@@ -24,7 +24,7 @@
 #define EGRESS_GATEWAY_NO_GATEWAY (0)
 #define EGRESS_GATEWAY_EXCLUDED_CIDR bpf_htonl(1)
 
-static __always_inline
+static __maybe_unused
 int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, __be32 daddr,
 				      __s8 *ext_err)
 {
@@ -57,7 +57,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY
-static __always_inline
+static __maybe_unused
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
 	struct egress_gw_policy_key key = {
@@ -69,7 +69,7 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 }
 #endif /* ENABLE_EGRESS_GATEWAY */
 
-static __always_inline int
+static __maybe_unused int
 egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				 __be32 *gateway_ip __maybe_unused)
 {
@@ -96,7 +96,7 @@ egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 #endif /* ENABLE_EGRESS_GATEWAY */
 }
 
-static __always_inline
+static __maybe_unused
 bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 			   __be32 daddr __maybe_unused,
 			   __be32 *snat_addr __maybe_unused)
@@ -119,7 +119,7 @@ bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 #endif /* ENABLE_EGRESS_GATEWAY */
 }
 
-static __always_inline
+static __maybe_unused
 bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
@@ -150,7 +150,7 @@ bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
  * * CTX_ACT_OK if no EGW logic should be applied,
  * * DROP_* for error conditions.
  */
-static __always_inline int
+static __maybe_unused int
 egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 				      enum ct_status ct_status,
 				      __be32 *gateway_ip)
@@ -166,7 +166,7 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 	return egress_gw_request_needs_redirect(rtuple, gateway_ip);
 }
 
-static __always_inline
+static __maybe_unused
 bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr)
 {
 	struct remote_endpoint_info *remote_ep;
@@ -183,7 +183,7 @@ bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr)
 	return egress_gw_snat_needed(saddr, daddr, snat_addr);
 }
 
-static __always_inline
+static __maybe_unused
 bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoint,
 					 __u32 *dst_sec_identity)
 {

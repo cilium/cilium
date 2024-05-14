@@ -24,12 +24,12 @@ union tcp_flags {
 	__u32 value;
 };
 
-static __always_inline __u8 tcp_flags_to_u8(__be32 value)
+static __maybe_unused __u8 tcp_flags_to_u8(__be32 value)
 {
 	return ((union tcp_flags)value).lower_bits;
 }
 
-static __always_inline int
+static __maybe_unused int
 l4_store_port(struct __ctx_buff *ctx, int l4_off, int port_off, __be16 port)
 {
 	return ctx_store_bytes(ctx, l4_off + port_off, &port, sizeof(port), 0);
@@ -65,19 +65,19 @@ static __always_inline int l4_modify_port(struct __ctx_buff *ctx, int l4_off,
 	return 0;
 }
 
-static __always_inline int l4_load_port(struct __ctx_buff *ctx, int off,
+static __maybe_unused int l4_load_port(struct __ctx_buff *ctx, int off,
 					__be16 *port)
 {
 	return ctx_load_bytes(ctx, off, port, sizeof(__be16));
 }
 
-static __always_inline int l4_load_ports(struct __ctx_buff *ctx, int off,
+static __maybe_unused int l4_load_ports(struct __ctx_buff *ctx, int off,
 					 __be16 *ports)
 {
 	return ctx_load_bytes(ctx, off, ports, 2 * sizeof(__be16));
 }
 
-static __always_inline int l4_load_tcp_flags(struct __ctx_buff *ctx, int l4_off,
+static __maybe_unused int l4_load_tcp_flags(struct __ctx_buff *ctx, int l4_off,
 					     union tcp_flags *flags)
 {
 	return ctx_load_bytes(ctx, l4_off + 12, flags, 2);

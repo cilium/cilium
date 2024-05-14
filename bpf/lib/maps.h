@@ -40,7 +40,7 @@ struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
 
-static __always_inline __must_check int
+static __maybe_unused __must_check int
 tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 {
 	if (__builtin_constant_p(endpoint_id)) {
@@ -69,7 +69,7 @@ struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
 
-static __always_inline __must_check int
+static __maybe_unused __must_check int
 tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 {
 	tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, endpoint_id);
@@ -340,7 +340,7 @@ struct {
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
 #ifndef SKIP_CALLS_MAP
-static __always_inline __must_check int
+static __maybe_unused __must_check int
 tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 {
 	tail_call_static(ctx, CALLS_MAP, index);

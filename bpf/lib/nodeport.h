@@ -50,7 +50,7 @@ struct dsr_opt_v4 {
 	__u32 addr;
 };
 
-static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
+static __maybe_unused bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 {
 # if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
 	return true;
@@ -96,7 +96,7 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 # endif
 #endif /* HAVE_ENCAP */
 
-static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
+static __maybe_unused bool dsr_fail_needs_reply(int code __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
 	if (code == DROP_FRAG_NEEDED)
@@ -105,7 +105,7 @@ static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
 	return false;
 }
 
-static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused,
+static __maybe_unused bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused,
 					   __u16 expanded_len __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
@@ -115,7 +115,7 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 	return false;
 }
 
-static __always_inline int
+static __maybe_unused int
 nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 				 struct bpf_fib_lookup_padded *fib_params,
 				 __s8 *ext_err)
@@ -139,12 +139,12 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 }
 
 #ifdef ENABLE_IPV6
-static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
+static __maybe_unused bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 			       struct ipv6_nat_target *target __maybe_unused)
 {
@@ -177,7 +177,7 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 	return false;
 }
 
-static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
+static __maybe_unused int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  union v6addr *saddr,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
@@ -230,7 +230,7 @@ out:
 
 #ifdef ENABLE_DSR
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
-static __always_inline void rss_gen_src6(union v6addr *src,
+static __maybe_unused void rss_gen_src6(union v6addr *src,
 					 const union v6addr *client,
 					 __be32 l4_hint)
 {
@@ -259,7 +259,7 @@ static __always_inline void rss_gen_src6(union v6addr *src,
 	}
 }
 
-static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
+static __maybe_unused int dsr_set_ipip6(struct __ctx_buff *ctx,
 					 const struct ipv6hdr *ip6,
 					 const union v6addr *backend_addr,
 					 __be32 l4_hint, int *ohead)
@@ -299,7 +299,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 	return 0;
 }
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
-static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
+static __maybe_unused int dsr_set_ext6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					const union v6addr *svc_addr,
 					__be16 svc_port, int *ohead)
@@ -436,7 +436,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 }
 #endif /* DSR_ENCAP_MODE */
 
-static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
+static __maybe_unused int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 				       struct dsr_opt_v6 *dsr_opt, bool *found)
 {
 	struct ipv6_opt_hdr opthdr __align_stack_8;
@@ -549,13 +549,13 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline struct ipv6_nat_entry *
+static __maybe_unused struct ipv6_nat_entry *
 nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
 {
 	return snat_v6_lookup(nat_tuple);
 }
 
-static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
+static __maybe_unused int xlate_dsr_v6(struct __ctx_buff *ctx,
 					const struct ipv6_ct_tuple *tuple,
 					int l4_off)
 {
@@ -813,7 +813,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb6_reverse_nat *
+static __maybe_unused struct lb6_reverse_nat *
 nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 				struct ipv6_ct_tuple *tuple)
 {
@@ -907,7 +907,7 @@ drop_err:
 }
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
-static __always_inline int
+static __maybe_unused int
 nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			       __s8 *ext_err)
 {
@@ -1032,7 +1032,7 @@ fib_redirect:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
-static __always_inline
+static __maybe_unused
 int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
@@ -1067,7 +1067,7 @@ drop:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
-static __always_inline
+static __maybe_unused
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
 	struct ipv6_nat_target target = {
@@ -1141,7 +1141,7 @@ drop_err:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
-static __always_inline
+static __maybe_unused
 int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 {
 	const bool nat_46x64 = nat46x64_cb_xlate(ctx);
@@ -1402,7 +1402,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 }
 
 /* See nodeport_lb4(). */
-static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
+static __maybe_unused int nodeport_lb6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					__u32 src_sec_identity,
 					__s8 *ext_err,
@@ -1482,7 +1482,7 @@ skip_service_lookup:
 	}
 }
 
-static __always_inline int
+static __maybe_unused int
 nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 			   struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
@@ -1573,7 +1573,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	return ret;
 }
 
-static __always_inline int
+static __maybe_unused int
 __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		      __s8 *ext_err)
 {
@@ -1598,7 +1598,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return ret;
 }
 
-static __always_inline int
+static __maybe_unused int
 handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		    __s8 *ext_err)
 {
@@ -1606,7 +1606,7 @@ handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
-static __always_inline
+static __maybe_unused
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
@@ -1637,12 +1637,12 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple)
+static __maybe_unused bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple)
 {
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline bool
+static __maybe_unused bool
 nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 			       struct ipv4_nat_target *target __maybe_unused)
 {
@@ -1674,7 +1674,7 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 	return false;
 }
 
-static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
+static __maybe_unused int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  __u32 cluster_id __maybe_unused,
 						  __be32 *saddr,
 						  struct trace_ctx *trace,
@@ -1741,7 +1741,7 @@ out:
 
 #ifdef ENABLE_DSR
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
-static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
+static __maybe_unused __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
 {
 	const __u32 bits = 32 - IPV4_RSS_PREFIX_BITS;
 	__be32 src = IPV4_RSS_PREFIX;
@@ -1757,7 +1757,7 @@ static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
  * After DSR IPIP:  [rssSrcIP -> backendIP]                        } IP
  *                  [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  */
-static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
+static __maybe_unused int dsr_set_ipip4(struct __ctx_buff *ctx,
 					 const struct iphdr *ip4,
 					 __be32 backend_addr,
 					 __be32 l4_hint, __be16 *ohead)
@@ -1810,7 +1810,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 	return 0;
 }
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
-static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
+static __maybe_unused int dsr_set_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4, __be32 svc_addr,
 					__be16 svc_port, __be16 *ohead)
 {
@@ -2110,13 +2110,13 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline struct ipv4_nat_entry *
+static __maybe_unused struct ipv4_nat_entry *
 nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
 {
 	return snat_v4_lookup(nat_tuple);
 }
 
-static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
+static __maybe_unused int xlate_dsr_v4(struct __ctx_buff *ctx,
 					const struct ipv4_ct_tuple *tuple,
 					int l4_off, bool has_l4_header)
 {
@@ -2371,7 +2371,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb4_reverse_nat *
+static __maybe_unused struct lb4_reverse_nat *
 nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 				struct ipv4_ct_tuple *tuple)
 {
@@ -2411,7 +2411,7 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
-static __always_inline int
+static __maybe_unused int
 nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			       __s8 *ext_err)
 {
@@ -2533,7 +2533,7 @@ redirect:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
-static __always_inline
+static __maybe_unused
 int tail_nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
@@ -2573,7 +2573,7 @@ drop_err:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
-static __always_inline
+static __maybe_unused
 int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
 	struct ipv4_nat_target target = {
@@ -2663,7 +2663,7 @@ drop_err:
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
-static __always_inline
+static __maybe_unused
 int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 {
 	struct bpf_fib_lookup_padded fib_params = {
@@ -3060,7 +3060,7 @@ skip_service_lookup:
 	}
 }
 
-static __always_inline int
+static __maybe_unused int
 nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 			   struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
@@ -3186,7 +3186,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	return ret;
 }
 
-static __always_inline int
+static __maybe_unused int
 __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 		      struct trace_ctx *trace, __s8 *ext_err)
 {
@@ -3214,7 +3214,7 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 	return ret;
 }
 
-static __always_inline int
+static __maybe_unused int
 handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		    __s8 *ext_err)
 {
@@ -3224,7 +3224,7 @@ handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
-static __always_inline
+static __maybe_unused
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
@@ -3256,7 +3256,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_HEALTH_CHECK
-static __always_inline int
+static __maybe_unused int
 health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 		__u32 seclabel)
 {
@@ -3278,7 +3278,7 @@ health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 	return 0;
 }
 
-static __always_inline int
+static __maybe_unused int
 health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 		__u32 seclabel)
 {
@@ -3300,7 +3300,7 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 	return 0;
 }
 
-static __always_inline int
+static __maybe_unused int
 lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data __maybe_unused, *data_end __maybe_unused;
@@ -3349,7 +3349,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-static __always_inline int
+static __maybe_unused int
 handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
 	       struct trace_ctx *trace __maybe_unused,
 	       __s8 *ext_err __maybe_unused)

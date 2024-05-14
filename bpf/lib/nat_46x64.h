@@ -13,7 +13,7 @@
 #include "ipv6.h"
 #include "eth.h"
 
-static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr)
+static __maybe_unused __maybe_unused bool is_v4_in_v6(const union v6addr *daddr)
 {
 	/* Check for ::FFFF:<IPv4 address>. */
 	union v6addr dprobe  = {
@@ -28,7 +28,7 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
-static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6addr *daddr)
+static __maybe_unused __maybe_unused bool is_v4_in_v6_rfc8215(const union v6addr *daddr)
 {
 	union v6addr dprobe  = {
 		.addr[0] = NAT_46X64_PREFIX_0,
@@ -44,7 +44,7 @@ static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6add
 	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
-static __always_inline __maybe_unused
+static __maybe_unused __maybe_unused
 void build_v4_in_v6(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
@@ -53,7 +53,7 @@ void build_v4_in_v6(union v6addr *daddr, __be32 v4)
 	daddr->p4 = v4;
 }
 
-static __always_inline __maybe_unused
+static __maybe_unused __maybe_unused
 void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
@@ -64,13 +64,13 @@ void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
 	daddr->p4 = v4;
 }
 
-static __always_inline __maybe_unused
+static __maybe_unused __maybe_unused
 void build_v4_from_v6(const union v6addr *v6, __be32 *daddr)
 {
 	*daddr = v6->p4;
 }
 
-static __always_inline int get_csum_offset(__u8 protocol)
+static __maybe_unused int get_csum_offset(__u8 protocol)
 {
 	int csum_off;
 
@@ -100,7 +100,7 @@ static __always_inline int get_csum_offset(__u8 protocol)
 	return csum_off;
 }
 
-static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
+static __maybe_unused int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4 __align_stack_8;
 	struct icmp6hdr icmp6 __align_stack_8 = {};
@@ -180,7 +180,7 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 	return csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
 }
 
-static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
+static __maybe_unused int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4 __align_stack_8 = {};
 	struct icmp6hdr icmp6 __align_stack_8;
@@ -257,7 +257,7 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 	return csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
 }
 
-static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
+static __maybe_unused int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
 					const union v6addr *src6,
 					const union v6addr *dst6)
 {
@@ -314,7 +314,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
 	return 0;
 }
 
-static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
+static __maybe_unused int ipv6_to_ipv4(struct __ctx_buff *ctx,
 					__be32 src4, __be32 dst4)
 {
 	__be16 protocol = bpf_htons(ETH_P_IP);
@@ -371,7 +371,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline int
+static __maybe_unused int
 nat46_rfc8215(struct __ctx_buff *ctx __maybe_unused,
 	      const struct iphdr *ip4 __maybe_unused,
 	      int l3_off __maybe_unused)
@@ -384,7 +384,7 @@ nat46_rfc8215(struct __ctx_buff *ctx __maybe_unused,
 	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
 }
 
-static __always_inline int
+static __maybe_unused int
 nat64_rfc8215(struct __ctx_buff *ctx __maybe_unused,
 	      const struct ipv6hdr *ip6 __maybe_unused)
 {
@@ -399,12 +399,12 @@ nat64_rfc8215(struct __ctx_buff *ctx __maybe_unused,
 #define NAT46x64_MODE_XLATE	1
 #define NAT46x64_MODE_ROUTE	2
 
-static __always_inline bool nat46x64_cb_route(struct __ctx_buff *ctx)
+static __maybe_unused bool nat46x64_cb_route(struct __ctx_buff *ctx)
 {
 	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_ROUTE;
 }
 
-static __always_inline bool nat46x64_cb_xlate(struct __ctx_buff *ctx)
+static __maybe_unused bool nat46x64_cb_xlate(struct __ctx_buff *ctx)
 {
 	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_XLATE;
 }

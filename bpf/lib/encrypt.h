@@ -14,7 +14,7 @@
 #include "lib/eps.h"
 #include "lib/vxlan.h"
 
-static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
+static __maybe_unused __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 {
 #ifdef ENABLE_IPSEC
 	__u8 local_key = 0;
@@ -46,7 +46,7 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 
 #ifdef ENABLE_IPSEC
 # ifdef ENABLE_IPV4
-static __always_inline __u16
+static __maybe_unused __u16
 lookup_ip4_node_id(__u32 ip4)
 {
 	struct node_key node_ip = {};
@@ -64,7 +64,7 @@ lookup_ip4_node_id(__u32 ip4)
 # endif /* ENABLE_IPV4 */
 
 # ifdef ENABLE_IPV6
-static __always_inline __u16
+static __maybe_unused __u16
 lookup_ip6_node_id(const union v6addr *ip6)
 {
 	struct node_key node_ip = {};
@@ -81,14 +81,14 @@ lookup_ip6_node_id(const union v6addr *ip6)
 }
 # endif /* ENABLE_IPV6 */
 
-static __always_inline void
+static __maybe_unused void
 set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 {
 	/* Decrypt "key" is determined by SPI and originating node */
 	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
 }
 
-static __always_inline int
+static __maybe_unused int
 set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 		  __u32 seclabel, bool use_meta, bool use_spi_from_map)
 {
@@ -120,7 +120,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
+static __maybe_unused int
 do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 {
 	void *data, *data_end;
@@ -214,7 +214,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
  *   - net.ipv4.conf.default.rp_filter = 0
  *   - net.ipv4.conf.default.accept_local = 1
  */
-static __always_inline int
+static __maybe_unused int
 encrypt_overlay_and_redirect(struct __ctx_buff *ctx, void *data,
 			     void *data_end, struct iphdr *ip4)
 {
@@ -269,7 +269,7 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx, void *data,
 #endif /* ENABLE_ENCRYPTED_OVERLAY */
 
 #else
-static __always_inline int
+static __maybe_unused int
 do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
 {
 	return CTX_ACT_OK;
