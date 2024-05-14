@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -142,6 +143,8 @@ type Daemon struct {
 	// datapath is the underlying datapath implementation to use to
 	// implement all aspects of an agent
 	datapath datapath.Datapath
+
+	loader loader.Loader
 
 	// nodeDiscovery defines the node discovery logic of the agent
 	nodeDiscovery  *nodediscovery.NodeDiscovery
@@ -415,6 +418,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
+		loader:            params.Loader,
 		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
@@ -973,7 +977,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, err
 	}
 
-	if err := d.datapath.Loader().RestoreTemplates(option.Config.StateDir); err != nil {
+	if err := d.loader.RestoreTemplates(option.Config.StateDir); err != nil {
 		log.WithError(err).Error("Unable to restore previous BPF templates")
 	}
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -97,6 +98,10 @@ func (s *EndpointSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) erro
 
 func (s *EndpointSuite) Datapath() datapath.Datapath {
 	return s.datapath
+}
+
+func (s *EndpointSuite) Loader() loader.Loader {
+	return &fakeTypes.FakeLoader{}
 }
 
 func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {

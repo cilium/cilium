@@ -21,10 +21,6 @@ type Datapath interface {
 	// of the local node
 	LocalNodeAddressing() NodeAddressing
 
-	// Loader must return the implementation of the loader, which is responsible
-	// for loading, reloading, and compiling datapath programs.
-	Loader() Loader
-
 	// WireguardAgent returns the WireGuard agent for the local node
 	WireguardAgent() WireguardAgent
 

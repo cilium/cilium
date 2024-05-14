@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
@@ -93,7 +93,7 @@ func testCompileOrLoad(t *testing.T, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	err := l.compileOrLoad(ctx, ep, getEpDirs(ep), nil, stats)
+	err := l.compileOrLoad(ctx, ep, getEpDirs(ep), types.LoaderContext{}, stats)
 	require.NoError(t, err)
 }
 
@@ -172,7 +172,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.compileOrLoad(ctx, ep, getEpDirs(ep), nil, stats)
+		err = l.compileOrLoad(ctx, ep, getEpDirs(ep), types.LoaderContext{}, stats)
 	}
 	require.Error(t, err)
 }
@@ -204,45 +204,45 @@ func TestBPFMasqAddrs(t *testing.T) {
 	})
 
 	l := newTestLoader(t)
-	nodeAddrs := l.nodeAddrs.(statedb.RWTable[tables.NodeAddress])
-	db := l.db
 
-	masq4, masq6 := l.bpfMasqAddrs("test")
+	lctx := types.LoaderContext{}
+
+	masq4, masq6 := l.bpfMasqAddrs(lctx, "test")
 	require.Equal(t, masq4.IsValid(), false)
 	require.Equal(t, masq6.IsValid(), false)
 
-	txn := db.WriteTxn(nodeAddrs)
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("1.0.0.1"),
-		NodePort:   true,
-		Primary:    true,
-		DeviceName: "test",
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("1000::1"),
-		NodePort:   true,
-		Primary:    true,
-		DeviceName: "test",
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("2.0.0.2"),
-		NodePort:   false,
-		Primary:    true,
-		DeviceName: tables.WildcardDeviceName,
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("2000::2"),
-		NodePort:   false,
-		Primary:    true,
-		DeviceName: tables.WildcardDeviceName,
-	})
-	txn.Commit()
+	lctx.NodeAddrs = []tables.NodeAddress{
+		{
+			Addr:       netip.MustParseAddr("1.0.0.1"),
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "test",
+		},
+		{
+			Addr:       netip.MustParseAddr("1000::1"),
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "test",
+		},
+		{
+			Addr:       netip.MustParseAddr("2.0.0.2"),
+			NodePort:   false,
+			Primary:    true,
+			DeviceName: tables.WildcardDeviceName,
+		},
+		{
+			Addr:       netip.MustParseAddr("2000::2"),
+			NodePort:   false,
+			Primary:    true,
+			DeviceName: tables.WildcardDeviceName,
+		},
+	}
 
-	masq4, masq6 = l.bpfMasqAddrs("test")
+	masq4, masq6 = l.bpfMasqAddrs(lctx, "test")
 	require.Equal(t, masq4.String(), "1.0.0.1")
 	require.Equal(t, masq6.String(), "1000::1")
 
-	masq4, masq6 = l.bpfMasqAddrs("unknown")
+	masq4, masq6 = l.bpfMasqAddrs(lctx, "unknown")
 	require.Equal(t, masq4.String(), "2.0.0.2")
 	require.Equal(t, masq6.String(), "2000::2")
 }
@@ -327,7 +327,7 @@ func TestSubstituteConfiguration(t *testing.T) {
 	l := newTestLoader(t)
 	stats := &metrics.SpanStat{}
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, t.TempDir())
-	if err := l.CompileOrLoad(ctx, &ep, nil, stats); err != nil {
+	if err := l.CompileOrLoad(ctx, &ep, types.LoaderContext{}, stats); err != nil {
 		t.Fatal(err)
 	}
 }

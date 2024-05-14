@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -305,17 +306,17 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string, devices []string) error {
+func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string, lctx types.LoaderContext) error {
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
-	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
+	return l.reinitializeXDPLocked(ctx, extraCArgs, lctx.DeviceNames)
 }
 
 // Reinitialize (re-)configures the base datapath configuration including global
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, devices []string) error {
+func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, lctx types.LoaderContext) error {
 	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -382,7 +383,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
 
-	if err := cleanIngressQdisc(devices); err != nil {
+	if err := cleanIngressQdisc(lctx.DeviceNames); err != nil {
 		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
 		return err
 	}
@@ -398,9 +399,9 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	}
 
 	if option.Config.EnableXDPPrefilter {
-		scopedLog := log.WithField(logfields.Devices, devices)
+		scopedLog := log.WithField(logfields.Devices, lctx.DeviceNames)
 
-		if err := writePreFilterHeader(l.prefilter, "./", devices); err != nil {
+		if err := writePreFilterHeader(l.prefilter, "./", lctx.DeviceNames); err != nil {
 			scopedLog.WithError(err).Warn("Unable to write prefilter header")
 			return err
 		}
@@ -424,7 +425,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices); err != nil {
+	if err := l.reinitializeXDPLocked(ctx, extraArgs, lctx.DeviceNames); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
 

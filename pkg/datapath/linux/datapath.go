@@ -6,7 +6,6 @@ package linux
 import (
 	"github.com/cilium/statedb"
 
-	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -31,7 +30,6 @@ type linuxDatapath struct {
 	nodeIDHandler  datapath.NodeIDHandler
 	nodeNeighbors  datapath.NodeNeighbors
 	nodeAddressing datapath.NodeAddressing
-	loader         loader.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
 	bwmgr          datapath.BandwidthManager
@@ -46,7 +44,6 @@ type DatapathParams struct {
 	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
-	Loader         loader.Loader
 	NodeManager    manager.NodeManager
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
@@ -62,7 +59,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 		ConfigWriter:    p.ConfigWriter,
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
-		loader:          p.Loader,
 		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
@@ -96,10 +92,6 @@ func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
 // node
 func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return l.nodeAddressing
-}
-
-func (l *linuxDatapath) Loader() datapath.Loader {
-	return l.loader
 }
 
 func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {

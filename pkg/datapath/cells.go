@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -167,7 +166,6 @@ func newDatapath(params datapathParams) types.Datapath {
 		NodeMap:        params.NodeMap,
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
-		Loader:         params.Loader,
 		NodeManager:    params.NodeManager,
 		DB:             params.DB,
 		Devices:        params.Devices,
@@ -217,8 +215,6 @@ type datapathParams struct {
 	ConfigWriter types.ConfigWriter
 
 	TunnelConfig tunnel.Config
-
-	Loader loaderTypes.Loader
 
 	NodeManager nodeManager.NodeManager
 
