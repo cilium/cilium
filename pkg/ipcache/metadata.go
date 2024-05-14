@@ -183,16 +183,12 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 	m.m[prefix].logConflicts(log.WithField(logfields.CIDR, prefix))
 }
 
-// GetMetadataByPrefix returns full metadata for a given IP as a copy.
-func (ipc *IPCache) GetMetadataByPrefix(prefix netip.Prefix) PrefixInfo {
+// GetMetadataSourceByPrefix returns the highest precedence source which has
+// provided metadata for this prefix
+func (ipc *IPCache) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source {
 	ipc.metadata.RLock()
 	defer ipc.metadata.RUnlock()
-	m := ipc.metadata.getLocked(prefix)
-	n := make(PrefixInfo, len(m))
-	for k, v := range m {
-		n[k] = v.DeepCopy()
-	}
-	return n
+	return ipc.metadata.getLocked(prefix).Source()
 }
 
 func (m *metadata) getLocked(prefix netip.Prefix) PrefixInfo {

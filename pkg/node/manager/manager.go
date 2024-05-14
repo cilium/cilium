@@ -69,7 +69,7 @@ type nodeEntry struct {
 
 // IPCache is the set of interactions the node manager performs with the ipcache
 type IPCache interface {
-	GetMetadataByPrefix(prefix netip.Prefix) ipcache.PrefixInfo
+	GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source
 	UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
 	OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
 	RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
@@ -548,7 +548,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// * CiliumInternal IP addresses that match configured local router IP.
 		//   In that case, we still want to inform subscribers about a new node
 		//   even when IP addresses may seem repeated across the nodes.
-		existing := m.ipcache.GetMetadataByPrefix(prefix).Source()
+		existing := m.ipcache.GetMetadataSourceByPrefix(prefix)
 		overwrite := source.AllowOverwrite(existing, n.Source)
 		if !overwrite && existing != source.KubeAPIServer &&
 			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.ToString())) {
@@ -591,7 +591,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		if !healthIP.IsValid() {
 			continue
 		}
-		if !source.AllowOverwrite(m.ipcache.GetMetadataByPrefix(healthIP).Source(), n.Source) {
+		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(healthIP), n.Source) {
 			dpUpdate = false
 		}
 
@@ -607,7 +607,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		if !ingressIP.IsValid() {
 			continue
 		}
-		if !source.AllowOverwrite(m.ipcache.GetMetadataByPrefix(ingressIP).Source(), n.Source) {
+		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(ingressIP), n.Source) {
 			dpUpdate = false
 		}
 
