@@ -21,8 +21,8 @@ import (
 	clientPkg "github.com/cilium/cilium/pkg/client"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/healthv2"
-	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 )
 
@@ -136,7 +136,7 @@ func init() {
 		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
 		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
 		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
-		statedbTableCommand[types.Status](healthv2.HealthTableName),
+		statedbTableCommand[types.Status](health.HealthTableName),
 		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
 		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
 	)
