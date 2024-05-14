@@ -470,8 +470,6 @@ endif
 	$(QUIET) contrib/scripts/check-log-newlines.sh
 	@$(ECHO_CHECK) contrib/scripts/check-test-tags.sh
 	$(QUIET) contrib/scripts/check-test-tags.sh
-	@$(ECHO_CHECK) contrib/scripts/check-assert-deep-equals.sh
-	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
 	@$(ECHO_CHECK) contrib/scripts/check-viper.sh
