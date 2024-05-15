@@ -80,7 +80,7 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 			s.Count = 1
 			// If a similar status already exists, increment count, otherwise start back
 			// at zero.
-			if found && old.Level == s.Level && old.Message == s.Message {
+			if found && old.Level == s.Level && old.Message == s.Message && old.Error == s.Error {
 				s.Count = old.Count + 1
 			}
 			if _, _, err := p.statusTable.Insert(tx, s); err != nil {
