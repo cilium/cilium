@@ -4,27 +4,15 @@
 package multicast
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"net/netip"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 )
 
-type MulticastSuite struct {
-	r *rand.Rand
-}
-
-func setup(_ testing.TB) *MulticastSuite {
-	return &MulticastSuite{
-		r: rand.New(rand.NewSource(time.Now().Unix())),
-	}
-}
-
 func TestGroupOps(t *testing.T) {
-	m := setup(t)
 	ifs, err := netlink.LinkList()
 	require.Nil(t, err)
 
@@ -33,7 +21,7 @@ func TestGroupOps(t *testing.T) {
 	}
 
 	ifc := ifs[0]
-	maddr := m.randMaddr()
+	maddr := randMaddr()
 
 	// Join Group
 	err = JoinGroup(ifc.Attrs().Name, maddr)
@@ -73,9 +61,9 @@ func TestSolicitedNodeMaddr(t *testing.T) {
 
 }
 
-func (m *MulticastSuite) randMaddr() netip.Addr {
+func randMaddr() netip.Addr {
 	maddr := make([]byte, 16)
-	m.r.Read(maddr[13:])
+	rand.Read(maddr[13:])
 	return Address(netip.AddrFrom16(*(*[16]byte)(maddr))).SolicitedNodeMaddr()
 }
 
