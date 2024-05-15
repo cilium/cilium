@@ -225,7 +225,6 @@ jobs:
               --machine-type e2-custom-2-4096 \
               --boot-disk-type pd-standard \
               --boot-disk-size 10GB \
-              --preemptible \
               --image-project ubuntu-os-cloud \
               --image-family ubuntu-2004-lts \
               --metadata hostname=${{ env.vmName }}-${{ matrix.vmIndex }} \
@@ -245,8 +244,7 @@ jobs:
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
-            --disk-size 20GB \
-            --preemptible
+            --disk-size 20GB
 
       - name: Get cluster credentials
         run: |
