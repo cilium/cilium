@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net"
 	"net/netip"
 	"slices"
@@ -35,14 +36,12 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
-	randGen                    = rand.NewSafeRand(time.Now().UnixNano())
 	baseBackgroundSyncInterval = time.Minute
 	defaultNodeUpdateInterval  = 10 * time.Second
 
@@ -930,7 +929,7 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 						// To avoid flooding network with arping requests
 						// at the same time, spread them over the
 						// [0; ARPPingRefreshPeriod/2) period.
-						n := randGen.Int63n(int64(m.conf.ARPPingRefreshPeriod / 2))
+						n := rand.Int64N(int64(m.conf.ARPPingRefreshPeriod / 2))
 						time.Sleep(time.Duration(n))
 						m.Enqueue(e, false)
 					}(ctx, &entryNode)
