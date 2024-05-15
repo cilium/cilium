@@ -1271,3 +1271,24 @@ which is passed as the ``controller-group-metrics`` configuration
 flag. The current default set for ``kvstoremesh`` found in the
 Cilium Helm chart is the special name "all", which enables the metric
 for all controller groups. The special name "none" is also supported.
+
+NAT
+~~~
+
+======================================== ================================================== ========== ========================================================
+Name                                     Labels                                             Default    Description
+======================================== ================================================== ========== ========================================================
+``nat_endpoint_max_connection``          ``family``                                         Enabled    Saturation of the most saturated distinct NAT mapped connection, in terms of egress-IP and remote endpoint address.
+======================================== ================================================== ========== ========================================================
+
+These metrics are for monitoring Cilium's NAT mapping functionality. NAT is used by features such as Egress Gateway and BPF masquerading.
+
+The NAT map holds mappings for masqueraded connections. Connection held in the NAT table that are masqueraded with the
+same egress-IP and are going to the same remote endpoints IP and port all require a unique source port for the mapping.
+This means that any Node masquerading connections to a distinct external endpoint is limited by the possible ephemeral source ports.
+
+Given a Node forwarding one or more such egress-IP and remote endpoint tuples, the ```nat_endpoint_max_connection``` metric is the most saturated such connection in terms of a percent of possible source ports available.
+This metric is especially useful when using the egress gateway feature where it's possible to overload a Node if many connections are all going to the same endpoint.
+In general, this metric should normally be fairly low.
+A high number here may indicate that a Node is reaching its limit for connections to one or more external endpoints.
+
