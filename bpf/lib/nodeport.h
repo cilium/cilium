@@ -26,6 +26,7 @@
 #include "stubs.h"
 #include "proxy_hairpin.h"
 #include "fib.h"
+#include "srv6.h"
 
 #define nodeport_nat_egress_ipv4_hook(ctx, ip4, info, tuple, l4_off, ext_err) CTX_ACT_OK
 #define nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, tuple, tunnel_endpoint, src_sec_identity, \
@@ -2413,6 +2414,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	bool allow_neigh_map = true;
 	bool check_revdnat = true;
 	bool has_l4_header;
+	__u32 *vrf_id __maybe_unused = NULL;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -2441,6 +2443,17 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 	if (!check_revdnat)
 		goto out;
+
+#if defined(ENABLE_SRV6) && defined(IS_BPF_LXC)
+	/* Determine if packet belongs to a VRF before we do NAT.
+	 * This is needed because we determine the VRF membership
+	 * based on the source address of the packet. This should
+	 * be fixed in the future by determining the VRF membership
+	 * based on the IP address-agnostic way such as ingress
+	 * interface index.
+	 */
+	vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
+#endif
 
 	ret = nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, &tuple, &tunnel_endpoint,
 						  &src_sec_identity, &dst_sec_identity);
@@ -2482,6 +2495,20 @@ out:
 	return CTX_ACT_OK;
 
 redirect:
+#if defined(ENABLE_SRV6) && defined(IS_BPF_LXC)
+	if (vrf_id) {
+		union v6addr *sid;
+		/* Do policy lookup if it belongs to a VRF */
+		sid = srv6_lookup_policy4(*vrf_id, ip4->daddr);
+		if (sid) {
+			/* If there's a policy, tailcall to the H.Encaps logic */
+			srv6_store_meta_sid(ctx, sid);
+			return tail_call_internal(ctx, CILIUM_CALL_SRV6_ENCAP,
+						  ext_err);
+		}
+	}
+#endif /* ENABLE_SRV6 */
+
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
