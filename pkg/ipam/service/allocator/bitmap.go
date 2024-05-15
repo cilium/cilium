@@ -7,10 +7,9 @@ package allocator
 import (
 	"errors"
 	"math/big"
+	"math/rand/v2"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/rand"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // AllocationBitmap is a contiguous block of resources that can be allocated atomically.
@@ -50,9 +49,7 @@ type bitAllocator interface {
 // NewAllocationMap creates an allocation bitmap using the random scan strategy.
 func NewAllocationMap(max int, rangeSpec string) *AllocationBitmap {
 	a := AllocationBitmap{
-		strategy: randomScanStrategy{
-			rand: rand.NewSafeRand(time.Now().UnixNano()),
-		},
+		strategy:  randomScanStrategy{},
 		allocated: big.NewInt(0),
 		count:     0,
 		max:       max,
@@ -186,15 +183,13 @@ func (r *AllocationBitmap) Restore(rangeSpec string, data []byte) error {
 // randomScanStrategy chooses a random address from the provided big.Int, and then
 // scans forward looking for the next available address (it will wrap the range if
 // necessary).
-type randomScanStrategy struct {
-	rand *rand.SafeRand
-}
+type randomScanStrategy struct{}
 
 func (rss randomScanStrategy) AllocateBit(allocated *big.Int, max, count int) (int, bool) {
 	if count >= max {
 		return 0, false
 	}
-	offset := rss.rand.Intn(max)
+	offset := rand.IntN(max)
 	for i := 0; i < max; i++ {
 		at := (offset + i) % max
 		if allocated.Bit(at) == 0 {

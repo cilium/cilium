@@ -6,6 +6,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -23,16 +24,11 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/types"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy")
-
-	portRandomizer = rand.NewSafeRand(time.Now().UnixNano())
-)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy")
 
 // field names used while logging
 const (
@@ -186,7 +182,7 @@ func (p *Proxy) allocatePort(port, min, max uint16) (uint16, error) {
 	}
 
 	// TODO: Maybe not create a large permutation each time?
-	portRange := portRandomizer.Perm(int(max - min + 1))
+	portRange := rand.Perm(int(max - min + 1))
 
 	// Allow reuse of previously used ports only if no ports are otherwise availeble.
 	// This allows the same port to be used again by a listener being reconfigured

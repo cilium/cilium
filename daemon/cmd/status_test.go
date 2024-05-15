@@ -54,12 +54,12 @@ func Test_getNodesHandle(t *testing.T) {
 	g := setupGetNodesSuite(t)
 	// Set seed so we can have the same pseudorandom client IDs.
 	// The seed is set to 0 for each unit test.
-	randGen.Seed(0)
+	randSrc.Seed(0, 0)
 	const numberOfClients = 10
 
 	clientIDs := make([]int64, 0, numberOfClients)
 	for i := 0; i < numberOfClients; i++ {
-		clientIDs = append(clientIDs, randGen.Int63())
+		clientIDs = append(clientIDs, randGen.Int64())
 	}
 
 	var zero int64
@@ -370,7 +370,7 @@ func Test_getNodesHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Log(tt.name)
-		randGen.Seed(0)
+		randSrc.Seed(0, 0)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		h := &getNodes{clients: args.clients}

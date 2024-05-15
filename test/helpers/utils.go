@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,14 +21,10 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
-
-// ensure that our random numbers are seeded differently on each run
-var randGen = rand.NewSafeRand(time.Now().UnixNano())
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
@@ -67,7 +64,7 @@ func CountValues(key string, data []string) (int, int) {
 
 // MakeUID returns a randomly generated string.
 func MakeUID() string {
-	return fmt.Sprintf("%08x", randGen.Uint32())
+	return fmt.Sprintf("%08x", rand.Uint32())
 }
 
 // RenderTemplate renders a text/template string into a buffer.

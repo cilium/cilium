@@ -4,7 +4,7 @@
 package lock
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -151,16 +151,12 @@ func TestWaitChannel(t *testing.T) {
 func TestParallelism(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
-	// Use math/rand instead of pkg/rand to avoid a test import cycle which
-	// go vet would complain about. Use the global default entropy source
-	// rather than creating a new source to avoid concurrency issues.
-	rand.Seed(time.Now().UnixNano())
 	in := make(chan int)
 	stop := make(chan struct{})
 	go func() {
 		for {
 			select {
-			case in <- rand.Intn(1 - 0):
+			case in <- rand.IntN(1 - 0):
 			case <-stop:
 				close(in)
 				return
@@ -185,7 +181,7 @@ func TestParallelism(t *testing.T) {
 		}()
 	}
 
-	time.Sleep(time.Duration(rand.Intn(3-0)) * time.Second)
+	time.Sleep(time.Duration(rand.IntN(3-0)) * time.Second)
 	close(stop)
 	wg.Wait()
 	for add := adds.Load(); add != 0; add = adds.Load() {
