@@ -28,7 +28,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -76,8 +75,6 @@ type loader struct {
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
 
-	ipsecMu lock.Mutex // guards reinitializeIPSec
-
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
@@ -117,11 +114,11 @@ func newLoader(p Params) *loader {
 
 // Init initializes the datapath cache with base program hashes derived from
 // the LocalNodeConfiguration.
-func (l *loader) init() {
+func (l *loader) reinitTemplateCache(lctx datapath.LoaderContext) {
 	l.once.Do(func() {
-		l.templateCache = newObjectCache(l.configWriter, &l.localNodeConfig, option.Config.StateDir)
+		l.templateCache = newObjectCache(l.configWriter, option.Config.StateDir)
 	})
-	l.templateCache.Update(datapath.LoaderContext{}, &l.localNodeConfig)
+	l.templateCache.Update(lctx, &l.localNodeConfig)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {

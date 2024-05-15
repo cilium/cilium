@@ -172,9 +172,6 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 		return nil
 	}
 
-	l.ipsecMu.Lock()
-	defer l.ipsecMu.Unlock()
-
 	interfaces := option.Config.EncryptInterface
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		// IPAMENI mode supports multiple network facing interfaces that
@@ -322,7 +319,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 
-	l.init()
+	l.reinitTemplateCache(lctx)
 
 	var nodeIPv4, nodeIPv6 net.IP
 	if option.Config.EnableIPv4 {
@@ -417,6 +414,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 		}
 	}
 
+	// FIXME: this will undo the Recorder.triggerDatapathRegenerate!
 	extraArgs := []string{"-Dcapture_enabled=0"}
 	if err := l.reinitializeXDPLocked(ctx, extraArgs, lctx.DeviceNames); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")

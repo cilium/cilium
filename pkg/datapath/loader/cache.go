@@ -43,6 +43,7 @@ type objectCache struct {
 	lock.Mutex
 	datapath.ConfigWriter
 
+	lctx             datapath.LoaderContext
 	workingDirectory string
 	baseHash         *datapathHash
 
@@ -60,13 +61,12 @@ type cachedObject struct {
 	path string
 }
 
-func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
+func newObjectCache(c datapath.ConfigWriter, workingDir string) *objectCache {
 	oc := &objectCache{
 		ConfigWriter:     c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedObject),
 	}
-	oc.Update(datapath.LoaderContext{}, nodeCfg)
 	return oc
 }
 
@@ -78,6 +78,7 @@ func (o *objectCache) Update(lctx datapath.LoaderContext, nodeCfg *datapath.Loca
 	o.Lock()
 	defer o.Unlock()
 	o.baseHash = newHash
+	o.lctx = lctx
 }
 
 // serialize access to an abitrary key.
@@ -93,6 +94,12 @@ func (o *objectCache) serialize(key string) *cachedObject {
 		o.objects[key] = obj
 	}
 	return obj
+}
+
+func (o *objectCache) loaderContext() datapath.LoaderContext {
+	o.Lock()
+	defer o.Unlock()
+	return o.lctx
 }
 
 // build attempts to compile and cache a datapath template object file
@@ -123,7 +130,7 @@ func (o *objectCache) build(ctx context.Context, lctx datapath.LoaderContext, cf
 		return "", fmt.Errorf("failed to open template header for writing: %w", err)
 	}
 	defer f.Close()
-	if err = o.ConfigWriter.WriteEndpointConfig(f, lctx, cfg); err != nil {
+	if err = o.ConfigWriter.WriteEndpointConfig(f, o.loaderContext(), cfg); err != nil {
 		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 

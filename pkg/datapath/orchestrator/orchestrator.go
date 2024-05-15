@@ -130,9 +130,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			} else {
 				retryChan = nil
 				stopRetryTimer()
+				prevContext = loaderContext
 				health.OK("OK")
 			}
-			prevContext = loaderContext
 		}
 
 		request = reinitializeRequest{}
@@ -161,9 +161,7 @@ func (o *orchestrator) getLoaderContext(node *node.LocalNode) (lctx datapath.Loa
 	addrs, addrsWatch := o.params.NodeAddresses.All(txn)
 	lctx.Devices = nativeDevices
 	lctx.DeviceNames = tables.DeviceNames(nativeDevices)
-	lctx.NodeAddrs = statedb.Collect(
-		statedb.Filter(addrs,
-			func(a tables.NodeAddress) bool { return a.DeviceName != tables.WildcardDeviceName }))
+	lctx.NodeAddrs = statedb.Collect(addrs)
 	lctx.InternalIPv4 = node.GetCiliumInternalIP(false)
 	lctx.InternalIPv6 = node.GetCiliumInternalIP(true)
 	lctx.LoopbackIPv4 = node.IPv4Loopback

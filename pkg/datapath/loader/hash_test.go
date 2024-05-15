@@ -33,7 +33,7 @@ var (
 // TestHashDatapath is done in this package just for easy access to dummy
 // configuration objects.
 func TestHashDatapath(t *testing.T) {
-	setupLocalNodeStore(t)
+	lctx := testLoaderContext()
 
 	var cfg datapath.ConfigWriter
 	hv := hive.New(
@@ -52,8 +52,6 @@ func TestHashDatapath(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	require.NoError(t, hv.Start(tlog, context.TODO()))
 	t.Cleanup(func() { require.Nil(t, hv.Stop(tlog, context.TODO())) })
-
-	lctx := datapath.LoaderContext{}
 
 	h := newDatapathHash(lctx)
 	baseHash := h.String()
