@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -52,6 +54,7 @@ type reinitializeRequest struct {
 type orchestratorParams struct {
 	cell.In
 
+	Log             *slog.Logger
 	Loader          datapath.Loader
 	ConfigWriter    datapath.ConfigWriter
 	TunnelConfig    tunnel.Config
@@ -125,6 +128,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 
 		if !prevContext.DeepEqual(&loaderContext) {
 			if err := o.reinitialize(ctx, request, loaderContext); err != nil {
+				o.params.Log.Warn("Failed to initialize datapath, retrying later", logfields.Error, err, "retry-delay", reinitRetryDuration)
 				health.Degraded("Failed to reinitialize datapath", err)
 				retryChan = retryTimer.After(reinitRetryDuration)
 			} else {
