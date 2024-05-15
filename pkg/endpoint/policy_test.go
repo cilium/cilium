@@ -6,7 +6,7 @@ package endpoint
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"testing"
 	"time"
@@ -177,7 +177,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 		// Sleep a random amount, so we accumulate some changes
 		// This does not slow down the test, since we always generate testFactor identities.
-		time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.IntN(10)) * time.Millisecond)
 
 		// Now, check that all the expected entries are there
 		checkMutex.Lock()

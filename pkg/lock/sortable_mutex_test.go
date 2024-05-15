@@ -4,7 +4,7 @@
 package lock
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"slices"
 	"sync"
 	"testing"
@@ -50,7 +50,7 @@ func TestSortableMutex_Chaos(t *testing.T) {
 			rand.Shuffle(len(subSmus), func(i, j int) {
 				subSmus[i], subSmus[j] = subSmus[j], subSmus[i]
 			})
-			n := rand.Intn(len(subSmus))
+			n := rand.IntN(len(subSmus))
 			subSmus = subSmus[:n]
 
 			time.Sleep(time.Microsecond)
