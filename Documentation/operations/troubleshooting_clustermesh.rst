@@ -40,8 +40,11 @@ Automatic Verification
       command to run the checks only towards a subset of remote clusters.
 
 
-Manual Verification of Setup
-----------------------------
+Manual Verification
+-------------------
+
+As an alternative to leveraging the tools presented in the previous section,
+you may perform the following steps to troubleshoot ClusterMesh issues.
 
  #. Validate that each cluster is assigned a **unique** human-readable name as well
     as a numeric cluster ID (1-255).
@@ -80,15 +83,6 @@ Manual Verification of Setup
     * ``clustermesh-apiserver-remote-cert``, which is used by Cilium agents, and
       optionally the kvstoremesh container in the clustermesh-apiserver deployment,
       to authenticate against remote etcd instances (either internal or external).
-
-    If any of the prior secrets is not configured correctly, there will be a potential
-    error message like the following::
-
-       level=warning msg="Error observed on etcd connection, reconnecting etcd" clusterName=eks-dev-1 config=/var/lib/cilium/clustermesh/eks-dev-1 error="not able to connect to any etcd endpoints" kvstoreErr="quorum check failed 12 times in a row: timeout while waiting for initial connection" kvstoreStatus="quorum check failed 12 times in a row: timeout while waiting for initial connection" subsys=clustermesh
-
-    or::
-
-        {"level":"warn","ts":"2022-06-08T14:06:29.198Z","caller":"clientv3/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"passthrough:///https://eks-dev-1.mesh.cilium.io:2379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: connection error: desc = \"transport: authentication handshake failed: remote error: tls: bad certificate\""}
 
  #. Validate that the configuration for remote clusters is picked up correctly.
     For each remote cluster, an info log message ``New remote cluster
@@ -131,7 +125,7 @@ Manual Verification of Setup
     * When KVStoreMesh is disabled, validate that the ``hostAliases`` section in the Cilium DaemonSet maps
       each remote cluster to the IP of the LoadBalancer that makes the remote
       control plane available; When KVStoreMesh is enabled,
-      validate that the ``hostAliases`` section in the clustermesh-apiserver Deployment.
+      validate the ``hostAliases`` section in the clustermesh-apiserver Deployment.
 
     * Validate that a local node in the source cluster can reach the IP
       specified in the ``hostAliases`` section. When KVStoreMesh is disabled, the ``clustermesh-secrets``
