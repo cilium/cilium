@@ -74,6 +74,14 @@ Manual Verification of Setup
            └  remote configuration: expected=true, retrieved=true, cluster-id=3, kvstoremesh=false, sync-canaries=true
            └  synchronization status: nodes=true, endpoints=true, identities=true, services=true
 
+    When KVStoreMesh is enabled, additionally check its status and validate that
+    it is correctly connected to all remote clusters:
+
+    .. code-block:: shell-session
+
+      $ kubectl --context $CLUSTER1 exec -it -n kube-system deploy/clustermesh-apiserver \
+          -c kvstoremesh -- clustermesh-apiserver kvstoremesh-dbg status --verbose
+
  #. Validate that the required TLS secrets are set up properly. By default, the
     following TLS secrets must be available in the namespace in which Cilium is
     installed:
