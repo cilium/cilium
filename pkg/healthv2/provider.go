@@ -128,7 +128,11 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
 			old, _, found := p.statusTable.Get(tx, PrimaryIndex.Query(i.HealthID()))
-			if found && !old.Stopped.IsZero() {
+			if !found {
+				// Nothing to do.
+				return nil
+			}
+			if !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", i)
 			}
 			old.Stopped = time.Now()
