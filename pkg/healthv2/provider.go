@@ -199,6 +199,7 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 	if err := r.upsert(types.Status{
 		ID:      r.id,
 		Level:   types.LevelDegraded,
+		Message: msg,
 		Error:   err.Error(),
 		Updated: time.Now(),
 	}); err != nil {
