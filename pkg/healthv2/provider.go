@@ -100,7 +100,7 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
 			q := PrimaryIndex.Query(types.HealthID(i.String()))
-			iter, _ := p.statusTable.LowerBound(tx, q)
+			iter, _ := p.statusTable.Prefix(tx, q)
 			var deleted int
 			for {
 				o, _, ok := iter.Next()
