@@ -4,7 +4,7 @@
 package container
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -234,7 +234,7 @@ func Test_firstValidIndex(t *testing.T) {
 func Test_firstValidIndex2(t *testing.T) {
 	assert := assert.New(t)
 	for i := 0; i <= 1000; i++ {
-		s := rand.Intn(1000)
+		s := rand.IntN(1000)
 		buffer := NewRingBuffer(s)
 		df := dumpFunc(buffer)
 		for i := 0; i < s+1; i++ {

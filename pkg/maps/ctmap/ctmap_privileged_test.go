@@ -4,7 +4,7 @@
 package ctmap
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"net/netip"
 	"testing"
 
@@ -970,8 +970,8 @@ func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]
 					SourceAddr: netip.MustParseAddr(fake.IP(fake.WithIPv4())).As4(),
 					DestPort:   uint16(fake.Port()),
 					SourcePort: uint16(fake.Port()),
-					NextHeader: u8proto.U8proto(protos[rand.Intn(len(protos))]),
-					Flags:      uint8(flags[rand.Intn(len(flags))]),
+					NextHeader: u8proto.U8proto(protos[rand.IntN(len(protos))]),
+					Flags:      uint8(flags[rand.IntN(len(flags))]),
 				},
 			},
 		}

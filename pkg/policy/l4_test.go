@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 	"strconv"
 	"testing"
@@ -420,9 +420,8 @@ func TestJSONMarshal(t *testing.T) {
 }
 
 func BenchmarkContainsAllL3L4(b *testing.B) {
-	r := rand.New(rand.NewSource(42))
-	id := uint16(r.Intn(65535))
-	port := uint16(r.Intn(65535))
+	id := uint16(rand.IntN(65535))
+	port := uint16(rand.IntN(65535))
 
 	b.ReportAllocs()
 	for i := 0; i < 1000; i++ {

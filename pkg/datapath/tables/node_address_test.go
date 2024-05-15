@@ -5,7 +5,7 @@ package tables
 
 import (
 	"context"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/netip"
 	"slices"
