@@ -286,15 +286,14 @@ Troubleshooting
 
 Use the following list of steps to troubleshoot issues with ClusterMesh:
 
- #. Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx`` pods
-    are healthy and ready. 
+ #. Validate that Cilium pods are healthy and ready:
 
     .. code-block:: shell-session
 
        cilium status --context $CLUSTER1
        cilium status --context $CLUSTER2
 
- #. Validate the Cluster Mesh is enabled correctly and operational:
+ #. Validate that Cluster Mesh is enabled and operational:
 
     .. code-block:: shell-session
 
