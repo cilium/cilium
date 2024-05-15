@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -321,12 +320,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 
 	l.reinitTemplateCache(lctx)
 
-	var nodeIPv4, nodeIPv6 net.IP
-	if option.Config.EnableIPv4 {
-		nodeIPv4 = lctx.NodeIPv4
-	}
 	if option.Config.EnableIPv6 {
-		nodeIPv6 = lctx.NodeIPv6
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
@@ -369,7 +363,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	}
 
 	// add internal ipv4 and ipv6 addresses to cilium_host
-	if err := addHostDeviceAddr(hostDev1, nodeIPv4, nodeIPv6); err != nil {
+	if err := addHostDeviceAddr(hostDev1, lctx.InternalIPv4, lctx.InternalIPv6); err != nil {
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
 
