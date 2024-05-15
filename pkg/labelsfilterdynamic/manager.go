@@ -8,21 +8,27 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/hive"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/labelsfilterdynamic/signals"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -41,6 +47,9 @@ type controller struct {
 	CiliumNetworkPolicyStore            resource.Store[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicyStore resource.Store[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	NetworkPolicyStore                  resource.Store[*slim_networking_v1.NetworkPolicy]
+	EndpointManager                     endpointmanager.EndpointManager
+	NamespaceResource                   resource.Resource[*slim_core_v1.Namespace]
+	NamespaceResourceStore              resource.Store[*slim_core_v1.Namespace]
 }
 
 type controllerParams struct {
@@ -55,6 +64,8 @@ type controllerParams struct {
 	CiliumClusterWideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	NetworkPolicy                    resource.Resource[*slim_networking_v1.NetworkPolicy]
 	DaemonConfig                     *option.DaemonConfig
+	EndpointManager                  endpointmanager.EndpointManager
+	NamespaceResource                resource.Resource[*slim_core_v1.Namespace]
 }
 
 func registerController(params controllerParams) (*controller, error) {
@@ -66,6 +77,8 @@ func registerController(params controllerParams) (*controller, error) {
 		CiliumNetworkPolicy:            params.CiliumNetworkPolicy,
 		CiliumClusterwideNetworkPolicy: params.CiliumClusterWideNetworkPolicies,
 		NetworkPolicy:                  params.NetworkPolicy,
+		EndpointManager:                params.EndpointManager,
+		NamespaceResource:              params.NamespaceResource,
 	}
 
 	params.JobGroup.Add(
@@ -109,8 +122,12 @@ func registerController(params controllerParams) (*controller, error) {
 					return fmt.Errorf("error creating Dynamic Label Filter resource stores: %w", err)
 				}
 
+				// Trigger initial event
+				c.Signal.Event(struct{}{})
+
 				c.Run(ctx)
 				health.OK("Ready")
+
 				return nil
 			},
 			job.WithRetry(3, &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: time.Second}),
@@ -133,6 +150,10 @@ func (c *controller) initStore(ctx context.Context) (err error) {
 	if err != nil {
 		return
 	}
+	c.NamespaceResourceStore, err = c.NamespaceResource.Store(ctx)
+	if err != nil {
+		return
+	}
 
 	return nil
 }
@@ -149,9 +170,6 @@ func (c *controller) Run(ctx context.Context) {
 			"component": "Controller.Run",
 		})
 	)
-
-	// add an initial signal
-	c.Signal.Event(struct{}{})
 
 	l.Info("Cilium Dynamic Label Filter Controller now running...")
 	for {
@@ -175,8 +193,8 @@ func (c *controller) Run(ctx context.Context) {
 // via the Controller's Signal structure.
 //
 // On signal, Reconcile will read all network policies selector key labels, construct a set,
-// updates the labels filter and TODO reconcile in-place the affected pods generating new CIDs.
-func (c *controller) Reconcile(ctx context.Context) error {
+// updates the labels filter and modifies the CEP to reflect the new label changes.
+func (c *controller) Reconcile(_ context.Context) error {
 	var (
 		l = log.WithFields(logrus.Fields{
 			"component": "Controller.Reconcile",
@@ -194,15 +212,81 @@ func (c *controller) Reconcile(ctx context.Context) error {
 		keyLabels = keyLabels.Union(getRelevantKeyLabels(policy.Spec.PodSelector.MatchLabels, policy.Spec.PodSelector.MatchExpressions))
 	}
 
-	l.Debug("dynamic labels to parse: ", keyLabels.UnsortedList())
+	l.Debug("Dynamic labels to parse: ", keyLabels.UnsortedList())
 
 	if err := labelsfilter.ParseLabelPrefixCfg(keyLabels.UnsortedList(), option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
-		return fmt.Errorf("unable to parse Dynamic Label prefix")
+		return fmt.Errorf("unable to parse dynamic labels prefix: %w", err)
 	}
 
-	// TODO Phase 2: reconcile affected pods, update in-place so the old identities can be garbage collected
+	for _, ep := range c.EndpointManager.GetEndpoints() {
+		if pod := ep.GetPod(); pod != nil {
+			podNamespace, _, err := c.NamespaceResourceStore.GetByKey(resource.Key{
+				Name: pod.GetNamespace(),
+			})
+			if err != nil {
+				l.WithError(err).Error("unable to fetch pod namespace") // shouldn't happen
+				continue
+			}
+
+			allExistingLabels := mergeAllExistingLabels(pod.GetLabels(), ep.GetLabels(), podNamespace.GetLabels())
+			newIdentityLabels, _ := labelsfilter.Filter(allExistingLabels)
+			labelsToAdd, labelsToRemove := computeLabelsToAddAndRemove(newIdentityLabels, ep.GetLabels())
+
+			if len(labelsToAdd) == 0 && len(labelsToRemove) == 0 {
+				continue
+			}
+
+			l.Debugf("modifying endpoint %s labels to add: %s, remove: %s", ep.GetK8sCEPName(), labelsToAdd.String(), labelsToRemove.String())
+
+			err = ep.ModifyIdentityLabels(labels.LabelSourceK8s, labelsToAdd, labelsToRemove)
+			if err != nil {
+				return fmt.Errorf("unable to update endpoint with new identity labels: %w", err)
+			}
+		}
+	}
 
 	return nil
+}
+
+// computeLabelsToAddAndRemove return the labels that are in identityLabels and labels that are only present in endpointLabels
+func computeLabelsToAddAndRemove(identityLabels labels.Labels, endpointLabels []string) (labels.Labels, labels.Labels) {
+	identityLabelsMap := identityLabels.StringMap()
+	labelsToRemove := labels.Labels{}
+
+	for _, label := range endpointLabels {
+		l := labels.ParseLabel(label)
+		lKey := l.Source + ":" + l.Key
+		if _, ok := identityLabelsMap[lKey]; ok {
+			delete(identityLabelsMap, lKey)
+		} else {
+			labelsToRemove[l.Key] = l
+		}
+	}
+
+	return labels.Map2Labels(identityLabelsMap, ""), labelsToRemove
+}
+
+// mergeAllExistingLabels merges pod labels, existing endpoint labels and namespace labels together
+func mergeAllExistingLabels(podLabels map[string]string, endpointLabels []string, namespaceLabels map[string]string) labels.Labels {
+	exitingLabels := labels.Labels{}
+
+	// Parse endpoint identity labels
+	for _, label := range endpointLabels {
+		l := labels.ParseLabel(label)
+		exitingLabels[l.Key] = l
+	}
+	// Merge with pod labels
+	exitingLabels.MergeLabels(labels.Map2Labels(podLabels, labels.LabelSourceK8s))
+
+	// Append cilium PodNamespaceMetaLabels
+	nsLabelMap := make(map[string]string, len(namespaceLabels))
+	for k, v := range namespaceLabels {
+		nsLabelMap[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+	}
+	// Merge with namespace labels
+	exitingLabels.MergeLabels(labels.Map2Labels(nsLabelMap, labels.LabelSourceK8s))
+
+	return exitingLabels
 }
 
 // getRelevantKeyLabels extracts the label key from the MatchLabels and MatchExpressions.

@@ -175,6 +175,60 @@ func TestControllerSanity(t *testing.T) {
 	}
 }
 
+func TestComputeLabelsToRemove(t *testing.T) {
+	expectedLabelsToAdd := labels.Labels{
+		"foo2": {Key: "foo2", Value: "bar", Source: labels.LabelSourceK8s},
+	}
+	expectedLabelsToRemove := labels.Labels{
+		"dummy":    {Key: "dummy", Value: "bar", Source: labels.LabelSourceK8s},
+		"dummy2":   {Key: "dummy2", Value: "bar", Source: labels.LabelSourceK8s},
+		"dummy3":   {Key: "dummy3", Value: "bar", Source: labels.LabelSourceAny},
+		"no_value": {Key: "no_value", Value: "", Source: labels.LabelSourceK8s},
+	}
+	endpointLabels := []string{
+		"k8s:dummy=bar", "k8s:dummy2=bar", "k8s:no_value", "any:dummy3=bar",
+		"k8s:foo=bar",
+		":foo3=bar",
+		"unspec:foo4=bar",
+	}
+	identityLabels := labels.Labels{
+		"foo":  {Key: "foo", Value: "bar", Source: labels.LabelSourceK8s},
+		"foo2": {Key: "foo2", Value: "bar", Source: labels.LabelSourceK8s},
+		"foo3": {Key: "foo3", Value: "bar", Source: labels.LabelSourceUnspec},
+		"foo4": {Key: "foo4", Value: "bar", Source: labels.LabelSourceUnspec},
+	}
+
+	labelsToAdd, labelsToRemove := computeLabelsToAddAndRemove(identityLabels, endpointLabels)
+	assert.Equal(t, expectedLabelsToAdd, labelsToAdd)
+	assert.Equal(t, expectedLabelsToRemove, labelsToRemove)
+}
+
+func TestMergeAllExistingLabels(t *testing.T) {
+	expectedLabels := labels.Labels{
+		"pod_label":  {Key: "pod_label", Value: "bar", Source: labels.LabelSourceK8s},
+		"pod2_label": {Key: "pod2_label", Value: "bar", Source: labels.LabelSourceK8s},
+		"pod3_label": {Key: "pod3_label", Value: "bar", Source: labels.LabelSourceK8s},
+
+		"ep_label":  {Key: "ep_label", Value: "bar", Source: labels.LabelSourceK8s},
+		"ep2_label": {Key: "ep2_label", Value: "bar", Source: labels.LabelSourceAny},
+		"ep3_label": {Key: "ep3_label", Value: "bar", Source: labels.LabelSourceUnspec},
+
+		"io.cilium.k8s.namespace.labels.ns_label": {Key: "io.cilium.k8s.namespace.labels.ns_label", Value: "bar", Source: labels.LabelSourceK8s},
+	}
+
+	podLabels := map[string]string{
+		"k8s:pod_label": "bar", "any:pod2_label": "bar", ":pod3_label": "bar",
+	}
+	endpointLabels := []string{
+		"k8s:ep_label=bar", "any:ep2_label=bar", ":ep3_label=bar",
+	}
+	nsLabels := map[string]string{
+		"ns_label": "bar",
+	}
+
+	assert.Equal(t, expectedLabels, mergeAllExistingLabels(podLabels, endpointLabels, nsLabels))
+}
+
 func TestGetRelevantKeyLabels(t *testing.T) {
 	matchLabels := map[string]slim_metav1.MatchLabelsValue{
 		"Foo":        "dummy",
