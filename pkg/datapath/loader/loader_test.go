@@ -232,14 +232,8 @@ func TestBPFMasqAddrs(t *testing.T) {
 			{
 				Addr:       netip.MustParseAddr("2.0.0.2"),
 				NodePort:   false,
-				Primary:    true,
-				DeviceName: tables.WildcardDeviceName,
-			},
-			{
-				Addr:       netip.MustParseAddr("2000::2"),
-				NodePort:   false,
-				Primary:    true,
-				DeviceName: tables.WildcardDeviceName,
+				Primary:    false,
+				DeviceName: "test2",
 			},
 		}
 		l := newTestLoader(t, lctx)
@@ -249,8 +243,8 @@ func TestBPFMasqAddrs(t *testing.T) {
 		require.Equal(t, masq6.String(), "1000::1")
 
 		masq4, masq6 = l.bpfMasqAddrs(lctx, "unknown")
-		require.Equal(t, masq4.String(), "2.0.0.2")
-		require.Equal(t, masq6.String(), "2000::2")
+		require.Equal(t, masq4.String(), "1.0.0.1")
+		require.Equal(t, masq6.String(), "1000::1")
 	}
 }
 

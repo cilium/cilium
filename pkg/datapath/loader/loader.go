@@ -180,33 +180,67 @@ func (l *loader) bpfMasqAddrs(lctx datapath.LoaderContext, ifName string) (masq4
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	find := func(name string) bool {
-		for _, addr := range lctx.NodeAddrs {
-			if addr.DeviceName != name {
-				continue
-			}
-			if !addr.Primary {
-				continue
-			}
-			if addr.Addr.Is4() && !masq4.IsValid() {
-				masq4 = addr.Addr
-			} else if addr.Addr.Is6() && !masq6.IsValid() {
-				masq6 = addr.Addr
-			}
-			done := (!option.Config.EnableIPv4Masquerade || masq4.IsValid()) &&
-				(!option.Config.EnableIPv6Masquerade || masq6.IsValid())
-			if done {
-				return true
-			}
+	// Also figure out a fallback address in case the interface has no assigned
+	// address. This is required for some setups like ECMP where traffic is balanced
+	// over multiple devices and not all of them have IP addresses assigned.
+	// This is of course a best-effort and won't work for complicated setups. In
+	// those cases the DeriveMasqIPAddrFromDevice should be used.
+	var fallback4, fallback6 tables.NodeAddress
+	isBetterFallback := func(old, new tables.NodeAddress) bool {
+		switch {
+		case !old.Addr.IsValid():
+			return true
+		// Public address is better than private (for masquerading)
+		case iputil.IsPublicAddr(new.Addr.AsSlice()) && !iputil.IsPublicAddr(old.Addr.AsSlice()):
+			return true
+		case !iputil.IsPublicAddr(new.Addr.AsSlice()) && iputil.IsPublicAddr(old.Addr.AsSlice()):
+			return false
+		// Primary addresses are better than secondary.
+		case new.Primary && !old.Primary:
+			return true
+		case !new.Primary && !old.Primary:
+			return false
+		// Addresses selected for NodePort are better.
+		case new.NodePort && !old.NodePort:
+			return true
+		case !new.NodePort && old.NodePort:
+			return false
+		default:
+			// Select lowest address for determinism.
+			return new.Addr.Less(old.Addr)
 		}
-		return false
 	}
 
-	// Try to find suitable masquerade address first from the given interface.
-	if !find(ifName) {
-		find(tables.WildcardDeviceName)
+	for _, addr := range lctx.NodeAddrs {
+		if addr.DeviceName != ifName {
+			if addr.Addr.Is4() && isBetterFallback(fallback4, addr) {
+				fallback4 = addr
+			}
+			if addr.Addr.Is6() && isBetterFallback(fallback6, addr) {
+				fallback6 = addr
+			}
+			continue
+		}
+		if !addr.Primary {
+			continue
+		}
+		if addr.Addr.Is4() && !masq4.IsValid() {
+			masq4 = addr.Addr
+		} else if addr.Addr.Is6() && !masq6.IsValid() {
+			masq6 = addr.Addr
+		}
+		done := (!option.Config.EnableIPv4Masquerade || masq4.IsValid()) &&
+			(!option.Config.EnableIPv6Masquerade || masq6.IsValid())
+		if done {
+			break
+		}
 	}
-
+	if !masq4.IsValid() {
+		masq4 = fallback4.Addr
+	}
+	if !masq6.IsValid() {
+		masq6 = fallback6.Addr
+	}
 	return
 }
 
