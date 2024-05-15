@@ -152,66 +152,31 @@ State Propagation
 -----------------
 
  #. Run ``cilium node list`` in one of the Cilium pods and validate that it
-    lists both local nodes and nodes from remote clusters. If this discovery
-    does not work, validate the following:
-
-    * In each cluster, check that the kvstore contains information about
-      *local* nodes by running:
-
-      .. code-block:: shell-session
-
-          cilium kvstore get --recursive cilium/state/nodes/v1/
-
-      .. note::
-
-         The kvstore will only contain nodes of the **local cluster**. It will
-         **not** contain nodes of remote clusters. The state in the kvstore is
-         used for other clusters to discover all nodes so it is important that
-         local nodes are listed.
+    lists both local nodes and nodes from remote clusters. If remote nodes are
+    not present, validate that Cilium agents (or KVStoreMesh, if enabled)
+    are correctly connected to the given remote cluster. Additionally, verify
+    that the initial nodes synchronization from all clusters has completed.
 
  #. Validate the connectivity health matrix across clusters by running
     ``cilium-health status`` inside any Cilium pod. It will list the status of
-    the connectivity health check to each remote node.
-
-    If this fails:
-
-    * Make sure that the network allows the health checking traffic as
-      specified in the section :ref:`firewall_requirements`.
+    the connectivity health check to each remote node. If this fails, make sure
+    that the network allows the health checking traffic as specified in the
+    :ref:`firewall_requirements` section.
 
  #. Validate that identities are synchronized correctly by running ``cilium
     identity list`` in one of the Cilium pods. It must list identities from all
     clusters. You can determine what cluster an identity belongs to by looking
-    at the label ``io.cilium.k8s.policy.cluster``.
-
-    If this fails:
-
-    * Is the identity information available in the kvstore of each cluster? You
-      can confirm this by running ``cilium kvstore get --recursive
-      cilium/state/identities/v1/``.
-
-      .. note::
-
-         The kvstore will only contain identities of the **local cluster**. It
-         will **not** contain identities of remote clusters. The state in the
-         kvstore is used for other clusters to discover all identities so it is
-         important that local identities are listed.
+    at the label ``io.cilium.k8s.policy.cluster``. If remote identities are
+    not present, validate that Cilium agents (or KVStoreMesh, if enabled)
+    are correctly connected to the given remote cluster. Additionally, verify
+    that the initial identities synchronization from all clusters has completed.
 
  #. Validate that the IP cache is synchronized correctly by running ``cilium
     bpf ipcache list`` or ``cilium map get cilium_ipcache``. The output must
-    contain pod IPs from local and remote clusters.
-
-    If this fails:
-
-    * Is the IP cache information available in the kvstore of each cluster? You
-      can confirm this by running ``cilium kvstore get --recursive
-      cilium/state/ip/v1/``.
-
-      .. note::
-
-         The kvstore will only contain IPs of the **local cluster**. It will
-         **not** contain IPs of remote clusters. The state in the kvstore is
-         used for other clusters to discover all pod IPs so it is important
-         that local identities are listed.
+    contain pod IPs from local and remote clusters. If remote IP addresses are
+    not present, validate that Cilium agents (or KVStoreMesh, if enabled)
+    are correctly connected to the given remote cluster. Additionally, verify
+    that the initial IPs synchronization from all clusters has completed.
 
  #. When using global services, ensure that global services are configured with
     endpoints from all clusters. Run ``cilium service list`` in any Cilium pod
@@ -221,10 +186,6 @@ State Propagation
     maps.
 
     If this fails:
-
-    * Are services available in the kvstore of each cluster? You can confirm
-      this by running ``cilium kvstore get --recursive
-      cilium/state/services/v1/``.
 
     * Run ``cilium debuginfo`` and look for the section ``k8s-service-cache``. In
       that section, you will find the contents of the service correlation
