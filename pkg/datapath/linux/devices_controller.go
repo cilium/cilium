@@ -195,6 +195,13 @@ func (dc *devicesController) subscribeAndProcess(ctx context.Context) {
 	// It cancels the context to unsubscribe from netlink updates
 	// which stops the processing.
 	errorCallback := func(err error) {
+		if ctx.Err() != nil {
+			// The netlink unsubscribe can lead to errorCallback being called after
+			// context cancellation with a "receive called on closed socket".
+			// Thus ignore the error if the context was cancelled.
+			return
+		}
+
 		dc.log.Warn("Netlink error received, restarting", logfields.Error, err)
 
 		// Cancel the context to stop the subscriptions.
