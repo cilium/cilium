@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -203,10 +202,6 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
 	var errs error
 	for _, iface := range interfaces {
-		if err := connector.DisableRpFilter(l.sysctl, iface); err != nil {
-			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
-		}
-
 		device, err := netlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("retrieving device %s: %w", iface, err)
