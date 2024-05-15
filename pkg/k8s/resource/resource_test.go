@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"strconv"
 	"sync"
@@ -378,7 +378,7 @@ func TestResource_RepeatedDelete(t *testing.T) {
 			lastDeleteVersion = version
 
 			// Fail every 3rd deletion to test retrying.
-			if rand.Intn(3) == 0 {
+			if rand.IntN(3) == 0 {
 				ev.Done(errors.New("delete failed"))
 			} else {
 				exists = false

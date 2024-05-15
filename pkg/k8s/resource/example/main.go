@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
@@ -215,7 +215,7 @@ func (ps *PrintServices) processLoop(ctx context.Context) error {
 
 			// Simulate a fault 10% of the time. This will cause this event to be retried
 			// later.
-			if rand.Intn(10) == 1 {
+			if rand.IntN(10) == 1 {
 				log.Info("Injecting a fault!")
 				ev.Done(errors.New("injected fault"))
 				continue
