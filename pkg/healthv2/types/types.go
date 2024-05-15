@@ -51,6 +51,10 @@ func (i Identifier) String() string {
 	return strings.Join([]string{i.Module.String(), i.Component.String()}, ".")
 }
 
+func (i Identifier) HealthID() HealthID {
+	return HealthID(i.String())
+}
+
 // Status represents a current health status update.
 type Status struct {
 	ID      Identifier
