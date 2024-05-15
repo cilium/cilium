@@ -44,6 +44,12 @@ run:
 
 # all available settings of specific linters
 linters-settings:
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: "math/rand$"
+            desc: "Use math/rand/v2 instead"
   govet:
     enable:
       - nilness
@@ -107,6 +113,7 @@ issues:
 linters:
   disable-all: true
   enable:
+    - depguard
     - errorlint
     - goerr113
     - gofmt
