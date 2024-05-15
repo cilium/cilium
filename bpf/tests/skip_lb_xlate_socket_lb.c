@@ -127,7 +127,7 @@ int test_sock6_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	union v6addr frontend_ip1 = {};
 	union v6addr frontend_ip2 = {};
 
-	struct bpf_sock sk = {};
+	struct bpf_sock sk;
 	struct bpf_sock_addr addr = {
 		.user_port = tcp_svc_one,
 		.protocol = IPPROTO_TCP,
