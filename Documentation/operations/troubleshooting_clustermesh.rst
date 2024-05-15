@@ -7,21 +7,37 @@ Install the Cilium CLI
 
 .. include:: /installation/cli-download.rst
 
-Generic
--------
+Automatic Verification
+----------------------
 
- #. Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx`` pods
-    are healthy and ready.
+ #. Validate that Cilium pods are healthy and ready:
 
     .. code-block:: shell-session
 
        cilium status
 
- #. Validate the Cluster Mesh is enabled correctly and operational:
+ #. Validate the Cluster Mesh is enabled and operational:
 
     .. code-block:: shell-session
 
        cilium clustermesh status
+
+ #. In case of errors, run the troubleshoot command to automatically investigate
+    Cilium agents connectivity issues towards the ClusterMesh control plane in
+    remote clusters:
+
+    .. code-block:: shell-session
+
+       kubectl exec -it -n kube-system ds/cilium -c cilium-agent -- cilium troubleshoot clustermesh
+
+    The troubleshoot command performs a set of automatic checks to validate
+    DNS resolution, network connectivity, TLS authentication, etcd authorization
+    and more, and reports the output in a user friendly format.
+
+    .. tip::
+
+      You can specify one or more cluster names as parameters of the troubleshoot
+      command to run the checks only towards a subset of remote clusters.
 
 
 Manual Verification of Setup
