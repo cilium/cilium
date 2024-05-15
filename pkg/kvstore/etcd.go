@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net/url"
 	"os"
 	"strconv"
@@ -33,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/rand"
 	ciliumrate "github.com/cilium/cilium/pkg/rate"
 	ciliumratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -68,13 +68,9 @@ const (
 	etcdMaxKeysPerLease = 1000
 )
 
-var (
-	// ErrLockLeaseExpired is an error whenever the lease of the lock does not
-	// exist or it was expired.
-	ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
-
-	randGen = rand.NewSafeRand(time.Now().UnixNano())
-)
+// ErrLockLeaseExpired is an error whenever the lease of the lock does not
+// exist or it was expired.
+var ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
 
 type etcdModule struct {
 	opts   backendOptions
@@ -193,7 +189,7 @@ func (e *etcdModule) getConfig() map[string]string {
 }
 
 func shuffleEndpoints(endpoints []string) {
-	randGen.Shuffle(len(endpoints), func(i, j int) {
+	rand.Shuffle(len(endpoints), func(i, j int) {
 		endpoints[i], endpoints[j] = endpoints[j], endpoints[i]
 	})
 }
@@ -440,7 +436,7 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan error {
 
 			// Generate a random number so that we can acquire a lock even
 			// if other agents are killed while locking this path.
-			randNumber := strconv.FormatUint(randGen.Uint64(), 16)
+			randNumber := strconv.FormatUint(rand.Uint64(), 16)
 			locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
 			if err == nil {
 				locker.Unlock(context.Background())

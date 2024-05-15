@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -36,7 +37,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -53,7 +53,12 @@ const (
 	k8sMinimumEventHeartbeat = time.Minute
 )
 
-var randGen = rand.NewSafeRand(time.Now().UnixNano())
+var (
+	// randSrc is a source of pseudo-random numbers. It is seeded to the current time in
+	// nanoseconds by default but can be reseeded in tests so they are deterministic.
+	randSrc = rand.NewPCG(uint64(time.Now().UnixNano()), 0)
+	randGen = rand.New(randSrc)
+)
 
 type k8sVersion struct {
 	version          string
@@ -598,7 +603,7 @@ func (h *getNodes) Handle(d *Daemon, params GetClusterNodesParams) middleware.Re
 	if exists {
 		clientID = *params.ClientID
 	} else {
-		clientID = randGen.Int63()
+		clientID = randGen.Int64()
 		// make sure we haven't allocated an existing client ID nor the
 		// randomizer has allocated ID 0, if we have then we will return
 		// clientID 0.
