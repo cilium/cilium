@@ -345,6 +345,86 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			),
 		},
 		{
+			// When the rule specifies namespace labels, namespace label is not added
+			// by the namespace where the rule was inserted.
+			name: "parse-in-namespace-with-ns-labels-selector",
+			args: args{
+				namespace: slim_metav1.NamespaceDefault,
+				uid:       uuid,
+				rule: &api.Rule{
+					EndpointSelector: api.NewESFromMatchRequirements(
+						map[string]string{
+							role: "backend",
+						},
+						nil,
+					),
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromEndpoints: []api.EndpointSelector{
+									{
+										LabelSelector: &slim_metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												podAnyNamespaceLabelsPrefix + "team": "team-a",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
+					map[string]string{
+						role:      "backend",
+						namespace: "default",
+					},
+					nil,
+				),
+			).WithIngressRules(
+				[]api.IngressRule{
+					{
+						IngressCommonRule: api.IngressCommonRule{
+							FromEndpoints: []api.EndpointSelector{
+								api.NewESFromK8sLabelSelector(
+									labels.LabelSourceAnyKeyPrefix,
+									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											k8sConst.PodNamespaceMetaLabelsPrefix + "team": "team-a",
+										},
+									}),
+							},
+						},
+					},
+				},
+			).WithLabels(
+				labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "parse-in-namespace-with-ns-labels-selector",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.namespace",
+						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			),
+		},
+		{
 			// For a clusterwide policy the namespace is empty but when a to/fromEndpoint
 			// rule is added that represents a wildcard we add a match expression
 			// to account only for endpoints managed by cilium.
