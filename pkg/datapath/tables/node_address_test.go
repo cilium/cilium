@@ -282,7 +282,7 @@ func TestNodeAddress(t *testing.T) {
 	iter, _ := nodeAddrs.All(db.ReadTxn())
 	addrs := statedb.Collect(statedb.Map(iter, func(n NodeAddress) string { return n.String() }))
 	assert.Equal(t, addrs,
-		[]string{"::1 (*)", "9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)", "127.0.0.1 (*)"},
+		[]string{"9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)"},
 		"unexpected initial node addresses")
 
 	for _, tt := range nodeAddressTests {
@@ -310,9 +310,6 @@ func TestNodeAddress(t *testing.T) {
 			nodePort := []string{}
 			primary := []string{}
 			for _, addr := range addrs {
-				if addr.DeviceName == WildcardDeviceName {
-					continue
-				}
 				local = append(local, addr.Addr.String())
 				if addr.NodePort {
 					nodePort = append(nodePort, addr.Addr.String())
@@ -325,7 +322,6 @@ func TestNodeAddress(t *testing.T) {
 			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "NodePort addresses do not match")
 			assert.ElementsMatch(t, primary, ipStrings(tt.wantPrimary), "Primary addresses do not match")
 			assertOnePrimaryPerDevice(t, addrs)
-
 		})
 	}
 
@@ -390,7 +386,6 @@ var nodeAddressWhitelistTests = []struct {
 	addrs        []DeviceAddress // Addresses to add to the "test" device
 	wantLocal    []net.IP        // e.g. LocalAddresses()
 	wantNodePort []net.IP        // e.g. LoadBalancerNodeAddresses()
-	wantFallback []net.IP        // Fallback addresses, e.g. addresses of "*" device
 }{
 	{
 		name:  "ipv4",
@@ -414,9 +409,6 @@ var nodeAddressWhitelistTests = []struct {
 		wantNodePort: []net.IP{
 			net.ParseIP("10.0.0.1"),
 		},
-		wantFallback: []net.IP{
-			net.ParseIP("11.0.0.1"), // public over private
-		},
 	},
 	{
 		name:  "ipv6",
@@ -439,9 +431,6 @@ var nodeAddressWhitelistTests = []struct {
 		},
 		wantNodePort: []net.IP{
 			net.ParseIP("2001:db8::1"),
-		},
-		wantFallback: []net.IP{
-			net.ParseIP("2600:beef::2"),
 		},
 	},
 	{
@@ -477,10 +466,6 @@ var nodeAddressWhitelistTests = []struct {
 		wantNodePort: []net.IP{
 			net.ParseIP("10.0.0.1"),
 			net.ParseIP("2001:db8::1"),
-		},
-		wantFallback: []net.IP{
-			net.ParseIP("11.0.0.1"), // public over private
-			net.ParseIP("2600:beef::2"),
 		},
 	},
 }
@@ -525,12 +510,7 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			iter, _ := nodeAddrs.All(db.ReadTxn())
 			local := []string{}
 			nodePort := []string{}
-			fallback := []string{}
 			for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
-				if addr.DeviceName == WildcardDeviceName {
-					fallback = append(fallback, addr.Addr.String())
-					continue
-				}
 				local = append(local, addr.Addr.String())
 				if addr.NodePort {
 					nodePort = append(nodePort, addr.Addr.String())
@@ -538,7 +518,6 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			}
 			assert.ElementsMatch(t, local, ipStrings(tt.wantLocal), "LocalAddresses do not match")
 			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "LoadBalancerNodeAddresses do not match")
-			assert.ElementsMatch(t, fallback, ipStrings(tt.wantFallback), "fallback addresses do not match")
 		})
 	}
 
@@ -686,50 +665,4 @@ func TestSortedAddresses(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	}
 
-}
-
-func TestFallbackAddresses(t *testing.T) {
-	var f fallbackAddresses
-
-	f.update(&Device{
-		Index: 2,
-		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_SITE},
-		},
-	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.1")
-	f.update(&Device{
-		Index: 3,
-		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_SITE},
-		},
-	})
-	assert.Equal(t, f.ipv6.addr.Addr.String(), "1001::1")
-
-	// Lower scope wins
-	f.update(&Device{
-		Index: 4,
-		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
-		},
-	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.2")
-
-	// Lower ifindex wins
-	f.update(&Device{
-		Index: 1,
-		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("10.0.0.3"), Scope: RT_SCOPE_UNIVERSE},
-		},
-	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.3")
-
-	// Public wins over private
-	f.update(&Device{
-		Index: 5,
-		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
-		},
-	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")
 }
