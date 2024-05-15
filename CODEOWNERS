@@ -520,7 +520,6 @@ Makefile* @cilium/build
 /pkg/proxy/accesslog @cilium/proxy @cilium/api
 /pkg/proxy/dns.go @cilium/proxy @cilium/fqdn
 /pkg/proxy/envoyproxy.go @cilium/proxy @cilium/envoy
-/pkg/rand/ @cilium/sig-agent
 /pkg/rate/ @cilium/sig-agent
 /pkg/rate/metrics @cilium/metrics
 /pkg/recorder @cilium/sig-datapath
