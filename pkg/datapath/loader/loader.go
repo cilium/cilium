@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	iputil "github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -78,8 +77,6 @@ type loader struct {
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
 
-	ipsecMu lock.Mutex // guards reinitializeIPSec
-
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
@@ -124,18 +121,18 @@ func NewLoaderForTest(tb testing.TB) *loader {
 	})
 }
 
-// Init initializes the datapath cache with base program hashes derived from
-// the LocalNodeConfiguration.
-func (l *loader) init() {
+// reinitTemplateCache (re)initializes the object cache with base program hashes derived from
+// the LocalNodeConfiguration and LoaderContext.
+func (l *loader) reinitTemplateCache(lctx datapath.LoaderContext) {
 	l.once.Do(func() {
-		l.templateCache = newObjectCache(l.configWriter, &l.localNodeConfig, option.Config.StateDir)
+		l.templateCache = newObjectCache(l.configWriter, option.Config.StateDir)
 		ignorePrefixes := ignoredELFPrefixes
 		if !option.Config.EnableIPv4 {
 			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
 		}
 		elf.IgnoreSymbolPrefixes(ignorePrefixes)
 	})
-	l.templateCache.Update(datapath.LoaderContext{}, &l.localNodeConfig)
+	l.templateCache.Update(lctx, &l.localNodeConfig)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -658,7 +655,7 @@ func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, lctx d
 }
 
 func (l *loader) compileOrLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, lctx datapath.LoaderContext, stats *metrics.SpanStat) error {
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, lctx, ep, dirs, stats)
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, dirs, stats)
 	if err != nil {
 		return err
 	}

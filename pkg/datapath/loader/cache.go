@@ -111,6 +111,7 @@ type objectCache struct {
 	lock.Mutex
 	datapath.ConfigWriter
 
+	lctx             datapath.LoaderContext
 	workingDirectory string
 	baseHash         *datapathHash
 
@@ -128,13 +129,12 @@ type cachedObject struct {
 	path string
 }
 
-func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
+func newObjectCache(c datapath.ConfigWriter, workingDir string) *objectCache {
 	oc := &objectCache{
 		ConfigWriter:     c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedObject),
 	}
-	oc.Update(datapath.LoaderContext{}, nodeCfg)
 	return oc
 }
 
@@ -146,6 +146,7 @@ func (o *objectCache) Update(lctx datapath.LoaderContext, nodeCfg *datapath.Loca
 	o.Lock()
 	defer o.Unlock()
 	o.baseHash = newHash
+	o.lctx = lctx
 }
 
 // serialize access to an abitrary key.
@@ -163,9 +164,15 @@ func (o *objectCache) serialize(key string) *cachedObject {
 	return obj
 }
 
+func (o *objectCache) loaderContext() datapath.LoaderContext {
+	o.Lock()
+	defer o.Unlock()
+	return o.lctx
+}
+
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, lctx datapath.LoaderContext, cfg *templateCfg, dir *directoryInfo, hash string) (string, error) {
+func (o *objectCache) build(ctx context.Context, cfg *templateCfg, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
 	dir = &directoryInfo{
@@ -191,7 +198,7 @@ func (o *objectCache) build(ctx context.Context, lctx datapath.LoaderContext, cf
 		return "", fmt.Errorf("failed to open template header for writing: %w", err)
 	}
 	defer f.Close()
-	if err = o.ConfigWriter.WriteEndpointConfig(f, lctx, cfg); err != nil {
+	if err = o.ConfigWriter.WriteEndpointConfig(f, o.loaderContext(), cfg); err != nil {
 		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 
@@ -218,7 +225,7 @@ func (o *objectCache) build(ctx context.Context, lctx datapath.LoaderContext, cf
 //
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, lctx datapath.LoaderContext, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
 	var hash string
 	hash, err = o.baseHash.sumEndpoint(o, cfg, false)
 	if err != nil {
@@ -253,7 +260,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, lctx datapath.LoaderCo
 		}
 	}
 
-	path, err := o.build(ctx, lctx, wrap(cfg, stats), dir, hash)
+	path, err := o.build(ctx, wrap(cfg, stats), dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			scopedLog.WithError(err).Error("BPF template object creation failed")

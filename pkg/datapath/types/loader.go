@@ -19,7 +19,7 @@ import (
 
 // LoaderContext are the external inputs to the loader resolved by the orchestrator.
 // TODO: There's conceptual overlap with the LocalNodeConfiguration. Perhaps these could
-// be unified so we don't need to pass both this and LoccalNodeConfiguration to the ConfigWriter.
+// be unified so we don't need to pass both this and LocalNodeConfiguration to the ConfigWriter.
 // +deepequal-gen=true
 type LoaderContext struct {
 	NodeIPv4, NodeIPv6         net.IP
