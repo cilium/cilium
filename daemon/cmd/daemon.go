@@ -10,7 +10,6 @@ import (
 	"maps"
 	"net"
 	"net/netip"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -238,15 +237,6 @@ func (d *Daemon) GetCompilationLock() datapath.CompilationLock {
 }
 
 func (d *Daemon) init() error {
-	globalsDir := option.Config.GetGlobalsDir()
-	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
-		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
-	}
-
-	if err := os.Chdir(option.Config.StateDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
-	}
-
 	if !option.Config.DryMode {
 		if option.Config.EnableL7Proxy {
 			if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
@@ -254,7 +244,6 @@ func (d *Daemon) init() error {
 			}
 		}
 	}
-
 	return nil
 }
 
