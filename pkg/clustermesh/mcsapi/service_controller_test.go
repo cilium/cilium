@@ -183,6 +183,7 @@ var (
 				Ports: []corev1.ServicePort{{
 					Name: "my-port-3",
 				}},
+				ClusterIP: corev1.ClusterIPNone,
 			},
 		},
 
@@ -359,6 +360,8 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 
 		require.Len(t, svc.Spec.Ports, 1)
 		require.Equal(t, "my-port-3", svc.Spec.Ports[0].Name)
+
+		require.Equal(t, corev1.ClusterIPNone, svc.Spec.ClusterIP)
 	})
 
 	t.Run("Test service creation with export but no exported service", func(t *testing.T) {
