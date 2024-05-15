@@ -117,12 +117,14 @@ func initMCSAPIController(params mcsAPIParams) error {
 		return fmt.Errorf("Failed to register MCSAPIServiceReconciler: %w", err)
 	}
 
-	svcImportReconciler := mcsapicontrollers.ServiceImportReconciler{
+	// Upstream controller that we use as is to update the ServiceImport
+	// objects with the IPs of the derived Services.
+	svcReconciler := mcsapicontrollers.ServiceReconciler{
 		Client: params.CtrlRuntimeManager.GetClient(),
 		Log:    params.CtrlRuntimeManager.GetLogger(),
 	}
-	if err := svcImportReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
-		return fmt.Errorf("Failed to register svcImportReconciler: %w", err)
+	if err := svcReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+		return fmt.Errorf("Failed to register mcsapicontrollers.ServiceReconciler: %w", err)
 	}
 
 	params.Logger.Info("Multi-Cluster Services API support enabled")
