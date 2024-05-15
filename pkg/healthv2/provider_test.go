@@ -61,6 +61,7 @@ func TestProvider(t *testing.T) {
 			degraded := byLevel(db, statusTable, types.LevelDegraded)
 
 			assert.Len(degraded, 1)
+			assert.Equal("noo", degraded[0].Message)
 			assert.Equal("err0", degraded[0].Error)
 			assert.Equal(degraded[0].Count, uint64(1))
 
