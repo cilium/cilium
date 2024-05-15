@@ -40,8 +40,11 @@ Automatic Verification
       command to run the checks only towards a subset of remote clusters.
 
 
-Manual Verification of Setup
-----------------------------
+Manual Verification
+-------------------
+
+As an alternative to leveraging the tools presented in the previous section,
+you may perform the following steps to troubleshoot ClusterMesh issues.
 
  #. Validate that each cluster is assigned a **unique** human-readable name as well
     as a numeric cluster ID (1-255).
@@ -58,7 +61,7 @@ Manual Verification of Setup
         level=info msg="Initial etcd session established" config=/var/lib/cilium/etcd-config.yaml endpoints="[https://127.0.0.1:2379]" subsys=kvstore
         level=info msg="Successfully verified version of etcd endpoint" config=/var/lib/cilium/etcd-config.yaml endpoints="[https://127.0.0.1:2379]" etcdEndpoint="https://127.0.0.1:2379" subsys=kvstore version=3.4.13
 
- #. Validate that the ClusterMesh is healthy with ``cilium status``::
+ #. Validate that ClusterMesh is healthy running ``cilium status --all-clusters`` inside each Cilium agent::
 
         ClusterMesh:   1/1 clusters ready, 10 global-services
            k8s-c2: ready, 3 nodes, 8 identities, 10 services, 0 failures (last: never)
@@ -74,14 +77,6 @@ Manual Verification of Setup
       to establish connection to etcd cluster (either internal or external).
 
     * cilium-ca, which is CA used to generate the above two certs.
-
-    If any of above secrets are not configured correctly, there will be potential error message like below::
-
-       level=warning msg="Error observed on etcd connection, reconnecting etcd" clusterName=eks-dev-1 config=/var/lib/cilium/clustermesh/eks-dev-1 error="not able to connect to any etcd endpoints" kvstoreErr="quorum check failed 12 times in a row: timeout while waiting for initial connection" kvstoreStatus="quorum check failed 12 times in a row: timeout while waiting for initial connection" subsys=clustermesh
-
-    or::
-
-        {"level":"warn","ts":"2022-06-08T14:06:29.198Z","caller":"clientv3/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"passthrough:///https://eks-dev-1.mesh.cilium.io:2379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: connection error: desc = \"transport: authentication handshake failed: remote error: tls: bad certificate\""}
 
  #. Validate that the configuration for remote clusters is picked up correctly.
     For each remote cluster, an info log message ``New remote cluster
