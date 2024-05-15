@@ -1403,6 +1403,24 @@ type volatileDaemonConfig struct {
 // This means portions of DaemonConfig that are potentially mutated at runtime
 // and must be accessed following a resolution to promise.Promise[*DaemonConfig].
 func (cfg *DaemonConfig) Volatile() *volatileDaemonConfig {
+	parent := ""
+	for i := 0; ; i++ {
+		pc, file, line, ok := runtime.Caller(i)
+		if !ok {
+			break
+		}
+		fn := runtime.FuncForPC(pc)
+		if fn != nil {
+			if i == 1 {
+				parent = fn.Name() + " " + file + ":" + strconv.Itoa(line)
+			}
+			if strings.Contains(fn.Name(), "(*Hive).Populate") {
+				log.Warnf("(*DaemonConfig).Volatile() called during Hive populate phase by %s which could result in bugs.\n"+
+					"Fields available from (*DaemonConfig).Volatile() are not finalized until after newDaemon has run and thus are not final",
+					parent)
+			}
+		}
+	}
 	return &cfg.volatile
 }
 
