@@ -103,6 +103,7 @@ jobs:
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'legacy'
             maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
 
           - name: '2'
             tunnel: 'disabled'
@@ -113,6 +114,7 @@ jobs:
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '511'
+            ciliumEndpointSlice: 'disabled'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
@@ -124,6 +126,7 @@ jobs:
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -136,6 +139,7 @@ jobs:
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '5'
@@ -145,6 +149,7 @@ jobs:
             kube-proxy: 'iptables'
             mode: 'external'
             maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
 
           - name: '6'
             tunnel: 'vxlan'
@@ -155,6 +160,7 @@ jobs:
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
 
           - name: '7'
             tunnel: 'geneve'
@@ -165,6 +171,7 @@ jobs:
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '511'
+            ciliumEndpointSlice: 'disabled'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
@@ -176,6 +183,7 @@ jobs:
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
 
         # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
         #  - name: '9'
@@ -194,6 +202,7 @@ jobs:
             kube-proxy: 'iptables'
             mode: 'external'
             maxConnectedClusters: '511'
+            ciliumEndpointSlice: 'disabled'
 
     steps:
       - name: Collect Workflow Telemetry
@@ -230,6 +239,7 @@ jobs:
             --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
             --helm-set=clustermesh.enableEndpointSliceSynchronization=true \
+            --helm-set=ciliumEndpointSlice.enabled=${{ matrix.ciliumEndpointSlice == 'enabled'}} \
             "
 
           CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
