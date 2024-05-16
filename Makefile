@@ -484,6 +484,8 @@ endif
 	$(QUIET) contrib/scripts/check-go-testdata.sh
 	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
 	$(QUIET) contrib/scripts/check-source-info.sh
+	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
+	$(QUIET) contrib/scripts/check-xfrmstate.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap

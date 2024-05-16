@@ -257,6 +257,10 @@ const (
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher = true
 
+	// Enable caching for XfrmState for IPSec. Significantly reduces CPU usage
+	// in large clusters.
+	EnableIPSecXfrmStateCaching = true
+
 	// Enable IPSec encrypted overlay
 	//
 	// This feature will encrypt overlay traffic before it leaves the cluster.
