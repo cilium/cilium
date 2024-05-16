@@ -743,6 +743,10 @@ const (
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher = "enable-ipsec-key-watcher"
 
+	// Enable caching for XfrmState for IPSec. Significantly reduces CPU usage
+	// in large clusters.
+	EnableIPSecXfrmStateCaching = "enable-ipsec-xfrm-state-caching"
+
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
@@ -1631,6 +1635,9 @@ type DaemonConfig struct {
 	// Enable watcher for IPsec key. If disabled, a restart of the agent will
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher bool
+
+	// EnableIPSecXfrmStateCaching enables IPSec XfrmState caching.
+	EnableIPSecXfrmStateCaching bool
 
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
@@ -3006,6 +3013,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
 	c.EnableIPsecKeyWatcher = vp.GetBool(EnableIPsecKeyWatcher)
 	c.EnableMonitor = vp.GetBool(EnableMonitorName)
+	c.EnableIPSecXfrmStateCaching = vp.GetBool(EnableIPSecXfrmStateCaching)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = vp.GetInt(MonitorQueueSizeName)
