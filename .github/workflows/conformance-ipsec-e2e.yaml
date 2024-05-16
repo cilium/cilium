@@ -145,6 +145,7 @@ jobs:
             kernel: '5.4-20240417.104652'
             kube-proxy: 'none'
             kpr: 'true'
+            bpf-masquerade: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
@@ -158,6 +159,7 @@ jobs:
             kernel: '5.10-20240417.104652'
             kube-proxy: 'none'
             kpr: 'true'
+            bpf-masquerade: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
@@ -231,6 +233,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
+          bpf-masquerade: ${{ matrix.bpf-masquerade }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
