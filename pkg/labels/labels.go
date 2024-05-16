@@ -141,6 +141,9 @@ const (
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
 
+	// LabelSourceFQDN is the label source for IPs resolved by fqdn lookups
+	LabelSourceFQDN = "fqdn"
+
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
 
