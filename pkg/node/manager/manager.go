@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
+	xrate "golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -316,8 +316,6 @@ func (m *Manager) backgroundSyncInterval() time.Duration {
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
 func (m *Manager) backgroundSync() {
-	syncTimer, syncTimerDone := inctimer.New()
-	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
 		log.WithField("syncInterval", syncInterval.String()).Debug("Performing regular background work")
@@ -325,7 +323,20 @@ func (m *Manager) backgroundSync() {
 		// get a copy of the node identities to avoid locking the entire manager
 		// throughout the process of running the datapath validation.
 		nodes := m.GetNodeIdentities()
+		limiter := xrate.NewLimiter(
+			xrate.Limit(float64(len(nodes))/float64(syncInterval.Seconds())),
+			1, // One token in bucket to amortize for latency of the operation
+		)
 		for _, nodeIdentity := range nodes {
+			if err := limiter.Wait(context.Background()); err != nil {
+				log.WithError(err).Debug("Error while rate limiting backgroundSync updates")
+			}
+
+			select {
+			case <-m.closeChan:
+				return
+			default:
+			}
 			// Retrieve latest node information in case any event
 			// changed the node since the call to GetNodes()
 			m.mutex.RLock()
@@ -343,12 +354,6 @@ func (m *Manager) backgroundSync() {
 			entry.mutex.Unlock()
 
 			m.metricDatapathValidations.Inc()
-		}
-
-		select {
-		case <-m.closeChan:
-			return
-		case <-syncTimer.After(syncInterval):
 		}
 	}
 }
