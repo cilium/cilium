@@ -109,7 +109,7 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -128,7 +128,7 @@ jobs:
             go${{ env.go-version }} download
 
       - name: Run verifier tests
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
         with:
           provision: 'false'
           cmd: |
@@ -138,7 +138,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
         with:
           provision: 'false'
           cmd: |
