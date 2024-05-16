@@ -47,6 +47,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
 #endif
 
+#define UNKNOWN_ID 0
 #define HOST_ID 1
 #define WORLD_ID 2
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
