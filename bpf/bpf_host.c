@@ -1083,7 +1083,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 			/* extracted identity is actually the endpoint ID */
 			ret = tail_call_egress_policy(ctx, (__u16)identity);
-			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+			return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP,
 						      METRIC_EGRESS);
 		}
 #endif
@@ -1222,7 +1222,7 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 			break;
 		}
 #endif
-		return send_drop_notify(ctx, sec_label, id, 0, ret,
+		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, UNKNOWN_ID,
@@ -1702,7 +1702,7 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
