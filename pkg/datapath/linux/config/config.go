@@ -1089,7 +1089,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []*tabl
 		}
 		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
 		if len(devices) == 1 {
-			if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
+			if e.IsHost() {
 				fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 			}
 		}
