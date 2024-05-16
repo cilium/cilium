@@ -184,7 +184,7 @@ func canonicalPrefix(prefix netip.Prefix) netip.Prefix {
 	return p
 }
 
-func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource types.ResourceID, info ...IPMetadata) {
+func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource types.ResourceID, info ...IPMetadata) []netip.Prefix {
 	prefix = canonicalPrefix(prefix)
 	if _, ok := m.m[prefix]; !ok {
 		m.m[prefix] = make(prefixInfo)
@@ -200,6 +200,8 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 	}
 
 	m.m[prefix].logConflicts(log.WithField(logfields.CIDR, prefix))
+
+	return m.findAffectedChildPrefixes(prefix)
 }
 
 // GetMetadataSourceByPrefix returns the highest precedence source which has
@@ -212,6 +214,43 @@ func (ipc *IPCache) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source
 
 func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
 	return m.m[canonicalPrefix(prefix)]
+}
+
+// findCIDRParentPrefix returns the closest parent prefix has a parent prefix with a CIDR label
+// in the metadata cache
+func (m *metadata) findCIDRParentPrefix(prefix netip.Prefix) (parent netip.Prefix, ok bool) {
+	for bits := prefix.Bits() - 1; bits > 0; bits-- {
+		parent, _ = prefix.Addr().Unmap().Prefix(bits) // canonical
+		if info, ok := m.m[parent]; ok && info.hasLabelSource(labels.LabelSourceCIDR) {
+			return parent, true
+		}
+	}
+
+	return netip.Prefix{}, false
+}
+
+func isChildPrefix(parent, child netip.Prefix) bool {
+	if child == parent {
+		return true
+	}
+
+	return parent.Contains(child.Addr()) && child.Bits() >= parent.Bits()
+}
+
+// findAffectedChildPrefixes returns the list of all child prefixes which are
+// affected by an update to the parent prefix
+func (m *metadata) findAffectedChildPrefixes(parent netip.Prefix) (children []netip.Prefix) {
+	if parent.IsSingleIP() {
+		return []netip.Prefix{parent} // no children
+	}
+
+	for child := range m.m {
+		if isChildPrefix(parent, child) {
+			children = append(children, child)
+		}
+	}
+
+	return children
 }
 
 // InjectLabels injects labels from the ipcache metadata (IDMD) map into the
@@ -483,6 +522,7 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 	if len(addedIdentities) != 0 {
 		ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg)
 	}
+
 	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
 	policyImplementedWG.Wait()
 }
@@ -508,6 +548,21 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	}
 
 	lbls := info.ToLabels()
+
+	// If there is a parent with an explicit CIDR label, then we want to inherit
+	// that - unless prefix already has a CIDR label, has a reserved
+	// label, or is a global identity
+	if !lbls.HasSource(labels.LabelSourceReserved) &&
+		!lbls.HasSource(labels.LabelSourceCIDR) &&
+		identity.ScopeForLabels(lbls) != identity.IdentityScopeGlobal {
+		// Note: We attach the CIDR label of the parent, not prefix. This ensures
+		// that two prefixes with the same identity and the same parent will
+		// have the same identity.
+		if parent, ok := ipc.metadata.findCIDRParentPrefix(prefix); ok {
+			cidrLabels := labels.GetCIDRLabels(parent)
+			lbls.MergeLabels(cidrLabels)
+		}
+	}
 
 	// If we are restoring a host identity and policy-cidr-match-mode includes "nodes"
 	// then merge the CIDR-label.
@@ -573,7 +628,9 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// correspond to remote nodes.
 	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
 		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) &&
-		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) {
+		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) &&
+		!lbls.HasSource(labels.LabelSourceFQDN) &&
+		!lbls.HasSource(labels.LabelSourceCIDR) {
 		cidrLabels := labels.GetCIDRLabels(prefix)
 		lbls.MergeLabels(cidrLabels)
 	}
@@ -633,12 +690,14 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 	ipc.metadata.Lock()
 	defer ipc.metadata.Unlock()
 
+	var affectedPrefixes []netip.Prefix
 	oldSet := ipc.metadata.filterByLabels(lbls)
 	for _, ip := range oldSet {
 		if _, ok := toExclude[ip]; !ok {
-			ipc.metadata.remove(ip, rid, lbls)
+			affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(ip, rid, lbls)...)
 		}
 	}
+	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
 }
 
 // filterByLabels returns all the prefixes inside the ipcache metadata map
@@ -661,12 +720,17 @@ func (m *metadata) filterByLabels(filter labels.Labels) []netip.Prefix {
 // remove asynchronously removes the labels association for a prefix.
 //
 // This function assumes that the ipcache metadata lock is held for writing.
-func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ...IPMetadata) {
+func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ...IPMetadata) []netip.Prefix {
 	prefix = canonicalPrefix(prefix)
 	info, ok := m.m[prefix]
 	if !ok || info[resource] == nil {
-		return
+		return nil
 	}
+
+	// compute affected prefixes before deletion, to ensure the prefix matches
+	// its own entry before it is deleted
+	affected := m.findAffectedChildPrefixes(prefix)
+
 	for _, a := range aux {
 		info[resource].unmerge(a)
 	}
@@ -676,7 +740,8 @@ func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ..
 	if !info.isValid() { // Labels empty, delete
 		delete(m.m, prefix)
 	}
-	m.enqueuePrefixUpdates(prefix)
+
+	return affected
 }
 
 // TriggerLabelInjection triggers the label injection controller to iterate
