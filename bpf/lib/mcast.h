@@ -434,9 +434,9 @@ int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
 	for_each_map_elem(sub_map, __mcast_ep_delivery, &cb_ctx, 0);
 
 	return send_drop_notify(ctx,
-				0,
-				0,
-				0,
+				UNKNOWN_ID,
+				UNKNOWN_ID,
+				TRACE_EP_ID_UNKNOWN,
 				DROP_MULTICAST_HANDLED,
 				CTX_ACT_DROP,
 				METRIC_INGRESS);
