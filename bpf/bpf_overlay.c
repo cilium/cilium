@@ -128,7 +128,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
@@ -408,7 +409,8 @@ skip_vtep:
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
@@ -522,7 +524,8 @@ drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
 pass_to_stack:
-	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex,
+	send_trace_notify(ctx, TRACE_TO_STACK, UNKNOWN_ID, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
 			  trace.reason, trace.monitor);
 	return CTX_ACT_OK;
 }
@@ -652,7 +655,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPSEC
 	if (is_esp(ctx, proto))
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, 0, 0,
+		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 	else
 #endif
@@ -665,8 +669,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		if (decrypted)
 			obs_point = TRACE_FROM_STACK;
 
-		send_trace_notify(ctx, obs_point, src_sec_identity, 0, 0,
-				  ctx->ingress_ifindex,
+		send_trace_notify(ctx, obs_point, src_sec_identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
 

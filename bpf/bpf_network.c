@@ -82,12 +82,12 @@ int cil_from_network(struct __ctx_buff *ctx)
 #endif
 
 out:
-	send_trace_notify(ctx, obs_point_from, 0, 0, 0,
-			  ingress_ifindex,
+	send_trace_notify(ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
 			  trace.reason, trace.monitor);
 
-	send_trace_notify(ctx, obs_point_to, 0, 0, 0,
-			  ingress_ifindex,
+	send_trace_notify(ctx, obs_point_to, UNKNOWN_ID, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
 			  trace.reason, trace.monitor);
 
 	return ret;
