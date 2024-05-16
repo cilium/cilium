@@ -112,6 +112,8 @@ type MetricData struct {
 	ResolveEndpointStartTime   time.Time
 	ResolveEndpointEndTime     time.Time
 	EndpointResolutionDuration time.Duration
+	GetIdentityStartTime       time.Time
+	GetIdentityEndTime         time.Time
 	InThroughput               float64
 	OutThroughput              float64
 	RetryCount                 int
@@ -144,8 +146,6 @@ type AttemptMetrics struct {
 	ConnRequestedTime          time.Time
 	ConnObtainedTime           time.Time
 	ConcurrencyAcquireDuration time.Duration
-	CredentialFetchStartTime   time.Time
-	CredentialFetchEndTime     time.Time
 	SignStartTime              time.Time
 	SignEndTime                time.Time
 	SigningDuration            time.Duration
