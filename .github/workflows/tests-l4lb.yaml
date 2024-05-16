@@ -133,6 +133,13 @@ jobs:
         run: |
           cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
 
+      - name: Fetch DinD information
+        if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
+        run: |
+          docker ps
+          docker logs -f lb-node
+          docker exec -t lb-node docker ps
+
       - name: Fetch Cilium Standalone LB logs
         if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
         run: |
