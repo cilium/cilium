@@ -23,14 +23,6 @@ func Test_IsIPsecAlgoSupported(t *testing.T) {
 			expected: true,
 		},
 		{
-			have:     "hmac-md5",
-			expected: true,
-		},
-		{
-			have:     "hmac-sha1",
-			expected: true,
-		},
-		{
 			have:     "hmac-sha256",
 			expected: true,
 		},
@@ -214,36 +206,6 @@ func Test_rotateIPsecKey(t *testing.T) {
 				algo:      "rfc4106(gcm(aes))",
 				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
 				size:      128,
-			},
-		},
-		{
-			haveAlgo: "hmac-md5",
-			haveKey: ipsecKey{
-				spi:       1,
-				spiSuffix: true,
-			},
-			expected: ipsecKey{
-				spi:        2,
-				spiSuffix:  true,
-				algo:       "hmac(md5)",
-				key:        "1286b7f6f9f61a4f",
-				cipherMode: "cbc(aes)",
-				cipherKey:  "efbeeb4230992f76a6e4cc2ff995b756",
-			},
-		},
-		{
-			haveAlgo: "hmac-sha1",
-			haveKey: ipsecKey{
-				spi:       2,
-				spiSuffix: true,
-			},
-			expected: ipsecKey{
-				spi:        3,
-				spiSuffix:  true,
-				algo:       "hmac(sha1)",
-				key:        "5448dd20e4528a9c2d5b",
-				cipherMode: "cbc(aes)",
-				cipherKey:  "123d17f2bbbae8009d952b4d0d656f06",
 			},
 		},
 		{
