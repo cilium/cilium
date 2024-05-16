@@ -5,9 +5,9 @@ on:
     - cron: '39 0 * * 1-5'
 
 # For testing uncomment following lines:
-#  push:
-#    branches:
-#      - your_branch_name
+  push:
+    branches:
+      - baseline_ipsec
 
 permissions:
   # To be able to access the repository with actions/checkout
@@ -69,6 +69,8 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
+            --helm-set=encryption.enabled=true \
+            --helm-set=encryption.type=ipsec \
             --wait=false"
 
           # only add SHA to the image tags if it was set
@@ -186,6 +188,7 @@ jobs:
 
       - name: Install Cilium
         run: |
+          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
           cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -215,6 +218,7 @@ jobs:
           export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
           export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=2.0
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL=10s
 
           # CL2 hardcodes module paths to live in ./testing/load, even
           # if the path given is relative.

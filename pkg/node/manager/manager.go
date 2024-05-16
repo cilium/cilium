@@ -17,7 +17,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -326,11 +325,13 @@ func (m *manager) Stop(cell.HookContext) error {
 // 8192  | 9m00.662124608s
 // 16384 | 9m42.247293667s
 func (m *manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
-	m.mutex.RLock()
-	numNodes := len(m.nodes)
-	m.mutex.RUnlock()
+	//m.mutex.RLock()
+	//numNodes := len(m.nodes)
+	//m.mutex.RUnlock()
 
-	return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
+	// return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
+	// Return fixed interval for easier testing.
+	return time.Minute
 }
 
 func (m *manager) backgroundSyncInterval() time.Duration {

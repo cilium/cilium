@@ -114,6 +114,7 @@ func (r *Registry) Unregister(c prometheus.Collector) bool {
 
 // goCustomCollectorsRX tracks enabled go runtime metrics.
 var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
+var goCustomCollectorsRX2 = regexp.MustCompile(`^/cpu/`)
 
 // Reinitialize creates a new internal registry and re-registers metrics to it.
 func (r *Registry) Reinitialize() {
@@ -124,6 +125,7 @@ func (r *Registry) Reinitialize() {
 	r.MustRegister(collectors.NewGoCollector(
 		collectors.WithGoCollectorRuntimeMetrics(
 			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
+			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX2},
 		)))
 	r.MustRegister(newStatusCollector())
 	r.MustRegister(newbpfCollector())
