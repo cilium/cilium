@@ -567,6 +567,8 @@ endif
 check-sources:
 	@$(ECHO_CHECK) pkg/datapath/loader/check-sources.sh
 	$(QUIET) pkg/datapath/loader/check-sources.sh
+	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
+	$(QUIET) contrib/scripts/check-xfrmstate.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
