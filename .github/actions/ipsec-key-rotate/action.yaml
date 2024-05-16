@@ -24,6 +24,7 @@ runs:
       with:
         job-name: conformance-ipsec-e2e-key-rotation
         extra-connectivity-test-flags: ${{ inputs.extra-connectivity-test-flags }}
+        setup-only: 'true'
         operation-cmd: |
           KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
           if [[ $KEYID -ge 15 ]]; then KEYID=0; fi

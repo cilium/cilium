@@ -11,6 +11,9 @@ inputs:
   extra-connectivity-test-flags:
     required: false
     description: 'Cilium CLI connectivity tests extra flags'
+  setup-only:
+    required: false
+    description: 'Setup conn disrupt test and exit'
 
 runs:
   using: composite
@@ -33,12 +36,14 @@ runs:
     - name: Perform Conn Disrupt Test
       shell: bash
       run: |
-        ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-          --include-conn-disrupt-test \
-          --flush-ct \
-          --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-          --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
-          --junit-file "cilium-junits/${{ inputs.job-name }}.xml" \
-          ${{ inputs.extra-connectivity-test-flags }} \
-          --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
-          --expected-xfrm-errors "+inbound_no_state"
+        if [[ "${{ inputs.setup-only }}" != "true" ]]; then
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --include-conn-disrupt-test \
+            --flush-ct \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
+            --junit-file "cilium-junits/${{ inputs.job-name }}.xml" \
+            ${{ inputs.extra-connectivity-test-flags }} \
+            --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
+            --expected-xfrm-errors "+inbound_no_state"
+        fi

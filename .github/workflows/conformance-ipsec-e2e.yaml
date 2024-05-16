@@ -360,6 +360,18 @@ jobs:
       - name: Assert that no unencrypted packets are leaked
         uses: ./.github/actions/bpftrace/check
 
+      - name: Perform Conn Disrupt Test (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --include-conn-disrupt-test \
+            --flush-ct \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
+            --junit-file "cilium-junits/${{ inputs.job-name }}.xml" \
+            --junit-property github_job_step="Run conn disrupt tests (ci-ipsec-e2e-key-rotation)" \
+            --expected-xfrm-errors "+inbound_no_state"
+
       - name: Fetch artifacts
         if: ${{ !success() }}
         shell: bash
