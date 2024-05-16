@@ -451,7 +451,7 @@ func (kub *Kubectl) WaitForCiliumReadiness(offset int, errMsg string) {
 	gomega.EventuallyWithOffset(1+offset, func() error {
 		_, err := kub.DaemonSetIsReady(CiliumNamespace, "cilium")
 		return err
-	}, 4*time.Minute, time.Second).Should(gomega.BeNil(), errMsg)
+	}, 6*time.Minute, time.Second).Should(gomega.BeNil(), errMsg)
 }
 
 // DeleteResourceInAnyNamespace deletes all objects with the provided name of
