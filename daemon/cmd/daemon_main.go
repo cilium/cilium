@@ -357,6 +357,10 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPsecKeyWatcher, defaults.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	option.BindEnv(Vp, option.EnableIPsecKeyWatcher)
 
+	flags.Bool(option.EnableIPSecXfrmStateCaching, defaults.EnableIPSecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
+	flags.MarkHidden(option.EnableIPSecXfrmStateCaching)
+	option.BindEnv(Vp, option.EnableIPSecXfrmStateCaching)
+
 	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
 	option.BindEnv(Vp, option.EnableWireguard)
 
