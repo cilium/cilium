@@ -354,14 +354,6 @@ func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 }
 
 func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
-	c.Skip("GH-6751 Test is disabled due to being unstable")
-
-	// set the base background sync interval to a very low value so the
-	// background sync runs aggressively
-	baseBackgroundSyncIntervalBackup := baseBackgroundSyncInterval
-	baseBackgroundSyncInterval = 10 * time.Millisecond
-	defer func() { baseBackgroundSyncInterval = baseBackgroundSyncIntervalBackup }()
-
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
@@ -370,7 +362,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
-	numNodes := 4096
+	numNodes := 128
 
 	allNodeValidateCallsReceived := &sync.WaitGroup{}
 	allNodeValidateCallsReceived.Add(1)
@@ -387,8 +379,10 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 					allNodeValidateCallsReceived.Done()
 					return
 				}
-			case <-timer.After(time.Second * 5):
+			case <-timer.After(time.Second * 1):
 				c.Errorf("Timeout while waiting for NodeValidateImplementation() to be called")
+				allNodeValidateCallsReceived.Done()
+				return
 			}
 		}
 	}()
@@ -397,6 +391,8 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Kubernetes}
 		mngr.NodeUpdated(n)
 	}
+
+	mngr.singleBackgroundLoop(time.Millisecond)
 
 	allNodeValidateCallsReceived.Wait()
 }
