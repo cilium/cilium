@@ -36,15 +36,24 @@ func GetIfaceFirstIPv4Address(ifaceName string) (netip.Addr, error) {
 }
 
 func TestForIfaceWithIPv4Address(ip netip.Addr) error {
+	_, err := getIfaceWithIPv4Address(ip)
+	return err
+}
+
+func GetIfaceWithIPv4Address(ip netip.Addr) (string, error) {
+	return getIfaceWithIPv4Address(ip)
+}
+
+func getIfaceWithIPv4Address(ip netip.Addr) (string, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	for _, l := range links {
 		addrs, err := netlink.AddrList(l, netlink.FAMILY_V4)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		for _, addr := range addrs {
@@ -53,10 +62,10 @@ func TestForIfaceWithIPv4Address(ip netip.Addr) error {
 				continue
 			}
 			if a == ip {
-				return nil
+				return l.Attrs().Name, nil
 			}
 		}
 	}
 
-	return fmt.Errorf("no interface with %s IPv4 assigned to", ip)
+	return "", fmt.Errorf("no interface with %s IPv4 assigned to", ip)
 }
