@@ -69,7 +69,7 @@ func newCmdIPsecRotateKey() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&params.IPsecKeyAuthAlgo, "auth-algo", "", "", "IPsec key authentication algorithm (optional parameter, if omitted the current settings will be used). One of: gcm-aes, hmac-md5, hmac-sha1, hmac-sha256, hmac-sha512")
+	cmd.Flags().StringVarP(&params.IPsecKeyAuthAlgo, "auth-algo", "", "", "IPsec key authentication algorithm (optional parameter, if omitted the current settings will be used). One of: gcm-aes, hmac-sha256, hmac-sha512")
 	cmd.Flags().StringVarP(&params.IPsecKeyPerNode, "key-per-node", "", "", "IPsec key per cluster node (optional parameter, if omitted the current settings will be used). One of: true, false")
 	_ = cmd.Flags().MarkHidden("key-per-node")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")

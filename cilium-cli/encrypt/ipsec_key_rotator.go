@@ -6,8 +6,6 @@ package encrypt
 var rotators = map[string]func(key ipsecKey) (ipsecKey, error){
 	"":            func(key ipsecKey) (ipsecKey, error) { return key.rotate() },
 	"gcm-aes":     newGcmAesKey,
-	"hmac-md5":    newHmacMD5Key,
-	"hmac-sha1":   newHmacSHA1Key,
 	"hmac-sha256": newHmacSHA256Key,
 	"hmac-sha512": newHmacSHA512Key,
 }
@@ -34,14 +32,6 @@ func newGcmAesKey(key ipsecKey) (ipsecKey, error) {
 		size:      128,
 	}
 	return newKey, nil
-}
-
-func newHmacMD5Key(key ipsecKey) (ipsecKey, error) {
-	return newCbcAesKey(key, "hmac(md5)", 16, 32)
-}
-
-func newHmacSHA1Key(key ipsecKey) (ipsecKey, error) {
-	return newCbcAesKey(key, "hmac(sha1)", 20, 32)
 }
 
 func newHmacSHA256Key(key ipsecKey) (ipsecKey, error) {
