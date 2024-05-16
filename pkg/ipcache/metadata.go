@@ -444,14 +444,12 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				"Failed to release previously allocated identity during ipcache metadata injection.",
 			)
 		}
-		// Note that not all subsystems currently funnel their
-		// IP prefix => metadata mappings through this code. Notably,
-		// CIDR policy currently allocates its own identities.
-		// Therefore it's possible that the identity that was
-		// previously allocated is still in use or referred in that
-		// policy. Avoid removing references in the policy engine
-		// since those other subsystems should have their own cleanup
-		// logic for handling the removal of these identities.
+
+		// A local identity can be shared by multiple IPCache entries.
+		// Therefore, it's possible that the identity that was
+		// previously allocated is still in use by other entries.
+		// Avoid removing references in the policy engine until we've
+		// removed reference to the identity.
 		if released {
 			idsToDelete[id.ID] = nil // SelectorCache removal
 		}
