@@ -440,14 +440,6 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 }
 
 func TestBackgroundSync(t *testing.T) {
-	t.Skip("GH-6751 Test is disabled due to being unstable")
-
-	// set the base background sync interval to a very low value so the
-	// background sync runs aggressively
-	baseBackgroundSyncIntervalBackup := baseBackgroundSyncInterval
-	baseBackgroundSyncInterval = 10 * time.Millisecond
-	defer func() { baseBackgroundSyncInterval = baseBackgroundSyncIntervalBackup }()
-
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
@@ -457,7 +449,7 @@ func TestBackgroundSync(t *testing.T) {
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
 
-	numNodes := 4096
+	numNodes := 128
 
 	allNodeValidateCallsReceived := &sync.WaitGroup{}
 	allNodeValidateCallsReceived.Add(1)
@@ -474,8 +466,10 @@ func TestBackgroundSync(t *testing.T) {
 					allNodeValidateCallsReceived.Done()
 					return
 				}
-			case <-timer.After(time.Second * 5):
+			case <-timer.After(time.Second * 1):
 				t.Errorf("Timeout while waiting for NodeValidateImplementation() to be called")
+				allNodeValidateCallsReceived.Done()
+				return
 			}
 		}
 	}()
@@ -489,6 +483,8 @@ func TestBackgroundSync(t *testing.T) {
 		}}
 		mngr.NodeUpdated(n)
 	}
+
+	mngr.singleBackgroundLoop(context.Background(), time.Millisecond)
 
 	allNodeValidateCallsReceived.Wait()
 }
