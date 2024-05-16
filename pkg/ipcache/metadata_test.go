@@ -758,3 +758,42 @@ type mockTriggerer struct{}
 func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
 	return wg
 }
+
+func Test_canonicalPrefix(t *testing.T) {
+	tests := []struct {
+		name   string
+		prefix netip.Prefix
+		want   netip.Prefix
+	}{
+		{
+			name:   "identity",
+			prefix: netip.MustParsePrefix("10.10.10.10/32"),
+			want:   netip.MustParsePrefix("10.10.10.10/32"),
+		},
+		{
+			name:   "masked",
+			prefix: netip.MustParsePrefix("10.10.10.10/16"),
+			want:   netip.MustParsePrefix("10.10.0.0/16"),
+		},
+		{
+			name:   "v4inv6",
+			prefix: netip.MustParsePrefix("::ffff:10.10.10.10/24"),
+			want:   netip.MustParsePrefix("10.10.10.0/24"),
+		},
+		{
+			name:   "ipv6",
+			prefix: netip.MustParsePrefix("2001:db8::dead/32"),
+			want:   netip.MustParsePrefix("2001:db8::/32"),
+		},
+		{
+			name:   "invalid",
+			prefix: netip.PrefixFrom(netip.MustParseAddr("::ffff:10.10.10.10"), -1),
+			want:   netip.PrefixFrom(netip.MustParseAddr("::ffff:10.10.10.10"), -1),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, canonicalPrefix(tt.prefix), "canonicalPrefix(%v)", tt.prefix)
+		})
+	}
+}
