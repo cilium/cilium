@@ -659,6 +659,16 @@ func (l Labels) Has(label Label) bool {
 	return false
 }
 
+// HasSource returns true if l contains the given label source.
+func (l Labels) HasSource(source string) bool {
+	for _, lbl := range l {
+		if lbl.Source == source {
+			return true
+		}
+	}
+	return false
+}
+
 // parseSource returns the parsed source of the given str. It also returns the next piece
 // of text that is after the source.
 // Example:

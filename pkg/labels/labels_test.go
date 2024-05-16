@@ -430,6 +430,56 @@ func TestLabels_GetFromSource(t *testing.T) {
 	}
 }
 
+func TestLabels_HasSource(t *testing.T) {
+	type args struct {
+		source string
+	}
+	tests := []struct {
+		name string
+		l    Labels
+		args args
+		want bool
+	}{
+		{
+			name: "should return false for empty set",
+			l:    Labels{},
+			args: args{
+				source: "my-source",
+			},
+			want: false,
+		},
+		{
+			name: "should contain label with the given source",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "my-source"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			args: args{
+				source: "my-source",
+			},
+			want: true,
+		},
+		{
+			name: "should return false as there are not labels for the given source",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "any"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			args: args{
+				source: "my-source",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.l.HasSource(tt.args.source); got != tt.want {
+				t.Errorf("Labels.GetFromSource() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func BenchmarkNewFrom(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
