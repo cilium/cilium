@@ -265,7 +265,7 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 
 	ret = __icmp6_send_time_exceeded(ctx, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP,
 					      direction);
 	return ret;
 }
@@ -341,7 +341,7 @@ int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 
 	ret = __icmp6_handle_ns(ctx, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP, direction);
 	return ret;
 }
 #endif

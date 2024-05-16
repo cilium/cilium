@@ -750,7 +750,8 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 	int ret = handle_ipv6_from_lxc(ctx, &dst_sec_identity, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_ext(ctx, SECLABEL_IPV6, dst_sec_identity, 0, ret, ext_err,
+		return send_drop_notify_ext(ctx, SECLABEL_IPV6, dst_sec_identity,
+					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
 					    CTX_ACT_DROP, METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
@@ -1347,7 +1348,8 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 	int ret = handle_ipv4_from_lxc(ctx, &dst_sec_identity, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_ext(ctx, SECLABEL_IPV4, dst_sec_identity, 0, ret, ext_err,
+		return send_drop_notify_ext(ctx, SECLABEL_IPV4, dst_sec_identity,
+					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
 					    CTX_ACT_DROP, METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
@@ -1513,7 +1515,8 @@ int cil_from_container(struct __ctx_buff *ctx)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_ext(ctx, sec_label, 0, 0, ret, ext_err,
+		return send_drop_notify_ext(ctx, sec_label, UNKNOWN_ID,
+					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
 					    CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
@@ -2399,7 +2402,8 @@ int handle_policy_egress(struct __ctx_buff *ctx)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_ext(ctx, sec_label, 0, 0, ret, ext_err,
+		return send_drop_notify_ext(ctx, sec_label, UNKNOWN_ID,
+					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
 					    CTX_ACT_DROP, METRIC_EGRESS);
 
 	return ret;
