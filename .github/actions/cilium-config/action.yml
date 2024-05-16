@@ -55,6 +55,9 @@ inputs:
   ciliumendpointslice:
     description: 'Enable CiliumEndpointSlice'
     default: 'false'
+  bpf-masquerade:
+    description: 'Enable BPF masquerade'
+    default: ''
 outputs:
   config:
     description: 'Cilium installation config'
@@ -121,7 +124,11 @@ runs:
           MASQ=""
           if [ "${{ inputs.kpr }}" == "true" ]; then
             # BPF-masq requires KPR=true.
-            MASQ="--helm-set=bpf.masquerade=true"
+            if [ "${{ inputs.bpf-masquerade }}" != "" ]; then
+              MASQ="--helm-set=bpf.masquerade=${{ inputs.bpf-masquerade }}"
+            else
+              MASQ="--helm-set=bpf.masquerade=true"
+            fi
             if [ "${{ inputs.host-fw }}" == "true" ]; then
               # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
               MASQ="${MASQ} --helm-set=enableIPv6Masquerade=false"
@@ -164,6 +171,6 @@ runs:
           if [ "${{ inputs.ciliumendpointslice }}" == "true" ]; then
             CILIUMENDPOINTSLICE="--helm-set=enableCiliumEndpointSlice=true"
           fi
-        
+
           CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT
