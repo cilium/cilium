@@ -18,13 +18,11 @@ rules:
   - get
   - list
   - watch
-{{- if hasKey .Values "disableEndpointCRD" }}
 {{- if not .Values.disableEndpointCRD }}
 {{- if (and .Values.operator.unmanagedPodWatcher.restart (ne (.Values.operator.unmanagedPodWatcher.intervalSeconds | int64) 0 ) ) }}
   # to automatically delete [core|kube]dns pods so that are starting to being
   # managed by Cilium
   - delete
-{{- end }}
 {{- end }}
 {{- end }}
 {{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus (include "hasDuration" .Values.operator.endpointGCInterval) }}
