@@ -20,6 +20,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -137,6 +139,8 @@ type Manager struct {
 	// reconciliationEventsCount keeps track of how many reconciliation
 	// events have occoured
 	reconciliationEventsCount atomic.Uint64
+
+	sysctl sysctl.Sysctl
 }
 
 type Params struct {
@@ -149,6 +153,7 @@ type Params struct {
 	Policies          resource.Resource[*Policy]
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
+	Sysctl            sysctl.Sysctl
 
 	Lifecycle cell.Lifecycle
 }
@@ -213,6 +218,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		policies:                      p.Policies,
 		ciliumNodes:                   p.Nodes,
 		endpoints:                     p.Endpoints,
+		sysctl:                        p.Sysctl,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -593,6 +599,33 @@ func (manager *Manager) regenerateGatewayConfigs() {
 	}
 }
 
+func (manager *Manager) relaxRPFilter() error {
+	var sysSettings []tables.Sysctl
+	ifSet := make(map[string]struct{})
+
+	for _, pc := range manager.policyConfigs {
+		if !pc.gatewayConfig.localNodeConfiguredAsGateway {
+			continue
+		}
+
+		ifaceName := pc.gatewayConfig.ifaceName
+		if _, ok := ifSet[ifaceName]; !ok {
+			ifSet[ifaceName] = struct{}{}
+			sysSettings = append(sysSettings, tables.Sysctl{
+				Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifaceName),
+				Val:       "2",
+				IgnoreErr: false,
+			})
+		}
+	}
+
+	if len(sysSettings) == 0 {
+		return nil
+	}
+
+	return manager.sysctl.ApplySettings(sysSettings)
+}
+
 func (manager *Manager) addMissingEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	manager.policyMap.IterateWithCallback(
@@ -692,6 +725,11 @@ func (manager *Manager) reconcileLocked() {
 	}
 
 	manager.regenerateGatewayConfigs()
+
+	if err := manager.relaxRPFilter(); err != nil {
+		manager.reconciliationTrigger.TriggerWithReason("retry after error")
+		return
+	}
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and
 	// only then removing obsolete ones we make sure there will be no connectivity disruption

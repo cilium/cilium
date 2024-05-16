@@ -38,10 +38,17 @@ type policyGatewayConfig struct {
 // that IP assigned to) or the interface (and in this case we need to find the
 // first IPv4 assigned to that).
 type gatewayConfig struct {
+	// ifaceName is the name of the interface used to SNAT traffic
+	ifaceName string
 	// egressIP is the IP used to SNAT traffic
 	egressIP netip.Addr
 	// gatewayIP is the node internal IP of the gateway
 	gatewayIP netip.Addr
+	// localNodeConfiguredAsGateway tells if the local node is configured to
+	// act as an egress gateway node for this config.
+	// This information is used to decide if it is necessary to relax the rp_filter
+	// on the interface used to SNAT traffic
+	localNodeConfiguredAsGateway bool
 }
 
 // PolicyConfig is the internal representation of CiliumEgressGatewayPolicy.
@@ -131,10 +138,13 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig) error {
 	var err error
 
+	gwc.localNodeConfiguredAsGateway = false
+
 	switch {
 	case gc.iface != "":
 		// If the gateway config specifies an interface, use the first IPv4 assigned to that
 		// interface as egress IP
+		gwc.ifaceName = gc.iface
 		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
@@ -143,7 +153,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 		// If the gateway config specifies an egress IP, use the interface with that IP as egress
 		// interface
 		gwc.egressIP = gc.egressIP
-		err = netdevice.TestForIfaceWithIPv4Address(gc.egressIP)
+		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
 		}
@@ -155,11 +165,14 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 			return fmt.Errorf("failed to find interface with default route: %w", err)
 		}
 
-		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(iface.Attrs().Name)
+		gwc.ifaceName = iface.Attrs().Name
+		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 	}
+
+	gwc.localNodeConfiguredAsGateway = true
 
 	return nil
 }
