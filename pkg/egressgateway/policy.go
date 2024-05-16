@@ -43,6 +43,11 @@ type gatewayConfig struct {
 	egressIP netip.Addr
 	// gatewayIP is the node internal IP of the gateway
 	gatewayIP netip.Addr
+	// localNodeConfiguredAsGateway tells if the local node is configured to
+	// act as an egress gateway node for this config.
+	// This information is used to decide if it is necessary to relax the rp_filter
+	// on the interface used to SNAT traffic
+	localNodeConfiguredAsGateway bool
 }
 
 // PolicyConfig is the internal representation of CiliumEgressGatewayPolicy.
@@ -132,6 +137,8 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig) error {
 	var err error
 
+	gwc.localNodeConfiguredAsGateway = false
+
 	switch {
 	case gc.iface != "":
 		// If the gateway config specifies an interface, use the first IPv4 assigned to that
@@ -163,6 +170,8 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 	}
+
+	gwc.localNodeConfiguredAsGateway = true
 
 	return nil
 }

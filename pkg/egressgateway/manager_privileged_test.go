@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -87,6 +88,11 @@ type parsedEgressRule struct {
 	destCIDR  netip.Prefix
 	egressIP  netip.Addr
 	gatewayIP netip.Addr
+}
+
+type rpFilterSetting struct {
+	iFaceName       string
+	rpFilterSetting string
 }
 
 // Hook up gocheck into the "go test" runner.
@@ -247,6 +253,10 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	addPolicy(c, k.policies, &policy1)
 	reconciliationEventsCount = waitForReconciliationRun(c, egressGatewayManager, reconciliationEventsCount)
 
+	assertRPFilter(c, []rpFilterSetting{
+		{iFaceName: testInterface1, rpFilterSetting: "2"},
+		{iFaceName: testInterface2, rpFilterSetting: "1"},
+	})
 	assertEgressRules(c, policyMap, []egressRule{})
 
 	// Add a new endpoint & ID which matches policy-1
@@ -513,6 +523,28 @@ func createTestInterface(tb testing.TB, iface string, addr string) {
 	if err := netlink.AddrAdd(link, a); err != nil {
 		tb.Fatal(err)
 	}
+
+	ensureRPFilterIsEnabled(tb, iface)
+}
+
+func ensureRPFilterIsEnabled(tb testing.TB, iface string) {
+	rpFilterSetting := fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)
+
+	for i := 0; i < 10; i++ {
+		if err := sysctl.Enable(rpFilterSetting); err != nil {
+			tb.Fatal(err)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+
+		if val, err := sysctl.Read(rpFilterSetting); err == nil {
+			if val == "1" {
+				return
+			}
+		}
+	}
+
+	tb.Fatal("failed to enable rp_filter")
 }
 
 func waitForReconciliationRun(tb testing.TB, egressGatewayManager *Manager, currentRun uint64) uint64 {
@@ -630,6 +662,25 @@ func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) err
 
 	if untrackedRule {
 		return fmt.Errorf("Untracked egress policy")
+	}
+
+	return nil
+}
+
+func assertRPFilter(c *C, rpFilterSettings []rpFilterSetting) {
+	c.Helper()
+
+	err := tryAssertRPFilterSettings(rpFilterSettings)
+	c.Assert(err, IsNil)
+}
+
+func tryAssertRPFilterSettings(rpFilterSettings []rpFilterSetting) error {
+	for _, setting := range rpFilterSettings {
+		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", setting.iFaceName)); err != nil {
+			return fmt.Errorf("failed to read rp_filter")
+		} else if val != setting.rpFilterSetting {
+			return fmt.Errorf("mismatched rp_filter iface: %s rp_filter: %s", setting.iFaceName, val)
+		}
 	}
 
 	return nil
