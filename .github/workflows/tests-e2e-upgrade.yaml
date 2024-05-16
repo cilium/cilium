@@ -444,6 +444,13 @@ jobs:
             EXTRA="--secondary-network-iface=eth1"
           fi
 
+          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
+          # sending traffic while the egressgw policy map is still being populated.
+          #
+          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
+          # always go through the correct gateway
+          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
+
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --flush-ct \
@@ -474,6 +481,13 @@ jobs:
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
             EXTRA="--secondary-network-iface=eth1"
           fi
+
+          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
+          # sending traffic while the egressgw policy map is still being populated.
+          #
+          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
+          # always go through the correct gateway
+          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
