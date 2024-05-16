@@ -8,7 +8,7 @@ linters:
   enable:
     - bodyclose
     - gocheckcompilerdirectives
-    - goerr113
+    - err113
     - gofmt
     - goheader
     - goimports
@@ -50,7 +50,7 @@ issues:
     - G101 # gosec: Potential hardcoded credentials
   exclude-rules:
       # Disallows any kind of `fmt.Errorf("%s is too high", bar)`, too opinionated.
-    - linters: [goerr113]
+    - linters: [err113]
       text: "do not define dynamic errors, use wrapped static errors instead"
       # Most exported consts are self-descriptive.
     - linters: [revive]
