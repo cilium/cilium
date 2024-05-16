@@ -262,6 +262,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		oldTunnelIP, oldEncryptionKey := ipc.GetHostIPCache(pstr)
 		prefixInfo := ipc.metadata.getLocked(prefix)
 		var newID *identity.Identity
+		var isNew bool
 		if prefixInfo == nil {
 			if !entryExists {
 				// Already deleted, no new metadata to associate
@@ -269,7 +270,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			} // else continue below to remove the old entry
 		} else {
 			// Insert to propagate the updated set of labels after removal.
-			newID, _, err = ipc.resolveIdentity(ctx, prefix, prefixInfo, prefixInfo.RequestedIdentity().ID())
+			newID, isNew, err = ipc.resolveIdentity(ctx, prefix, prefixInfo, prefixInfo.RequestedIdentity().ID())
 			if err != nil {
 				// NOTE: This may fail during a 2nd or later
 				// iteration of the loop. To handle this, break
@@ -302,7 +303,10 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				goto releaseIdentity
 			}
 
-			idsToAdd[newID.ID] = newID.Labels.LabelArray()
+			// If this ID was newly allocated, we must add it to the SelectorCache
+			if isNew {
+				idsToAdd[newID.ID] = newID.Labels.LabelArray()
+			}
 			entriesToReplace[prefix] = ipcacheEntry{
 				identity: Identity{
 					ID:                  newID.ID,
@@ -384,7 +388,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 
 	// Recalculate policy first before upserting into the ipcache.
 	if len(idsToAdd) > 0 {
-		ipc.UpdatePolicyMaps(ctx, idsToAdd, idsToDelete)
+		ipc.UpdatePolicyMaps(ctx, idsToAdd, nil)
 	}
 
 	ipc.mutex.Lock()
@@ -469,10 +473,10 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 	// parameters here, so make two calls. These changes will not
 	// be propagated to the datapath until the UpdatePolicyMaps
 	// call below.
-	if deletedIdentities != nil {
+	if len(deletedIdentities) != 0 {
 		ipc.PolicyHandler.UpdateIdentities(nil, deletedIdentities, &wg)
 	}
-	if addedIdentities != nil {
+	if len(addedIdentities) != 0 {
 		ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg)
 	}
 	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
