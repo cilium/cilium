@@ -166,7 +166,26 @@ func (m *metadata) waitForRevision(rev uint64) {
 	m.injectedRevisionCond.L.Unlock()
 }
 
+// canonicalPrefix returns the canonical version of the prefix which must be
+// used for lookups in the metadata prefix map. The canonical representation of
+// a prefix has the lower bits of the address always zeroed out and does
+// not contain any IPv4-mapped IPv6 address
+func canonicalPrefix(prefix netip.Prefix) netip.Prefix {
+	if !prefix.IsValid() {
+		return prefix // no canonical version of invalid prefix
+	}
+
+	// Prefix() always zeroes out the lower bits
+	p, err := prefix.Addr().Unmap().Prefix(prefix.Bits())
+	if err != nil {
+		return prefix // no canonical version of invalid prefix
+	}
+
+	return p
+}
+
 func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource types.ResourceID, info ...IPMetadata) {
+	prefix = canonicalPrefix(prefix)
 	if _, ok := m.m[prefix]; !ok {
 		m.m[prefix] = make(prefixInfo)
 	}
@@ -192,7 +211,7 @@ func (ipc *IPCache) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source
 }
 
 func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
-	return m.m[prefix]
+	return m.m[canonicalPrefix(prefix)]
 }
 
 // InjectLabels injects labels from the ipcache metadata (IDMD) map into the
@@ -645,6 +664,7 @@ func (m *metadata) filterByLabels(filter labels.Labels) []netip.Prefix {
 //
 // This function assumes that the ipcache metadata lock is held for writing.
 func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ...IPMetadata) {
+	prefix = canonicalPrefix(prefix)
 	info, ok := m.m[prefix]
 	if !ok || info[resource] == nil {
 		return
