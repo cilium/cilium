@@ -1299,7 +1299,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		if (ctx_is_xdp())
 			return CTX_ACT_OK;
 
-		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, 0,
+		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
 				  TRACE_IFINDEX_UNKNOWN,
 				  TRACE_REASON_POLICY, monitor);
@@ -1568,7 +1568,8 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * for IPv6, and so it's not possible yet for masqueraded traffic to get
 	 * redirected to another interface
 	 */
-	send_trace_notify6(ctx, obs_point, 0, 0, &saddr, 0, NATIVE_DEV_IFINDEX,
+	send_trace_notify6(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, &saddr,
+			   TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
 			   trace.reason, trace.monitor);
 
 	return ret;
@@ -1630,7 +1631,8 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, NATIVE_DEV_IFINDEX,
+		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
 				  trace.reason, trace.monitor);
 
 	return ret;
@@ -2833,7 +2835,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		if (ctx_is_xdp())
 			return CTX_ACT_OK;
 
-		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, 0,
+		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
 				  TRACE_IFINDEX_UNKNOWN,
 				  TRACE_REASON_POLICY, monitor);
@@ -3182,7 +3184,8 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify4(ctx, obs_point, 0, 0, saddr, 0, NATIVE_DEV_IFINDEX,
+		send_trace_notify4(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, saddr,
+				   TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
 				   trace.reason, trace.monitor);
 
 	return ret;
@@ -3249,7 +3252,8 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, NATIVE_DEV_IFINDEX,
+		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
 				  trace.reason, trace.monitor);
 
 	return ret;

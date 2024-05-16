@@ -68,6 +68,7 @@ enum {
 	TRACE_AGGREGATE_ACTIVE_CT = 3, /* Ratelimit active connection traces */
 };
 
+#define TRACE_EP_ID_UNKNOWN		0
 #define TRACE_IFINDEX_UNKNOWN		0	/* Linux kernel doesn't use ifindex 0 */
 
 #ifndef MONITOR_AGGREGATION
