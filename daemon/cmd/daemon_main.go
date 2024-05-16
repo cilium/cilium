@@ -372,6 +372,10 @@ func initializeFlags() {
 	flags.Bool(option.WireguardEncapsulate, false, "Encapsulate via Cilium tunnel (VXLAN/Geneve) before encrypting with WireGuard")
 	option.BindEnv(Vp, option.WireguardEncapsulate)
 
+	flags.Bool(option.EnableIPSecXfrmStateCaching, defaults.EnableIPSecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
+	flags.MarkHidden(option.EnableIPSecXfrmStateCaching)
+	option.BindEnv(Vp, option.EnableIPSecXfrmStateCaching)
+
 	flags.Bool(option.EnableL2Announcements, false, "Enable L2 announcements")
 	option.BindEnv(Vp, option.EnableL2Announcements)
 
