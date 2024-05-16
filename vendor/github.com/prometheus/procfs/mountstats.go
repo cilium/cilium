@@ -88,7 +88,7 @@ type MountStatsNFS struct {
 	// Statistics broken down by filesystem operation.
 	Operations []NFSOperationStats
 	// Statistics about the NFS RPC transport.
-	Transport NFSTransportStats
+	Transport []NFSTransportStats
 }
 
 // mountStats implements MountStats.
@@ -432,7 +432,7 @@ func parseMountStatsNFS(s *bufio.Scanner, statVersion string) (*MountStatsNFS, e
 				return nil, err
 			}
 
-			stats.Transport = *tstats
+			stats.Transport = append(stats.Transport, *tstats)
 		}
 
 		// When encountering "per-operation statistics", we must break this

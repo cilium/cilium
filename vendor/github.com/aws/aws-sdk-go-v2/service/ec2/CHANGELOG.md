@@ -1,3 +1,7 @@
+# v1.161.2 (2024-05-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.161.1 (2024-05-10)
 
 * **Bug Fix**: Fix serialization behavior of empty lists.
