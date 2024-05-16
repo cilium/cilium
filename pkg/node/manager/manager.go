@@ -14,13 +14,13 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -316,56 +316,72 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
 func (m *manager) backgroundSync(ctx context.Context) error {
-	syncTimer, syncTimerDone := inctimer.New()
-	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
-		log.WithField("syncInterval", syncInterval.String()).Debug("Performing regular background work")
 
-		var errs error
-		// get a copy of the node identities to avoid locking the entire manager
-		// throughout the process of running the datapath validation.
-		nodes := m.GetNodeIdentities()
-		for _, nodeIdentity := range nodes {
-			// Retrieve latest node information in case any event
-			// changed the node since the call to GetNodes()
-			m.mutex.RLock()
-			entry, ok := m.nodes[nodeIdentity]
-			if !ok {
-				m.mutex.RUnlock()
-				continue
-			}
+		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
+		err := m.singleBackgroundLoop(ctx, syncInterval)
+		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
 
-			entry.mutex.Lock()
-			m.mutex.RUnlock()
-			m.Iter(func(nh datapath.NodeHandler) {
-				if err := nh.NodeValidateImplementation(entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"handler": nh.Name(),
-						"node":    entry.node.Name,
-					}).WithError(err).
-						Error("Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.")
-					errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
-				}
-			})
-			entry.mutex.Unlock()
-
-			m.metrics.DatapathValidations.Inc()
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
 		}
 
 		hr := cell.GetHealthReporter(m.healthScope, "background-sync")
-		if errs != nil {
-			hr.Degraded("Failed to apply node validation", errs)
+		if err != nil {
+			hr.Degraded("Failed to apply node validation", err)
 		} else {
 			hr.OK("Node validation successful")
+		}
+	}
+}
+
+func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime time.Duration) error {
+	var errs error
+	// get a copy of the node identities to avoid locking the entire manager
+	// throughout the process of running the datapath validation.
+	nodes := m.GetNodeIdentities()
+	limiter := rate.NewLimiter(
+		rate.Limit(float64(len(nodes))/float64(expectedLoopTime.Seconds())),
+		1, // One token in bucket to amortize for latency of the operation
+	)
+	for _, nodeIdentity := range nodes {
+		if err := limiter.Wait(ctx); err != nil {
+			log.WithError(err).Debug("Error while rate limiting backgroundSync updates")
 		}
 
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-syncTimer.After(syncInterval):
+		default:
 		}
+		// Retrieve latest node information in case any event
+		// changed the node since the call to GetNodes()
+		m.mutex.RLock()
+		entry, ok := m.nodes[nodeIdentity]
+		if !ok {
+			m.mutex.RUnlock()
+			continue
+		}
+		entry.mutex.Lock()
+		m.mutex.RUnlock()
+		m.Iter(func(nh datapath.NodeHandler) {
+			if err := nh.NodeValidateImplementation(entry.node); err != nil {
+				log.WithFields(logrus.Fields{
+					"handler": nh.Name(),
+					"node":    entry.node.Name,
+				}).WithError(err).
+					Error("Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.")
+				errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
+			}
+		})
+		entry.mutex.Unlock()
+
+		m.metrics.DatapathValidations.Inc()
 	}
+	return errs
 }
 
 // legacyNodeIpBehavior returns true if the agent is still running in legacy
