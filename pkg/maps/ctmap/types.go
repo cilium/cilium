@@ -627,7 +627,7 @@ func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
 		timeDiff = ""
 	}
 
-	return fmt.Sprintf("expires=%d%s Packets=%d Bytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d IfIndex=%d \n",
+	return fmt.Sprintf("expires=%d%s Packets=%d Bytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d IfIndex=%d BackendID=%d \n",
 		c.Lifetime,
 		timeDiff,
 		c.Packets,
@@ -639,7 +639,8 @@ func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
 		c.flagsString(),
 		byteorder.NetworkToHost16(c.RevNAT),
 		c.SourceSecurityID,
-		c.IfIndex)
+		c.IfIndex,
+		c.BackendID)
 }
 
 // String returns the readable format
