@@ -136,7 +136,7 @@ func waitForNetlinkDevices(configByMac configMap) (linkByMac linkMap, err error)
 	for try := 0; try < waitForNetlinkDevicesMaxTries; try++ {
 		links, err := netlink.LinkList()
 		if err != nil {
-			log.WithError(err).Error("failed to obtain eni link list")
+			log.WithError(err).Warn("failed to obtain eni link list - retrying")
 		} else {
 			linkByMac = linkMap{}
 			for _, link := range links {
