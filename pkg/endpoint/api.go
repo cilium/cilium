@@ -582,8 +582,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		default:
 			// Caller skips regeneration if reason == "". Bump the skipped regeneration level so that next
 			// regeneration will realise endpoint changes.
-			if e.skippedRegenerationLevel < regeneration.RegenerateWithDatapathRewrite {
-				e.skippedRegenerationLevel = regeneration.RegenerateWithDatapathRewrite
+			if e.skippedRegenerationLevel < regeneration.RegenerateWithDatapath {
+				e.skippedRegenerationLevel = regeneration.RegenerateWithDatapath
 			}
 		}
 	}
