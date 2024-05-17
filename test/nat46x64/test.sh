@@ -32,7 +32,7 @@ function cilium_install {
 # * "nginx" runs the nginx server.
 
 docker network create --subnet="172.12.42.0/24,2001:db8:1::/64" --ipv6 cilium-l4lb
-docker run --privileged --name lb-node -d \
+docker run --privileged --name lb-node -d --restart=on-failure:10 \
     --network cilium-l4lb -v /lib/modules:/lib/modules \
     docker:dind
 docker exec -t lb-node mount bpffs /sys/fs/bpf -t bpf
