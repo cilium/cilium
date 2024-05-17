@@ -34,7 +34,7 @@ clang -O2 -Wall --target=bpf -c test_tc_tunnel.c -o test_tc_tunnel.o
 # * "nginx" runs the nginx server.
 
 docker network create cilium-l4lb
-docker run --privileged --name lb-node -d \
+docker run --privileged --name lb-node -d --restart=on-failure:10 \
     --network cilium-l4lb -v /lib/modules:/lib/modules \
     docker:dind
 docker run --name nginx -d --network cilium-l4lb nginx
