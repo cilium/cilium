@@ -82,6 +82,11 @@ type ipSecKey struct {
 	Aead  *netlink.XfrmStateAlgo
 }
 
+type oldXfrmStateKey struct {
+	Spi int
+	Dst [16]byte
+}
+
 var (
 	ipSecLock lock.RWMutex
 
@@ -134,6 +139,11 @@ var (
 	// we've added the catch-all default-drop policy.
 	removeStaleIPv4XFRMOnce sync.Once
 	removeStaleIPv6XFRMOnce sync.Once
+
+	oldXFRMInMark *netlink.XfrmMark = &netlink.XfrmMark{
+		Value: linux_defaults.RouteMarkDecrypt,
+		Mask:  linux_defaults.IPsecMarkBitMask,
+	}
 )
 
 func getGlobalIPsecKey(ip net.IP) *ipSecKey {
@@ -326,10 +336,6 @@ func xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
 	oldXFRMOutMark := &netlink.XfrmMark{
 		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(new.Spi)),
 		Mask:  linux_defaults.IPsecOldMarkMaskOut,
-	}
-	oldXFRMInMark := &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkDecrypt,
-		Mask:  linux_defaults.IPsecMarkBitMask,
 	}
 	for _, s := range states {
 		// This is either the XFRM OUT state or the XFRM IN state from a
@@ -741,16 +747,64 @@ func ipsecDeleteXfrmState(nodeID uint16) {
 		return
 	}
 	xfrmStatesToDelete := []netlink.XfrmState{}
+	oldXfrmInStates := map[oldXfrmStateKey]netlink.XfrmState{}
 	for _, s := range xfrmStateList {
 		if matchesOnNodeID(s.Mark) && ipsec.GetNodeIDFromXfrmMark(s.Mark) == nodeID {
 			xfrmStatesToDelete = append(xfrmStatesToDelete, s)
 		}
+		if xfrmMarkEqual(s.Mark, oldXFRMInMark) {
+			key := oldXfrmStateKey{
+				Spi: s.Spi,
+				Dst: [16]byte(s.Dst.To16()),
+			}
+			oldXfrmInStates[key] = s
+		}
 	}
 	for _, s := range xfrmStatesToDelete {
-		if err := netlink.XfrmStateDel(&s); err != nil {
+		key := oldXfrmStateKey{
+			Spi: s.Spi,
+			Dst: [16]byte(s.Dst.To16()),
+		}
+		var oldXfrmInState *netlink.XfrmState = nil
+		old, ok := oldXfrmInStates[key]
+		if ok {
+			oldXfrmInState = &old
+		}
+		if err := safeDeleteXfrmState(&s, oldXfrmInState); err != nil {
 			scopedLog.WithError(err).Warning("Failed to delete XFRM state")
 		}
 	}
+}
+
+// safeDeleteXfrmState deletes the given XFRM state. Specifically, if the
+// state is to catch ingress traffic marked with nodeID (0xXXXX0d00), we
+// temporarily remove the old XFRM state that matches 0xd00/0xf00. This is to
+// workaround a kernel issue that prevents us from deleting a specific XFRM
+// state (e.g. catching 0xXXXX0d00/0xffff0f00) when there is also a general
+// xfrm state (e.g. catching 0xd00/0xf00). When both XFRM states coexist,
+// kernel deletes the general XFRM state instead of the specific one, even if
+// the deleting request is for the specific one.
+func safeDeleteXfrmState(state *netlink.XfrmState, oldState *netlink.XfrmState) (err error) {
+	if getDirFromXfrmMark(state.Mark) == dirIngress && ipsec.GetNodeIDFromXfrmMark(state.Mark) != 0 && oldState != nil {
+
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.SPI:              state.Spi,
+			logfields.SourceIP:         state.Src,
+			logfields.DestinationIP:    state.Dst,
+			logfields.TrafficDirection: getDirFromXfrmMark(state.Mark),
+			logfields.NodeID:           getNodeIDAsHexFromXfrmMark(state.Mark),
+		})
+
+		err, deferFn := xfrmTemporarilyRemoveState(scopedLog, *oldState, string(dirIngress))
+		if err != nil {
+			scopedLog.WithError(err).Errorf("Failed to remove old XFRM %s state %s", string(dirIngress), oldState.String())
+			return err
+		} else {
+			defer deferFn()
+		}
+	}
+
+	return netlink.XfrmStateDel(state)
 }
 
 func ipsecDeleteXfrmPolicy(nodeID uint16) {
