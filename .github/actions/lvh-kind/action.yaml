@@ -31,7 +31,7 @@ runs:
         lvh-version: "v0.0.19"
         install-dependencies: 'true'
         port-forward: '6443:6443'
-        ssh-startup-wait-retries: 600
+        ssh-connect-wait-retries: 600
         cmd: |
           git config --global --add safe.directory /host
 
