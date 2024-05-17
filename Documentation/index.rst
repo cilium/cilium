@@ -87,6 +87,7 @@ get started and experiment with Cilium.
    network/l2-announcements
    network/node-ipam
    network/pod-mac-address
+   network/multicast
 
 .. toctree::
    :maxdepth: 2
