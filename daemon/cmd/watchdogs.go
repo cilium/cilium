@@ -131,7 +131,7 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 				"Consider investigating whether other software running on this machine is removing Cilium's endpoint BPF programs. " +
 				"If endpoint BPF programs are removed, the associated pods will lose connectivity and only reinstating the programs will restore connectivity.",
 		)
-	wg, err := d.TriggerReloadWithoutCompile(epBPFProgWatchdog)
+	wg, err := d.TriggerReload(epBPFProgWatchdog)
 	if err != nil {
 		log.WithError(err).Error("Failed to reload Cilium endpoints BPF programs")
 	} else {

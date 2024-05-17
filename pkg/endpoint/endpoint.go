@@ -1074,7 +1074,7 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 
 	// Only regenerate if necessary.
 	if cfg.Options == nil || e.updateAndOverrideEndpointOptions(om) || e.status.CurrentStatus() != OK {
-		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapathRewrite
+		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapath
 
 		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
 			" attempting to regenerate")
@@ -2274,7 +2274,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	readyToRegenerate := false
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason:            "updated security labels",
-		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+		RegenerationLevel: regeneration.RegenerateWithDatapath,
 	}
 
 	// Regeneration is only triggered once the endpoint ID has been

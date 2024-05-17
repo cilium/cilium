@@ -775,7 +775,7 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				Reason:        reasonRegenRetry,
 				// Completely rewrite the endpoint - we don't know the nature
 				// of the failure, simply that something failed.
-				RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+				RegenerationLevel: regeneration.RegenerateWithDatapath,
 			}
 			regen, _ := e.SetRegenerateStateIfAlive(regenMetadata)
 			if !regen {

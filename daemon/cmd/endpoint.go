@@ -549,7 +549,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		regenMetadata := &regeneration.ExternalRegenerationMetadata{
 			Reason:            "Initial build on endpoint creation",
 			ParentContext:     ctx,
-			RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+			RegenerationLevel: regeneration.RegenerateWithDatapath,
 		}
 		build, err := ep.SetRegenerateStateIfAlive(regenMetadata)
 		if err != nil {
@@ -735,7 +735,7 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 	if reason != "" {
 		regenMetadata := &regeneration.ExternalRegenerationMetadata{
 			Reason:            reason,
-			RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+			RegenerationLevel: regeneration.RegenerateWithDatapath,
 		}
 		if !<-ep.Regenerate(regenMetadata) {
 			err := api.Error(PatchEndpointIDFailedCode,
