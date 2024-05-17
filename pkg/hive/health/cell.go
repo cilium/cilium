@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/statedb/index"
 
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var Cell = cell.Module(
@@ -20,6 +21,10 @@ var Cell = cell.Module(
 		newHealthV2Provider,
 		statedb.RWTable[types.Status].ToTable,
 	),
+
+	// Module health metrics.
+	cell.Invoke(metricPublisher),
+	metrics.Metric(newMetrics),
 )
 
 var (
