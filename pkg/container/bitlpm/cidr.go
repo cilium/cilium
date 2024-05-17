@@ -23,25 +23,31 @@ func NewCIDRTrie[T any]() *CIDRTrie[T] {
 	}
 }
 
-// Lookup returns the longest matched value for a given address.
-func (c *CIDRTrie[T]) Lookup(addr netip.Addr) (T, bool) {
+// ExactLookup returns the value for a given CIDR, but only
+// if there is an exact match for the CIDR in the Trie.
+func (c *CIDRTrie[T]) ExactLookup(cidr netip.Prefix) (T, bool) {
+	return c.treeForFamily(cidr).ExactLookup(uint(cidr.Bits()), cidrKey(cidr))
+}
+
+// LongestPrefixMatch returns the longest matched value for a given address.
+func (c *CIDRTrie[T]) LongestPrefixMatch(addr netip.Addr) (T, bool) {
 	if !addr.IsValid() {
 		var def T
 		return def, false
 	}
 	bits := addr.BitLen()
 	prefix := netip.PrefixFrom(addr, bits)
-	return c.treeForFamily(prefix).Lookup(cidrKey(prefix))
+	return c.treeForFamily(prefix).LongestPrefixMatch(cidrKey(prefix))
 }
 
-// Ancestors iterates over every prefix-key pair that contains the prefix-key argument pair.
+// Ancestors iterates over every CIDR pair that contains the CIDR argument.
 func (c *CIDRTrie[T]) Ancestors(cidr netip.Prefix, fn func(k netip.Prefix, v T) bool) {
 	c.treeForFamily(cidr).Ancestors(uint(cidr.Bits()), cidrKey(cidr), func(prefix uint, k Key[netip.Prefix], v T) bool {
 		return fn(k.Value(), v)
 	})
 }
 
-// Descendants iterates over every prefix-key pair that is contained by the prefix-key argument pair.
+// Descendants iterates over every CIDR that is contained by the CIDR argument.
 func (c *CIDRTrie[T]) Descendants(cidr netip.Prefix, fn func(k netip.Prefix, v T) bool) {
 	c.treeForFamily(cidr).Descendants(uint(cidr.Bits()), cidrKey(cidr), func(prefix uint, k Key[netip.Prefix], v T) bool {
 		return fn(k.Value(), v)

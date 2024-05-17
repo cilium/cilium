@@ -185,9 +185,85 @@ func TestUnsignedUpsert(t *testing.T) {
 	}
 }
 
-// TestUnsignedLookup looks up every possible value expressed
+// TestUnsignedExactLookup looks up every entry expressed
+// in a trie structure to ensure that exact lookup only returns
+// on when keys match exactly.
+func TestUnsignedExactLookup(t *testing.T) {
+	tests := []struct {
+		name   string
+		ranges []uint16Range
+	}{
+		{
+			ranges: uint16Range65535,
+		},
+		{
+			name:   " least entries for largest range",
+			ranges: uint16Range0_65535,
+		},
+		{
+			name:   " most entries for largest range",
+			ranges: uint16Range1_65534,
+		},
+		{
+			ranges: uint16Range0_1023,
+		},
+		{
+			ranges: uint16Range1_1023,
+		},
+		{
+			ranges: uint16Range0_7,
+		},
+		{
+			ranges: uint16Range1_7,
+		},
+		{
+			ranges: uint16Range0_1,
+		},
+		{
+			ranges: uint16Range1_1,
+		},
+	}
+	for _, tt := range tests {
+		firstRange := tt.ranges[0]
+		lastRange := tt.ranges[len(tt.ranges)-1]
+		name := fmt.Sprintf("%d_%d%s", firstRange.start, lastRange.end, tt.name)
+		// Check that every valid key returns the correct
+		// entry and every invalid key returns nothing.
+		t.Run(name, func(t *testing.T) {
+			ut := NewUintTrie[uint16, string]()
+			for _, pr := range tt.ranges {
+				ut.Upsert(pr.prefix(), pr.start, fmt.Sprintf("%d-%d", pr.start, pr.end))
+			}
+			for _, pr := range tt.ranges {
+				entry := fmt.Sprintf("%d-%d", pr.start, pr.end)
+				pref := pr.prefix()
+				// check if one-less than an exact prefix returns anything
+				if pref > 0 {
+					_, ok := ut.ExactLookup(pref-1, pr.start)
+					if ok {
+						t.Fatalf("ExactLookup returned a non-existent key-entry for prefix (%d), key (%d)", pr.prefix()-1, pr.start)
+					}
+				}
+				// check if one-more than an exact prefix returns anything
+				if pref < 16 {
+					_, ok := ut.ExactLookup(pref+1, pr.start)
+					if ok {
+						t.Fatalf("ExactLookup returned a non-existent key-entry for prefix (%d), key (%d)", pr.prefix()+1, pr.start)
+					}
+				}
+				// check if an exact lookup works
+				got, ok := ut.ExactLookup(pr.prefix(), pr.start)
+				if !ok || got != entry {
+					t.Fatalf("ExactLookup did not return the expected prefix (%d), key (%d); got %s", pr.prefix(), pr.start, got)
+				}
+			}
+		})
+	}
+}
+
+// TestUnsignedLongestPrefixMatch looks up every possible value expressed
 // in a trie structure by the most specific prefix.
-func TestUnsignedLookup(t *testing.T) {
+func TestUnsignedLongestPrefixMatch(t *testing.T) {
 	tests := []struct {
 		name   string
 		ranges []uint16Range
@@ -241,7 +317,7 @@ func TestUnsignedLookup(t *testing.T) {
 				// purpose of the loop condition as some tests
 				// overflow uint16 causing an infinite loop.
 				for p := uint(start); p <= uint(end); p++ {
-					got, _ := ut.Lookup(uint16(p))
+					got, _ := ut.LongestPrefixMatch(uint16(p))
 					if entry != got {
 						t.Fatalf("Looking up key %d, expected entry %q, but got %q", p, entry, got)
 					}
@@ -251,13 +327,13 @@ func TestUnsignedLookup(t *testing.T) {
 			start := firstRange.start
 			end := lastRange.end
 			for p := uint(0); p < uint(start); p++ {
-				got, ok := ut.Lookup(uint16(p))
+				got, ok := ut.LongestPrefixMatch(uint16(p))
 				if ok {
 					t.Fatalf("Looking up key %d, expected no entry, but got %q", p, got)
 				}
 			}
 			for p := uint(end) + 1; p <= uint(65535); p++ {
-				got, ok := ut.Lookup(uint16(p))
+				got, ok := ut.LongestPrefixMatch(uint16(p))
 				if ok {
 					t.Fatalf("Looking up key %d, expected no entry, but got %q", p, got)
 				}
@@ -621,7 +697,7 @@ func BenchmarkTrieAncestorsRange(b *testing.B) {
 	}
 }
 
-func BenchmarkTrieLookup(b *testing.B) {
+func BenchmarkTrieLongestPrefixMatch(b *testing.B) {
 	tri := NewUintTrie[uint32, *struct{}]()
 	emptyS := &struct{}{}
 	count := uint(0)
@@ -644,7 +720,7 @@ func BenchmarkTrieLookup(b *testing.B) {
 	for i := uint32(0); i < 255; i++ {
 		upperOct := i << 8
 		for t := uint32(0); t < 255; t++ {
-			_, ok := tri.Lookup(0xffff_0000 | upperOct | t)
+			_, ok := tri.LongestPrefixMatch(0xffff_0000 | upperOct | t)
 			if !ok {
 				b.Fatal("expected valid lookup, but got nil")
 			}

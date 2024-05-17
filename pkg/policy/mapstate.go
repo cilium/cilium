@@ -124,25 +124,8 @@ type mapStateMap struct {
 	len int
 }
 
-// exactLookup returns the idMap associated with a key, but only returns
-// if the key prefixes match exactly.
-func (msm *mapStateMap) exactLookup(k Key) (idMap map[identity.NumericIdentity]MapStateEntry, ok bool) {
-	var lastPrefix uint
-	msm.trie.Ancestors(k.PrefixLength(), k, func(prefix uint, _ bitlpm.Key[Key], m map[identity.NumericIdentity]MapStateEntry) bool {
-		lastPrefix = prefix
-		idMap = m
-		return true
-	})
-	if k.PrefixLength() != lastPrefix {
-		idMap = nil
-		return
-	}
-	ok = true
-	return
-}
-
 func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
-	idMap, ok := msm.exactLookup(k)
+	idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
 	if !ok || idMap == nil {
 		return MapStateEntry{}, false
 	}
@@ -152,7 +135,7 @@ func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
 
 func (msm *mapStateMap) Upsert(k Key, e MapStateEntry) {
 	var exists = true
-	idMap, ok := msm.exactLookup(k)
+	idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
 	if !ok || idMap == nil {
 		exists = false
 		idMap = make(map[identity.NumericIdentity]MapStateEntry)
@@ -171,7 +154,7 @@ func (msm *mapStateMap) Upsert(k Key, e MapStateEntry) {
 }
 
 func (msm *mapStateMap) Delete(k Key) (deleted bool) {
-	idMap, ok := msm.exactLookup(k)
+	idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
 	if ok && idMap != nil {
 		if _, ok := idMap[identity.NumericIdentity(k.Identity)]; ok {
 			delete(idMap, identity.NumericIdentity(k.Identity))
@@ -454,7 +437,7 @@ func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Ke
 // This is called when a dependent entry is being deleted.
 // If 'old' is not nil, then old value is added there before any modifications.
 func (ms *mapState) RemoveDependent(owner Key, dependent Key, changes ChangeState) {
-	if idMap, ok := ms.allows.exactLookup(owner); ok {
+	if idMap, ok := ms.allows.trie.ExactLookup(owner.PrefixLength(), owner); ok {
 		if e, exists := idMap[identity.NumericIdentity(owner.Identity)]; exists {
 			changes.insertOldIfNotExists(owner, e)
 			e.RemoveDependent(dependent)
@@ -463,7 +446,7 @@ func (ms *mapState) RemoveDependent(owner Key, dependent Key, changes ChangeStat
 			return
 		}
 	}
-	if idMap, ok := ms.denies.exactLookup(owner); ok {
+	if idMap, ok := ms.denies.trie.ExactLookup(owner.PrefixLength(), owner); ok {
 		if e, exists := idMap[identity.NumericIdentity(owner.Identity)]; exists {
 			changes.insertOldIfNotExists(owner, e)
 			e.RemoveDependent(dependent)
