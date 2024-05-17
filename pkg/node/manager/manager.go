@@ -395,14 +395,8 @@ func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime tim
 			m.mutex.RUnlock()
 			continue
 		}
-		m.mutex.RUnlock()
-
-		// TODO(marseel): Isn't that a bug?
-		// In mean time entry m.nodes[nodeIdentity] can change
-		// and trigger dp update in NodeUpdated,
-		// node entry would have different lock than this stale entry.
-		// In that case we would override that update with stale node here.
 		entry.mutex.Lock()
+		m.mutex.RUnlock()
 		{
 			m.Iter(func(nh datapath.NodeHandler) {
 				if err := nh.NodeValidateImplementation(entry.node); err != nil {
