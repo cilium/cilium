@@ -608,10 +608,7 @@ func (ct *ConnectivityTest) report() error {
 func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	ct.Log("🔭 Enabling Hubble telescope...")
 
-	dialCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-
-	c, err := grpc.DialContext(dialCtx, ct.params.HubbleServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, err := grpc.NewClient(ct.params.HubbleServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
