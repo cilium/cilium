@@ -429,9 +429,6 @@ func (m *CgroupManager) getPodMetadata(cgroupId uint64, podMetadataOut chan *Pod
 		Namespace: pm.namespace,
 	}
 	podMetadata.IPs = append(podMetadata.IPs, pm.ips...)
-	log.WithFields(logrus.Fields{
-		"container-cgroup-id": cgroupId,
-	}).Debugf("Pod metadata: %+v", podMetadata)
 
 	m.metadataCacheLock.Lock()
 	m.metadataCache[cgroupId] = podMetadata
