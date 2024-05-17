@@ -1351,7 +1351,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u32 src_sec_identity = 0;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
-#ifdef ENABLE_HOST_FIREWALL
+#if defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	__u16 proto = 0;
 #endif
 
@@ -1495,6 +1495,75 @@ skip_host_firewall:
 	ret = lb_handle_health(ctx);
 	if (ret != CTX_ACT_OK)
 		goto exit;
+#endif
+
+#ifdef ENABLE_EGRESS_GATEWAY_COMMON
+	{
+		void *data, *data_end;
+		struct iphdr *ip4;
+		struct ipv4_ct_tuple tuple = {};
+		struct ct_state ct_state = {};
+		enum ct_status ct_status;
+		bool has_l4_header = true;
+		int l4_off;
+		struct remote_endpoint_info *info;
+		struct endpoint_info *src_ep;
+		__u32 dst_sec_identity = UNKNOWN_ID;
+
+		if (!validate_ethertype(ctx, &proto) || proto != bpf_htons(ETH_P_IP))
+			goto skip_egress_gateway;
+
+		if (ctx_egw_done(ctx))
+			goto skip_egress_gateway;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+
+		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+		ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple,
+					&has_l4_header);
+		if (IS_ERR(ret)) {
+			if (ret == DROP_CT_UNKNOWN_PROTO)
+				goto skip_egress_gateway;
+
+			goto drop_err;
+		}
+
+		__ipv4_ct_tuple_reverse(&tuple);
+		ret = ct_lazy_lookup4(get_ct_map4(&tuple),
+				      &tuple, ctx, ipv4_is_fragment(ip4),
+				      l4_off, has_l4_header, CT_EGRESS,
+				      SCOPE_FORWARD, CT_ENTRY_ANY,
+				      &ct_state, &trace.monitor);
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		ct_status = (enum ct_status)ret;
+
+		src_ep = __lookup_ip4_endpoint(ip4->saddr);
+		if (src_ep)
+			src_sec_identity = src_ep->sec_id;
+
+		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		if (info && info->sec_identity)
+			dst_sec_identity = info->sec_identity;
+
+		ret = egress_gw_handle_packet(ctx, &tuple, ct_status,
+					      src_sec_identity, dst_sec_identity,
+					      &trace);
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		if (ret != CTX_ACT_OK)
+			return ret;
+	}
+skip_egress_gateway:
 #endif
 
 #ifdef ENABLE_NODEPORT

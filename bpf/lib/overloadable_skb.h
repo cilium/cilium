@@ -251,6 +251,19 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;
 }
 
+#ifdef ENABLE_EGRESS_GATEWAY_COMMON
+static __always_inline void ctx_egw_done_set(struct __sk_buff *ctx)
+{
+	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
+	ctx->mark |= MARK_MAGIC_EGW_DONE;
+}
+
+static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
+{
+	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_EGW_DONE;
+}
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
