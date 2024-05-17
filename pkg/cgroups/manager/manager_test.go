@@ -120,9 +120,9 @@ var (
 	}
 )
 
-func newCgroupManagerTest(pMock providerMock, cg cgroup) *CgroupManager {
+func newCgroupManagerTest(pMock providerMock, cg cgroup, events chan podEventStatus) *CgroupManager {
 	// Unbuffered channel tests to detect any issues on the caller side.
-	return initManager(pMock, cg, 0)
+	return initManager(pMock, cg, 0, events)
 }
 
 func setup(tb testing.TB) {
@@ -149,7 +149,7 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 		c3Id: pod2C1CgrpPath,
 	}}
 	pod10 := pod1.DeepCopy()
-	mm := newCgroupManagerTest(provMock, cgMock)
+	mm := newCgroupManagerTest(provMock, cgMock, nil)
 
 	type test struct {
 		input  *slimcorev1.Pod
@@ -190,7 +190,17 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 		c3Id: pod3C1CgrpPath,
 		c1Id: pod3C2CgrpPath,
 	}}
-	mm := newCgroupManagerTest(provMock, cgMock)
+	events := make(chan podEventStatus)
+	mm := newCgroupManagerTest(provMock, cgMock, events)
+	deleteEv := make(chan podEventStatus)
+	go func() {
+		for status := range events {
+			if status.eventType != podDeleteEvent {
+				continue
+			}
+			deleteEv <- status
+		}
+	}()
 	newPod := pod3.DeepCopy()
 	cs := slimcorev1.ContainerStatus{
 		State:       slimcorev1.ContainerState{Running: &slimcorev1.ContainerStateRunning{}},
@@ -215,12 +225,25 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 	got2 := mm.GetPodMetadataForContainer(c1CId)
 	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got1)
 	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got2)
+
+	// Delete pod to assert no metadata is found.
+	mm.OnDeletePod(pod3)
+	// Wait for delete event to complete.
+	ev := <-deleteEv
+	require.Equal(t, podEventStatus{
+		name:      pod3.Name,
+		namespace: pod3.Namespace,
+		eventType: podDeleteEvent,
+	}, ev)
+
+	got = mm.GetPodMetadataForContainer(c3CId)
+	require.Nil(t, got)
 }
 
 func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 	// Disable the feature flag.
 	option.Config.EnableSocketLBTracing = false
-	mm := newCgroupManagerTest(providerMock{}, cgroupMock{})
+	mm := newCgroupManagerTest(providerMock{}, cgroupMock{}, nil)
 	c1CId := uint64(1234)
 
 	mm.OnAddPod(pod1)
@@ -248,7 +271,7 @@ func BenchmarkGetPodMetadataForContainer(b *testing.B) {
 		c3Id: pod3C1CgrpPath,
 		c1Id: pod3C2CgrpPath,
 	}}
-	mm := newCgroupManagerTest(provMock, cgMock)
+	mm := newCgroupManagerTest(provMock, cgMock, nil)
 
 	// Add pod, and check for pod metadata for their containers.
 	mm.OnAddPod(pod3)
