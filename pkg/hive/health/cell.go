@@ -51,7 +51,7 @@ var (
 )
 
 func newTablesPrivate(db *statedb.DB) (statedb.RWTable[types.Status], error) {
-	statusTable, err := statedb.NewTable(HealthTableName,
+	statusTable, err := statedb.NewTable(TableName,
 		PrimaryIndex,
 		LevelIndex)
 	if err != nil {

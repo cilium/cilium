@@ -136,7 +136,7 @@ func init() {
 		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
 		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
 		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
-		statedbTableCommand[types.Status](health.HealthTableName),
+		statedbTableCommand[types.Status](health.TableName),
 		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
 		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
 	)
