@@ -1006,8 +1006,7 @@ func (d *Daemon) Close() {
 	d.controllers.RemoveAllAndWait()
 }
 
-// TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
-// without recompiling the datapath logic for each endpoint. It first attempts
+// TriggerReload causes all BPF programs and maps to be reloaded. It first attempts
 // to recompile the base programs, and if this fails returns an error. If base
 // program load is successful, it subsequently triggers regeneration of all
 // endpoints and returns a waitgroup that may be used by the caller to wait for
@@ -1016,7 +1015,7 @@ func (d *Daemon) Close() {
 // If an error is returned, then no regeneration was successful. If no error
 // is returned, then the base programs were successfully regenerated, but
 // endpoints may or may not have successfully regenerated.
-func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
+func (d *Daemon) TriggerReload(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
 	if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
 		return nil, fmt.Errorf("unable to recompile base programs from %s: %w", reason, err)
@@ -1024,7 +1023,7 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 
 	regenRequest := &regeneration.ExternalRegenerationMetadata{
 		Reason:            reason,
-		RegenerationLevel: regeneration.RegenerateWithDatapathLoad,
+		RegenerationLevel: regeneration.RegenerateWithDatapath,
 	}
 	return d.endpointManager.RegenerateAllEndpoints(regenRequest), nil
 }
@@ -1034,7 +1033,7 @@ func (d *Daemon) datapathRegen(reasons []string) {
 
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason:            reason,
-		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+		RegenerationLevel: regeneration.RegenerateWithDatapath,
 	}
 	d.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
 }
