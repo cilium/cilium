@@ -857,6 +857,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
 				     const bool skip_l3_xlate,
+				     const bool scope_switch,
 				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
@@ -947,7 +948,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (backend && !state->syn)
 				break;
 
-			svc = lb6_lookup_service(key, false, true);
+			svc = lb6_lookup_service(key, scope_switch, true);
 			if (!svc)
 				goto no_service;
 
@@ -1539,6 +1540,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct ct_state *state,
 				     bool has_l4_header,
 				     const bool skip_l3_xlate,
+				     const bool scope_switch,
 				     __u32 *cluster_id __maybe_unused,
 				     __s8 *ext_err)
 {
@@ -1643,7 +1645,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (backend && !state->syn)
 				break;
 
-			svc = lb4_lookup_service(key, false, true);
+			svc = lb4_lookup_service(key, scope_switch, true);
 			if (!svc)
 				goto no_service;
 

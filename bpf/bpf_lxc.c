@@ -86,6 +86,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	__u32 cluster_id = 0;
 	int l4_off;
 	int ret = 0;
+	const bool scope_switch = is_defined(ENABLE_NODEPORT);
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
@@ -99,7 +100,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	lb4_fill_key(&key, &tuple);
 
-	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
+	svc = lb4_lookup_service(&key, scope_switch, false);
 	if (svc) {
 #if defined(ENABLE_L7_LB)
 		if (lb4_svc_is_l7loadbalancer(svc)) {
@@ -109,7 +110,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_L7_LB */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ipv4_is_fragment(ip4),
 				ETH_HLEN, l4_off, &key, &tuple, svc, &ct_state_new,
-				has_l4_header, false, &cluster_id, ext_err);
+				has_l4_header, false, scope_switch, &cluster_id, ext_err);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE) {
@@ -140,6 +141,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	__u16 proxy_port = 0;
 	int l4_off;
 	int ret = 0;
+	const bool scope_switch = is_defined(ENABLE_NODEPORT);
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
@@ -158,7 +160,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 * the CT entry for destination endpoints where we can't encode the
 	 * state in the address.
 	 */
-	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
+	svc = lb6_lookup_service(&key, scope_switch, false);
 	if (svc) {
 #if defined(ENABLE_L7_LB)
 		if (lb6_svc_is_l7loadbalancer(svc)) {
@@ -167,7 +169,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		}
 #endif /* ENABLE_L7_LB */
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
-				&key, &tuple, svc, &ct_state_new, false, ext_err);
+				&key, &tuple, svc, &ct_state_new, false, scope_switch, ext_err);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE) {
