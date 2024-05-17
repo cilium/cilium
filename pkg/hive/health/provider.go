@@ -6,51 +6,51 @@ package health
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/hive/health/types"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "health")
-
-type HealthProviderParams struct {
+type providerParams struct {
 	cell.In
 
 	DB          *statedb.DB
 	Lifecycle   cell.Lifecycle
 	StatusTable statedb.RWTable[types.Status]
+	Logger      *slog.Logger
 }
 
-type HealthProvider struct {
+type provider struct {
 	db *statedb.DB
 
 	stopped     atomic.Bool
 	statusTable statedb.RWTable[types.Status]
+	logger      *slog.Logger
 }
 
-const HealthTableName = "health"
+const TableName = "health"
 
-func newHealthV2Provider(params HealthProviderParams) types.Provider {
-	p := &HealthProvider{
+func newHealthV2Provider(params providerParams) types.Provider {
+	p := &provider{
 		statusTable: params.StatusTable,
 		db:          params.DB,
+		logger:      params.Logger,
 	}
 	params.Lifecycle.Append(p)
 	return p
 }
 
-func (p *HealthProvider) Start(ctx cell.HookContext) error {
+func (p *provider) Start(ctx cell.HookContext) error {
 	return nil
 }
 
-func (p *HealthProvider) Stop(ctx cell.HookContext) error {
+func (p *provider) Stop(ctx cell.HookContext) error {
 	p.stopped.Store(true)
 	tx := p.db.ReadTxn()
 	iter, _ := p.statusTable.All(tx)
@@ -59,14 +59,15 @@ func (p *HealthProvider) Stop(ctx cell.HookContext) error {
 		if !ok {
 			break
 		}
-		logger.Infof("%s (rev=%d)", s.ID.String(), rev)
+		p.logger.Info(fmt.Sprintf("%s (rev=%d)", s.ID.String(), rev))
 	}
 	return nil
 }
 
-func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
+func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 	return &moduleReporter{
-		id: types.Identifier{Module: mid},
+		logger: p.logger,
+		id:     types.Identifier{Module: mid},
 		upsert: func(s types.Status) error {
 			if p.stopped.Load() {
 				return fmt.Errorf("provider is stopped, no more updates will take place")
@@ -94,10 +95,10 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 				if old.Level != "" {
 					lastLevel = string(old.Level)
 				}
-				logger.WithField("reporter-id", s.ID.String()).
-					WithField("lastLevel", lastLevel).
-					WithField("status", s.Level).
-					Debugf("upserting health status")
+				p.logger.Debug("upserting health status",
+					slog.String("lastLevel", lastLevel),
+					slog.String("reporter-id", s.ID.String()),
+					slog.String("status", s.String()))
 			}
 
 			tx.Commit()
@@ -125,9 +126,9 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 				deleted++
 			}
 
-			logger.WithField("prefix", i).
-				WithField("deleted", deleted).
-				Debugf("delete health sub-tree")
+			p.logger.Debug("delete health sub-tree",
+				slog.String("prefix", i.String()),
+				slog.Int("deleted", deleted))
 			tx.Commit()
 			return nil
 		},
@@ -150,8 +151,7 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 				return fmt.Errorf("stopping reporter - upsert status %s: %w", old, err)
 			}
 			tx.Commit()
-			logger.WithField("reporter-id", i.String()).
-				Debugf("stopping health reporter")
+			p.logger.Debug("stopping health reporter", slog.String("reporter-id", i.String()))
 			return nil
 		},
 		providerStopped: p.stopped.Load,
@@ -159,6 +159,7 @@ func (p *HealthProvider) ForModule(mid cell.FullModuleID) cell.Health {
 }
 
 type moduleReporter struct {
+	logger          *slog.Logger
 	id              types.Identifier
 	stopped         atomic.Bool
 	providerStopped func() bool
@@ -173,6 +174,7 @@ func (r *moduleReporter) newScope(name string) *moduleReporter {
 		upsert:       r.upsert,
 		deletePrefix: r.deletePrefix,
 		stop:         r.stop,
+		logger:       r.logger,
 	}
 }
 
@@ -192,7 +194,7 @@ func (r *moduleReporter) NewScopeWithContext(ctx context.Context, name string) c
 
 func (r *moduleReporter) OK(msg string) {
 	if r.stopped.Load() {
-		logger.WithField("id", r.id).Warn("report on stopped reporter")
+		r.logger.Warn("report on stopped reporter", slog.String("id", r.id.String()))
 	}
 	ts := time.Now()
 	if err := r.upsert(types.Status{
@@ -202,13 +204,13 @@ func (r *moduleReporter) OK(msg string) {
 		LastOK:  ts,
 		Updated: ts,
 	}); err != nil {
-		logger.WithError(err).Errorf("failed to upsert ok health status")
+		r.logger.Error("failed to upsert ok health status", slog.String(logfields.Error, err.Error()))
 	}
 }
 
 func (r *moduleReporter) Degraded(msg string, err error) {
 	if r.stopped.Load() {
-		logger.WithField("id", r.id).Warn("report on stopped reporter")
+		r.logger.Warn("report on stopped reporter", slog.String("id", r.id.String()))
 	}
 	if err := r.upsert(types.Status{
 		ID:      r.id,
@@ -217,7 +219,7 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 		Error:   err.Error(),
 		Updated: time.Now(),
 	}); err != nil {
-		logger.WithError(err).Errorf("failed to upsert degraded health status")
+		r.logger.Error("failed to upsert degraded health status", slog.String(logfields.Error, err.Error()))
 	}
 }
 
@@ -226,7 +228,7 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 func (r *moduleReporter) Stopped(msg string) {
 	r.stopped.Store(true)
 	if err := r.stop(r.id); err != nil {
-		logger.WithError(err).Error("failed to delete reporter status tree")
+		r.logger.Error("failed to delete reporter status tree", slog.String(logfields.Error, err.Error()))
 	}
 }
 
@@ -234,6 +236,6 @@ func (r *moduleReporter) Stopped(msg string) {
 // this reporter scope.
 func (r *moduleReporter) Close() {
 	if err := r.deletePrefix(r.id); err != nil {
-		logger.WithError(err).Error("failed to delete reporter status tree")
+		r.logger.Error("failed to delete reporter status tree", slog.String(logfields.Error, err.Error()))
 	}
 }
