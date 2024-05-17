@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "dbg.h"
+#include "hash.h"
 #include "trace.h"
 #include "l3.h"
 

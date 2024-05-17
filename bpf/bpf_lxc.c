@@ -1133,39 +1133,15 @@ ct_recreate4:
 	}
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
-	{
-		struct endpoint_info *gateway_node_ep;
-		__be32 gateway_ip = 0;
-
-		/* If the packet is destined to an entity inside the cluster,
-		 * either EP or node, it should not be forwarded to an egress
-		 * gateway since only traffic leaving the cluster is supposed to
-		 * be masqueraded with an egress IP.
-		 */
-		if (identity_is_cluster(*dst_sec_identity))
-			goto skip_egress_gateway;
-
-		ret = egress_gw_request_needs_redirect_hook(tuple, ct_status, &gateway_ip);
-		if (IS_ERR(ret))
-			return ret;
-
-		if (ret == CTX_ACT_OK)
-			goto skip_egress_gateway;
-
-		/* If the gateway node is the local node, then just let the
-		 * packet go through, as it will be SNATed later on by
-		 * handle_nat_fwd().
-		 */
-		gateway_node_ep = __lookup_ip4_endpoint(gateway_ip);
-		if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
-			goto skip_egress_gateway;
-
-		/* Send the packet to egress gateway node through a tunnel. */
-		return __encap_and_redirect_lxc(ctx, gateway_ip, 0,
-						SECLABEL_IPV4,
-						*dst_sec_identity, &trace);
-	}
-skip_egress_gateway:
+	/* We handle traffic to Egress GW that is not redirected to L7 proxy here.
+	 * The traffic that has been redirected is processed by to-netdev@bpf_host.
+	 * This code is retained in v1.16 to prevent disruptions during the upgrade.
+	 * It will be removed in v1.17.
+	 */
+	ret = egress_gw_handle_packet(ctx, tuple, ct_status, SECLABEL_IPV4,
+				      *dst_sec_identity, &trace);
+	if (ret != CTX_ACT_OK)
+		return ret;
 #endif
 
 	/* L7 proxy result in VTEP redirection in bpf_host, but when L7 proxy disabled
