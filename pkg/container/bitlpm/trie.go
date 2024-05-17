@@ -22,9 +22,15 @@ package bitlpm
 // [least significant bit]: https://en.wikipedia.org/wiki/Bit_numbering#Least_significant_bit
 // [longest prefix match algorithm]: https://en.wikipedia.org/wiki/Longest_prefix_match
 type Trie[K, T any] interface {
-	// Lookup returns the longest prefix match for a specific
+	// ExactLookup returns a value only if the prefix and key
+	// match an entry in the Trie exactly.
+	//
+	// Note: If the prefix argument exceeds the Trie's maximum
+	// prefix, it will be set to the Trie's maximum prefix.
+	ExactLookup(prefix uint, key K) (v T, ok bool)
+	// LongestPrefixMatch returns the longest prefix match for a specific
 	// key.
-	Lookup(key K) (v T, ok bool)
+	LongestPrefixMatch(key K) (v T, ok bool)
 	// Ancestors iterates over every prefix-key pair that contains
 	// the prefix-key argument pair. If the Ancestors function argument
 	// returns false the iteration will stop. Ancestors will iterate
@@ -101,9 +107,31 @@ type node[K, T any] struct {
 	value        T
 }
 
-// Lookup returns the value for the key with longest prefix match to the given
-// key.
-func (t *trie[K, T]) Lookup(k Key[K]) (T, bool) {
+// ExactLookup returns a value only if the prefix and key
+// match an entry in the Trie exactly.
+//
+// Note: If the prefix argument exceeds the Trie's maximum
+// prefix, it will be set to the Trie's maximum prefix.
+func (t *trie[K, T]) ExactLookup(prefixLen uint, k Key[K]) (T, bool) {
+	prefixLen = min(prefixLen, t.maxPrefix)
+	var (
+		empty, ret  T
+		matchPrefix uint
+	)
+	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T], matchLen uint) bool {
+		ret = currentNode.value
+		matchPrefix = matchLen
+		return true
+	})
+	if matchPrefix != prefixLen {
+		return empty, false
+	}
+	return ret, true
+}
+
+// LongestPrefixMatch returns the value for the key with the
+// longest prefix match of the argument key.
+func (t *trie[K, T]) LongestPrefixMatch(k Key[K]) (T, bool) {
 	// default return value
 	var (
 		empty T
