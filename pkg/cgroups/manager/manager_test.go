@@ -178,6 +178,8 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 }
 
 func TestGetPodMetadataOnPodUpdate(t *testing.T) {
+	setup(t)
+
 	c3CId := uint64(2345)
 	c1CId := uint64(1234)
 	cgMock := cgroupMock{cgroupIds: map[string]uint64{
