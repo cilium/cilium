@@ -136,8 +136,9 @@ jobs:
       - name: Fetch DinD information
         if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
         run: |
-          docker ps
+          docker ps -a
           docker logs -f lb-node
+          docker inspect lb-node
           docker exec -t lb-node docker ps
 
       - name: Fetch Cilium Standalone LB logs
