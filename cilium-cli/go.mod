@@ -25,12 +25,12 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
-	google.golang.org/grpc v1.63.2
+	google.golang.org/grpc v1.64.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	helm.sh/helm/v3 v3.14.4
+	helm.sh/helm/v3 v3.15.0
 	k8s.io/api v0.30.0
 	k8s.io/apimachinery v0.30.0
-	k8s.io/cli-runtime v0.29.0
+	k8s.io/cli-runtime v0.30.0
 	k8s.io/client-go v0.30.0
 	k8s.io/klog/v2 v2.120.1
 	sigs.k8s.io/yaml v1.4.0
@@ -227,7 +227,7 @@ require (
 	k8s.io/apiserver v0.30.0 // indirect
 	k8s.io/component-base v0.30.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
-	k8s.io/kubectl v0.29.0 // indirect
+	k8s.io/kubectl v0.30.0 // indirect
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
