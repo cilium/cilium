@@ -2797,8 +2797,8 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods *corev1.PodList) err
 				continue
 			}
 
-			name := fmt.Sprintf("%s-%s-%s-%s", pod.Name, task.container, task.name, task.ext)
-			if err := c.Pool.Submit(name, func(ctx context.Context) error {
+			filename := fmt.Sprintf("%s-%s-%s-<ts>.%s", pod.Name, task.container, task.name, task.ext)
+			if err := c.Pool.Submit(filename, func(ctx context.Context) error {
 				stdout, stderr, err := c.Client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, task.container, task.cmd)
 				if err != nil {
 					stderrStr := stderr.String()
@@ -2814,14 +2814,13 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods *corev1.PodList) err
 						task.name, pod.Namespace, pod.Name, task.container, err, stderrStr)
 				}
 
-				filename := name + "-<ts>." + task.ext
 				if err := c.WriteString(filename, stdout.String()); err != nil {
 					return fmt.Errorf("failed to write clustermesh %s information to file %q: %w", task.name, filename, err)
 				}
 
 				return nil
 			}); err != nil {
-				return fmt.Errorf("failed to submit %s task: %w", name, err)
+				return fmt.Errorf("failed to submit %s task: %w", filename, err)
 			}
 		}
 	}
