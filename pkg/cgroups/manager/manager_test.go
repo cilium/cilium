@@ -235,3 +235,27 @@ func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 	got = mm.GetPodMetadataForContainer(c1CId)
 	require.Nil(t, got)
 }
+
+func BenchmarkGetPodMetadataForContainer(b *testing.B) {
+	setup(b)
+	c3CId := uint64(2345)
+	c1CId := uint64(1234)
+	cgMock := cgroupMock{cgroupIds: map[string]uint64{
+		pod3C1CgrpPath: c3CId,
+		pod3C2CgrpPath: c1CId,
+	}}
+	provMock := providerMock{paths: map[string]string{
+		c3Id: pod3C1CgrpPath,
+		c1Id: pod3C2CgrpPath,
+	}}
+	mm := newCgroupManagerTest(provMock, cgMock)
+
+	// Add pod, and check for pod metadata for their containers.
+	mm.OnAddPod(pod3)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got := mm.GetPodMetadataForContainer(c3CId)
+		require.Equal(b, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
+	}
+}
