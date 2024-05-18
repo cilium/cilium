@@ -129,7 +129,7 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	union v6addr backend_ip = BACKEND_IP;
 
 	/* add local backend */
-	endpoint_v6_add_entry(&backend_ip, 0, 0, 0,
+	endpoint_v6_add_entry(&backend_ip, 0, 0, 0, 0,
 			      (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);

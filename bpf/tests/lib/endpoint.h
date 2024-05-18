@@ -2,7 +2,7 @@
 /* Copyright Authors of Cilium */
 
 static __always_inline void
-endpoint_v4_add_entry(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags,
+endpoint_v4_add_entry(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags, __u32 sec_id,
 		      const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
 {
 	struct endpoint_key key = {
@@ -13,6 +13,7 @@ endpoint_v4_add_entry(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags,
 		.ifindex = ifindex,
 		.lxc_id = lxc_id,
 		.flags = flags,
+		.sec_id = sec_id,
 	};
 
 	if (ep_mac_addr)
@@ -25,7 +26,8 @@ endpoint_v4_add_entry(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags,
 
 static __always_inline void
 endpoint_v6_add_entry(const union v6addr *addr, __u32 ifindex, __u16 lxc_id,
-		      __u32 flags, const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
+		      __u32 flags, __u32 sec_id,
+		      const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
 {
 	struct endpoint_key key = {
 		.family = ENDPOINT_KEY_IPV6,
@@ -35,6 +37,7 @@ endpoint_v6_add_entry(const union v6addr *addr, __u32 ifindex, __u16 lxc_id,
 		.ifindex = ifindex,
 		.lxc_id = lxc_id,
 		.flags = flags,
+		.sec_id = sec_id,
 	};
 
 	memcpy(&key.ip6, addr, sizeof(*addr));

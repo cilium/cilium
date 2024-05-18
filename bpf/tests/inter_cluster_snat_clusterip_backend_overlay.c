@@ -192,7 +192,7 @@ int from_overlay_syn_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_from_overlay_syn")
 int from_overlay_syn_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0,
 			      (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
