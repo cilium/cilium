@@ -98,7 +98,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
-	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0,
 			      (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
