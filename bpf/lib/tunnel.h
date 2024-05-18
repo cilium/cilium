@@ -83,4 +83,10 @@ tunnel_vni_to_sec_identity(__be32 vni)
 	return bpf_ntohl(vni) >> 8;
 }
 
+static __always_inline __be32
+sec_identity_to_tunnel_vni(__u32 sec_identity)
+{
+	return bpf_htonl(sec_identity << 8);
+}
+
 #endif /* __LIB_TUNNEL_H_ */
