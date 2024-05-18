@@ -18,6 +18,7 @@
 #include "bpf_lxc.c"
 
 #include "lib/ipcache.h"
+#include "lib/node.h"
 #include "lib/policy.h"
 
 #define FROM_CONTAINER 0
@@ -122,15 +123,7 @@ int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_ipv4_from_lxc_encrypt")
 int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
-	struct node_key node_ip = {};
-	struct node_value node_value = {
-		.id = NODE_ID,
-		.spi = 0,
-	};
-
-	node_ip.family = ENDPOINT_KEY_IPV4;
-	node_ip.ip4 = v4_node_two;
-	map_update_elem(&NODE_MAP_V2, &node_ip, &node_value, BPF_ANY);
+	node_v4_add_entry(v4_node_two, NODE_ID, 0);
 
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -330,15 +323,7 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
-	struct node_key node_ip = {};
-	struct node_value node_value = {
-		.id = NODE_ID,
-		.spi = 0,
-	};
-
-	node_ip.family = ENDPOINT_KEY_IPV4;
-	node_ip.ip4 = v4_node_two;
-	map_update_elem(&NODE_MAP_V2, &node_ip, &node_value, BPF_ANY);
+	node_v4_add_entry(v4_node_two, NODE_ID, 0);
 
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
