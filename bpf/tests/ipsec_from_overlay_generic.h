@@ -81,6 +81,7 @@ static volatile const __u8 *DEST_NODE_MAC = mac_four;
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
+#include "lib/node.h"
 
 #define FROM_OVERLAY 0
 #define ESP_SEQUENCE 69865
@@ -135,18 +136,10 @@ int ipv4_not_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_not_decrypted_ipsec_from_overlay")
 int ipv4_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	struct node_key node_ip = {};
-	struct node_value node_value = {
-		.id = NODE_ID,
-		.spi = 0,
-	};
-
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
-	node_ip.family = ENDPOINT_KEY_IPV4;
-	node_ip.ip4 = v4_pod_one;
-	map_update_elem(&NODE_MAP_V2, &node_ip, &node_value, BPF_ANY);
+	node_v4_add_entry(v4_pod_one, NODE_ID, 0);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
