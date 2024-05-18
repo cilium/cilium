@@ -666,6 +666,22 @@ pktgen__push_ipv4_udp_packet(struct pktgen *builder,
 	return l4;
 }
 
+static __always_inline struct vxlanhdr *
+pktgen__push_ipv4_vxlan_packet(struct pktgen *builder,
+			       __u8 *smac, __u8 *dmac,
+			       __be32 saddr, __be32 daddr,
+			       __be16 sport, __be16 dport)
+{
+	struct udphdr *l4;
+
+	l4 = pktgen__push_ipv4_udp_packet(builder, smac, dmac, saddr, daddr,
+					  sport, dport);
+	if (!l4)
+		return NULL;
+
+	return pktgen__push_default_vxlanhdr(builder);
+}
+
 static __always_inline struct tcphdr *
 pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 			     __u8 *smac, __u8 *dmac,
