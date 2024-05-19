@@ -2147,7 +2147,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (regenTriggered bool, err error) {
 	// e.setState() called below, can't take a read lock.
 	if err := e.lockAlive(); err != nil {
-		return false, ErrNotAlive
+		return false, err
 	}
 	newLabels := e.OpLabels.IdentityLabels()
 	elog := e.getLogger().WithFields(logrus.Fields{
