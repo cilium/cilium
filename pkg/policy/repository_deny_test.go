@@ -1577,7 +1577,7 @@ func TestRemoveIdentityFromRuleDenyCaches(t *testing.T) {
 		},
 	}})
 
-	addedRule := td.repo.rules[0]
+	addedRule := td.repo.rules[ruleKey{idx: 0}]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})

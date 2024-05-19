@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -156,8 +157,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, true, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.Equal(t, false, egr, "egress policy enforcement should not apply since no egress rules select")
-	require.EqualValues(t, fooIngressRule1, matchingRules[0].Rule, "returned matching rules did not match")
-	require.EqualValues(t, fooIngressRule2, matchingRules[1].Rule, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressRule1, &fooIngressRule2})
 
 	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
 	require.Equal(t, 1, numDeleted)
@@ -300,8 +300,8 @@ func TestAddSearchDelete(t *testing.T) {
 
 	// search rule1,rule2
 	repo.Mutex.RLock()
-	require.EqualValues(t, api.Rules{&rule1, &rule2}, repo.SearchRLocked(lbls1))
-	require.EqualValues(t, api.Rules{&rule3}, repo.SearchRLocked(lbls2))
+	require.ElementsMatch(t, api.Rules{&rule1, &rule2}, repo.SearchRLocked(lbls1))
+	require.ElementsMatch(t, api.Rules{&rule3}, repo.SearchRLocked(lbls2))
 	repo.Mutex.RUnlock()
 
 	// delete rule1, rule2
@@ -2282,7 +2282,7 @@ func TestRemoveIdentityFromRuleCaches(t *testing.T) {
 		},
 	}})
 
-	addedRule := td.repo.rules[0]
+	addedRule := td.repo.rules[ruleKey{idx: 0}]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
@@ -2531,4 +2531,99 @@ func TestDefaultAllow(t *testing.T) {
 			require.Equal(t, itc.ruleC+etc.ruleC, len(matchingRules), "case ingress %d + egress %d: rule count should match", i, e)
 		}
 	}
+}
+
+func TestReplaceByResource(t *testing.T) {
+	repo := NewPolicyRepository(nil, nil, nil, nil)
+
+	numRules := 10
+	rules := make(api.Rules, 0, numRules)
+	lbls := make([]labels.Label, numRules)
+	for i := 0; i < numRules; i++ {
+		it := fmt.Sprintf("baz%d", i)
+		epSelector := api.NewESFromLabels(
+			labels.NewLabel(
+				"foo",
+				it,
+				labels.LabelSourceK8s,
+			),
+		)
+		lbls[i] = labels.NewLabel("tag3", it, labels.LabelSourceK8s)
+		rules = append(rules, &api.Rule{
+			EndpointSelector: epSelector,
+			Labels:           labels.LabelArray{lbls[i]},
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{
+							epSelector,
+						},
+					},
+				},
+			},
+		})
+	}
+
+	rulesMatch := func(s ruleSlice, rs api.Rules) {
+		t.Helper()
+		ss := make(api.Rules, 0, len(s))
+		for _, rule := range s {
+			ss = append(ss, &rule.Rule)
+		}
+		assert.ElementsMatch(t, ss, rs)
+	}
+	toSlice := func(m map[ruleKey]*rule) ruleSlice {
+		out := ruleSlice{}
+		for _, v := range m {
+			out = append(out, v)
+		}
+		return out
+	}
+
+	rID1 := ipcachetypes.ResourceID("res1")
+	rID2 := ipcachetypes.ResourceID("res2")
+
+	new, old, rev := repo.ReplaceByResourceLocked(rules[0:1], rID1)
+	assert.Len(t, new, 1)
+	assert.Len(t, old, 0)
+	assert.EqualValues(t, rev, 2)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 1)
+	assert.Len(t, repo.rulesByResource, 1)
+	assert.Len(t, repo.rulesByResource[rID1], 1)
+	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[0:1])
+
+	// add second resource
+	new, old, rev = repo.ReplaceByResourceLocked(rules[1:3], rID2)
+
+	assert.Len(t, new, 2)
+	assert.Len(t, old, 0)
+	assert.EqualValues(t, rev, 3)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 3)
+	assert.Len(t, repo.rulesByResource, 2)
+	assert.Len(t, repo.rulesByResource[rID1], 1)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+
+	// replace rid1 with new rules
+	new, old, _ = repo.ReplaceByResourceLocked(rules[3:5], rID1)
+	assert.Len(t, new, 2)
+	assert.Len(t, old, 1)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 4)
+	assert.Len(t, repo.rulesByResource, 2)
+	assert.Len(t, repo.rulesByResource[rID1], 2)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+
+	rulesMatch(old, rules[0:1])
+	rulesMatch(new, rules[3:5])
+	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[3:5])
+	assert.Equal(t, repo.rules[ruleKey{
+		resource: rID1,
+		idx:      0,
+	}].Rule, *rules[3])
+
 }
