@@ -2626,8 +2626,8 @@ func TestMatches(t *testing.T) {
 		},
 	})
 
-	epRule := repo.rules[0]
-	hostRule := repo.rules[1]
+	epRule := repo.rules[ruleKey{idx: 0}]
+	hostRule := repo.rules[ruleKey{idx: 1}]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})

@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
 	"github.com/cilium/cilium/pkg/identity"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -18,9 +19,14 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+type ruleKey struct {
+	resource ipcachetypes.ResourceID
+	idx      uint
+}
+
 type rule struct {
 	api.Rule
-
+	key      ruleKey
 	metadata *ruleMetadata
 }
 

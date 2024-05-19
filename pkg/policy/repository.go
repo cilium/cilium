@@ -4,9 +4,11 @@
 package policy
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -108,7 +111,14 @@ func (p *policyContext) SetDeny(deny bool) bool {
 type Repository struct {
 	// Mutex protects the whole policy tree
 	Mutex lock.RWMutex
-	rules ruleSlice
+
+	rules           map[ruleKey]*rule
+	rulesByResource map[ipcachetypes.ResourceID]map[ruleKey]*rule
+
+	// We will need a way to synthesize a rule key for rules without a resource;
+	// these are - in practice - very rare, as they only come from the local API,
+	// never via k8s.
+	nextID uint
 
 	// revision is the revision of the policy repository. It will be
 	// incremented whenever the policy repository is changed.
@@ -189,9 +199,11 @@ func NewStoppedPolicyRepository(
 ) *Repository {
 	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
-		selectorCache: selectorCache,
-		certManager:   certManager,
-		secretManager: secretManager,
+		rules:           make(map[ruleKey]*rule),
+		rulesByResource: make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:   selectorCache,
+		certManager:     certManager,
+		secretManager:   secretManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, true)
@@ -263,7 +275,15 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 		repo: p,
 		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
-	result, err := p.rules.resolveL4IngressPolicy(&policyCtx, ctx)
+	rules := make(ruleSlice, 0, len(p.rules))
+	for _, rule := range p.rules {
+		rules = append(rules, rule)
+	}
+	// Sort for unit tests
+	slices.SortFunc[ruleSlice](rules, func(a, b *rule) int {
+		return cmp.Compare(a.key.idx, b.key.idx)
+	})
+	result, err := rules.resolveL4IngressPolicy(&policyCtx, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +306,14 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, err
 		repo: p,
 		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
-	result, err := p.rules.resolveL4EgressPolicy(&policyCtx, ctx)
+	rules := make(ruleSlice, 0, len(p.rules))
+	for _, rule := range p.rules {
+		rules = append(rules, rule)
+	}
+	slices.SortFunc[ruleSlice](rules, func(a, b *rule) int {
+		return cmp.Compare(a.key.idx, b.key.idx)
+	})
+	result, err := rules.resolveL4EgressPolicy(&policyCtx, ctx)
 
 	if err != nil {
 		return nil, err
@@ -397,20 +424,86 @@ func (p *Repository) Add(r api.Rule) (uint64, map[uint16]struct{}, error) {
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
 func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
-
-	newList := make(ruleSlice, len(rules))
-	for i := range rules {
+	newRules := make(ruleSlice, 0, len(rules))
+	for _, r := range rules {
 		newRule := &rule{
-			Rule:     *rules[i],
+			Rule:     *r,
+			key:      ruleKey{idx: p.nextID},
 			metadata: newRuleMetadata(),
 		}
-		newList[i] = newRule
+		newRules = append(newRules, newRule)
+		p.insert(newRule)
+		p.nextID++
 	}
 
-	p.rules = append(p.rules, newList...)
-	p.BumpRevision()
-	metrics.Policy.Add(float64(len(newList)))
-	return newList, p.GetRevision()
+	return newRules, p.BumpRevision()
+}
+
+// ReplaceByResourceLocked replaces all rules that belong to a given resource with a
+// new set. The set of rules added and removed is returned, along with the new revision number.
+// Resource must not be empty
+func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64) {
+	if len(resource) == 0 {
+		// This should never ever be hit, as the caller should have already validated the resource.
+		// However, if it does happen, it means something very wrong has happened and we are at risk
+		// of removing all network policies. So, we must panic rather than risk disabling network security.
+		panic("may not replace API rules with an empty resource")
+	}
+
+	if old, ok := p.rulesByResource[resource]; ok {
+		oldRules = make(ruleSlice, 0, len(old))
+		for key, oldRule := range old {
+			oldRules = append(oldRules, oldRule)
+			p.del(key)
+		}
+	}
+
+	newRules = make(ruleSlice, 0, len(rules))
+
+	if len(rules) > 0 {
+		p.rulesByResource[resource] = make(map[ruleKey]*rule, len(rules))
+
+		for i, r := range rules {
+			newRule := &rule{
+				Rule:     *r,
+				key:      ruleKey{resource: resource, idx: uint(i)},
+				metadata: newRuleMetadata(),
+			}
+			newRules = append(newRules, newRule)
+			p.insert(newRule)
+		}
+	}
+
+	return newRules, oldRules, p.BumpRevision()
+}
+
+func (p *Repository) insert(r *rule) {
+	p.rules[r.key] = r
+	rid := r.key.resource
+	if len(rid) > 0 {
+		if p.rulesByResource[rid] == nil {
+			p.rulesByResource[rid] = map[ruleKey]*rule{}
+		}
+		p.rulesByResource[rid][r.key] = r
+	}
+
+	metrics.Policy.Inc()
+}
+
+func (p *Repository) del(key ruleKey) {
+	if p.rules[key] == nil {
+		return
+	}
+	delete(p.rules, key)
+
+	rid := key.resource
+	if len(rid) > 0 && p.rulesByResource[rid] != nil {
+		delete(p.rulesByResource[rid], key)
+		if len(p.rulesByResource[rid]) == 0 {
+			delete(p.rulesByResource, rid)
+		}
+	}
+	metrics.Policy.Dec()
 }
 
 // removeIdentityFromRuleCaches removes the identity from the selector cache
@@ -502,27 +595,37 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpoints
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
 func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
-
-	deleted := 0
-	new := p.rules[:0]
 	deletedRules := ruleSlice{}
 
-	for _, r := range p.rules {
-		if !r.Labels.Contains(lbls) {
-			new = append(new, r)
-		} else {
+	for key, r := range p.rules {
+		if r.Labels.Contains(lbls) {
 			deletedRules = append(deletedRules, r)
-			deleted++
+			p.del(key)
 		}
 	}
+	l := len(deletedRules)
 
-	if deleted > 0 {
+	if l > 0 {
 		p.BumpRevision()
-		p.rules = new
-		metrics.Policy.Sub(float64(deleted))
 	}
 
-	return deletedRules, p.GetRevision(), deleted
+	return deletedRules, p.GetRevision(), l
+}
+
+func (p *Repository) DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSlice, uint64) {
+	rules := p.rulesByResource[rid]
+	if len(rules) == 0 {
+		delete(p.rulesByResource, rid)
+		return nil, p.GetRevision()
+	}
+
+	deletedRules := make(ruleSlice, 0, len(rules))
+	for key, rule := range rules {
+		p.del(key)
+		deletedRules = append(deletedRules, rule)
+	}
+
+	return deletedRules, p.BumpRevision()
 }
 
 // DeleteByLabels deletes all rules in the policy repository which contain the
@@ -611,9 +714,9 @@ func (p *Repository) Empty() bool {
 }
 
 // BumpRevision allows forcing policy regeneration
-func (p *Repository) BumpRevision() {
+func (p *Repository) BumpRevision() uint64 {
 	metrics.PolicyRevision.Inc()
-	p.revision.Add(1)
+	return p.revision.Add(1)
 }
 
 // GetRulesList returns the current policy

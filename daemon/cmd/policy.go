@@ -279,6 +279,9 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// updated.
 	var policySelectionWG sync.WaitGroup
 
+	// newRev is the new policy revision after rule updates
+	var newRev uint64
+
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
 	allEndpoints := d.endpointManager.GetPolicyEndpoints()
@@ -289,37 +292,69 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	endpointsToRegen := policy.NewEndpointSet(nil)
 
-	if opts != nil {
-		if opts.Replace {
-			for _, r := range sourceRules {
-				oldRules := d.policy.SearchRLocked(r.Labels)
+	// Policies can be upserted one of two ways: by labels or by resource.
+	// Here we replace by resource if specified.
+	// This block of code is, sadly, copy-pasty because DeleteByLabels / AddList return an unexported type.
+	if opts != nil && opts.ReplaceByResource && len(opts.Resource) > 0 {
+		// Update the policy repository with the new rules
+		addedRules, deletedRules, rev := d.policy.ReplaceByResourceLocked(sourceRules, opts.Resource)
+		newRev = rev
+
+		if len(deletedRules) > 0 {
+			// Record any prefix allocations that should be deleted
+			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())...)
+
+			// Determine which endpoints, if any, need to be regenerated due to removing these rules
+			deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		}
+
+		// The information needed by the caller is available at this point, signal
+		// accordingly.
+		resChan <- &PolicyAddResult{
+			newRev: newRev,
+			err:    nil,
+		}
+
+		// Determine which endpoints, if any, need to be regenerated due to being selected by a new rule
+		addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+
+	} else {
+		// Replacing by labels
+		// This only happens if a policy is specified via the gRPC API. It is much less efficient
+		// due to needing to scan the entire repository to find matching labels.
+		if opts != nil {
+			if opts.Replace {
+				for _, r := range sourceRules {
+					oldRules := d.policy.SearchRLocked(r.Labels)
+					removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
+					if len(oldRules) > 0 {
+						deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
+						deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+					}
+				}
+			}
+			if len(opts.ReplaceWithLabels) > 0 {
+				oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
-					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
+					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 				}
 			}
 		}
-		if len(opts.ReplaceWithLabels) > 0 {
-			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
-			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
-			if len(oldRules) > 0 {
-				deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
-				deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
-			}
+
+		addedRules, rev := d.policy.AddListLocked(sourceRules)
+		newRev = rev
+
+		// The information needed by the caller is available at this point, signal
+		// accordingly.
+		resChan <- &PolicyAddResult{
+			newRev: newRev,
+			err:    nil,
 		}
+
+		addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 	}
-
-	addedRules, newRev := d.policy.AddListLocked(sourceRules)
-
-	// The information needed by the caller is available at this point, signal
-	// accordingly.
-	resChan <- &PolicyAddResult{
-		newRev: newRev,
-		err:    nil,
-	}
-
-	addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
 	d.policy.Mutex.Unlock()
 
@@ -536,24 +571,42 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 
 	endpointsToRegen := policy.NewEndpointSet(nil)
 
-	deletedRules, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	var deleted int
+	var rev uint64
+	var prefixes []netip.Prefix
 
-	// Return an error if a label filter was provided and there are no
-	// rules matching it. A deletion request for all policy entries should
-	// not fail if no policies are loaded.
-	if len(deletedRules) == 0 && len(labels) != 0 {
-		rev := d.policy.GetRevision()
-		d.policy.Mutex.Unlock()
+	if opts.DeleteByResource && len(opts.Resource) > 0 {
+		deletedRules, newRev := d.policy.DeleteByResourceLocked(opts.Resource)
+		rev = newRev
+		deleted = len(deletedRules)
 
-		err := api.New(DeletePolicyNotFoundCode, "policy not found")
+		deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		prefixes = policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())
+	} else {
 
-		res <- &PolicyDeleteResult{
-			newRev: rev,
-			err:    err,
+		deletedRules, newRev, _ := d.policy.DeleteByLabelsLocked(labels)
+		rev = newRev
+		deleted = len(deletedRules)
+
+		// Return an error if a label filter was provided and there are no
+		// rules matching it. A deletion request for all policy entries should
+		// not fail if no policies are loaded.
+		if len(deletedRules) == 0 && len(labels) != 0 {
+			rev := d.policy.GetRevision()
+			d.policy.Mutex.Unlock()
+
+			err := api.New(DeletePolicyNotFoundCode, "policy not found")
+
+			res <- &PolicyDeleteResult{
+				newRev: rev,
+				err:    err,
+			}
+			return
 		}
-		return
+
+		deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		prefixes = policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())
 	}
-	deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
 	res <- &PolicyDeleteResult{
 		newRev: rev,
@@ -568,7 +621,6 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	// We don't treat failures to clean up identities as API failures,
 	// because the policy can still successfully be updated. We're just
 	// not appropriately performing garbage collection.
-	prefixes := policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
 
 	// Updates to the datapath are serialized via the policy reaction queue.
