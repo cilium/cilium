@@ -3,10 +3,13 @@
 
 package endpoint
 
-import "fmt"
+import "errors"
 
 var (
-	ErrEndpointDeleted = fmt.Errorf("lock failed: endpoint is in the process of being removed")
+	// ErrNotAlive is an error which indicates that the endpoint could not be
+	// locked because it is currently being removed.
+	// Same error is returned for both lock and rlock.
+	ErrNotAlive = errors.New("lock failed: endpoint is in the process of being removed")
 )
 
 // lockAlive returns error if endpoint was removed, locks underlying mutex otherwise
@@ -14,7 +17,7 @@ func (e *Endpoint) lockAlive() error {
 	e.mutex.Lock()
 	if e.IsDisconnecting() {
 		e.mutex.Unlock()
-		return ErrEndpointDeleted
+		return ErrNotAlive
 	}
 	return nil
 }
