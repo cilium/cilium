@@ -36,13 +36,13 @@ func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 	}
 
 	opts := policy.AddOptions{
-		Replace: true,
-		Source:  source.Kubernetes,
+		Source: source.Kubernetes,
 		Resource: ipcacheTypes.NewResourceID(
 			ipcacheTypes.ResourceKindNetpol,
 			k8sNP.ObjectMeta.Namespace,
 			k8sNP.ObjectMeta.Name,
 		),
+		ReplaceByResource: true,
 	}
 	if _, err := p.policyManager.PolicyAdd(rules, &opts); err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
@@ -74,8 +74,9 @@ func (p *policyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.Networ
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
 		logfields.Labels:               logfields.Repr(labels),
 	})
-	if _, err := p.policyManager.PolicyDelete(labels, &policy.DeleteOptions{
-		Source: source.Kubernetes,
+	if _, err := p.policyManager.PolicyDelete(nil, &policy.DeleteOptions{
+		Source:           source.Kubernetes,
+		DeleteByResource: true,
 		Resource: ipcacheTypes.NewResourceID(
 			ipcacheTypes.ResourceKindNetpol,
 			k8sNP.ObjectMeta.Namespace,
