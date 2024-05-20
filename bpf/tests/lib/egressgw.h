@@ -270,3 +270,19 @@ static __always_inline int egressgw_status_check(const struct __ctx_buff *ctx,
 
 	test_finish();
 }
+
+static __always_inline int create_ct_entry(struct __ctx_buff *ctx, __be16 client_port)
+{
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.daddr = EXTERNAL_SVC_IP;
+	tuple.sport = EXTERNAL_SVC_PORT;
+	tuple.saddr = CLIENT_IP;
+	tuple.dport = client_port;
+	__ipv4_ct_tuple_reverse(&tuple);
+
+	return ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
+			 CT_EGRESS, &ct_state, NULL);
+}
