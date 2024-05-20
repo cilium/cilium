@@ -58,9 +58,9 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.176.0
+  eksctl_version: v0.177.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.0
+  kubectl_version: v1.30.1
 
 jobs:
   echo-inputs:
@@ -88,7 +88,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -137,7 +137,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -270,7 +270,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
