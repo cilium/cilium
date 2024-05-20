@@ -187,12 +187,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	}
 
-	if dcfg.EnableL7Proxy {
-		log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19642").
-			Warningf("both egress gateway and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
-				"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
-	}
-
 	out.Manager, err = newEgressGatewayManager(p)
 	if err != nil {
 		return out, err
