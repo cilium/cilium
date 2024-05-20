@@ -69,11 +69,6 @@ the gateway node.
 Incompatibility with other features
 -----------------------------------
 
-Egress gateway is partially incompatible with L7 policies.
-Specifically, when an egress gateway policy and an L7 policy both select the same
-endpoint, traffic from that endpoint does not go through the egress gateway, even if
-the policy allows it. Full support depends on resolving :gh-issue:`19642`.
-
 Because egress gateway isn't compatible with identity allocation mode ``kvstore``,
 you must use Kubernetes as Cilium's identity store (``identityAllocationMode``
 set to ``crd``). This is the default setting for new installations.
