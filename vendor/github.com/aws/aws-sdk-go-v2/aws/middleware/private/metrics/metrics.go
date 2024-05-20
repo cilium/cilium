@@ -124,6 +124,7 @@ type MetricData struct {
 	OperationName              string
 	PartitionID                string
 	Region                     string
+	UserAgent                  string
 	RequestContentLength       int64
 	Stream                     StreamMetrics
 	Attempts                   []AttemptMetrics
