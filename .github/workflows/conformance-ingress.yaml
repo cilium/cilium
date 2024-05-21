@@ -289,13 +289,109 @@ jobs:
           fi
           docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1 
 
+      - name: Run Sanity check (headless service)
+        timeout-minutes: 5
+        run: |
+          BACKEND_IP=$(kubectl get pod -l app=details -o jsonpath="{.items[*].status.podIP}")
+          cat << EOF > ingress-with-headless-service.yaml
+          apiVersion: v1
+          kind: Endpoints
+          metadata:
+            name: details-headless
+          subsets:
+          - addresses:
+            - ip: ${BACKEND_IP}
+            ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: details-headless
+          spec:
+            ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+              targetPort: 9080
+            clusterIP: None
+            ipFamilies:
+            - IPv4
+            ipFamilyPolicy: SingleStack
+          ---
+          apiVersion: discovery.k8s.io/v1
+          kind: EndpointSlice
+          metadata:
+            name: details-headless-endpoint-slice
+            labels:
+              kubernetes.io/service-name: details-headless-endpoint-slice
+          addressType: IPv4
+          endpoints:
+            - addresses:
+                - ${BACKEND_IP}
+          ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: details-headless-endpoint-slice
+          spec:
+            ports:
+              - name: http
+                port: 9082
+                protocol: TCP
+                targetPort: 9080
+            clusterIP: None
+            ipFamilies:
+              - IPv4
+            ipFamilyPolicy: SingleStack
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: basic-ingress-headless
+          spec:
+            ingressClassName: cilium
+            rules:
+            - http:
+                paths:
+                - backend:
+                    service:
+                      name: details-headless
+                      port:
+                        number: 9080
+                  path: /details/1
+                  pathType: Prefix
+                - backend:
+                    service:
+                      name: details-headless-endpoint-slice
+                      port:
+                        number: 9082
+                  path: /details/2
+                  pathType: Prefix
+          EOF
+          kubectl apply -n default -f ingress-with-headless-service.yaml
+          until [ -n "$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" ]; do
+            sleep 3
+          done
+          lb=$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/1      
+          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/2
+
       - name: Cleanup Sanity check
         timeout-minutes: 5
         run: |
           # Clean up after sanity check to avoid any conflicts with the conformance test
           kubectl delete -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl delete -n default -f ingress-with-headless-service.yaml
           kubectl delete -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
           kubectl wait ingress basic-ingress --for=delete
+          kubectl wait ingress basic-ingress-headless --for=delete
 
       - name: Run Ingress conformance test
         timeout-minutes: 30
