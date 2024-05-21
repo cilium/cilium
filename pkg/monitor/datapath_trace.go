@@ -168,7 +168,7 @@ const (
 	TraceReasonCtEstablished
 	TraceReasonCtReply
 	TraceReasonCtRelated
-	TraceReasonCtReopened
+	TraceReasonCtDeprecatedReopened
 	TraceReasonUnknown
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
@@ -179,15 +179,15 @@ const (
 
 /* keep in sync with api/v1/flow/flow.proto */
 var traceReasons = map[uint8]string{
-	TraceReasonPolicy:         "new",
-	TraceReasonCtEstablished:  "established",
-	TraceReasonCtReply:        "reply",
-	TraceReasonCtRelated:      "related",
-	TraceReasonCtReopened:     "reopened",
-	TraceReasonUnknown:        "unknown",
-	TraceReasonSRv6Encap:      "srv6-encap",
-	TraceReasonSRv6Decap:      "srv6-decap",
-	TraceReasonEncryptOverlay: "encrypt-overlay",
+	TraceReasonPolicy:               "new",
+	TraceReasonCtEstablished:        "established",
+	TraceReasonCtReply:              "reply",
+	TraceReasonCtRelated:            "related",
+	TraceReasonCtDeprecatedReopened: "reopened",
+	TraceReasonUnknown:              "unknown",
+	TraceReasonSRv6Encap:            "srv6-encap",
+	TraceReasonSRv6Decap:            "srv6-decap",
+	TraceReasonEncryptOverlay:       "encrypt-overlay",
 }
 
 // DecodeTraceNotify will decode 'data' into the provided TraceNotify structure

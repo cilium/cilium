@@ -196,7 +196,7 @@ enum TraceReason {
     ESTABLISHED = 2;
     REPLY = 3;
     RELATED = 4;
-    REOPENED = 5;
+    REOPENED = 5 [deprecated=true];
     SRV6_ENCAP = 6;
     SRV6_DECAP = 7;
     ENCRYPT_OVERLAY = 8;

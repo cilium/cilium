@@ -574,8 +574,9 @@ func TestDecodeTraceReason(t *testing.T) {
 			want:   flowpb.TraceReason_RELATED,
 		},
 		{
+			// "reopened" is deprecated, as the datapath no longer returns it
 			name:   "reopened",
-			reason: monitor.TraceReasonCtReopened,
+			reason: monitor.TraceReasonCtDeprecatedReopened,
 			want:   flowpb.TraceReason_REOPENED,
 		},
 		{
