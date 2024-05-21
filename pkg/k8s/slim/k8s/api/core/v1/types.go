@@ -964,6 +964,12 @@ type Service struct {
 	Status ServiceStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
+const (
+	// ClusterIPNone - do not assign a cluster IP
+	// no proxying required and no environment variables should be created for pods
+	ClusterIPNone = "None"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ServiceList holds a list of services.
