@@ -48,7 +48,7 @@ pyenchant==3.2.2
 Pygments==2.16.1
 PyYAML==6.0.1
 referencing==0.30.2
-requests==2.31.0
+requests==2.32.0
 rich==13.5.2
 rpds-py==0.10.3
 rstcheck-core==1.1.1
