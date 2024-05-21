@@ -942,7 +942,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
 	d.ipcache.InitIPIdentityWatcher(d.ctx, params.StoreFactory)
-	identitymanager.Subscribe(d.policy)
 
 	if err := params.IPsecKeyCustodian.StartBackgroundJobs(d.Datapath().Node()); err != nil {
 		log.WithError(err).Error("Unable to start IPsec key watcher")
