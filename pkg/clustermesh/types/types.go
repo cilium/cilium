@@ -4,7 +4,9 @@
 package types
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/cilium/cilium/pkg/defaults"
 )
@@ -17,6 +19,19 @@ const (
 
 // ClusterIDMax is the maximum value of the cluster ID
 var ClusterIDMax uint32 = defaults.MaxConnectedClusters
+
+// A cluster name must be a valid RFC 1123 DNS label name:
+// * It must contain at most 63 characters;
+// * It must begin and end with a lower case alphanumeric character;
+// * It may contain lower case alphanumerics and dashes between.
+const (
+	// clusterNameMaxLength is the maximum allowed length of a cluster name.
+	clusterNameMaxLength = 63
+	// clusterNameRegexStr is the regex to validate a cluster name.
+	clusterNameRegexStr = `^([a-z0-9][-a-z0-9]*)?[a-z0-9]$`
+)
+
+var clusterNameRegex = regexp.MustCompile(clusterNameRegexStr)
 
 // InitClusterIDMax validates and sets the ClusterIDMax package level variable.
 func (c ClusterInfo) InitClusterIDMax() error {
@@ -38,6 +53,23 @@ func ValidateClusterID(clusterID uint32) error {
 
 	if clusterID > ClusterIDMax {
 		return fmt.Errorf("ClusterID > %d is not supported", ClusterIDMax)
+	}
+
+	return nil
+}
+
+// ValidateClusterName validates that the given name matches the cluster name specifications.
+func ValidateClusterName(name string) error {
+	if name == "" {
+		return errors.New("must not be empty")
+	}
+
+	if len(name) > clusterNameMaxLength {
+		return fmt.Errorf("must not be more than %d characters", clusterNameMaxLength)
+	}
+
+	if !clusterNameRegex.MatchString(name) {
+		return errors.New("must consist of lower case alphanumeric characters and '-', and must start and end with an alphanumeric character")
 	}
 
 	return nil

@@ -63,6 +63,11 @@ func TestClusterInfoValidate(t *testing.T) {
 			wantErr:       true,
 			wantStrictErr: true,
 		},
+		{
+			cinfo:         ClusterInfo{ID: 10, Name: "invAlid", MaxConnectedClusters: 511},
+			wantErr:       true,
+			wantStrictErr: true,
+		},
 	}
 
 	for _, tt := range tests {

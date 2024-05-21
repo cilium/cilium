@@ -22,7 +22,7 @@ cilium-agent hive dot-graph [flags]
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --certificates-directory string                             Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cluster-id uint32                                         Unique identifier of the cluster
-      --cluster-name string                                       Name of the cluster (default "default")
+      --cluster-name string                                       Name of the cluster. It must be a valid RFC 1123 DNS label name (consist of at most 63 lower case alphanumeric characters and '-', start and end with an alphanumeric character). (default "default")
       --clustermesh-config string                                 Path to the ClusterMesh configuration directory
       --clustermesh-ip-identities-sync-timeout duration           Timeout waiting for the initial synchronization of IPs and identities from remote clusters before local endpoints regeneration (default 1m0s)
       --cni-chaining-mode string                                  Enable CNI chaining with the specified plugin (default "none")

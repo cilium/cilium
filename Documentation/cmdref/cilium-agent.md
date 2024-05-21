@@ -64,7 +64,7 @@ cilium-agent [flags]
       --cgroup-root string                                        Path to Cgroup2 filesystem
       --cluster-health-port int                                   TCP port for cluster-wide network connectivity health API (default 4240)
       --cluster-id uint32                                         Unique identifier of the cluster
-      --cluster-name string                                       Name of the cluster (default "default")
+      --cluster-name string                                       Name of the cluster. It must be a valid RFC 1123 DNS label name (consist of at most 63 lower case alphanumeric characters and '-', start and end with an alphanumeric character). (default "default")
       --clustermesh-config string                                 Path to the ClusterMesh configuration directory
       --clustermesh-ip-identities-sync-timeout duration           Timeout waiting for the initial synchronization of IPs and identities from remote clusters before local endpoints regeneration (default 1m0s)
       --cni-chaining-mode string                                  Enable CNI chaining with the specified plugin (default "none")

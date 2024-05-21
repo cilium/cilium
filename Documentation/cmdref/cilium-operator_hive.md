@@ -21,7 +21,7 @@ cilium-operator hive [flags]
       --ces-write-qps-burst int                              CES work queue burst rate. Ignored when ces-enable-dynamic-rate-limit is set (default 20)
       --ces-write-qps-limit float                            CES work queue rate limit. Ignored when ces-enable-dynamic-rate-limit is set (default 10)
       --cluster-id uint32                                    Unique identifier of the cluster
-      --cluster-name string                                  Name of the cluster (default "default")
+      --cluster-name string                                  Name of the cluster. It must be a valid RFC 1123 DNS label name (consist of at most 63 lower case alphanumeric characters and '-', start and end with an alphanumeric character). (default "default")
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
       --clustermesh-config string                            Path to the ClusterMesh configuration directory
       --clustermesh-enable-endpoint-sync                     Whether or not the endpoint slice cluster mesh synchronization is enabled.

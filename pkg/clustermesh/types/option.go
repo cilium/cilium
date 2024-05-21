@@ -40,7 +40,7 @@ var DefaultClusterInfo = ClusterInfo{
 // Flags implements the cell.Flagger interface, to register the given flags.
 func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
 	flags.Uint32(OptClusterID, def.ID, "Unique identifier of the cluster")
-	flags.String(OptClusterName, def.Name, "Name of the cluster")
+	flags.String(OptClusterName, def.Name, "Name of the cluster. It must be a valid RFC 1123 DNS label name (consist of at most 63 lower case alphanumeric characters and '-', start and end with an alphanumeric character).")
 	flags.Uint32(OptMaxConnectedClusters, def.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511].")
 }
 
@@ -66,6 +66,10 @@ func (c ClusterInfo) ValidateStrict() error {
 }
 
 func (c ClusterInfo) validateName() error {
+	if err := ValidateClusterName(c.Name); err != nil {
+		return fmt.Errorf("invalid cluster name: %w", err)
+	}
+
 	if c.ID != 0 && c.Name == defaults.ClusterName {
 		return fmt.Errorf("cannot use default cluster name (%s) with option %s",
 			defaults.ClusterName, OptClusterID)
