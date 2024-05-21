@@ -5,6 +5,10 @@ ROOT_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include ${ROOT_DIR}/../Makefile.defs
 
+# Add the ability to override variables
+# ROOT_DIR changes to repo root after including Makefile.defs
+-include ${ROOT_DIR}/Makefile.override
+
 TARGETS := cilium-operator cilium-operator-generic cilium-operator-aws cilium-operator-azure cilium-operator-alibabacloud
 
 .PHONY: all $(TARGETS) clean install
