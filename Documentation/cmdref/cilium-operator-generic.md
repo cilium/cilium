@@ -21,7 +21,7 @@ cilium-operator-generic [flags]
       --cilium-pod-labels string                             Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
       --cilium-pod-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
       --cluster-id uint32                                    Unique identifier of the cluster
-      --cluster-name string                                  Name of the cluster (default "default")
+      --cluster-name string                                  Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --cluster-pool-ipv4-cidr strings                       IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv4=true'
       --cluster-pool-ipv4-mask-size int                      Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv4=true' (default 24)
       --cluster-pool-ipv6-cidr strings                       IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv6=true'
