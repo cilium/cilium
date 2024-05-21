@@ -1340,13 +1340,18 @@ working, take a look at `this KEP
     free mode, make sure that default Kubernetes services like ``kube-dns`` and ``kubernetes``
     have the required label value.
 
-Topology Aware Hints
-********************
+Traffic Distribution and Topology Aware Hints
+*********************************************
 
-The kube-proxy replacement implements the K8s service
-`Topology Aware Hints <https://kubernetes.io/docs/concepts/services-networking/topology-aware-hints>`__.
-This allows Cilium nodes to prefer service endpoints residing in the same zone.
-To enable the feature, set ``loadBalancer.serviceTopology=true``.
+The kube-proxy replacement implements both Kubernetes `Topology Aware Routing
+<https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing>`__,
+and the more recent `Traffic Distribution
+<https://kubernetes.io/docs/concepts/services-networking/service/#traffic-distribution>`__
+features.
+
+Both of these features work by setting ``hints`` on EndpointSlices that enable
+Cilium to route to endpoints residing in the same zone. To enable the feature,
+set ``loadBalancer.serviceTopology=true``.
 
 Neighbor Discovery
 ******************
