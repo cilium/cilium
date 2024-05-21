@@ -1497,11 +1497,12 @@ func (m *IptablesManager) installRules(ifName string) error {
 		}
 	}
 
-	if skipPodTrafficConntrack(false) {
+	if option.Config.GetIPv4NativeRoutingCIDR() != nil {
 		podsCIDR := option.Config.GetIPv4NativeRoutingCIDR().String()
-
-		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
-			return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
+		if skipPodTrafficConntrack(false) && podsCIDR != "" {
+			if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
+				return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
+			}
 		}
 	}
 
