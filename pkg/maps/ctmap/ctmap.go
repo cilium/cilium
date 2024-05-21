@@ -341,11 +341,6 @@ func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	t := key.GetTupleKey()
 	tupleType := t.GetFlags()
 
-	if tupleType == tuple.TUPLE_F_IN && entry.isDsrInternalEntry() {
-		// To delete NAT entries created by legacy DSR
-		nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
-	}
-
 	if tupleType == tuple.TUPLE_F_OUT {
 		if entry.isDsrInternalEntry() {
 			// To delete NAT entries created by DSR
@@ -459,11 +454,6 @@ func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 
 	t := key.GetTupleKey()
 	tupleType := t.GetFlags()
-
-	if tupleType == tuple.TUPLE_F_IN && entry.isDsrInternalEntry() {
-		// To delete NAT entries created by legacy DSR
-		nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
-	}
 
 	if tupleType == tuple.TUPLE_F_OUT {
 		if entry.isDsrInternalEntry() {
@@ -642,8 +632,7 @@ func GC(m *Map, filter *GCFilter) (int, error) {
 //     sending to a client.
 //
 // In all 4 cases we create a CT_EGRESS CT entry. This allows the
-// CT GC to remove corresponding SNAT entries. In the case of 4, old connections
-// might instead be using a CT_INGRESS CT entry.
+// CT GC to remove corresponding SNAT entries.
 // See the unit test TestOrphanNatGC for more examples.
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	// Both CT maps should point to the same natMap, so use the first one
@@ -690,12 +679,10 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 				return entry.isDsrInternalEntry()
 			}
 
-			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
 			egressCTKey := egressCTKeyFromEgressNatKey(natKey)
 			dsrCTKey := dsrCTKeyFromEgressNatKey(natKey)
 
-			if !ctEntryExist(ctMap, ingressCTKey, checkDsr) &&
-				!ctEntryExist(ctMap, egressCTKey, nil) &&
+			if !ctEntryExist(ctMap, egressCTKey, nil) &&
 				!ctEntryExist(ctMap, dsrCTKey, checkDsr) {
 				// No relevant CT entries were found, delete the orphan egress NAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
