@@ -1125,6 +1125,13 @@
                 "annotations": {
                   "type": "object"
                 },
+                "enableSessionAffinity": {
+                  "enum": [
+                    "HAOnly",
+                    "Always",
+                    "Never"
+                  ]
+                },
                 "externalTrafficPolicy": {
                   "enum": [
                     "Local",
