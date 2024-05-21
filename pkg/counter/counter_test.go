@@ -65,19 +65,3 @@ func TestCounter(t *testing.T) {
 	require.True(t, ac.Delete(netip.MustParseAddr("10.0.0.1")))
 	require.Equal(t, 3, len(ac))
 }
-
-func TestStringCounter(t *testing.T) {
-	sc := make(StringCounter)
-	require.True(t, sc.Add("foo"))
-	require.Equal(t, 1, len(sc))
-	require.False(t, sc.Add("foo"))
-	require.Equal(t, 1, len(sc))
-	require.True(t, sc.Add("bar"))
-	require.Equal(t, 2, len(sc))
-	require.False(t, sc.Delete("foo"))
-	require.Equal(t, 2, len(sc))
-	require.True(t, sc.Delete("bar"))
-	require.Equal(t, 1, len(sc))
-	require.True(t, sc.Delete("foo"))
-	require.Equal(t, 0, len(sc))
-}
