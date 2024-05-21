@@ -312,7 +312,8 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())...)
 
 			// Determine which endpoints, if any, need to be regenerated due to removing these rules
-			deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+			deletedRules.FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+			d.policy.Release(deletedRules)
 		}
 
 		// The information needed by the caller is available at this point, signal
@@ -323,7 +324,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		}
 
 		// Determine which endpoints, if any, need to be regenerated due to being selected by a new rule
-		addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		addedRules.FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
 	} else {
 		// Replacing by labels
@@ -336,7 +337,8 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 					removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 					if len(oldRules) > 0 {
 						deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
-						deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+						deletedRules.FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+						d.policy.Release(deletedRules)
 					}
 				}
 			}
@@ -345,7 +347,8 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
-					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+					deletedRules.FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+					d.policy.Release(deletedRules)
 				}
 			}
 		}
@@ -360,7 +363,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 			err:    nil,
 		}
 
-		addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		addedRules.FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 	}
 
 	d.policy.Mutex.Unlock()
@@ -586,7 +589,8 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		rev = newRev
 		deleted = len(deletedRules)
 
-		deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		deletedRules.FindSelectedEndpoints(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		d.policy.Release(deletedRules)
 		prefixes = policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())
 	} else {
 
@@ -610,7 +614,8 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 			return
 		}
 
-		deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		deletedRules.FindSelectedEndpoints(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
+		d.policy.Release(deletedRules)
 		prefixes = policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())
 	}
 

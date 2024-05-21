@@ -56,6 +56,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	fooSelectLabel := labels.ParseSelectLabel("foo")
 	fooNumericIdentity := 9001
 	fooIdentity := identity.NewIdentity(identity.NumericIdentity(fooNumericIdentity), lbls)
+	td.addIdentity(fooIdentity)
 	fooIngressRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooIngressRule1", labels.LabelSourceAny)
 	fooIngressRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooIngressRule2", labels.LabelSourceAny)
 	fooEgressRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule1", labels.LabelSourceAny)
@@ -2280,47 +2281,6 @@ Ingress verdict: denied
 	require.Equal(t, api.Allowed, verdict)
 }
 
-func TestRemoveIdentityFromRuleCaches(t *testing.T) {
-	td := newTestData()
-
-	td.repo.MustAddList(api.Rules{&api.Rule{
-		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorC},
-				},
-			},
-		},
-	}})
-
-	addedRule := td.repo.rules[ruleKey{idx: 0}]
-
-	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
-
-	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
-
-	// selectedEndpoint is selected by rule, so we it should be added to
-	// EndpointsSelected.
-	require.Equal(t, true, addedRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true}, addedRule.metadata.IdentitySelected)
-
-	wg := td.repo.removeIdentityFromRuleCaches(selectedIdentity)
-	wg.Wait()
-
-	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
-
-	require.Equal(t, false, addedRule.matches(notSelectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false}, addedRule.metadata.IdentitySelected)
-
-	wg = td.repo.removeIdentityFromRuleCaches(notSelectedIdentity)
-	wg.Wait()
-
-	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
-}
-
 func TestIterate(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
@@ -2408,8 +2368,6 @@ func TestDefaultAllow(t *testing.T) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 
 	fooSelectLabel := labels.ParseSelectLabel("foo")
-	fooNumericIdentity := 9001
-	fooIdentity := identity.NewIdentity(identity.NumericIdentity(fooNumericIdentity), lbls)
 
 	genRule := func(ingress, defaultDeny bool) api.Rule {
 		name := fmt.Sprintf("%v_%v", ingress, defaultDeny)
@@ -2493,6 +2451,7 @@ func TestDefaultAllow(t *testing.T) {
 	// three test runs: ingress, egress, and ingress + egress cartesian
 	for i, tc := range ingressCases {
 		td := newTestData()
+		td.addIdentity(fooIdentity)
 		repo := td.repo
 
 		for _, rule := range tc.rules {
@@ -2508,6 +2467,7 @@ func TestDefaultAllow(t *testing.T) {
 
 	for i, tc := range egressCases {
 		td := newTestData()
+		td.addIdentity(fooIdentity)
 		repo := td.repo
 
 		for _, rule := range tc.rules {
@@ -2525,6 +2485,7 @@ func TestDefaultAllow(t *testing.T) {
 	for e, etc := range egressCases {
 		for i, itc := range ingressCases {
 			td := newTestData()
+			td.addIdentity(fooIdentity)
 			repo := td.repo
 
 			for _, rule := range etc.rules {
@@ -2546,34 +2507,42 @@ func TestDefaultAllow(t *testing.T) {
 }
 
 func TestReplaceByResource(t *testing.T) {
+	// don't use the full testdata() here, since we want to watch
+	// selectorcache changes carefully
 	repo := NewPolicyRepository(nil, nil, nil)
+	sc := testNewSelectorCache(nil)
+	repo.selectorCache = sc
+	assert.Len(t, sc.selectors, 0)
 
 	numRules := 10
 	rules := make(api.Rules, 0, numRules)
-	lbls := make([]labels.Label, numRules)
+	// share the dest selector
+	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
 	for i := 0; i < numRules; i++ {
-		it := fmt.Sprintf("baz%d", i)
+		it := fmt.Sprintf("num-%d", i)
 		epSelector := api.NewESFromLabels(
 			labels.NewLabel(
-				"foo",
+				"subject-pod",
 				it,
 				labels.LabelSourceK8s,
 			),
 		)
-		lbls[i] = labels.NewLabel("tag3", it, labels.LabelSourceK8s)
-		rules = append(rules, &api.Rule{
+		lbl := labels.NewLabel("policy-label", it, labels.LabelSourceK8s)
+		rule := &api.Rule{
 			EndpointSelector: epSelector,
-			Labels:           labels.LabelArray{lbls[i]},
+			Labels:           labels.LabelArray{lbl},
 			Egress: []api.EgressRule{
 				{
 					EgressCommonRule: api.EgressCommonRule{
 						ToEndpoints: []api.EndpointSelector{
-							epSelector,
+							destSelector,
 						},
 					},
 				},
 			},
-		})
+		}
+		require.Nil(t, rule.Sanitize())
+		rules = append(rules, rule)
 	}
 
 	rulesMatch := func(s ruleSlice, rs api.Rules) {
@@ -2606,6 +2575,10 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Len(t, repo.rulesByResource[rID1], 1)
 	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[0:1])
 
+	// Check that the selectorcache is sane
+	// It should have one selector: the subject pod for rule 0
+	assert.Len(t, sc.selectors, 1)
+
 	// add second resource
 	new, old, rev = repo.ReplaceByResourceLocked(rules[1:3], rID2)
 
@@ -2618,17 +2591,20 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Len(t, repo.rulesByResource, 2)
 	assert.Len(t, repo.rulesByResource[rID1], 1)
 	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 3)
 
 	// replace rid1 with new rules
 	new, old, _ = repo.ReplaceByResourceLocked(rules[3:5], rID1)
 	assert.Len(t, new, 2)
 	assert.Len(t, old, 1)
+	repo.Release(old)
 
 	// check basic bookkeeping
 	assert.Len(t, repo.rules, 4)
 	assert.Len(t, repo.rulesByResource, 2)
 	assert.Len(t, repo.rulesByResource[rID1], 2)
 	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 4)
 
 	rulesMatch(old, rules[0:1])
 	rulesMatch(new, rules[3:5])
@@ -2638,4 +2614,31 @@ func TestReplaceByResource(t *testing.T) {
 		idx:      0,
 	}].Rule, *rules[3])
 
+	// delete rid1
+	old, _ = repo.DeleteByResourceLocked(rID1)
+	assert.Len(t, old, 2)
+	repo.Release(old)
+
+	assert.Len(t, repo.rules, 2)
+	assert.Len(t, repo.rulesByResource, 1)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 2)
+
+	// delete rid1 again (noop)
+	old, _ = repo.DeleteByResourceLocked(rID1)
+	assert.Len(t, old, 0)
+
+	assert.Len(t, repo.rules, 2)
+	assert.Len(t, repo.rulesByResource, 1)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 2)
+
+	// delete rid2
+	old, _ = repo.DeleteByResourceLocked(rID2)
+	assert.Len(t, old, 2)
+	repo.Release(old)
+
+	assert.Len(t, repo.rules, 0)
+	assert.Len(t, repo.rulesByResource, 0)
+	assert.Len(t, sc.selectors, 0)
 }

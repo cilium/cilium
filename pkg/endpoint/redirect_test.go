@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,16 +42,16 @@ type RedirectSuite struct {
 func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	testutils.IntegrationTest(tb)
 
-	s := &RedirectSuite{}
+	s := &RedirectSuite{
+		do: &DummyOwner{},
+	}
 	s.oldPolicyEnable = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	// Setup dependencies for endpoint.
 	kvstore.SetupDummy(tb, "etcd")
 
-	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
-
-	s.mgr = cache.NewCachingIdentityAllocator(idAllocatorOwner)
+	s.mgr = cache.NewCachingIdentityAllocator(s.do)
 	<-s.mgr.InitIdentityAllocator(nil)
 
 	identityCache := identity.IdentityMap{
@@ -58,11 +59,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 		identity.NumericIdentity(identityBar): labelsBar,
 	}
 
-	s.do = &DummyOwner{
-		repo: policy.NewPolicyRepository(identityCache, nil, nil),
-	}
+	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil)
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-	identitymanager.Subscribe(s.do.repo)
 
 	s.rsp = &RedirectSuiteProxy{
 		parserProxyPortMap: map[string]uint16{
@@ -173,8 +171,11 @@ func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
 }
 
-// UpdateIdentities does nothing.
-func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {}
+func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+	wg := &sync.WaitGroup{}
+	d.repo.GetSelectorCache().UpdateIdentities(added, deleted, wg)
+	wg.Wait()
+}
 
 const (
 	httpPort  = uint16(19001)
