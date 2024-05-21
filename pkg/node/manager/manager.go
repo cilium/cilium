@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
+	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
@@ -320,36 +321,56 @@ func (m *Manager) backgroundSync() {
 	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
-		log.WithField("syncInterval", syncInterval.String()).Debug("Performing regular background work")
-
-		// get a copy of the node identities to avoid locking the entire manager
-		// throughout the process of running the datapath validation.
-		nodes := m.GetNodeIdentities()
-		for _, nodeIdentity := range nodes {
-			// Retrieve latest node information in case any event
-			// changed the node since the call to GetNodes()
-			m.mutex.RLock()
-			entry, ok := m.nodes[nodeIdentity]
-			if !ok {
-				m.mutex.RUnlock()
-				continue
-			}
-
-			entry.mutex.Lock()
-			m.mutex.RUnlock()
-			m.Iter(func(nh datapath.NodeHandler) {
-				nh.NodeValidateImplementation(entry.node)
-			})
-			entry.mutex.Unlock()
-
-			m.metricDatapathValidations.Inc()
-		}
+		startWaiting := syncTimer.After(syncInterval)
+		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
+		m.singleBackgroundLoop(syncInterval)
+		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
 
 		select {
 		case <-m.closeChan:
 			return
-		case <-syncTimer.After(syncInterval):
+		// This handles cases when we didn't fetch nodes yet (e.g. on bootstrap)
+		// but also case when we have 1 node, in which case rate.Limiter doesn't
+		// throttle anything.
+		case <-startWaiting:
 		}
+	}
+}
+
+func (m *Manager) singleBackgroundLoop(expectedLoopTime time.Duration) {
+	// get a copy of the node identities to avoid locking the entire manager
+	// throughout the process of running the datapath validation.
+	nodes := m.GetNodeIdentities()
+	limiter := rate.NewLimiter(
+		rate.Limit(float64(len(nodes))/float64(expectedLoopTime.Seconds())),
+		1, // One token in bucket to amortize for latency of the operation
+	)
+	for _, nodeIdentity := range nodes {
+		if err := limiter.Wait(context.Background()); err != nil {
+			log.WithError(err).Debug("Error while rate limiting backgroundSync updates")
+		}
+		select {
+		case <-m.closeChan:
+			return
+		default:
+		}
+		// Retrieve latest node information in case any event
+		// changed the node since the call to GetNodes()
+		m.mutex.RLock()
+		entry, ok := m.nodes[nodeIdentity]
+		if !ok {
+			m.mutex.RUnlock()
+			continue
+		}
+
+		entry.mutex.Lock()
+		m.mutex.RUnlock()
+		m.Iter(func(nh datapath.NodeHandler) {
+			nh.NodeValidateImplementation(entry.node)
+		})
+		entry.mutex.Unlock()
+
+		m.metricDatapathValidations.Inc()
 	}
 }
 
