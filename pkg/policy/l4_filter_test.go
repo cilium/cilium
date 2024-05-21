@@ -15,11 +15,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 var (
@@ -27,32 +25,70 @@ var (
 	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
-	c                      = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	testSelectorCache      = testNewSelectorCache(c.GetIdentityCache())
-
-	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
-
-	cachedSelectorA, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorA)
-	cachedSelectorC, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorC)
-	cachedSelectorHost, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, hostSelector)
-
-	fooSelector = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
-	bazSelector = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
-
-	cachedFooSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, fooSelector)
-	cachedBazSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, bazSelector)
+	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	bazSelector            = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
 	selFoo  = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
-
-	cachedSelectorBar1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, selBar1)
-	cachedSelectorBar2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, selBar2)
 )
 
+type testData struct {
+	sc   *SelectorCache
+	repo *Repository
+
+	testPolicyContext *testPolicyContextType
+
+	cachedSelectorA        CachedSelector
+	cachedSelectorC        CachedSelector
+	cachedSelectorHost     CachedSelector
+	wildcardCachedSelector CachedSelector
+
+	cachedFooSelector CachedSelector
+	cachedBazSelector CachedSelector
+
+	cachedSelectorBar1 CachedSelector
+	cachedSelectorBar2 CachedSelector
+}
+
+func newTestData() *testData {
+	td := &testData{
+		sc:   testNewSelectorCache(nil),
+		repo: NewPolicyRepository(nil, nil, nil, nil),
+
+		testPolicyContext: &testPolicyContextType{},
+	}
+	td.testPolicyContext.sc = td.sc
+	td.repo.selectorCache = td.sc
+
+	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
+
+	td.cachedSelectorA, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorA)
+	td.cachedSelectorC, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorC)
+	td.cachedSelectorHost, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, hostSelector)
+
+	td.cachedFooSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, fooSelector)
+	td.cachedBazSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, bazSelector)
+
+	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar1)
+	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar2)
+
+	return td
+}
+
+// resetRepo clears only the policy repository.
+// Some tests rely on the accumulated state, but a clean repo.
+func (td *testData) resetRepo() *Repository {
+	td.repo = NewPolicyRepository(nil, nil, nil, nil)
+	td.repo.selectorCache = td.sc
+	return td.repo
+}
+
+// testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
 	isDeny bool
 	ns     string
+	sc     *SelectorCache
 }
 
 func (p *testPolicyContextType) GetNamespace() string {
@@ -60,7 +96,7 @@ func (p *testPolicyContextType) GetNamespace() string {
 }
 
 func (p *testPolicyContextType) GetSelectorCache() *SelectorCache {
-	return testSelectorCache
+	return p.sc
 }
 
 func (p *testPolicyContextType) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
@@ -86,10 +122,6 @@ func (p *testPolicyContextType) SetDeny(isDeny bool) bool {
 func (p *testPolicyContextType) IsDeny() bool {
 	return p.isDeny
 }
-
-var (
-	testPolicyContext = &testPolicyContextType{}
-)
 
 func init() {
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
@@ -130,8 +162,9 @@ func init() {
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
+	td := newTestData()
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
-	repo := parseAndAddRules(t, api.Rules{&api.Rule{
+	td.repo.AddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -161,7 +194,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	ctx := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
-	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctx)
+	l4IngressPolicy, err := td.repo.ResolveL4IngressPolicy(&ctx)
 	require.NoError(t, err)
 
 	t.Log(buffer)
@@ -175,10 +208,11 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 
 	require.Equal(t, ParserTypeNone, filter.L7Parser)
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
+	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 
 	// Case1B: an empty non-nil FromEndpoints does not select any identity.
-	repo = parseAndAddRules(t, api.Rules{&api.Rule{
+	td = newTestData()
+	td.repo.AddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -208,7 +242,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	ctx = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
-	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(&ctx)
+	l4IngressPolicy, err = td.repo.ResolveL4IngressPolicy(&ctx)
 	require.NoError(t, err)
 
 	t.Log(buffer)
@@ -216,7 +250,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	_, ok = l4IngressPolicy["80/TCP"]
 	require.Equal(t, false, ok)
 
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
+	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second
@@ -224,6 +258,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 // at L7, but still redirected at the proxy.
 // Should resolve to one rule.
 func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
+	td := newTestData()
 	rule1 := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -261,7 +296,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
 	ingressState := traceState{}
-	res, err := rule1.resolveIngressPolicy(testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil, nil)
+	res, err := rule1.resolveIngressPolicy(td.testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
@@ -271,10 +306,10 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http",
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -282,18 +317,19 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}}
 
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, ingressState.selectedRules)
 	require.Equal(t, 1, ingressState.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	// Case 2B: Flip order of case 2A so that rule being merged with is different
 	// than rule being consumed.
-	repo := parseAndAddRules(t, api.Rules{&api.Rule{
+	td = newTestData()
+	td.repo.AddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -328,7 +364,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	ctx = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
-	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctx)
+	l4IngressPolicy, err := td.repo.ResolveL4IngressPolicy(&ctx)
 	require.NoError(t, err)
 
 	t.Log(buffer)
@@ -342,12 +378,13 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
+	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 }
 
 // Case 3: allow all at L3 in both rules. Both rules have same parser type and
 // same API resource specified at L7 for HTTP.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
+	td := newTestData()
 	identicalHTTPRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -389,10 +426,10 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -400,7 +437,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}}
 
 	buffer := new(bytes.Buffer)
@@ -409,17 +446,17 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 	t.Log(buffer)
 
 	state := traceState{}
-	res, err := identicalHTTPRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := identicalHTTPRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = identicalHTTPRule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = identicalHTTPRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -428,6 +465,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 
 // Case 4: identical allow all at L3 with identical restrictions on Kafka.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
+	td := newTestData()
 
 	identicalKafkaRule := &rule{
 		Rule: api.Rule{
@@ -475,10 +513,10 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 		Port:     9092,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeKafka,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
@@ -486,21 +524,21 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}}
 
 	state := traceState{}
-	res, err := identicalKafkaRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := identicalKafkaRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = identicalKafkaRule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = identicalKafkaRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -510,6 +548,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 // Case 5: use conflicting protocols on the same port in different rules. This
 // is not supported, so return an error.
 func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
+	td := newTestData()
 
 	// Case 5A: Kafka first, HTTP second.
 	conflictingParsersRule := &rule{
@@ -555,7 +594,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	t.Log(buffer)
 
 	state := traceState{}
-	res, err := conflictingParsersRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NotNil(t, err)
 	require.Nil(t, res)
 
@@ -603,7 +642,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	t.Log(buffer)
 
 	state = traceState{}
-	res, err = conflictingParsersRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err = conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NotNil(t, err)
 	require.Nil(t, res)
 
@@ -655,7 +694,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	require.NoError(t, err)
 
 	state = traceState{}
-	res, err = conflictingParsersIngressRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err = conflictingParsersIngressRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NotNil(t, err)
 	require.Nil(t, res)
 
@@ -704,7 +743,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	require.NoError(t, err)
 
 	state = traceState{}
-	res, err = conflictingParsersEgressRule.resolveEgressPolicy(testPolicyContext, &ctxAToC, &state, L4PolicyMap{}, nil, nil)
+	res, err = conflictingParsersEgressRule.resolveEgressPolicy(td.testPolicyContext, &ctxAToC, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NotNil(t, err)
 	require.Nil(t, res)
@@ -714,6 +753,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 // TLS policy without L7 rules does not inspect L7, uses L7ParserType "tls"
 func TestMergeTLSTCPPolicy(t *testing.T) {
+	td := newTestData()
 	egressRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: fooSelector,
@@ -760,7 +800,7 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -773,8 +813,8 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeTLS,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA: nil, // no proxy redirect
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
 					CertificateChain: "fake public cert",
 					PrivateKey:       "fake private key",
@@ -790,8 +830,8 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
@@ -804,6 +844,7 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 }
 
 func TestMergeTLSHTTPPolicy(t *testing.T) {
+	td := newTestData()
 	egressRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: fooSelector,
@@ -853,7 +894,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -866,8 +907,8 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA: nil, // no proxy redirect
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
 					CertificateChain: "fake public cert",
 					PrivateKey:       "fake private key",
@@ -885,8 +926,8 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
@@ -899,6 +940,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 }
 
 func TestMergeTLSSNIPolicy(t *testing.T) {
+	td := newTestData()
 	egressRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: fooSelector,
@@ -964,7 +1006,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -977,8 +1019,8 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA: nil, // no proxy redirect
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
 					CertificateChain: "fake public cert",
 					PrivateKey:       "fake private key",
@@ -997,8 +1039,8 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
@@ -1011,7 +1053,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 }
 
 func TestMergeListenerPolicy(t *testing.T) {
-	policyContext := &testPolicyContextType{}
+	td := newTestData()
 
 	//
 	// no namespace in policyContext (Clusterwide policy): Can not refer to EnvoyConfig
@@ -1059,7 +1101,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.ErrorContains(t, err, "Listener \"test\" in CCNP can not use Kind CiliumEnvoyConfig")
 	require.Nil(t, res)
@@ -1110,7 +1152,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	state = traceState{}
-	res, err = egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -1123,8 +1165,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA: nil, // no proxy redirect
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
 				isRedirect:      true,
@@ -1133,8 +1175,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
@@ -1191,8 +1233,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	state = traceState{}
-	policyContext.ns = "default"
-	res, err = egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	td.testPolicyContext.ns = "default"
+	res, err = egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -1205,8 +1247,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA: nil, // no proxy redirect
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
 				isRedirect:      true,
@@ -1215,8 +1257,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
@@ -1274,8 +1316,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	state = traceState{}
-	policyContext.ns = "default"
-	res, err = egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	td.testPolicyContext.ns = "default"
+	res, err = egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -1288,8 +1330,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA: nil, // no proxy redirect
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
 				isRedirect:      true,
@@ -1298,8 +1340,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
@@ -1315,6 +1357,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 // in another rule. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second).
 func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
+	td := newTestData()
 	// Case 6A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := &rule{
 		Rule: api.Rule{
@@ -1352,31 +1395,31 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA:        nil,
-			wildcardCachedSelector: nil,
+			td.cachedSelectorA:        nil,
+			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorA:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}}
 
 	state := traceState{}
-	res, err := shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1419,31 +1462,31 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
-			cachedSelectorA:        nil,
+			td.wildcardCachedSelector: nil,
+			td.cachedSelectorA:        nil,
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorA:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}}
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1454,6 +1497,7 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 // which restricts on L7. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second), but setting traffic to the HTTP proxy.
 func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
+	td := newTestData()
 	// Case 7A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and allows all on L7. Net result sets
 	// parser type to whatever is in first rule, but without the restriction
@@ -1499,11 +1543,11 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
-			cachedSelectorA: &PerSelectorPolicy{
+			td.wildcardCachedSelector: nil,
+			td.cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1512,23 +1556,23 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorA:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}}
 
 	state := traceState{}
-	res, err := shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1578,11 +1622,11 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
-			cachedSelectorA: &PerSelectorPolicy{
+			td.wildcardCachedSelector: nil,
+			td.cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1591,23 +1635,23 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			wildcardCachedSelector: {nil},
-			cachedSelectorA:        {nil},
+			td.wildcardCachedSelector: {nil},
+			td.cachedSelectorA:        {nil},
 		},
 	}}
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1619,6 +1663,7 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 // Should resolve to just allowing all on L3, but restricting on L7 for both
 // wildcard and the specified endpoint.
 func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
+	td := newTestData()
 	// Case 8A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and restricts on the same resource on L7.
 	// PerSelectorPolicies contains entries for both endpoints selected in each rule
@@ -1669,16 +1714,16 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 				isRedirect: true,
 			},
-			cachedSelectorA: &PerSelectorPolicy{
+			td.cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1687,23 +1732,23 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorA:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}}
 
 	state := traceState{}
-	res, err := case8Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := case8Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = case8Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1758,16 +1803,16 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 				isRedirect: true,
 			},
-			cachedSelectorA: &PerSelectorPolicy{
+			td.cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1776,24 +1821,24 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorA:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}}
 
 	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err = case8Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = case8Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1804,6 +1849,7 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 // select an endpoint which restricts on different L7 protocol.
 // Should fail as cannot have conflicting parsers on same port.
 func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
+	td := newTestData()
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := &rule{
 		Rule: api.Rule{
@@ -1848,12 +1894,12 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 	t.Log(buffer)
 
 	state := traceState{}
-	res, err := conflictingL7Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NotNil(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1903,12 +1949,12 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 	t.Log(buffer)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NotNil(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -1918,6 +1964,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 // Case 10: restrict same path / method on L7 in both rules,
 // but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
+	td := newTestData()
 	selectDifferentEndpointsRestrictL7 := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -1967,13 +2014,13 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorC: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 				isRedirect: true,
 			},
-			cachedSelectorA: &PerSelectorPolicy{
+			td.cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1982,20 +2029,20 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
 	state := traceState{}
-	res, err := selectDifferentEndpointsRestrictL7.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := selectDifferentEndpointsRestrictL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	buffer = new(bytes.Buffer)
 	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
@@ -2003,7 +2050,7 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 	t.Log(buffer)
 
 	state = traceState{}
-	res, err = selectDifferentEndpointsRestrictL7.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = selectDifferentEndpointsRestrictL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -2012,6 +2059,7 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 
 // Case 11: allow all on L7 in both rules, but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
+	td := newTestData()
 	selectDifferentEndpointsAllowAllL7 := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -2051,25 +2099,25 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorA: nil,
-			cachedSelectorC: nil,
+			td.cachedSelectorA: nil,
+			td.cachedSelectorC: nil,
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorA: {nil},
-			cachedSelectorC: {nil},
+			td.cachedSelectorA: {nil},
+			td.cachedSelectorC: {nil},
 		},
 	}}
 
 	state := traceState{}
-	res, err := selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	buffer = new(bytes.Buffer)
 	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
@@ -2077,7 +2125,7 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 	t.Log(buffer)
 
 	state = traceState{}
-	res, err = selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -2088,6 +2136,7 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 // the host should always be allowed. From Host should go to proxy allow all;
 // other L3 should restrict at L7 in a separate filter.
 func TestAllowingLocalhostShadowsL7(t *testing.T) {
+	td := newTestData()
 	// This test checks that when the AllowLocalhost=always option is
 	// enabled, we always wildcard the host at L7. That means we need to
 	// set the option in the config, and of course clean up afterwards so
@@ -2127,31 +2176,31 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 				isRedirect: true,
 			},
-			cachedSelectorHost: nil, // no proxy redirect
+			td.cachedSelectorHost: nil, // no proxy redirect
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}}
 
 	state := traceState{}
-	res, err := rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	res, err := rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	// Endpoints not selected by the rule should not match the rule.
 	buffer = new(bytes.Buffer)
@@ -2159,7 +2208,7 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 	ctxToC.Logging = stdlog.New(buffer, "", 0)
 
 	state = traceState{}
-	res, err = rule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	t.Log(buffer)
 	require.NoError(t, err)
 	require.Nil(t, res)
@@ -2168,6 +2217,7 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 }
 
 func TestEntitiesL3(t *testing.T) {
+	td := newTestData()
 	allowWorldRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -2189,29 +2239,30 @@ func TestEntitiesL3(t *testing.T) {
 		Port:     0,
 		Protocol: api.ProtoAny,
 		U8Proto:  0,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
 		Ingress:    false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}}
 
 	state := traceState{}
-	res, err := allowWorldRule.resolveEgressPolicy(testPolicyContext, &ctxFromA, &state, L4PolicyMap{}, nil, nil)
+	res, err := allowWorldRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, L4PolicyMap{}, nil, nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 }
 
 // Case 13: deny all at L3 in case of an empty non-nil toEndpoints slice.
 func TestEgressEmptyToEndpoints(t *testing.T) {
+	td := newTestData()
 	rule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -2235,7 +2286,7 @@ func TestEgressEmptyToEndpoints(t *testing.T) {
 	t.Log(buffer)
 
 	state := traceState{}
-	res, err := rule.resolveEgressPolicy(testPolicyContext, &ctxFromA, &state, L4PolicyMap{}, nil, nil)
+	res, err := rule.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, L4PolicyMap{}, nil, nil)
 
 	require.NoError(t, err)
 	require.Nil(t, res)

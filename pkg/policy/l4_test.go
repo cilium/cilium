@@ -128,6 +128,7 @@ func TestParserTypeMerge(t *testing.T) {
 }
 
 func TestCreateL4Filter(t *testing.T) {
+	td := newTestData()
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -147,7 +148,7 @@ func TestCreateL4Filter(t *testing.T) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
+		filter, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(filter.PerSelectorPolicies))
 		for _, r := range filter.PerSelectorPolicies {
@@ -157,7 +158,7 @@ func TestCreateL4Filter(t *testing.T) {
 		}
 		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
 
-		filter, err = createL4EgressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
+		filter, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(filter.PerSelectorPolicies))
 		for _, r := range filter.PerSelectorPolicies {
@@ -170,6 +171,7 @@ func TestCreateL4Filter(t *testing.T) {
 }
 
 func TestCreateL4FilterAuthRequired(t *testing.T) {
+	td := newTestData()
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -190,7 +192,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol, nil)
+		filter, err := createL4IngressFilter(td.testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(filter.PerSelectorPolicies))
 		for _, r := range filter.PerSelectorPolicies {
@@ -200,7 +202,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		}
 		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
 
-		filter, err = createL4EgressFilter(testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, nil, nil)
+		filter, err = createL4EgressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(filter.PerSelectorPolicies))
 		for _, r := range filter.PerSelectorPolicies {
@@ -213,6 +215,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 }
 
 func TestCreateL4FilterMissingSecret(t *testing.T) {
+	td := newTestData()
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -237,10 +240,10 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		_, err := createL4IngressFilter(testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
+		_, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
 		require.NotNil(t, err)
 
-		_, err = createL4EgressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
+		_, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
 		require.NotNil(t, err)
 	}
 }
@@ -252,6 +255,7 @@ func (a SortablePolicyRules) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule }
 
 func TestJSONMarshal(t *testing.T) {
+	td := newTestData()
 	model := &models.L4Policy{}
 	require.EqualValues(t, "[]", pretty.Sprintf("%+ v", model.Egress))
 	require.EqualValues(t, "[]", pretty.Sprintf("%+ v", model.Ingress))
@@ -269,7 +273,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 80, Protocol: api.ProtoTCP,
 				L7Parser: "http",
 				PerSelectorPolicies: L7DataMap{
-					cachedFooSelector: &PerSelectorPolicy{
+					td.cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
@@ -281,7 +285,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 9090, Protocol: api.ProtoTCP,
 				L7Parser: "tester",
 				PerSelectorPolicies: L7DataMap{
-					cachedFooSelector: &PerSelectorPolicy{
+					td.cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
 							L7: []api.PortRuleL7{
@@ -301,7 +305,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 8080, Protocol: api.ProtoTCP,
 				L7Parser: "http",
 				PerSelectorPolicies: L7DataMap{
-					cachedFooSelector: &PerSelectorPolicy{
+					td.cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
 								{Path: "/", Method: "GET"},
@@ -309,7 +313,7 @@ func TestJSONMarshal(t *testing.T) {
 							},
 						},
 					},
-					wildcardCachedSelector: &PerSelectorPolicy{
+					td.wildcardCachedSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
@@ -320,7 +324,7 @@ func TestJSONMarshal(t *testing.T) {
 		}},
 	}
 
-	policy.Attach(testPolicyContext)
+	policy.Attach(td.testPolicyContext)
 	model = policy.GetModel()
 	require.NotNil(t, model)
 
