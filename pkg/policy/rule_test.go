@@ -2631,56 +2631,53 @@ func TestMatches(t *testing.T) {
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
+	td.addIdentity(selectedIdentity)
 
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
 	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
+	td.addIdentity(notSelectedIdentity)
 
 	hostLabels := labels.Labels{selectedEpLabels.Key: selectedEpLabels}
 	hostLabels.MergeLabels(labels.LabelHost)
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
+	td.addIdentity(hostIdentity)
 
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
-	require.Equal(t, false, epRule.matches(notSelectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
-	require.True(t, epRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.True(t, epRule.matchesSubject(selectedIdentity))
 
 	// Test again to check for caching working correctly.
-	require.True(t, epRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.True(t, epRule.matchesSubject(selectedIdentity))
 
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
-	require.Equal(t, false, epRule.matches(notSelectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
 
 	// host endpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, epRule.matches(hostIdentity))
-	require.Equal(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false, hostIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.Equal(t, false, epRule.matchesSubject(hostIdentity))
 
 	// selectedEndpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, hostRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: false}, hostRule.metadata.IdentitySelected)
+	require.Equal(t, false, hostRule.matchesSubject(selectedIdentity))
 
 	// host endpoint is selected by rule, but host labels are mutable, so don't cache them
-	require.True(t, hostRule.matches(hostIdentity))
-	require.Equal(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: false}, hostRule.metadata.IdentitySelected)
+	require.True(t, hostRule.matchesSubject(hostIdentity))
 
 	// Assert that mutable host identities are handled
 	// First, add an additional label, ensure that match succeeds
 	hostLabels.MergeLabels(labels.NewLabelsFromModel([]string{"foo=bar"}))
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
-	require.True(t, hostRule.matches(hostIdentity))
+	td.addIdentity(hostIdentity)
+	require.True(t, hostRule.matchesSubject(hostIdentity))
 
 	// Then, change host to id=c, which is not selected, and ensure match is correct
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, labels.NewLabelsFromModel([]string{"id=c"}))
-	require.False(t, hostRule.matches(hostIdentity))
-	require.Equal(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: false}, hostRule.metadata.IdentitySelected)
+	td.addIdentity(hostIdentity)
+	require.False(t, hostRule.matchesSubject(hostIdentity))
 }
 
 func BenchmarkRuleString(b *testing.B) {

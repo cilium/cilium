@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/testutils"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -155,6 +156,8 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 
 	kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
 	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
+
+	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
 	ds.OnQueueEndpointBuild = nil

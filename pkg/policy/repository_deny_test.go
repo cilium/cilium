@@ -41,6 +41,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooEgressDenyRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule2", labels.LabelSourceAny)
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
 	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+	td.addIdentity(fooIdentity)
 
 	fooIngressDenyRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -1561,44 +1562,4 @@ Ingress verdict: denied
 	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
 	require.Equal(t, api.Denied, verdict)
-}
-
-func TestRemoveIdentityFromRuleDenyCaches(t *testing.T) {
-	td := newTestData()
-	td.repo.MustAddList(api.Rules{&api.Rule{
-		EndpointSelector: endpointSelectorA,
-		IngressDeny: []api.IngressDenyRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorC},
-				},
-			},
-		},
-	}})
-
-	addedRule := td.repo.rules[ruleKey{idx: 0}]
-
-	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
-
-	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
-
-	// selectedEndpoint is selected by rule, so we it should be added to
-	// EndpointsSelected.
-	require.Equal(t, true, addedRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true}, addedRule.metadata.IdentitySelected)
-
-	wg := td.repo.removeIdentityFromRuleCaches(selectedIdentity)
-	wg.Wait()
-
-	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
-
-	require.Equal(t, false, addedRule.matches(notSelectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false}, addedRule.metadata.IdentitySelected)
-
-	wg = td.repo.removeIdentityFromRuleCaches(notSelectedIdentity)
-	wg.Wait()
-
-	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
 }

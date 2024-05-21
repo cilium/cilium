@@ -206,7 +206,9 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int,
 	SetPolicyEnabled(option.DefaultEnforcement)
 	wg := &sync.WaitGroup{}
 	// load in standard reserved identities
-	c := identity.IdentityMap{}
+	c := identity.IdentityMap{
+		fooIdentity.ID: fooIdentity.LabelArray,
+	}
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
 		c[ni] = id.Labels.LabelArray()
 	})
@@ -225,7 +227,7 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int,
 
 	epsToRegen := NewEndpointSet(nil)
 	wg = &sync.WaitGroup{}
-	rulez.UpdateRulesEndpointsCaches(epSet, epsToRegen, wg)
+	rulez.FindSelectedEndpoints(epSet, epsToRegen, wg)
 	wg.Wait()
 
 	require.Equal(tb, 0, epSet.Len())
@@ -278,6 +280,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 		idFooSelectLabels[lbl.Key] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+	td.addIdentity(fooIdentity)
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
@@ -376,6 +379,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	}
 
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+	td.addIdentity(fooIdentity)
 
 	// Emulate Kubernetes mode with allow from localhost
 	oldLocalhostOpt := option.Config.AllowLocalhost
@@ -485,6 +489,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		idFooSelectLabels[lbl.Key] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+	td.addIdentity(fooIdentity)
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
@@ -587,6 +592,7 @@ func TestMapStateWithIngress(t *testing.T) {
 		idFooSelectLabels[lbl.Key] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+	td.addIdentity(fooIdentity)
 
 	lblTest := labels.ParseLabel("id=resolve_test_1")
 

@@ -2186,6 +2186,11 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	// this endpoint, trigger the early notification via this call. If the
 	// identity is new, then this will start updating the policy for other
 	// co-located endpoints without having to wait for that RTT.
+	//
+	// This must happen before triggering regeration, as this ID must be
+	// plumbed in to the SelectorCache in order for policy to correctly apply
+	// to this endpoint. Fortunately AllocateIdentity() will synchronously
+	// update the SelectorCache, so there are no problems here.
 	notifySelectorCache := true
 	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache, identity.InvalidIdentity)
 	if err != nil {
