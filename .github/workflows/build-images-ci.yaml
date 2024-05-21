@@ -178,8 +178,7 @@ jobs:
           target: release
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:e7292e797ee4cb45785c2b0a98013bff0e20a423@sha256:9e9da2ff731904ee62689b274b1c213bf002eba889edbef78cdf2e0e004d1e2f
-            LOCKDEBUG=1
-            RACE=1
+            MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
@@ -200,7 +199,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
           target: release
           build-args: |
-            NOSTRIP=1
+            MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Sign Container Images
@@ -323,8 +322,7 @@ jobs:
           target: release
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:e7292e797ee4cb45785c2b0a98013bff0e20a423@sha256:9e9da2ff731904ee62689b274b1c213bf002eba889edbef78cdf2e0e004d1e2f
-            LOCKDEBUG=1
-            RACE=1
+            MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
@@ -341,7 +339,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
           target: release
           build-args: |
-            NOSTRIP=1
+            MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Sign Container Images

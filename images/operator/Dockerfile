@@ -15,11 +15,10 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as builder
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
-ARG NOSTRIP
-ARG NOOPT
-ARG LOCKDEBUG
-ARG RACE
+# OPERATOR_VARIANT determines the target cloud provider to build the operator for.
 ARG OPERATOR_VARIANT
+# MODIFIERS are extra arguments to be passed to make at build time.
+ARG MODIFIERS
 
 WORKDIR /go/src/github.com/cilium/cilium
 
