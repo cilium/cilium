@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -316,9 +317,11 @@ func (m *Manager) backgroundSyncInterval() time.Duration {
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
 func (m *Manager) backgroundSync() {
+	syncTimer, syncTimerDone := inctimer.New()
+	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
-
+		startWaiting := syncTimer.After(syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
 		m.singleBackgroundLoop(syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
@@ -326,7 +329,7 @@ func (m *Manager) backgroundSync() {
 		select {
 		case <-m.closeChan:
 			return
-		default:
+		case <-startWaiting:
 		}
 	}
 }
