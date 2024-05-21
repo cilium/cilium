@@ -49,6 +49,7 @@ var Cell = cell.Module(
 			return m
 		},
 		newStats,
+		statedb.RWTable[NatMapStats].ToTable,
 	),
 	cell.Config(Config{
 		// NATMapStatInterval is how often the map is counted, 30 seconds was chosen as a reasonable starting
