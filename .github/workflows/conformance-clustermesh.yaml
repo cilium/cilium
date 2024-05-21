@@ -60,6 +60,8 @@ env:
   cilium_cli_ci_version:
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
+  ciliumClusterName1: c1
+  ciliumClusterName2: cluster2-with-long-name-01234567
   contextName1: kind-cluster1-${{ github.run_id }}
   contextName2: kind-cluster2-${{ github.run_id }}
 
@@ -460,8 +462,8 @@ jobs:
         run: |
           echo "cilium_install_clustermesh= \
             --set=clustermesh.config.enabled=true \
-            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
-            --set clustermesh.config.clusters[1].name=${{ env.clusterName2 }} \
+            --set clustermesh.config.clusters[0].name=${{ env.ciliumClusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.ciliumClusterName2 }} \
             ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
           " >> $GITHUB_OUTPUT
 
@@ -500,7 +502,7 @@ jobs:
           # each cluster, to workaround #24692
           cilium --context ${{ env.contextName1 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set cluster.name=${{ env.clusterName1 }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
             --helm-set cluster.id=1 \
             --helm-set clustermesh.apiserver.service.nodePort=32379 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
@@ -522,7 +524,7 @@ jobs:
           # each cluster, to workaround #24692
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set cluster.name=${{ env.clusterName2 }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName2 }} \
             --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
