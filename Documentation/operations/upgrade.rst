@@ -338,6 +338,9 @@ Annotations:
   removed in future release. The devices and the addresses Cilium considers the node's addresses
   can be inspected with the ``cilium-dbg statedb devices`` and ``cilium-dbg statedb node-addresses``
   commands.
+* The Cilium cluster name is now strictly enforced to be a valid
+  `RFC 1123 DNS label name <https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names>`__.
+  Users shall verify and update invalid Cilium cluster names before upgrading.
 
 Removed Options
 ~~~~~~~~~~~~~~~

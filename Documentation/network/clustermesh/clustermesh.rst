@@ -126,8 +126,14 @@ Specify the Cluster Name and ID
 Cilium needs to be installed onto each cluster.
 
 Each cluster must be assigned a unique human-readable name as well as a numeric
-cluster ID (1-255). It is best to assign both these attributes at installation
-time of Cilium:
+cluster ID (1-255). The cluster name must be a valid
+`RFC 1123 DNS label name <https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names>`__:
+
+* It must contain at most 63 characters;
+* It must begin and end with a lower case alphanumeric character;
+* It may contain lower case alphanumerics and dashes between.
+
+It is best to assign both the cluster name and the cluster ID at installation time:
 
  * ConfigMap options ``cluster-name`` and ``cluster-id``
  * Helm options ``cluster.name`` and ``cluster.id``
