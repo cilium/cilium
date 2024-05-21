@@ -65,6 +65,11 @@ k8sClientRateLimit:
   burst:
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
+  # It must be a valid RFC 1123 DNS label name:
+  # * It must contain at most 63 characters;
+  # * It must begin and end with a lower case alphanumeric character;
+  # * It may contain lower case alphanumerics and dashes between.
+  # The "default" name cannot be used if the Cluster ID is different from 0.
   name: default
   # -- (int) Unique ID of the cluster. Must be unique across all connected
   # clusters and in the range of 1 to 255. Only required for Cluster Mesh,
@@ -684,7 +689,7 @@ daemon:
 # -- Enables experimental support for the detection of new and removed datapath
 # devices. When devices change the eBPF datapath is reloaded and services updated.
 # If "devices" is set then only those devices, or devices matching a wildcard will
-# be considered. 
+# be considered.
 #
 # This option has been deprecated and is a no-op.
 enableRuntimeDeviceDetection: true

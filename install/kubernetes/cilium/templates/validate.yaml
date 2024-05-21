@@ -79,6 +79,20 @@
   {{- end }}
 {{- end }}
 
+{{/* validate cluster name */}}
+{{- if eq .Values.cluster.name "" }}
+  {{ fail "The cluster name is invalid: cannot be empty" }}
+{{- end }}
+{{- if gt (len .Values.cluster.name) 63 }}
+  {{ fail "The cluster name is invalid: must not be more than 63 characters" }}
+{{- end }}
+{{- if not (regexMatch "^([a-z0-9][-a-z0-9]*)?[a-z0-9]$" .Values.cluster.name) }}
+  {{ fail "The cluster name is invalid: must consist of lower case alphanumeric characters and '-', and must start and end with an alphanumeric character" }}
+{{- end }}
+{{- if and (eq .Values.cluster.name "default") (ne (int .Values.cluster.id) 0) }}
+  {{ fail "The cluster name is invalid: cannot use default value with cluster.id != 0" }}
+{{- end }}
+
 {{/* validate clustermesh-apiserver */}}
 {{- if .Values.clustermesh.useAPIServer }}
   {{- if ne .Values.identityAllocationMode "crd" }}
