@@ -1716,11 +1716,12 @@ func (m *Manager) installRules(ifName string) error {
 		}
 	}
 
-	if skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) {
+	if m.sharedCfg.IPv4NativeRoutingCIDR != nil {
 		podsCIDR := m.sharedCfg.IPv4NativeRoutingCIDR.String()
-
-		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
-			return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
+		if skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) && podsCIDR != "" {
+			if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
+				return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
+			}
 		}
 	}
 
