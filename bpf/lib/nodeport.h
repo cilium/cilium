@@ -789,9 +789,8 @@ create_ct:
 			return DROP_INVALID;
 
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
-		ct_state_new.dsr_internal = 1;
-		ct_state_new.proxy_redirect = false;
-		ct_state_new.from_l7lb = false;
+		ct_state_new.dsr_internal = true;
+		/* all other flags are already false */
 
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
@@ -1337,9 +1336,13 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
 				      &ct_state, &monitor);
 		switch (ret) {
+		case CT_REOPENED:
+			memset(&ct_state, 0, sizeof(ct_state));
+			ct_state.rev_nat_index = ct_state_svc.rev_nat_index;
+			fallthrough;
 		case CT_NEW:
 			ct_state.src_sec_id = WORLD_IPV6_ID;
-			ct_state.node_port = 1;
+			ct_state.node_port = true;
 #ifndef HAVE_FIB_IFINDEX
 			ct_state.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
@@ -1349,7 +1352,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			if (IS_ERR(ret))
 				return ret;
 			break;
-		case CT_REOPENED:
 		case CT_ESTABLISHED:
 			/* Note that we don't validate whether the matched CT entry
 			 * has identical values (eg. .ifindex) as set above.
@@ -2332,9 +2334,6 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			      CT_ENTRY_DSR, NULL, &monitor);
 	switch (ret) {
 	case CT_NEW:
-	/* Maybe we can be a bit more selective about CT_REOPENED?
-	 * But we have to assume that both the CT and the SNAT entry are stale.
-	 */
 	case CT_REOPENED:
 create_ct:
 		if (port == 0)
@@ -2345,9 +2344,8 @@ create_ct:
 			return DROP_INVALID;
 
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
-		ct_state_new.dsr_internal = 1;
-		ct_state_new.proxy_redirect = 0;
-		ct_state_new.from_l7lb = 0;
+		ct_state_new.dsr_internal = true;
+		/* all other flags are already false */
 
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
@@ -2898,9 +2896,13 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
 				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
 		switch (ret) {
+		case CT_REOPENED:
+			memset(&ct_state, 0, sizeof(ct_state));
+			ct_state.rev_nat_index = ct_state_svc.rev_nat_index;
+			fallthrough;
 		case CT_NEW:
 			ct_state.src_sec_id = src_sec_identity;
-			ct_state.node_port = 1;
+			ct_state.node_port = true;
 #ifndef HAVE_FIB_IFINDEX
 			ct_state.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
@@ -2910,7 +2912,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			if (IS_ERR(ret))
 				return ret;
 			break;
-		case CT_REOPENED:
 		case CT_ESTABLISHED:
 			/* Note that we don't validate whether the matched CT entry
 			 * has identical values (eg. .ifindex) as set above.
