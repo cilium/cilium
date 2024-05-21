@@ -351,6 +351,10 @@ Annotations:
   ``policy_regeneration_time_stats_seconds`` have been deprecated in favor of
   ``endpoint_regenerations_total`` and
   ``endpoint_regeneration_time_stats_seconds``, respectively.
+* The Cilium cluster name is now validated to consist of at most 32 lower case
+  alphanumeric characters and '-', start and end with an alphanumeric character.
+  Validation can be currently bypassed configuring ``upgradeCompatibility`` to
+  v1.15 or earlier, but will be strictly enforced starting from Cilium v1.17.
 
 Removed Options
 ~~~~~~~~~~~~~~~
