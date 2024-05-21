@@ -1555,9 +1555,8 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
-	if m.sharedCfg.InstallNoConntrackIptRules {
-		podsCIDR := state.localNodeInfo.ipv4NativeRoutingCIDR
-
+	podsCIDR := state.localNodeInfo.ipv4NativeRoutingCIDR
+	if m.sharedCfg.InstallNoConntrackIptRules && podsCIDR != "" {
 		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
 			return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
 		}
