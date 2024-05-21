@@ -253,7 +253,7 @@ type Service struct {
 	svcByHash map[string]*svcInfo
 	svcByID   map[lb.ID]*svcInfo
 
-	backendRefCount counter.StringCounter
+	backendRefCount counter.Counter[string]
 	// only used to keep track of the existing hash->ID mapping,
 	// not for loadbalancing decisions.
 	backendByHash map[string]*lb.Backend
@@ -281,7 +281,7 @@ func NewService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, back
 	svc := &Service{
 		svcByHash:                map[string]*svcInfo{},
 		svcByID:                  map[lb.ID]*svcInfo{},
-		backendRefCount:          counter.StringCounter{},
+		backendRefCount:          counter.Counter[string]{},
 		backendByHash:            map[string]*lb.Backend{},
 		monitorAgent:             monitorAgent,
 		healthServer:             localHealthServer,

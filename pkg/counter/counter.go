@@ -36,6 +36,3 @@ func (c Counter[T]) DeepCopy() Counter[T] {
 	}
 	return result
 }
-
-// Deprecated. Use Counter[string] instead.
-type StringCounter = Counter[string]

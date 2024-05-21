@@ -52,7 +52,7 @@ type Watcher struct {
 	watcher *fsnotify.Watcher
 
 	// Internally, we distinguish between
-	watchedPathCount     counter.StringCounter
+	watchedPathCount     counter.Counter[string]
 	trackedToWatchedPath map[string]string
 
 	// Events is used to signal changes to any of the tracked files. It is
@@ -78,7 +78,7 @@ func New(trackedFiles []string) (*Watcher, error) {
 
 	w := &Watcher{
 		watcher:              watcher,
-		watchedPathCount:     counter.StringCounter{},
+		watchedPathCount:     counter.Counter[string]{},
 		trackedToWatchedPath: map[string]string{},
 		Events:               make(chan Event),
 		Errors:               make(chan error),

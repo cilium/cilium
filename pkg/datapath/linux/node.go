@@ -73,7 +73,7 @@ type linuxNodeHandler struct {
 	neighNextHopByNode6  map[nodeTypes.Identity]map[string]string // val = (key=link, value=string(net.IP))
 	ipsecUpdateNeeded    map[nodeTypes.Identity]bool
 	// All three mappings below hold both IPv4 and IPv6 entries.
-	neighNextHopRefCount   counter.StringCounter
+	neighNextHopRefCount   counter.Counter[string]
 	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 
@@ -142,7 +142,7 @@ func newNodeHandler(
 		nodes:                  map[nodeTypes.Identity]*nodeTypes.Node{},
 		neighNextHopByNode4:    map[nodeTypes.Identity]map[string]string{},
 		neighNextHopByNode6:    map[nodeTypes.Identity]map[string]string{},
-		neighNextHopRefCount:   counter.StringCounter{},
+		neighNextHopRefCount:   counter.Counter[string]{},
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
 		nodeMap:                nodeMap,
