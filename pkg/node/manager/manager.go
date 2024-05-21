@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -340,9 +341,11 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
 func (m *manager) backgroundSync(ctx context.Context) error {
+	syncTimer, syncTimerDone := inctimer.New()
+	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
-
+		startWaiting := syncTimer.After(syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
 		err := m.singleBackgroundLoop(ctx, syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
@@ -350,7 +353,10 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		default:
+		// This handles cases when we didn't fetch nodes yet (e.g. on bootstrap)
+		// but also case when we have 1 node, in which case rate.Limiter doesn't
+		// throttle anything.
+		case <-startWaiting:
 		}
 
 		hr := m.health.NewScope("background-sync")
