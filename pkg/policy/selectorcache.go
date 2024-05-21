@@ -452,11 +452,15 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				}
 			}
 			for numericID := range added {
-				if _, exists := idSel.cachedSelections[numericID]; !exists {
-					if idSel.source.matches(sc.idCache[numericID]) {
-						adds = append(adds, numericID)
-						idSel.cachedSelections[numericID] = struct{}{}
-					}
+				matches := idSel.source.matches(sc.idCache[numericID])
+				_, exists := idSel.cachedSelections[numericID]
+				if matches && !exists {
+					adds = append(adds, numericID)
+					idSel.cachedSelections[numericID] = struct{}{}
+				} else if !matches && exists {
+					// identity was mutated and no longer matches
+					dels = append(dels, numericID)
+					delete(idSel.cachedSelections, numericID)
 				}
 			}
 			if len(dels)+len(adds) > 0 {
