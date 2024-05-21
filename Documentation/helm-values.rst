@@ -469,7 +469,7 @@
      - int
      - ``0``
    * - :spelling:ignore:`cluster.name`
-     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
+     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE. It must respect the following constraints: * It must contain at most 32 characters; * It must begin and end with a lower case alphanumeric character; * It may contain lower case alphanumeric characters and dashes between. The "default" name cannot be used if the Cluster ID is different from 0.
      - string
      - ``"default"``
    * - :spelling:ignore:`clustermesh.annotations`
