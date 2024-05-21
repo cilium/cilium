@@ -509,6 +509,7 @@ skip_policy_enforcement:
 #endif
 	switch (ct_status) {
 	case CT_NEW:
+	case CT_REOPENED: /* identity or proxy treatment may differ, have to update */
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -526,7 +527,6 @@ ct_recreate6:
 		trace.monitor = TRACE_PAYLOAD_LEN;
 		break;
 
-	case CT_REOPENED:
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state->rev_nat_index != ct_state_new.rev_nat_index))
@@ -961,6 +961,7 @@ skip_policy_enforcement:
 #endif
 	switch (ct_status) {
 	case CT_NEW:
+	case CT_REOPENED: /* identity or proxy treatment may differ, have to update */
 ct_recreate4:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -989,7 +990,6 @@ ct_recreate4:
 			return ret;
 		break;
 
-	case CT_REOPENED:
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state->rev_nat_index != ct_state_new.rev_nat_index))
@@ -1621,27 +1621,20 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 		return verdict;
 
 skip_policy_enforcement:
-#ifdef ENABLE_NODEPORT
+	/* Reset the entry also for CT_REOPENED. This way any difference in source security id,
+	 * proxy redirect, dsr, or nodeport gets set correctly.
+	 */
 	if (ret == CT_NEW || ret == CT_REOPENED) {
-# ifdef ENABLE_DSR
-		if (ret == CT_REOPENED && ct_state->dsr_internal)
-			ct_update_dsr(get_ct_map6(tuple), tuple, false);
-# endif /* ENABLE_DSR */
+#ifdef ENABLE_NODEPORT
 		{
 			bool node_port =
 				ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
 							      tuple, NULL, false);
 
 			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map6(tuple), tuple,
-						   node_port);
 		}
-	}
 #endif /* ENABLE_NODEPORT */
 
-	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
@@ -1979,28 +1972,20 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 		return verdict;
 
 skip_policy_enforcement:
-#ifdef ENABLE_NODEPORT
+	/* Reset the entry also for CT_REOPENED. This way any difference in source security id,
+	 * proxy redirect, dsr, or nodeport gets set correctly.
+	 */
 	if (ret == CT_NEW || ret == CT_REOPENED) {
-# ifdef ENABLE_DSR
-		/* Clear .dsr_internal flag for old connections: */
-		if (ret == CT_REOPENED && ct_state->dsr_internal)
-			ct_update_dsr(get_ct_map4(tuple), tuple, false);
-# endif /* ENABLE_DSR */
+#ifdef ENABLE_NODEPORT
 		{
 			bool node_port =
 				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
 							      tuple, NULL, false);
 
 			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map4(tuple), tuple,
-						   node_port);
 		}
-	}
 #endif /* ENABLE_NODEPORT */
 
-	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;

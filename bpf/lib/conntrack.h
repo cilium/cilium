@@ -1187,16 +1187,4 @@ ct_update_dsr(const void *map, const void *tuple, const bool dsr)
 
 	entry->dsr_internal = dsr;
 }
-
-static __always_inline void
-ct_update_nodeport(const void *map, const void *tuple, const bool node_port)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->node_port = node_port;
-}
 #endif /* __LIB_CONNTRACK_H_ */
