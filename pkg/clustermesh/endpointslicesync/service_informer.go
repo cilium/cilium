@@ -16,11 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	discoveryinformers "k8s.io/client-go/informers/discovery/v1"
-	discoveryv1 "k8s.io/client-go/kubernetes/typed/discovery/v1"
 	listersv1 "k8s.io/client-go/listers/core/v1"
-	discoverylisters "k8s.io/client-go/listers/discovery/v1"
-	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/cache"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -49,9 +46,6 @@ type meshServiceInformer struct {
 	globalServiceCache *common.GlobalServiceCache
 	services           resource.Resource[*slim_corev1.Service]
 	serviceStore       resource.Store[*slim_corev1.Service]
-
-	discoveryClient     discoveryv1.DiscoveryV1Interface
-	endpointSliceLister discoverylisters.EndpointSliceLister
 
 	servicesSynced atomic.Bool
 	handler        cache.ResourceEventHandler
@@ -102,15 +96,11 @@ func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) error 
 func newMeshServiceInformer(
 	globalServiceCache *common.GlobalServiceCache,
 	services resource.Resource[*slim_corev1.Service],
-	discoveryClient discoveryv1.DiscoveryV1Interface,
-	endpointSliceInformer discoveryinformers.EndpointSliceInformer,
 ) *meshServiceInformer {
 	return &meshServiceInformer{
-		dummyInformer:       dummyInformer{"meshServiceInformer"},
-		globalServiceCache:  globalServiceCache,
-		services:            services,
-		discoveryClient:     discoveryClient,
-		endpointSliceLister: endpointSliceInformer.Lister(),
+		dummyInformer:      dummyInformer{"meshServiceInformer"},
+		globalServiceCache: globalServiceCache,
+		services:           services,
 	}
 }
 
