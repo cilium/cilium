@@ -68,6 +68,12 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	return serviceAffinityNone
 }
 
+func getTopologyAware(svc *slim_corev1.Service) bool {
+	return getAnnotationTopologyAwareHints(svc) ||
+		(svc.Spec.TrafficDistribution != nil &&
+			*svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose)
+}
+
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
 	value, ok := svc.ObjectMeta.Annotations[v1.DeprecatedAnnotationTopologyAwareHints]
@@ -248,7 +254,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		}
 	}
 
-	svcInfo.TopologyAware = getAnnotationTopologyAwareHints(svc)
+	svcInfo.TopologyAware = getTopologyAware(svc)
 
 	return svcID, svcInfo
 }
@@ -378,7 +384,14 @@ type Service struct {
 	Type loadbalancer.SVCType
 
 	// TopologyAware denotes whether service endpoints might have topology aware
-	// hints
+	// hints. This is used to determine if Services should be reconciled when
+	// Node labels are updated. It is set to true if any of the following are
+	// true:
+	// * TrafficDistribution field is set to "PreferClose"
+	// * service.kubernetes.io/topology-aware-hints annotation is set to "Auto"
+	//   or "auto"
+	// * service.kubernetes.io/topology-mode annotation is set to any value
+	//   other than "Disabled"
 	TopologyAware bool
 }
 
