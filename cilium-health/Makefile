@@ -3,6 +3,10 @@
 
 include ../Makefile.defs
 
+# Add the ability to override variables
+# ROOT_DIR changes to repo root after including Makefile.defs
+-include ${ROOT_DIR}/Makefile.override
+
 TARGET := cilium-health
 SUBDIRS := responder
 
