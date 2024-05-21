@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
@@ -71,6 +72,11 @@ func TroubleshootClusterMesh(
 
 	for _, cluster := range clusters {
 		fmt.Fprintf(stdout, "\nRemote cluster %q:\n", cluster)
+
+		if err := types.ValidateClusterName(cluster); err != nil {
+			fmt.Fprintln(stdout, "❌ Invalid cluster name:", err)
+			continue
+		}
 
 		cfg, ok := cfgs[cluster]
 		if !ok {
