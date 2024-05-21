@@ -574,7 +574,7 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 // filterEndpoints filters local endpoints by using k8s service heuristics.
 // For now it only implements the topology aware hints.
 func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) *Endpoints {
-	if !s.config.EnableServiceTopology || svc == nil || !svc.TopologyAware {
+	if !s.config.EnableServiceTopology || svc == nil {
 		return localEndpoints
 	}
 
