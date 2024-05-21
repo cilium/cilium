@@ -62,6 +62,9 @@ env:
   contextName1: kind-cluster1-${{ github.run_id }}
   contextName2: kind-cluster2-${{ github.run_id }}
 
+  # renovate: datasource=github-releases depName=cert-manager/cert-manager
+  CERT_MANAGER_VERSION: v1.14.5
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -99,6 +102,7 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
+            tls-auto-method: helm
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'legacy'
             maxConnectedClusters: '255'
@@ -109,6 +113,7 @@ jobs:
             encryption: 'wireguard'
             kube-proxy: 'none'
             mode: 'clustermesh'
+            tls-auto-method: cronJob
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '511'
@@ -120,6 +125,7 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
+            tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -132,6 +138,7 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'none'
             mode: 'clustermesh'
+            tls-auto-method: certmanager
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '255'
@@ -143,6 +150,7 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'external'
+            tls-auto-method: helm
             maxConnectedClusters: '255'
 
           - name: '6'
@@ -151,6 +159,7 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'none'
             mode: 'clustermesh'
+            tls-auto-method: helm
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -161,6 +170,7 @@ jobs:
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
+            tls-auto-method: cronJob
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '511'
@@ -172,6 +182,7 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'clustermesh'
+            tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -183,6 +194,7 @@ jobs:
         #    encryption: 'disabled'
         #    kube-proxy: 'none'
         #    mode: 'kvstoremesh'
+        #    tls-auto-method: certmanager
         #    cm-auth-mode-1: 'cluster'
         #    cm-auth-mode-2: 'cluster'
 
@@ -192,6 +204,7 @@ jobs:
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             mode: 'external'
+            tls-auto-method: helm
             maxConnectedClusters: '511'
 
     steps:
@@ -220,9 +233,17 @@ jobs:
             --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
+            --helm-set=hubble.tls.auto.method=${{ matrix.tls-auto-method }} \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.group=cert-manager.io \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.kind=Issuer \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.name=cilium \
             --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
             --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
+            --helm-set=clustermesh.apiserver.tls.auto.method=${{ matrix.tls-auto-method }} \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.group=cert-manager.io \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.kind=Issuer \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.name=cilium \
             "
 
           CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
@@ -379,6 +400,37 @@ jobs:
           kubectl --context ${{ env.contextName1 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
           kubectl --context ${{ env.contextName2 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
 
+      - name: Install cert-manager CRDs and create Cilium's issuer
+        if: matrix.tls-auto-method == 'certmanager'
+        run: |
+          # Generate the Cilium CA key and certificate
+          openssl genrsa 4096 > cilium-ca-key.pem
+          openssl req -new -x509 -nodes -days 1 -key cilium-ca-key.pem -out cilium-ca-crt.pem -subj "/CN=Cilium CA/"
+
+          cat << EOF > issuer.yaml
+          apiVersion: cert-manager.io/v1
+          kind: Issuer
+          metadata:
+            name: cilium
+            namespace: kube-system
+          spec:
+            ca:
+              secretName: cilium-root-ca
+          EOF
+
+          for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            # Install the cert-manager CRDs
+            CRD_URL="https://github.com/cert-manager/cert-manager/releases/download/${{ env.CERT_MANAGER_VERSION }}/cert-manager.crds.yaml"
+            kubectl --context $ctx apply -f $CRD_URL
+
+            # Create the Cilium CA secret
+            kubectl --context $ctx create -n kube-system secret tls cilium-root-ca \
+              --key=cilium-ca-key.pem --cert=cilium-ca-crt.pem
+
+            # Create the cert-manager issuer
+            kubectl --context $ctx apply -f issuer.yaml
+          done
+
       - name: Set clustermesh connection parameters
         if: matrix.mode == 'external'
         id: clustermesh-vars
@@ -434,6 +486,7 @@ jobs:
             --nodes-without-cilium
 
       - name: Copy the Cilium CA secret to cluster2, as they must match
+        if: matrix.tls-auto-method != 'certmanager'
         run: |
           kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
             kubectl --context ${{ env.contextName2 }} create -f -
@@ -452,6 +505,18 @@ jobs:
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
+
+      - name: Install cert-manager
+        if: matrix.tls-auto-method == 'certmanager'
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            helm --kube-context $ctx install \
+              cert-manager jetstack/cert-manager \
+              --namespace cert-manager \
+              --create-namespace \
+              --version ${{ env.CERT_MANAGER_VERSION }}
+          done
 
       - name: Wait for cluster mesh status to be ready
         run: |
