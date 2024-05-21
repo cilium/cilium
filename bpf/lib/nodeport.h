@@ -555,27 +555,6 @@ nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
 	return snat_v6_lookup(nat_tuple);
 }
 
-static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
-					const struct ipv6_ct_tuple *tuple,
-					int l4_off)
-{
-	struct ipv6_ct_tuple nat_tup = *tuple;
-	struct ipv6_nat_entry *entry;
-
-	nat_tup.flags = NAT_DIR_EGRESS;
-	nat_tup.sport = tuple->dport;
-	nat_tup.dport = tuple->sport;
-
-	entry = nodeport_dsr_lookup_v6_nat_entry(&nat_tup);
-	if (!entry)
-		return 0;
-
-	ctx_snat_done_set(ctx);
-	return snat_v6_rewrite_headers(ctx, nat_tup.nexthdr, ETH_HLEN, l4_off,
-				       &nat_tup.saddr, &entry->to_saddr, IPV6_SADDR_OFF,
-				       nat_tup.sport, entry->to_sport, TCP_SPORT_OFF);
-}
-
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 					   const struct ipv6hdr *ip6 __maybe_unused,
 					   const union v6addr *svc_addr __maybe_unused,
@@ -2118,27 +2097,6 @@ static __always_inline struct ipv4_nat_entry *
 nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
 {
 	return snat_v4_lookup(nat_tuple);
-}
-
-static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
-					const struct ipv4_ct_tuple *tuple,
-					int l4_off, bool has_l4_header)
-{
-	struct ipv4_ct_tuple nat_tup = *tuple;
-	struct ipv4_nat_entry *entry;
-
-	nat_tup.flags = NAT_DIR_EGRESS;
-	nat_tup.sport = tuple->dport;
-	nat_tup.dport = tuple->sport;
-
-	entry = nodeport_dsr_lookup_v4_nat_entry(&nat_tup);
-	if (!entry)
-		return 0;
-
-	ctx_snat_done_set(ctx);
-	return snat_v4_rewrite_headers(ctx, nat_tup.nexthdr, ETH_HLEN, has_l4_header, l4_off,
-				       nat_tup.saddr, entry->to_saddr, IPV4_SADDR_OFF,
-				       nat_tup.sport, entry->to_sport, TCP_SPORT_OFF);
 }
 
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,

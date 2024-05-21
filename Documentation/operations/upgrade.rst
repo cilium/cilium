@@ -338,6 +338,8 @@ Annotations:
   removed in future release. The devices and the addresses Cilium considers the node's addresses
   can be inspected with the ``cilium-dbg statedb devices`` and ``cilium-dbg statedb node-addresses``
   commands.
+* Service connections that use ``Direct-Server-Return`` and were established prior to Cilium v1.13.3
+  will be disrupted, and need to be re-established.
 
 Removed Options
 ~~~~~~~~~~~~~~~
