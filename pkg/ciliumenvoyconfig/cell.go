@@ -12,8 +12,10 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -112,8 +114,12 @@ type managerParams struct {
 	XdsServer      envoy.XDSServer
 	BackendSyncer  *envoyServiceBackendSyncer
 	ResourceParser *cecResourceParser
+
+	Services  resource.Resource[*slim_corev1.Service]
+	Endpoints resource.Resource[*k8s.Endpoints]
 }
 
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
-	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer, params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout)
+	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer,
+		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Services, params.Endpoints)
 }

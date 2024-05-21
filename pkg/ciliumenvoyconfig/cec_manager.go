@@ -14,6 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -38,6 +40,9 @@ type cecManager struct {
 	resourceParser *cecResourceParser
 
 	envoyConfigTimeout time.Duration
+
+	services  resource.Resource[*slim_corev1.Service]
+	endpoints resource.Resource[*k8s.Endpoints]
 }
 
 func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
@@ -47,6 +52,8 @@ func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
 	backendSyncer *envoyServiceBackendSyncer,
 	resourceParser *cecResourceParser,
 	envoyConfigTimeout time.Duration,
+	services resource.Resource[*slim_corev1.Service],
+	endpoints resource.Resource[*k8s.Endpoints],
 ) *cecManager {
 	return &cecManager{
 		logger:             logger,
@@ -56,6 +63,8 @@ func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
 		backendSyncer:      backendSyncer,
 		resourceParser:     resourceParser,
 		envoyConfigTimeout: envoyConfigTimeout,
+		services:           services,
+		endpoints:          endpoints,
 	}
 }
 
@@ -142,9 +151,72 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 		if err := r.registerServiceSync(serviceName, resourceName, svc.Ports); err != nil {
 			return err
 		}
+
+		// Explicitly call backendSyncer.Sync for headless service
+		isHeadless, err := r.isHeadlessService(svc.Name, svc.Namespace)
+		if err != nil {
+			return err
+		}
+
+		if !isHeadless {
+			continue
+		}
+
+		s, err := r.getSVC(svc.Name, svc.Namespace)
+		if err = r.backendSyncer.Sync(s); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func (r *cecManager) isHeadlessService(name string, namespace string) (bool, error) {
+	store, err := r.services.Store(context.Background())
+	if err != nil {
+		return false, err
+	}
+	svc, exists, err := store.GetByKey(resource.Key{
+		Name:      name,
+		Namespace: namespace,
+	})
+	if !exists || err != nil {
+		return false, err
+	}
+	return svc.Spec.ClusterIP == slim_corev1.ClusterIPNone, nil
+}
+
+func (r *cecManager) getSVC(name string, namespace string) (*loadbalancer.SVC, error) {
+	store, err := r.endpoints.Store(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	iter := store.IterKeys()
+	for iter.Next() {
+		eps, _, _ := store.GetByKey(iter.Key())
+		if eps.EndpointSliceID.ServiceID.Name != name || eps.EndpointSliceID.ServiceID.Namespace != namespace {
+			continue
+		}
+
+		s := &loadbalancer.SVC{
+			Name: loadbalancer.ServiceName{
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+
+		for k, v := range eps.Backends {
+			for _, addr := range v.Ports {
+				s.Backends = append(s.Backends, &loadbalancer.Backend{
+					FEPortName: strconv.Itoa(int(addr.Port)),
+					L3n4Addr:   *loadbalancer.NewL3n4Addr(addr.Protocol, k, addr.Port, 0),
+				})
+			}
+		}
+		return s, nil
+	}
+	return nil, nil
 }
 
 func (r *cecManager) updateCiliumEnvoyConfig(
