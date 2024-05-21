@@ -36,9 +36,9 @@ Dockerfile
 Dockerfiles
 Donenfeld
 ECMP
+EKS
 ENI
 Efx
-EKS
 Engleder
 FIt
 Fastabend
@@ -622,6 +622,7 @@ rebased
 rebasing
 recompiles
 reconfigurations
+reconnections
 recv
 regenerations
 regexes
@@ -632,6 +633,7 @@ repo
 repos
 reproducibility
 requireIPv
+resync
 retpoline
 retransmission
 retransmissions

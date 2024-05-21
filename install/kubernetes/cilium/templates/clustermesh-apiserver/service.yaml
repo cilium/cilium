@@ -35,5 +35,7 @@ spec:
   {{- if .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
   internalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
   {{- end }}
+  {{- if or (eq .Values.clustermesh.apiserver.service.enableSessionAffinity "Always") (and (eq .Values.clustermesh.apiserver.service.enableSessionAffinity "HAOnly") (gt (int .Values.clustermesh.apiserver.replicas) 1)) }}
   sessionAffinity: ClientIP
+  {{- end }}
 {{- end }}
