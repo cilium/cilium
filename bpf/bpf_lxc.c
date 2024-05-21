@@ -538,14 +538,6 @@ ct_recreate6:
 		policy_mark_skip(ctx);
 
 #ifdef ENABLE_NODEPORT
-# ifdef ENABLE_DSR
-		/* See comment in handle_ipv4_from_lxc(). */
-		if (ct_state->dsr_internal) {
-			ret = xlate_dsr_v6(ctx, tuple, l4_off);
-			if (ret != 0)
-				return ret;
-		} else
-# endif /* ENABLE_DSR */
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
@@ -1001,17 +993,6 @@ ct_recreate4:
 		policy_mark_skip(ctx);
 
 #ifdef ENABLE_NODEPORT
-# ifdef ENABLE_DSR
-		/* DSR RevDNAT typically happens in to-netdev. This part is only
-		 * needed for old connections that were established prior to
-		 * the bpf_host support:
-		 */
-		if (ct_state->dsr_internal) {
-			ret = xlate_dsr_v4(ctx, tuple, l4_off, has_l4_header);
-			if (ret != 0)
-				return ret;
-		} else
-# endif /* ENABLE_DSR */
 		/* This handles reply traffic for the case where the nodeport EP
 		 * is local to the node. We'll do the tail call to perform
 		 * the reverse DNAT.
@@ -1623,21 +1604,12 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
-# ifdef ENABLE_DSR
-		if (ret == CT_REOPENED && ct_state->dsr_internal)
-			ct_update_dsr(get_ct_map6(tuple), tuple, false);
-# endif /* ENABLE_DSR */
-		{
-			bool node_port =
-				ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
-							      tuple, NULL, false);
+		bool node_port = ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
+							       tuple, NULL, false);
 
-			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map6(tuple), tuple,
-						   node_port);
-		}
+		ct_state_new.node_port = node_port;
+		if (ret == CT_REOPENED && ct_state->node_port != node_port)
+			ct_update_nodeport(get_ct_map6(tuple), tuple, node_port);
 	}
 #endif /* ENABLE_NODEPORT */
 
@@ -1981,22 +1953,12 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
-# ifdef ENABLE_DSR
-		/* Clear .dsr_internal flag for old connections: */
-		if (ret == CT_REOPENED && ct_state->dsr_internal)
-			ct_update_dsr(get_ct_map4(tuple), tuple, false);
-# endif /* ENABLE_DSR */
-		{
-			bool node_port =
-				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
-							      tuple, NULL, false);
+		bool node_port = ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
+							       tuple, NULL, false);
 
-			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map4(tuple), tuple,
-						   node_port);
-		}
+		ct_state_new.node_port = node_port;
+		if (ret == CT_REOPENED && ct_state->node_port != node_port)
+			ct_update_nodeport(get_ct_map4(tuple), tuple, node_port);
 	}
 #endif /* ENABLE_NODEPORT */
 
