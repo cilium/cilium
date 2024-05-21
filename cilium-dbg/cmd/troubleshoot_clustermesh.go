@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
@@ -74,6 +75,11 @@ func TroubleshootClusterMesh(
 		fmt.Fprintf(stdout, "\nCluster %q:\n", cluster)
 		if cluster == local {
 			fmt.Fprintln(stdout, "ℹ️  This entry corresponds to the local cluster")
+		}
+
+		if err := types.ValidateClusterName(cluster); err != nil {
+			fmt.Fprintln(stdout, "❌ Invalid cluster name:", err)
+			continue
 		}
 
 		cfg, ok := cfgs[cluster]
