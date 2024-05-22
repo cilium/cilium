@@ -195,7 +195,7 @@ type policyGenerateResult struct {
 //
 // Returns a result that should be passed to setDesiredPolicy after the endpoint's
 // write lock has been acquired, or err if recomputing policy failed.
-func (e *Endpoint) regeneratePolicy() (*policyGenerateResult, error) {
+func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGenerateResult, error) {
 	var err error
 
 	// lock the endpoint, read our values, then unlock
@@ -229,11 +229,6 @@ func (e *Endpoint) regeneratePolicy() (*policyGenerateResult, error) {
 	e.runlock()
 
 	e.getLogger().Debug("Starting policy recalculation...")
-	stats := &policyRegenerationStatistics{}
-	stats.totalTime.Start()
-	defer func() {
-		e.updatePolicyRegenerationStatistics(stats, forcePolicyCompute, err)
-	}()
 
 	stats.waitingForPolicyRepository.Start()
 	repo := e.policyGetter.GetPolicyRepository()
