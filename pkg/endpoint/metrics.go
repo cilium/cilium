@@ -43,7 +43,6 @@ type regenerationStatistics struct {
 	policyStatus               models.EndpointPolicyEnabled
 	totalTime                  spanstat.SpanStat
 	waitingForLock             spanstat.SpanStat
-	waitingForIdentityCache    spanstat.SpanStat
 	waitingForPolicyRepository spanstat.SpanStat
 	waitingForCTClean          spanstat.SpanStat
 	policyCalculation          spanstat.SpanStat
@@ -75,7 +74,6 @@ func (s *regenerationStatistics) SendMetrics() {
 func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 	result := map[string]*spanstat.SpanStat{
 		"waitingForLock":             &s.waitingForLock,
-		"waitingForIdentityCache":    &s.waitingForIdentityCache,
 		"waitingForPolicyRepository": &s.waitingForPolicyRepository,
 		"waitingForCTClean":          &s.waitingForCTClean,
 		"policyCalculation":          &s.policyCalculation,
