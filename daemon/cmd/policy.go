@@ -89,35 +89,48 @@ type policyOut struct {
 	IPCache    *ipcache.IPCache
 }
 
-// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache.
+// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
+// which in turn creates the SelectorCache and other policy components.
 //
-// The three have a circular dependency on each other and therefore require
+// The three have a complicated dependency on each other and therefore require
 // special care.
 func newPolicyTrifecta(params policyParams) (policyOut, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
-	iao := &identityAllocatorOwner{}
-	idAlloc := cache.NewCachingIdentityAllocator(iao)
-	idAlloc.EnableCheckpointing()
 
-	iao.policy = policy.NewStoppedPolicyRepository(
-		idAlloc.GetIdentityCache(),
+	// policy repository: maintains list of active Rules and their subject
+	// security identities. Also constructs the SelectorCache, a precomputed
+	// cache of label selector -> identities for policy peers.
+	repo := policy.NewStoppedPolicyRepository(
+		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
 	)
-	iao.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
+	repo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
-	policyUpdater, err := policy.NewUpdater(iao.policy, params.EndpointManager)
-	if err != nil {
-		return policyOut{}, fmt.Errorf("failed to create policy update trigger: %w", err)
+	// policyUpdater: forces policy recalculation on all endpoints.
+	// Called for various events, such as named port changes
+	// or certain identity updates.
+	policyUpdater := policy.NewUpdater(repo, params.EndpointManager)
+
+	// iao: updates SelectorCache and regenerates endpoints when
+	// identity allocation / deallocation has occurred.
+	iao := &identityAllocatorOwner{
+		policy:        repo,
+		policyUpdater: policyUpdater,
 	}
-	iao.policyUpdater = policyUpdater
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// Allocator: allocates local and cluster-wide security identities.
+	idAlloc := cache.NewCachingIdentityAllocator(iao)
+	idAlloc.EnableCheckpointing()
 
+	// IPCache: aggregates node-local prefix labels and allocates
+	// local identities. Generates incremental updates, pushes
+	// to endpoints.
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           ctx,
 		IdentityAllocator: idAlloc,
