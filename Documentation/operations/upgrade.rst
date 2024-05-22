@@ -332,7 +332,7 @@ Annotations:
 * Detection and reconfiguration on changes to native network devices and their addresses is now
   the default. Cilium will now load the native device BPF program onto devices that appear after
   Cilium has started. NodePort services are now available on addresses assigned after Cilium has
-  started. The set of addresses to use for NodePort can be configured with the Helm option 
+  started. The set of addresses to use for NodePort can be configured with the Helm option
   ``nodePort.addresses``.
   The related Helm option ``enableRuntimeDeviceDetection`` has been deprecated and will be
   removed in future release. The devices and the addresses Cilium considers the node's addresses
@@ -347,6 +347,10 @@ Annotations:
   ``ces-write-qps-limit``, ``ces-write-qps-burst``, ``ces-enable-dynamic-rate-limit``,
   ``ces-dynamic-rate-limit-nodes``, ``ces-dynamic-rate-limit-qps-limit``,
   ``ces-dynamic-rate-limit-qps-burst``
+* Metrics ``policy_regeneration_total`` and
+  ``policy_regeneration_time_stats_seconds`` have been deprecated in favor of
+  ``endpoint_regenerations_total`` and
+  ``endpoint_regeneration_time_stats_seconds``, respectively.
 
 Removed Options
 ~~~~~~~~~~~~~~~
