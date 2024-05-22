@@ -316,9 +316,11 @@ var (
 
 	// PolicyRegenerationCount is the total number of successful policy
 	// regenerations.
+	// Deprecated: Use EndpointRegenerationTotal.
 	PolicyRegenerationCount = NoOpCounter
 
-	// PolicyRegenerationTimeStats is the total time taken to generate policies
+	// PolicyRegenerationTimeStats is the total time taken to generate policies.
+	// Deprecated: Use EndpointRegenerationTimeStats.
 	PolicyRegenerationTimeStats = NoOpObserverVec
 
 	// PolicyRevision is the current policy revision number for this agent
