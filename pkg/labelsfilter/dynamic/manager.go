@@ -29,7 +29,9 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "dynamic-labels-filter")
+	log           = logging.DefaultLogger.WithField(logfields.LogSubsys, "dynamic-labels-filter")
+	jobTimeout    = &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: time.Second}
+	jobRetryCount = 3
 )
 
 type controller struct {
@@ -71,7 +73,7 @@ func registerController(params controllerParams) (*controller, error) {
 	}
 
 	params.JobGroup.Add(
-		job.OneShot("dlf-cilium-network-policy-observer", func(ctx context.Context, health cell.Health) (err error) {
+		job.OneShot("dynamic-labels-filter-CNP-observer", func(ctx context.Context, health cell.Health) (err error) {
 			for ev := range c.CiliumNetworkPolicy.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
@@ -82,7 +84,7 @@ func registerController(params controllerParams) (*controller, error) {
 			return nil
 		}),
 
-		job.OneShot("dlf-cilium-clusterwide-policy-observer", func(ctx context.Context, health cell.Health) (err error) {
+		job.OneShot("dynamic-labels-filter-CCNP-observer", func(ctx context.Context, health cell.Health) (err error) {
 			for ev := range c.CiliumClusterwideNetworkPolicy.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
@@ -93,7 +95,7 @@ func registerController(params controllerParams) (*controller, error) {
 			return nil
 		}),
 
-		job.OneShot("dlf-network-policy-observer", func(ctx context.Context, health cell.Health) (err error) {
+		job.OneShot("dynamic-labels-filter-NP-observer", func(ctx context.Context, health cell.Health) (err error) {
 			for ev := range c.NetworkPolicy.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
@@ -104,18 +106,17 @@ func registerController(params controllerParams) (*controller, error) {
 			return nil
 		}),
 
-		job.OneShot("dlf-controller",
+		job.OneShot("dynamic-labels-filter-controller",
 			func(ctx context.Context, health cell.Health) (err error) {
-				if c.initStore(ctx) != nil {
+				if err = c.initStore(ctx); err != nil {
 					health.Degraded("failed to init stores", err)
 					return fmt.Errorf("error creating Dynamic Label Filter resource stores: %w", err)
 				}
 
 				c.Run(ctx)
-				health.OK("Ready")
 				return nil
 			},
-			job.WithRetry(3, &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: time.Second}),
+			job.WithRetry(jobRetryCount, jobTimeout),
 			job.WithShutdown()),
 	)
 
@@ -199,7 +200,7 @@ func (c *controller) Reconcile(ctx context.Context) error {
 	l.Debug("dynamic labels to parse: ", keyLabels.UnsortedList())
 
 	if err := labelsfilter.ParseLabelPrefixCfg(keyLabels.UnsortedList(), option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
-		return fmt.Errorf("unable to parse Dynamic Label prefix")
+		return fmt.Errorf("unable to parse Dynamic Label prefix: %w", err)
 	}
 
 	// TODO Phase 2: reconcile affected pods, update in-place so the old identities can be garbage collected
@@ -230,7 +231,7 @@ func normalizeKeyLabel(labelWithSourcePrefix string) string {
 	before, after, found := strings.Cut(labelWithSourcePrefix, ".")
 
 	if found {
-		if before == "any" {
+		if before == labels.LabelSourceAny {
 			return ":" + after
 		} else {
 			return before + ":" + after
