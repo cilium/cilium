@@ -630,7 +630,7 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 }
 
 func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
-	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
+	sc := NewSelectorCache(ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
 }

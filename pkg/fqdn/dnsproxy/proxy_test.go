@@ -65,7 +65,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}, nil, wg)
 	wg.Wait()
 
-	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, nil)
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(tb)
 	require.NotNil(tb, s.dnsServer, "unable to setup DNS server")
@@ -230,8 +230,7 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.Cached
 // Setup identities, ports and endpoint IDs we will need
 var (
 	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	fakeAllocator           = testidentity.NewMockIdentityAllocator(cacheAllocator.GetIdentityCache())
-	testSelectorCache       = policy.NewSelectorCache(fakeAllocator, cacheAllocator.GetIdentityCache())
+	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
 	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, DstID1Selector)

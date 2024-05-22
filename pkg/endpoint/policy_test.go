@@ -29,7 +29,7 @@ import (
 
 func TestUpdateVisibilityPolicy(t *testing.T) {
 	setupEndpointSuite(t)
-	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
+	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
 	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
 		return "", nil
@@ -74,7 +74,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	idcache := make(cache.IdentityCache, testfactor)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
-	repo := policy.NewPolicyRepository(fakeAllocator, fakeAllocator.GetIdentityCache(), nil, nil)
+	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil)
 
 	defer func() {
 		repo.RepositoryChangeQueue.Stop()
