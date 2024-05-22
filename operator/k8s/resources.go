@@ -44,6 +44,8 @@ var (
 			CiliumEndpointSliceResource,
 			CiliumNodeResource,
 			k8s.PodResource,
+			k8s.CiliumNetworkPolicyResource,
+			k8s.CiliumClusterwideNetworkPolicyResource,
 		),
 	)
 )
