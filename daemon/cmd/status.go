@@ -1136,5 +1136,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 			}).Error("KVStore state not OK")
 
 		}
+
+		d.statusCollector.Close()
 	})
 }
