@@ -38,19 +38,21 @@ func sendMetrics(stats statistics, metric metric.Vec[metric.Observer]) {
 }
 
 type regenerationStatistics struct {
-	success                bool
-	endpointID             uint16
-	policyStatus           models.EndpointPolicyEnabled
-	totalTime              spanstat.SpanStat
-	waitingForLock         spanstat.SpanStat
-	waitingForCTClean      spanstat.SpanStat
-	policyCalculation      spanstat.SpanStat
-	proxyConfiguration     spanstat.SpanStat
-	proxyPolicyCalculation spanstat.SpanStat
-	proxyWaitForAck        spanstat.SpanStat
-	datapathRealization    loaderMetrics.SpanStat
-	mapSync                spanstat.SpanStat
-	prepareBuild           spanstat.SpanStat
+	success                    bool
+	endpointID                 uint16
+	policyStatus               models.EndpointPolicyEnabled
+	totalTime                  spanstat.SpanStat
+	waitingForLock             spanstat.SpanStat
+	waitingForIdentityCache    spanstat.SpanStat
+	waitingForPolicyRepository spanstat.SpanStat
+	waitingForCTClean          spanstat.SpanStat
+	policyCalculation          spanstat.SpanStat
+	proxyConfiguration         spanstat.SpanStat
+	proxyPolicyCalculation     spanstat.SpanStat
+	proxyWaitForAck            spanstat.SpanStat
+	datapathRealization        loaderMetrics.SpanStat
+	mapSync                    spanstat.SpanStat
+	prepareBuild               spanstat.SpanStat
 }
 
 // SendMetrics sends the regeneration statistics for this endpoint to
@@ -72,15 +74,17 @@ func (s *regenerationStatistics) SendMetrics() {
 // GetMap returns a map which key is the stat name and the value is the stat
 func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 	result := map[string]*spanstat.SpanStat{
-		"waitingForLock":         &s.waitingForLock,
-		"waitingForCTClean":      &s.waitingForCTClean,
-		"policyCalculation":      &s.policyCalculation,
-		"proxyConfiguration":     &s.proxyConfiguration,
-		"proxyPolicyCalculation": &s.proxyPolicyCalculation,
-		"proxyWaitForAck":        &s.proxyWaitForAck,
-		"mapSync":                &s.mapSync,
-		"prepareBuild":           &s.prepareBuild,
-		"total":                  &s.totalTime,
+		"waitingForLock":             &s.waitingForLock,
+		"waitingForIdentityCache":    &s.waitingForIdentityCache,
+		"waitingForPolicyRepository": &s.waitingForPolicyRepository,
+		"waitingForCTClean":          &s.waitingForCTClean,
+		"policyCalculation":          &s.policyCalculation,
+		"proxyConfiguration":         &s.proxyConfiguration,
+		"proxyPolicyCalculation":     &s.proxyPolicyCalculation,
+		"proxyWaitForAck":            &s.proxyWaitForAck,
+		"mapSync":                    &s.mapSync,
+		"prepareBuild":               &s.prepareBuild,
+		"total":                      &s.totalTime,
 	}
 	for k, v := range s.datapathRealization.GetMap() {
 		result[k] = v
