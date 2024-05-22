@@ -31,24 +31,24 @@ func TestObjectCache(t *testing.T) {
 	dir := getDirs(t)
 
 	// First run should compile and generate the object.
-	_, isNew, err := cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err := cache.fetchOrCompile(ctx, testLoaderContext(), &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, true)
 
 	// Same EP should not be compiled twice.
-	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err = cache.fetchOrCompile(ctx, testLoaderContext(), &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, false)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
-	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err = cache.fetchOrCompile(ctx, testLoaderContext(), &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, false)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
-	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err = cache.fetchOrCompile(ctx, types.LoaderContext{}, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, true)
 }
@@ -115,7 +115,7 @@ func TestObjectCacheParallel(t *testing.T) {
 				ep := testutils.NewTestEndpoint()
 				opt := fmt.Sprintf("OPT%d", i/test.divisor)
 				ep.Opts.SetBool(opt, true)
-				file, isNew, err := cache.fetchOrCompile(ctx, &ep, getDirs(t), nil)
+				file, isNew, err := cache.fetchOrCompile(ctx, testLoaderContext(), &ep, getDirs(t), nil)
 				path := ""
 				if file != nil {
 					path = file.Name()

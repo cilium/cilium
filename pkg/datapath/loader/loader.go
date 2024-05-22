@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -140,7 +139,7 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 	})
 }
 
-func (l *loader) bpfMasqAddrs(lctx types.LoaderContext, ifName string) (masq4, masq6 netip.Addr) {
+func (l *loader) bpfMasqAddrs(lctx datapath.LoaderContext, ifName string) (masq4, masq6 netip.Addr) {
 	if l.cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
@@ -211,7 +210,7 @@ func (l *loader) bpfMasqAddrs(lctx types.LoaderContext, ifName string) (masq4, m
 
 // patchHostNetdevDatapath calculates the changes necessary
 // to attach the host endpoint datapath to different interfaces.
-func (l *loader) patchHostNetdevDatapath(lctx types.LoaderContext, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
+func (l *loader) patchHostNetdevDatapath(lctx datapath.LoaderContext, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
 	opts := ELFVariableSubstitutions(ep)
 	strings := ELFMapSubstitutions(ep)
 
@@ -355,7 +354,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - cilium_host: ingress and egress
 // - cilium_net: ingress
 // - native devices: ingress and (optionally) egress if certain features require it
-func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, lctx types.LoaderContext) error {
+func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, lctx datapath.LoaderContext) error {
 	// Warning: here be dragons. There used to be a single loop over
 	// interfaces+objs+progs here from the iproute2 days, but this was never
 	// correct to begin with. Tail call maps were always reused when possible,
@@ -514,7 +513,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx types.LoaderContext, spec *ebpf.CollectionSpec) error {
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx datapath.LoaderContext, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	lctx.DeviceNames = slices.Clone(lctx.DeviceNames)

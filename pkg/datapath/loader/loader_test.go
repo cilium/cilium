@@ -89,8 +89,8 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
-	l := newTestLoader(t)
-	err := l.ReloadDatapath(ctx, ep, types.LoaderContext{}, stats)
+	l := newTestLoader(t, testLoaderContext())
+	err := l.ReloadDatapath(ctx, ep, testLoaderContext(), stats)
 	require.NoError(t, err)
 }
 
