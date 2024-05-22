@@ -1698,6 +1698,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 		OnStart: func(cell.HookContext) error {
 			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, &params)
 			if err != nil {
+				cancelDaemonCtx()
+				cleaner.Clean()
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
 			daemon = d
@@ -1705,6 +1707,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			if !option.Config.DryMode {
 				if err := startDaemon(daemon, restoredEndpoints, cleaner, params); err != nil {
 					daemonResolver.Reject(err)
+					cancelDaemonCtx()
+					cleaner.Clean()
 					return err
 				}
 			}
@@ -1713,9 +1717,6 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 		},
 		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
-			if daemon.statusCollector != nil {
-				daemon.statusCollector.Close()
-			}
 			cleaner.Clean()
 			wg.Wait()
 			return nil
