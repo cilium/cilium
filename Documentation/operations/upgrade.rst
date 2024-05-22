@@ -355,6 +355,9 @@ Annotations:
   alphanumeric characters and '-', start and end with an alphanumeric character.
   Validation can be currently bypassed configuring ``upgradeCompatibility`` to
   v1.15 or earlier, but will be strictly enforced starting from Cilium v1.17.
+* Certain invalid CiliumNetworkPolicies that have always been ignored will now be rejected by the apiserver.
+  Specifically, policies with multiple L7 protocols on the same port, over 40 port rules, or over
+  40 ICMP rules will now have server-side validation.
 
 Removed Options
 ~~~~~~~~~~~~~~~
