@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/netip"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -20,7 +22,6 @@ var _ datapath.Datapath = (*FakeDatapath)(nil)
 type FakeDatapath struct {
 	node           *FakeNodeHandler
 	nodeAddressing datapath.NodeAddressing
-	loader         datapath.Loader
 	lbmap          *mockmaps.LBMockMap
 }
 
@@ -33,7 +34,6 @@ func NewDatapathWithNodeAddressing(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
 		node:           NewNodeHandler(),
 		nodeAddressing: na,
-		loader:         &FakeLoader{},
 		lbmap:          mockmaps.NewLBMockMap(),
 	}
 }
@@ -62,7 +62,7 @@ func (f *FakeDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 }
 
 // WriteNodeConfig pretends to write the datapath configuration to the writer.
-func (f *FakeDatapath) WriteNodeConfig(io.Writer, *datapath.LocalNodeConfiguration) error {
+func (f *FakeDatapath) WriteNodeConfig(io.Writer, datapath.LoaderContext, *datapath.LocalNodeConfiguration) error {
 	return nil
 }
 
@@ -72,12 +72,12 @@ func (f *FakeDatapath) WriteNetdevConfig(io.Writer, *option.IntOptions) error {
 }
 
 // WriteTemplateConfig pretends to write the endpoint configuration to a writer.
-func (f *FakeDatapath) WriteTemplateConfig(io.Writer, datapath.EndpointConfiguration) error {
+func (f *FakeDatapath) WriteTemplateConfig(io.Writer, datapath.LoaderContext, datapath.EndpointConfiguration) error {
 	return nil
 }
 
 // WriteEndpointConfig pretends to write the endpoint configuration to a writer.
-func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfiguration) error {
+func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.LoaderContext, datapath.EndpointConfiguration) error {
 	return nil
 }
 
@@ -96,10 +96,6 @@ func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
 }
 
 func (m *FakeDatapath) RemoveNoTrackRules(ip netip.Addr, port uint16) {
-}
-
-func (f *FakeDatapath) Loader() datapath.Loader {
-	return f.loader
 }
 
 func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
@@ -126,15 +122,17 @@ func (f *FakeDatapath) Orchestrator() datapath.Orchestrator {
 type FakeLoader struct {
 }
 
-func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+var _ datapath.Loader = &FakeLoader{}
+
+func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, lctx datapath.LoaderContext, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx datapath.LoaderContext, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string, lctx datapath.LoaderContext) error {
 	panic("implement me")
 }
 
@@ -153,8 +151,16 @@ func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
 	return ""
 }
 
+func (f *FakeLoader) DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
+	return nil
+}
+
+func (f *FakeLoader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
+	return nil, nil
+}
+
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, lctx datapath.LoaderContext) error {
 	return nil
 }
 
@@ -169,5 +175,32 @@ func (f *FakeLoader) RestoreTemplates(stateDir string) error {
 type FakeOrchestrator struct{}
 
 func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+	return "", nil
+}
+
+func (f *FakeOrchestrator) Unload(ep datapath.Endpoint) {
+}
+
+func (f *FakeOrchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
 	return nil
 }

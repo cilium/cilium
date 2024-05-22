@@ -99,6 +99,10 @@ func (s *EndpointSuite) Datapath() datapath.Datapath {
 	return s.datapath
 }
 
+func (s *EndpointSuite) Loader() datapath.Loader {
+	return &fakeTypes.FakeLoader{}
+}
+
 func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

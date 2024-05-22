@@ -9,6 +9,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
+// Orchestrator bridges the agent state to the loader, watching inputs
+// and reinitializing when they change.
 var Cell = cell.Module(
 	"orchestrator",
 	"Orchestrator",

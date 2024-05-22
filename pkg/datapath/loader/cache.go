@@ -43,6 +43,7 @@ type objectCache struct {
 	lock.Mutex
 	datapath.ConfigWriter
 
+	lctx             datapath.LoaderContext
 	workingDirectory string
 	baseHash         *datapathHash
 
@@ -60,24 +61,24 @@ type cachedObject struct {
 	path string
 }
 
-func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
+func newObjectCache(c datapath.ConfigWriter, workingDir string) *objectCache {
 	oc := &objectCache{
 		ConfigWriter:     c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedObject),
 	}
-	oc.Update(nodeCfg)
 	return oc
 }
 
 // Update may be called to update the base hash for configuration of datapath
 // configuration that applies across the node.
-func (o *objectCache) Update(nodeCfg *datapath.LocalNodeConfiguration) {
-	newHash := hashDatapath(o.ConfigWriter, nodeCfg, nil, nil)
+func (o *objectCache) Update(lctx datapath.LoaderContext, nodeCfg *datapath.LocalNodeConfiguration) {
+	newHash := hashDatapath(lctx, o.ConfigWriter, nodeCfg, nil, nil)
 
 	o.Lock()
 	defer o.Unlock()
 	o.baseHash = newHash
+	o.lctx = lctx
 }
 
 // serialize access to an abitrary key.
@@ -95,9 +96,15 @@ func (o *objectCache) serialize(key string) *cachedObject {
 	return obj
 }
 
+func (o *objectCache) loaderContext() datapath.LoaderContext {
+	o.Lock()
+	defer o.Unlock()
+	return o.lctx
+}
+
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
+func (o *objectCache) build(ctx context.Context, lctx datapath.LoaderContext, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
 	dir = &directoryInfo{
@@ -123,7 +130,7 @@ func (o *objectCache) build(ctx context.Context, cfg datapath.EndpointConfigurat
 		return "", fmt.Errorf("failed to open template header for writing: %w", err)
 	}
 	defer f.Close()
-	if err = o.ConfigWriter.WriteEndpointConfig(f, cfg); err != nil {
+	if err = o.ConfigWriter.WriteEndpointConfig(f, o.loaderContext(), cfg); err != nil {
 		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 
@@ -150,7 +157,7 @@ func (o *objectCache) build(ctx context.Context, cfg datapath.EndpointConfigurat
 //
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, lctx datapath.LoaderContext, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
 	cfg = wrap(cfg)
 
 	var hash string
@@ -191,7 +198,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 		stats = &metrics.SpanStat{}
 	}
 
-	path, err := o.build(ctx, cfg, stats, dir, hash)
+	path, err := o.build(ctx, lctx, cfg, stats, dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			scopedLog.WithError(err).Error("BPF template object creation failed")

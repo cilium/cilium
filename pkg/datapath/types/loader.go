@@ -9,21 +9,40 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 )
 
-// Loader is an interface to abstract out loading of datapath programs.
+// LoaderContext are the external inputs to the loader resolved by the orchestrator.
+// TODO: There's conceptual overlap with the LocalNodeConfiguration. Perhaps these could
+// be unified so we don't need to pass both this and LocalNodeConfiguration to the ConfigWriter.
+// +deepequal-gen=true
+type LoaderContext struct {
+	NodeIPv4, NodeIPv6         net.IP
+	InternalIPv4, InternalIPv6 net.IP
+	RangeIPv4                  *cidr.CIDR
+	LoopbackIPv4               net.IP
+
+	Devices     []*tables.Device
+	DeviceNames []string
+	NodeAddrs   []tables.NodeAddress
+}
+
 type Loader interface {
 	CallsMapPath(id uint16) string
 	CustomCallsMapPath(id uint16) string
-	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
-	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
+	DetachXDP(iface netlink.Link, bpffsBase, progName string) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
-	Unload(ep Endpoint)
-	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
+	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy, lctx LoaderContext) error
+	ReinitializeXDP(ctx context.Context, extraCArgs []string, lctx LoaderContext) error
+	ReloadDatapath(ctx context.Context, ep Endpoint, lctx LoaderContext, stats *metrics.SpanStat) (err error)
 	RestoreTemplates(stateDir string) error
+	Unload(ep Endpoint)
 }
 
 // PreFilter an interface for an XDP pre-filter.

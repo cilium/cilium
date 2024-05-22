@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -24,10 +24,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -75,15 +75,10 @@ type loader struct {
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
 
-	ipsecMu lock.Mutex // guards reinitializeIPSec
-
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
 	sysctl          sysctl.Sysctl
-	db              *statedb.DB
-	nodeAddrs       statedb.Table[tables.NodeAddress]
-	devices         statedb.Table[*tables.Device]
 	prefilter       datapath.PreFilter
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
@@ -95,10 +90,7 @@ type Params struct {
 	cell.In
 
 	Config          Config
-	DB              *statedb.DB
-	NodeAddrs       statedb.Table[tables.NodeAddress]
 	Sysctl          sysctl.Sysctl
-	Devices         statedb.Table[*tables.Device]
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
@@ -110,10 +102,7 @@ type Params struct {
 func newLoader(p Params) *loader {
 	return &loader{
 		cfg:               p.Config,
-		db:                p.DB,
-		nodeAddrs:         p.NodeAddrs,
 		sysctl:            p.Sysctl,
-		devices:           p.Devices,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
 		compilationLock:   p.CompilationLock,
@@ -125,11 +114,11 @@ func newLoader(p Params) *loader {
 
 // Init initializes the datapath cache with base program hashes derived from
 // the LocalNodeConfiguration.
-func (l *loader) init() {
+func (l *loader) reinitTemplateCache(lctx datapath.LoaderContext) {
 	l.once.Do(func() {
-		l.templateCache = newObjectCache(l.configWriter, &l.localNodeConfig, option.Config.StateDir)
+		l.templateCache = newObjectCache(l.configWriter, option.Config.StateDir)
 	})
-	l.templateCache.Update(&l.localNodeConfig)
+	l.templateCache.Update(lctx, &l.localNodeConfig)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -151,52 +140,78 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 	})
 }
 
-func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
+func (l *loader) bpfMasqAddrs(lctx types.LoaderContext, ifName string) (masq4, masq6 netip.Addr) {
 	if l.cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	find := func(iter statedb.Iterator[tables.NodeAddress]) bool {
-		for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
-			if !addr.Primary {
-				continue
-			}
-			if addr.Addr.Is4() && !masq4.IsValid() {
-				masq4 = addr.Addr
-			} else if addr.Addr.Is6() && !masq6.IsValid() {
-				masq6 = addr.Addr
-			}
-			done := (!option.Config.EnableIPv4Masquerade || masq4.IsValid()) &&
-				(!option.Config.EnableIPv6Masquerade || masq6.IsValid())
-			if done {
-				return true
-			}
+	// Also figure out a fallback address in case the interface has no assigned
+	// address. This is required for some setups like ECMP where traffic is balanced
+	// over multiple devices and not all of them have IP addresses assigned.
+	// This is of course a best-effort and won't work for complicated setups. In
+	// those cases the DeriveMasqIPAddrFromDevice should be used.
+	var fallback4, fallback6 tables.NodeAddress
+	isBetterFallback := func(old, new tables.NodeAddress) bool {
+		switch {
+		case !old.Addr.IsValid():
+			return true
+		// Public address is better than private (for masquerading)
+		case iputil.IsPublicAddr(new.Addr.AsSlice()) && !iputil.IsPublicAddr(old.Addr.AsSlice()):
+			return true
+		case !iputil.IsPublicAddr(new.Addr.AsSlice()) && iputil.IsPublicAddr(old.Addr.AsSlice()):
+			return false
+		// Primary addresses are better than secondary.
+		case new.Primary && !old.Primary:
+			return true
+		case !new.Primary && !old.Primary:
+			return false
+		// Addresses selected for NodePort are better.
+		case new.NodePort && !old.NodePort:
+			return true
+		case !new.NodePort && old.NodePort:
+			return false
+		default:
+			// Select lowest address for determinism.
+			return new.Addr.Less(old.Addr)
 		}
-		return false
 	}
 
-	// Try to find suitable masquerade address first from the given interface.
-	txn := l.db.ReadTxn()
-	iter := l.nodeAddrs.List(
-		txn,
-		tables.NodeAddressDeviceNameIndex.Query(ifName),
-	)
-	if !find(iter) {
-		// No suitable masquerade addresses were found for this device. Try the fallback
-		// addresses.
-		iter = l.nodeAddrs.List(
-			txn,
-			tables.NodeAddressDeviceNameIndex.Query(tables.WildcardDeviceName),
-		)
-		find(iter)
+	for _, addr := range lctx.NodeAddrs {
+		if addr.DeviceName != ifName {
+			if addr.Addr.Is4() && isBetterFallback(fallback4, addr) {
+				fallback4 = addr
+			}
+			if addr.Addr.Is6() && isBetterFallback(fallback6, addr) {
+				fallback6 = addr
+			}
+			continue
+		}
+		if !addr.Primary {
+			continue
+		}
+		if addr.Addr.Is4() && !masq4.IsValid() {
+			masq4 = addr.Addr
+		} else if addr.Addr.Is6() && !masq6.IsValid() {
+			masq6 = addr.Addr
+		}
+		done := (!option.Config.EnableIPv4Masquerade || masq4.IsValid()) &&
+			(!option.Config.EnableIPv6Masquerade || masq6.IsValid())
+		if done {
+			break
+		}
 	}
-
+	if !masq4.IsValid() {
+		masq4 = fallback4.Addr
+	}
+	if !masq6.IsValid() {
+		masq6 = fallback6.Addr
+	}
 	return
 }
 
 // patchHostNetdevDatapath calculates the changes necessary
 // to attach the host endpoint datapath to different interfaces.
-func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
+func (l *loader) patchHostNetdevDatapath(lctx types.LoaderContext, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
 	opts := ELFVariableSubstitutions(ep)
 	strings := ELFMapSubstitutions(ep)
 
@@ -227,7 +242,7 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (m
 		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 	}
 	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
-		ipv4, ipv6 := l.bpfMasqAddrs(ifName)
+		ipv4, ipv6 := l.bpfMasqAddrs(lctx, ifName)
 
 		if option.Config.EnableIPv4Masquerade && ipv4.IsValid() {
 			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4.AsSlice()))
@@ -340,7 +355,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - cilium_host: ingress and egress
 // - cilium_net: ingress
 // - native devices: ingress and (optionally) egress if certain features require it
-func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
+func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec, lctx types.LoaderContext) error {
 	// Warning: here be dragons. There used to be a single loop over
 	// interfaces+objs+progs here from the iproute2 days, but this was never
 	// correct to begin with. Tail call maps were always reused when possible,
@@ -395,7 +410,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 		return fmt.Errorf("device '%s' not found: %w", defaults.SecondHostDevice, err)
 	}
 
-	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(ep, defaults.SecondHostDevice)
+	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(lctx, ep, defaults.SecondHostDevice)
 	if err != nil {
 		return err
 	}
@@ -426,7 +441,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 	defer finalize()
 
 	// Replace programs on physical devices.
-	for _, device := range devices {
+	for _, device := range lctx.DeviceNames {
 		iface, err := netlink.LinkByName(device)
 		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")
@@ -435,7 +450,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
 
-		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(ep, device)
+		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(lctx, ep, device)
 		if err != nil {
 			return err
 		}
@@ -483,7 +498,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 
 	// call at the end of the function so that we can easily detect if this removes necessary
 	// programs that have just been attached.
-	if err := removeObsoleteNetdevPrograms(devices); err != nil {
+	if err := removeObsoleteNetdevPrograms(lctx.DeviceNames); err != nil {
 		log.WithError(err).Error("Failed to remove obsolete netdev programs")
 	}
 
@@ -499,8 +514,10 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, s
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx types.LoaderContext, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
+
+	lctx.DeviceNames = slices.Clone(lctx.DeviceNames)
 
 	// Replace all occurrences of the template endpoint ID with the real ID.
 	for _, name := range []string{
@@ -520,15 +537,11 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, spec 
 	}
 
 	if ep.IsHost() {
-		// TODO: react to changes (using the currently ignored watch channel)
-		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-		devices := tables.DeviceNames(nativeDevices)
-
 		if option.Config.NeedBPFHostOnWireGuardDevice() {
-			devices = append(devices, wgTypes.IfaceName)
+			lctx.DeviceNames = append(lctx.DeviceNames, wgTypes.IfaceName)
 		}
 
-		if err := l.reloadHostDatapath(ctx, ep, spec, devices); err != nil {
+		if err := l.reloadHostDatapath(ctx, ep, spec, lctx); err != nil {
 			return err
 		}
 	} else {
@@ -636,7 +649,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lctx datapath.LoaderContext, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -644,7 +657,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 		Output:  ep.StateDir(),
 	}
 
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, &dirs, stats)
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, lctx, ep, &dirs, stats)
 	if err != nil {
 		return err
 	}
@@ -656,7 +669,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 	}
 
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ctx, ep, spec)
+	err = l.reloadDatapath(ctx, ep, lctx, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return err
 }

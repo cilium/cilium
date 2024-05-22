@@ -11,11 +11,13 @@ import (
 	"github.com/cilium/statedb"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/addressing"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	loader "github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -54,6 +56,7 @@ var Cell = cell.Module(
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() *wg.Agent { return nil },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
+		loader.NewCompilationLock,
 		func() sysctl.Sysctl { return &Sysctl{} },
 
 		tables.NewDeviceTable,
@@ -62,7 +65,7 @@ var Cell = cell.Module(
 	),
 
 	tables.NodeAddressCell,
-	tables.NodeAddressingCell,
+	addressing.NodeAddressingCell,
 
 	cell.Invoke(
 		statedb.RegisterTable[*tables.Device],

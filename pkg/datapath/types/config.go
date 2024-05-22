@@ -96,7 +96,7 @@ type EndpointConfiguration interface {
 type ConfigWriter interface {
 	// WriteNodeConfig writes the implementation-specific configuration of
 	// node-wide options into the specified writer.
-	WriteNodeConfig(io.Writer, *LocalNodeConfiguration) error
+	WriteNodeConfig(io.Writer, LoaderContext, *LocalNodeConfiguration) error
 
 	// WriteNetdevConfig writes the implementation-specific configuration
 	// of configurable options to the specified writer. Options specified
@@ -106,11 +106,11 @@ type ConfigWriter interface {
 
 	// WriteTemplateConfig writes the implementation-specific configuration
 	// of configurable options for BPF templates to the specified writer.
-	WriteTemplateConfig(w io.Writer, cfg EndpointConfiguration) error
+	WriteTemplateConfig(w io.Writer, lctx LoaderContext, cfg EndpointConfiguration) error
 
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options for the endpoint to the specified writer.
-	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
+	WriteEndpointConfig(w io.Writer, lctx LoaderContext, cfg EndpointConfiguration) error
 }
 
 // RemoteSNATDstAddrExclusionCIDRv4 returns a CIDR for SNAT exclusion. Any

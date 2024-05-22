@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -89,8 +89,8 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
-	l := newTestLoader(t)
-	err := l.ReloadDatapath(ctx, ep, stats)
+	l := newTestLoader(t, testLoaderContext())
+	err := l.ReloadDatapath(ctx, ep, testLoaderContext(), stats)
 	require.NoError(t, err)
 }
 
@@ -164,12 +164,13 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 		}
 	}()
 
-	l := newTestLoader(t)
+	lctx := testLoaderContext()
+	l := newTestLoader(t, lctx)
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.ReloadDatapath(ctx, ep, stats)
+		err = l.ReloadDatapath(ctx, ep, types.LoaderContext{}, stats)
 	}
 	require.Error(t, err)
 }
@@ -200,48 +201,49 @@ func TestBPFMasqAddrs(t *testing.T) {
 		option.Config.EnableIPv6Masquerade = old6
 	})
 
-	l := newTestLoader(t)
-	nodeAddrs := l.nodeAddrs.(statedb.RWTable[tables.NodeAddress])
-	db := l.db
+	// Test without any addresses
+	{
+		lctx := testLoaderContext()
+		l := newTestLoader(t, lctx)
 
-	masq4, masq6 := l.bpfMasqAddrs("test")
-	require.Equal(t, masq4.IsValid(), false)
-	require.Equal(t, masq6.IsValid(), false)
+		masq4, masq6 := l.bpfMasqAddrs(lctx, "test")
+		require.Equal(t, masq4.IsValid(), false)
+		require.Equal(t, masq6.IsValid(), false)
+	}
 
-	txn := db.WriteTxn(nodeAddrs)
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("1.0.0.1"),
-		NodePort:   true,
-		Primary:    true,
-		DeviceName: "test",
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("1000::1"),
-		NodePort:   true,
-		Primary:    true,
-		DeviceName: "test",
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("2.0.0.2"),
-		NodePort:   false,
-		Primary:    true,
-		DeviceName: tables.WildcardDeviceName,
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("2000::2"),
-		NodePort:   false,
-		Primary:    true,
-		DeviceName: tables.WildcardDeviceName,
-	})
-	txn.Commit()
+	// Test with addresses
+	{
+		lctx := testLoaderContext()
+		lctx.NodeAddrs = []tables.NodeAddress{
+			{
+				Addr:       netip.MustParseAddr("1.0.0.1"),
+				NodePort:   true,
+				Primary:    true,
+				DeviceName: "test",
+			},
+			{
+				Addr:       netip.MustParseAddr("1000::1"),
+				NodePort:   true,
+				Primary:    true,
+				DeviceName: "test",
+			},
+			{
+				Addr:       netip.MustParseAddr("2.0.0.2"),
+				NodePort:   false,
+				Primary:    false,
+				DeviceName: "test2",
+			},
+		}
+		l := newTestLoader(t, lctx)
 
-	masq4, masq6 = l.bpfMasqAddrs("test")
-	require.Equal(t, masq4.String(), "1.0.0.1")
-	require.Equal(t, masq6.String(), "1000::1")
+		masq4, masq6 := l.bpfMasqAddrs(lctx, "test")
+		require.Equal(t, masq4.String(), "1.0.0.1")
+		require.Equal(t, masq6.String(), "1000::1")
 
-	masq4, masq6 = l.bpfMasqAddrs("unknown")
-	require.Equal(t, masq4.String(), "2.0.0.2")
-	require.Equal(t, masq6.String(), "2000::2")
+		masq4, masq6 = l.bpfMasqAddrs(lctx, "unknown")
+		require.Equal(t, masq4.String(), "1.0.0.1")
+		require.Equal(t, masq6.String(), "1000::1")
+	}
 }
 
 // BenchmarkCompileOnly benchmarks the just the entire compilation process.

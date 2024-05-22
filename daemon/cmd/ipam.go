@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/cidr"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -522,10 +521,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
 	iter, _ := d.nodeAddrs.All(d.db.ReadTxn())
-	addrs := statedb.Collect(
-		statedb.Filter(
-			iter,
-			func(addr tables.NodeAddress) bool { return addr.DeviceName != tables.WildcardDeviceName }))
+	addrs := statedb.Collect(iter)
 
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())

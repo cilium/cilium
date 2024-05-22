@@ -394,6 +394,6 @@ type compilationLock struct {
 	lock.RWMutex
 }
 
-func newCompilationLock() types.CompilationLock {
+func NewCompilationLock() types.CompilationLock {
 	return &compilationLock{}
 }

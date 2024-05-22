@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
-	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 )
 
 var Cell = cell.Module(
@@ -16,11 +16,11 @@ var Cell = cell.Module(
 
 	cell.Config(DefaultConfig),
 	cell.Provide(NewLoader),
-	cell.Provide(newCompilationLock),
+	cell.Provide(NewCompilationLock),
 )
 
 // NewLoader returns a new loader.
-func NewLoader(p Params) loaderTypes.Loader {
+func NewLoader(p Params) datapath.Loader {
 	return newLoader(p)
 }
 
