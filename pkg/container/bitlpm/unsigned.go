@@ -15,20 +15,23 @@ type Unsigned interface {
 	~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
+type UintTrie[K Unsigned, V any] struct {
+	trie    Trie[Key[K], V]
+	keySize uint
+}
+
 // NewUintTrie represents a Trie with a key of any
 // uint type.
-func NewUintTrie[K Unsigned, T any]() Trie[K, T] {
+func NewUintTrie[K Unsigned, T any]() *UintTrie[K, T] {
 	var k K
 	size := uint(unsafe.Sizeof(k))
-	return &trieUint[K, T]{NewTrie[K, T](size * 8), size, size * 8}
+	return &UintTrie[K, T]{
+		trie:    NewTrie[K, T](size * 8),
+		keySize: size,
+	}
 }
 
-type trieUint[K Unsigned, T any] struct {
-	t                  Trie[Key[K], T]
-	keySize, maxPrefix uint
-}
-
-func (tu *trieUint[K, T]) getKey(k K) Key[K] {
+func (tu *UintTrie[K, T]) getKey(k K) Key[K] {
 	switch tu.keySize {
 	case 1:
 		return unsignedKey8[K](k)
@@ -42,40 +45,40 @@ func (tu *trieUint[K, T]) getKey(k K) Key[K] {
 	panic(fmt.Sprintf("unexpected key size of %d", unsafe.Sizeof(k)))
 }
 
-func (tu *trieUint[K, T]) Upsert(prefix uint, k K, value T) {
-	tu.t.Upsert(prefix, tu.getKey(k), value)
+func (ut *UintTrie[K, T]) Upsert(prefix uint, k K, value T) {
+	ut.trie.Upsert(prefix, ut.getKey(k), value)
 }
 
-func (tu *trieUint[K, T]) Delete(prefix uint, k K) bool {
-	return tu.t.Delete(prefix, tu.getKey(k))
+func (ut *UintTrie[K, T]) Delete(prefix uint, k K) bool {
+	return ut.trie.Delete(prefix, ut.getKey(k))
 }
 
-func (tu *trieUint[K, T]) ExactLookup(prefix uint, k K) (T, bool) {
-	return tu.t.ExactLookup(prefix, tu.getKey(k))
+func (ut *UintTrie[K, T]) ExactLookup(prefix uint, k K) (T, bool) {
+	return ut.trie.ExactLookup(prefix, ut.getKey(k))
 }
 
-func (tu *trieUint[K, T]) LongestPrefixMatch(k K) (T, bool) {
-	return tu.t.LongestPrefixMatch(tu.getKey(k))
+func (ut *UintTrie[K, T]) LongestPrefixMatch(k K) (T, bool) {
+	return ut.trie.LongestPrefixMatch(ut.getKey(k))
 }
 
-func (tu *trieUint[K, T]) Ancestors(prefix uint, k K, fn func(prefix uint, key K, value T) bool) {
-	tu.t.Ancestors(prefix, tu.getKey(k), func(prefix uint, k Key[K], v T) bool {
+func (ut *UintTrie[K, T]) Ancestors(prefix uint, k K, fn func(prefix uint, key K, value T) bool) {
+	ut.trie.Ancestors(prefix, ut.getKey(k), func(prefix uint, k Key[K], v T) bool {
 		return fn(prefix, k.Value(), v)
 	})
 }
 
-func (tu *trieUint[K, T]) Descendants(prefix uint, k K, fn func(prefix uint, key K, value T) bool) {
-	tu.t.Descendants(prefix, tu.getKey(k), func(prefix uint, k Key[K], v T) bool {
+func (ut *UintTrie[K, T]) Descendants(prefix uint, k K, fn func(prefix uint, key K, value T) bool) {
+	ut.trie.Descendants(prefix, ut.getKey(k), func(prefix uint, k Key[K], v T) bool {
 		return fn(prefix, k.Value(), v)
 	})
 }
 
-func (tu *trieUint[K, T]) Len() uint {
-	return tu.t.Len()
+func (ut *UintTrie[K, T]) Len() uint {
+	return ut.trie.Len()
 }
 
-func (tu *trieUint[K, T]) ForEach(fn func(prefix uint, key K, value T) bool) {
-	tu.t.ForEach(func(prefix uint, k Key[K], v T) bool {
+func (ut *UintTrie[K, T]) ForEach(fn func(prefix uint, key K, value T) bool) {
+	ut.trie.ForEach(func(prefix uint, k Key[K], v T) bool {
 		return fn(prefix, k.Value(), v)
 	})
 }
