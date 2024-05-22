@@ -90,29 +90,6 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 	return result
 }
 
-type policyRegenerationStatistics struct {
-	success                    bool
-	totalTime                  spanstat.SpanStat
-	waitingForIdentityCache    spanstat.SpanStat
-	waitingForPolicyRepository spanstat.SpanStat
-	policyCalculation          spanstat.SpanStat
-}
-
-func (ps *policyRegenerationStatistics) SendMetrics() {
-	metrics.PolicyRegenerationCount.Inc()
-
-	sendMetrics(ps, metrics.PolicyRegenerationTimeStats)
-}
-
-func (ps *policyRegenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
-	return map[string]*spanstat.SpanStat{
-		"waitingForIdentityCache":    &ps.waitingForIdentityCache,
-		"waitingForPolicyRepository": &ps.waitingForPolicyRepository,
-		"policyCalculation":          &ps.policyCalculation,
-		"total":                      &ps.totalTime,
-	}
-}
-
 // endpointPolicyStatusMap is a map to store the endpoint id and the policy
 // enforcement status. It is used only to send metrics to prometheus.
 type endpointPolicyStatusMap struct {
