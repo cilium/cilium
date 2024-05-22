@@ -87,6 +87,8 @@ var (
 
 	// EntitySelectorMapping maps special entity names that come in
 	// policies to selectors
+	// If you add an entry here, you must also update the CRD
+	// validation above.
 	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
 		EntityAll:           {WildcardEndpointSelector},
 		EntityWorld:         {endpointSelectorWorld, endpointSelectorWorldIPv4, endpointSelectorWorldIPv6},

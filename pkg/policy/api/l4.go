@@ -169,6 +169,7 @@ type PortRule struct {
 	// Ports is a list of L4 port/protocol
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=40
 	Ports []PortProtocol `json:"ports,omitempty"`
 
 	// TerminatingTLS is the TLS context for the connection terminated by
@@ -249,21 +250,25 @@ type L7Rules struct {
 	// HTTP specific rules.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	HTTP []PortRuleHTTP `json:"http,omitempty"`
 
 	// Kafka-specific rules.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	Kafka []kafka.PortRule `json:"kafka,omitempty"`
 
 	// DNS-specific rules.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	DNS []PortRuleDNS `json:"dns,omitempty"`
 
 	// Name of the L7 protocol for which the Key-value pair rules apply.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	L7Proto string `json:"l7proto,omitempty"`
 
 	// Key-value pair rules.
