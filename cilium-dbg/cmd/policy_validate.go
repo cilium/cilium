@@ -5,9 +5,12 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 var policyVerbose bool
@@ -22,12 +25,19 @@ var policyValidateCmd = &cobra.Command{
 		if ruleList, err := loadPolicy(path); err != nil {
 			Fatalf("Validation of policy %s has failed: %s\n", path, err)
 		} else {
+			valid := true
 			for _, r := range ruleList {
 				if err := r.Sanitize(); err != nil {
-					Fatalf("Validation of policy %s has failed: %s\n", path, err)
+					valid = false
+					if errors.Is(err, api.ErrFromToNodesRequiresNodeSelectorOption) {
+						// Don't error out as this can't be validated client-side
+						fmt.Printf("Validation of policy %s has been skipped in the client, further validation will occur server-side.\n", path)
+					} else {
+						Fatalf("Validation of policy %s has failed: %s\n", path, err)
+					}
 				}
 			}
-			if policyVerbose {
+			if policyVerbose && valid {
 				fmt.Printf("All policy elements in %s are valid.\n", path)
 			}
 
