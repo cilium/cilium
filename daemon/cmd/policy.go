@@ -104,7 +104,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	idAlloc.EnableCheckpointing()
 
 	iao.policy = policy.NewStoppedPolicyRepository(
-		idAlloc,
 		idAlloc.GetIdentityCache(),
 		params.CertManager,
 		params.SecretManager,

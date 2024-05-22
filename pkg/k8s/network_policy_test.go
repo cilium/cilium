@@ -79,8 +79,7 @@ var (
 type DummySelectorCacheUser struct{}
 
 func testNewPolicyRepository() *policy.Repository {
-	idAllocator := testidentity.NewMockIdentityAllocator(nil)
-	repo := policy.NewPolicyRepository(idAllocator, nil, nil, nil)
+	repo := policy.NewPolicyRepository(nil, nil, nil)
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }

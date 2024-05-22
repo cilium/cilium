@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 var (
@@ -37,7 +36,7 @@ func localIdentity(n uint32) identity.NumericIdentity {
 
 }
 func TestCacheManagement(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil)
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
 	require.Equal(t, identity, ep2.GetSecurityIdentity())
@@ -73,7 +72,7 @@ func TestCacheManagement(t *testing.T) {
 }
 
 func TestCachePopulation(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil)
 	repo.revision.Store(42)
 	cache := repo.policyCache
 
@@ -406,9 +405,8 @@ type policyDistillery struct {
 }
 
 func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
-	identityAllocator := testidentity.NewMockIdentityAllocator(nil)
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(identityAllocator, nil, nil, nil),
+		Repository: NewPolicyRepository(nil, nil, nil),
 	}
 	ret.selectorCache = selectorCache
 	return ret
