@@ -44,25 +44,24 @@ func (k *K8sWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWa
 			if !ok {
 				return
 			}
-			var err error
 			switch event.Kind {
 			case resource.Sync:
 				synced.Store(true)
 			case resource.Upsert:
 				svc := event.Object
 				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-				err = k.upsertK8sServiceV1(svc, swg)
+				k.upsertK8sServiceV1(svc, swg)
 			case resource.Delete:
 				svc := event.Object
 				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-				err = k.deleteK8sServiceV1(svc, swg)
+				k.deleteK8sServiceV1(svc, swg)
 			}
-			event.Done(err)
+			event.Done(nil)
 		}
 	}
 }
 
-func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
 	svcID := k.K8sSvcCache.UpdateService(svc, swg)
 	if option.Config.EnableLocalRedirectPolicy {
 		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
@@ -74,10 +73,9 @@ func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateService(svc)
 	}
-	return nil
 }
 
-func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
 	k.K8sSvcCache.DeleteService(svc, swg)
 	svcID := k8s.ParseServiceID(svc)
 	if option.Config.EnableLocalRedirectPolicy {
@@ -88,5 +86,4 @@ func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnDeleteService(svc)
 	}
-	return nil
 }
