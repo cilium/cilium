@@ -499,7 +499,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 
 					err := d.clustermesh.ServicesSynced(d.ctx)
 					if err != nil {
-						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
+						return // The parent context expired, and we are already terminating
 					}
 					log.Debug("all clusters have been correctly synchronized locally")
 				}
