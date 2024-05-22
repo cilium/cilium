@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -67,7 +66,7 @@ func getLocalScopeNets(id identity.NumericIdentity, lbls labels.LabelArray) []*n
 	return nil
 }
 
-func getIdentityCache(ids cache.IdentityCache) scIdentityCache {
+func getIdentityCache(ids identity.IdentityMap) scIdentityCache {
 	idCache := make(map[identity.NumericIdentity]scIdentity, len(ids))
 	for nid, lbls := range ids {
 		idCache[nid] = newIdentity(nid, lbls)
@@ -188,7 +187,7 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
+func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
 		idCache:   getIdentityCache(ids),
 		selectors: make(map[string]*identitySelector),
@@ -523,7 +522,7 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 // Caller should Wait() on the returned sync.WaitGroup before triggering any
 // policy updates. Policy updates may need Endpoint locks, so this Wait() can
 // deadlock if the caller is holding any endpoint locks.
-func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg *sync.WaitGroup) {
+func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 

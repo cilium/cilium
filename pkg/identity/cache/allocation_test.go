@@ -98,17 +98,17 @@ func testAllocateIdentityReserved(t *testing.T) {
 type dummyOwner struct {
 	updated chan identity.NumericIdentity
 	mutex   lock.Mutex
-	cache   IdentityCache
+	cache   identity.IdentityMap
 }
 
 func newDummyOwner() *dummyOwner {
 	return &dummyOwner{
-		cache:   IdentityCache{},
+		cache:   identity.IdentityMap{},
 		updated: make(chan identity.NumericIdentity, 1024),
 	}
 }
 
-func (d *dummyOwner) UpdateIdentities(added, deleted IdentityCache) {
+func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 	d.mutex.Lock()
 	log.Debugf("Dummy UpdateIdentities(added: %v, deleted: %v)", added, deleted)
 	for id, lbls := range added {

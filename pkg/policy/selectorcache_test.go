@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -231,11 +230,11 @@ func (cs *testCachedSelector) String() string {
 }
 
 func TestAddRemoveSelector(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
 			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
@@ -283,13 +282,13 @@ func TestAddRemoveSelector(t *testing.T) {
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	li1 := identity.IdentityScopeLocal
 	li2 := li1 + 1
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 
@@ -344,11 +343,11 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 }
 
 func TestIdentityUpdates(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
@@ -377,7 +376,7 @@ func TestIdentityUpdates(t *testing.T) {
 	user1.Reset()
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
 	wg.Wait()
@@ -395,7 +394,7 @@ func TestIdentityUpdates(t *testing.T) {
 	user1.Reset()
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, cache.IdentityCache{
+	sc.UpdateIdentities(nil, identity.IdentityMap{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, wg)
 	wg.Wait()
@@ -417,7 +416,7 @@ func TestIdentityUpdates(t *testing.T) {
 }
 
 func TestFQDNSelectorUpdates(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 	di := sc.localIdentityNotifier.(*testidentity.DummyIdentityNotifier)
 
 	// Add some identities to the identity cache
@@ -427,12 +426,12 @@ func TestFQDNSelectorUpdates(t *testing.T) {
 	ciliumIPs := []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.1.1.1")}
 	googleIPs := []netip.Addr{netip.MustParseAddr("1.1.1.2"), netip.MustParseAddr("2.1.1.2")}
 
-	initialCiliumIdentities := cache.IdentityCache{
+	initialCiliumIdentities := identity.IdentityMap{
 		1111: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32")).LabelArray().Sort(),
 		2111: labels.GetCIDRLabels(netip.MustParsePrefix("2.1.1.1/32")).LabelArray().Sort(),
 	}
 
-	initialGoogleIdentities := cache.IdentityCache{
+	initialGoogleIdentities := identity.IdentityMap{
 		1112: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.2/32")).LabelArray().Sort(),
 		2112: labels.GetCIDRLabels(netip.MustParsePrefix("2.1.1.2/32")).LabelArray().Sort(),
 	}
@@ -489,7 +488,7 @@ func TestFQDNSelectorUpdates(t *testing.T) {
 	require.Equal(t, 0, len(selections))
 
 	// Now, add the identity that the selector selects
-	newIdentities := cache.IdentityCache{
+	newIdentities := identity.IdentityMap{
 		4444: labels.GetCIDRLabels(netip.MustParsePrefix("4.4.4.4/32")).LabelArray().Sort(),
 	}
 
@@ -535,11 +534,11 @@ func TestFQDNSelectorUpdates(t *testing.T) {
 }
 
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
@@ -559,7 +558,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	user2.Reset()
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 		345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -586,7 +585,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	user2.Reset()
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, cache.IdentityCache{
+	sc.UpdateIdentities(nil, identity.IdentityMap{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, wg)
@@ -629,7 +628,7 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 	require.Equal(t, 0, len(selections))
 }
 
-func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
+func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc := NewSelectorCache(ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
