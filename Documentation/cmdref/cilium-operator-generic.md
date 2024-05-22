@@ -123,6 +123,7 @@ cilium-operator-generic [flags]
       --synchronize-k8s-nodes                                Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                             Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
+      --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
       --version                                              Print version information
 ```
 

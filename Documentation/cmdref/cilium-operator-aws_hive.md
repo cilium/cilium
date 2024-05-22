@@ -80,6 +80,7 @@ cilium-operator-aws hive [flags]
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
+      --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
 ```
 
 ### SEE ALSO
