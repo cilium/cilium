@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package labelsfilterdynamic
+package dynamic
 
 import (
+	"github.com/cilium/cilium/pkg/labelsfilter/dynamic/signals"
 	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/pkg/labelsfilterdynamic/signals"
 )
 
 var Cell = cell.Module(

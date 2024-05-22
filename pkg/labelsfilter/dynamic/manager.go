@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package labelsfilterdynamic
+package dynamic
 
 import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -19,7 +22,6 @@ import (
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/labelsfilterdynamic/signals"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"

@@ -6,6 +6,8 @@ package cmd
 import (
 	"net/http"
 
+	"github.com/cilium/cilium/pkg/labelsfilter/dynamic"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
@@ -37,7 +39,6 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
-	"github.com/cilium/cilium/pkg/labelsfilterdynamic"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -229,7 +230,7 @@ var (
 		// which communicate changes in local node information to the API server or KVStore.
 		nodediscovery.Cell,
 
-		labelsfilterdynamic.Cell,
+		dynamic.Cell,
 	)
 )
 
