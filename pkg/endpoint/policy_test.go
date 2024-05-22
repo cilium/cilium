@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -72,7 +71,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	policy.SetPolicyEnabled("always")
 	defer policy.SetPolicyEnabled(pe)
 
-	idcache := make(cache.IdentityCache, testfactor)
+	idcache := make(identity.IdentityMap, testfactor)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
 	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil)
 
@@ -96,7 +95,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		// t.Logf("allocated label %s id %d", labelKeys, id.ID) // commented out for speed
 
 		wg := &sync.WaitGroup{}
-		repo.GetSelectorCache().UpdateIdentities(cache.IdentityCache{
+		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
 			id.ID: id.LabelArray,
 		}, nil, wg)
 		wg.Wait()
