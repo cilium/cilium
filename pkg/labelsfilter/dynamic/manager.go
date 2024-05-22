@@ -55,16 +55,17 @@ type controllerParams struct {
 	JobGroup                         job.Group
 	Shutdowner                       hive.Shutdowner
 	Signal                           *signals.Signal
+	Config                           config
 	CiliumNetworkPolicy              resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterWideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	NetworkPolicy                    resource.Resource[*slim_networking_v1.NetworkPolicy]
-	DaemonConfig                     *option.DaemonConfig
 }
 
 func registerController(params controllerParams) (*controller, error) {
-	if !params.DaemonConfig.DynamicLabelFilterEnabled() {
+	if !params.Config.EnableDynamicLabelFilter {
 		return nil, nil
 	}
+
 	c := &controller{
 		Signal:                         params.Signal,
 		CiliumNetworkPolicy:            params.CiliumNetworkPolicy,

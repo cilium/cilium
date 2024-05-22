@@ -568,9 +568,6 @@ const (
 	// EnableNodeSelectorLabels is the default value for option.EnableNodeSelectorLabels
 	EnableNodeSelectorLabels = false
 
-	// EnableDynamicLabelFilter is the default value for option.EnableDynamicalLabelFilter
-	EnableDynamicLabelFilter = false
-
 	// BPFEventsDropEnabled controls whether the Cilium datapath exposes "drop" events to Cilium monitor and Hubble.
 	BPFEventsDropEnabled = true
 

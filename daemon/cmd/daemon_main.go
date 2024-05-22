@@ -1112,9 +1112,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.NodeLabels, []string{}, "List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)")
 	option.BindEnv(vp, option.NodeLabels)
 
-	flags.Bool(option.EnableDynamicLabelFilter, defaults.EnableDynamicLabelFilter, "Enables support for dynamically limiting the labels used for CIDs")
-	option.BindEnv(vp, option.EnableDynamicLabelFilter)
-
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
