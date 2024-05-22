@@ -25,9 +25,7 @@ func TestRegeneratorWaitForIPCacheSync(t *testing.T) {
 			return ctx.Err()
 		},
 
-		RegeneratorConfig: RegeneratorConfig{
-			ClusterMeshIPIdentitiesSyncTimeout: 10 * time.Millisecond,
-		},
+		cmWaitTimeout: 10 * time.Millisecond,
 	}
 
 	tests := []struct {
