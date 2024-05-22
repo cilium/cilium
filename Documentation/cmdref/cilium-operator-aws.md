@@ -133,6 +133,7 @@ cilium-operator-aws [flags]
       --synchronize-k8s-services                             Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
       --update-ec2-adapter-limit-via-api                     Use the EC2 API to update the instance type to adapter limits (default true)
+      --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
       --version                                              Print version information
 ```
 
