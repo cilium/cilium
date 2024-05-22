@@ -24,7 +24,7 @@ cilium-agent hive dot-graph [flags]
       --cluster-id uint32                                         Unique identifier of the cluster
       --cluster-name string                                       Name of the cluster (default "default")
       --clustermesh-config string                                 Path to the ClusterMesh configuration directory
-      --clustermesh-ip-identities-sync-timeout duration           Timeout waiting for the initial synchronization of IPs and identities from remote clusters before local endpoints regeneration (default 1m0s)
+      --clustermesh-sync-timeout duration                         Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
       --cni-chaining-mode string                                  Enable CNI chaining with the specified plugin (default "none")
       --cni-chaining-target string                                CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
       --cni-exclusive                                             Whether to remove other CNI configurations

@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 
@@ -35,6 +36,7 @@ type Configuration struct {
 	cell.In
 
 	common.Config
+	wait.TimeoutConfig
 
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo cmtypes.ClusterInfo
@@ -107,6 +109,10 @@ type ClusterMesh struct {
 
 	// nodeName is the name of the local node. This is used for logging and metrics
 	nodeName string
+
+	// syncTimeoutLogOnce ensures that the warning message triggered upon failure
+	// waiting for remote clusters synchronization is output only once.
+	syncTimeoutLogOnce sync.Once
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
@@ -181,26 +187,34 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 	return cm.common.NumReadyClusters()
 }
 
-// NodesSynced returns after that the initial list of nodes has been received
-// from all remote clusters, and synchronized with the different subscribers.
+// NodesSynced returns after that either the initial list of nodes has been received
+// from all remote clusters, and synchronized with the different subscribers, or the
+// maximum wait period controlled by the clustermesh-sync-timeout flag elapsed. It
+// returns an error if the given context expired.
 func (cm *ClusterMesh) NodesSynced(ctx context.Context) error {
 	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.Nodes })
 }
 
-// ServicesSynced returns after that the initial list of shared services has been
-// received from all remote clusters, and synchronized with the BPF datapath.
+// ServicesSynced returns after that either the initial list of shared services has
+// been received from all remote clusters, and synchronized with the BPF datapath, or
+// the maximum wait period controlled by the clustermesh-sync-timeout flag elapsed.
+// It returns an error if the given context expired.
 func (cm *ClusterMesh) ServicesSynced(ctx context.Context) error {
 	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.Services })
 }
 
-// IPIdentitiesSynced returns after that the initial list of ipcache entries and
-// identities has been received from all remote clusters, and synchronized with
-// the BPF datapath.
+// IPIdentitiesSynced returns after that either the initial list of ipcache entries
+// and identities has been received from all remote clusters, and synchronized with
+// the BPF datapath, or the maximum wait period controlled by the clustermesh-sync-timeout
+// flag elapsed. It returns an error if the given context expired.
 func (cm *ClusterMesh) IPIdentitiesSynced(ctx context.Context) error {
 	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.IPIdentities })
 }
 
 func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {
+	wctx, cancel := context.WithTimeout(ctx, cm.conf.Timeout())
+	defer cancel()
+
 	waiters := make([]wait.Fn, 0)
 	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
 		rc := rci.(*remoteCluster)
@@ -208,7 +222,20 @@ func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 		return nil
 	})
 
-	return wait.ForAll(ctx, waiters)
+	err := wait.ForAll(wctx, waiters)
+	if ctx.Err() == nil && wctx.Err() != nil {
+		// The sync timeout expired, but the parent context is still valid, which
+		// means that the circuit breaker was triggered. Print a warning message
+		// and continue normally, as if the synchronization completed successfully.
+		// This ensures that we don't block forever in case of misconfigurations.
+		cm.syncTimeoutLogOnce.Do(func() {
+			log.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
+		})
+
+		return nil
+	}
+
+	return err
 }
 
 // Status returns the status of the ClusterMesh subsystem
