@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -37,6 +38,7 @@ var Cell = cell.Module(
 	cell.Invoke(func(ClusterMesh) {}),
 
 	cell.Config(common.Config{}),
+	cell.Config(wait.TimeoutConfigDefault),
 
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(subsystem)),
@@ -46,6 +48,7 @@ type clusterMeshParams struct {
 	cell.In
 
 	common.Config
+	wait.TimeoutConfig
 	Cfg ClusterMeshConfig
 
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
