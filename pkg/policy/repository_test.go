@@ -2534,7 +2534,7 @@ func TestDefaultAllow(t *testing.T) {
 }
 
 func TestReplaceByResource(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil)
 
 	numRules := 10
 	rules := make(api.Rules, 0, numRules)

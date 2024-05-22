@@ -175,13 +175,13 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 }
 
 // NewPolicyRepository creates a new policy repository.
+// Only used for unit tests.
 func NewPolicyRepository(
-	idAllocator cache.IdentityAllocator,
-	idCache cache.IdentityCache,
+	initialIDs cache.IdentityCache,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {
-	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager)
+	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager)
 	repo.Start()
 	return repo
 }
@@ -192,12 +192,11 @@ func NewPolicyRepository(
 // Qeues must be allocated via [Repository.Start]. The function serves to
 // satisfy hive invariants.
 func NewStoppedPolicyRepository(
-	idAllocator cache.IdentityAllocator,
-	idCache cache.IdentityCache,
+	initialIDs cache.IdentityCache,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {
-	selectorCache := NewSelectorCache(idAllocator, idCache)
+	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
 		rules:           make(map[ruleKey]*rule),
 		rulesByResource: make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),

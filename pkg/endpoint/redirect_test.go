@@ -59,7 +59,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	}
 
 	s.do = &DummyOwner{
-		repo: policy.NewPolicyRepository(s.mgr, identityCache, nil, nil),
+		repo: policy.NewPolicyRepository(identityCache, nil, nil),
 	}
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	identitymanager.Subscribe(s.do.repo)

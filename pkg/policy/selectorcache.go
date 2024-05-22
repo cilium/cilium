@@ -92,10 +92,6 @@ type userNotification struct {
 type SelectorCache struct {
 	mutex lock.RWMutex
 
-	// idAllocator is used to allocate and release identities. It is used
-	// by the NameManager to manage identities corresponding to FQDNs.
-	idAllocator cache.IdentityAllocator
-
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
 	// UpdateIdentities() function.
@@ -192,11 +188,10 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache) *SelectorCache {
+func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	sc := &SelectorCache{
-		idAllocator: allocator,
-		idCache:     getIdentityCache(ids),
-		selectors:   make(map[string]*identitySelector),
+		idCache:   getIdentityCache(ids),
+		selectors: make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	return sc

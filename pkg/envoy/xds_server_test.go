@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/endpoint/test"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -196,8 +195,7 @@ var (
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 		},
 	}
-	identityAllocator = testidentity.NewMockIdentityAllocator(IdentityCache)
-	testSelectorCache = policy.NewSelectorCache(identityAllocator, IdentityCache)
+	testSelectorCache = policy.NewSelectorCache(IdentityCache)
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
 
