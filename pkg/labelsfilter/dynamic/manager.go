@@ -35,10 +35,7 @@ var (
 )
 
 type controller struct {
-
-	// Signal informs the Controller that a Kubernetes event of interest has occurred.
-	// The signal itself provides no other information, when it occurs the Controller will query each informer for the latest API information required to drive its control loop.
-	Signal                              *signals.Signal
+	reconcileTrigger                    *trigger.Trigger
 	CiliumNetworkPolicy                 resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicy      resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	NetworkPolicy                       resource.Resource[*slim_networking_v1.NetworkPolicy]
@@ -54,7 +51,6 @@ type controllerParams struct {
 	Health                           cell.Health
 	JobGroup                         job.Group
 	Shutdowner                       hive.Shutdowner
-	Signal                           *signals.Signal
 	Config                           config
 	CiliumNetworkPolicy              resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterWideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
@@ -62,23 +58,41 @@ type controllerParams struct {
 }
 
 func registerController(params controllerParams) (*controller, error) {
-	if !params.Config.EnableDynamicLabelFilter {
+	if !params.Config.EnableDynamicLabelsFilter {
 		return nil, nil
 	}
 
 	c := &controller{
-		Signal:                         params.Signal,
 		CiliumNetworkPolicy:            params.CiliumNetworkPolicy,
 		CiliumClusterwideNetworkPolicy: params.CiliumClusterWideNetworkPolicies,
 		NetworkPolicy:                  params.NetworkPolicy,
 	}
+
+	reconcileTrigger, err := trigger.NewTrigger(trigger.Parameters{
+		MinInterval: 1 * time.Second, // TODO To be updated in phase 2 after agreeing on the design proposal
+		TriggerFunc: func(reasons []string) {
+			if err := c.Reconcile(); err != nil {
+				log.WithError(err).Error("Dynamic Labels Filter Controller encountered error during reconciliation")
+			} else {
+				log.Debug("Dynamic Labels Filter Controller successfully completed reconciliation")
+			}
+
+		},
+		Name: "dynamic-labels-filter-trigger",
+	})
+
+	if err != nil {
+		log.WithError(err).Fatal("Unable to initialize dynamic labels filter synchronization trigger")
+	}
+
+	c.reconcileTrigger = reconcileTrigger
 
 	params.JobGroup.Add(
 		job.OneShot("dynamic-labels-filter-CNP-observer", func(ctx context.Context, health cell.Health) (err error) {
 			for ev := range c.CiliumNetworkPolicy.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
-					c.Signal.Event(struct{}{})
+					reconcileTrigger.Trigger()
 				}
 				ev.Done(nil)
 			}
@@ -89,7 +103,7 @@ func registerController(params controllerParams) (*controller, error) {
 			for ev := range c.CiliumClusterwideNetworkPolicy.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
-					c.Signal.Event(struct{}{})
+					reconcileTrigger.Trigger()
 				}
 				ev.Done(nil)
 			}
@@ -100,21 +114,23 @@ func registerController(params controllerParams) (*controller, error) {
 			for ev := range c.NetworkPolicy.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
-					c.Signal.Event(struct{}{})
+					reconcileTrigger.Trigger()
 				}
 				ev.Done(nil)
 			}
 			return nil
 		}),
 
-		job.OneShot("dynamic-labels-filter-controller",
+		job.OneShot("dynamic-labels-filter-init",
 			func(ctx context.Context, health cell.Health) (err error) {
 				if err = c.initStore(ctx); err != nil {
 					health.Degraded("failed to init stores", err)
 					return fmt.Errorf("error creating Dynamic Label Filter resource stores: %w", err)
 				}
 
-				c.Run(ctx)
+				// create initial trigger
+				reconcileTrigger.Trigger()
+
 				return nil
 			},
 			job.WithRetry(jobRetryCount, jobTimeout),
@@ -141,46 +157,14 @@ func (c *controller) initStore(ctx context.Context) (err error) {
 	return nil
 }
 
-// Run places the Controller into its control loop.
-//
-// When new events trigger a signal the control loop will be evaluated.
-//
-// A cancel of the provided ctx will kill the control loop along with the running
-// informers.
-func (c *controller) Run(ctx context.Context) {
-	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "Controller.Run",
-		})
-	)
-
-	// add an initial signal
-	c.Signal.Event(struct{}{})
-
-	l.Info("Cilium Dynamic Label Filter Controller now running...")
-	for {
-		select {
-		case <-ctx.Done():
-			l.Info("Cilium Dynamic Label Filter Controller shut down")
-			return
-		case <-c.Signal.Signal:
-			if err := c.Reconcile(ctx); err != nil {
-				l.WithError(err).Error("Cilium Dynamic Label Filter Controller encountered error during reconciliation")
-			} else {
-				l.Debug("Cilium Dynamic Label Filter Controller successfully completed reconciliation")
-			}
-		}
-	}
-}
-
 // Reconcile is the control loop for the Controller.
 //
 // Reconcile will be invoked when one or more event sources trigger a signal
-// via the Controller's Signal structure.
+// via the Controller's Trigger structure.
 //
 // On signal, Reconcile will read all network policies selector key labels, construct a set,
 // updates the labels filter and TODO reconcile in-place the affected pods generating new CIDs.
-func (c *controller) Reconcile(ctx context.Context) error {
+func (c *controller) Reconcile() error {
 	var (
 		l = log.WithFields(logrus.Fields{
 			"component": "Controller.Reconcile",

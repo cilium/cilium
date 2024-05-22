@@ -4,7 +4,6 @@
 package dynamic
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -162,7 +161,7 @@ func TestControllerSanity(t *testing.T) {
 				CiliumClusterwideNetworkPolicyStore: tt.ciliumClusterwideNetworkPolicyStore,
 			}
 
-			err := c.Reconcile(context.Background())
+			err := c.Reconcile()
 
 			allLabels := labels.Map2Labels(allLabels, labels.LabelSourceContainer)
 			filtered, _ := labelsfilter.Filter(allLabels)

@@ -1192,9 +1192,6 @@ const (
 	// EnableNodeSelectorLabels)
 	NodeLabels = "node-labels"
 
-	// EnableDynamicLabelFilter enables support for dynamically limiting the labels used for CIDs
-	EnableDynamicLabelFilter = "enable-dynamic-label-filter"
-
 	// BPFEventsDropEnabled defines the DropNotification setting for any endpoint
 	BPFEventsDropEnabled = "bpf-events-drop-enabled"
 
