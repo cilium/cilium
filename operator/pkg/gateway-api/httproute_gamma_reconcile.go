@@ -10,14 +10,19 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
+	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/ingestion"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -63,10 +68,16 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	hr := original.DeepCopy()
 
-	// check if this cert is allowed to be used by this gateway
+	// Get ReferenceGrants
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
 		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to retrieve reference grants: %w", err), original, hr)
+	}
+
+	servicesList := &corev1.ServiceList{}
+	if err := r.Client.List(ctx, servicesList); err != nil {
+		scopedLog.WithError(err).Error("Unable to list Services")
+		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
 	// input for the validators
@@ -130,6 +141,34 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
 	}
 
+	httpListeners := ingestion.GammaHTTPRoutes(ingestion.GammaInput{
+		HTTPRoutes:      []gatewayv1.HTTPRoute{*hr},
+		Services:        servicesList.Items,
+		ReferenceGrants: grants.Items,
+	})
+
+	cec, svc, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
+	if err != nil {
+		scopedLog.WithError(err).Error("Unable to translate resources")
+		// setGatewayAccepted(gw, false, "Unable to translate resources")
+		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
+	}
+
+	scopedLog.Debugf("GAMMA translator: Service:\n%#v\n", svc)
+	scopedLog.Debugf("GAMMA translator: Endpoints\n%#v\n", cep)
+
+	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
+		scopedLog.WithError(err).Error("Unable to ensure CiliumEnvoyConfig")
+		// setGatewayAccepted(gw, false, "Unable to ensure CEC resource")
+		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
+	}
+
+	if err = r.ensureEndpoints(ctx, cep); err != nil {
+		scopedLog.WithError(err).Error("Unable to ensure Endpoints")
+		// setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource")
+		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
+	}
+
 	scopedLog.Info("Successfully reconciled HTTPRoute")
 	return controllerruntime.Success()
 }
@@ -151,4 +190,25 @@ func (r *gammaHttpRouteReconciler) handleReconcileErrorWithStatus(ctx context.Co
 	}
 
 	return controllerruntime.Fail(reconcileErr)
+}
+
+func (r *gammaHttpRouteReconciler) ensureEnvoyConfig(ctx context.Context, desired *ciliumv2.CiliumEnvoyConfig) error {
+	cec := desired.DeepCopy()
+	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
+		cec.Spec = desired.Spec
+		setMergedLabelsAndAnnotations(cec, desired)
+		return nil
+	})
+	return err
+}
+
+func (r *gammaHttpRouteReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
+	ep := desired.DeepCopy()
+	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
+		ep.Subsets = desired.Subsets
+		ep.OwnerReferences = desired.OwnerReferences
+		setMergedLabelsAndAnnotations(ep, desired)
+		return nil
+	})
+	return err
 }

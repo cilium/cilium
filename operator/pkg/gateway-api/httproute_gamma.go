@@ -21,19 +21,22 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // gammaHttpRouteReconciler reconciles a HTTPRoute object
 type gammaHttpRouteReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme     *runtime.Scheme
+	translator translation.Translator
 }
 
-func newGammaHttpRouteReconciler(mgr ctrl.Manager) *gammaHttpRouteReconciler {
+func newGammaHttpRouteReconciler(mgr ctrl.Manager, translator translation.Translator) *gammaHttpRouteReconciler {
 	return &gammaHttpRouteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		translator: translator,
 	}
 }
 
