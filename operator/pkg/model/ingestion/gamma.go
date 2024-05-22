@@ -56,6 +56,15 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 			}
 		}
 
+		hrSource := model.FullyQualifiedResource{
+			Name:      hr.GetName(),
+			Namespace: hr.GetNamespace(),
+			Group:     gatewayv1.GroupVersion.Group,
+			Kind:      hr.Kind,
+			Version:   gatewayv1.GroupVersion.Version,
+			UID:       string(hr.GetUID()),
+		}
+
 		// We shouldn't be able to do this, because the reconciliation should
 		// screen out HTTPRoutes with zero GAMMA parents.
 		if len(gammaParents) == 0 {
@@ -99,6 +108,7 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 					Group:     corev1.GroupName,
 					Kind:      "Service",
 					Version:   corev1.SchemeGroupVersion.Version,
+					UID:       string(parentSvc.GetUID()),
 				}
 			}
 
@@ -127,6 +137,9 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 				res := model.HTTPListener{}
 				// Record the parent Service as the source of the Listener.
 				res.Sources = append(res.Sources, parentServices[parentName])
+				// Record the HTTPRoute as another Source, so that we can ensure that the CEC will get cleaned up
+				// when the HTTPRoute does
+				res.Sources = append(res.Sources, hrSource)
 				res.Name = fmt.Sprintf("%s-%s-%d", parentSvc.GetNamespace(), parentSvc.GetName(), portVal)
 				res.Port = portVal
 				// GAMMA spec _explicitly_ says that we must not filter by hostname, only address and port
