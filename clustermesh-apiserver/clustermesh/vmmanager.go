@@ -137,7 +137,7 @@ type VMManager struct {
 //
 
 // UpdateIdentities will be called when identities have changed
-func (m *VMManager) UpdateIdentities(added, deleted identityCache.IdentityCache) {}
+func (m *VMManager) UpdateIdentities(added, deleted identity.IdentityMap) {}
 
 // GetNodeSuffix must return the node specific suffix to use
 func (m *VMManager) GetNodeSuffix() string {

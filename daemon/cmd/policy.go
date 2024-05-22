@@ -173,7 +173,7 @@ type identityAllocatorOwner struct {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted cache.IdentityCache) {
+func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 	wg := &sync.WaitGroup{}
 	iao.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	// Wait for update propagation to endpoints before triggering policy updates

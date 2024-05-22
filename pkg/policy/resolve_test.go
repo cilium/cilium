@@ -13,7 +13,6 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,8 +51,8 @@ func (d *dummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {
 	return d.SecurityIdentity, nil
 }
 
-func generateNumIdentities(numIdentities int) cache.IdentityCache {
-	c := make(cache.IdentityCache, numIdentities)
+func generateNumIdentities(numIdentities int) identity.IdentityMap {
+	c := make(identity.IdentityMap, numIdentities)
 	for i := 0; i < numIdentities; i++ {
 
 		identityLabel := labels.NewLabel(fmt.Sprintf("k8s:foo%d", i), "", "")
@@ -239,7 +238,7 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int,
 	SetPolicyEnabled(option.DefaultEnforcement)
 	wg := &sync.WaitGroup{}
 	// load in standard reserved identities
-	c := cache.IdentityCache{}
+	c := identity.IdentityMap{}
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
 		c[ni] = id.Labels.LabelArray()
 	})
@@ -581,7 +580,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	}
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := cache.IdentityCache{
+	added1 := identity.IdentityMap{
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
 	}
 	wg := &sync.WaitGroup{}
@@ -669,7 +668,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := cache.IdentityCache{
+	added1 := identity.IdentityMap{
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
@@ -679,7 +678,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	wg.Wait()
 	require.Len(t, policy.policyMapChanges.changes, 3)
 
-	deleted1 := cache.IdentityCache{
+	deleted1 := identity.IdentityMap{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 	}
 	wg = &sync.WaitGroup{}

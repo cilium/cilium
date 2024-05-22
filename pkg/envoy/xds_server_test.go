@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -181,7 +180,7 @@ var ExpectedHeaders3 = []*envoy_config_route.HeaderMatcher{
 var (
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
 
-	IdentityCache = cache.IdentityCache{
+	IdentityCache = identity.IdentityMap{
 		1001: labels.LabelArray{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),

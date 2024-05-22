@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -177,7 +176,7 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 // NewPolicyRepository creates a new policy repository.
 // Only used for unit tests.
 func NewPolicyRepository(
-	initialIDs cache.IdentityCache,
+	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {
@@ -192,7 +191,7 @@ func NewPolicyRepository(
 // Qeues must be allocated via [Repository.Start]. The function serves to
 // satisfy hive invariants.
 func NewStoppedPolicyRepository(
-	initialIDs cache.IdentityCache,
+	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {

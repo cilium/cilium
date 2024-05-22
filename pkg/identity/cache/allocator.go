@@ -94,7 +94,7 @@ type IdentityAllocatorOwner interface {
 	// The caller is responsible for making sure the same identity
 	// is not present in both 'added' and 'deleted', so that they
 	// can be processed in either order.
-	UpdateIdentities(added, deleted IdentityCache)
+	UpdateIdentities(added, deleted identity.IdentityMap)
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string
@@ -132,7 +132,7 @@ type IdentityAllocator interface {
 	// GetIdentityCache returns the current cache of identities that the
 	// allocator has allocated. The caller should not modify the resulting
 	// identities by pointer.
-	GetIdentityCache() IdentityCache
+	GetIdentityCache() identity.IdentityMap
 
 	// GetIdentities returns a copy of the current cache of identities.
 	GetIdentities() IdentitiesModel
@@ -386,7 +386,7 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 		}
 
 		if notifyOwner {
-			added := IdentityCache{
+			added := identity.IdentityMap{
 				id.ID: id.LabelArray,
 			}
 			m.owner.UpdateIdentities(added, nil)
@@ -463,7 +463,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	// cached identities can be updated ASAP, rather than just
 	// relying on the kv-store update events.
 	if allocated && notifyOwner {
-		added := IdentityCache{
+		added := identity.IdentityMap{
 			id.ID: id.LabelArray,
 		}
 		m.owner.UpdateIdentities(added, nil)
@@ -565,7 +565,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 
 	log.WithField(logfields.Count, len(ids)).Info("Restoring checkpointed local identities")
 	m.restoredIdentities = make(map[identity.NumericIdentity]*identity.Identity, len(ids))
-	added := make(IdentityCache, len(ids))
+	added := make(identity.IdentityMap, len(ids))
 
 	// Withhold restored local identities from allocation (except by request).
 	// This is insurance against a code change causing identities to be allocated
@@ -622,7 +622,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 // ReleaseRestoredIdentities releases any identities that were restored, reducing their reference
 // count and cleaning up as necessary.
 func (m *CachingIdentityAllocator) ReleaseRestoredIdentities() {
-	deleted := make(IdentityCache, len(m.restoredIdentities))
+	deleted := make(identity.IdentityMap, len(m.restoredIdentities))
 	for _, id := range m.restoredIdentities {
 		released, err := m.Release(context.Background(), id, false)
 		if err != nil {
@@ -669,7 +669,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 		}
 
 		if m.owner != nil && released && notifyOwner {
-			deleted := IdentityCache{
+			deleted := identity.IdentityMap{
 				id.ID: id.LabelArray,
 			}
 			m.owner.UpdateIdentities(nil, deleted)
