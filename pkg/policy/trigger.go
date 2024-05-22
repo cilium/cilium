@@ -28,7 +28,7 @@ func (u *Updater) TriggerPolicyUpdates(force bool, reason string) {
 
 // NewUpdater returns a new Updater instance to handle triggering policy
 // updates ready for use.
-func NewUpdater(r *Repository, regen regenerator) (*Updater, error) {
+func NewUpdater(r *Repository, regen regenerator) *Updater {
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:            "policy_update",
 		MetricsObserver: &TriggerMetrics{},
@@ -49,12 +49,12 @@ func NewUpdater(r *Repository, regen regenerator) (*Updater, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		panic(err) // unreachable, only occurs if TriggerFunc is nil
 	}
 	return &Updater{
 		Trigger: t,
 		repo:    r,
-	}, nil
+	}
 }
 
 // Updater is responsible for triggering policy updates, in order to perform
