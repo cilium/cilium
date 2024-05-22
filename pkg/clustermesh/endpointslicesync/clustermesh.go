@@ -6,10 +6,10 @@ package endpointslicesync
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"slices"
+	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
@@ -58,6 +58,9 @@ type clusterMesh struct {
 	clusterDeleteHooks        []func(string)
 	clusterServiceUpdateHooks []func(*serviceStore.ClusterService)
 	clusterServiceDeleteHooks []func(*serviceStore.ClusterService)
+
+	syncTimeoutConfig  wait.TimeoutConfig
+	syncTimeoutLogOnce sync.Once
 }
 
 // ClusterMesh is the interface corresponding to the clusterMesh struct to expose
@@ -94,6 +97,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		),
 		storeFactory:                      params.StoreFactory,
 		concurrentClusterMeshEndpointSync: params.Cfg.ClusterMeshMaxEndpointsPerSlice,
+		syncTimeoutConfig:                 params.TimeoutConfig,
 	}
 	cm.context, cm.contextCancel = context.WithCancel(context.Background())
 	cm.meshPodInformer = newMeshPodInformer(cm.globalServices)
@@ -239,9 +243,8 @@ func (cm *clusterMesh) Start(startCtx cell.HookContext) error {
 	}
 
 	go func() {
-		if err := cm.ServicesSynced(cm.context); err != nil &&
-			!errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
-			log.Warnf("Error waiting for cluster mesh services to be synced: %s", err)
+		if err := cm.ServicesSynced(cm.context); err != nil {
+			return // The parent context expired, and we are already terminating
 		}
 		cm.endpointSliceMeshController.Run(cm.context, cm.concurrentClusterMeshEndpointSync)
 	}()
@@ -254,13 +257,17 @@ func (cm *clusterMesh) Stop(cell.HookContext) error {
 	return nil
 }
 
-// ServicesSynced returns after that the initial list of shared services has been
-// received from all remote clusters.
+// ServicesSynced returns after that either the initial list of shared services has
+// been received from all remote clusters, or the maximum wait period controlled by the
+// clustermesh-sync-timeout flag elapsed. It returns an error if the given context expired.
 func (cm *clusterMesh) ServicesSynced(ctx context.Context) error {
 	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.Services })
 }
 
 func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {
+	wctx, cancel := context.WithTimeout(ctx, cm.syncTimeoutConfig.Timeout())
+	defer cancel()
+
 	waiters := make([]wait.Fn, 0)
 	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
 		rc := rci.(*remoteCluster)
@@ -268,7 +275,20 @@ func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 		return nil
 	})
 
-	return wait.ForAll(ctx, waiters)
+	err := wait.ForAll(wctx, waiters)
+	if ctx.Err() == nil && wctx.Err() != nil {
+		// The sync timeout expired, but the parent context is still valid, which
+		// means that the circuit breaker was triggered. Print a warning message
+		// and continue normally, as if the synchronization completed successfully.
+		// This ensures that we don't block forever in case of misconfigurations.
+		cm.syncTimeoutLogOnce.Do(func() {
+			log.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
+		})
+
+		return nil
+	}
+
+	return err
 }
 
 // Status returns the status of the ClusterMesh subsystem

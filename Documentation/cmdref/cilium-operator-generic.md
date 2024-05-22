@@ -33,6 +33,7 @@ cilium-operator-generic [flags]
       --clustermesh-enable-mcs-api                           Whether or not the MCS API support is enabled.
       --clustermesh-endpoint-updates-batch-period duration   The length of endpoint slice updates batching period for remote cluster services. Processing of pod changes will be delayed by this duration to join them with potential upcoming updates and reduce the overall number of endpoints updates. Larger number = higher endpoint programming latency, but lower number of endpoints revision generated. (default 500ms)
       --clustermesh-endpoints-per-slice int                  The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
+      --clustermesh-sync-timeout duration                    Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
       --cnp-status-cleanup-burst int                         Maximum burst of requests to clean up status nodes updates in CNPs (default 20)
       --cnp-status-cleanup-qps float                         Rate used for limiting the clean up of the status nodes updates in CNP, expressed as qps (default 10)
       --config string                                        Configuration file (default "$HOME/ciliumd.yaml")

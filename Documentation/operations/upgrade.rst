@@ -361,6 +361,12 @@ Removed Options
   More information can be found in the following Helm upgrade notes.
 * The deprecated flag ``install-egress-gateway-routes`` has been removed.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``clustermesh-ip-identities-sync-timeout`` flag has been deprecated in
+  favor of ``clustermesh-sync-timeout``, and will be removed in Cilium 1.17.
+
 Helm Options
 ~~~~~~~~~~~~
 
