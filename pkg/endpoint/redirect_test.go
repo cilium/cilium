@@ -35,6 +35,7 @@ type RedirectSuite struct {
 	mgr             *cache.CachingIdentityAllocator
 	do              *DummyOwner
 	rsp             *RedirectSuiteProxy
+	stats           *regenerationStatistics
 }
 
 func setupRedirectSuite(tb testing.TB) *RedirectSuite {
@@ -73,6 +74,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 		},
 		redirectPortUserMap: make(map[uint16][]string),
 	}
+
+	s.stats = new(regenerationStatistics)
 
 	tb.Cleanup(func() {
 		identitymanager.RemoveAll()
@@ -210,7 +213,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return firstAnno, nil
 	})
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -235,7 +238,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return secondAnno, nil
 	})
-	res, err = ep.regeneratePolicy()
+	res, err = ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -258,7 +261,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return thirdAnno, nil
 	})
-	res, err = ep.regeneratePolicy()
+	res, err = ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -309,7 +312,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return noAnno, nil
 	})
-	res, err = ep.regeneratePolicy()
+	res, err = ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -400,7 +403,7 @@ func TestRedirectWithDeny(t *testing.T) {
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -561,7 +564,7 @@ func TestRedirectWithPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -640,7 +643,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)

@@ -170,10 +170,11 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		done = true
 	}()
 
+	stats := new(regenerationStatistics)
 	// Continuously compute policy for the pod and ensure we never missed an incremental update.
 	for {
 		t.Log("Calculating policy...")
-		res, err := ep.regeneratePolicy()
+		res, err := ep.regeneratePolicy(stats)
 		assert.Nil(t, err)
 
 		// Sleep a random amount, so we accumulate some changes
