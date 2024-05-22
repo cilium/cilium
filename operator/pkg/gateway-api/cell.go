@@ -215,7 +215,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 		newGatewayReconciler(mgr, translator),
 		newReferenceGrantReconciler(mgr),
 		newHTTPRouteReconciler(mgr),
-		newGammaHttpRouteReconciler(mgr),
+		newGammaHttpRouteReconciler(mgr, translator),
 		newGRPCRouteReconciler(mgr),
 		newTLSRouteReconciler(mgr),
 	}
