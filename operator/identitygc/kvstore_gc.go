@@ -47,6 +47,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 	defer gcTimerDone()
 	for {
 		now := time.Now()
+		igc.metrics.IdentityGCLatency.Set(float64(0))
 
 		keysToDelete, gcStats, err := igc.allocator.RunGC(igc.rateLimiter, keysToDeletePrev)
 		gcDuration := time.Since(now)
@@ -71,6 +72,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 
 			igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeAlive).Set(float64(gcStats.Alive))
 			igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeDeleted).Set(float64(gcStats.Deleted))
+			igc.metrics.IdentityGCLatency.Set(float64(time.Since(now).Milliseconds()))
 		}
 
 		if igc.gcInterval <= gcDuration {

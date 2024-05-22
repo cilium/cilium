@@ -95,6 +95,7 @@ func (igc *GC) gc(ctx context.Context) error {
 	deletedEntries := 0
 
 	timeNow := time.Now()
+	igc.metrics.IdentityGCLatency.Set(float64(0))
 	for _, identity := range identities {
 		foundInCES := false
 		if cesEnabled {
@@ -156,6 +157,7 @@ func (igc *GC) gc(ctx context.Context) error {
 	if ctx.Err() == nil {
 		igc.successfulRuns++
 		igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
+		igc.metrics.IdentityGCLatency.Set(float64(time.Since(timeNow).Milliseconds()))
 	} else {
 		igc.failedRuns++
 		igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeFail).Set(float64(igc.failedRuns))
