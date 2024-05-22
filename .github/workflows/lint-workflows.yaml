@@ -226,7 +226,7 @@ jobs:
           done
           exit ${EXIT}
 
-      - name: Validate Commit Status Start Job
+      - name: Validate Commit Status Start/Finish Jobs
         shell: bash
         run: |
           EXIT=0
@@ -245,6 +245,16 @@ jobs:
             JOB_NAME=$(echo "${JOB}" | yq '.value.name')
             if [ "$JOB_NAME" != "Commit Status Start" ]; then
                 echo "commit-status-start job name must be set as 'Commit Status Start' in file $FILE"
+                EXIT=1
+            fi
+            JOB=$(yq '.jobs | to_entries | .[] | select(.key == "commit-status-final")' $FILE)
+            if [ "$JOB" == "" ]; then
+                echo "commit-status-final job is missing in file $FILE"
+                EXIT=1
+            fi
+            JOB_NAME=$(echo "${JOB}" | yq '.value.name')
+            if [ "$JOB_NAME" != "Commit Status Final" ]; then
+                echo "commit-status-final job name must be set as 'Commit Status Final' in file $FILE"
                 EXIT=1
             fi
           done
