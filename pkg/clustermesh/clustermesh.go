@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 const subsystem = "clustermesh"
@@ -173,7 +174,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(
-		name, cm.conf.IPCache, cm.conf.StoreFactory,
+		name, cm.conf.IPCache, cm.conf.StoreFactory, source.ClusterMesh,
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.ipcache) }),
 	)
 	rc.ipCacheWatcherExtraOpts = cm.conf.IPCacheWatcherExtraOpts
