@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
@@ -72,6 +73,14 @@ type Configuration struct {
 	Metrics       Metrics
 	CommonMetrics common.Metrics
 	StoreFactory  store.Factory
+}
+
+// ServiceMerger is the interface to be implemented by the owner of local
+// services. The functions have to merge service updates and deletions with
+// local services to provide a shared view.
+type ServiceMerger interface {
+	MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
+	MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -170,7 +179,16 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 	rc.remoteServices = cm.conf.StoreFactory.NewWatchStore(
 		name,
 		func() store.Key { return new(serviceStore.ClusterService) },
-		&remoteServiceObserver{remoteCluster: rc, swg: rc.synced.services},
+		common.NewSharedServicesObserver(
+			log.WithField(logfields.ClusterName, name),
+			cm.globalServices,
+			func(svc *serviceStore.ClusterService) {
+				cm.conf.ServiceMerger.MergeExternalServiceUpdate(svc, rc.synced.services)
+			},
+			func(svc *serviceStore.ClusterService) {
+				cm.conf.ServiceMerger.MergeExternalServiceDelete(svc, rc.synced.services)
+			},
+		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
 	)
 

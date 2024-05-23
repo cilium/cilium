@@ -26,6 +26,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -217,11 +218,20 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 	rc.remoteServices = cm.storeFactory.NewWatchStore(
 		name,
 		func() store.Key { return new(serviceStore.ClusterService) },
-		&remoteServiceObserver{
-			globalServices:            cm.globalServices,
-			clusterServiceUpdateHooks: cm.clusterServiceUpdateHooks,
-			clusterServiceDeleteHooks: cm.clusterServiceDeleteHooks,
-		},
+		common.NewSharedServicesObserver(
+			log.WithField(logfields.ClusterName, name),
+			cm.globalServices,
+			func(svc *serviceStore.ClusterService) {
+				for _, hook := range cm.clusterServiceUpdateHooks {
+					hook(svc)
+				}
+			},
+			func(svc *serviceStore.ClusterService) {
+				for _, hook := range cm.clusterServiceDeleteHooks {
+					hook(svc)
+				}
+			},
+		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
 	)
 
