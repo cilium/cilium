@@ -18,11 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type IPSecSuitePrivileged struct{}
-
-func setupIPSecSuitePrivileged(tb testing.TB) *IPSecSuitePrivileged {
+func setupIPSecSuitePrivileged(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
-	s := &IPSecSuitePrivileged{}
 	node.SetTestLocalNodeStore()
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -31,7 +28,6 @@ func setupIPSecSuitePrivileged(tb testing.TB) *IPSecSuitePrivileged {
 		node.UnsetTestLocalNodeStore()
 		_ = DeleteXfrm()
 	})
-	return s
 }
 
 var (
@@ -114,7 +110,9 @@ func TestParseSPI(t *testing.T) {
 	}
 }
 
-func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(t *testing.T) {
+func TestUpsertIPSecEquals(t *testing.T) {
+	setupIPSecSuitePrivileged(t)
+
 	_, local, err := net.ParseCIDR("1.2.3.4/16")
 	require.NoError(t, err)
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
@@ -160,7 +158,9 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal[""] = nil
 }
 
-func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(t *testing.T) {
+func TestUpsertIPSecEndpoint(t *testing.T) {
+	setupIPSecSuitePrivileged(t)
+
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
 	require.NoError(t, err)
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
@@ -224,7 +224,9 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal[""] = nil
 }
 
-func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(t *testing.T) {
+func TestUpsertIPSecKeyMissing(t *testing.T) {
+	setupIPSecSuitePrivileged(t)
+
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
 	require.NoError(t, err)
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
@@ -236,7 +238,9 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(t *testing.T) {
 	cleanIPSecStatesAndPolicies(t)
 }
 
-func (p *IPSecSuitePrivileged) TestUpdateExistingIPSecEndpoint(t *testing.T) {
+func TestUpdateExistingIPSecEndpoint(t *testing.T) {
+	setupIPSecSuitePrivileged(t)
+
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
 	require.NoError(t, err)
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
