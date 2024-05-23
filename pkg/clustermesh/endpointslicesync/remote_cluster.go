@@ -76,7 +76,6 @@ func (rc *remoteCluster) Remove() {
 	// is removed, and not in case the operator is shutting down, otherwise we
 	// would break existing connections on restart.
 	rc.remoteServices.Drain()
-	rc.globalServices.OnClusterDelete(rc.name)
 }
 
 type synced struct {
