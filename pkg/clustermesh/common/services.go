@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -186,4 +187,65 @@ func (c *GlobalServiceCache) Size() (num int) {
 	num = len(c.byName)
 	c.mutex.RUnlock()
 	return
+}
+
+type remoteServiceObserver struct {
+	log logrus.FieldLogger
+
+	cache *GlobalServiceCache
+
+	onUpdate func(*serviceStore.ClusterService)
+	onDelete func(*serviceStore.ClusterService)
+}
+
+// NewSharedServicesObserver returns an observer implementing the logic to convert
+// and filter shared services notifications, update the global service cache and
+// call the upstream handlers when appropriate.
+func NewSharedServicesObserver(
+	log logrus.FieldLogger, cache *GlobalServiceCache,
+	onUpdate, onDelete func(*serviceStore.ClusterService),
+) store.Observer {
+	return &remoteServiceObserver{
+		log:   log,
+		cache: cache,
+
+		onUpdate: onUpdate,
+		onDelete: onDelete,
+	}
+}
+
+// OnUpdate is called when a service in a remote cluster is updated
+func (r *remoteServiceObserver) OnUpdate(key store.Key) {
+	svc := key.(*serviceStore.ClusterService)
+	scopedLog := r.log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
+	scopedLog.Debug("Received remote service update event")
+
+	// Short-circuit the handling of non-shared services
+	if !svc.Shared {
+		if r.cache.Has(svc) {
+			scopedLog.Debug("Previously shared service is no longer shared: triggering deletion event")
+			r.OnDelete(key)
+		} else {
+			scopedLog.Debug("Ignoring remote service update: service is not shared")
+		}
+		return
+	}
+
+	r.cache.OnUpdate(svc)
+	r.onUpdate(svc)
+}
+
+// OnDelete is called when a service in a remote cluster is deleted
+func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
+	svc := key.(*serviceStore.ClusterService)
+	scopedLog := r.log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
+	scopedLog.Debug("Received remote service delete event")
+
+	// Short-circuit the deletion logic if the service was not present (i.e., not shared)
+	if !r.cache.OnDelete(svc) {
+		scopedLog.Debug("Ignoring remote service delete. Service was not shared")
+		return
+	}
+
+	r.onDelete(svc)
 }
