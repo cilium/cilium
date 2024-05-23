@@ -4,14 +4,17 @@
 package ciliumendpointslice
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type rateLimit struct {
@@ -22,73 +25,45 @@ type rateLimit struct {
 
 type rateLimitConfig struct {
 	current          rateLimit
-	dynamicRateLimit []rateLimit
+	dynamicRateLimit dynamicRateLimit
 
 	rateLimiter *workqueue.BucketRateLimiter
 
 	logger logrus.FieldLogger
 }
 
-func getRateLimitConfig(p params) rateLimitConfig {
-	var dynamicRateLimit []rateLimit
-	if p.Cfg.CESEnableDynamicRateLimit {
-		var err error
-		dynamicRateLimit, err = parseDynamicRateLimit(p.Cfg.CESDynamicRateLimitNodes, p.Cfg.CESDynamicRateLimitQPSLimit, p.Cfg.CESDynamicRateLimitQPSBurst)
-		if err != nil {
-			p.Logger.WithError(err).Warn("Couldn't parse dynamic rate limit config")
-		}
-	}
-	rlc := rateLimitConfig{
-		current: rateLimit{
-			Limit: p.Cfg.CESWriteQPSLimit,
-			Burst: p.Cfg.CESWriteQPSBurst,
-		},
-		dynamicRateLimit: dynamicRateLimit,
-		logger:           p.Logger,
-	}
+type dynamicRateLimit []rateLimit
 
-	if rlc.hasDynamicRateLimiting() {
-		rlc.updateRateLimitWithNodes(0, true)
+func getRateLimitConfig(p params) (rateLimitConfig, error) {
+	rlc := rateLimitConfig{
+		logger: p.Logger,
 	}
+	parsed, err := parseDynamicRateLimit(p.Cfg.CESDynamicRateLimitConfig)
+	if err != nil {
+		return rlc, fmt.Errorf("Couldn't parse CES rate limit config: %w", err)
+	}
+	rlc.dynamicRateLimit = parsed
+	rlc.updateRateLimitWithNodes(0, true)
 	rlc.rateLimiter = &workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(rlc.current.Limit), rlc.current.Burst)}
-	return rlc
+	return rlc, nil
 }
 
-func parseDynamicRateLimit(nodes []string, limits []string, bursts []string) ([]rateLimit, error) {
-	if len(nodes) != len(limits) || len(nodes) != len(bursts) {
-		return nil, fmt.Errorf("Length of the %s, %s and %s needs to be the same", CESDynamicRateLimitNodes, CESDynamicRateLimitQPSLimit, CESDynamicRateLimitQPSBurst)
+func parseDynamicRateLimit(cfg string) (dynamicRateLimit, error) {
+	if len(cfg) == 0 {
+		return nil, fmt.Errorf("invalid: config is empty")
 	}
-	if len(nodes) == 0 {
-		return nil, fmt.Errorf("Dynamic rate limit is enabled but the flags specifying it are not set")
-	}
-	dynamicRateLimit := make([]rateLimit, len(nodes))
-	for i := 0; i < len(nodes); i++ {
-		node, err := strconv.Atoi(nodes[i])
-		if err != nil {
-			return nil, fmt.Errorf("unable to convert node value %q to int", nodes[i])
-		}
-		dynamicRateLimit[i].Nodes = node
+	dynamicRateLimit := dynamicRateLimit{}
+	decoder := json.NewDecoder(strings.NewReader(cfg))
+	decoder.DisallowUnknownFields()
 
-		limit, err := strconv.ParseFloat(limits[i], 64)
-		if err != nil {
-			return nil, fmt.Errorf("unable to convert limit value %q to float", limits[i])
-		}
-		dynamicRateLimit[i].Limit = limit
-
-		burst, err := strconv.Atoi(bursts[i])
-		if err != nil {
-			return nil, fmt.Errorf("unable to convert burst value %q to int", bursts[i])
-		}
-		dynamicRateLimit[i].Burst = burst
+	if err := decoder.Decode(&dynamicRateLimit); err != nil {
+		return nil, err
 	}
+
 	sort.Slice(dynamicRateLimit, func(i, j int) bool {
 		return dynamicRateLimit[i].Nodes < dynamicRateLimit[j].Nodes
 	})
 	return dynamicRateLimit, nil
-}
-
-func (rlc *rateLimitConfig) hasDynamicRateLimiting() bool {
-	return rlc.dynamicRateLimit != nil
 }
 
 func (rlc *rateLimitConfig) getDelay() time.Duration {
@@ -96,9 +71,14 @@ func (rlc *rateLimitConfig) getDelay() time.Duration {
 }
 
 func (rlc *rateLimitConfig) updateRateLimiterWithNodes(nodes int) bool {
-	rlc.logger.Info("Updating rate limit with nodes: ", nodes)
 	changed := rlc.updateRateLimitWithNodes(nodes, false)
 	if changed {
+		rlc.logger.WithFields(logrus.Fields{
+			"nodes":                       nodes,
+			logfields.WorkQueueQPSLimit:   rlc.current.Limit,
+			logfields.WorkQueueBurstLimit: rlc.current.Burst,
+		}).Info("Updating rate limit")
+
 		rlc.rateLimiter.SetBurst(rlc.current.Burst)
 		rlc.rateLimiter.SetLimit(rate.Limit(rlc.current.Limit))
 	}
@@ -106,10 +86,6 @@ func (rlc *rateLimitConfig) updateRateLimiterWithNodes(nodes int) bool {
 }
 
 func (rlc *rateLimitConfig) updateRateLimitWithNodes(nodes int, force bool) bool {
-	if !rlc.hasDynamicRateLimiting() {
-		return false
-	}
-
 	index := 0
 	for ; index < len(rlc.dynamicRateLimit)-1; index++ {
 		if rlc.dynamicRateLimit[index+1].Nodes > nodes {
@@ -124,14 +100,10 @@ func (rlc *rateLimitConfig) updateRateLimitWithNodes(nodes int, force bool) bool
 			Limit: rlc.dynamicRateLimit[index].Limit,
 			Burst: rlc.dynamicRateLimit[index].Burst,
 		}
-		if rlc.current.Limit == 0 {
-			rlc.current.Limit = CESControllerWorkQueueQPSLimit
-		} else if rlc.current.Limit > CESWriteQPSLimitMax {
+		if rlc.current.Limit > CESWriteQPSLimitMax {
 			rlc.current.Limit = CESWriteQPSLimitMax
 		}
-		if rlc.current.Burst == 0 {
-			rlc.current.Burst = CESControllerWorkQueueBurstLimit
-		} else if rlc.current.Burst > CESWriteQPSBurstMax {
+		if rlc.current.Burst > CESWriteQPSBurstMax {
 			rlc.current.Burst = CESWriteQPSBurstMax
 		}
 		return true

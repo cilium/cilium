@@ -63,7 +63,7 @@ Migration Procedure
 In order to minimize endpoint propagation delays, it is recommended to upgrade the Operator first,
 let it create all CES objects, and then upgrade the Agents afterwards.
 
-#. Enable CES on the Operator by setting the ``enableCiliumEndpointSlice`` value to ``true`` in your Helm chart or
+#. Enable CES on the Operator by setting the ``ciliumEndpointSlice.enabled`` value to ``true`` in your Helm chart or
    by directly setting the ``--enable-cilium-endpoint-slice`` flag to ``true`` on the Operator. Re-deploy the Operator.
 
 #. Once the Operator is running, verify that the ``CiliumEndpointSlice`` CRD has been successfully registered:

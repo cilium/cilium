@@ -162,6 +162,8 @@ contributors across the globe, there is almost always someone available to help.
 | cgroup.autoMount.enabled | bool | `true` | Enable auto mount of cgroup2 filesystem. When `autoMount` is enabled, cgroup2 filesystem is mounted at `cgroup.hostRoot` path on the underlying host and inside the cilium agent pod. If users disable `autoMount`, it's expected that users have mounted cgroup2 filesystem at the specified `cgroup.hostRoot` volume, and then the volume will be mounted inside the cilium agent pod at the same path. |
 | cgroup.autoMount.resources | object | `{}` | Init Container Cgroup Automount resource limits & requests |
 | cgroup.hostRoot | string | `"/run/cilium/cgroupv2"` | Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: `cgroup.autoMount`) |
+| ciliumEndpointSlice.enabled | bool | `false` | Enable Cilium EndpointSlice feature. |
+| ciliumEndpointSlice.rateLimits | list | `[{"burst":20,"limit":10,"nodes":0},{"burst":15,"limit":7,"nodes":100},{"burst":10,"limit":5,"nodes":500}]` | List of rate limit options to be used for the CiliumEndpointSlice controller. Each object in the list must have the following fields: nodes: Count of nodes at which to apply the rate limit. limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50. burst: The burst request rate in requests per second. The maximum burst that can be configured is 100. |
 | cleanBpfState | bool | `false` | Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care! |
 | cleanState | bool | `false` | Clean all local Cilium state from the initContainer of the cilium-agent DaemonSet. Implies cleanBpfState: true.  WARNING: Use with care! |
 | cluster.id | int | `0` | Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh, may be 0 if Cluster Mesh is not used. |
@@ -287,7 +289,7 @@ contributors across the globe, there is almost always someone available to help.
 | dnsProxy.proxyResponseMaxDelay | string | `"100ms"` | The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. |
 | egressGateway.enabled | bool | `false` | Enables egress gateway to redirect and SNAT the traffic that leaves the cluster. |
 | egressGateway.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
-| enableCiliumEndpointSlice | bool | `false` | Enable CiliumEndpointSlice feature. |
+| enableCiliumEndpointSlice | bool | `false` | Enable CiliumEndpointSlice feature (deprecated, please use `ciliumEndpointSlice.enabled` instead). |
 | enableCriticalPriorityClass | bool | `true` | Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in `helm template` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance. |
 | enableIPv4BIGTCP | bool | `false` | Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods |
 | enableIPv4Masquerade | bool | `true` | Enables masquerading of IPv4 traffic leaving the node from endpoints. |
