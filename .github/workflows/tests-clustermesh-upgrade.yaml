@@ -97,11 +97,13 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'iptables'
             external-kvstore: false
+            cm-auth-mode: 'legacy'
 
           - name: '2'
             encryption: 'disabled'
             kube-proxy: 'none'
             external-kvstore: false
+            cm-auth-mode: 'migration'
 
           # Currently, ipsec requires to synchronously regenerate the host
           # endpoint to ensure ordering (#25735). Given that this is a blocking
@@ -117,11 +119,13 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             external-kvstore: true
+            cm-auth-mode: 'legacy'
 
           - name: '4'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             external-kvstore: false
+            cm-auth-mode: 'cluster'
 
     steps:
       - name: Checkout context ref (trusted)
@@ -171,7 +175,9 @@ jobs:
             --set=updateStrategy.rollingUpdate.maxUnavailable=1 \
             --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
             --set=clustermesh.config.enabled=true \
-            --set=extraConfig.clustermesh-ip-identities-sync-timeout=10m"
+            --set=extraConfig.clustermesh-ip-identities-sync-timeout=10m \
+            --set=clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode }} \
+          "
 
           # Run only a limited subset of tests to reduce the amount of time
           # required. The full suite is run in conformance-clustermesh.
