@@ -202,7 +202,8 @@ func (s *RedirectSuite) TearDownTest(t *testing.T) {
 	policy.SetPolicyEnabled(s.oldPolicyEnable)
 }
 
-func (s *RedirectSuite) TestAddVisibilityRedirects(t *testing.T) {
+func TestAddVisibilityRedirects(t *testing.T) {
+	s := setupRedirectSuite(t)
 	ep := s.NewTestEndpoint(t)
 
 	firstAnno := "<Ingress/80/TCP/HTTP>"
