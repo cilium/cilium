@@ -8,6 +8,7 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/option"
 
 	baseclocktest "k8s.io/utils/clock/testing"
@@ -60,26 +61,32 @@ func (p *IPSecSuitePrivileged) TestXfrmStateListCache(c *C) {
 	c.Assert(len(stateList), Equals, 0)
 
 	// Create new xfrm state and check that cache is utomatically updated
-	c.Assert(xfrmStateCache.isExpired(), Equals, false)
-	xfrmStateCache.XfrmStateAdd(state)
+	// It is expired as for empty xfrm list netlink.XfrmStateList returns nil pointer
+	c.Assert(xfrmStateCache.isExpired(), Equals, true)
+	err = xfrmStateCache.XfrmStateAdd(state)
+	c.Assert(err, IsNil)
 	c.Assert(xfrmStateCache.isExpired(), Equals, true)
 	stateList, err = xfrmStateCache.XfrmStateList()
 	c.Assert(err, IsNil)
 	c.Assert(len(stateList), Equals, 1)
+	c.Assert(stateList[0].OutputMark.Value, Equals, uint32(linux_defaults.RouteMarkDecrypt))
 
 	// Update xfrm state and check that cache is automatically updated
 	c.Assert(xfrmStateCache.isExpired(), Equals, false)
-	state.Spi = 43
-	xfrmStateCache.XfrmStateUpdate(state)
+	// Switch to encrypt as this is the only value we update
+	state.OutputMark.Value = linux_defaults.RouteMarkEncrypt
+	err = xfrmStateCache.XfrmStateUpdate(state)
+	c.Assert(err, IsNil)
 	c.Assert(xfrmStateCache.isExpired(), Equals, true)
 	stateList, err = xfrmStateCache.XfrmStateList()
 	c.Assert(err, IsNil)
 	c.Assert(len(stateList), Equals, 1)
-	c.Assert(43, Equals, stateList[0].Spi)
+	c.Assert(stateList[0].OutputMark.Value, Equals, uint32(linux_defaults.RouteMarkEncrypt))
 
 	// Delete xfrm state and check that cache is automatically updated
 	c.Assert(xfrmStateCache.isExpired(), Equals, false)
-	xfrmStateCache.XfrmStateDel(state)
+	err = xfrmStateCache.XfrmStateDel(state)
+	c.Assert(err, IsNil)
 	c.Assert(xfrmStateCache.isExpired(), Equals, true)
 	stateList, err = xfrmStateCache.XfrmStateList()
 	c.Assert(err, IsNil)
@@ -98,10 +105,16 @@ func (p *IPSecSuitePrivileged) TestXfrmStateListCacheDisabled(c *C) {
 		baseclocktest.NewFakeClock(time.Now()),
 	)
 
-	c.Assert(xfrmStateCache.isExpired(), Equals, true)
-	// Make sure that cache is correctly fetched in the beginning
-	_, err := xfrmStateCache.XfrmStateList()
+	state := initDummyXfrmState()
+	err := createDummyXfrmState(state)
 	c.Assert(err, IsNil)
 
+	c.Assert(xfrmStateCache.isExpired(), Equals, true)
+	// Make sure that cache is correctly fetched in the beginning
+	stateList, err := xfrmStateCache.XfrmStateList()
+	c.Assert(err, IsNil)
+	c.Assert(len(stateList), Equals, 1)
+
+	// And is still expired
 	c.Assert(xfrmStateCache.isExpired(), Equals, true)
 }
