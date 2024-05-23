@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var Cell = cell.Module(
@@ -26,7 +27,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(sc *k8s.ServiceCache) (ServiceMerger, k8s.ServiceIPGetter) { return sc, sc }),
 	cell.ProvidePrivate(func(ipcache *ipcache.IPCache) ipcache.IPCacher { return ipcache }),
 	cell.ProvidePrivate(func(mgr nodemanager.NodeManager) (store.Observer, kvstore.ClusterSizeDependantIntervalFunc) {
-		return nodeStore.NewNodeObserver(mgr), mgr.ClusterSizeDependantInterval
+		return nodeStore.NewNodeObserver(mgr, source.ClusterMesh), mgr.ClusterSizeDependantInterval
 	}),
 	cell.ProvidePrivate(func() store.KeyCreator { return nodeStore.KeyCreator }),
 	cell.ProvidePrivate(idsMgrProvider),
