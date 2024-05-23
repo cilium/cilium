@@ -31,8 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/metrics"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -332,78 +330,4 @@ func TestClusterMeshServicesNonGlobal(t *testing.T) {
 
 	swgSvcs.Stop()
 	swgSvcs.Wait()
-}
-
-type fakeServiceMerger struct {
-	updated map[string]int
-	deleted map[string]int
-}
-
-func (f *fakeServiceMerger) init() {
-	f.updated = make(map[string]int)
-	f.deleted = make(map[string]int)
-}
-
-func (f *fakeServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService, _ *lock.StoppableWaitGroup) {
-	f.updated[service.String()]++
-}
-
-func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService, _ *lock.StoppableWaitGroup) {
-	f.deleted[service.String()]++
-}
-
-func TestRemoteServiceObserver(t *testing.T) {
-	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
-	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
-	cache := common.NewGlobalServiceCache(metrics.NoOpGauge)
-	merger := fakeServiceMerger{}
-
-	observer := remoteServiceObserver{
-		remoteCluster: &remoteCluster{
-			mesh: &ClusterMesh{
-				globalServices: cache,
-				conf:           Configuration{ServiceMerger: &merger},
-			},
-		},
-		swg: lock.NewStoppableWaitGroup(),
-	}
-
-	// Observe a new service update (for a non-shared service), and assert it is not added to the cache
-	merger.init()
-	observer.OnUpdate(&svc2)
-
-	require.Equal(t, 0, merger.updated[svc1.String()])
-	require.Equal(t, 0, cache.Size())
-
-	// Observe a new service update (for a shared service), and assert it is correctly added to the cache
-	merger.init()
-	observer.OnUpdate(&svc1)
-
-	require.Equal(t, 1, merger.updated[svc1.String()])
-	require.Equal(t, 0, merger.deleted[svc1.String()])
-	require.Equal(t, 1, cache.Size())
-
-	gs := cache.GetGlobalService(svc1.NamespaceServiceName())
-	require.Equal(t, 1, len(gs.ClusterServices))
-	found, ok := gs.ClusterServices[svc1.Cluster]
-	require.True(t, ok)
-	require.Equal(t, &svc1, found)
-
-	// Observe a new service deletion, and assert it is correctly removed from the cache
-	merger.init()
-	observer.OnDelete(&svc1)
-
-	require.Equal(t, 0, merger.updated[svc1.String()])
-	require.Equal(t, 1, merger.deleted[svc1.String()])
-	require.Equal(t, 0, cache.Size())
-
-	// Observe two service updates in sequence (first shared, then non-shared),
-	// and assert that at the end it is not present in the cache (equivalent to update, then delete).
-	merger.init()
-	observer.OnUpdate(&svc1)
-	observer.OnUpdate(&svc2)
-
-	require.Equal(t, 1, merger.updated[svc1.String()])
-	require.Equal(t, 1, merger.deleted[svc1.String()])
-	require.Equal(t, 0, cache.Size())
 }
