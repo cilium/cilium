@@ -147,10 +147,6 @@ and ``--set ipMasqAgent.config.masqLinkLocal=false`` (or with the corresponding
 option, for IPv6) when installing Cilium via Helm to
 configure the ``ip-masq-agent`` as above.
 
-.. note::
-
-    eBPF-based masquerading for IPv6 is not compatible with the host firewall.
-
 iptables-based
 **************
 
