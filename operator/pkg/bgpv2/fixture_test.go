@@ -137,8 +137,5 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 		Cell,
 	)
 
-	// enable BGPv2
-	hive.AddConfigOverride(f.hive, func(cfg *Config) { cfg.BGPv2Enabled = true })
-
 	return f, watchersReadyFn
 }
