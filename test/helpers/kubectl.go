@@ -2576,10 +2576,10 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options["imagePullSecrets[0].name"] = config.RegistrySecretName
 	}
 
-	if _, found := options["enableCiliumEndpointSlice"]; !found &&
+	if _, found := options["ciliumEndpointSlice.enabled"]; !found &&
 		CiliumEndpointSliceFeatureEnabled() {
 
-		options["enableCiliumEndpointSlice"] = "true"
+		options["ciliumEndpointSlice.enabled"] = "true"
 	}
 
 	if !SupportIPv6Connectivity() {

@@ -340,6 +340,13 @@ Annotations:
   commands.
 * Service connections that use ``Direct-Server-Return`` and were established prior to Cilium v1.13.3
   will be disrupted, and need to be re-established.
+* Cilium Operator now uses dynamic rate limiting based on cluster size for the CiliumEndpointSlice
+  controller. The ``ces-rate-limits`` flag or the Helm value ``ciliumEndpointSlice.rateLimits`` can
+  be used to supply a custom configuration. The following list of flags for static and dynamic rate
+  limits have been deprecated and their usage will be ignored:
+  ``ces-write-qps-limit``, ``ces-write-qps-burst``, ``ces-enable-dynamic-rate-limit``,
+  ``ces-dynamic-rate-limit-nodes``, ``ces-dynamic-rate-limit-qps-limit``,
+  ``ces-dynamic-rate-limit-qps-burst``
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -375,6 +382,8 @@ Helm Options
 * Helm option ``enableRuntimeDeviceDetection`` is now deprecated and is a no-op.
 * The IP addresses on which to expose NodePort services can now be configured with ``nodePort.addresses``. Prior to this, Cilium only
   exposed NodePort services on the first (preferably private) IPv4 and IPv6 address of each device.
+* Helm option ``enableCiliumEndpointSlice`` has been deprecated and will be removed in a future release.
+  The option has been replaced by ``ciliumEndpointSlice.enabled``.
 
 Added Metrics
 ~~~~~~~~~~~~~

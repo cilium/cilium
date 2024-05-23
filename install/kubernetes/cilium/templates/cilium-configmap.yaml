@@ -1148,8 +1148,11 @@ data:
   disable-external-ip-mitigation: {{ .Values.bpf.disableExternalIPMitigation | quote }}
 {{- end }}
 
-{{- if .Values.enableCiliumEndpointSlice }}
+{{- if or .Values.ciliumEndpointSlice.enabled .Values.enableCiliumEndpointSlice }}
   enable-cilium-endpoint-slice: "true"
+  {{- if .Values.ciliumEndpointSlice.rateLimits }}
+  ces-rate-limits: {{ .Values.ciliumEndpointSlice.rateLimits | toJson | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if hasKey .Values "enableK8sTerminatingEndpoint" }}

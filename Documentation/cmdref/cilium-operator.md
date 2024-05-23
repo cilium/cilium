@@ -24,14 +24,9 @@ cilium-operator [flags]
       --bgp-announce-lb-ip                                   Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                               Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
-      --ces-dynamic-rate-limit-nodes strings                 List of nodes used for the dynamic rate limit steps
-      --ces-dynamic-rate-limit-qps-burst strings             List of qps burst used for the dynamic rate limit steps
-      --ces-dynamic-rate-limit-qps-limit strings             List of qps limits used for the dynamic rate limit steps
-      --ces-enable-dynamic-rate-limit                        Flag to enable dynamic rate limit specified in separate fields instead of the static one
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
+      --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("cesSliceModeIdentity") or batched on a "First Come, First Served" basis ("cesSliceModeFCFS") (default "cesSliceModeIdentity")
-      --ces-write-qps-burst int                              CES work queue burst rate. Ignored when ces-enable-dynamic-rate-limit is set (default 20)
-      --ces-write-qps-limit float                            CES work queue rate limit. Ignored when ces-enable-dynamic-rate-limit is set (default 10)
       --cilium-endpoint-gc-interval duration                 GC interval for cilium endpoints (default 5m0s)
       --cilium-pod-labels string                             Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
       --cilium-pod-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace

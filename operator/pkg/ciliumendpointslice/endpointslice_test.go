@@ -50,6 +50,8 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	hive.Start(tlog, context.Background())
 	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
+	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
+	assert.NoError(t, err)
 	cesController := &Controller{
 		logger:              log,
 		clientset:           fakeClient.Clientset,
@@ -57,7 +59,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 		ciliumEndpointSlice: ciliumEndpointSlice,
 		reconciler:          r,
 		manager:             m,
-		rateLimit:           getRateLimitConfig(params{Cfg: Config{CESWriteQPSLimit: 2, CESWriteQPSBurst: 1}}),
+		rateLimit:           rateLimitConfig,
 		enqueuedAt:          make(map[CESName]time.Time),
 	}
 	cesController.initializeQueue()
@@ -118,6 +120,8 @@ func TestIdentityModeSyncCESsInLocalCache(t *testing.T) {
 	hive.Start(tlog, context.Background())
 	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
+	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
+	assert.NoError(t, err)
 	cesController := &Controller{
 		logger:              log,
 		clientset:           fakeClient.Clientset,
@@ -125,7 +129,7 @@ func TestIdentityModeSyncCESsInLocalCache(t *testing.T) {
 		ciliumEndpointSlice: ciliumEndpointSlice,
 		reconciler:          r,
 		manager:             m,
-		rateLimit:           getRateLimitConfig(params{Cfg: Config{CESWriteQPSLimit: 2, CESWriteQPSBurst: 1}}),
+		rateLimit:           rateLimitConfig,
 		enqueuedAt:          make(map[CESName]time.Time),
 	}
 	cesController.initializeQueue()
