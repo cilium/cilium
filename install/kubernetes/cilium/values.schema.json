@@ -477,9 +477,6 @@
             }
           },
           "type": "object"
-        },
-        "v2Enabled": {
-          "type": "boolean"
         }
       },
       "type": "object"

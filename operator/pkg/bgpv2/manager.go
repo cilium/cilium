@@ -45,7 +45,6 @@ type BGPParams struct {
 	DaemonConfig *option.DaemonConfig
 	JobGroup     job.Group
 	Health       cell.Health
-	Config       Config
 
 	// resource tracking
 	ClusterConfigResource      resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
@@ -80,7 +79,7 @@ type BGPResourceManager struct {
 // registerBGPResourceManager creates a new BGPResourceManager operator instance.
 func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 	// if BGPResourceManager Control Plane is not enabled or BGPv2 API is not enabled, return nil
-	if !p.DaemonConfig.BGPControlPlaneEnabled() || !p.Config.BGPv2Enabled {
+	if !p.DaemonConfig.BGPControlPlaneEnabled() {
 		return nil
 	}
 

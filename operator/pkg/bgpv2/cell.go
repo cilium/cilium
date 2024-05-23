@@ -5,26 +5,10 @@ package bgpv2
 
 import (
 	"github.com/cilium/hive/cell"
-	"github.com/spf13/pflag"
-)
-
-const (
-	// BGPv2Enabled is the name of the flag that enables BGPv2 APIs in Cilium.
-	BGPv2Enabled = "bgp-v2-api-enabled"
 )
 
 var Cell = cell.Module(
 	"bgp-cp-operator",
 	"BGP Control Plane Operator",
-	cell.Config(Config{}),
 	cell.Invoke(registerBGPResourceManager),
 )
-
-type Config struct {
-	BGPv2Enabled bool `mapstructure:"bgp-v2-api-enabled"`
-}
-
-// Flags implements cell.Flagger interface.
-func (cfg Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool(BGPv2Enabled, cfg.BGPv2Enabled, "Enables BGPv2 APIs in Cilium")
-}
