@@ -4620,49 +4620,6 @@
                     "type": "string"
                   }
                 }
-              },
-              {
-                "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "value": {
-                    "type": "string"
-                  }
-                }
               }
             ]
           },
