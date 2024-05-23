@@ -162,7 +162,7 @@ runs:
           fi
 
           if [ "${{ inputs.ciliumendpointslice }}" == "true" ]; then
-            CILIUMENDPOINTSLICE="--helm-set=enableCiliumEndpointSlice=true"
+            CILIUMENDPOINTSLICE="--helm-set=ciliumEndpointSlice.enabled=true"
           fi
         
           CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE}"

@@ -701,8 +701,28 @@ enableRuntimeDeviceDetection: true
 # -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
 # enableK8sEndpointSlice: true
 
-# -- Enable CiliumEndpointSlice feature.
+# -- Enable CiliumEndpointSlice feature (deprecated, please use `ciliumEndpointSlice.enabled` instead).
 enableCiliumEndpointSlice: false
+
+ciliumEndpointSlice:
+  # -- Enable Cilium EndpointSlice feature.
+  enabled: false
+  # -- List of rate limit options to be used for the CiliumEndpointSlice controller.
+  # Each object in the list must have the following fields:
+  # nodes: Count of nodes at which to apply the rate limit.
+  # limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50.
+  # burst: The burst request rate in requests per second. The maximum burst that can be configured is 100.
+  rateLimits:
+  - nodes: 0
+    limit: 10
+    burst: 20
+  - nodes: 100
+    limit: 7
+    burst: 15
+  - nodes: 500
+    limit: 5
+    burst: 10
+
 envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.

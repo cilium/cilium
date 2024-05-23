@@ -4,35 +4,27 @@
 package ciliumendpointslice
 
 import (
-	"strconv"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNoDynamicRateLimit(t *testing.T) {
-	limit := 10.0
-	burst := 20
-	p := params{
-		Logger: log,
-		Cfg: Config{
-			CESWriteQPSLimit: limit,
-			CESWriteQPSBurst: burst,
-		},
-	}
-	config := getRateLimitConfig(p)
-	assert.False(t, config.hasDynamicRateLimiting())
-	assert.Equal(t, limit, config.current.Limit)
-	assert.Equal(t, burst, config.current.Burst)
-	assert.False(t, config.updateRateLimiterWithNodes(1000))
-	assert.Equal(t, limit, config.current.Limit)
-	assert.Equal(t, burst, config.current.Burst)
-	assert.False(t, config.updateRateLimiterWithNodes(0))
-	assert.Equal(t, limit, config.current.Limit)
-	assert.Equal(t, burst, config.current.Burst)
-	assert.False(t, config.updateRateLimiterWithNodes(-100))
-	assert.Equal(t, limit, config.current.Limit)
-	assert.Equal(t, burst, config.current.Burst)
+func Test_parseDynamicRateLimitConfig(t *testing.T) {
+	jsonCfg := "[{\"nodes\":1,\"limit\":100,\"burst\":200}]"
+	wantCfg := rateLimit{Nodes: 1, Limit: 100, Burst: 200}
+
+	drl, err := parseDynamicRateLimit(jsonCfg)
+	assert.NoError(t, err)
+	assert.Contains(t, drl, wantCfg)
+}
+
+func Test_parseDynamicRateLimitConfigInvalid(t *testing.T) {
+	jsonCfg := "[{\"noides\": 1,\"blurst\":100}]"
+
+	drl, err := parseDynamicRateLimit(jsonCfg)
+	assert.Error(t, err)
+	assert.Nil(t, drl)
 }
 
 func TestSingleDynamicRateLimit(t *testing.T) {
@@ -41,14 +33,11 @@ func TestSingleDynamicRateLimit(t *testing.T) {
 	p := params{
 		Logger: log,
 		Cfg: Config{
-			CESEnableDynamicRateLimit:   true,
-			CESDynamicRateLimitNodes:    []string{"5"},
-			CESDynamicRateLimitQPSLimit: []string{strconv.FormatFloat(limit, 'g', -1, 64)},
-			CESDynamicRateLimitQPSBurst: []string{strconv.Itoa(burst)},
+			CESDynamicRateLimitConfig: "[{\"nodes\": 5, \"limit\": 15.0, \"burst\": 30}]",
 		},
 	}
-	config := getRateLimitConfig(p)
-	assert.True(t, config.hasDynamicRateLimiting())
+	config, err := getRateLimitConfig(p)
+	assert.NoError(t, err)
 	assert.Equal(t, limit, config.current.Limit)
 	assert.Equal(t, burst, config.current.Burst)
 	assert.False(t, config.updateRateLimiterWithNodes(1000))
@@ -69,25 +58,22 @@ func TestMultipleUnsortedDynamicRateLimit(t *testing.T) {
 	burst1 := 22
 	limit2 := 16.0
 	burst2 := 32
+	rl := dynamicRateLimit{
+		{Nodes: 15, Limit: 11.0, Burst: 22},
+		{Nodes: 5, Limit: 5.0, Burst: 10},
+		{Nodes: 25, Limit: 16.0, Burst: 32},
+	}
+
+	rlJson, err := json.Marshal(rl)
+	assert.NoError(t, err)
 	p := params{
 		Logger: log,
 		Cfg: Config{
-			CESEnableDynamicRateLimit: true,
-			CESDynamicRateLimitNodes:  []string{"15", "5", "25"},
-			CESDynamicRateLimitQPSLimit: []string{
-				strconv.FormatFloat(limit1, 'g', -1, 64),
-				strconv.FormatFloat(limit0, 'g', -1, 64),
-				strconv.FormatFloat(limit2, 'g', -1, 64),
-			},
-			CESDynamicRateLimitQPSBurst: []string{
-				strconv.Itoa(burst1),
-				strconv.Itoa(burst0),
-				strconv.Itoa(burst2),
-			},
+			CESDynamicRateLimitConfig: string(rlJson),
 		},
 	}
-	config := getRateLimitConfig(p)
-	assert.True(t, config.hasDynamicRateLimiting())
+	config, err := getRateLimitConfig(p)
+	assert.NoError(t, err)
 	assert.Equal(t, limit0, config.current.Limit)
 	assert.Equal(t, burst0, config.current.Burst)
 	assert.True(t, config.updateRateLimiterWithNodes(1000))
