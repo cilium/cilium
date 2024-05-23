@@ -2808,6 +2808,7 @@ preflight:
   # -- Node tolerations for preflight scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations:
+    - operator: Exists
     - key: node.kubernetes.io/not-ready
       effect: NoSchedule
     - key: node-role.kubernetes.io/master
@@ -2817,8 +2818,6 @@ preflight:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       effect: NoSchedule
       value: "true"
-    - key: CriticalAddonsOnly
-      operator: "Exists"
       # - key: "key"
       #   operator: "Equal|Exists"
       #   value: "value"

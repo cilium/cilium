@@ -4616,6 +4616,13 @@
             "anyOf": [
               {
                 "properties": {
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
                   "effect": {
                     "type": "string"
                   },
@@ -4653,16 +4660,6 @@
                     "type": "string"
                   },
                   "value": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "key": {
-                    "type": "string"
-                  },
-                  "operator": {
                     "type": "string"
                   }
                 }
