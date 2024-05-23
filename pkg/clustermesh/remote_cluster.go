@@ -135,7 +135,6 @@ func (rc *remoteCluster) Remove() {
 	rc.ipCacheWatcher.Drain()
 
 	rc.mesh.conf.RemoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
-	rc.mesh.globalServices.OnClusterDelete(rc.name)
 
 	rc.usedIDs.ReleaseClusterID(rc.clusterID)
 }

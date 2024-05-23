@@ -180,17 +180,6 @@ func (c *GlobalServiceCache) OnDelete(svc *serviceStore.ClusterService) bool {
 	}
 }
 
-func (c *GlobalServiceCache) OnClusterDelete(clusterName string) {
-	scopedLog := log.WithFields(logrus.Fields{logfields.ClusterName: clusterName})
-	scopedLog.Debugf("Cluster deletion event")
-
-	c.mutex.Lock()
-	for serviceNN, globalService := range c.byName {
-		c.delete(globalService, clusterName, serviceNN)
-	}
-	c.mutex.Unlock()
-}
-
 // Size returns the number of global services in the cache
 func (c *GlobalServiceCache) Size() (num int) {
 	c.mutex.RLock()
