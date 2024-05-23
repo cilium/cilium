@@ -14,7 +14,9 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-func (s *EndpointSuite) TestGetCiliumEndpointStatus(t *testing.T) {
+func TestGetCiliumEndpointStatus(t *testing.T) {
+	s := setupEndpointSuite(t)
+
 	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: "192.168.1.100",

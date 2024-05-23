@@ -27,7 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (s *EndpointSuite) TestUpdateVisibilityPolicy(t *testing.T) {
+func TestUpdateVisibilityPolicy(t *testing.T) {
+	setupEndpointSuite(t)
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
 	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {

@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (s *EndpointSuite) TestMoveNewFilesTo(t *testing.T) {
+func TestMoveNewFilesTo(t *testing.T) {
+	setupEndpointSuite(t)
+
 	oldDir := t.TempDir()
 	newDir := t.TempDir()
 	f1, err := os.CreateTemp(oldDir, "")

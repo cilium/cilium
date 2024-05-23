@@ -19,7 +19,9 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-func (s *EndpointSuite) TestEndpointLogFormat(t *testing.T) {
+func TestEndpointLogFormat(t *testing.T) {
+	setupEndpointSuite(t)
+
 	// Default log format is text
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
 	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
@@ -39,7 +41,9 @@ func (s *EndpointSuite) TestEndpointLogFormat(t *testing.T) {
 	require.Equal(t, true, ok)
 }
 
-func (s *EndpointSuite) TestPolicyLog(t *testing.T) {
+func TestPolicyLog(t *testing.T) {
+	setupEndpointSuite(t)
+
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
 	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 

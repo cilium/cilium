@@ -18,7 +18,9 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-func (s *EndpointSuite) TestWriteInformationalComments(t *testing.T) {
+func TestWriteInformationalComments(t *testing.T) {
+	s := setupEndpointSuite(t)
+
 	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	var f bytes.Buffer
