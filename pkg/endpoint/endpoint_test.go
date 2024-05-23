@@ -65,8 +65,19 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	// Register metrics once before running the suite
 	metrics.NewLegacyMetrics().EndpointStateCount.SetEnabled(true)
 
+	/* Required to test endpoint CEP policy model */
+	kvstore.SetupDummy(tb, "etcd")
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	<-mgr.InitIdentityAllocator(nil)
+	s.mgr = mgr
+	node.SetTestLocalNodeStore()
+
 	tb.Cleanup(func() {
 		metrics.NewLegacyMetrics().EndpointStateCount.SetEnabled(false)
+
+		s.mgr.Close()
+		node.UnsetTestLocalNodeStore()
 	})
 
 	return s
@@ -104,21 +115,6 @@ func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
 }
 
 func (s *EndpointSuite) RemoveRestoredDNSRules(epID uint16) {
-}
-
-func (s *EndpointSuite) SetUpTest(t *testing.T) {
-	/* Required to test endpoint CEP policy model */
-	kvstore.SetupDummy(t, "etcd")
-	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	<-mgr.InitIdentityAllocator(nil)
-	s.mgr = mgr
-	node.SetTestLocalNodeStore()
-
-	t.Cleanup(func() {
-		s.mgr.Close()
-		node.UnsetTestLocalNodeStore()
-	})
 }
 
 func TestEndpointStatus(t *testing.T) {
