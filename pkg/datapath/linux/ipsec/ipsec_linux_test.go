@@ -234,6 +234,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(t *testing.T) {
 	require.ErrorContains(t, err, "unable to replace local state: IPSec key missing")
 
 	cleanIPSecStatesAndPolicies(t)
+	require.False(t, true) // Fail test to see if it's being run.
 }
 
 func (p *IPSecSuitePrivileged) TestUpdateExistingIPSecEndpoint(t *testing.T) {
