@@ -100,12 +100,14 @@ jobs:
             kube-proxy: 'iptables'
             external-kvstore: false
             max-connected-clusters: 255
+            cm-auth-mode: 'legacy'
 
           - name: '2'
             encryption: 'disabled'
             kube-proxy: 'none'
             external-kvstore: false
             max-connected-clusters: 511
+            cm-auth-mode: 'migration'
 
           # Currently, ipsec requires to synchronously regenerate the host
           # endpoint to ensure ordering (#25735). Given that this is a blocking
@@ -128,6 +130,7 @@ jobs:
             kube-proxy: 'iptables'
             external-kvstore: false
             max-connected-clusters: 511
+            cm-auth-mode: 'cluster'
 
     steps:
       - name: Collect Workflow Telemetry
@@ -187,7 +190,9 @@ jobs:
             --set=clustermesh.apiserver.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.kvstoremesh.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxSurge=1 `# Use surge update strategy to enable clients to failover` \
-            --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxUnavailable=0"
+            --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxUnavailable=0 \
+            --set=clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode }} \
+          "
 
           # Run only a limited subset of tests to reduce the amount of time
           # required. The full suite is run in conformance-clustermesh.
