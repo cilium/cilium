@@ -19,21 +19,25 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-type event struct{ ev, ip string }
+type event struct {
+	ev, ip string
+	source source.Source
+}
+
 type fakeIPCache struct{ events chan event }
 type fakeBackend struct{ prefix string }
 
-func NewEvent(ev, ip string) event { return event{ev: ev, ip: ip} }
-func NewFakeIPCache() *fakeIPCache { return &fakeIPCache{events: make(chan event)} }
-func NewFakeBackend() *fakeBackend { return &fakeBackend{} }
+func NewEvent(ev, ip string, source source.Source) event { return event{ev, ip, source} }
+func NewFakeIPCache() *fakeIPCache                       { return &fakeIPCache{events: make(chan event)} }
+func NewFakeBackend() *fakeBackend                       { return &fakeBackend{} }
 
-func (m *fakeIPCache) Upsert(ip string, _ net.IP, _ uint8, _ *K8sMetadata, _ Identity) (bool, error) {
-	m.events <- NewEvent("upsert", ip)
+func (m *fakeIPCache) Upsert(ip string, _ net.IP, _ uint8, _ *K8sMetadata, id Identity) (bool, error) {
+	m.events <- NewEvent("upsert", ip, id.Source)
 	return true, nil
 }
 
 func (m *fakeIPCache) Delete(ip string, source source.Source) (namedPortsChanged bool) {
-	m.events <- NewEvent("delete", ip)
+	m.events <- NewEvent("delete", ip, source)
 	return true
 }
 
@@ -73,11 +77,13 @@ func eventually(in <-chan event) event {
 		return kv
 	// Configure a generous timeout to prevent flakes when running in a noisy CI environment.
 	case <-time.After(5 * time.Second):
-		return NewEvent("error", "timed out waiting for KV")
+		return NewEvent("error", "timed out waiting for KV", source.Unspec)
 	}
 }
 
 func TestIPIdentityWatcher(t *testing.T) {
+	const src = source.Source("foo")
+
 	var synced bool
 	st := storepkg.NewFactory(storepkg.MetricsProvider())
 	runnable := func(body func(ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
@@ -85,7 +91,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 			synced = false
 			ipcache := NewFakeIPCache()
 			backend := NewFakeBackend()
-			watcher := NewIPIdentityWatcher("foo", ipcache, st,
+			watcher := NewIPIdentityWatcher("foo", ipcache, st, src,
 				storepkg.RWSWithOnSyncCallback(func(ctx context.Context) { synced = true }))
 
 			var wg sync.WaitGroup
@@ -114,29 +120,29 @@ func TestIPIdentityWatcher(t *testing.T) {
 	}
 
 	t.Run("without cluster ID", runnable(func(ipcache *fakeIPCache) {
-		require.Equal(t, NewEvent("upsert", "10.0.0.1"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("upsert", "10.0.1.0/24"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("delete", "10.0.1.0/24"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("delete", "10.0.0.1"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164"), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.0.1", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.1.0/24", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.1.0/24", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.0.1", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/"))
 
 	t.Run("with cluster ID", runnable(func(ipcache *fakeIPCache) {
-		require.Equal(t, NewEvent("upsert", "10.0.0.1@10"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("upsert", "10.0.1.0/24@10"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("delete", "10.0.1.0/24@10"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("delete", "10.0.0.1@10"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164@10"), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.0.1@10", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.1.0/24@10", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.1.0/24@10", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.0.1@10", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164@10", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/", WithClusterID(10)))
 
 	t.Run("with cached prefix", runnable(func(ipcache *fakeIPCache) {
-		require.Equal(t, NewEvent("upsert", "10.0.0.1"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("upsert", "10.0.1.0/24"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("delete", "10.0.1.0/24"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("delete", "10.0.0.1"), eventually(ipcache.events))
-		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164"), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.0.1", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.1.0/24", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.1.0/24", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.0.1", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/cache/ip/v1/foo/", WithCachedPrefix(true)))
 }
