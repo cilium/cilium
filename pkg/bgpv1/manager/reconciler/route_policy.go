@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -228,10 +229,30 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 			if attrs.Selector != nil && !labelSelector.Matches(labels.Set(pool.Labels)) {
 				continue
 			}
+			prefixesSeen := sets.New[netip.Prefix]()
+			for _, cidrBlock := range pool.Spec.Blocks {
+				cidr, err := netip.ParsePrefix(string(cidrBlock.Cidr))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse IPAM pool CIDR %s: %w", cidrBlock.Cidr, err)
+				}
+				if cidr.Addr().Is4() {
+					v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: cidr, PrefixLenMin: maxPrefixLenIPv4, PrefixLenMax: maxPrefixLenIPv4})
+				} else {
+					v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: cidr, PrefixLenMin: maxPrefixLenIPv6, PrefixLenMax: maxPrefixLenIPv6})
+				}
+				prefixesSeen.Insert(cidr)
+			}
+			// Note: CiliumLoadBalancerIPPool.Spec.Cidrs was deprecated as of
+			// https://github.com/cilium/cilium/commit/27322f3959c3fa05b9b1c4f9827527b4a3642687
+			// It was replaced by CiliumLoadBalancerIPPool.Spec.Blocks.
 			for _, cidrBlock := range pool.Spec.Cidrs {
 				cidr, err := netip.ParsePrefix(string(cidrBlock.Cidr))
 				if err != nil {
 					return nil, fmt.Errorf("failed to parse IPAM pool CIDR %s: %w", cidrBlock.Cidr, err)
+				}
+				// If the same prefix was specified in Spec.Blocks and Spec.Cidrs, ignore the duplicate.
+				if prefixesSeen.Has(cidr) {
+					continue
 				}
 				if cidr.Addr().Is4() {
 					v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: cidr, PrefixLenMin: maxPrefixLenIPv4, PrefixLenMax: maxPrefixLenIPv4})
