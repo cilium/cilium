@@ -5,6 +5,7 @@ package identity
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"strconv"
 
@@ -74,10 +75,14 @@ func (pair *IPIdentityPair) GetKeyName() string { return pair.PrefixString() }
 func (pair *IPIdentityPair) Marshal() ([]byte, error) { return json.Marshal(pair) }
 
 // Unmarshal parses the JSON byte slice and updates the IPIdentityPair receiver
-func (pair *IPIdentityPair) Unmarshal(_ string, data []byte) error {
+func (pair *IPIdentityPair) Unmarshal(key string, data []byte) error {
 	newPair := IPIdentityPair{}
 	if err := json.Unmarshal(data, &newPair); err != nil {
 		return err
+	}
+
+	if got := newPair.GetKeyName(); got != key {
+		return fmt.Errorf("IP address does not match key: expected %s, got %s", key, got)
 	}
 
 	*pair = newPair
