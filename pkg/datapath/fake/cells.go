@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/statedb"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -64,7 +65,7 @@ var Cell = cell.Module(
 	),
 
 	tables.NodeAddressCell,
-	tables.NodeAddressingCell,
+	datapath.NodeAddressingCell,
 
 	cell.Invoke(
 		statedb.RegisterTable[*tables.Device],

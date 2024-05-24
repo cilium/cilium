@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package tables
+package datapath
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -26,7 +27,7 @@ var NodeAddressingCell = cell.Module(
 	cell.Provide(NewNodeAddressing),
 )
 
-func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devices statedb.Table[*Device]) types.NodeAddressing {
+func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devices statedb.Table[*tables.Device]) types.NodeAddressing {
 	return &nodeAddressing{
 		localNode: localNode,
 		db:        db,
@@ -37,7 +38,7 @@ func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devices s
 type nodeAddressing struct {
 	localNode *node.LocalNodeStore
 	db        *statedb.DB
-	devices   statedb.Table[*Device]
+	devices   statedb.Table[*tables.Device]
 }
 
 func (n *nodeAddressing) IPv6() types.NodeAddressingFamily {
@@ -90,7 +91,7 @@ func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
 		return 0, nil, false
 	}
 
-	dev, _, ok := a.devices.Get(a.db.ReadTxn(), DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
+	dev, _, ok := a.devices.Get(a.db.ReadTxn(), tables.DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
 	if !ok {
 		return 0, nil, false
 	}
