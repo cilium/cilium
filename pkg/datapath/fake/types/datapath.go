@@ -166,6 +166,10 @@ func (f *FakeLoader) RestoreTemplates(stateDir string) error {
 	return nil
 }
 
+func (f *FakeLoader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
+	return nil
+}
+
 type FakeOrchestrator struct{}
 
 func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {

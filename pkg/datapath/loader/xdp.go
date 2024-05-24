@@ -86,7 +86,7 @@ func (l *loader) maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffs
 			}
 		}
 		if !used {
-			if err := l.DetachXDP(link, bpffsBase, symbolFromHostNetdevXDP); err != nil {
+			if err := l.DetachXDP(link.Attrs().Name, bpffsBase, symbolFromHostNetdevXDP); err != nil {
 				log.WithError(err).Warn("Failed to detach obsolete XDP program")
 			}
 		}
@@ -276,21 +276,20 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 //
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
-func (l *loader) DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
+func (l *loader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
+	iface, err := netlink.LinkByName(ifaceName)
+	if err != nil {
+		return fmt.Errorf("getting link '%s' by name: %w", ifaceName, err)
+	}
+
 	pin := filepath.Join(bpffsDeviceLinksDir(bpffsBase, iface), progName)
-	err := bpf.UnpinLink(pin)
+	err = bpf.UnpinLink(pin)
 	if err == nil {
 		return nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		// The pinned link exists, something went wrong unpinning it.
 		return fmt.Errorf("unpinning XDP program using bpf_link: %w", err)
-	}
-
-	// Refresh the link info since the caller may have constructed iface manually.
-	iface, err = netlink.LinkByName(iface.Attrs().Name)
-	if err != nil {
-		return fmt.Errorf("getting link '%s' by name: %w", iface.Attrs().Name, err)
 	}
 
 	xdp := iface.Attrs().Xdp
