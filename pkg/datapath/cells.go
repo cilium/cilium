@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -218,7 +217,7 @@ type datapathParams struct {
 
 	TunnelConfig tunnel.Config
 
-	Loader loaderTypes.Loader
+	Loader types.Loader
 
 	NodeManager nodeManager.NodeManager
 

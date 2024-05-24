@@ -183,7 +183,7 @@ func TestAttachXDPWithExistingLink(t *testing.T) {
 		require.NoError(t, err)
 
 		// Detach the program.
-		err = newTestLoader(t).DetachXDP(veth, basePath, "test")
+		err = newTestLoader(t).DetachXDP(veth.Attrs().Name, basePath, "test")
 		require.NoError(t, err)
 
 		err = netlink.LinkDel(veth)
@@ -214,11 +214,11 @@ func TestDetachXDPWithPreviousAttach(t *testing.T) {
 		require.True(t, getLink(t, veth).Attrs().Xdp.Attached)
 
 		// Detach with the wrong name, leaving the program attached.
-		err = newTestLoader(t).DetachXDP(veth, basePath, "foo")
+		err = newTestLoader(t).DetachXDP(veth.Attrs().Name, basePath, "foo")
 		require.NoError(t, err)
 		require.True(t, getLink(t, veth).Attrs().Xdp.Attached)
 
-		err = newTestLoader(t).DetachXDP(veth, basePath, "test")
+		err = newTestLoader(t).DetachXDP(veth.Attrs().Name, basePath, "test")
 		require.NoError(t, err)
 		require.False(t, getLink(t, veth).Attrs().Xdp.Attached)
 

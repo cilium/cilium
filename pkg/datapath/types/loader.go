@@ -24,6 +24,7 @@ type Loader interface {
 	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
 	RestoreTemplates(stateDir string) error
+	DetachXDP(iface string, bpffsBase, progName string) error
 }
 
 // PreFilter an interface for an XDP pre-filter.
