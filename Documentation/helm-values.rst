@@ -72,10 +72,6 @@
      - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
      - string
      - ``"/run/spire/sockets/agent/agent.sock"``
-   * - :spelling:ignore:`authentication.mutual.spire.annotations`
-     - Annotations to be added to all top-level spire objects (resources under templates/spire)
-     - object
-     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.connectionTimeout`
      - SPIRE connection timeout
      - string
@@ -84,146 +80,122 @@
      - Enable SPIRE integration (beta)
      - bool
      - ``false``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.affinity`
-     - SPIRE agent affinity configuration
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.annotations`
-     - SPIRE agent annotations
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.image`
-     - SPIRE agent image
-     - object
-     - ``{"digest":"sha256:99405637647968245ff9fe215f8bd2bd0ea9807be9725f8bf19fe1b21471e52b","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.8.5","useDigest":true}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.labels`
-     - SPIRE agent labels
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.nodeSelector`
-     - SPIRE agent nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.podSecurityContext`
-     - Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.securityContext`
-     - Security context to be added to spire agent containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.serviceAccount`
-     - SPIRE agent service account
-     - object
-     - ``{"create":true,"name":"spire-agent"}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.skipKubeletVerification`
-     - SPIRE Workload Attestor kubelet verification.
-     - bool
-     - ``true``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.tolerations`
-     - SPIRE agent tolerations configuration By default it follows the same tolerations as the agent itself to allow the Cilium agent on this node to connect to SPIRE. ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-     - list
-     - ``[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]``
-   * - :spelling:ignore:`authentication.mutual.spire.install.enabled`
-     - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
-     - bool
-     - ``true``
-   * - :spelling:ignore:`authentication.mutual.spire.install.existingNamespace`
-     - SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
-     - init container image of SPIRE agent and server
-     - object
-     - ``{"digest":"sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.36.1","useDigest":true}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
-     - SPIRE namespace to install into
-     - string
-     - ``"cilium-spire"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.affinity`
-     - SPIRE server affinity configuration
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.annotations`
-     - SPIRE server annotations
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.ca.keyType`
-     - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
-     - string
-     - ``"rsa-4096"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.ca.subject`
+   * - :spelling:ignore:`authentication.mutual.spire.global.spire.caSubject`
      - SPIRE CA Subject
      - object
      - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.accessMode`
-     - Access mode of the SPIRE server data storage
-     - string
-     - ``"ReadWriteOnce"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.enabled`
-     - Enable SPIRE server data storage
+   * - :spelling:ignore:`authentication.mutual.spire.global.spire.namespaces.server.create`
+     - 
      - bool
      - ``true``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.size`
-     - Size of the SPIRE server data storage
+   * - :spelling:ignore:`authentication.mutual.spire.global.spire.namespaces.server.name`
+     - 
      - string
-     - ``"1Gi"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.storageClass`
-     - StorageClass of the SPIRE server data storage
+     - ``"cilium-spire"``
+   * - :spelling:ignore:`authentication.mutual.spire.global.spire.namespaces.system.create`
+     - 
+     - bool
+     - ``false``
+   * - :spelling:ignore:`authentication.mutual.spire.global.spire.namespaces.system.name`
+     - 
      - string
-     - ``nil``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.image`
-     - SPIRE server image
-     - object
-     - ``{"digest":"sha256:28269265882048dcf0fed32fe47663cd98613727210b8d1a55618826f9bf5428","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.8.5","useDigest":true}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.initContainers`
-     - SPIRE server init containers
-     - list
-     - ``[]``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.labels`
-     - SPIRE server labels
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.nodeSelector`
-     - SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.podSecurityContext`
-     - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.securityContext`
-     - Security context to be added to spire server containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.service.annotations`
-     - Annotations to be added to the SPIRE server service
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.service.labels`
-     - Labels to be added to the SPIRE server service
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.service.type`
-     - Service type for the SPIRE server service
+     - ``"cilium-spire"``
+   * - :spelling:ignore:`authentication.mutual.spire.global.spire.trustDomain`
+     - SPIFFE trust domain to use for fetching certificates
      - string
-     - ``"ClusterIP"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.serviceAccount`
-     - SPIRE server service account
-     - object
-     - ``{"create":true,"name":"spire-server"}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.tolerations`
-     - SPIRE server tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-     - list
-     - ``[]``
+     - ``"spiffe.cilium"``
    * - :spelling:ignore:`authentication.mutual.spire.serverAddress`
      - SPIRE server address used by Cilium Operator  If k8s Service DNS along with port number is used (e.g. :raw-html-m2r:`<service-name>`.\ :raw-html-m2r:`<namespace>`.svc(.*):\ :raw-html-m2r:`<port-number>` format), Cilium Operator will resolve its address by looking up the clusterIP from Service resource.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
      - string
      - ``nil``
-   * - :spelling:ignore:`authentication.mutual.spire.trustDomain`
-     - SPIFFE trust domain to use for fetching certificates
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.affinity`
+     - SPIRE agent affinity configuration
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.initContainers[0].command[0]`
+     - 
      - string
-     - ``"spiffe.cilium"``
+     - ``"/bin/sh"``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.initContainers[0].command[1]`
+     - 
+     - string
+     - ``"-c"``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.initContainers[0].command[2]`
+     - 
+     - string
+     - ``"set -e\necho \"Waiting for spire server to be reachable to start\"\nADDR=\"spire-server.cilium-spire.svc:8081\"\nCONN_TIMEOUT=\"3\"\nTIMEOUT=\"60\"\n\ncall_tcp_endpoint_with_timeout() {\n    local addr=\"$1\"\n    local timeout=\"$2\"\n\n    nc -z \"$addr\" -w \"$timeout\" &> /dev/null\n}\n\n# wait for SPIRE server to be reachable till $TIMEOUT is reached\nstart_time=$(date +%s)\nwhile true; do\n    if call_tcp_endpoint_with_timeout \"$ADDR\" \"$CONN_TIMEOUT\"; then\n        echo \"SPIRE server is reachable\"\n        break\n    fi\n\n    if [ $(( $(date +%s) - start_time )) -gt \"$TIMEOUT\" ]; then\n        echo \"Timed out waiting for spire server to be reachable\"\n        exit 1\n    fi\n\n    echo \"Waiting for spire server to be reachable\"\n    sleep 1\ndone\n"``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.initContainers[0].image`
+     - 
+     - string
+     - ``"docker.io/library/busybox:1.36.1"``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.initContainers[0].imagePullPolicy`
+     - 
+     - string
+     - ``"Always"``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.initContainers[0].name`
+     - 
+     - string
+     - ``"init"``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.nodeSelector`
+     - SPIRE agent nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.podSecurityContext`
+     - Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.securityContext`
+     - Security context to be added to spire agent containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.serviceAccount`
+     - SPIRE agent service account
+     - object
+     - ``{"annotations":{},"name":"spire-agent"}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-agent.tolerations`
+     - SPIRE agent tolerations configuration By default it follows the same tolerations as the agent itself to allow the Cilium agent on this node to connect to SPIRE. ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.affinity`
+     - SPIRE server affinity configuration
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.controllerManager.enabled`
+     - 
+     - bool
+     - ``false``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.externalControllerManagers.enabled`
+     - 
+     - bool
+     - ``false``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.nodeSelector`
+     - SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.podSecurityContext`
+     - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.securityContext`
+     - Security context to be added to spire server containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.service.annotations`
+     - 
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.service.type`
+     - Service type for the SPIRE server service
+     - string
+     - ``"ClusterIP"``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.serviceAccount`
+     - SPIRE server service account
+     - object
+     - ``{"annotations":{},"name":"spire-server"}``
+   * - :spelling:ignore:`authentication.mutual.spire.spire-server.tolerations`
+     - SPIRE server tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
    * - :spelling:ignore:`authentication.queueSize`
      - Buffer size of the channel Cilium uses to receive authentication events from the signal map.
      - int

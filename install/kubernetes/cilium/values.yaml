@@ -3356,149 +3356,129 @@ authentication:
     spire:
       # -- Enable SPIRE integration (beta)
       enabled: false
-      # -- Annotations to be added to all top-level spire objects (resources under templates/spire)
-      annotations: {}
-      # Settings to control the SPIRE installation and configuration
-      install:
-        # -- Enable SPIRE installation.
-        # This will only take effect only if authentication.mutual.spire.enabled is true
-        enabled: true
-        # -- SPIRE namespace to install into
-        namespace: cilium-spire
-        # -- SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace.
-        existingNamespace: false
-        # -- init container image of SPIRE agent and server
-        initImage:
-          # @schema
-          # type: [null, string]
-          # @schema
-          override: ~
-          repository: "docker.io/library/busybox"
-          tag: "1.36.1"
-          digest: "sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b"
-          useDigest: true
-          pullPolicy: "Always"
-        # SPIRE agent configuration
-        agent:
-          # -- SPIRE agent image
-          image:
-            # @schema
-            # type: [null, string]
-            # @schema
-            override: ~
-            repository: "ghcr.io/spiffe/spire-agent"
-            tag: "1.8.5"
-            digest: "sha256:99405637647968245ff9fe215f8bd2bd0ea9807be9725f8bf19fe1b21471e52b"
-            useDigest: true
-            pullPolicy: "Always"
-          # -- SPIRE agent service account
-          serviceAccount:
-            create: true
-            name: spire-agent
-          # -- SPIRE agent annotations
+      global:
+        spire:
+          namespaces:
+            system:
+              create: false
+              name: cilium-spire
+            server:
+              create: true
+              name: cilium-spire
+          # -- SPIFFE trust domain to use for fetching certificates
+          trustDomain: spiffe.cilium
+          # -- SPIRE CA Subject
+          caSubject:
+            country: "US"
+            organization: "SPIRE"
+            commonName: "Cilium SPIRE CA"
+      # SPIRE server configuration
+      # Refer to https://github.com/spiffe/helm-charts-hardened/blob/db177d4b85375eba7cfc39957ee9bbed562cf873/charts/spire/charts/spire-server/values.yaml
+      # For complete configurations.
+      spire-server:
+        controllerManager:
+          enabled: false
+        externalControllerManagers:
+          enabled: false
+        # -- SPIRE server service account
+        serviceAccount:
+          name: spire-server
           annotations: {}
-          # -- SPIRE agent labels
-          labels: {}
-          # -- SPIRE Workload Attestor kubelet verification.
-          skipKubeletVerification: true
-          # -- SPIRE agent tolerations configuration
-          # By default it follows the same tolerations as the agent itself
-          # to allow the Cilium agent on this node to connect to SPIRE.
-          # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-          tolerations:
-            - key: node.kubernetes.io/not-ready
-              effect: NoSchedule
-            - key: node-role.kubernetes.io/master
-              effect: NoSchedule
-            - key: node-role.kubernetes.io/control-plane
-              effect: NoSchedule
-            - key: node.cloudprovider.kubernetes.io/uninitialized
-              effect: NoSchedule
-              value: "true"
-            - key: CriticalAddonsOnly
-              operator: "Exists"
-          # -- SPIRE agent affinity configuration
-          affinity: {}
-          # -- SPIRE agent nodeSelector configuration
-          # ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-          nodeSelector: {}
-          # -- Security context to be added to spire agent pods.
-          # SecurityContext holds pod-level security attributes and common container settings.
-          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-          podSecurityContext: {}
-          # -- Security context to be added to spire agent containers.
-          # SecurityContext holds pod-level security attributes and common container settings.
-          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-          securityContext: {}
-        server:
-          # -- SPIRE server image
-          image:
-            # @schema
-            # type: [null, string]
-            # @schema
-            override: ~
-            repository: "ghcr.io/spiffe/spire-server"
-            tag: "1.8.5"
-            digest: "sha256:28269265882048dcf0fed32fe47663cd98613727210b8d1a55618826f9bf5428"
-            useDigest: true
-            pullPolicy: "Always"
-          # -- SPIRE server service account
-          serviceAccount:
-            create: true
-            name: spire-server
-          # -- SPIRE server init containers
-          initContainers: []
-          # -- SPIRE server annotations
+        # SPIRE server service configuration
+        service:
+        # -- Service type for the SPIRE server service
+          type: ClusterIP
           annotations: {}
-          # -- SPIRE server labels
-          labels: {}
-          # SPIRE server service configuration
-          service:
-            # -- Service type for the SPIRE server service
-            type: ClusterIP
-            # -- Annotations to be added to the SPIRE server service
-            annotations: {}
-            # -- Labels to be added to the SPIRE server service
-            labels: {}
-          # -- SPIRE server affinity configuration
-          affinity: {}
-          # -- SPIRE server nodeSelector configuration
-          # ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-          nodeSelector: {}
-          # -- SPIRE server tolerations configuration
-          # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-          tolerations: []
-          # SPIRE server datastorage configuration
-          dataStorage:
-            # -- Enable SPIRE server data storage
-            enabled: true
-            # -- Size of the SPIRE server data storage
-            size: 1Gi
-            # -- Access mode of the SPIRE server data storage
-            accessMode: ReadWriteOnce
-            # @schema
-            # type: [null, string]
-            # @schema
-            # -- StorageClass of the SPIRE server data storage
-            storageClass: null
-          # -- Security context to be added to spire server pods.
-          # SecurityContext holds pod-level security attributes and common container settings.
-          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-          podSecurityContext: {}
-          # -- Security context to be added to spire server containers.
-          # SecurityContext holds pod-level security attributes and common container settings.
-          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-          securityContext: {}
-          # SPIRE CA configuration
-          ca:
-            # -- SPIRE CA key type
-            # AWS requires the use of RSA. EC cryptography is not supported
-            keyType: "rsa-4096"
-            # -- SPIRE CA Subject
-            subject:
-              country: "US"
-              organization: "SPIRE"
-              commonName: "Cilium SPIRE CA"
+        # -- SPIRE server affinity configuration
+        affinity: {}
+        # -- SPIRE server nodeSelector configuration
+        # ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+        nodeSelector: {}
+        # -- SPIRE server tolerations configuration
+        # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+        tolerations: []
+        # -- Security context to be added to spire server pods.
+        # SecurityContext holds pod-level security attributes and common container settings.
+        # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+        podSecurityContext: {}
+        # -- Security context to be added to spire server containers.
+        # SecurityContext holds pod-level security attributes and common container settings.
+        # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+        securityContext: {}
+      # SPIRE agent configuration
+      # Refer to https://github.com/spiffe/helm-charts-hardened/blob/db177d4b85375eba7cfc39957ee9bbed562cf873/charts/spire/charts/spire-agent/values.yaml
+      # For complete configurations.
+      spire-agent:
+      # -- SPIRE agent service account
+        serviceAccount:
+          name: spire-agent
+          annotations: {}
+        # -- SPIRE agent tolerations configuration
+        # By default it follows the same tolerations as the agent itself
+        # to allow the Cilium agent on this node to connect to SPIRE.
+        # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+        tolerations:
+          - key: node.kubernetes.io/not-ready
+            effect: NoSchedule
+          - key: node-role.kubernetes.io/master
+            effect: NoSchedule
+          - key: node-role.kubernetes.io/control-plane
+            effect: NoSchedule
+          - key: node.cloudprovider.kubernetes.io/uninitialized
+            effect: NoSchedule
+            value: "true"
+          - key: CriticalAddonsOnly
+            operator: "Exists"
+        # -- SPIRE agent affinity configuration
+        affinity: {}
+        # -- SPIRE agent nodeSelector configuration
+        # ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+        nodeSelector: {}
+        # -- Security context to be added to spire agent pods.
+        # SecurityContext holds pod-level security attributes and common container settings.
+        # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+        podSecurityContext: {}
+        # -- Security context to be added to spire agent containers.
+        # SecurityContext holds pod-level security attributes and common container settings.
+        # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+        securityContext: {}
+        initContainers:
+          - name: init
+            image: docker.io/library/busybox:1.36.1
+            imagePullPolicy: "Always"
+            command:
+              - /bin/sh
+              - -c
+              - |
+                set -e
+                echo "Waiting for spire server to be reachable to start"
+                ADDR="spire-server.cilium-spire.svc:8081"
+                CONN_TIMEOUT="3"
+                TIMEOUT="60"
+
+                call_tcp_endpoint_with_timeout() {
+                    local addr="$1"
+                    local timeout="$2"
+
+                    nc -z "$addr" -w "$timeout" &> /dev/null
+                }
+
+                # wait for SPIRE server to be reachable till $TIMEOUT is reached
+                start_time=$(date +%s)
+                while true; do
+                    if call_tcp_endpoint_with_timeout "$ADDR" "$CONN_TIMEOUT"; then
+                        echo "SPIRE server is reachable"
+                        break
+                    fi
+
+                    if [ $(( $(date +%s) - start_time )) -gt "$TIMEOUT" ]; then
+                        echo "Timed out waiting for spire server to be reachable"
+                        exit 1
+                    fi
+
+                    echo "Waiting for spire server to be reachable"
+                    sleep 1
+                done
       # @schema
       # type: [null, string]
       # @schema
@@ -3509,8 +3489,6 @@ authentication:
       #
       # Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
       serverAddress: ~
-      # -- SPIFFE trust domain to use for fetching certificates
-      trustDomain: spiffe.cilium
       # -- SPIRE socket path where the SPIRE delegated api agent is listening
       adminSocketPath: /run/spire/sockets/admin.sock
       # -- SPIRE socket path where the SPIRE workload agent is listening.

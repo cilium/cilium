@@ -123,14 +123,14 @@ annotations:
       name: ciliumbgppeerconfigs.cilium.io
       displayName: Cilium BGP Peer Config
       description: |
-        CiliumBGPPeerConfig is a common set of BGP peer configurations. It can be referenced 
+        CiliumBGPPeerConfig is a common set of BGP peer configurations. It can be referenced
         by multiple peers from CiliumBGPClusterConfig.
     - kind: CiliumBGPAdvertisement
       version: v2alpha1
       name: ciliumbgpadvertisements.cilium.io
       displayName: Cilium BGP Advertisement
       description: |
-        CiliumBGPAdvertisement is used to define source of BGP advertisement as well as BGP attributes 
+        CiliumBGPAdvertisement is used to define source of BGP advertisement as well as BGP attributes
         to be advertised with those prefixes.
     - kind: CiliumBGPNodeConfig
       version: v2alpha1
@@ -177,3 +177,9 @@ annotations:
       displayName: Cilium Pod IP Pool
       description: |
         CiliumPodIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM mode).
+dependencies:
+  ## https://github.com/spiffe/helm-charts-hardened/tree/main/charts/spire
+  - name: spire
+    version: 0.20.0
+    repository: https://spiffe.github.io/helm-charts-hardened/
+    condition: authentication.mutual.spire.enabled
