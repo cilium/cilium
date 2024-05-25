@@ -31,17 +31,23 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 		return err
 	}
 	for i := range suiteBuilders {
-		if err := suiteBuilders[i](connTests, extra.AddConnectivityTests); err != nil {
-			return err
-		}
-		if err := runConnectivityTests(ctx, connTests); err != nil {
-			return err
+		if e := suiteBuilders[i](connTests, extra.AddConnectivityTests); e != nil {
+			return e
 		}
 		for j := range connTests {
+			connTests[j].PrintTestInfo()
+		}
+		if e := runConnectivityTests(ctx, connTests); e != nil {
+			return e
+		}
+		for j := range connTests {
+			if e := connTests[j].PrintReport(ctx); e != nil {
+				err = errors.Join(err, e)
+			}
 			connTests[j].Cleanup()
 		}
 	}
-	return nil
+	return err
 }
 
 func setupConnectivityTests(ctx context.Context, connTest []*check.ConnectivityTest, hooks Hooks) error {
