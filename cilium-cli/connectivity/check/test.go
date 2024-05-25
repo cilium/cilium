@@ -66,9 +66,7 @@ func NewTest(name string, verbose bool, debug bool) *Test {
 		ccnps:       make(map[string]*ciliumv2.CiliumClusterwideNetworkPolicy),
 		knps:        make(map[string]*networkingv1.NetworkPolicy),
 		cegps:       make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
-		verbose:     verbose,
 		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
-		warnBuf:     &bytes.Buffer{},
 		conditionFn: func() bool { return true },
 	}
 	// Setting the internal buffer to nil causes the logger to
@@ -145,10 +143,8 @@ type Test struct {
 
 	// Buffer to store output until it's flushed by a failure.
 	// Unused when run in verbose or debug mode.
-	logMu   sync.RWMutex
-	logBuf  io.ReadWriter
-	warnBuf *bytes.Buffer
-	verbose bool
+	logMu  sync.RWMutex
+	logBuf io.ReadWriter
 
 	// conditionFn is a function that returns true if the test needs to run,
 	// and false otherwise. By default, it's set to a function that returns
