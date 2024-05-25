@@ -153,7 +153,7 @@ func (a *Action) Run(f func(*Action)) {
 	a.Logf("[.] Action [%s]", a)
 
 	// Emit unbuffered progress indicator.
-	a.test.progress()
+	a.test.ctx.logger.Printf(a.test, ".")
 
 	// Retrieve Prometheus metrics only if there are expectations.
 	for _, m := range a.expIngress.Metrics {
