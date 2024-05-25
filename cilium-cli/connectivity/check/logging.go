@@ -4,6 +4,7 @@
 package check
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -236,10 +237,11 @@ func (t *Test) flush() {
 	// Terminate progress so far.
 	fmt.Fprintln(t.ctx.params.Writer)
 
-	// Flush internal buffer to user-specified writer.
-	if _, err := io.Copy(t.ctx.params.Writer, t.logBuf); err != nil {
+	buf := &bytes.Buffer{}
+	if _, err := io.Copy(buf, t.logBuf); err != nil {
 		panic(err)
 	}
+	t.ctx.logger.Printf(t, buf.String())
 
 	// Assign a nil buffer so future writes go to user-specified writer.
 	t.logBuf = nil

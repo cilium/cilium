@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -46,7 +47,7 @@ func TestNewConnectivityTests(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		// function to test
-		actual, err := newConnectivityTests(tt.params)
+		actual, err := newConnectivityTests(tt.params, check.NewConcurrentLogger(&bytes.Buffer{}, 1))
 
 		require.NoError(t, err)
 		require.Equal(t, tt.expectedCount, len(actual))
