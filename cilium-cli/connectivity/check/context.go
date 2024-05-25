@@ -348,6 +348,19 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 	return extra.SetupAndValidate(ctx, ct)
 }
 
+// PrintTestInfo prints connectivity test names and count.
+func (ct *ConnectivityTest) PrintTestInfo() {
+	if len(ct.tests) == 0 {
+		return
+	}
+	ct.Debugf("[%s] Registered connectivity tests", ct.params.TestNamespace)
+	for _, t := range ct.tests {
+		ct.Debugf("  %s", t)
+	}
+	// Newline denoting start of test output.
+	ct.Logf("🏃[%s] Running %d tests ...", ct.params.TestNamespace, len(ct.tests))
+}
+
 // Run kicks off execution of all Tests registered to the ConnectivityTest.
 // Each Test's Run() method is called within its own goroutine.
 func (ct *ConnectivityTest) Run(ctx context.Context) error {
@@ -358,15 +371,6 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 	if len(ct.tests) == 0 {
 		return nil
 	}
-
-	ct.Debug("Registered connectivity tests:")
-	for _, t := range ct.tests {
-		ct.Debugf("  %s", t)
-	}
-
-	// Newline denoting start of test output.
-	ct.Logf("🏃 Running %d tests ...", len(ct.tests))
-
 	// Execute all tests in the order they were registered by the test suite.
 	for i, t := range ct.tests {
 		if err := ctx.Err(); err != nil {
@@ -381,7 +385,7 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 			if err := t.Run(ctx, i+1); err != nil {
 				// We know for sure we're inside a separate goroutine, so Fatal()
 				// is safe and will properly record failure statistics.
-				t.Fatalf("Running test %s: %s", t.Name(), err)
+				t.Fatalf("[%s] test %s failed: %s", ct.params.TestNamespace, t.Name(), err)
 			}
 
 			// Exit immediately if context was cancelled.
@@ -391,7 +395,7 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 
 			// Pause after each test run if requested by the user.
 			if duration := ct.PostTestSleepDuration(); duration != time.Duration(0) {
-				ct.Infof("Pausing for %s after test %s", duration, t)
+				ct.Infof("[%s] Pausing for %s after test %s", ct.params.TestNamespace, duration, t)
 				time.Sleep(duration)
 			}
 		}()
@@ -399,7 +403,14 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 		// Waiting for the goroutine to finish before starting another Test.
 		<-done
 	}
+	return nil
+}
 
+// PrintReport print connectivity test instance run report.
+func (ct *ConnectivityTest) PrintReport(ctx context.Context) error {
+	if len(ct.tests) == 0 {
+		return nil
+	}
 	if err := ct.writeJunit(); err != nil {
 		ct.Failf("writing to junit file %s failed: %s", ct.Params().JunitFile, err)
 	}
@@ -423,7 +434,6 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 
 		wg.Wait()
 	}
-
 	// Report the test results.
 	return ct.report()
 }
@@ -533,7 +543,7 @@ func (ct *ConnectivityTest) report() error {
 	nf := len(failed)
 
 	if nf > 0 {
-		ct.Header("📋 Test Report")
+		ct.Header(fmt.Sprintf("📋 Test Report [%s]", ct.params.TestNamespace))
 
 		// There are failed tests, fetch all failed actions.
 		fa := len(ct.failedActions())
@@ -548,11 +558,11 @@ func (ct *ConnectivityTest) report() error {
 			}
 		}
 
-		return fmt.Errorf("%d tests failed", nf)
+		return fmt.Errorf("[%s] %d tests failed", ct.params.TestNamespace, nf)
 	}
 
 	if ct.params.Perf {
-		ct.Header("🔥 Network Performance Test Summary:")
+		ct.Header(fmt.Sprintf("🔥 Network Performance Test Summary [%s]:", ct.params.TestNamespace))
 		ct.Logf("%s", strings.Repeat("-", 200))
 		ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Node", "Test", "Duration", "Min", "Mean", "Max", "P50", "P90", "P99", "Transaction rate OP/s")
 		ct.Logf("%s", strings.Repeat("-", 200))
@@ -600,7 +610,7 @@ func (ct *ConnectivityTest) report() error {
 		}
 	}
 
-	ct.Headerf("✅ All %d tests (%d actions) successful, %d tests skipped, %d scenarios skipped.", nt-nst, na, nst, nss)
+	ct.Headerf("✅ [%s] All %d tests (%d actions) successful, %d tests skipped, %d scenarios skipped.", ct.params.TestNamespace, nt-nst, na, nst, nss)
 
 	return nil
 }
