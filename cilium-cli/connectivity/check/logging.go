@@ -165,19 +165,6 @@ func (ct *ConnectivityTest) Fatalf(format string, a ...interface{}) {
 // should always call the methods implemented on Test.
 //
 
-// progress outputs an unbuffered progress indicator if logging is buffered.
-func (t *Test) progress() {
-	t.logMu.RLock()
-	defer t.logMu.RUnlock()
-
-	// Skip progress indicator if logging is not buffered.
-	if t.logBuf == nil {
-		return
-	}
-
-	fmt.Fprint(t.ctx.params.Writer, ".")
-}
-
 // log takes out a read lock and logs a message to the Test's internal buffer.
 // If the internal log buffer is nil, write to user-specified writer instead.
 // Prefix is an optional prefix to the message.
@@ -245,12 +232,6 @@ func (t *Test) flush() {
 
 	// Assign a nil buffer so future writes go to user-specified writer.
 	t.logBuf = nil
-}
-
-// Headerf prints a formatted, indented header inside the test log scope.
-// Headers are not internally buffered.
-func (t *Test) Headerf(format string, a ...interface{}) {
-	t.ctx.Headerf(testPrefix+format, a...)
 }
 
 // Log logs a message.
@@ -404,11 +385,6 @@ func (a *Action) Fatal(s ...interface{}) {
 func (a *Action) Fatalf(format string, s ...interface{}) {
 	a.fail()
 	a.test.Fatalf(format, s...)
-}
-
-// DebugEnabled returns whether debug logging is enabled.
-func (a *Action) DebugEnabled() bool {
-	return a.test.ctx.debug()
 }
 
 func timestamp() string {
