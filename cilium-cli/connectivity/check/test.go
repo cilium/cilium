@@ -334,7 +334,7 @@ func (t *Test) Run(ctx context.Context, index int) error {
 		t.completionTime = time.Now()
 	}()
 
-	t.ctx.Logf("[=] Test [%s] [%d/%d]", t.Name(), index, len(t.ctx.tests))
+	t.ctx.logger.Printf(t, "[=] [%s] Test [%s] [%d/%d]\n", t.ctx.params.TestNamespace, t.Name(), index, len(t.ctx.tests))
 
 	if err := t.setup(ctx); err != nil {
 		return fmt.Errorf("setting up test: %w", err)
@@ -371,7 +371,7 @@ func (t *Test) Run(ctx context.Context, index int) error {
 	}
 
 	if t.logBuf != nil {
-		fmt.Fprintln(t.ctx.params.Writer)
+		t.ctx.logger.Printf(t, "\n")
 	}
 
 	// Don't add any more code here, as Scenario.Run() can call Fatal() and

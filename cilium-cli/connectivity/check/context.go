@@ -50,6 +50,8 @@ type ConnectivityTest struct {
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
 
+	logger *ConcurrentLogger
+
 	// version is the version string of the cilium-cli itself
 	version string
 
@@ -186,7 +188,7 @@ func (ct *ConnectivityTest) failedActions() []*Action {
 }
 
 // NewConnectivityTest returns a new ConnectivityTest.
-func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*ConnectivityTest, error) {
+func NewConnectivityTest(client *k8s.Client, p Parameters, version string, logger *ConcurrentLogger) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
 		return nil, err
 	}
@@ -194,6 +196,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 	k := &ConnectivityTest{
 		client:                   client,
 		params:                   p,
+		logger:                   logger,
 		version:                  version,
 		ciliumPods:               make(map[string]Pod),
 		echoPods:                 make(map[string]Pod),
@@ -380,7 +383,10 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 		done := make(chan bool)
 
 		go func() {
-			defer func() { done <- true }()
+			defer func() {
+				ct.logger.FinishTest(t)
+				done <- true
+			}()
 
 			if err := t.Run(ctx, i+1); err != nil {
 				// We know for sure we're inside a separate goroutine, so Fatal()
@@ -448,7 +454,7 @@ func (ct *ConnectivityTest) Cleanup() {
 
 // skip marks the Test as skipped.
 func (ct *ConnectivityTest) skip(t *Test, index int, reason string) {
-	ct.Logf("[=] Skipping Test [%s] [%d/%d] (%s)", t.Name(), index, len(t.ctx.tests), reason)
+	ct.logger.Printf(t, "[=] [%s] Skipping test [%s] [%d/%d] (%s)\n", ct.params.TestNamespace, t.Name(), index, len(t.ctx.tests), reason)
 	t.skipped = true
 }
 
