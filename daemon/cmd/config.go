@@ -177,6 +177,9 @@ func getIPLocalReservedPorts(d *Daemon) string {
 		ports = append(ports, fmt.Sprintf("%d", option.Config.TunnelPort))
 	}
 
+	log.WithField(logfields.Ports, ports).
+		Info("Auto-detected local ports to reserve in the container namespace for transparent DNS proxy")
+
 	return strings.Join(ports, ",")
 }
 
