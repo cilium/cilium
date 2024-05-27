@@ -78,12 +78,6 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		const struct bpf_fib_lookup_padded *fib_params,
 		bool allow_neigh_map, __s8 *fib_ret, int *oif)
 {
-	/* sanity check, we only enter this function with these two fib lookup
-	 * return codes.
-	 */
-	if (*fib_ret && (*fib_ret != BPF_FIB_LKUP_RET_NO_NEIGH))
-		return DROP_NO_FIB;
-
 	/* determine which oif to use before needs_l2_check determines if layer 2
 	 * header needs to be pushed.
 	 */
@@ -182,6 +176,13 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 
 		ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
 		*fib_err = (__s8)ret;
+		switch (ret) {
+		case BPF_FIB_LKUP_RET_SUCCESS:
+		case BPF_FIB_LKUP_RET_NO_NEIGH:
+			break;
+		default:
+			return DROP_NO_FIB;
+		}
 
 		return fib_do_redirect(ctx, needs_l2_check, fib_params, use_neigh_map,
 				       fib_err, oif);
@@ -231,6 +232,13 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
 		ret = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, 0);
 		*fib_err = (__s8)ret;
+		switch (ret) {
+		case BPF_FIB_LKUP_RET_SUCCESS:
+		case BPF_FIB_LKUP_RET_NO_NEIGH:
+			break;
+		default:
+			return DROP_NO_FIB;
+		}
 
 		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
@@ -284,6 +292,13 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
 		ret = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
 		*fib_err = (__s8)ret;
+		switch (ret) {
+		case BPF_FIB_LKUP_RET_SUCCESS:
+		case BPF_FIB_LKUP_RET_NO_NEIGH:
+			break;
+		default:
+			return DROP_NO_FIB;
+		}
 
 		ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 		if (unlikely(ret != CTX_ACT_OK))
