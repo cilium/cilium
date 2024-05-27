@@ -81,6 +81,10 @@ type NodeManager interface {
 
 	// NodeDeleted is called when the store detects a deletion of a node
 	NodeDeleted(n nodeTypes.Node)
+}
+
+type NodeExtendedManager interface {
+	NodeManager
 
 	// NodeSync is called when the store completes the initial nodes listing
 	NodeSync()
@@ -174,7 +178,7 @@ func (nr *NodeRegistrar) JoinCluster(name string) (*nodeTypes.Node, error) {
 }
 
 // RegisterNode registers the local node in the cluster.
-func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeManager) error {
+func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedManager) error {
 	if option.Config.KVStore == "" {
 		return nil
 	}
