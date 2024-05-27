@@ -72,6 +72,13 @@ type GetHealthzParams struct {
 	*/
 	Brief *bool
 
+	/* IncludeK8sCheck.
+
+	   Controls whether the result of connectivity check to kube-apiserver should affect the result of health status of daemon.
+
+	*/
+	IncludeK8sCheck *bool
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -136,6 +143,17 @@ func (o *GetHealthzParams) SetBrief(brief *bool) {
 	o.Brief = brief
 }
 
+// WithIncludeK8sCheck adds the includeK8sCheck to the get healthz params
+func (o *GetHealthzParams) WithIncludeK8sCheck(includeK8sCheck *bool) *GetHealthzParams {
+	o.SetIncludeK8sCheck(includeK8sCheck)
+	return o
+}
+
+// SetIncludeK8sCheck adds the includeK8sCheck to the get healthz params
+func (o *GetHealthzParams) SetIncludeK8sCheck(includeK8sCheck *bool) {
+	o.IncludeK8sCheck = includeK8sCheck
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -148,6 +166,14 @@ func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 
 		// header param brief
 		if err := r.SetHeaderParam("brief", swag.FormatBool(*o.Brief)); err != nil {
+			return err
+		}
+	}
+
+	if o.IncludeK8sCheck != nil {
+
+		// header param include-k8s-check
+		if err := r.SetHeaderParam("include-k8s-check", swag.FormatBool(*o.IncludeK8sCheck)); err != nil {
 			return err
 		}
 	}

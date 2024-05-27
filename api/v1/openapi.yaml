@@ -47,6 +47,12 @@ paths:
         in: header
         required: false
         type: boolean
+      - name: include-k8s-check
+        description: |
+          Controls whether the result of connectivity check to kube-apiserver should affect the result of health status of daemon.
+        in: header
+        required: false
+        type: boolean
       responses:
         '200':
           description: Success

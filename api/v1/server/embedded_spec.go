@@ -860,6 +860,12 @@ func init() {
             "description": "Brief will return a brief representation of the Cilium status.\n",
             "name": "brief",
             "in": "header"
+          },
+          {
+            "type": "boolean",
+            "description": "Controls whether the result of connectivity check to kube-apiserver should affect the result of health status of daemon.\n",
+            "name": "include-k8s-check",
+            "in": "header"
           }
         ],
         "responses": {
@@ -6412,6 +6418,12 @@ func init() {
             "type": "boolean",
             "description": "Brief will return a brief representation of the Cilium status.\n",
             "name": "brief",
+            "in": "header"
+          },
+          {
+            "type": "boolean",
+            "description": "Controls whether the result of connectivity check to kube-apiserver should affect the result of health status of daemon.\n",
+            "name": "include-k8s-check",
             "in": "header"
           }
         ],
