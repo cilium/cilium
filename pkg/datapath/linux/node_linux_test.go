@@ -10,14 +10,12 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/statedb"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -30,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -43,11 +40,14 @@ import (
 )
 
 type linuxPrivilegedBaseTestSuite struct {
-	sysctl         sysctl.Sysctl
-	nodeAddressing datapath.NodeAddressing
-	mtuConfig      mtu.Configuration
-	enableIPv4     bool
-	enableIPv6     bool
+	sysctl     sysctl.Sysctl
+	mtuConfig  mtu.Configuration
+	enableIPv4 bool
+	enableIPv6 bool
+
+	// nodeConfigTemplate is the partially filled template for local node configuration.
+	// copy it, don't mutate it.
+	nodeConfigTemplate datapath.LocalNodeConfiguration
 }
 
 type linuxPrivilegedIPv6OnlyTestSuite struct {
@@ -95,7 +95,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	rlimit.RemoveMemlock()
-	s.nodeAddressing = addressing
 	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
@@ -107,23 +106,38 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 
 	ips := make([]net.IP, 0)
 	if enableIPv6 {
-		ips = append(ips, s.nodeAddressing.IPv6().PrimaryExternal())
+		ips = append(ips, addressing.IPv6().PrimaryExternal())
 	}
 	if enableIPv4 {
-		ips = append(ips, s.nodeAddressing.IPv4().PrimaryExternal())
+		ips = append(ips, addressing.IPv4().PrimaryExternal())
 	}
-	err := setupDummyDevice(dummyExternalDeviceName, ips...)
+	devExt, err := setupDummyDevice(dummyExternalDeviceName, ips...)
 	require.NoError(tb, err)
 
 	ips = []net.IP{}
 	if enableIPv4 {
-		ips = append(ips, s.nodeAddressing.IPv4().Router())
+		ips = append(ips, addressing.IPv4().Router())
 	}
 	if enableIPv6 {
-		ips = append(ips, s.nodeAddressing.IPv6().Router())
+		ips = append(ips, addressing.IPv6().Router())
 	}
-	err = setupDummyDevice(dummyHostDeviceName, ips...)
+	devHost, err := setupDummyDevice(dummyHostDeviceName, ips...)
 	require.NoError(tb, err)
+
+	s.nodeConfigTemplate = datapath.LocalNodeConfiguration{
+		Devices:             []*tables.Device{devExt, devHost},
+		NodeIPv4:            addressing.IPv4().PrimaryExternal(),
+		NodeIPv6:            addressing.IPv6().PrimaryExternal(),
+		CiliumInternalIPv4:  addressing.IPv4().Router(),
+		CiliumInternalIPv6:  addressing.IPv6().Router(),
+		AllocCIDRIPv4:       addressing.IPv4().AllocationCIDR(),
+		AllocCIDRIPv6:       addressing.IPv6().AllocationCIDR(),
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
+		DeviceMTU:           s.mtuConfig.GetDeviceMTU(),
+		RouteMTU:            s.mtuConfig.GetRouteMTU(),
+		RoutePostEncryptMTU: s.mtuConfig.GetRoutePostEncryptMTU(),
+	}
 
 	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
 	err = tunnel.TunnelMap().OpenOrCreate()
@@ -185,19 +199,19 @@ func tearDownTest(tb testing.TB) {
 	require.NoError(tb, err)
 }
 
-func setupDummyDevice(name string, ips ...net.IP) error {
+func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
 	dummy := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: name,
 		},
 	}
 	if err := netlink.LinkAdd(dummy); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := netlink.LinkSetUp(dummy); err != nil {
 		removeDevice(name)
-		return err
+		return nil, err
 	}
 
 	for _, ip := range ips {
@@ -211,11 +225,22 @@ func setupDummyDevice(name string, ips ...net.IP) error {
 		addr := &netlink.Addr{IPNet: ipnet}
 		if err := netlink.AddrAdd(dummy, addr); err != nil {
 			removeDevice(name)
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		return nil, err
+	}
+	return &tables.Device{
+		Index:        link.Attrs().Index,
+		MTU:          link.Attrs().MTU,
+		Name:         name,
+		HardwareAddr: tables.HardwareAddr(link.Attrs().HardwareAddr),
+		Type:         "dummy",
+		Selected:     true,
+	}, nil
 }
 
 func removeDevice(name string) {
@@ -277,23 +302,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(t *testing.T) {
 	require.NotNil(t, ip6CIDR)
 
 	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler = newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	require.NotNil(t, linuxNodeHandler)
-	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv4: s.enableIPv4,
-		EnableIPv6: s.enableIPv6,
-		MtuConfig:  &s.mtuConfig,
-	}
+	nodeConfig := s.nodeConfigTemplate
 
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
@@ -337,26 +350,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 	net1 := cidr.MustParseCIDR("30.30.0.0/24")
 	net2 := cidr.MustParseCIDR("cafe:f00d::/112")
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	require.NotNil(t, linuxNodeHandler)
-	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv4:        s.enableIPv4,
-		EnableIPv6:        s.enableIPv6,
-		AuxiliaryPrefixes: []*cidr.CIDR{net1, net2},
-		MtuConfig:         &s.mtuConfig,
-	}
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net1, net2}
 
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
@@ -374,12 +373,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 	}
 
 	// remove aux prefix net2
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv4:        s.enableIPv4,
-		EnableIPv6:        s.enableIPv6,
-		AuxiliaryPrefixes: []*cidr.CIDR{net1},
-		MtuConfig:         &s.mtuConfig,
-	})
+	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net1}
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
@@ -395,12 +390,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 	}
 
 	// remove aux prefix net1, re-add net2
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv4:        s.enableIPv4,
-		EnableIPv6:        s.enableIPv6,
-		AuxiliaryPrefixes: []*cidr.CIDR{net2},
-		MtuConfig:         &s.mtuConfig,
-	})
+	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net2}
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
@@ -433,28 +424,13 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	externalNodeIP1 := net.ParseIP("4.4.4.4")
 	externalNodeIP2 := net.ParseIP("8.8.8.8")
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	require.NotNil(t, linuxNodeHandler)
 	linuxNodeHandler.OverrideEnableEncapsulation(override)
-	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-		EnableEncapsulation: encap,
-		MtuConfig:           &s.mtuConfig,
-	}
-
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableEncapsulation = encap
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
@@ -714,25 +690,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 
 	nodeMap := nodemapfake.NewFakeNodeMapV2()
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodeMap, &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodeMap, new(mockEnqueuer))
 
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(t, linuxNodeHandler)
-
-	err := linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv4: s.enableIPv4,
-		EnableIPv6: s.enableIPv6,
-		MtuConfig:  &s.mtuConfig,
-	})
+	nodeConfig := s.nodeConfigTemplate
+	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	// New node receives a node ID.
@@ -825,12 +787,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 
 	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
-	config := datapath.LocalNodeConfiguration{
-		EnableIPv4:  s.enableIPv4,
-		EnableIPv6:  s.enableIPv6,
-		EnableIPSec: true,
-		MtuConfig:   &s.mtuConfig,
-	}
+	config := s.nodeConfigTemplate
+	config.EnableIPSec = true
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 }
 
@@ -842,18 +800,15 @@ func TestNodeChurnXFRMLeaks(t *testing.T) {
 	externalNodeDevice := "ipsec_interface"
 
 	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
-	config := datapath.LocalNodeConfiguration{
-		EnableIPv4:  s.enableIPv4,
-		EnableIPSec: true,
-		MtuConfig:   &s.mtuConfig,
-	}
+	config := s.nodeConfigTemplate
+	config.EnableIPSec = true
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 
 	// In the case of subnet encryption (tested below), the IPsec logic
 	// retrieves the IP address of the encryption interface directly so we need
 	// a dummy interface.
 	removeDevice(externalNodeDevice)
-	err := setupDummyDevice(externalNodeDevice, net.ParseIP("1.1.1.1"), net.ParseIP("face::1"))
+	_, err := setupDummyDevice(externalNodeDevice, net.ParseIP("1.1.1.1"), net.ParseIP("face::1"))
 	require.NoError(t, err)
 	defer removeDevice(externalNodeDevice)
 	option.Config.EncryptInterface = []string{externalNodeDevice}
@@ -876,19 +831,8 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	_, _, err := ipsec.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(t, linuxNodeHandler)
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(t, err)
@@ -967,35 +911,23 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	externalNode1Device := "dummy_node1"
 	removeDevice(externalNode1Device)
-	err := setupDummyDevice(externalNode1Device, externalNode1IP4v1, net.ParseIP("face::1"))
+	dev1, err := setupDummyDevice(externalNode1Device, externalNode1IP4v1, net.ParseIP("face::1"))
 	require.NoError(t, err)
 	defer removeDevice(externalNode1Device)
 
 	externalNode2Device := "dummy_node2"
 	removeDevice(externalNode2Device)
-	err = setupDummyDevice(externalNode2Device, externalNode1IP4v2, net.ParseIP("face::2"))
+	dev2, err := setupDummyDevice(externalNode2Device, externalNode1IP4v2, net.ParseIP("face::2"))
 	require.NoError(t, err)
 	defer removeDevice(externalNode2Device)
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	require.NotNil(t, linuxNodeHandler)
-	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv4:              s.enableIPv4,
-		EnableIPv6:              s.enableIPv6,
-		EnableAutoDirectRouting: true,
-		MtuConfig:               &s.mtuConfig,
-	}
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
+	nodeConfig.EnableAutoDirectRouting = true
 
 	expectedIPv4Routes := 0
 	if s.enableIPv4 {
@@ -1203,25 +1135,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 	underlayIP := net.ParseIP("4.4.4.4")
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	require.NotNil(t, linuxNodeHandler)
-	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-		EnableEncapsulation: true,
-		MtuConfig:           &s.mtuConfig,
-	}
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableEncapsulation = true
 
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
@@ -1255,12 +1174,9 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	}
 
 	// Simulate agent restart with address families disables
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv6:          false,
-		EnableIPv4:          false,
-		EnableEncapsulation: true,
-		MtuConfig:           &s.mtuConfig,
-	})
+	nodeConfig.EnableIPv4 = false
+	nodeConfig.EnableIPv6 = false
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	// Simulate initial node addition
@@ -1274,12 +1190,9 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	require.Error(t, err)
 
 	// Simulate agent restart with address families enabled again
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-		EnableEncapsulation: true,
-		MtuConfig:           &s.mtuConfig,
-	})
+	nodeConfig.EnableIPv4 = true
+	nodeConfig.EnableIPv6 = true
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	// Simulate initial node addition
@@ -1324,18 +1237,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(t, linuxNodeHandler)
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	if s.enableIPv4 {
 		insertFakeRoute(t, linuxNodeHandler, ip4Alloc1)
@@ -1345,12 +1248,9 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 		insertFakeRoute(t, linuxNodeHandler, ip6Alloc1)
 	}
 
-	err := linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableEncapsulation: false,
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-		MtuConfig:           &s.mtuConfig,
-	})
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableEncapsulation = false
+	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	nodev1 := nodeTypes.Node{
@@ -1360,7 +1260,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			IP:   nodeConfig.NodeIPv4,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -1368,7 +1268,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			IP:   nodeConfig.NodeIPv6,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1
@@ -1494,30 +1394,14 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
 
-	var linuxNodeHandler *linuxNodeHandler
 	mq := new(mockEnqueuer)
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
-			mq.nh = linuxNodeHandler
-		}),
-	)
-	hive.AddConfigOverride(h, func(c *DevicesConfig) {
-		c.Devices = []string{"veth0"}
-	})
+	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
+	mq.nh = linuxNodeHandler
 
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(t, linuxNodeHandler)
-
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableEncapsulation: false,
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-	})
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableEncapsulation = false
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	// wait waits for neigh entry update or waits for removal if waitForDelete=true
@@ -2038,6 +1922,12 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)
 }
 
+func getDevice(tb testing.TB, name string) *tables.Device {
+	link, err := netlink.LinkByName(name)
+	require.NoError(tb, err, "LinkByName")
+	return &tables.Device{Index: link.Attrs().Index, Name: name, Selected: true}
+}
+
 func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 	s := setupLinuxPrivilegedIPv6OnlyTestSuite(t)
 	runtime.LockOSThread()
@@ -2256,29 +2146,18 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
 
 	mq := new(mockEnqueuer)
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
-			mq.nh = linuxNodeHandler
-		}),
-	)
-	hive.AddConfigOverride(h, func(c *DevicesConfig) {
-		c.Devices = []string{"veth0", "veth2", "veth4"}
-	})
+	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
+	mq.nh = linuxNodeHandler
 
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(t, linuxNodeHandler)
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableEncapsulation = false
+	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices),
+		getDevice(t, "veth0"),
+		getDevice(t, "veth2"),
+		getDevice(t, "veth4"))
 
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableEncapsulation: false,
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-	})
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	// wait waits for neigh entry update or waits for removal if waitForDelete=true
@@ -2542,25 +2421,16 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
 
 	mq := new(mockEnqueuer)
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
-			mq.nh = linuxNodeHandler
-		}),
-	)
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(t, linuxNodeHandler)
+	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
+	mq.nh = linuxNodeHandler
 
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableEncapsulation: false,
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-	})
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.Devices = []*tables.Device{
+		{Index: veth0.Attrs().Index, Name: "veth0", Selected: true},
+	}
+	nodeConfig.EnableEncapsulation = false
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	// wait waits for neigh entry update or waits for removal if waitForDelete=true
@@ -3300,29 +3170,17 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
 
 	mq := new(mockEnqueuer)
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
-			mq.nh = linuxNodeHandler
-		}),
-	)
-	hive.AddConfigOverride(h, func(c *DevicesConfig) {
-		c.Devices = []string{"veth0", "veth2", "veth4"}
-	})
+	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
+	mq.nh = linuxNodeHandler
 
-	tlog := hivetest.Logger(t)
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(t, linuxNodeHandler)
-
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableEncapsulation: false,
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-	})
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableEncapsulation = false
+	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices),
+		getDevice(t, "veth0"),
+		getDevice(t, "veth2"),
+		getDevice(t, "veth4"))
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
 	// wait waits for neigh entry update or waits for removal if waitForDelete=true
@@ -3543,18 +3401,8 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-	tlog := hivetest.Logger(b)
-	require.Nil(b, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(b, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(b, linuxNodeHandler)
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -3566,7 +3414,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			IP:   config.NodeIPv4,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -3574,7 +3422,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			IP:   config.NodeIPv6,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1
@@ -3587,7 +3435,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv4 {
 		nodev2.IPAddresses = append(nodev2.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			IP:   config.NodeIPv4,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev2.IPv4AllocCIDR = ip4Alloc2
@@ -3595,7 +3443,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv6 {
 		nodev2.IPAddresses = append(nodev2.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			IP:   config.NodeIPv6,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev2.IPv6AllocCIDR = ip6Alloc2
@@ -3649,18 +3497,8 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-	tlog := hivetest.Logger(b)
-	require.Nil(b, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(b, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(b, linuxNodeHandler)
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -3672,7 +3510,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			IP:   config.NodeIPv4,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -3680,7 +3518,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			IP:   config.NodeIPv6,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1
@@ -3727,18 +3565,8 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
-	var linuxNodeHandler *linuxNodeHandler
-	h := hive.New(
-		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
-			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = newNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
-		}),
-	)
-	tlog := hivetest.Logger(b)
-	require.Nil(b, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(b, h.Stop(tlog, context.TODO())) }()
-	require.NotNil(b, linuxNodeHandler)
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -3750,7 +3578,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			IP:   config.NodeIPv4,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -3758,7 +3586,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			IP:   config.NodeIPv6,
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1
@@ -3779,24 +3607,17 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 }
 
 func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementation(b *testing.B) {
-	s.benchmarkNodeValidateImplementation(b, datapath.LocalNodeConfiguration{
-		EnableIPv4: s.enableIPv4,
-		EnableIPv6: s.enableIPv6,
-	})
+	s.benchmarkNodeValidateImplementation(b, s.nodeConfigTemplate)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationEncap(b *testing.B) {
-	s.benchmarkNodeValidateImplementation(b, datapath.LocalNodeConfiguration{
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-		EnableEncapsulation: true,
-	})
+	config := s.nodeConfigTemplate
+	config.EnableEncapsulation = true
+	s.benchmarkNodeValidateImplementation(b, config)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationDirectRoute(b *testing.B) {
-	s.benchmarkNodeValidateImplementation(b, datapath.LocalNodeConfiguration{
-		EnableIPv4:              s.enableIPv4,
-		EnableIPv6:              s.enableIPv6,
-		EnableAutoDirectRouting: true,
-	})
+	config := s.nodeConfigTemplate
+	config.EnableAutoDirectRouting = true
+	s.benchmarkNodeValidateImplementation(b, config)
 }

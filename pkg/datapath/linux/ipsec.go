@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -32,7 +31,7 @@ func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
 	if option.Config.TunnelingEnabled() {
 		return n.datapathConfig.TunnelDevice
 	}
-	devices, _ := tables.SelectedDevices(n.devices, n.db.ReadTxn())
+	devices := n.nodeConfig.Devices
 	if len(devices) > 0 {
 		return devices[0].Name
 	}
@@ -169,12 +168,12 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	if newNode.IsLocal() {
 		if n.subnetEncryption() {
 			// FIXME: Remove the following four lines in Cilium v1.16
-			if localCIDR := n.nodeAddressing.IPv4().AllocationCIDR(); localCIDR != nil {
+			if localCIDR := n.nodeConfig.AllocCIDRIPv4; localCIDR != nil {
 				// This removes a bogus route that Cilium installed prior to v1.15
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
 		} else {
-			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
+			localCIDR := n.nodeConfig.AllocCIDRIPv4.IPNet
 			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
 		}
 	} else {
@@ -195,7 +194,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 		}
 		remoteIP := remoteCiliumInternalIP
 
-		localCiliumInternalIP := n.nodeAddressing.IPv4().Router()
+		localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
 		localIP := localCiliumInternalIP
 
 		if n.subnetEncryption() {
@@ -238,7 +237,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 				}
 			}
 		} else {
-			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
+			localCIDR := n.nodeConfig.AllocCIDRIPv4.IPNet
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 			if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
@@ -281,12 +280,12 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	if newNode.IsLocal() {
 		if n.subnetEncryption() {
 			// FIXME: Remove the following four lines in Cilium v1.16
-			if localCIDR := n.nodeAddressing.IPv6().AllocationCIDR(); localCIDR != nil {
+			if localCIDR := n.nodeConfig.AllocCIDRIPv6; localCIDR != nil {
 				// This removes a bogus route that Cilium installed prior to v1.15
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
 		} else {
-			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
+			localCIDR := n.nodeConfig.AllocCIDRIPv6.IPNet
 			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
 		}
 	} else {
@@ -307,7 +306,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 		}
 		remoteIP := remoteCiliumInternalIP
 
-		localCiliumInternalIP := n.nodeAddressing.IPv6().Router()
+		localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
 		localIP := localCiliumInternalIP
 
 		if n.subnetEncryption() {
@@ -345,7 +344,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 				}
 			}
 		} else {
-			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
+			localCIDR := n.nodeConfig.AllocCIDRIPv6.IPNet
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 			if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
@@ -430,7 +429,7 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 		Device:  n.datapathConfig.HostDevice,
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
-		MTU:     n.nodeConfig.MtuConfig.GetRoutePostEncryptMTU(),
+		MTU:     n.nodeConfig.RoutePostEncryptMTU,
 		Proto:   linux_defaults.RTProto,
 	}
 }

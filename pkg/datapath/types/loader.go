@@ -21,10 +21,12 @@ type Loader interface {
 	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
-	Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	Reinitialize(ctx context.Context, cfg LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
 	RestoreTemplates(stateDir string) error
 	DetachXDP(iface string, bpffsBase, progName string) error
+
+	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
 }
 
 // PreFilter an interface for an XDP pre-filter.

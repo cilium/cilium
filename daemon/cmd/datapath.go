@@ -36,12 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// LocalConfig returns the local configuration of the daemon's nodediscovery.
-func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
-	d.nodeDiscovery.WaitForLocalNodeInit()
-	return &d.nodeDiscovery.LocalConfig
-}
-
 // listFilterIfs returns a map of interfaces based on the given filter.
 // The filter should take a link and, if found, return the index of that
 // interface, if not found return -1.
