@@ -75,8 +75,10 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 
 		// Notify the goroutine of the params update.
 		select {
-		case ctrl.update <- ctrl.params:
-		default:
+		case ctrl.update <- ctrl.params: // Send if empty
+		default: // Overwrite if full
+			<-ctrl.update // Discard existing value
+			ctrl.update <- ctrl.params
 		}
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
