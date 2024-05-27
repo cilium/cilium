@@ -254,7 +254,36 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(devices, checker.DeepEquals, []string{"bond0", "dummy0", "dummy1", "dummy_v6", "veth0"})
 		option.Config.SetDevices([]string{})
 		dm.Stop()
+
+		// EnforceDeviceDetection enabled with specific devices
+		option.Config.SetDevices([]string{"dummy1"})
+		option.Config.EnforceDeviceDetection = true
+		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
+		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
+
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+		devices, err = dm.Detect(true)
+		c.Assert(err, IsNil)
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1"})
+		option.Config.SetDevices([]string{})
+		option.Config.DirectRoutingDevice = ""
+		dm.Stop()
+
+		// EnforceDeviceDetection disabled with specific devices
+		option.Config.SetDevices([]string{"dummy1"})
+		option.Config.EnforceDeviceDetection = false
+
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+		devices, err = dm.Detect(true)
+		c.Assert(err, IsNil)
+		c.Assert(devices, checker.DeepEquals, []string{"dummy1"})
+		option.Config.SetDevices([]string{})
+		option.Config.DirectRoutingDevice = ""
+		dm.Stop()
 	})
+
 }
 
 func (s *DevicesSuite) TestExpandDevices(c *C) {

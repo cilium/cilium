@@ -167,6 +167,7 @@ cilium-agent [flags]
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-queue-size int                                   Size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                                   Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
+      --enforce-device-detection                                  Enforces the auto-detection of devices, even if specific devices are explicitly listed
       --envoy-config-timeout duration                             Timeout duration for Envoy Config acknowledgements (default 2m0s)
       --envoy-log string                                          Path to a separate Envoy log file, if any
       --exclude-local-address strings                             Exclude CIDR from being recognized as local address

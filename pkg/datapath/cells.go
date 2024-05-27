@@ -114,7 +114,8 @@ var Cell = cell.Module(
 		// This is temporary until DevicesController takes ownership of the
 		// device-related configuration options.
 		return linuxdatapath.DevicesConfig{
-			Devices: cfg.GetDevices(),
+			Devices:                cfg.GetDevices(),
+			EnforceDeviceDetection: option.Config.EnforceDeviceDetection,
 		}
 	}),
 

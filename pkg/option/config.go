@@ -123,6 +123,9 @@ const (
 	// Devices facing cluster/external network for attaching bpf_host
 	Devices = "devices"
 
+	// Enforces the auto-detection of devices, even if specific devices are explicitly listed
+	EnforceDeviceDetection = "enforce-device-detection"
+
 	// DirectRoutingDevice is the name of a device used to connect nodes in
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"
@@ -2447,6 +2450,10 @@ type DaemonConfig struct {
 
 	// ServiceNoBackendResponse determines how we handle traffic to a service with no backends.
 	ServiceNoBackendResponse string
+
+	// EnforceDeviceDetection forces the auto-detection of devices,
+	// even if specific devices are explicitly listed
+	EnforceDeviceDetection bool
 }
 
 var (
@@ -2490,6 +2497,7 @@ var (
 		AllocatorListTimeout:            defaults.AllocatorListTimeout,
 		EnableICMPRules:                 defaults.EnableICMPRules,
 		UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
+		EnforceDeviceDetection:          defaults.EnforceDeviceDetection,
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
@@ -3564,6 +3572,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.UseCiliumInternalIPForIPsec = vp.GetBool(UseCiliumInternalIPForIPsec)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
+	c.EnforceDeviceDetection = vp.GetBool(EnforceDeviceDetection)
 
 	// Disable Envoy version check if L7 proxy is disabled.
 	c.DisableEnvoyVersionCheck = vp.GetBool(DisableEnvoyVersionCheck)

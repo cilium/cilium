@@ -1036,6 +1036,10 @@
      - Enable endpoint status. Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
      - object
      - ``{"enabled":false,"status":""}``
+   * - :spelling:ignore:`enforceDeviceDetection`
+     - Enforces the auto-detection of devices, even if specific devices are explicitly listed
+     - bool
+     - ``false``
    * - :spelling:ignore:`eni.awsEnablePrefixDelegation`
      - Enable ENI prefix delegation
      - bool

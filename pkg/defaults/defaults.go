@@ -557,6 +557,10 @@ const (
 
 	// EnableEnvoyConfig is the default value for option.EnableEnvoyConfig
 	EnableEnvoyConfig = false
+
+	// EnforceDevicesDetection enforces the auto-detection of devices,
+	// even if specific devices are explicitly listed
+	EnforceDeviceDetection = false
 )
 
 var (

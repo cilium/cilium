@@ -84,6 +84,9 @@ type DevicesConfig struct {
 	// If empty the devices are auto-detected according to rules defined
 	// by isSelectedDevice().
 	Devices []string
+	// EnforceDeviceDetection forces the auto-detection of devices,
+	// even if user-specific devices are explicitly listed.
+	EnforceDeviceDetection bool
 }
 
 type devicesControllerParams struct {
@@ -103,9 +106,10 @@ type devicesController struct {
 	params devicesControllerParams
 	log    logrus.FieldLogger
 
-	initialized    chan struct{}
-	filter         deviceFilter
-	l3DevSupported bool
+	initialized          chan struct{}
+	filter               deviceFilter
+	enforceAutoDetection bool
+	l3DevSupported       bool
 
 	// deadLinkIndexes tracks the set of links that have been deleted. This is needed
 	// to avoid processing route or address updates after a link delete as they may
@@ -121,11 +125,12 @@ func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*device
 		p.RouteTable,
 	)
 	dc := &devicesController{
-		params:          p,
-		initialized:     make(chan struct{}),
-		filter:          deviceFilter(p.Config.Devices),
-		log:             p.Log,
-		deadLinkIndexes: sets.New[int](),
+		params:               p,
+		initialized:          make(chan struct{}),
+		filter:               deviceFilter(p.Config.Devices),
+		enforceAutoDetection: p.Config.EnforceDeviceDetection,
+		log:                  p.Log,
+		deadLinkIndexes:      sets.New[int](),
 	}
 	lc.Append(dc)
 	return dc, p.DeviceTable, p.RouteTable
@@ -529,12 +534,15 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 	}
 
 	// If user specified devices or wildcards, then skip the device if it doesn't match.
-	// If the device does match, then skip further checks.
+	// If the device does match and user not requested auto detection, then skip further checks.
+	// If the device does match and user requested auto detection, then continue to further checks.
 	if dc.filter.nonEmpty() {
 		if dc.filter.match(d.Name) {
 			return true, ""
 		}
-		return false, fmt.Sprintf("not matching user filter %v", dc.filter)
+		if !dc.enforceAutoDetection {
+			return false, fmt.Sprintf("not matching user filter %v", dc.filter)
+		}
 	}
 
 	// Skip devices that have an excluded interface flag set.
