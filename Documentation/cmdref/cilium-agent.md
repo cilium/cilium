@@ -84,6 +84,7 @@ cilium-agent [flags]
       --debug-verbose strings                                     List of enabled verbose debug groups
       --devices strings                                           List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'
       --direct-routing-device string                              Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
+      --direct-routing-skip-unreachable                           Enable skipping L2 routes between nodes on different subnets
       --disable-endpoint-crd                                      Disable use of CiliumEndpoint CRD
       --disable-envoy-version-check                               Do not perform Envoy version check
       --disable-external-ip-mitigation                            Disable ExternalIP mitigation (CVE-2020-8554, default false)
