@@ -5,7 +5,6 @@ package clustermesh
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -25,62 +24,29 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
-type testNode struct {
-	// Name is the name of the node. This is typically the hostname of the node.
-	Name string
-
-	// Cluster is the name of the cluster the node is associated with
-	Cluster string
-}
-
-func (n *testNode) GetKeyName() string {
-	return path.Join(n.Cluster, n.Name)
-}
-
-func (n *testNode) DeepKeyCopy() store.LocalKey {
-	return &testNode{
-		Name:    n.Name,
-		Cluster: n.Cluster,
-	}
-}
-
-func (n *testNode) Marshal() ([]byte, error) {
-	return json.Marshal(n)
-}
-
-func (n *testNode) Unmarshal(_ string, data []byte) error {
-	return json.Unmarshal(data, n)
-}
-
-var testNodeCreator = func() store.Key {
-	n := testNode{}
-	return &n
-}
-
 type testObserver struct {
-	nodes      map[string]*testNode
+	nodes      map[string]*nodeTypes.Node
 	nodesMutex lock.RWMutex
 }
 
 func newNodesObserver() *testObserver {
-	return &testObserver{nodes: make(map[string]*testNode)}
+	return &testObserver{nodes: make(map[string]*nodeTypes.Node)}
 }
 
-func (o *testObserver) OnUpdate(k store.Key) {
-	n := k.(*testNode)
+func (o *testObserver) NodeUpdated(no nodeTypes.Node) {
 	o.nodesMutex.Lock()
-	o.nodes[n.GetKeyName()] = n
+	o.nodes[no.Fullname()] = &no
 	o.nodesMutex.Unlock()
 }
 
-func (o *testObserver) OnDelete(k store.NamedKey) {
-	n := k.(*testNode)
+func (o *testObserver) NodeDeleted(no nodeTypes.Node) {
 	o.nodesMutex.Lock()
-	delete(o.nodes, n.GetKeyName())
+	delete(o.nodes, no.Fullname())
 	o.nodesMutex.Unlock()
 }
 
@@ -143,7 +109,6 @@ func TestClusterMesh(t *testing.T) {
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
-		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          nodesObserver,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
@@ -202,7 +167,7 @@ func TestClusterMesh(t *testing.T) {
 
 	for _, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
 		for _, name := range nodeNames {
-			require.NoErrorf(t, nodesWSS.UpsertKey(ctx, &testNode{Name: name, Cluster: cluster}),
+			require.NoErrorf(t, nodesWSS.UpsertKey(ctx, &nodeTypes.Node{Name: name, Cluster: cluster}),
 				"Failed upserting node %s/%s into kvstore", cluster, name)
 		}
 	}
