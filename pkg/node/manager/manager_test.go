@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -854,32 +855,31 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 
 		done := make(chan struct{})
 		reattempt := make(chan struct{})
-		checkStatus := func() ([]types.Status, <-chan struct{}) {
+		checkStatus := func(old statedb.Revision) (types.Status, <-chan struct{}, statedb.Revision) {
 			tx := db.ReadTxn()
-			iter, watch := statusTable.All(tx)
-			var ss []types.Status
-			for {
-				s, _, ok := iter.Next()
-				if !ok {
-					break
-				}
-				ss = append(ss, s)
-			}
 
-			return ss, watch
+			id := types.Identifier{
+				Module:    cell.FullModuleID{"node_manager"},
+				Component: []string{"background-sync"},
+			}
+			for {
+				ss, cur, watch, _ := statusTable.GetWatch(tx, health.PrimaryIndex.Query(id.HealthID()))
+				if cur != old {
+					return ss, watch, cur
+				}
+				<-watch
+			}
 		}
 		go func() {
-			ss, watch := checkStatus()
-			assert.Len(ss, 0)
+			status, watch, rev := checkStatus(99)
+			assert.Equal(types.Level(""), status.Level)
 			<-watch
-			ss, watch = checkStatus()
-			assert.Len(ss, 1)
-			assert.Equal(types.LevelDegraded, string(ss[0].Level))
+			status, watch, rev = checkStatus(rev)
+			assert.Equal(types.LevelDegraded, string(status.Level))
 			close(reattempt)
 			<-watch
-			ss, _ = checkStatus()
-			assert.Len(ss, 1)
-			assert.Equal(types.LevelOK, string(ss[0].Level))
+			status, _, _ = checkStatus(rev)
+			assert.Equal(types.LevelOK, string(status.Level))
 		}()
 		go func() {
 			<-nh1.NodeValidateImplementationEvent
