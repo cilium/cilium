@@ -72,6 +72,15 @@ type GetHealthzParams struct {
 	*/
 	Brief *bool
 
+	/* RequireK8sConnectivity.
+
+	   If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
+
+
+	   Default: true
+	*/
+	RequireK8sConnectivity *bool
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -89,7 +98,18 @@ func (o *GetHealthzParams) WithDefaults() *GetHealthzParams {
 //
 // All values with no default are reset to their zero value.
 func (o *GetHealthzParams) SetDefaults() {
-	// no default values defined for this parameter
+	var (
+		requireK8sConnectivityDefault = bool(true)
+	)
+
+	val := GetHealthzParams{
+		RequireK8sConnectivity: &requireK8sConnectivityDefault,
+	}
+
+	val.timeout = o.timeout
+	val.Context = o.Context
+	val.HTTPClient = o.HTTPClient
+	*o = val
 }
 
 // WithTimeout adds the timeout to the get healthz params
@@ -136,6 +156,17 @@ func (o *GetHealthzParams) SetBrief(brief *bool) {
 	o.Brief = brief
 }
 
+// WithRequireK8sConnectivity adds the requireK8sConnectivity to the get healthz params
+func (o *GetHealthzParams) WithRequireK8sConnectivity(requireK8sConnectivity *bool) *GetHealthzParams {
+	o.SetRequireK8sConnectivity(requireK8sConnectivity)
+	return o
+}
+
+// SetRequireK8sConnectivity adds the requireK8sConnectivity to the get healthz params
+func (o *GetHealthzParams) SetRequireK8sConnectivity(requireK8sConnectivity *bool) {
+	o.RequireK8sConnectivity = requireK8sConnectivity
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -148,6 +179,14 @@ func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 
 		// header param brief
 		if err := r.SetHeaderParam("brief", swag.FormatBool(*o.Brief)); err != nil {
+			return err
+		}
+	}
+
+	if o.RequireK8sConnectivity != nil {
+
+		// header param require-k8s-connectivity
+		if err := r.SetHeaderParam("require-k8s-connectivity", swag.FormatBool(*o.RequireK8sConnectivity)); err != nil {
 			return err
 		}
 	}
