@@ -123,7 +123,6 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	int ret;
 
 	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
-	*ext_err = (__s8)ret;
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
@@ -131,8 +130,9 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 		if ((__u32)oif == fib_params->l.ifindex)
 			return CTX_ACT_OK;
 
-		return fib_do_redirect(ctx, true, fib_params, true, ext_err, &oif);
+		return fib_do_redirect(ctx, true, fib_params, true, ret, &oif, ext_err);
 	default:
+		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 }
