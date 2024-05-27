@@ -6,12 +6,12 @@
 
 .. _bgp_control_plane_v1:
 
-BGP Peering Policy
-##################
+BGP Peering Policy ( Legacy )
+#############################
 
 .. warning::
     ``CiliumBGPPeeringPolicy`` will be discontinued in future. Consider
-    using new :ref:`BGP APIs <bgp_control_plane_v2>` to configure the BGP Control Plane.
+    using the new :ref:`BGP APIs <bgp_control_plane_v2>` to configure the BGP Control Plane.
 
 Configure Peering
 -----------------
