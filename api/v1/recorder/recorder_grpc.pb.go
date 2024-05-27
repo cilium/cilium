@@ -18,8 +18,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	Recorder_Record_FullMethodName = "/recorder.Recorder/Record"
@@ -28,6 +28,8 @@ const (
 // RecorderClient is the client API for Recorder service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Recorder implements the Hubble module for capturing network packets
 type RecorderClient interface {
 	// Record can start and stop a single recording. The recording is
 	// automatically stopped if the client aborts this rpc call.
@@ -43,11 +45,12 @@ func NewRecorderClient(cc grpc.ClientConnInterface) RecorderClient {
 }
 
 func (c *recorderClient) Record(ctx context.Context, opts ...grpc.CallOption) (Recorder_RecordClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Recorder_ServiceDesc.Streams[0], Recorder_Record_FullMethodName, opts...)
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Recorder_ServiceDesc.Streams[0], Recorder_Record_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &recorderRecordClient{stream}
+	x := &recorderRecordClient{ClientStream: stream}
 	return x, nil
 }
 
@@ -76,6 +79,8 @@ func (x *recorderRecordClient) Recv() (*RecordResponse, error) {
 // RecorderServer is the server API for Recorder service.
 // All implementations should embed UnimplementedRecorderServer
 // for forward compatibility
+//
+// Recorder implements the Hubble module for capturing network packets
 type RecorderServer interface {
 	// Record can start and stop a single recording. The recording is
 	// automatically stopped if the client aborts this rpc call.
@@ -102,7 +107,7 @@ func RegisterRecorderServer(s grpc.ServiceRegistrar, srv RecorderServer) {
 }
 
 func _Recorder_Record_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(RecorderServer).Record(&recorderRecordServer{stream})
+	return srv.(RecorderServer).Record(&recorderRecordServer{ServerStream: stream})
 }
 
 type Recorder_RecordServer interface {

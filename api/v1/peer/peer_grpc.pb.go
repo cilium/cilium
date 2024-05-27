@@ -18,8 +18,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	Peer_Notify_FullMethodName = "/peer.Peer/Notify"
@@ -28,6 +28,8 @@ const (
 // PeerClient is the client API for Peer service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Peer lists  hubble peers and notifies of changes.
 type PeerClient interface {
 	// Notify sends information about hubble peers in the cluster.
 	// When Notify is called, it sends information about all the peers that are
@@ -45,11 +47,12 @@ func NewPeerClient(cc grpc.ClientConnInterface) PeerClient {
 }
 
 func (c *peerClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (Peer_NotifyClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Peer_ServiceDesc.Streams[0], Peer_Notify_FullMethodName, opts...)
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Peer_ServiceDesc.Streams[0], Peer_Notify_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &peerNotifyClient{stream}
+	x := &peerNotifyClient{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -79,6 +82,8 @@ func (x *peerNotifyClient) Recv() (*ChangeNotification, error) {
 // PeerServer is the server API for Peer service.
 // All implementations should embed UnimplementedPeerServer
 // for forward compatibility
+//
+// Peer lists  hubble peers and notifies of changes.
 type PeerServer interface {
 	// Notify sends information about hubble peers in the cluster.
 	// When Notify is called, it sends information about all the peers that are
@@ -111,7 +116,7 @@ func _Peer_Notify_Handler(srv interface{}, stream grpc.ServerStream) error {
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(PeerServer).Notify(m, &peerNotifyServer{stream})
+	return srv.(PeerServer).Notify(m, &peerNotifyServer{ServerStream: stream})
 }
 
 type Peer_NotifyServer interface {
