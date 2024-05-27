@@ -8,6 +8,7 @@ type Options struct {
 	MaxSendBufferSize       int
 	WithoutTLSInfo          bool
 	AddressFamilyPreference AddressFamilyPreference
+	HubblePort              int
 }
 
 // Option customizes the peer service's configuration.
@@ -54,5 +55,12 @@ func WithoutTLSInfo() Option {
 func WithAddressFamilyPreference(pref AddressFamilyPreference) Option {
 	return func(o *Options) {
 		o.AddressFamilyPreference = pref
+	}
+}
+
+// WithHubblePort configures port used in the address field of change notifications.
+func WithHubblePort(port int) Option {
+	return func(o *Options) {
+		o.HubblePort = port
 	}
 }
