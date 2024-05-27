@@ -67,8 +67,8 @@ func startKvstoreWatchdog() {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity garbage collection")
 	}
 
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity())
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity())
+	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
+	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
 	a := allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	keysToDelete := map[string]kvstore.Value{}

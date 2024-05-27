@@ -166,8 +166,8 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	log.Info("Initializing identity allocator")
 
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity())
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity())
+	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
+	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
 
 	log.WithFields(map[string]interface{}{
 		"min":        minID,

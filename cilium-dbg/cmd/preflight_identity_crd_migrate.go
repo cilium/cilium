@@ -230,8 +230,8 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset, resources agent
 	//
 	// FIXME: add options to handle clustermesh with this constructor parameter:
 	//    allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity())
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity())
+	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
+	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
 	crdAllocator, err = allocator.NewAllocator(&cacheKey.GlobalIdentity{}, crdBackend,
 		allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
