@@ -245,8 +245,9 @@ func deleteTunnelMapping(oldCIDR cmtypes.PrefixCluster, quietMode bool) error {
 	return nil
 }
 
-func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
+func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP, skipUnreachable bool) (routeSpec *netlink.Route, addRoute bool, err error) {
 	var routes []netlink.Route
+	addRoute = true
 
 	routeSpec = &netlink.Route{
 		Dst:      CIDR.IPNet,
@@ -266,8 +267,17 @@ func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.R
 	}
 
 	if routes[0].Gw != nil && !routes[0].Gw.IsUnspecified() && !routes[0].Gw.Equal(nodeIP) {
-		err = fmt.Errorf("route to destination %s contains gateway %s, must be directly reachable",
-			nodeIP, routes[0].Gw.String())
+		if skipUnreachable {
+			log.WithFields(logrus.Fields{
+				"nodeIP":  nodeIP,
+				"gateway": routes[0].Gw.String(),
+			}).Warningf("route to destination %s contains gateway %s, skipping route as not directly reachable",
+				nodeIP, routes[0].Gw.String())
+			addRoute = false
+		} else {
+			err = fmt.Errorf("route to destination %s contains gateway %s, must be directly reachable. Add `direct-node-routes-skip-unreachable` to skip unreachable routes",
+				nodeIP, routes[0].Gw.String())
+		}
 		return
 	}
 
@@ -307,17 +317,19 @@ func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.R
 	return
 }
 
-func installDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
-	routeSpec, err = createDirectRouteSpec(CIDR, nodeIP)
+func installDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP, skipUnreachable bool) (routeSpec *netlink.Route, err error) {
+	routeSpec, addRoute, err := createDirectRouteSpec(CIDR, nodeIP, skipUnreachable)
 	if err != nil {
 		return
 	}
 
-	err = netlink.RouteReplace(routeSpec)
+	if addRoute {
+		err = netlink.RouteReplace(routeSpec)
+	}
 	return
 }
 
-func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []*cidr.CIDR, oldIP, newIP net.IP, firstAddition, directRouteEnabled bool) error {
+func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []*cidr.CIDR, oldIP, newIP net.IP, firstAddition, directRouteEnabled bool, directRouteSkipUnreachable bool) error {
 
 	if !directRouteEnabled {
 		// When the protocol family is disabled, the initial node addition will
@@ -347,7 +359,7 @@ func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []*cidr.CIDR, o
 	}).Debug("Updating direct route")
 
 	for _, cidr := range addedCIDRs {
-		if routeSpec, err := installDirectRoute(cidr, newIP); err != nil {
+		if routeSpec, err := installDirectRoute(cidr, newIP, directRouteSkipUnreachable); err != nil {
 			log.WithError(err).Warningf("Unable to install direct node route %s", routeSpec.String())
 			// In the current implementation, this often fails because updates are tried for both ip families
 			// regardless if the Node has either ip types.
@@ -1001,10 +1013,10 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(newNode) {
-		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4); err != nil {
+		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv4: %w", err))
 		}
-		if err := n.updateDirectRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6); err != nil {
+		if err := n.updateDirectRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv6: %w", err))
 		}
 		return errs

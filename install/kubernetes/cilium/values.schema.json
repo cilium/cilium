@@ -1513,6 +1513,9 @@
       },
       "type": "object"
     },
+    "directRoutingSkipUnreachable": {
+      "type": "boolean"
+    },
     "disableEndpointCRD": {
       "type": "boolean"
     },

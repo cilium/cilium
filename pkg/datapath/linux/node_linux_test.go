@@ -959,7 +959,7 @@ func countXFRMPolicies(policies []netlink.XfrmPolicy) int {
 }
 
 func lookupDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) ([]netlink.Route, error) {
-	routeSpec, err := createDirectRouteSpec(CIDR, nodeIP)
+	routeSpec, _, err := createDirectRouteSpec(CIDR, nodeIP, false)
 	if err != nil {
 		return nil, err
 	}
