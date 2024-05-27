@@ -53,19 +53,21 @@ Installation
 IPv4/IPv6 single-stack and dual-stack setup are supported. Note that the BGP
 Control Plane can only advertise the route of the address family that the
 Cilium is configured to use. You cannot advertise IPv4 routes when the Cilium
-Agent is configured to use only IPv6 address family. The opposite is also true.
+Agent is configured to use only IPv6 address family. Conversely, you cannot advertise
+IPv6 routes when Cilium Agent is configured to use only IPv4 address family.
 
 Configuring BGP Control Plane
 -----------------------------
 
-There are two ways to configure the BGP Control Plane. Using ``CiliumBGPPeeringPolicies`` resource,
+There are two ways to configure the BGP Control Plane. Using legacy ``CiliumBGPPeeringPolicy`` resource,
 or using newer BGP resources like ``CiliumBGPClusterConfig``. Currently, both configuration options are
-supported, however ``CiliumBGPPeeringPolicy`` will be deprecated in the near future.
+supported, however ``CiliumBGPPeeringPolicy`` will be deprecated in the future.
 
 .. toctree::
     :maxdepth: 2
     :glob:
 
+    bgp-control-plane-v2
     bgp-control-plane-v1
 
 Troubleshooting and Operation Guide
