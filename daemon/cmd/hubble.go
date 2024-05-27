@@ -6,7 +6,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 
 	"github.com/go-openapi/strfmt"
@@ -86,6 +88,18 @@ func (d *Daemon) getHubbleStatus(ctx context.Context) *models.HubbleStatus {
 	}
 
 	return hubbleStatus
+}
+
+func getPort(addr string) (int, error) {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, fmt.Errorf("parse host address and port: %w", err)
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return 0, fmt.Errorf("parse port number: %w", err)
+	}
+	return portNum, nil
 }
 
 func (d *Daemon) launchHubble() {
@@ -271,6 +285,14 @@ func (d *Daemon) launchHubble() {
 	}
 	if option.Config.HubblePreferIpv6 {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithAddressFamilyPreference(serviceoption.AddressPreferIPv6))
+	}
+	if addr := option.Config.HubbleListenAddress; addr != "" {
+		port, err := getPort(option.Config.HubbleListenAddress)
+		if err != nil {
+			logger.WithError(err).WithField("address", addr).Warn("Hubble server will not pass port information in change notificantions on exposed Hubble peer service")
+		} else {
+			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
+		}
 	}
 	peerSvc := peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
