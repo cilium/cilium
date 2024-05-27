@@ -23,9 +23,9 @@ func TestWrap(t *testing.T) {
 	cfg := configWriterForTest(t)
 
 	// Write the configuration that should be the same, and verify it is.
-	err := cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
+	err := cfg.WriteTemplateConfig(&realEPBuffer, &localNodeConfig, &realEP)
 	require.NoError(t, err)
-	err = cfg.WriteTemplateConfig(&templateBuffer, template)
+	err = cfg.WriteTemplateConfig(&templateBuffer, &localNodeConfig, template)
 	require.NoError(t, err)
 	require.Equal(t, realEPBuffer.String(), templateBuffer.String())
 
@@ -35,9 +35,9 @@ func TestWrap(t *testing.T) {
 	// define every bit of static data differently in the templates.
 	realEPBuffer.Reset()
 	templateBuffer.Reset()
-	err = cfg.WriteEndpointConfig(&realEPBuffer, &realEP)
+	err = cfg.WriteEndpointConfig(&realEPBuffer, &localNodeConfig, &realEP)
 	require.NoError(t, err)
-	err = cfg.WriteEndpointConfig(&templateBuffer, template)
+	err = cfg.WriteEndpointConfig(&templateBuffer, &localNodeConfig, template)
 	require.NoError(t, err)
 
 	require.NotEqual(t, realEPBuffer.String(), templateBuffer.String())

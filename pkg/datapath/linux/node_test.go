@@ -24,12 +24,20 @@ import (
 )
 
 var (
+	fakeNodeAddressing = fakeTypes.NewNodeAddressing()
+
+	nodeConfig = datapath.LocalNodeConfiguration{
+		NodeIPv4:            fakeNodeAddressing.IPv4().PrimaryExternal(),
+		NodeIPv6:            fakeNodeAddressing.IPv6().PrimaryExternal(),
+		CiliumInternalIPv4:  fakeNodeAddressing.IPv4().Router(),
+		CiliumInternalIPv6:  fakeNodeAddressing.IPv6().Router(),
+		DeviceMTU:           mtuConfig.GetDeviceMTU(),
+		RouteMTU:            mtuConfig.GetRouteMTU(),
+		RoutePostEncryptMTU: mtuConfig.GetRoutePostEncryptMTU(),
+	}
 	mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 100, net.IP("1.1.1.1"))
 	nh        = linuxNodeHandler{
-		nodeConfig: datapath.LocalNodeConfiguration{
-			MtuConfig: &mtuConfig,
-		},
-		nodeAddressing: fakeTypes.NewNodeAddressing(),
+		nodeConfig: nodeConfig,
 		datapathConfig: DatapathConfiguration{
 			HostDevice: "host_device",
 		},
@@ -73,9 +81,8 @@ func TestCreateNodeRoute(t *testing.T) {
 		HostDevice: "host_device",
 	}
 
-	fakeNodeAddressing := fakeTypes.NewNodeAddressing()
-
-	nodeHandler := newNodeHandler(dpConfig, fakeNodeAddressing, nil, &mtuConfig, new(mockEnqueuer), nil, nil)
+	nodeHandler := newNodeHandler(dpConfig, nil, new(mockEnqueuer))
+	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.createNodeRouteSpec(c1, false)

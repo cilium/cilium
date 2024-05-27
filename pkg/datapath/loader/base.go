@@ -28,7 +28,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -58,7 +57,7 @@ func (l *loader) writeNetdevHeader(dir string) error {
 	return nil
 }
 
-func (l *loader) writeNodeConfigHeader() error {
+func (l *loader) writeNodeConfigHeader(cfg *datapath.LocalNodeConfiguration) error {
 	nodeConfigPath := option.Config.GetNodeConfigPath()
 	f, err := os.Create(nodeConfigPath)
 	if err != nil {
@@ -66,7 +65,7 @@ func (l *loader) writeNodeConfigHeader() error {
 	}
 	defer f.Close()
 
-	if err = l.templateCache.WriteNodeConfig(f, &l.localNodeConfig); err != nil {
+	if err = l.templateCache.WriteNodeConfig(f, cfg); err != nil {
 		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
 	}
 	return nil
@@ -306,12 +305,9 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
 func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
-	// TODO: react to changes (using the currently ignored watch channel)
-	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-	devices := tables.DeviceNames(nativeDevices)
-
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
+	devices := l.nodeConfig.Load().DeviceNames()
 	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
 }
 
@@ -319,7 +315,7 @@ func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -332,14 +328,16 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 
-	l.init()
+	// Store the new LocalNodeConfiguration
+	l.nodeConfig.Store(&cfg)
+	l.initTemplateCache(&cfg)
 
-	var nodeIPv4, nodeIPv6 net.IP
+	var internalIPv4, internalIPv6 net.IP
 	if option.Config.EnableIPv4 {
-		nodeIPv4 = node.GetInternalIPv4Router()
+		internalIPv4 = cfg.CiliumInternalIPv4
 	}
 	if option.Config.EnableIPv6 {
-		nodeIPv6 = node.GetIPv6Router()
+		internalIPv6 = cfg.CiliumInternalIPv6
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
@@ -348,7 +346,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	}
 
 	// Datapath initialization
-	hostDev1, _, err := setupBaseDevice(l.sysctl, deviceMTU)
+	hostDev1, _, err := setupBaseDevice(l.sysctl, cfg.DeviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
@@ -365,7 +363,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 		}
 	}
 
-	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), deviceMTU); err != nil {
+	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), cfg.DeviceMTU); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
 	}
 
@@ -382,19 +380,18 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 	}
 
 	// add internal ipv4 and ipv6 addresses to cilium_host
-	if err := addHostDeviceAddr(hostDev1, nodeIPv4, nodeIPv6); err != nil {
+	if err := addHostDeviceAddr(hostDev1, internalIPv4, internalIPv6); err != nil {
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
 
-	// TODO: react to changes (using the currently ignored watch channel)
-	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-	devices := tables.DeviceNames(nativeDevices)
+	devices := cfg.DeviceNames()
+
 	if err := cleanIngressQdisc(devices); err != nil {
 		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
 		return err
 	}
 
-	if err := l.writeNodeConfigHeader(); err != nil {
+	if err := l.writeNodeConfigHeader(&cfg); err != nil {
 		log.WithError(err).Error("Unable to write node config header")
 		return err
 	}
@@ -458,7 +455,7 @@ func (l *loader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, d
 		return err
 	}
 
-	if err := l.nodeHandler.NodeConfigurationChanged(l.localNodeConfig); err != nil {
+	if err := l.nodeHandler.NodeConfigurationChanged(cfg); err != nil {
 		return err
 	}
 

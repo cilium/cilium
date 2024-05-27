@@ -11,11 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/statedb"
-
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	fakeNodeMap "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -27,30 +26,30 @@ func TestObjectCache(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	cache := newObjectCache(configWriterForTest(t), nil, tmpDir)
+	cache := newObjectCache(configWriterForTest(t), &localNodeConfig, tmpDir)
 	realEP := testutils.NewTestEndpoint()
 
 	dir := getDirs(t)
 
 	// First run should compile and generate the object.
-	_, isNew, err := cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, true)
 
 	// Same EP should not be compiled twice.
-	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err = cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, false)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
-	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err = cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, false)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
-	_, isNew, err = cache.fetchOrCompile(ctx, &realEP, dir, nil)
+	_, isNew, err = cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, isNew, true)
 }
@@ -108,13 +107,13 @@ func TestObjectCacheParallel(t *testing.T) {
 		t.Logf("  %s", test.description)
 
 		results := make(chan buildResult, test.builds)
-		cache := newObjectCache(configWriterForTest(t), nil, tmpDir)
+		cache := newObjectCache(configWriterForTest(t), &localNodeConfig, tmpDir)
 		for i := 0; i < test.builds; i++ {
 			go func(i int) {
 				ep := testutils.NewTestEndpoint()
 				opt := fmt.Sprintf("OPT%d", i/test.divisor)
 				ep.Opts.SetBool(opt, true)
-				file, isNew, err := cache.fetchOrCompile(ctx, &ep, getDirs(t), nil)
+				file, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &ep, getDirs(t), nil)
 				path := ""
 				if file != nil {
 					path = file.Name()
@@ -158,17 +157,10 @@ func TestObjectCacheParallel(t *testing.T) {
 func configWriterForTest(t testing.TB) types.ConfigWriter {
 	t.Helper()
 
-	devices, err := tables.NewDeviceTable()
-	if err != nil {
-		t.Fatalf("failed to create device table: %v", err)
-	}
-	db := statedb.New()
-	if err := db.RegisterTable(devices); err != nil {
-		t.Fatalf("failed to register devices: %v", err)
-	}
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB:      db,
-		Devices: devices,
+		NodeMap:        fakeNodeMap.NewFakeNodeMapV2(),
+		NodeAddressing: fakeTypes.NewNodeAddressing(),
+		Sysctl:         nil,
 	})
 	if err != nil {
 		t.Fatalf("failed to create header file writer: %v", err)

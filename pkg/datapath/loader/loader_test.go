@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -203,39 +202,40 @@ func TestBPFMasqAddrs(t *testing.T) {
 	})
 
 	l := newTestLoader(t)
-	nodeAddrs := l.nodeAddrs.(statedb.RWTable[tables.NodeAddress])
-	db := l.db
 
 	masq4, masq6 := l.bpfMasqAddrs("test")
 	require.Equal(t, masq4.IsValid(), false)
 	require.Equal(t, masq6.IsValid(), false)
 
-	txn := db.WriteTxn(nodeAddrs)
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("1.0.0.1"),
-		NodePort:   true,
-		Primary:    true,
-		DeviceName: "test",
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("1000::1"),
-		NodePort:   true,
-		Primary:    true,
-		DeviceName: "test",
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("2.0.0.2"),
-		NodePort:   false,
-		Primary:    true,
-		DeviceName: tables.WildcardDeviceName,
-	})
-	nodeAddrs.Insert(txn, tables.NodeAddress{
-		Addr:       netip.MustParseAddr("2000::2"),
-		NodePort:   false,
-		Primary:    true,
-		DeviceName: tables.WildcardDeviceName,
-	})
-	txn.Commit()
+	newConfig := *l.nodeConfig.Load()
+
+	newConfig.NodeAddresses = []tables.NodeAddress{
+		{
+			Addr:       netip.MustParseAddr("1.0.0.1"),
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "test",
+		},
+		{
+			Addr:       netip.MustParseAddr("1000::1"),
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "test",
+		},
+		{
+			Addr:       netip.MustParseAddr("2.0.0.2"),
+			NodePort:   false,
+			Primary:    true,
+			DeviceName: tables.WildcardDeviceName,
+		},
+		{
+			Addr:       netip.MustParseAddr("2000::2"),
+			NodePort:   false,
+			Primary:    true,
+			DeviceName: tables.WildcardDeviceName,
+		},
+	}
+	l.nodeConfig.Store(&newConfig)
 
 	masq4, masq6 = l.bpfMasqAddrs("test")
 	require.Equal(t, masq4.String(), "1.0.0.1")

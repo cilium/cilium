@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/controller"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -42,9 +41,6 @@ import (
 )
 
 const (
-	// AutoCIDR indicates that a CIDR should be allocated
-	AutoCIDR = "auto"
-
 	nodeDiscoverySubsys = "nodediscovery"
 	maxRetryCount       = 10
 )
@@ -66,7 +62,6 @@ type GetNodeAddresses interface {
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	Manager               nodemanager.NodeManager
-	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
 	Registered            chan struct{}
 	localStateInitialized chan struct{}
@@ -82,12 +77,10 @@ func NewNodeDiscovery(
 	manager nodemanager.NodeManager,
 	clientset client.Clientset,
 	lns *node.LocalNodeStore,
-	localConfig datapath.LocalNodeConfiguration,
 	cniConfigManager cni.CNIConfigManager,
 ) *NodeDiscovery {
 	return &NodeDiscovery{
 		Manager:               manager,
-		LocalConfig:           localConfig,
 		localNodeStore:        lns,
 		Registered:            make(chan struct{}),
 		localStateInitialized: make(chan struct{}),
@@ -349,9 +342,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 			// b) the LocalNode store contains an IP address which we can use instead
 			switch net.IPFamilyOfString(address.IP) {
 			case net.IPv4:
-				return !n.LocalConfig.EnableIPv4 || ln.GetCiliumInternalIP(false) != nil
+				return !option.Config.EnableIPv4 || ln.GetCiliumInternalIP(false) != nil
 			case net.IPv6:
-				return !n.LocalConfig.EnableIPv6 || ln.GetCiliumInternalIP(true) != nil
+				return !option.Config.EnableIPv6 || ln.GetCiliumInternalIP(true) != nil
 			}
 		}
 

@@ -8,26 +8,26 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cilium/statedb"
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/tables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func setupLocalNodeStore(tb testing.TB) {
-	node.SetTestLocalNodeStore()
-	node.InitDefaultPrefix("")
-	node.SetInternalIPv4Router(templateIPv4[:])
-	node.SetIPv4Loopback(templateIPv4[:])
-	tb.Cleanup(node.UnsetTestLocalNodeStore)
-}
+var (
+	localNodeConfig = datapath.LocalNodeConfiguration{
+		NodeIPv4:           templateIPv4[:],
+		CiliumInternalIPv4: templateIPv4[:],
+		AllocCIDRIPv4:      cidr.MustParseCIDR("10.147.0.0/16"),
+		LoopbackIPv4:       templateIPv4[:],
+		HostEndpointID:     1,
+		EnableIPv4:         true,
+	}
+)
 
 func setupCompilationDirectories(tb testing.TB) {
 	option.Config.DryMode = true
@@ -58,19 +58,13 @@ func setupCompilationDirectories(tb testing.TB) {
 
 func newTestLoader(tb testing.TB) *loader {
 	setupCompilationDirectories(tb)
-	nodeAddrs, err := tables.NewNodeAddressTable()
-	require.NoError(tb, err, "NewNodeAddressTable")
-	devices, err := tables.NewDeviceTable()
-	require.NoError(tb, err, "NewDeviceTable")
-	db := statedb.New()
-	require.NoError(tb, db.RegisterTable(nodeAddrs, devices), "RegisterTable")
+
 	l := newLoader(Params{
-		Config:    DefaultConfig,
-		DB:        db,
-		NodeAddrs: nodeAddrs,
-		Sysctl:    sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		Devices:   devices,
+		Config: DefaultConfig,
+		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
-	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tb.TempDir())
+	l.nodeConfig.Store(&localNodeConfig)
+	cw := configWriterForTest(tb)
+	l.templateCache = newObjectCache(cw, &localNodeConfig, tb.TempDir())
 	return l
 }
