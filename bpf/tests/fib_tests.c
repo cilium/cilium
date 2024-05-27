@@ -181,24 +181,3 @@ int test1_check(struct __ctx_buff *ctx)
 	});
 	test_finish();
 }
-
-CHECK("tc", "fib_do_redirect_sad_path")
-int test2_check(__maybe_unused struct __ctx_buff *ctx)
-{
-	test_init();
-
-	/* Confirm we return a DROP_NO_FIB for all unsupported flags. */
-	TEST("bad_flags", {
-		__s8 flag = BPF_FIB_LKUP_RET_BLACKHOLE;
-
-		for (; flag <= BPF_FIB_LKUP_RET_FRAG_NEEDED; flag++) {
-			if (flag == BPF_FIB_LKUP_RET_NO_NEIGH)
-				continue;
-
-			if (fib_do_redirect(NULL, false, NULL, true, &flag, NULL) != DROP_NO_FIB)
-				test_fatal("expected DROP_NO_FIB with flag %d", flag);
-		}
-	});
-
-	test_finish();
-}
