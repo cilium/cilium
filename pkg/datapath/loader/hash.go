@@ -53,7 +53,7 @@ func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigurat
 		_ = c.WriteNetdevConfig(d, option.Config.Opts)
 	}
 	if epCfg != nil {
-		_ = c.WriteTemplateConfig(d, epCfg)
+		_ = c.WriteTemplateConfig(d, nodeCfg, epCfg)
 	}
 
 	return d
@@ -61,15 +61,15 @@ func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigurat
 
 // sumEndpoint returns the hash of the complete datapath for an endpoint.
 // It does not change the underlying hash state.
-func (d *datapathHash) sumEndpoint(c datapath.ConfigWriter, epCfg datapath.EndpointConfiguration, staticData bool) (string, error) {
+func (d *datapathHash) sumEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg datapath.EndpointConfiguration, staticData bool) (string, error) {
 	result, err := d.Copy()
 	if err != nil {
 		return "", err
 	}
 	if staticData {
-		c.WriteEndpointConfig(result, epCfg)
+		c.WriteEndpointConfig(result, nodeCfg, epCfg)
 	} else {
-		c.WriteTemplateConfig(result, epCfg)
+		c.WriteTemplateConfig(result, nodeCfg, epCfg)
 	}
 	return result.String(), nil
 }

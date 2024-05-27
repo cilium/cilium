@@ -6,14 +6,15 @@ package loader
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -70,6 +71,8 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 type loader struct {
 	cfg Config
 
+	nodeConfig atomic.Pointer[datapath.LocalNodeConfiguration]
+
 	once sync.Once
 
 	// templateCache is the cache of pre-compiled datapaths.
@@ -81,13 +84,9 @@ type loader struct {
 	hostDpInitialized     chan struct{}
 
 	sysctl          sysctl.Sysctl
-	db              *statedb.DB
-	nodeAddrs       statedb.Table[tables.NodeAddress]
-	devices         statedb.Table[*tables.Device]
 	prefilter       datapath.PreFilter
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
-	localNodeConfig datapath.LocalNodeConfiguration
 	nodeHandler     datapath.NodeHandler
 }
 
@@ -95,14 +94,10 @@ type Params struct {
 	cell.In
 
 	Config          Config
-	DB              *statedb.DB
-	NodeAddrs       statedb.Table[tables.NodeAddress]
 	Sysctl          sysctl.Sysctl
-	Devices         statedb.Table[*tables.Device]
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
-	LocalNodeConfig datapath.LocalNodeConfiguration
 	NodeHandler     datapath.NodeHandler
 }
 
@@ -110,26 +105,22 @@ type Params struct {
 func newLoader(p Params) *loader {
 	return &loader{
 		cfg:               p.Config,
-		db:                p.DB,
-		nodeAddrs:         p.NodeAddrs,
 		sysctl:            p.Sysctl,
-		devices:           p.Devices,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
 		compilationLock:   p.CompilationLock,
 		configWriter:      p.ConfigWriter,
-		localNodeConfig:   p.LocalNodeConfig,
 		nodeHandler:       p.NodeHandler,
 	}
 }
 
-// Init initializes the datapath cache with base program hashes derived from
+// initTemplateCache initializes the datapath cache with base program hashes derived from
 // the LocalNodeConfiguration.
-func (l *loader) init() {
+func (l *loader) initTemplateCache(cfg *datapath.LocalNodeConfiguration) {
 	l.once.Do(func() {
-		l.templateCache = newObjectCache(l.configWriter, &l.localNodeConfig, option.Config.StateDir)
+		l.templateCache = newObjectCache(l.configWriter, cfg, option.Config.StateDir)
 	})
-	l.templateCache.Update(&l.localNodeConfig)
+	l.templateCache.Update(cfg)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -156,8 +147,13 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	find := func(iter statedb.Iterator[tables.NodeAddress]) bool {
-		for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+	addrs := l.nodeConfig.Load().NodeAddresses
+
+	find := func(devName string) bool {
+		for _, addr := range addrs {
+			if addr.DeviceName != devName {
+				continue
+			}
 			if !addr.Primary {
 				continue
 			}
@@ -176,19 +172,10 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 	}
 
 	// Try to find suitable masquerade address first from the given interface.
-	txn := l.db.ReadTxn()
-	iter := l.nodeAddrs.List(
-		txn,
-		tables.NodeAddressDeviceNameIndex.Query(ifName),
-	)
-	if !find(iter) {
+	if !find(ifName) {
 		// No suitable masquerade addresses were found for this device. Try the fallback
 		// addresses.
-		iter = l.nodeAddrs.List(
-			txn,
-			tables.NodeAddressDeviceNameIndex.Query(tables.WildcardDeviceName),
-		)
-		find(iter)
+		find(tables.WildcardDeviceName)
 	}
 
 	return
@@ -479,9 +466,7 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 	}
 
 	if ep.IsHost() {
-		// TODO: react to changes (using the currently ignored watch channel)
-		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
-		devices := tables.DeviceNames(nativeDevices)
+		devices := l.nodeConfig.Load().DeviceNames()
 
 		if option.Config.NeedBPFHostOnWireGuardDevice() {
 			devices = append(devices, wgTypes.IfaceName)
@@ -598,7 +583,9 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 		Output:  ep.StateDir(),
 	}
 
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, &dirs, stats)
+	cfg := l.nodeConfig.Load()
+
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, cfg, ep, &dirs, stats)
 	if err != nil {
 		return err
 	}
@@ -659,7 +646,7 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 // EndpointHash hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
 func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
-	return l.templateCache.baseHash.sumEndpoint(l.templateCache, cfg, true)
+	return l.templateCache.baseHash.sumEndpoint(l.templateCache, l.nodeConfig.Load(), cfg, true)
 }
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
@@ -677,4 +664,8 @@ func (l *loader) CustomCallsMapPath(id uint16) string {
 // host datapath has been loaded for the first time.
 func (l *loader) HostDatapathInitialized() <-chan struct{} {
 	return l.hostDpInitialized
+}
+
+func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+	return l.configWriter.WriteEndpointConfig(w, l.nodeConfig.Load(), e)
 }

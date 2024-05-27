@@ -22,7 +22,6 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -130,7 +129,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
-		loader.Cell,
 		monitorAgent.Cell,
 		ControlPlane,
 		metrics.Cell,
