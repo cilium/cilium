@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
@@ -42,16 +43,12 @@ type Configuration struct {
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo cmtypes.ClusterInfo
 
-	// NodeKeyCreator is the function used to create node instances as
-	// nodes are being discovered in remote clusters
-	NodeKeyCreator store.KeyCreator
-
 	// ServiceMerger is the interface responsible to merge service and
 	// endpoints into an existing cache
 	ServiceMerger ServiceMerger
 
 	// NodeObserver reacts to node events.
-	NodeObserver store.Observer
+	NodeObserver nodeStore.NodeManager
 
 	// RemoteIdentityWatcher provides identities that have been allocated on a
 	// remote cluster.
@@ -160,8 +157,8 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 	}
 	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,
-		cm.conf.NodeKeyCreator,
-		cm.conf.NodeObserver,
+		nodeStore.KeyCreator,
+		nodeStore.NewNodeObserver(cm.conf.NodeObserver, source.ClusterMesh),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
 	)
