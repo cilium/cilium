@@ -5,6 +5,10 @@ package ipcache
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
+	"math"
+	"math/rand/v2"
 	"net/netip"
 	"sync"
 	"testing"
@@ -12,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache/types"
@@ -1088,6 +1093,147 @@ func Test_metadata_findCIDRParentPrefix(t *testing.T) {
 			gotParent, gotOk := m.findCIDRParentPrefix(tt.prefix)
 			assert.Equalf(t, tt.wantParent, gotParent, "findCIDRParentPrefix(%v)", tt.prefix)
 			assert.Equalf(t, tt.wantOk, gotOk, "findCIDRParentPrefix(%v)", tt.prefix)
+		})
+	}
+}
+
+func findAffectedChildPrefixesInMap(parent netip.Prefix, m map[netip.Prefix]prefixInfo) (children []netip.Prefix) {
+	for child := range m {
+		if isChildPrefix(parent, child) {
+			children = append(children, child)
+		}
+	}
+
+	return children
+}
+
+func findAffectedChildPrefixesInTrie(parent netip.Prefix, m *bitlpm.CIDRTrie[prefixInfo]) (children []netip.Prefix) {
+	m.Descendants(parent, func(child netip.Prefix, _ prefixInfo) bool {
+		children = append(children, child)
+		return true
+	})
+
+	return children
+}
+
+func generatePrefixes(t testing.TB, numChildren, numParents int, sparseness float64, yield func(prefix netip.Prefix, info prefixInfo)) {
+	t.Helper()
+	if !(sparseness > 0 && sparseness <= 1) {
+		t.Fatalf("sparseness needs to be between >0 and 1, got %f", sparseness)
+	}
+
+	numTotal := numChildren + numParents
+
+	randSrc := rand.NewPCG(0, 0)
+	randGen := rand.New(randSrc)
+	randRange := uint32(math.Ceil(float64(numTotal) * (1.0 / sparseness)))
+
+	// Adjust parent prefix size to be able to generate at least parentsToGenerate unique CIDRs
+	parentBits := 32 - int(math.Ceil(math.Log2(float64(numTotal/numParents))))
+
+	base := binary.BigEndian.Uint32(netip.MustParseAddr("10.0.0.0").AsSlice())
+	generatedAddr := map[uint32]struct{}{}
+	randomAddr := func() netip.Addr {
+		for {
+			addr := base + randGen.Uint32N(randRange)
+			if _, found := generatedAddr[addr]; found {
+				continue
+			}
+
+			generatedAddr[addr] = struct{}{}
+			a := [4]byte{}
+			binary.BigEndian.PutUint32(a[:], addr)
+			return netip.AddrFrom4(a)
+		}
+	}
+
+	generatedPrefix := map[uint32]struct{}{}
+	randomPrefix := func(bits int) netip.Prefix {
+		mask := ^uint32(0) << (32 - bits)
+		for {
+			prefix := (base + randGen.Uint32N(randRange)) & mask
+			if _, found := generatedPrefix[prefix]; found {
+				continue
+			}
+
+			generatedPrefix[prefix] = struct{}{}
+			a := [4]byte{}
+			binary.BigEndian.PutUint32(a[:], prefix)
+			return netip.PrefixFrom(netip.AddrFrom4(a), bits)
+		}
+	}
+
+	// generate parent prefixes
+	for i := 0; i < numParents; i++ {
+		prefix := randomPrefix(parentBits)
+		yield(prefix, prefixInfo{})
+	}
+
+	// generate child prefixes
+	for i := 0; i < numChildren; i++ {
+		addr := randomAddr()
+		yield(netip.PrefixFrom(addr, addr.BitLen()), prefixInfo{})
+	}
+}
+
+func BenchmarkFindAffectedChildPrefixes(b *testing.B) {
+	benchmarks := []struct {
+		numChildren int
+		numParents  int
+
+		sparseness float64
+
+		useTrie bool
+	}{
+		{numChildren: 1_000_000, numParents: 10000, sparseness: 0.33, useTrie: false},
+		{numChildren: 1_000_000, numParents: 10000, sparseness: 0.33, useTrie: true},
+
+		{numChildren: 100_000, numParents: 1000, sparseness: 0.33, useTrie: false},
+		{numChildren: 100_000, numParents: 1000, sparseness: 0.33, useTrie: true},
+
+		{numChildren: 10_000, numParents: 100, sparseness: 0.33, useTrie: false},
+		{numChildren: 10_000, numParents: 100, sparseness: 0.33, useTrie: true},
+
+		{numChildren: 1_000, numParents: 10, sparseness: 0.33, useTrie: false},
+		{numChildren: 1_000, numParents: 10, sparseness: 0.33, useTrie: true},
+	}
+	for _, bm := range benchmarks {
+		name := fmt.Sprintf("%d/%d/Sparseness_%f/Trie_%t", bm.numChildren, bm.numParents, bm.sparseness, bm.useTrie)
+		b.Run(name, func(b *testing.B) {
+			b.ReportAllocs()
+
+			var parents []netip.Prefix
+			hashMap := make(map[netip.Prefix]prefixInfo)
+			trieMap := bitlpm.NewCIDRTrie[prefixInfo]()
+
+			generatePrefixes(b, bm.numChildren, bm.numParents, bm.sparseness,
+				func(prefix netip.Prefix, info prefixInfo) {
+					if !prefix.IsSingleIP() {
+						parents = append(parents, prefix)
+					}
+
+					if bm.useTrie {
+						trieMap.Upsert(prefix, info)
+					} else {
+						hashMap[prefix] = info
+					}
+				})
+
+			randSrc := rand.NewPCG(0, 0)
+			randGen := rand.New(randSrc)
+
+			b.ResetTimer()
+			if bm.useTrie {
+				for i := 0; i < b.N; i++ {
+					p := randGen.IntN(len(parents))
+					_ = findAffectedChildPrefixesInTrie(parents[p], trieMap)
+				}
+			} else {
+				for i := 0; i < b.N; i++ {
+					p := randGen.IntN(len(parents))
+					_ = findAffectedChildPrefixesInMap(parents[p], hashMap)
+				}
+			}
 		})
 	}
 }
