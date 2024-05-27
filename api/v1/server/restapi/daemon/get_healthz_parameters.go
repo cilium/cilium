@@ -39,6 +39,11 @@ type GetHealthzParams struct {
 	  In: header
 	*/
 	Brief *bool
+	/*Controls whether the result of connectivity check to kube-apiserver should affect the result of health status of daemon.
+
+	  In: header
+	*/
+	WithoutK8sConnectivity *bool
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -51,6 +56,10 @@ func (o *GetHealthzParams) BindRequest(r *http.Request, route *middleware.Matche
 	o.HTTPRequest = r
 
 	if err := o.bindBrief(r.Header[http.CanonicalHeaderKey("brief")], true, route.Formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := o.bindWithoutK8sConnectivity(r.Header[http.CanonicalHeaderKey("without-k8s-connectivity")], true, route.Formats); err != nil {
 		res = append(res, err)
 	}
 	if len(res) > 0 {
@@ -77,6 +86,28 @@ func (o *GetHealthzParams) bindBrief(rawData []string, hasKey bool, formats strf
 		return errors.InvalidType("brief", "header", "bool", raw)
 	}
 	o.Brief = &value
+
+	return nil
+}
+
+// bindWithoutK8sConnectivity binds and validates parameter WithoutK8sConnectivity from header.
+func (o *GetHealthzParams) bindWithoutK8sConnectivity(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: false
+
+	if raw == "" { // empty values pass all other validations
+		return nil
+	}
+
+	value, err := swag.ConvertBool(raw)
+	if err != nil {
+		return errors.InvalidType("without-k8s-connectivity", "header", "bool", raw)
+	}
+	o.WithoutK8sConnectivity = &value
 
 	return nil
 }
