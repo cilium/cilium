@@ -6,60 +6,60 @@ include:
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.27.13@sha256:17439fa5b32290e3ead39ead1250dca1d822d94a10d26f1981756cd51b24b9d8"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.6-20240417.104652@sha256:04321380d84e6e8d3175940db9b5184fc097120caeca4be802a6678f71e7ed53"
+    kernel: "6.6-20240515.073534@sha256:680c0462655c387571d4728b9b0352b8491c5c6d1ddc9517595ac729fae42513"
 
   - k8s-version: "1.26"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.26.15@sha256:84333e26cae1d70361bb7339efb568df1871419f2019c80f9a12b7e2d485fe19"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "4.19-20240417.104652@sha256:cb482e8f2cccf9fc66042bb0d9c16c671c457c4fa3d63b3c782640bdf06ff7d8"
+    kernel: "4.19-20240515.073534@sha256:7e3aec9faa202411dce0716f9b3179e997d550e904c06bbfca57762209fbea82"
 
   - k8s-version: "1.25"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.25.16@sha256:5da57dfc290ac3599e775e63b8b6c49c0c85d3fec771cd7d55b45fae14b38d3b"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "5.4-20240417.104652@sha256:6f1c4869e9b6e5d9057b9f707fa6e77edd41416d58c84d75e417650a6a8c3b85"
+    kernel: "5.4-20240515.073534@sha256:cbfb27c90c6de1a099705c14d5c4369300e6e3231e3d349f765303602a10968e"
 
   - k8s-version: "1.24"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.24.17@sha256:bad10f9b98d54586cba05a7eaa1b61c6b90bfc4ee174fdc43a7b75ca75c95e51"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "4.19-20240417.104652@sha256:cb482e8f2cccf9fc66042bb0d9c16c671c457c4fa3d63b3c782640bdf06ff7d8"
+    kernel: "4.19-20240515.073534@sha256:7e3aec9faa202411dce0716f9b3179e997d550e904c06bbfca57762209fbea82"
 
   - k8s-version: "1.23"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.23.17@sha256:14d0a9a892b943866d7e6be119a06871291c517d279aedb816a4b4bc0ec0a5b3"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "4.19-20240417.104652@sha256:cb482e8f2cccf9fc66042bb0d9c16c671c457c4fa3d63b3c782640bdf06ff7d8"
+    kernel: "4.19-20240515.073534@sha256:7e3aec9faa202411dce0716f9b3179e997d550e904c06bbfca57762209fbea82"
 
   - k8s-version: "1.22"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.22.17@sha256:f5b2e5698c6c9d6d0adc419c0deae21a425c07d81bbf3b6a6834042f25d4fba2"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "4.19-20240417.104652@sha256:cb482e8f2cccf9fc66042bb0d9c16c671c457c4fa3d63b3c782640bdf06ff7d8"
+    kernel: "4.19-20240515.073534@sha256:7e3aec9faa202411dce0716f9b3179e997d550e904c06bbfca57762209fbea82"
 
   - k8s-version: "1.21"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.21.14@sha256:8a4e9bb3f415d2bb81629ce33ef9c76ba514c14d707f9797a01e3216376ba093"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "4.19-20240417.104652@sha256:cb482e8f2cccf9fc66042bb0d9c16c671c457c4fa3d63b3c782640bdf06ff7d8"
+    kernel: "4.19-20240515.073534@sha256:7e3aec9faa202411dce0716f9b3179e997d550e904c06bbfca57762209fbea82"
 
   - k8s-version: "1.20"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.20.15@sha256:a32bf55309294120616886b5338f95dd98a2f7231519c7dedcec32ba29699394"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "4.19-20240417.104652@sha256:cb482e8f2cccf9fc66042bb0d9c16c671c457c4fa3d63b3c782640bdf06ff7d8"
+    kernel: "4.19-20240515.073534@sha256:7e3aec9faa202411dce0716f9b3179e997d550e904c06bbfca57762209fbea82"
 
   - k8s-version: "1.19"
     ip-family: "ipv4"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.19.16@sha256:476cb3269232888437b61deca013832fee41f9f074f9bed79f57e4280f7c48b7"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "4.19-20240417.104652@sha256:cb482e8f2cccf9fc66042bb0d9c16c671c457c4fa3d63b3c782640bdf06ff7d8"
+    kernel: "4.19-20240515.073534@sha256:7e3aec9faa202411dce0716f9b3179e997d550e904c06bbfca57762209fbea82"
