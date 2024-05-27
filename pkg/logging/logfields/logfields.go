@@ -184,6 +184,9 @@ const (
 	// Port is a L4 port
 	Port = "port"
 
+	// Ports is a list of L4 ports
+	Ports = "ports"
+
 	// PortName is a k8s ContainerPort Name
 	PortName = "portName"
 
