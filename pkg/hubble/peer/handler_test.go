@@ -190,7 +190,7 @@ func TestNodeAdd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler(tt.withoutTLS, tt.addressPref)
+			h := newHandler(tt.withoutTLS, tt.addressPref, 0)
 			defer h.Close()
 
 			var got *peerpb.ChangeNotification
@@ -472,7 +472,7 @@ func TestNodeUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler(tt.withoutTLS, tt.addressPref)
+			h := newHandler(tt.withoutTLS, tt.addressPref, 0)
 			defer h.Close()
 
 			var got []*peerpb.ChangeNotification
@@ -637,7 +637,7 @@ func TestNodeDelete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler(tt.withoutTLS, tt.addressPref)
+			h := newHandler(tt.withoutTLS, tt.addressPref, 0)
 			defer h.Close()
 
 			var got *peerpb.ChangeNotification

@@ -53,7 +53,7 @@ func (s *Service) Notify(_ *peerpb.NotifyRequest, stream peerpb.Peer_NotifyServe
 	g, ctx := errgroup.WithContext(ctx)
 
 	// monitor for global stop signal to tear down all routines
-	h := newHandler(s.opts.WithoutTLSInfo, s.opts.AddressFamilyPreference)
+	h := newHandler(s.opts.WithoutTLSInfo, s.opts.AddressFamilyPreference, s.opts.HubblePort)
 	g.Go(func() error {
 		defer h.Close()
 		select {
