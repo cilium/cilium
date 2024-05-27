@@ -701,6 +701,10 @@ data:
   enable-runtime-device-detection: "true"
 {{- end }}
 
+{{- if .Values.forceDeviceDetection }}
+  force-device-detection: "true"
+{{- end }}
+
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
 
 {{- if ne $kubeProxyReplacement "disabled" }}

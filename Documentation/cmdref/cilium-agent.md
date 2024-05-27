@@ -185,6 +185,7 @@ cilium-agent [flags]
       --exclude-node-label-patterns strings                       List of k8s node label regex patterns to be excluded from CiliumNode
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not
       --fixed-identity-mapping map                                Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
+      --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
   -h, --help                                                      help for cilium-agent
