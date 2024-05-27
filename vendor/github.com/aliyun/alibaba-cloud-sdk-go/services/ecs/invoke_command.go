@@ -87,6 +87,7 @@ type InvokeCommandRequest struct {
 	ResourceOwnerAccount string                      `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                      `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer            `position:"Query" name:"OwnerId"`
+	TerminationMode      string                      `position:"Query" name:"TerminationMode"`
 	InstanceId           *[]string                   `position:"Query" name:"InstanceId"  type:"Repeated"`
 	ContainerId          string                      `position:"Query" name:"ContainerId"`
 	Parameters           map[string]interface{}      `position:"Query" name:"Parameters"`

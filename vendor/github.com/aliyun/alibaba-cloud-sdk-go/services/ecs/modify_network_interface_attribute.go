@@ -71,18 +71,36 @@ func (client *Client) ModifyNetworkInterfaceAttributeWithCallback(request *Modif
 // ModifyNetworkInterfaceAttributeRequest is the request struct for api ModifyNetworkInterfaceAttribute
 type ModifyNetworkInterfaceAttributeRequest struct {
 	*requests.RpcRequest
-	QueueNumber          requests.Integer `position:"Query" name:"QueueNumber"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	SecurityGroupId      *[]string        `position:"Query" name:"SecurityGroupId"  type:"Repeated"`
-	Description          string           `position:"Query" name:"Description"`
-	NetworkInterfaceName string           `position:"Query" name:"NetworkInterfaceName"`
-	TxQueueSize          requests.Integer `position:"Query" name:"TxQueueSize"`
-	DeleteOnRelease      requests.Boolean `position:"Query" name:"DeleteOnRelease"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	RxQueueSize          requests.Integer `position:"Query" name:"RxQueueSize"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	NetworkInterfaceId   string           `position:"Query" name:"NetworkInterfaceId"`
+	QueueNumber                     requests.Integer                                               `position:"Query" name:"QueueNumber"`
+	ResourceOwnerId                 requests.Integer                                               `position:"Query" name:"ResourceOwnerId"`
+	SecurityGroupId                 *[]string                                                      `position:"Query" name:"SecurityGroupId"  type:"Repeated"`
+	Description                     string                                                         `position:"Query" name:"Description"`
+	NetworkInterfaceTrafficConfig   ModifyNetworkInterfaceAttributeNetworkInterfaceTrafficConfig   `position:"Query" name:"NetworkInterfaceTrafficConfig"  type:"Struct"`
+	NetworkInterfaceName            string                                                         `position:"Query" name:"NetworkInterfaceName"`
+	TxQueueSize                     requests.Integer                                               `position:"Query" name:"TxQueueSize"`
+	DeleteOnRelease                 requests.Boolean                                               `position:"Query" name:"DeleteOnRelease"`
+	ResourceOwnerAccount            string                                                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                    string                                                         `position:"Query" name:"OwnerAccount"`
+	RxQueueSize                     requests.Integer                                               `position:"Query" name:"RxQueueSize"`
+	OwnerId                         requests.Integer                                               `position:"Query" name:"OwnerId"`
+	ConnectionTrackingConfiguration ModifyNetworkInterfaceAttributeConnectionTrackingConfiguration `position:"Query" name:"ConnectionTrackingConfiguration"  type:"Struct"`
+	NetworkInterfaceId              string                                                         `position:"Query" name:"NetworkInterfaceId"`
+}
+
+// ModifyNetworkInterfaceAttributeNetworkInterfaceTrafficConfig is a repeated param struct in ModifyNetworkInterfaceAttributeRequest
+type ModifyNetworkInterfaceAttributeNetworkInterfaceTrafficConfig struct {
+	NetworkInterfaceTrafficMode string `name:"NetworkInterfaceTrafficMode"`
+	QueueNumber                 string `name:"QueueNumber"`
+	QueuePairNumber             string `name:"QueuePairNumber"`
+	RxQueueSize                 string `name:"RxQueueSize"`
+	TxQueueSize                 string `name:"TxQueueSize"`
+}
+
+// ModifyNetworkInterfaceAttributeConnectionTrackingConfiguration is a repeated param struct in ModifyNetworkInterfaceAttributeRequest
+type ModifyNetworkInterfaceAttributeConnectionTrackingConfiguration struct {
+	TcpEstablishedTimeout       string `name:"TcpEstablishedTimeout"`
+	TcpClosedAndTimeWaitTimeout string `name:"TcpClosedAndTimeWaitTimeout"`
+	UdpTimeout                  string `name:"UdpTimeout"`
 }
 
 // ModifyNetworkInterfaceAttributeResponse is the response struct for api ModifyNetworkInterfaceAttribute

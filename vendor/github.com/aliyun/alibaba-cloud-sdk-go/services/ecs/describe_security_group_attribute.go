@@ -74,10 +74,12 @@ type DescribeSecurityGroupAttributeRequest struct {
 	NicType              string           `position:"Query" name:"NicType"`
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	SecurityGroupId      string           `position:"Query" name:"SecurityGroupId"`
+	NextToken            string           `position:"Query" name:"NextToken"`
 	Direction            string           `position:"Query" name:"Direction"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
 }
 
 // DescribeSecurityGroupAttributeResponse is the response struct for api DescribeSecurityGroupAttribute
@@ -90,6 +92,7 @@ type DescribeSecurityGroupAttributeResponse struct {
 	SecurityGroupId   string         `json:"SecurityGroupId" xml:"SecurityGroupId"`
 	SecurityGroupName string         `json:"SecurityGroupName" xml:"SecurityGroupName"`
 	RegionId          string         `json:"RegionId" xml:"RegionId"`
+	NextToken         string         `json:"NextToken" xml:"NextToken"`
 	ReferencedInfo    ReferencedInfo `json:"ReferencedInfo" xml:"ReferencedInfo"`
 	Permissions       Permissions    `json:"Permissions" xml:"Permissions"`
 }
