@@ -688,6 +688,8 @@ daemon:
 #
 # This option has been deprecated and is a no-op.
 enableRuntimeDeviceDetection: true
+# -- Forces the auto-detection of devices, even if specific devices are explicitly listed
+forceDeviceDetection: false
 # -- Chains to ignore when installing feeder rules.
 # disableIptablesFeederRules: ""
 
