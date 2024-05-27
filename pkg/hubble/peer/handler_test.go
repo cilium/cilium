@@ -653,3 +653,64 @@ func TestNodeDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestHubblePort(t *testing.T) {
+	tests := []struct {
+		name        string
+		addressPref serviceoption.AddressFamilyPreference
+		arg         types.Node
+		want        string
+	}{
+		{
+			name: "no ip",
+			arg:  types.Node{},
+			want: "",
+		}, {
+			name:        "ipv4",
+			addressPref: serviceoption.AddressPreferIPv4,
+			arg: types.Node{
+				IPAddresses: []types.Address{
+					{
+						Type: addressing.NodeExternalIP,
+						IP:   net.ParseIP("192.0.2.1"),
+					},
+				},
+			},
+			want: "192.0.2.1:9876",
+		}, {
+			name:        "ipv6",
+			addressPref: serviceoption.AddressPreferIPv6,
+			arg: types.Node{
+				IPAddresses: []types.Address{
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   net.ParseIP("fe80::1"),
+					},
+				},
+			},
+			want: "[fe80::1]:9876",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHandler(true, tt.addressPref, 9876)
+			defer h.Close()
+
+			var got *peerpb.ChangeNotification
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				got = <-h.C
+				wg.Done()
+			}()
+			h.NodeAdd(tt.arg)
+
+			want := &peerpb.ChangeNotification{
+				Address: tt.want,
+				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+			}
+			wg.Wait()
+			assert.Equal(t, want, got)
+		})
+	}
+}
