@@ -42,7 +42,7 @@ env:
   test_name: scale-100
   cluster_base_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 405.0.0
+  gcloud_version: 477.0.0
 
 jobs:
   install-and-scaletest:

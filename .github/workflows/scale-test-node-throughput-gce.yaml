@@ -43,7 +43,7 @@ env:
   cluster_base_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
   GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 405.0.0
+  gcloud_version: 477.0.0
 
 jobs:
   install-and-scaletest:
