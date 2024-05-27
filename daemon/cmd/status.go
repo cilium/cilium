@@ -742,8 +742,8 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 
 func (d *Daemon) getIdentityRange() *models.IdentityRange {
 	s := &models.IdentityRange{
-		MinIdentity: int64(identity.GetMinimalAllocationIdentity()),
-		MaxIdentity: int64(identity.GetMaximumAllocationIdentity()),
+		MinIdentity: int64(identity.GetMinimalAllocationIdentity(d.clusterInfo.ID)),
+		MaxIdentity: int64(identity.GetMaximumAllocationIdentity(d.clusterInfo.ID)),
 	}
 
 	return s
