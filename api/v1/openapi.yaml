@@ -47,6 +47,13 @@ paths:
         in: header
         required: false
         type: boolean
+      - name: require-k8s-connectivity
+        description: |
+          If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
+        in: header
+        required: false
+        type: boolean
+        default: true
       responses:
         '200':
           description: Success
