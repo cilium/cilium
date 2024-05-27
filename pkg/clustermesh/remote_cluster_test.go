@@ -150,7 +150,6 @@ func TestRemoteClusterRun(t *testing.T) {
 			var ipc fakeIPCache
 			cm := ClusterMesh{
 				conf: Configuration{
-					NodeKeyCreator:        testNodeCreator,
 					NodeObserver:          newNodesObserver(),
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
