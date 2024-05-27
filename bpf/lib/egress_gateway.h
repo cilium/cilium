@@ -29,10 +29,11 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 {
 	struct bpf_fib_lookup_padded fib_params = {};
 	int oif = 0;
+	int ret;
 
-	*ext_err = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
+	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
 
-	switch (*ext_err) {
+	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
@@ -45,6 +46,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 			return CTX_ACT_OK;
 		break;
 	default:
+		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 
@@ -52,7 +54,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	if (is_defined(IS_BPF_HOST) && fib_params.l.ifindex == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ext_err, &oif);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret, &oif, ext_err);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY
