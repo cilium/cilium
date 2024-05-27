@@ -46,6 +46,12 @@ Requirements to be listed
 Users (Alphabetically)
 ----------------------
 
+    * N: Ænix
+      D: Ænix uses Cilium in free PaaS platform [Cozystack](https://cozystack.io) for running containers, virtual machines and Kubernetes-as-a-Service.
+      U: Networking, NetworkPolicy, kube-proxy replacement, CNI-Chaining (with kube-ovn)
+      L: https://cozystack.io/
+      Q: @kvaps
+
     * N: AccuKnox
       D: AccuKnox uses Cilium for network visibility and network policy enforcement.
       U: L3/L4/L7 policy enforcement using Identity, External/VM Workloads, Network Visibility using Hubble
