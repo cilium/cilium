@@ -26,6 +26,9 @@ func (f *fakeUpstream) OnUpdate(service *serviceStore.ClusterService) { f.update
 func (f *fakeUpstream) OnDelete(service *serviceStore.ClusterService) { f.deleted[service.String()]++ }
 
 func TestRemoteServiceObserver(t *testing.T) {
+	wrap := func(svc serviceStore.ClusterService) *serviceStore.ValidatingClusterService {
+		return &serviceStore.ValidatingClusterService{ClusterService: svc}
+	}
 	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
 	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
 	cache := NewGlobalServiceCache(metrics.NoOpGauge)
@@ -35,14 +38,14 @@ func TestRemoteServiceObserver(t *testing.T) {
 
 	// Observe a new service update (for a non-shared service), and assert it is not added to the cache
 	upstream.init()
-	observer.OnUpdate(&svc2)
+	observer.OnUpdate(wrap(svc2))
 
 	require.Equal(t, 0, upstream.updated[svc1.String()])
 	require.Equal(t, 0, cache.Size())
 
 	// Observe a new service update (for a shared service), and assert it is correctly added to the cache
 	upstream.init()
-	observer.OnUpdate(&svc1)
+	observer.OnUpdate(wrap(svc1))
 
 	require.Equal(t, 1, upstream.updated[svc1.String()])
 	require.Equal(t, 0, upstream.deleted[svc1.String()])
@@ -56,7 +59,7 @@ func TestRemoteServiceObserver(t *testing.T) {
 
 	// Observe a new service deletion, and assert it is correctly removed from the cache
 	upstream.init()
-	observer.OnDelete(&svc1)
+	observer.OnDelete(wrap(svc1))
 
 	require.Equal(t, 0, upstream.updated[svc1.String()])
 	require.Equal(t, 1, upstream.deleted[svc1.String()])
@@ -65,8 +68,8 @@ func TestRemoteServiceObserver(t *testing.T) {
 	// Observe two service updates in sequence (first shared, then non-shared),
 	// and assert that at the end it is not present in the cache (equivalent to update, then delete).
 	upstream.init()
-	observer.OnUpdate(&svc1)
-	observer.OnUpdate(&svc2)
+	observer.OnUpdate(wrap(svc1))
+	observer.OnUpdate(wrap(svc2))
 
 	require.Equal(t, 1, upstream.updated[svc1.String()])
 	require.Equal(t, 1, upstream.deleted[svc1.String()])
