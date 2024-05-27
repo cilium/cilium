@@ -3,60 +3,26 @@
 
 package part
 
-import "encoding/binary"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"reflect"
+)
 
-func NewStringMap[V any]() Map[string, V] {
-	return NewMap[string, V](
-		func(s string) []byte { return []byte(s) },
-		func(b []byte) string { return string(b) },
-	)
+// Map of key-value pairs. The zero value is ready for use, provided
+// that the key type has been registered with RegisterKeyType.
+//
+// Map is a typed wrapper around Tree[T] for working with
+// keys that are not []byte.
+type Map[K, V any] struct {
+	bytesFromKey func(K) []byte
+	tree         *Tree[mapKVPair[K, V]]
 }
 
-func NewBytesMap[V any]() Map[[]byte, V] {
-	identity := func(b []byte) []byte { return b }
-	return NewMap[[]byte, V](
-		identity,
-		identity,
-	)
-}
-
-func NewUint64Map[V any]() Map[uint64, V] {
-	return NewMap[uint64, V](
-		func(x uint64) []byte {
-			return binary.BigEndian.AppendUint64(nil, x)
-		},
-		binary.BigEndian.Uint64,
-	)
-}
-
-// NewMap creates a new persistent map. The toBytes function maps the key
-// into bytes, and fromBytes does the reverse.
-func NewMap[K, V any](toBytes func(K) []byte, fromBytes func([]byte) K) Map[K, V] {
-	return Map[K, V]{
-		toBytes:   toBytes,
-		fromBytes: fromBytes,
-		tree:      nil,
-	}
-}
-
-// MapIterator iterates over key and value pairs.
-type MapIterator[K, V any] struct {
-	fromBytes func([]byte) K
-	iter      *Iterator[V]
-}
-
-// Next returns the next key and value. If the iterator
-// is exhausted it returns false.
-func (it MapIterator[K, V]) Next() (k K, v V, ok bool) {
-	if it.iter == nil {
-		return
-	}
-	var b []byte
-	b, v, ok = it.iter.Next()
-	if ok {
-		k = it.fromBytes(b)
-	}
-	return
+type mapKVPair[K, V any] struct {
+	Key   K `json:"k"`
+	Value V `json:"v"`
 }
 
 // FromMap copies values from the hash map into the given Map.
@@ -66,20 +32,10 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 	m.ensureTree()
 	txn := m.tree.Txn()
 	for k, v := range hm {
-		txn.Insert(m.toBytes(k), v)
+		txn.Insert(m.bytesFromKey(k), mapKVPair[K, V]{k, v})
 	}
 	m.tree = txn.CommitOnly()
 	return m
-}
-
-// Map of key-value pairs.
-//
-// Map is a typed wrapper around Tree[T] for working with
-// keys that are not []byte.
-type Map[K, V any] struct {
-	toBytes   func(K) []byte
-	fromBytes func([]byte) K
-	tree      *Tree[V]
 }
 
 // ensureTree checks that the tree is not nil and allocates it if
@@ -87,8 +43,9 @@ type Map[K, V any] struct {
 // an empty map does not allocate anything.
 func (m *Map[K, V]) ensureTree() {
 	if m.tree == nil {
-		m.tree = New[V](RootOnlyWatch)
+		m.tree = New[mapKVPair[K, V]](RootOnlyWatch)
 	}
+	m.bytesFromKey = lookupKeyType[K]()
 }
 
 // Get a value from the map by its key.
@@ -96,8 +53,8 @@ func (m Map[K, V]) Get(key K) (value V, found bool) {
 	if m.tree == nil {
 		return
 	}
-	value, _, found = m.tree.Get(m.toBytes(key))
-	return
+	kv, _, found := m.tree.Get(m.bytesFromKey(key))
+	return kv.Value, found
 }
 
 // Set a value. Returns a new map with the value set.
@@ -105,7 +62,7 @@ func (m Map[K, V]) Get(key K) (value V, found bool) {
 func (m Map[K, V]) Set(key K, value V) Map[K, V] {
 	m.ensureTree()
 	txn := m.tree.Txn()
-	txn.Insert(m.toBytes(key), value)
+	txn.Insert(m.bytesFromKey(key), mapKVPair[K, V]{key, value})
 	m.tree = txn.CommitOnly()
 	return m
 }
@@ -114,12 +71,27 @@ func (m Map[K, V]) Set(key K, value V) Map[K, V] {
 // without the element pointed to by the key (if found).
 func (m Map[K, V]) Delete(key K) Map[K, V] {
 	if m.tree != nil {
-		_, _, tree := m.tree.Delete(m.toBytes(key))
+		_, _, tree := m.tree.Delete(m.bytesFromKey(key))
 		// Map is a struct passed by value, so we can modify
 		// it without changing the caller's view of it.
 		m.tree = tree
 	}
 	return m
+}
+
+// MapIterator iterates over key and value pairs.
+type MapIterator[K, V any] struct {
+	iter *Iterator[mapKVPair[K, V]]
+}
+
+// Next returns the next key (as bytes) and value. If the iterator
+// is exhausted it returns false.
+func (it MapIterator[K, V]) Next() (k K, v V, ok bool) {
+	if it.iter == nil {
+		return
+	}
+	_, kv, ok := it.iter.Next()
+	return kv.Key, kv.Value, ok
 }
 
 // LowerBound iterates over all keys in order with value equal
@@ -129,8 +101,7 @@ func (m Map[K, V]) LowerBound(from K) MapIterator[K, V] {
 		return MapIterator[K, V]{}
 	}
 	return MapIterator[K, V]{
-		fromBytes: m.fromBytes,
-		iter:      m.tree.LowerBound(m.toBytes(from)),
+		iter: m.tree.LowerBound(m.bytesFromKey(from)),
 	}
 }
 
@@ -140,23 +111,73 @@ func (m Map[K, V]) Prefix(prefix K) MapIterator[K, V] {
 	if m.tree == nil {
 		return MapIterator[K, V]{}
 	}
-	iter, _ := m.tree.Prefix(m.toBytes(prefix))
+	iter, _ := m.tree.Prefix(m.bytesFromKey(prefix))
 	return MapIterator[K, V]{
-		fromBytes: m.fromBytes,
-		iter:      iter,
+		iter: iter,
 	}
 }
 
 // All iterates every key-value in the map in order.
 // The order is in bytewise order of the byte slice
-// returned by toBytes.
+// returned by bytesFromKey.
 func (m Map[K, V]) All() MapIterator[K, V] {
 	if m.tree == nil {
 		return MapIterator[K, V]{}
 	}
 	return MapIterator[K, V]{
-		fromBytes: m.fromBytes,
-		iter:      m.tree.Iterator(),
+		iter: m.tree.Iterator(),
+	}
+}
+
+// EqualKeys returns true if both maps contain the same keys.
+func (m Map[K, V]) EqualKeys(other Map[K, V]) bool {
+	switch {
+	case m.tree == nil && other.tree == nil:
+		return true
+	case m.Len() != other.Len():
+		return false
+	default:
+		iter1 := m.tree.Iterator()
+		iter2 := other.tree.Iterator()
+		for {
+			k1, _, ok := iter1.Next()
+			if !ok {
+				break
+			}
+			k2, _, _ := iter2.Next()
+			// Equal lengths, no need to check 'ok' for 'iter2'.
+			if !bytes.Equal(k1, k2) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// SlowEqual returns true if the two maps contain the same keys and values.
+// Value comparison is implemented with reflect.DeepEqual which makes this
+// slow and mostly useful for testing.
+func (m Map[K, V]) SlowEqual(other Map[K, V]) bool {
+	switch {
+	case m.tree == nil && other.tree == nil:
+		return true
+	case m.Len() != other.Len():
+		return false
+	default:
+		iter1 := m.tree.Iterator()
+		iter2 := other.tree.Iterator()
+		for {
+			k1, v1, ok := iter1.Next()
+			if !ok {
+				break
+			}
+			k2, v2, _ := iter2.Next()
+			// Equal lengths, no need to check 'ok' for 'iter2'.
+			if !bytes.Equal(k1, k2) || !reflect.DeepEqual(v1, v2) {
+				return false
+			}
+		}
+		return true
 	}
 }
 
@@ -166,4 +187,59 @@ func (m Map[K, V]) Len() int {
 		return 0
 	}
 	return m.tree.size
+}
+
+func (m Map[K, V]) MarshalJSON() ([]byte, error) {
+	if m.tree == nil {
+		return []byte("[]"), nil
+	}
+
+	var b bytes.Buffer
+	b.WriteRune('[')
+	iter := m.tree.Iterator()
+	_, kv, ok := iter.Next()
+	for ok {
+		bs, err := json.Marshal(kv)
+		if err != nil {
+			return nil, err
+		}
+		b.Write(bs)
+		_, kv, ok = iter.Next()
+		if ok {
+			b.WriteRune(',')
+		}
+	}
+	b.WriteRune(']')
+	return b.Bytes(), nil
+}
+
+func (m *Map[K, V]) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if d, ok := t.(json.Delim); !ok || d != '[' {
+		return fmt.Errorf("%T.UnmarshalJSON: expected '[' got %v", m, t)
+	}
+	m.ensureTree()
+	txn := m.tree.Txn()
+	for dec.More() {
+		var kv mapKVPair[K, V]
+		err := dec.Decode(&kv)
+		if err != nil {
+			return err
+		}
+		txn.Insert(m.bytesFromKey(kv.Key), mapKVPair[K, V]{kv.Key, kv.Value})
+	}
+
+	t, err = dec.Token()
+	if err != nil {
+		return err
+	}
+	if d, ok := t.(json.Delim); !ok || d != ']' {
+		return fmt.Errorf("%T.UnmarshalJSON: expected ']' got %v", m, t)
+	}
+	m.tree = txn.CommitOnly()
+	return nil
 }

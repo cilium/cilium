@@ -570,6 +570,9 @@ functionality should be added, each one will need their own super-set
 interfaces and will duplicate the pattern. For this reason, the simple targeted
 interface that defines the specific functionality should be preferred.
 
+See also:
+[Keeping Your Modules Compatible: Working with interfaces](https://go.dev/blog/module-compatibility#working-with-interfaces).
+
 ### Testing
 
 The tests should never leak goroutines.
@@ -629,7 +632,6 @@ should be canceled.
 - [Sam Xie](https://github.com/XSAM), Cisco/AppDynamics
 - [Chester Cheung](https://github.com/hanyuancheung), Tencent
 - [Damien Mathieu](https://github.com/dmathieu), Elastic
-- [Anthony Mirabella](https://github.com/Aneurysm9), AWS
 
 ### Maintainers
 
@@ -643,6 +645,7 @@ should be canceled.
 - [Liz Fong-Jones](https://github.com/lizthegrey), Honeycomb
 - [Gustavo Silva Paiva](https://github.com/paivagustavo), LightStep
 - [Josh MacDonald](https://github.com/jmacd), LightStep
+- [Anthony Mirabella](https://github.com/Aneurysm9), AWS
 
 ### Become an Approver or a Maintainer
 
