@@ -6034,6 +6034,36 @@ spec:
           status:
             description: Status is the status of the Cilium policy rule
             properties:
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: The last time the condition transitioned from one
+                        status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: The status of the condition, one of True, False,
+                        or Unknown
+                      type: string
+                    type:
+                      description: The type of the policy condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               derivativePolicies:
                 additionalProperties:
                   description: CiliumNetworkPolicyNodeStatus is the status of a Cilium
