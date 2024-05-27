@@ -598,11 +598,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	var macAddrStr string
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		if ipv6IsEnabled(ipam) {
-			if err := reserveLocalIPPorts(conf); err != nil {
-				logger.WithError(err).Warn("unable to reserve local ip ports")
-			}
+		if err := reserveLocalIPPorts(conf); err != nil {
+			logger.WithError(err).Warn("unable to reserve local ip ports")
+		}
 
+		if ipv6IsEnabled(ipam) {
 			if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
 				logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
 			}
