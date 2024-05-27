@@ -227,7 +227,7 @@ func NewSharedServicesObserver(
 
 // OnUpdate is called when a service in a remote cluster is updated
 func (r *remoteServiceObserver) OnUpdate(key store.Key) {
-	svc := key.(*serviceStore.ClusterService)
+	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
 	scopedLog := r.log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 	scopedLog.Debug("Received remote service update event")
 
@@ -248,7 +248,7 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 
 // OnDelete is called when a service in a remote cluster is deleted
 func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
-	svc := key.(*serviceStore.ClusterService)
+	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
 	scopedLog := r.log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 	scopedLog.Debug("Received remote service delete event")
 
