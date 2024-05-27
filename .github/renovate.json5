@@ -420,8 +420,9 @@
     {
       "fileMatch": [
         "images/cilium/download-hubble\\.sh",
-        "images/runtime/build-gops.sh",
+        "images/builder/install-protoc.sh",
         "images/hubble-relay/download-grpc-health-probe.sh"
+        "images/runtime/build-gops.sh",
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
