@@ -18,11 +18,18 @@ import (
 )
 
 // NewGetHealthzParams creates a new GetHealthzParams object
-//
-// There are no default values defined in the spec.
+// with the default values initialized.
 func NewGetHealthzParams() GetHealthzParams {
 
-	return GetHealthzParams{}
+	var (
+		// initialize parameters with default values
+
+		requireK8sConnectivityDefault = bool(true)
+	)
+
+	return GetHealthzParams{
+		RequireK8sConnectivity: &requireK8sConnectivityDefault,
+	}
 }
 
 // GetHealthzParams contains all the bound params for the get healthz operation
@@ -39,6 +46,12 @@ type GetHealthzParams struct {
 	  In: header
 	*/
 	Brief *bool
+	/*If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
+
+	  In: header
+	  Default: true
+	*/
+	RequireK8sConnectivity *bool
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -51,6 +64,10 @@ func (o *GetHealthzParams) BindRequest(r *http.Request, route *middleware.Matche
 	o.HTTPRequest = r
 
 	if err := o.bindBrief(r.Header[http.CanonicalHeaderKey("brief")], true, route.Formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := o.bindRequireK8sConnectivity(r.Header[http.CanonicalHeaderKey("require-k8s-connectivity")], true, route.Formats); err != nil {
 		res = append(res, err)
 	}
 	if len(res) > 0 {
@@ -77,6 +94,29 @@ func (o *GetHealthzParams) bindBrief(rawData []string, hasKey bool, formats strf
 		return errors.InvalidType("brief", "header", "bool", raw)
 	}
 	o.Brief = &value
+
+	return nil
+}
+
+// bindRequireK8sConnectivity binds and validates parameter RequireK8sConnectivity from header.
+func (o *GetHealthzParams) bindRequireK8sConnectivity(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: false
+
+	if raw == "" { // empty values pass all other validations
+		// Default values have been previously initialized by NewGetHealthzParams()
+		return nil
+	}
+
+	value, err := swag.ConvertBool(raw)
+	if err != nil {
+		return errors.InvalidType("require-k8s-connectivity", "header", "bool", raw)
+	}
+	o.RequireK8sConnectivity = &value
 
 	return nil
 }

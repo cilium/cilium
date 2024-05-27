@@ -19,7 +19,7 @@ import (
 
 // DaemonInterface to help with testing.
 type DaemonInterface interface {
-	getStatus(bool) models.StatusResponse
+	getStatus(bool, bool) models.StatusResponse
 }
 
 // ServiceInterface to help with testing.
@@ -79,7 +79,7 @@ func (h kubeproxyHealthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	var lastUpdateTs = currentTs
 	// We piggy back here on Cilium daemon health. If Cilium is healthy, we can
 	// reasonably assume that the node networking is ready.
-	sr := h.d.getStatus(true)
+	sr := h.d.getStatus(true, true)
 	if isUnhealthy(&sr) {
 		statusCode = http.StatusServiceUnavailable
 		lastUpdateTs = h.svc.GetLastUpdatedTs()
