@@ -152,6 +152,28 @@ func TestRunController(t *testing.T) {
 	require.NoError(t, mngr.RemoveController("test"))
 }
 
+func TestUpdateControllerOverwrite(t *testing.T) {
+	// Create a manager and a mock managedController
+	m := NewManager()
+	ctrl := &managedController{
+		controller: controller{
+			update: make(chan ControllerParams, 1),
+		},
+	}
+	m.controllers = controllerMap{"test": ctrl}
+
+	params1 := ControllerParams{RunInterval: 5 * time.Second}
+	params2 := ControllerParams{RunInterval: 10 * time.Second}
+
+	m.updateController("test", params1)
+	m.updateController("test", params2)
+
+	updatedParams := <-ctrl.controller.update
+	if updatedParams.RunInterval != params2.RunInterval {
+		t.Errorf("Expected RunInterval from params2, got %v", updatedParams.RunInterval)
+	}
+}
+
 func TestCancellation(t *testing.T) {
 	mngr := NewManager()
 
