@@ -156,13 +156,14 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
-		name:         name,
-		clusterID:    cmtypes.ClusterIDUnset,
-		mesh:         cm,
-		usedIDs:      cm.conf.ClusterIDsManager,
-		status:       status,
-		storeFactory: cm.conf.StoreFactory,
-		synced:       newSynced(),
+		name:                   name,
+		clusterID:              cmtypes.ClusterIDUnset,
+		clusterConfigValidator: cm.conf.ClusterInfo.ValidateRemoteConfig,
+		usedIDs:                cm.conf.ClusterIDsManager,
+		status:                 status,
+		storeFactory:           cm.conf.StoreFactory,
+		remoteIdentityWatcher:  cm.conf.RemoteIdentityWatcher,
+		synced:                 newSynced(),
 	}
 	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,

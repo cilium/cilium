@@ -30,8 +30,9 @@ type remoteCluster struct {
 	// clusterID is the clusterID advertized by the remote cluster
 	clusterID uint32
 
-	// mesh is the cluster mesh this remote cluster belongs to
-	mesh *ClusterMesh
+	// clusterConfigValidator validates the cluster configuration advertised
+	// by remote clusters.
+	clusterConfigValidator func(cmtypes.CiliumClusterConfig) error
 
 	usedIDs ClusterIDsManager
 
@@ -53,6 +54,9 @@ type remoteCluster struct {
 	// ipCacheWatcherExtraOpts returns extra options for watching ipcache entries.
 	ipCacheWatcherExtraOpts IPCacheWatcherOptsFn
 
+	// remoteIdentityWatcher allows watching remote identities.
+	remoteIdentityWatcher RemoteIdentityWatcher
+
 	// remoteIdentityCache is a locally cached copy of the identity
 	// allocations in the remote cluster
 	remoteIdentityCache *allocator.RemoteCache
@@ -67,7 +71,7 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := rc.mesh.conf.ClusterInfo.ValidateRemoteConfig(config); err != nil {
+	if err := rc.clusterConfigValidator(config); err != nil {
 		ready <- err
 		close(ready)
 		return
@@ -79,7 +83,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		return
 	}
 
-	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, rc.clusterID, backend, config.Capabilities.Cached)
+	remoteIdentityCache, err := rc.remoteIdentityWatcher.WatchRemoteIdentities(rc.name, rc.clusterID, backend, config.Capabilities.Cached)
 	if err != nil {
 		ready <- err
 		close(ready)
@@ -134,7 +138,7 @@ func (rc *remoteCluster) Remove() {
 	rc.remoteServices.Drain()
 	rc.ipCacheWatcher.Drain()
 
-	rc.mesh.conf.RemoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
+	rc.remoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
 
 	rc.usedIDs.ReleaseClusterID(rc.clusterID)
 }
