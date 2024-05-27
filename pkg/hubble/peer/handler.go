@@ -31,12 +31,13 @@ type handler struct {
 	hubblePort  int
 }
 
-func newHandler(withoutTLSInfo bool, addressPref serviceoption.AddressFamilyPreference) *handler {
+func newHandler(withoutTLSInfo bool, addressPref serviceoption.AddressFamilyPreference, hubblePort int) *handler {
 	return &handler{
 		stop:        make(chan struct{}),
 		C:           make(chan *peerpb.ChangeNotification),
 		tls:         !withoutTLSInfo,
 		addressPref: addressPref,
+		hubblePort:  hubblePort,
 	}
 }
 
