@@ -73,7 +73,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			name:   "remote cluster has no capabilities",
 			srccfg: types.CiliumClusterConfig{ID: 1},
 			kvs: map[string]string{
-				"cilium/state/nodes/v1/foo/bar":      `{"name": "bar"}`,
+				"cilium/state/nodes/v1/foo/bar":      `{"name": "bar", "cluster": "foo", "clusterID": 1}`,
 				"cilium/state/services/v1/foo/bar":   `{"name": "bar"}`,
 				"cilium/state/identities/v1/id/9999": `key1=value1;key2=value2`,
 				"cilium/state/ip/v1/default/1.1.1.1": `{"IP": "1.1.1.1"}`,
@@ -89,7 +89,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				},
 			},
 			kvs: map[string]string{
-				"cilium/state/nodes/v1/foo/bar":      `{"name": "bar"}`,
+				"cilium/state/nodes/v1/foo/bar":      `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
 				"cilium/state/services/v1/foo/bar":   `{"name": "bar"}`,
 				"cilium/state/identities/v1/id/9999": `key1=value1;key2=value2`,
 				"cilium/state/ip/v1/default/1.1.1.1": `{"IP": "1.1.1.1"}`,
@@ -111,7 +111,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				},
 			},
 			kvs: map[string]string{
-				"cilium/cache/nodes/v1/foo/bar":          `{"name": "bar"}`,
+				"cilium/cache/nodes/v1/foo/bar":          `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
 				"cilium/cache/services/v1/foo/bar":       `{"name": "bar"}`,
 				"cilium/cache/identities/v1/foo/id/9999": `key1=value1;key2=value2`,
 				"cilium/cache/ip/v1/foo/1.1.1.1":         `{"IP": "1.1.1.1"}`,

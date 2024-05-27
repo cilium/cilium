@@ -165,9 +165,9 @@ func TestClusterMesh(t *testing.T) {
 		assert.Contains(c, usedIDs.UsedClusterIDs, uint32(255))
 	}, timeout, tick, "Reserved cluster IDs not updated correctly")
 
-	for _, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
+	for cluster, id := range map[string]uint32{"cluster1": 255, "cluster2": 3, "cluster3": 4} {
 		for _, name := range nodeNames {
-			require.NoErrorf(t, nodesWSS.UpsertKey(ctx, &nodeTypes.Node{Name: name, Cluster: cluster}),
+			require.NoErrorf(t, nodesWSS.UpsertKey(ctx, &nodeTypes.Node{Name: name, Cluster: cluster, ClusterID: id}),
 				"Failed upserting node %s/%s into kvstore", cluster, name)
 		}
 	}
