@@ -32,6 +32,10 @@ func (p *policyWatcher) onUpsert(
 
 	oldCNP, ok := p.cnpCache[key]
 	if ok {
+		// no generation change; this was a status update.
+		if oldCNP.Generation == cnp.Generation {
+			return nil
+		}
 		if oldCNP.DeepEqual(cnp) {
 			return nil
 		}
