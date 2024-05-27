@@ -233,25 +233,35 @@ func TestNode_ToCiliumNode(t *testing.T) {
 	}, n)
 }
 
-func TestClusterServiceValidate(t *testing.T) {
+func TestNodeValidate(t *testing.T) {
 	tests := []struct {
 		name   string
 		node   Node
 		assert assert.ErrorAssertionFunc
 	}{
 		{
+			name:   "empty cluster",
+			node:   Node{Name: "bar"},
+			assert: assert.Error,
+		},
+		{
+			name:   "empty name",
+			node:   Node{Cluster: "foo"},
+			assert: assert.Error,
+		},
+		{
 			name:   "empty cluster ID",
-			node:   Node{},
+			node:   Node{Cluster: "foo", Name: "bar"},
 			assert: assert.NoError,
 		},
 		{
 			name:   "valid cluster ID",
-			node:   Node{ClusterID: 99},
+			node:   Node{Cluster: "foo", Name: "bar", ClusterID: 99},
 			assert: assert.NoError,
 		},
 		{
 			name:   "invalid cluster ID",
-			node:   Node{ClusterID: 260},
+			node:   Node{Cluster: "foo", Name: "bar", ClusterID: 260},
 			assert: assert.Error,
 		},
 	}
