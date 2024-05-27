@@ -123,6 +123,9 @@ const (
 	// Devices facing cluster/external network for attaching bpf_host
 	Devices = "devices"
 
+	// Forces the auto-detection of devices, even if specific devices are explicitly listed
+	ForceDeviceDetection = "force-device-detection"
+
 	// DirectRoutingDevice is the name of a device used to connect nodes in
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"

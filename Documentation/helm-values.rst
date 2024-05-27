@@ -1492,6 +1492,10 @@
      - Additional agent volumes.
      - list
      - ``[]``
+   * - :spelling:ignore:`forceDeviceDetection`
+     - Forces the auto-detection of devices, even if specific devices are explicitly listed
+     - bool
+     - ``false``
    * - :spelling:ignore:`gatewayAPI.enableAlpn`
      - Enable ALPN for all listeners configured with Gateway API. ALPN will attempt HTTP/2, then HTTP 1.1. Note that this will also enable ``appProtocol`` support, and services that wish to use HTTP/2 will need to indicate that via their ``appProtocol``.
      - bool

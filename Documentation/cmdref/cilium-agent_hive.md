@@ -51,6 +51,7 @@ cilium-agent hive [flags]
       --envoy-keep-cap-netbindservice                             Keep capability NET_BIND_SERVICE for Envoy process
       --envoy-log string                                          Path to a separate Envoy log file, if any
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
+      --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
   -h, --help                                                      help for hive
