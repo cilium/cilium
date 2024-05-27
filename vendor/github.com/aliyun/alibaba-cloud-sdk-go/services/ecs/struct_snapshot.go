@@ -24,6 +24,7 @@ type Snapshot struct {
 	ResourceGroupId            string                  `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	SnapshotSN                 string                  `json:"SnapshotSN" xml:"SnapshotSN"`
 	InstantAccess              bool                    `json:"InstantAccess" xml:"InstantAccess"`
+	SnapshotLinkId             string                  `json:"SnapshotLinkId" xml:"SnapshotLinkId"`
 	SnapshotType               string                  `json:"SnapshotType" xml:"SnapshotType"`
 	Description                string                  `json:"Description" xml:"Description"`
 	SourceDiskType             string                  `json:"SourceDiskType" xml:"SourceDiskType"`

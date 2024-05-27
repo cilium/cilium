@@ -131,6 +131,7 @@ type RunInstancesRequest struct {
 	Ipv6AddressCount                         requests.Integer                `position:"Query" name:"Ipv6AddressCount"`
 	HostNames                                *[]string                       `position:"Query" name:"HostNames"  type:"Repeated"`
 	CapacityReservationPreference            string                          `position:"Query" name:"CapacityReservationPreference"`
+	AdditionalInfo                           RunInstancesAdditionalInfo      `position:"Query" name:"AdditionalInfo"  type:"Struct"`
 	VSwitchId                                string                          `position:"Query" name:"VSwitchId"`
 	InstanceName                             string                          `position:"Query" name:"InstanceName"`
 	ZoneId                                   string                          `position:"Query" name:"ZoneId"`
@@ -201,6 +202,11 @@ type RunInstancesNetworkOptions struct {
 type RunInstancesTag struct {
 	Key   string `name:"Key"`
 	Value string `name:"Value"`
+}
+
+// RunInstancesAdditionalInfo is a repeated param struct in RunInstancesRequest
+type RunInstancesAdditionalInfo struct {
+	PvdConfig string `name:"PvdConfig"`
 }
 
 // RunInstancesNetworkInterface is a repeated param struct in RunInstancesRequest

@@ -81,6 +81,7 @@ type AttachDiskRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	InstanceId           string           `position:"Query" name:"InstanceId"`
+	Force                requests.Boolean `position:"Query" name:"Force"`
 	Device               string           `position:"Query" name:"Device"`
 }
 

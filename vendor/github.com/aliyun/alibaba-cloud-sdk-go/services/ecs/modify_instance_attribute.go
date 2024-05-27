@@ -86,9 +86,15 @@ type ModifyInstanceAttributeRequest struct {
 	CreditSpecification         string                                         `position:"Query" name:"CreditSpecification"`
 	OwnerId                     requests.Integer                               `position:"Query" name:"OwnerId"`
 	SecurityGroupIds            *[]string                                      `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
+	AdditionalInfo              ModifyInstanceAttributeAdditionalInfo          `position:"Query" name:"AdditionalInfo"  type:"Struct"`
 	InstanceId                  string                                         `position:"Query" name:"InstanceId"`
 	InstanceName                string                                         `position:"Query" name:"InstanceName"`
 	RemoteConnectionOptions     ModifyInstanceAttributeRemoteConnectionOptions `position:"Query" name:"RemoteConnectionOptions"  type:"Struct"`
+}
+
+// ModifyInstanceAttributeAdditionalInfo is a repeated param struct in ModifyInstanceAttributeRequest
+type ModifyInstanceAttributeAdditionalInfo struct {
+	PvdConfig string `name:"PvdConfig"`
 }
 
 // ModifyInstanceAttributeRemoteConnectionOptions is a repeated param struct in ModifyInstanceAttributeRequest
