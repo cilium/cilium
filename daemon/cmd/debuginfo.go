@@ -29,7 +29,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 		dr.KernelVersion = kver.String()
 	}
 
-	status := d.getStatus(false)
+	status := d.getStatus(false, true)
 	dr.CiliumStatus = &status
 
 	var p endpoint.GetEndpointParams

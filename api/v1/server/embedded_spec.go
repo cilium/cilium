@@ -860,6 +860,13 @@ func init() {
             "description": "Brief will return a brief representation of the Cilium status.\n",
             "name": "brief",
             "in": "header"
+          },
+          {
+            "type": "boolean",
+            "default": true,
+            "description": "If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.\n",
+            "name": "require-k8s-connectivity",
+            "in": "header"
           }
         ],
         "responses": {
@@ -6422,6 +6429,13 @@ func init() {
             "type": "boolean",
             "description": "Brief will return a brief representation of the Cilium status.\n",
             "name": "brief",
+            "in": "header"
+          },
+          {
+            "type": "boolean",
+            "default": true,
+            "description": "If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.\n",
+            "name": "require-k8s-connectivity",
             "in": "header"
           }
         ],

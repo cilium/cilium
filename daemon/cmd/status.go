@@ -453,7 +453,8 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 
 func getHealthzHandler(d *Daemon, params GetHealthzParams) middleware.Responder {
 	brief := params.Brief != nil && *params.Brief
-	sr := d.getStatus(brief)
+	requireK8sConnectivity := params.RequireK8sConnectivity != nil && *params.RequireK8sConnectivity
+	sr := d.getStatus(brief, requireK8sConnectivity)
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
@@ -659,7 +660,7 @@ func (h *getNodes) Handle(d *Daemon, params GetClusterNodesParams) middleware.Re
 
 // getStatus returns the daemon status. If brief is provided a minimal version
 // of the StatusResponse is provided.
-func (d *Daemon) getStatus(brief bool) models.StatusResponse {
+func (d *Daemon) getStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
 	staleProbes := d.statusCollector.GetStaleProbes()
 	stale := make(map[string]strfmt.DateTime, len(staleProbes))
 	for probe, startTime := range staleProbes {
@@ -730,7 +731,7 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 			State: d.statusResponse.ContainerRuntime.State,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
-	case d.clientset.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
+	case d.clientset.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk && requireK8sConnectivity:
 		msg := "Kubernetes service is not ready: " + d.statusResponse.Kubernetes.Msg
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.Kubernetes.State,
