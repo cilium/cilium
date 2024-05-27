@@ -178,7 +178,11 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 
 	rc.remoteServices = cm.conf.StoreFactory.NewWatchStore(
 		name,
-		func() store.Key { return new(serviceStore.ClusterService) },
+		serviceStore.KeyCreator(
+			serviceStore.ClusterNameValidator(name),
+			serviceStore.NamespacedNameValidator(),
+			serviceStore.ClusterIDValidator(&rc.clusterID),
+		),
 		common.NewSharedServicesObserver(
 			log.WithField(logfields.ClusterName, name),
 			cm.globalServices,
