@@ -31,16 +31,33 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
-func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backendIP, portName, port string) (string, string) {
-	return "cilium/state/services/v1/" + s.randomName + clusterSuffix + "/default/foo",
-		`{"cluster":"` + s.randomName + clusterSuffix + `","namespace":"default","name":"foo","frontends":{"172.20.0.177":{"port":{"protocol":"TCP","port":80}}},"backends":{"` + backendIP + `":{"` + portName + `":{"protocol":"TCP","port":` + port + `}}},"labels":{},"selector":{"name":"foo"},"shared":true,"includeExternal":true}`
+func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(tb testing.TB, clusterID uint32, backendIP, portName string, port uint16) (string, string) {
+	tb.Helper()
 
+	svc := serviceStore.ClusterService{
+		Cluster: fmt.Sprintf("%s%d", s.randomName, clusterID), ClusterID: clusterID,
+		Namespace: "default", Name: "foo",
+		Frontends: map[string]serviceStore.PortConfiguration{
+			"172.20.0.177": {"port": loadbalancer.NewL4Addr(loadbalancer.TCP, 80)},
+		},
+		Backends: map[string]serviceStore.PortConfiguration{
+			backendIP: {portName: loadbalancer.NewL4Addr(loadbalancer.TCP, port)},
+		},
+		Shared: true, IncludeExternal: true,
+	}
+
+	key := path.Join(serviceStore.ServiceStorePrefix, svc.GetKeyName())
+	value, err := svc.Marshal()
+	require.NoError(tb, err, "Unexpected error marshaling service")
+
+	return key, string(value)
 }
 
 type ClusterMeshServicesTestSuite struct {
@@ -149,9 +166,9 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(t *testing.T, action k8s.Cach
 func TestClusterMeshServicesGlobal(t *testing.T) {
 	s := setup(t)
 
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 
 	swgSvcs := lock.NewStoppableWaitGroup()
@@ -222,9 +239,9 @@ func TestClusterMeshServicesGlobal(t *testing.T) {
 func TestClusterMeshServicesUpdate(t *testing.T) {
 	s := setup(t)
 
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 
 	k8sSvc := &slim_corev1.Service{
@@ -255,7 +272,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 		}
 	})
 
-	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080")
+	k, v = s.prepareServiceUpdate(t, 1, "80.0.185.196", "http", 8080)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 	s.expectEvent(t, k8s.UpdateService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		if assert.Contains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("80.0.185.196")) {
@@ -268,7 +285,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 		}
 	})
 
-	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080")
+	k, v = s.prepareServiceUpdate(t, 2, "90.0.185.196", "http", 8080)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 	s.expectEvent(t, k8s.UpdateService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		if assert.Contains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("80.0.185.196")) {
@@ -301,9 +318,9 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 func TestClusterMeshServicesNonGlobal(t *testing.T) {
 	s := setup(t)
 
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 
 	k8sSvc := &slim_corev1.Service{
