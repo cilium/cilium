@@ -902,6 +902,7 @@ func (in *ServicePort) DeepCopyInto(out *ServicePort) {
 		*out = new(string)
 		**out = **in
 	}
+	out.TargetPort = in.TargetPort
 	return
 }
 
