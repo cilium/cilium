@@ -347,6 +347,32 @@ type ServiceName struct {
 	Cluster   string
 }
 
+func (n *ServiceName) Equal(other ServiceName) bool {
+	return n.Namespace == other.Namespace &&
+		n.Name == other.Name &&
+		n.Cluster == other.Cluster
+}
+
+func (n ServiceName) Compare(other ServiceName) int {
+	switch {
+	case n.Namespace < other.Namespace:
+		return -1
+	case n.Namespace > other.Namespace:
+		return 1
+	case n.Name < other.Name:
+		return -1
+	case n.Name > other.Name:
+		return 1
+	case n.Cluster < other.Cluster:
+		return -1
+	case n.Cluster > other.Cluster:
+		return 1
+	default:
+		return 0
+	}
+
+}
+
 func (n ServiceName) String() string {
 	if n.Cluster != "" {
 		return n.Cluster + "/" + n.Namespace + "/" + n.Name
@@ -787,6 +813,13 @@ func (a L3n4Addr) Hash() string {
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
 func (a *L3n4Addr) IsIPv6() bool {
 	return a.AddrCluster.Is6()
+}
+
+// ProtocolsEqual returns true if protocols match for both L3 and L4.
+func (l *L3n4Addr) ProtocolsEqual(o *L3n4Addr) bool {
+	return l.Protocol == o.Protocol &&
+		(l.AddrCluster.Is4() && o.AddrCluster.Is4() ||
+			l.AddrCluster.Is6() && o.AddrCluster.Is6())
 }
 
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
