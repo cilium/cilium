@@ -14,7 +14,7 @@ jobs:
   build_commits:
     name: Check if build works for every commit
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
