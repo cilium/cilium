@@ -222,7 +222,7 @@ network controls, as described below:
 |                 |   attacker will be able |                            |
 |                 |   to tamper with the    |                            |
 |                 |   Cilium agent running  |                            |
-|                 |   on the node.*         |                            |
+|                 |   on the node.          |                            |
 |                 | - Denial of service is  |                            |
 |                 |   also possible via     |                            |
 |                 |   spawning workloads    |                            |
