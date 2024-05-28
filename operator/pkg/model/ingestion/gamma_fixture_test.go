@@ -4,11 +4,12 @@
 package ingestion
 
 import (
-	"github.com/cilium/cilium/operator/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 // Gateway API Mesh Conformance test resources

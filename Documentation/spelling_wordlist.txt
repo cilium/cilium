@@ -787,6 +787,7 @@ webservice
 whitespace
 wildcarded
 workqueue
+workstream
 www
 xDS
 xdp

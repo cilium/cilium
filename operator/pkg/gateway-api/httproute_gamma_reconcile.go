@@ -32,19 +32,6 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// TODO: This currently is copied from the HTTPRoute reconciler, which just
-	// checks that HTTPRoutes are good before marking them as okay.
-	// For GAMMA objects, we need to work more like the _Gateway_ reconciler
-	// which checks things, builds a model, then calls the translation function
-	// after populating the Input struct with the relevant objects from
-	// controller-runtime cache.
-
-	// FOR NOW, though, this should just log things and update status if they reconcile
-	// preferably with big GAMMA reconciler tags.
-	//
-	// Then, I write the ingestion part to ingest GAMMA stuff into a model
-	// Then, we test the translation part works
-	// Then we put it all in here.
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 		logfields.Controller: "gammaHttpRoute",
 		logfields.Resource:   req.NamespacedName,
@@ -150,22 +137,21 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	cec, svc, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to translate resources")
-		// setGatewayAccepted(gw, false, "Unable to translate resources")
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
-	scopedLog.Debugf("GAMMA translator: Service:\n%#v\n", svc)
-	scopedLog.Debugf("GAMMA translator: Endpoints\n%#v\n", cep)
+	scopedLog.
+		WithField("service", fmt.Sprintf("%#v", svc)).
+		WithField("endpoints", fmt.Sprintf("%#v", cep)).
+		Debug("GAMMA translation result")
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure CiliumEnvoyConfig")
-		// setGatewayAccepted(gw, false, "Unable to ensure CEC resource")
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
 	if err = r.ensureEndpoints(ctx, cep); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure Endpoints")
-		// setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource")
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
