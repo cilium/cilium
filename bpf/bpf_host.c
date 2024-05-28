@@ -398,7 +398,11 @@ skip_tunnel:
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
-#endif
+
+	if (from_proxy &&
+	    (!info || !identity_is_cluster(info->sec_identity)))
+		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+#endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
 }
@@ -854,7 +858,11 @@ skip_tunnel:
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
-#endif
+
+	if (from_proxy &&
+	    (!info || !identity_is_cluster(info->sec_identity)))
+		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+#endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
 }
