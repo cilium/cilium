@@ -330,6 +330,7 @@ fromCIDR
 fromCIDRSet
 fromEndpoints
 frontend
+frontends
 fs
 func
 gRPC
