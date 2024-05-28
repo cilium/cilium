@@ -5,9 +5,9 @@ on:
     - cron: '39 0 * * 1-5'
 
 # For testing uncomment following lines:
-#  push:
-#    branches:
-#      - your_branch_name
+  push:
+    branches:
+      - thorn3r/cesScaleTest
 
 permissions:
   # To be able to access the repository with actions/checkout
@@ -160,12 +160,12 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: thorn3r/scale-tests-action/create-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d  # updates for 5k
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
-          control_plane_count: 1
+          control_plane_size: n2-standard-64
+          control_plane_count: 5
           node_size: e2-medium
           node_count: 100
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
@@ -217,6 +217,8 @@ jobs:
           export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
           export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=2.0
+          export CL2_LOAD_TEST_THROUGHPUT=50.0
+          export CL2_DELETE_TEST_THROUGHPUT=50.0
 
           # CL2 hardcodes module paths to live in ./testing/load, even
           # if the path given is relative.
@@ -239,7 +241,6 @@ jobs:
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
-            --testoverrides=./testing/overrides/load_throughput.yaml \
             --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --testoverrides=./modules.yaml \
