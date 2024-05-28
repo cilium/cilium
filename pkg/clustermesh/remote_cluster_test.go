@@ -78,7 +78,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			kvs: map[string]string{
 				"cilium/state/nodes/v1/foo/bar":        `{"name": "bar", "cluster": "foo", "clusterID": 1}`,
 				"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
-				"cilium/state/identities/v1/id/9999":   `key1=value1;key2=value2`,
+				"cilium/state/identities/v1/id/65538":  `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
 				"cilium/state/ip/v1/default/1.1.1.1":   `{"IP": "1.1.1.1"}`,
 			},
 		},
@@ -92,10 +92,10 @@ func TestRemoteClusterRun(t *testing.T) {
 				},
 			},
 			kvs: map[string]string{
-				"cilium/state/nodes/v1/foo/bar":        `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
-				"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 255}`,
-				"cilium/state/identities/v1/id/9999":   `key1=value1;key2=value2`,
-				"cilium/state/ip/v1/default/1.1.1.1":   `{"IP": "1.1.1.1"}`,
+				"cilium/state/nodes/v1/foo/bar":          `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
+				"cilium/state/services/v1/foo/baz/bar":   `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 255}`,
+				"cilium/state/identities/v1/id/16711681": `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
+				"cilium/state/ip/v1/default/1.1.1.1":     `{"IP": "1.1.1.1"}`,
 
 				"cilium/synced/foo/cilium/state/nodes/v1":      "true",
 				"cilium/synced/foo/cilium/state/services/v1":   "true",
@@ -114,10 +114,10 @@ func TestRemoteClusterRun(t *testing.T) {
 				},
 			},
 			kvs: map[string]string{
-				"cilium/cache/nodes/v1/foo/bar":          `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
-				"cilium/cache/services/v1/foo/baz/bar":   `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 255}`,
-				"cilium/cache/identities/v1/foo/id/9999": `key1=value1;key2=value2`,
-				"cilium/cache/ip/v1/foo/1.1.1.1":         `{"IP": "1.1.1.1"}`,
+				"cilium/cache/nodes/v1/foo/bar":              `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
+				"cilium/cache/services/v1/foo/baz/bar":       `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 255}`,
+				"cilium/cache/identities/v1/foo/id/16711681": `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
+				"cilium/cache/ip/v1/foo/1.1.1.1":             `{"IP": "1.1.1.1"}`,
 
 				"cilium/synced/foo/cilium/cache/nodes/v1":      "true",
 				"cilium/synced/foo/cilium/cache/services/v1":   "true",
