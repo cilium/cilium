@@ -129,9 +129,16 @@ func TestCachePopulation(t *testing.T) {
 
 // Distillery integration tests
 func key(id uint32, port uint16, hdr uint8, dir uint8) Key {
+	return keyWithPortMask(id, port, 0, hdr, dir)
+}
+
+// keyWithPortMask returns a key with a specific port mask.
+// Note: This method inverts the portMask on the key for the caller.
+func keyWithPortMask(id uint32, port, portMask uint16, hdr uint8, dir uint8) Key {
 	return types.Key{
 		Identity:         id,
 		DestPort:         port,
+		InvertedPortMask: ^portMask,
 		Nexthdr:          hdr,
 		TrafficDirection: dir,
 	}
@@ -1596,6 +1603,48 @@ var (
 			mapKeyL4Port8080ProtoSCTPWorldIPEgress: struct{}{},
 		},
 	}
+
+	ruleL3AllowWorldSubnetNamedPort = api.NewRule().WithIngressRules([]api.IngressRule{{
+		ToPorts: api.PortRules{
+			api.PortRule{
+				Ports: []api.PortProtocol{
+					{
+						Port:     "http-8080",
+						Protocol: api.ProtoTCP,
+					},
+				},
+			},
+		},
+		IngressCommonRule: api.IngressCommonRule{
+			FromCIDR: api.CIDRSlice{worldSubnet},
+		},
+	}})
+	mapKeyL3L4NamedPort8080ProtoTCPWorldSubNetIngress = key(worldSubnetIdentity.Uint32(), 8080, 6, trafficdirection.Ingress.Uint8())
+
+	ruleL3AllowWorldSubnetPortRange = api.NewRule().WithIngressRules([]api.IngressRule{{
+		ToPorts: api.PortRules{
+			api.PortRule{
+				Ports: []api.PortProtocol{
+					{
+						Port:     "64-127",
+						Protocol: api.ProtoAny,
+					},
+					{
+						Port:     "5-10",
+						Protocol: api.ProtoAny,
+					},
+				},
+			},
+		},
+		IngressCommonRule: api.IngressCommonRule{
+			FromCIDR: api.CIDRSlice{worldSubnet},
+		},
+	}})
+	mapKeyL3L4Port64To127ProtoTCPWorldSubNetIngress = keyWithPortMask(worldSubnetIdentity.Uint32(), 64, 0xffc0, 6, trafficdirection.Ingress.Uint8())
+	mapKeyL3L4Port5ProtoTCPWorldSubNetIngress       = key(worldSubnetIdentity.Uint32(), 5, 6, trafficdirection.Ingress.Uint8())
+	mapKeyL3L4Port6To7ProtoTCPWorldSubNetIngress    = keyWithPortMask(worldSubnetIdentity.Uint32(), 6, 0xfffe, 6, trafficdirection.Ingress.Uint8())
+	mapKeyL3L4Port8To9ProtoTCPWorldSubNetIngress    = keyWithPortMask(worldSubnetIdentity.Uint32(), 8, 0xfffe, 6, trafficdirection.Ingress.Uint8())
+	mapKeyL3L4Port10ProtoTCPWorldSubNetIngress      = key(worldSubnetIdentity.Uint32(), 10, 6, trafficdirection.Ingress.Uint8())
 )
 
 func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
@@ -1671,6 +1720,14 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL4Port8080ProtoUDPWorldIPEgress:   mapEntryDeny,
 			mapKeyL4Port8080ProtoSCTPWorldIPIngress: mapEntryDeny,
 			mapKeyL4Port8080ProtoSCTPWorldIPEgress:  mapEntryDeny,
+		})}, {"named_port_world_subnet", api.Rules{ruleL3AllowWorldSubnetNamedPort}, newMapState(map[Key]MapStateEntry{
+			mapKeyL3L4NamedPort8080ProtoTCPWorldSubNetIngress: mapEntryAllow,
+		})}, {"port_range_world_subnet", api.Rules{ruleL3AllowWorldSubnetPortRange}, newMapState(map[Key]MapStateEntry{
+			mapKeyL3L4Port64To127ProtoTCPWorldSubNetIngress: mapEntryAllow,
+			mapKeyL3L4Port5ProtoTCPWorldSubNetIngress:       mapEntryAllow,
+			mapKeyL3L4Port6To7ProtoTCPWorldSubNetIngress:    mapEntryAllow,
+			mapKeyL3L4Port8To9ProtoTCPWorldSubNetIngress:    mapEntryAllow,
+			mapKeyL3L4Port10ProtoTCPWorldSubNetIngress:      mapEntryAllow,
 		})},
 	}
 
