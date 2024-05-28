@@ -817,7 +817,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
 				return true
 			}
-
 			if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
 				if newKey.PortProtoIsBroader(k) {
 					// If this iterated-allow-entry is a superset of the new-entry
@@ -826,6 +825,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// specific port-protocol of the iterated-allow-entry must be inserted.
 					newKeyCpy := newKey
 					newKeyCpy.DestPort = k.DestPort
+					newKeyCpy.InvertedPortMask = k.InvertedPortMask
 					newKeyCpy.Nexthdr = k.Nexthdr
 					l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 					updates = append(updates, MapChange{
@@ -927,6 +927,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// be added.
 					denyKeyCpy := k
 					denyKeyCpy.DestPort = newKey.DestPort
+					denyKeyCpy.InvertedPortMask = newKey.InvertedPortMask
 					denyKeyCpy.Nexthdr = newKey.Nexthdr
 					l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 					updates = append(updates, MapChange{
@@ -994,7 +995,7 @@ func IsSuperSetOf(k, other Key) int {
 					return 1 // */*/* is a superset of */proto/x
 				} // else both are */*/*
 			} else if k.Nexthdr == other.Nexthdr {
-				if k.DestPort == 0 && other.DestPort != 0 {
+				if k.PortIsBroader(other) {
 					return 2 // */proto/* is a superset of */proto/port
 				} // else more specific or different ports
 			} // else more specific or different protocol
@@ -1003,9 +1004,9 @@ func IsSuperSetOf(k, other Key) int {
 			if k.Nexthdr == 0 { // k.DestPort == 0 is implied
 				return 1 // */*/* is a superset of ID/x/x
 			} else if k.Nexthdr == other.Nexthdr {
-				if k.DestPort == 0 {
+				if k.PortIsBroader(other) {
 					return 2 // */proto/* is a superset of ID/proto/x
-				} else if k.DestPort == other.DestPort {
+				} else if k.PortIsEqual(other) {
 					return 3 // */proto/port is a superset of ID/proto/port
 				} // else more specific or different ports
 			} // else more specific or different protocol
@@ -1016,7 +1017,7 @@ func IsSuperSetOf(k, other Key) int {
 				return 4 // ID/*/* is a superset of ID/proto/x
 			} // else both are ID/*/*
 		} else if k.Nexthdr == other.Nexthdr {
-			if k.DestPort == 0 && other.DestPort != 0 {
+			if k.PortIsBroader(other) {
 				return 5 // ID/proto/* is a superset of ID/proto/port
 			} // else more specific or different ports
 		} // else more specific or different protocol
@@ -1495,17 +1496,21 @@ type MapChange struct {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, key Key, value MapStateEntry) {
+func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, keys []Key, value MapStateEntry) {
 	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
 	for _, id := range adds {
-		key.Identity = id.Uint32()
-		mc.changes = append(mc.changes, MapChange{Add: true, Key: key, Value: value})
+		for _, k := range keys {
+			k.Identity = id.Uint32()
+			mc.changes = append(mc.changes, MapChange{Add: true, Key: k, Value: value})
+		}
 	}
 	for _, id := range deletes {
-		key.Identity = id.Uint32()
-		mc.changes = append(mc.changes, MapChange{Add: false, Key: key, Value: value})
+		for _, k := range keys {
+			k.Identity = id.Uint32()
+			mc.changes = append(mc.changes, MapChange{Add: false, Key: k, Value: value})
+		}
 	}
-	mc.mutex.Unlock()
 }
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,

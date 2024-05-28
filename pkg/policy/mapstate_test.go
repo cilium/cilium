@@ -27,7 +27,7 @@ func Test_IsSuperSetOf(t *testing.T) {
 		{key(0, 0, 0, 0), key(42, 0, 6, 0), 1},
 		{key(0, 0, 0, 0), key(42, 80, 6, 0), 1},
 		{key(0, 0, 0, 0), key(42, 0, 0, 0), 1},
-		{key(0, 0, 6, 0), key(42, 0, 6, 0), 2},
+		{key(0, 0, 6, 0), key(42, 0, 6, 0), 3},
 		{key(0, 0, 6, 0), key(42, 80, 6, 0), 2},
 		{key(0, 80, 6, 0), key(42, 80, 6, 0), 3},
 		{key(0, 80, 6, 0), key(42, 80, 17, 0), 0},  // proto is different
@@ -64,7 +64,7 @@ func Test_IsSuperSetOf(t *testing.T) {
 
 		// increasing specificity for a L3/proto key
 		{key(0, 0, 0, 0), key(42, 0, 6, 0), 1},
-		{key(0, 0, 6, 0), key(42, 0, 6, 0), 2},
+		{key(0, 0, 6, 0), key(42, 0, 6, 0), 3},
 		{key(0, 80, 6, 0), key(42, 0, 6, 0), 0}, // not a superset
 		{key(42, 0, 0, 0), key(42, 0, 6, 0), 4},
 		{key(42, 0, 6, 0), key(42, 0, 6, 0), 0},  // same key
@@ -1596,7 +1596,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				proxyPort = 1
 			}
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
 		policyMapState.validatePortProto(t)
@@ -1817,7 +1817,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				proxyPort = 1
 			}
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, policyFeatures(0), nil)
 		policyMapState.validatePortProto(t)
@@ -2384,7 +2384,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 				proxyPort = 1
 			}
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
 		changes = ChangeState{
@@ -2534,7 +2534,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
-		require.EqualValues(t, expectedKeys, outcomeKeys, tt.name)
+		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (MapState):\n%s", tt.name, expectedKeys.Diff(nil, outcomeKeys))
 	}
 	// Now test all cases with different traffic directions.
 	// This should result in both entries being inserted with

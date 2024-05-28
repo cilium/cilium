@@ -2173,7 +2173,7 @@ Resolving ingress policy for [any:bar]
     Allows from labels {"matchLabels":{"reserved:host":""}}
     Allows from labels {"matchLabels":{"any:baz":""}}
       Found all required labels
-      Allows port [{80 ANY}]
+      Allows port [{80 0 ANY}]
 2/2 rules selected
 Found allow rule
 Found no deny rule
@@ -2250,7 +2250,7 @@ Resolving ingress policy for [any:bar]
     Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
     Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
       Found all required labels
-      Allows port [{80 ANY}]
+      Allows port [{80 0 ANY}]
         No port match found
 * Rule {"matchLabels":{"any:bar":""}}: selected
 3/3 rules selected

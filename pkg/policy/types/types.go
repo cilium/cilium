@@ -23,6 +23,21 @@ type Key struct {
 	// DestPort is the port at L4 to / from which traffic is allowed, in
 	// host-byte order.
 	DestPort uint16
+	// InvertedPortMask is the mask that should be applied to the DestPort to
+	// define a range of ports for the policy-key, encoded as the bitwise inverse
+	// of its true/useful value. This is done so that the default value of the
+	// Key is a full port mask (that is, "0" represents 0xffff), as that is
+	// the most likely value to be used. InvertedPortMask is also, conveniently,
+	// the number or ports on top of DestPort that define that range. That is
+	// the end port is equal to the DestPort added to the InvertedPortMask.
+	//
+	// It is **not** the prefix that is applied for the BPF key entries.
+	// That value is calculated in the maps/policymap package.
+	//
+	// For example:
+	// range 2-3 would be DestPort:2 and InvertedPortMask:0x1 (i.e 0xfffe)
+	// range 32768-49151 would be DestPort:32768 and PortMask:0x3fff (i.e. 0xc000)
+	InvertedPortMask uint16
 	// NextHdr is the protocol which is allowed.
 	Nexthdr uint8
 	// TrafficDirection indicates in which direction Identity is allowed
@@ -30,10 +45,20 @@ type Key struct {
 	TrafficDirection uint8
 }
 
+// PortMask returns the bitwise mask that should be applied
+// to the DestPort.
+func (k Key) PortMask() uint16 {
+	return ^k.InvertedPortMask
+}
+
 // String returns a string representation of the Key
 func (k Key) String() string {
+	dPort := strconv.FormatUint(uint64(k.DestPort), 10)
+	if k.DestPort != 0 && k.InvertedPortMask != 0 {
+		dPort += "-" + strconv.FormatUint(uint64(k.DestPort+k.InvertedPortMask), 10)
+	}
 	return "Identity=" + strconv.FormatUint(uint64(k.Identity), 10) +
-		",DestPort=" + strconv.FormatUint(uint64(k.DestPort), 10) +
+		",DestPort=" + dPort +
 		",Nexthdr=" + strconv.FormatUint(uint64(k.Nexthdr), 10) +
 		",TrafficDirection=" + strconv.FormatUint(uint64(k.TrafficDirection), 10)
 }
@@ -48,34 +73,97 @@ func (k Key) IsEgress() bool {
 	return k.TrafficDirection == trafficdirection.Egress.Uint8()
 }
 
+// EndPort returns the end-port of the Key based on the Mask.
+func (k Key) EndPort() uint16 {
+	return k.DestPort + k.InvertedPortMask
+}
+
 // PortProtoIsBroader returns true if the receiver Key has broader
 // port-protocol than the argument Key. That is a port-protocol
 // that covers the argument Key's port-protocol and is larger.
 // An equal port-protocol will return false.
 func (k Key) PortProtoIsBroader(c Key) bool {
-	return k.DestPort == 0 && c.DestPort != 0 ||
-		k.Nexthdr == 0 && c.Nexthdr != 0
+	if k.Nexthdr == 0 && c.Nexthdr != 0 {
+		return k.PortIsEqual(c) || k.PortIsBroader(c)
+	}
+	return k.Nexthdr == c.Nexthdr && k.PortIsBroader(c)
 }
 
 // PortProtoIsEqual returns true if the port-protocols of the
 // two keys are exactly equal.
 func (k Key) PortProtoIsEqual(c Key) bool {
-	return k.DestPort == c.DestPort && k.Nexthdr == c.Nexthdr
+	return k.DestPort == c.DestPort &&
+		k.InvertedPortMask == c.InvertedPortMask &&
+		k.Nexthdr == c.Nexthdr
+}
+
+// PortIsBroader returns true if the receiver Key's
+// port range covers the argument Key's port range,
+// but returns false if they are equal.
+func (k Key) PortIsBroader(c Key) bool {
+	if k.DestPort == 0 && c.DestPort != 0 {
+		return true
+	}
+	if k.DestPort != 0 && c.DestPort == 0 {
+		return false
+	}
+	kEP := k.EndPort()
+	cEP := c.EndPort()
+	return k.DestPort <= c.DestPort && kEP >= cEP &&
+		// The port ranges cannot be exactly equal.
+		(k.DestPort != c.DestPort || kEP != cEP)
+}
+
+// PortIsEqual returns true if the port ranges
+// between the two keys are exactly equal.
+func (k Key) PortIsEqual(c Key) bool {
+	return k.DestPort == c.DestPort &&
+		k.InvertedPortMask == c.InvertedPortMask
+}
+
+// maskPrefixMap is the map of all the possible portMasks and their
+// associated prefix lengths.
+var maskPrefixMap = map[uint16]uint{
+	0xffff: 0,
+	0x7fff: 1,
+	0x3fff: 2,
+	0x1fff: 3,
+	0xfff:  4,
+	0x7ff:  5,
+	0x3ff:  6,
+	0x1ff:  7,
+	0xff:   8,
+	0x7f:   9,
+	0x3f:   10,
+	0x1f:   11,
+	0xf:    12,
+	0x7:    13,
+	0x3:    14,
+	0x1:    15,
+	0x0:    16,
 }
 
 // PrefixLength returns the prefix lenth of the key
-// for indexing it.
+// for indexing it for the userspace cache (not the
+// BPF map or datapath).
 func (k Key) PrefixLength() uint {
-	p := MapStatePrefixLen
-	if k.DestPort == 0 {
-		p -= 16
-		// We can only mask Nexthdr
-		// if DestPort is also masked.
-		if k.Nexthdr == 0 {
-			p -= 8
-		}
+	keyPrefix := MapStatePrefixLen
+	portPrefix := uint(16)
+	if k.DestPort != 0 {
+		// It is not possible for k.PortMask
+		// to be incorrectly set, but even if
+		// it was the default value of "0" is
+		// what we want.
+		portPrefix = maskPrefixMap[k.PortMask()]
 	}
-	return p
+	keyPrefix -= portPrefix
+	// If the port is fully wildcarded then
+	// we can also wildcard the protocol
+	// (if it is also wildcarded).
+	if portPrefix == 16 && k.Nexthdr == 0 {
+		keyPrefix -= 8
+	}
+	return keyPrefix
 }
 
 // CommonPrefix implements the CommonPrefix method for the
