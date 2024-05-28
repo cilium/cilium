@@ -31,14 +31,14 @@ func NewConcurrentLogger(writer io.Writer, concurrency int) *ConcurrentLogger {
 }
 
 type ConcurrentLogger struct {
-	messageCh        chan message
-	writer           io.Writer
-	nsTestsCh        chan string
-	nsTestMsgs       map[string][]message
-	nsTestMsgsLock   sync.Mutex
-	collectorStarted atomic.Bool
-	printerDoneCh    chan bool
-	nsTestCount      int
+	messageCh         chan message
+	writer            io.Writer
+	nsTestsCh         chan string
+	nsTestMsgs        map[string][]message
+	nsTestMsgsLock    sync.Mutex
+	collectorStarted  atomic.Bool
+	printerDoneCh     chan bool
+	nsTestFinishCount int
 }
 
 // Start starts ConcurrentLogger internals in separate goroutines:
@@ -54,6 +54,7 @@ func (c *ConcurrentLogger) Start(ctx context.Context) {
 func (c *ConcurrentLogger) Stop() {
 	close(c.messageCh)
 	<-c.printerDoneCh
+	close(c.printerDoneCh)
 }
 
 type message struct {
@@ -99,7 +100,7 @@ func (c *ConcurrentLogger) FinishTest(test *Test) {
 }
 
 func (c *ConcurrentLogger) collector(ctx context.Context) {
-	defer func() { c.collectorStarted.Store(false) }()
+	defer c.collectorStarted.Store(false)
 	for {
 		select {
 		case m, open := <-c.messageCh:
@@ -125,27 +126,43 @@ func (c *ConcurrentLogger) collector(ctx context.Context) {
 }
 
 func (c *ConcurrentLogger) printer() {
-	for c.collectorStarted.Load() || len(c.nsTestMsgs) > c.nsTestCount {
+	// read messages while the collector is working
+	for c.collectorStarted.Load() {
+		// double-check if there are new messages to avoid
+		// deadlock reading from the `nsTestsCh` channel
+		if c.nsTestFinishCount < c.collectedTestCount() {
+			c.printTestMessages(<-c.nsTestsCh)
+		}
+	}
+	// collector stopped but there still might be messages to print
+	for c.nsTestFinishCount < c.collectedTestCount() {
 		c.printTestMessages(<-c.nsTestsCh)
 	}
 	c.printerDoneCh <- true
 	close(c.nsTestsCh)
 }
 
+func (c *ConcurrentLogger) collectedTestCount() int {
+	c.nsTestMsgsLock.Lock()
+	testCount := len(c.nsTestMsgs)
+	c.nsTestMsgsLock.Unlock()
+	return testCount
+}
+
 func (c *ConcurrentLogger) printTestMessages(nsTest string) {
-	for i := 0; ; {
+	for printedMessageIndex := 0; ; {
 		c.nsTestMsgsLock.Lock()
 		messages := c.nsTestMsgs[nsTest]
 		c.nsTestMsgsLock.Unlock()
-		if len(messages) == i {
+		if len(messages) == printedMessageIndex {
 			// wait for new test messages
 			time.Sleep(time.Millisecond * 50)
 			continue
 		}
-		for ; i < len(messages); i++ {
-			mustFprintf(c.writer, messages[i].data)
-			if messages[i].finish {
-				c.nsTestCount++
+		for ; printedMessageIndex < len(messages); printedMessageIndex++ {
+			mustFprintf(c.writer, messages[printedMessageIndex].data)
+			if messages[printedMessageIndex].finish {
+				c.nsTestFinishCount++
 				return
 			}
 		}
