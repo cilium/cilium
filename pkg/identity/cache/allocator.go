@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
+	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -711,7 +712,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 // identity cache. remoteName should be unique unless replacing an existing
 // remote's backend. When cachedPrefix is set, identities are assumed to be
 // stored under the "cilium/cache" prefix, and the watcher is adapted accordingly.
-func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations, cachedPrefix bool) (*allocator.RemoteCache, error) {
+func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remoteID uint32, backend kvstore.BackendOperations, cachedPrefix bool) (*allocator.RemoteCache, error) {
 	<-m.globalIdentityAllocatorInitialized
 
 	prefix := m.identitiesPath
@@ -725,7 +726,10 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, back
 	}
 
 	remoteAlloc, err := allocator.NewAllocator(&key.GlobalIdentity{}, remoteAllocatorBackend,
-		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart())
+		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart(),
+		allocator.WithCacheValidator(clusterIDValidator(remoteID)),
+		allocator.WithCacheValidator(clusterNameValidator(remoteName)),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize remote Identity Allocator: %w", err)
 	}
@@ -800,4 +804,57 @@ func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
 	}
 
 	return idLabels
+}
+
+// clusterIDValidator returns a validator ensuring that the identity ID belongs
+// to the ClusterID range.
+func clusterIDValidator(clusterID uint32) allocator.CacheValidator {
+	min := idpool.ID(identity.GetMinimalAllocationIdentity(clusterID))
+	max := idpool.ID(identity.GetMaximumAllocationIdentity(clusterID))
+
+	return func(_ allocator.AllocatorChangeKind, id idpool.ID, _ allocator.AllocatorKey) error {
+		if id < min || id > max {
+			return fmt.Errorf("ID %d does not belong to the allocation range of cluster ID %d", id, clusterID)
+		}
+		return nil
+	}
+}
+
+// clusterNameValidator returns a validator ensuring that the identity labels
+// include the one specifying the correct cluster name.
+func clusterNameValidator(clusterName string) allocator.CacheValidator {
+	return func(kind allocator.AllocatorChangeKind, _ idpool.ID, ak allocator.AllocatorKey) error {
+		if kind != allocator.AllocatorChangeUpsert {
+			// Don't filter out deletion events, as labels may not be propagated,
+			// and to prevent leaving stale identities behind.
+			return nil
+		}
+
+		gi, ok := ak.(*key.GlobalIdentity)
+		if !ok {
+			return fmt.Errorf("unsupported key type %T", ak)
+		}
+
+		var found bool
+		for _, lbl := range gi.LabelArray {
+			if lbl.Key != api.PolicyLabelCluster {
+				continue
+			}
+
+			switch {
+			case lbl.Source != labels.LabelSourceK8s:
+				return fmt.Errorf("unexpected source for cluster label: got %s, expected %s", lbl.Source, labels.LabelSourceK8s)
+			case lbl.Value != clusterName:
+				return fmt.Errorf("unexpected cluster name: got %s, expected %s", lbl.Value, clusterName)
+			default:
+				found = true
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("could not find expected label %s", api.PolicyLabelCluster)
+		}
+
+		return nil
+	}
 }

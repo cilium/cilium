@@ -513,3 +513,55 @@ func TestCheckpointRestore(t *testing.T) {
 
 	assert.ElementsMatch(t, modelBefore, modelAfter)
 }
+
+func TestClusterIDValidator(t *testing.T) {
+	const (
+		cid   = 5
+		minID = cid << 16
+		maxID = minID + 65535
+	)
+
+	var (
+		validator = clusterIDValidator(cid)
+		key       = &cacheKey.GlobalIdentity{}
+	)
+
+	// Identities matching the cluster ID should pass validation
+	for _, id := range []idpool.ID{minID, minID + 1, maxID - 1, maxID} {
+		assert.NoError(t, validator(allocator.AllocatorChangeUpsert, id, key), "ID %d should have passed validation", id)
+	}
+
+	// Identities not matching the cluster ID should fail validation
+	for _, id := range []idpool.ID{1, minID - 1, maxID + 1} {
+		assert.Error(t, validator(allocator.AllocatorChangeUpsert, id, key), "ID %d should have failed validation", id)
+	}
+}
+
+func TestClusterNameValidator(t *testing.T) {
+	const id = 100
+
+	var (
+		validator = clusterNameValidator("foo")
+		generator = cacheKey.GlobalIdentity{}
+	)
+
+	key := generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux=fred;k8s:io.cilium.k8s.policy.cluster=foo")
+	assert.NoError(t, validator(allocator.AllocatorChangeUpsert, id, key))
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "could not find expected label io.cilium.k8s.policy.cluster")
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;k8s:io.cilium.k8s.policy.cluster=bar")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected cluster name: got bar, expected foo")
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux:io.cilium.k8s.policy.cluster=bar")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux:io.cilium.k8s.policy.cluster=bar;k8s:io.cilium.k8s.policy.cluster=bar")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
+
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, nil), "unsupported key type <nil>")
+
+	key = generator.PutKey("")
+	assert.NoError(t, validator(allocator.AllocatorChangeDelete, id, key))
+}
