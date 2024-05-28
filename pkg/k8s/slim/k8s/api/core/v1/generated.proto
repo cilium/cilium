@@ -9,6 +9,7 @@ syntax = "proto2";
 package github.com.cilium.cilium.pkg.k8s.slim.k8s.api.core.v1;
 
 import "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/generated.proto";
+import "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr/generated.proto";
 import "k8s.io/apimachinery/pkg/runtime/generated.proto";
 import "k8s.io/apimachinery/pkg/runtime/schema/generated.proto";
 
@@ -747,6 +748,17 @@ message ServicePort {
 
   // The port that will be exposed by this service.
   optional int32 port = 3;
+
+  // Number or name of the port to access on the pods targeted by the service.
+  // Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+  // If this is a string, it will be looked up as a named port in the
+  // target Pod's container ports. If this is not specified, the value
+  // of the 'port' field is used (an identity map).
+  // This field is ignored for services with clusterIP=None, and should be
+  // omitted or set equal to the 'port' field.
+  // More info: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.util.intstr.IntOrString targetPort = 4;
 
   // The port on each node on which this service is exposed when type is
   // NodePort or LoadBalancer.  Usually assigned by the system. If a value is
