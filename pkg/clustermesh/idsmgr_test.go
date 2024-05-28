@@ -29,7 +29,7 @@ func TestClusterMeshUsedIDs(t *testing.T) {
 	require.Error(t, mgr.ReserveClusterID(250), "Attempting to reserve again the same cluster ID should fail")
 
 	mgr.ReleaseClusterID(250)
-	require.NoError(t, mgr.ReserveClusterID(55), "Reserving a released cluster ID should succeed")
+	require.NoError(t, mgr.ReserveClusterID(250), "Reserving a released cluster ID should succeed")
 
 	require.Error(t, mgr.ReserveClusterID(types.ClusterIDUnset), "Reserving ClusterID 0 should fail")
 	mgr.ReleaseClusterID(types.ClusterIDUnset)
