@@ -24,7 +24,9 @@ type clusterIDsManager ClusterIDsManager
 
 type idsMgrProviderParams struct {
 	cell.In
-	Manager ClusterIDsManager `optional:"true"`
+
+	ClusterInfo cmtypes.ClusterInfo
+	Manager     ClusterIDsManager `optional:"true"`
 }
 
 // idsMgrProvider constructs a default instance of the ClusterIDsManager,
@@ -34,16 +36,18 @@ func idsMgrProvider(params idsMgrProviderParams) clusterIDsManager {
 		return params.Manager
 	}
 
-	return NewClusterMeshUsedIDs()
+	return NewClusterMeshUsedIDs(params.ClusterInfo.ID)
 }
 
 type ClusterMeshUsedIDs struct {
+	localClusterID      uint32
 	UsedClusterIDs      map[uint32]struct{}
 	UsedClusterIDsMutex lock.RWMutex
 }
 
-func NewClusterMeshUsedIDs() *ClusterMeshUsedIDs {
+func NewClusterMeshUsedIDs(localClusterID uint32) *ClusterMeshUsedIDs {
 	return &ClusterMeshUsedIDs{
+		localClusterID: localClusterID,
 		UsedClusterIDs: make(map[uint32]struct{}),
 	}
 }
@@ -51,6 +55,10 @@ func NewClusterMeshUsedIDs() *ClusterMeshUsedIDs {
 func (cm *ClusterMeshUsedIDs) ReserveClusterID(clusterID uint32) error {
 	if clusterID == cmtypes.ClusterIDUnset {
 		return fmt.Errorf("clusterID %d is reserved", clusterID)
+	}
+
+	if clusterID == cm.localClusterID {
+		return fmt.Errorf("clusterID %d is assigned to the local cluster", clusterID)
 	}
 
 	cm.UsedClusterIDsMutex.Lock()
