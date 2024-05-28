@@ -5,9 +5,9 @@ on:
     - cron: '39 0 * * 1-5'
 
 # For testing uncomment following lines:
-#  push:
-#    branches:
-#      - your_branch_name
+  push:
+    branches:
+      - thorn3rCES
 
 permissions:
   # To be able to access the repository with actions/checkout
@@ -89,7 +89,12 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.useDigest=false"
+            --helm-set=hubble.relay.image.useDigest=false \
+            --helm-set=endpointHealthChecking.enabled=false \
+            --helm-set=healthChecking=false \
+            --helm-set=ciliumEndpointSlice.enabled=true \
+            --helm-set=debug.enabled=true \
+            --helm-set=kubeProxyReplacement=true"
           fi
 
           # Adding k8s.local to the end makes kops happy
@@ -163,14 +168,16 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: thorn3r/scale-tests-action/create-cluster@47a0be7528c75fa414c93d0906e199d6a85ed09e  # updates for 5k
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
-          control_plane_count: 1
+          control_plane_size: n2-standard-32
+          control_plane_count: 3
+          control_plane_volume_size: 50
           node_size: e2-medium
           node_count: 100
+          node_volume_size: 50
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
 
@@ -179,7 +186,7 @@ jobs:
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-standard-8
+          node_size: e2-standard-32
           node_count: 1
           ig_name: heapster
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
@@ -189,10 +196,24 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
+      - name: Get apiserver loadbalancer address
+        id: apiserver-vars
+        run: |
+          APISERVER_ADDRESS="$(gcloud compute addresses list --filter="addressType:external AND name~'${{ steps.vars.outputs.cluster_name }}'" --format json | jq '.[].address')"
+          CILIUM_INSTALL_APISERVER=" --set k8sServiceHost=${APISERVER_ADDRESS} \
+          --set k8sServicePort=443"
+
+          echo cilium_install_apiserver=${CILIUM_INSTALL_APISERVER} >> $GITHUB_OUTPUT
+
       - name: Install Cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install --dry-run-helm-values \
+          ${{ steps.vars.outputs.cilium_install_defaults }} \
+          ${{ steps.apiserver-vars.outputs.cilium_install_apiserver }}
+
+          cilium install \
+          ${{ steps.vars.outputs.cilium_install_defaults }} \
+          ${{ steps.apiserver-vars.outputs.cilium_install_apiserver }}
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
@@ -203,7 +224,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --wait-duration=20m
 
       - name: Run CL2
         id: run-cl2
@@ -220,6 +241,9 @@ jobs:
           export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
           export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=2.0
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL="60s"
+          export CL2_LOAD_TEST_THROUGHPUT=50.0
+          export CL2_DELETE_TEST_THROUGHPUT=50.0
 
           # CL2 hardcodes module paths to live in ./testing/load, even
           # if the path given is relative.
@@ -242,17 +266,23 @@ jobs:
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
-            --testoverrides=./testing/overrides/load_throughput.yaml \
             --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --testoverrides=./modules.yaml \
             2>&1 | tee cl2-output.txt
 
       - name: Get sysdump
-        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        if: ${{ always() }}
         run: |
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: cilium-sysdump-final
+          path: cilium-sysdump-*.zip
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
