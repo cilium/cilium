@@ -1122,6 +1122,10 @@ func (in *ServicePort) DeepEqual(other *ServicePort) bool {
 	if in.Port != other.Port {
 		return false
 	}
+	if in.TargetPort != other.TargetPort {
+		return false
+	}
+
 	if in.NodePort != other.NodePort {
 		return false
 	}
