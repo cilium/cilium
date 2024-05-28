@@ -29,6 +29,11 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
+const (
+	localClusterID   = 99
+	localClusterName = "local"
+)
+
 type testObserver struct {
 	nodes      map[string]*nodeTypes.Node
 	nodesMutex lock.RWMutex
@@ -103,12 +108,12 @@ func TestClusterMesh(t *testing.T) {
 	})
 	t.Cleanup(func() { ipc.Shutdown() })
 
-	usedIDs := NewClusterMeshUsedIDs()
+	usedIDs := NewClusterMeshUsedIDs(localClusterID)
 	storeFactory := store.NewFactory(store.MetricsProvider())
 	nodesObserver := newNodesObserver()
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
-		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
+		ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 		NodeObserver:          nodesObserver,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
