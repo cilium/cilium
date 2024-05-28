@@ -212,6 +212,13 @@ func (in *EndpointPort) DeepEqual(other *EndpointPort) bool {
 	if in.Protocol != other.Protocol {
 		return false
 	}
+	if (in.AppProtocol == nil) != (other.AppProtocol == nil) {
+		return false
+	} else if in.AppProtocol != nil {
+		if *in.AppProtocol != *other.AppProtocol {
+			return false
+		}
+	}
 
 	return true
 }
@@ -1104,6 +1111,14 @@ func (in *ServicePort) DeepEqual(other *ServicePort) bool {
 	if in.Protocol != other.Protocol {
 		return false
 	}
+	if (in.AppProtocol == nil) != (other.AppProtocol == nil) {
+		return false
+	} else if in.AppProtocol != nil {
+		if *in.AppProtocol != *other.AppProtocol {
+			return false
+		}
+	}
+
 	if in.Port != other.Port {
 		return false
 	}
