@@ -184,6 +184,7 @@ var infraBackEndV1Service = corev1.Service{
 		},
 	},
 }
+
 var infraBackEndV2Service = corev1.Service{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "infra-backend-v2",
@@ -202,6 +203,7 @@ var infraBackEndV2Service = corev1.Service{
 		},
 	},
 }
+
 var infraBackEndV3Service = corev1.Service{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "infra-backend-v3",
@@ -220,6 +222,7 @@ var infraBackEndV3Service = corev1.Service{
 		},
 	},
 }
+
 var appBackEndV1Service = corev1.Service{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "app-backend-v1",
@@ -238,6 +241,7 @@ var appBackEndV1Service = corev1.Service{
 		},
 	},
 }
+
 var appBackEndV2Service = corev1.Service{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "app-backend-v2",
@@ -256,6 +260,7 @@ var appBackEndV2Service = corev1.Service{
 		},
 	},
 }
+
 var webBackendService = corev1.Service{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "web-backend",
@@ -583,6 +588,7 @@ var hostnameIntersectionGateway = &gatewayv1beta1.Gateway{
 		},
 	},
 }
+
 var hostnameIntersectionHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 	{
 		ObjectMeta: metav1.ObjectMeta{
@@ -646,7 +652,7 @@ var hostnameIntersectionHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 				"wildcard.io",
 				"foo.wildcard.io",     // matches listener-2's wildcard host
 				"bar.wildcard.io",     // matches listener-2's wildcard host
-				"foo.bar.wildcard.io", //matches listener-2's wildcard host
+				"foo.bar.wildcard.io", // matches listener-2's wildcard host
 			},
 			Rules: []gatewayv1beta1.HTTPRouteRule{
 				{
@@ -856,6 +862,7 @@ var listenerHostnameMatchingGateway = &gatewayv1beta1.Gateway{
 		},
 	},
 }
+
 var listenerHostnameMatchingHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 	{
 		ObjectMeta: metav1.ObjectMeta{

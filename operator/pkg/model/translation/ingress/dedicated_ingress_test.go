@@ -260,6 +260,19 @@ func Test_translator_Translate(t *testing.T) {
 			want:          hostNetworkListenersCiliumEnvoyConfig("0.0.0.0", 55555, &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}}),
 			wantLBSvcType: corev1.ServiceTypeClusterIP,
 		},
+		{
+			name: "ComplexNodePortIngress",
+			args: args{
+				m: &model.Model{
+					HTTP: complexNodePortIngressListeners,
+				},
+				hostNetworkEnabled:           true,
+				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
+				ipv4Enabled:                  true,
+			},
+			want:          complexNodePortIngressCiliumEnvoyConfig,
+			wantLBSvcType: corev1.ServiceTypeNodePort,
+		},
 	}
 
 	for _, tt := range tests {

@@ -131,11 +131,13 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           
-          EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,Mesh,HTTPRouteParentRefPort"
+          EXEMPT_FEATURES="GatewayStaticAddresses,HTTPRouteParentRefPort"
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
           fi
 
+          SKIPPED_TESTS="MeshConsumerRoute"
+          
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=gatewayAPI.enabled=true \

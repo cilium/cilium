@@ -137,14 +137,49 @@ func getBackendServiceName(namespace string, services []corev1.Service, serviceI
 func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
-		isListener := false
+
+		listenerIsParent := false
+		// Check parents to see if r can attach to them.
+		// We have to consider _both_ SectionName and Port
 		for _, parent := range r.Spec.ParentRefs {
-			if parent.SectionName == nil || *parent.SectionName == listener.Name {
-				isListener = true
+			// First, if both SectionName and Port are unset, attach
+			if parent.SectionName == nil && parent.Port == nil {
+				listenerIsParent = true
 				break
 			}
+
+			// Then, if SectionName is set, check combinations with Port.
+			if parent.SectionName != nil {
+				if *parent.SectionName != listener.Name {
+					// If SectionName is set but not equal, no other settings
+					// matter, so check the next parent.
+					continue
+				}
+
+				if parent.Port != nil && *parent.Port != listener.Port {
+					// If SectionName is set and equal, but Port is set and _unequal_,
+					//
+					continue
+				}
+
+				listenerIsParent = true
+				break
+			}
+
+			if parent.Port != nil {
+				if *parent.Port != listener.Port {
+					// If Port is set but not equal, no other settings
+					// matter, check the next parent.
+					continue
+				}
+
+				listenerIsParent = true
+				break
+			}
+
 		}
-		if !isListener {
+
+		if !listenerIsParent {
 			continue
 		}
 

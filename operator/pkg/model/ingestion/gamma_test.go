@@ -6,10 +6,11 @@ package ingestion
 import (
 	"testing"
 
-	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 var meshSplitInput = GammaInput{
@@ -32,6 +33,13 @@ var meshSplitListeners = []model.HTTPListener{
 				Namespace: "gateway-conformance-mesh",
 				Version:   "v1",
 				Kind:      "Service",
+			},
+			{
+				Name:      "mesh-split",
+				Namespace: "gateway-conformance-mesh",
+				Version:   "v1",
+				Group:     "gateway.networking.k8s.io",
+				Kind:      "HTTPRoute",
 			},
 		},
 		Port:     80,
@@ -86,6 +94,13 @@ var meshSplitListeners = []model.HTTPListener{
 				Namespace: "gateway-conformance-mesh",
 				Version:   "v1",
 				Kind:      "Service",
+			},
+			{
+				Name:      "mesh-split",
+				Namespace: "gateway-conformance-mesh",
+				Version:   "v1",
+				Group:     "gateway.networking.k8s.io",
+				Kind:      "HTTPRoute",
 			},
 		},
 		Port:     8080,
@@ -155,6 +170,13 @@ var meshPortsListeners = []model.HTTPListener{
 				Version:   "v1",
 				Kind:      "Service",
 			},
+			{
+				Name:      "mesh-ports",
+				Namespace: "gateway-conformance-mesh",
+				Version:   "v1",
+				Group:     "gateway.networking.k8s.io",
+				Kind:      "HTTPRoute",
+			},
 		},
 		Port:     80,
 		Hostname: "*",
@@ -209,6 +231,13 @@ var meshFrontendListeners = []model.HTTPListener{
 				Namespace: "gateway-conformance-mesh",
 				Version:   "v1",
 				Kind:      "Service",
+			},
+			{
+				Name:      "mesh-split-v1",
+				Namespace: "gateway-conformance-mesh",
+				Version:   "v1",
+				Group:     "gateway.networking.k8s.io",
+				Kind:      "HTTPRoute",
 			},
 		},
 		Port:     80,

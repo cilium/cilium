@@ -57,6 +57,7 @@ HTTP, Kafka, gRPC, and DNS are parsed using a proxy such as Envoy.
 
    ingress
    gateway-api/gateway-api
+   gateway-api/gamma
    ingress-to-gateway/ingress-to-gateway
    istio
    mutual-authentication/mutual-authentication
