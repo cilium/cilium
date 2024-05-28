@@ -483,6 +483,7 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
 							}}}},
+							"envoy.reloadable_features.original_dst_rely_on_idle_timeout": {Kind: &structpb.Value_BoolValue{BoolValue: true}},
 						}},
 					},
 				},

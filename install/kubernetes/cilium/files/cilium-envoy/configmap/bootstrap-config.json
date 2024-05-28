@@ -383,7 +383,8 @@
         "staticLayer": {
           "overload": {
             "global_downstream_max_connections": 50000
-          }
+          },
+          "envoy.reloadable_features.original_dst_rely_on_idle_timeout": true
         }
       }
     ]
