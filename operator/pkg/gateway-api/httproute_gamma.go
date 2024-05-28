@@ -55,7 +55,7 @@ func (r *gammaHttpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 					if err != nil {
 						log.WithFields(logrus.Fields{
-							logfields.Controller: "httpRoute",
+							logfields.Controller: "gammaHttpRoute",
 							logfields.Resource:   client.ObjectKeyFromObject(rawObj),
 						}).WithError(err).Error("Failed to get backend service name")
 						continue

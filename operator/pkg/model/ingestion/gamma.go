@@ -60,7 +60,7 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 			Name:      hr.GetName(),
 			Namespace: hr.GetNamespace(),
 			Group:     gatewayv1.GroupVersion.Group,
-			Kind:      hr.Kind,
+			Kind:      "HTTPRoute",
 			Version:   gatewayv1.GroupVersion.Version,
 			UID:       string(hr.GetUID()),
 		}
@@ -87,7 +87,7 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 
 			parentSvc, err := getMatchingService(parentName.Name, parentName.Namespace, hr.GetNamespace(), input.Services)
 			if err != nil {
-				fmt.Printf("Can't find parent Service %s/%s in input\n", parentName.Namespace, parentName.Name)
+				log.Warnf("Can't find parent Service %s/%s in input. This is a bug, please report it to the developers.", parentName.Namespace, parentName.Name)
 				continue
 			}
 
@@ -95,8 +95,7 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 				// skip processing this parent because it's not in the input.
 				// This situation should not arise - there should be multiple
 				// layers of protection.
-				// TODO: figure out how to handle this.
-				fmt.Printf("Can't find any parent Service in input\n")
+				log.Warn("Can't find any parent Service in input. This is a bug, please report it to the developers.")
 				continue
 			}
 
