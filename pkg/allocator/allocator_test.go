@@ -61,7 +61,7 @@ func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key Allocat
 	d.identities[id] = key
 
 	if d.handler != nil {
-		d.handler.OnAdd(id, key)
+		d.handler.OnUpsert(id, key)
 	}
 
 	return key, nil
@@ -80,7 +80,7 @@ func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key A
 	}
 
 	if d.handler != nil {
-		d.handler.OnModify(id, key)
+		d.handler.OnUpsert(id, key)
 	}
 
 	return nil
@@ -168,7 +168,7 @@ func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations,
 	ids := maps.Keys(d.identities)
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	for _, id := range ids {
-		d.handler.OnModify(id, d.identities[id])
+		d.handler.OnUpsert(id, d.identities[id])
 	}
 	d.mutex.Unlock()
 
@@ -407,7 +407,7 @@ func TestObserveAllocatorChanges(t *testing.T) {
 
 	// Simulate changes to the allocations via the backend
 	go func() {
-		backend.handler.OnAdd(idpool.ID(123), TestAllocatorKey("remote"))
+		backend.handler.OnUpsert(idpool.ID(123), TestAllocatorKey("remote"))
 		backend.handler.OnDelete(idpool.ID(123), TestAllocatorKey("remote"))
 	}()
 
@@ -480,7 +480,7 @@ func TestHandleK8sDelete(t *testing.T) {
 	// 3. Simulate delete event where master key protection is enabled
 	// but the identity is not owned locally.
 	alloc.enableMasterKeyProtection = true
-	alloc.mainCache.OnAdd(4321, TestAllocatorKey("bar"))
+	alloc.mainCache.OnUpsert(4321, TestAllocatorKey("bar"))
 	assert.Contains(t, alloc.mainCache.nextCache, idpool.ID(4321))
 	assert.Contains(t, alloc.mainCache.nextKeyCache, "bar")
 	alloc.mainCache.OnDelete(idpool.ID(4321), TestAllocatorKey("bar"))
@@ -535,8 +535,8 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.False(t, rc.Synced(), "The cache should not be synchronized")
 	cancel = run(ctx, rc)
 
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: kvstore.EventTypeModify}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("foo"), Typ: AllocatorChangeUpsert}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: AllocatorChangeUpsert}, <-events)
 
 	require.Eventually(t, func() bool {
 		global.remoteCachesMutex.RLock()
@@ -561,9 +561,9 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	rc = global.NewRemoteCache("remote", remote)
 	cancel = run(ctx, rc)
 
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: kvstore.EventTypeModify}, <-events)
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: kvstore.EventTypeDelete}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: AllocatorChangeUpsert}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: AllocatorChangeUpsert}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: AllocatorChangeDelete}, <-events)
 
 	require.Eventually(t, func() bool {
 		global.remoteCachesMutex.RLock()
@@ -587,14 +587,14 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	oc := global.NewRemoteCache("remote", remote)
 	cancel = run(ctx, oc)
 
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: AllocatorChangeUpsert}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: AllocatorChangeUpsert}, <-events)
 	require.False(t, rc.Synced(), "The cache should not be synchronized if the ListDone event has not been received")
 	require.False(t, synced.Load(), "The on-sync callback should not have been executed if the ListDone event has not been received")
 
 	stop(cancel)
 
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeDelete}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: AllocatorChangeDelete}, <-events)
 	require.Equal(t, rc, global.remoteCaches["remote"])
 
 	require.Len(t, events, 0)
@@ -612,6 +612,6 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	drained[1] = <-events
 	sort.Slice(drained, func(i, j int) bool { return drained[i].ID < drained[j].ID })
 
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeDelete}, drained[0])
-	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: kvstore.EventTypeDelete}, drained[1])
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: AllocatorChangeDelete}, drained[0])
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: AllocatorChangeDelete}, drained[1])
 }

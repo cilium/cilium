@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/key"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -116,7 +115,7 @@ type identityWatcher struct {
 func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) bool {
 	id := identity.NumericIdentity(event.ID)
 	// Only create events have the key
-	if event.Typ == kvstore.EventTypeCreate {
+	if event.Typ == allocator.AllocatorChangeUpsert {
 		if gi, ok := event.Key.(*key.GlobalIdentity); ok {
 			// Un-delete the added ID if previously
 			// 'deleted' so that collected events can be
@@ -156,13 +155,11 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 				}
 				// Collect first added and deleted labels
 				switch event.Typ {
-				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+				case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
 					if collectEvent(event, added, deleted) {
 						// First event collected
 						break First
 					}
-				default:
-					// Ignore modify events
 				}
 			}
 
@@ -177,10 +174,8 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 					}
 					// Collect more added and deleted labels
 					switch event.Typ {
-					case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+					case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
 						collectEvent(event, added, deleted)
-					default:
-						// Ignore modify events
 					}
 				default:
 					// No more events available without blocking
