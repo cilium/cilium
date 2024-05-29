@@ -78,6 +78,9 @@ triggers:
   /ci-l4lb:
     workflows:
     - tests-l4lb.yaml
+  /fqdn-perf:
+    workflows:
+    - fqdn-perf.yaml
 
 workflows:
   conformance-aks.yaml:
