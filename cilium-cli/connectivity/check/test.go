@@ -14,10 +14,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cloudflare/cfssl/cli/genkey"
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
@@ -28,6 +24,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/sysdump"
@@ -66,6 +67,7 @@ func NewTest(name string, verbose bool, debug bool) *Test {
 		ccnps:       make(map[string]*ciliumv2.CiliumClusterwideNetworkPolicy),
 		knps:        make(map[string]*networkingv1.NetworkPolicy),
 		cegps:       make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
+		clrps:       make(map[string]*ciliumv2.CiliumLocalRedirectPolicy),
 		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
 		conditionFn: func() bool { return true },
 	}
@@ -120,6 +122,9 @@ type Test struct {
 
 	// Cilium Egress Gateway Policies active during this test.
 	cegps map[string]*ciliumv2.CiliumEgressGatewayPolicy
+
+	// Cilium Local Redirect Policies active during this test.
+	clrps map[string]*ciliumv2.CiliumLocalRedirectPolicy
 
 	// Secrets that have to be present during the test.
 	secrets map[string]*corev1.Secret
@@ -537,6 +542,43 @@ func (t *Test) WithK8SPolicy(policy string) *Test {
 	return t
 }
 
+// CiliumLocalRedirectPolicyParams is used to configure a CiliumLocalRedirectPolicy template.
+type CiliumLocalRedirectPolicyParams struct {
+	// Policy is the local redirect policy yaml.
+	Policy string
+
+	// Name is the name of the local redirect policy.
+	Name string
+
+	// FrontendIP is the IP address of the address matcher frontend set in the policy spec.
+	FrontendIP string
+
+	// SkipRedirectFromBackend is the flag set in the policy spec.
+	SkipRedirectFromBackend bool
+}
+
+func (t *Test) WithCiliumLocalRedirectPolicy(params CiliumLocalRedirectPolicyParams) *Test {
+	pl, err := parseCiliumLocalRedirectPolicyYAML(params.Policy)
+	if err != nil {
+		t.Fatalf("Parsing local redirect policy YAML: %s", err)
+	}
+
+	for i := range pl {
+		pl[i].Namespace = t.ctx.params.TestNamespace
+		pl[i].Name = params.Name
+		pl[i].Spec.RedirectFrontend.AddressMatcher.IP = params.FrontendIP
+		pl[i].Spec.SkipRedirectFromBackend = params.SkipRedirectFromBackend
+	}
+
+	if err := t.addCLRPs(pl...); err != nil {
+		t.Fatalf("Adding CLRPs to cilium local redirect policy context: %s", err)
+	}
+
+	t.WithFeatureRequirements(features.RequireEnabled(features.LocalRedirectPolicy))
+
+	return t
+}
+
 type ExcludedCIDRsKind int
 
 const (
@@ -934,4 +976,8 @@ func (t *Test) CiliumClusterwideNetworkPolicies() map[string]*ciliumv2.CiliumClu
 
 func (t *Test) KubernetesNetworkPolicies() map[string]*networkingv1.NetworkPolicy {
 	return t.knps
+}
+
+func (t *Test) CiliumLocalRedirectPolicies() map[string]*ciliumv2.CiliumLocalRedirectPolicy {
+	return t.clrps
 }
