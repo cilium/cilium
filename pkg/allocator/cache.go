@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -88,12 +87,10 @@ type CacheMutations interface {
 	// OnListDone is called when the initial full-sync is complete.
 	OnListDone()
 
-	// OnAdd is called when a new key->ID appears.
-	OnAdd(id idpool.ID, key AllocatorKey)
-
-	// OnModify is called when a key->ID mapping is modified. This may happen
-	// when leases are updated, and does not mean the actual mapping had changed.
-	OnModify(id idpool.ID, key AllocatorKey)
+	// OnUpsert is called when either a new key->ID mapping appears or an existing
+	// one is modified. The latter case may occur e.g., when leases are updated,
+	// and does not mean that the actual mapping had changed.
+	OnUpsert(id idpool.ID, key AllocatorKey)
 
 	// OnDelete is called when a key->ID mapping is removed. This may trigger
 	// master-key protection, if enabled, where the local allocator will recreate
@@ -102,7 +99,7 @@ type CacheMutations interface {
 	OnDelete(id idpool.ID, key AllocatorKey)
 }
 
-func (c *cache) sendEvent(typ kvstore.EventType, id idpool.ID, key AllocatorKey) {
+func (c *cache) sendEvent(typ AllocatorChangeKind, id idpool.ID, key AllocatorKey) {
 	if events := c.allocator.events; events != nil {
 		events <- AllocatorEvent{Typ: typ, ID: id, Key: key}
 	}
@@ -123,22 +120,7 @@ func (c *cache) OnListDone() {
 	close(c.listDone)
 }
 
-func (c *cache) OnAdd(id idpool.ID, key AllocatorKey) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.nextCache[id] = key
-	if key != nil {
-		c.nextKeyCache[c.allocator.encodeKey(key)] = id
-	}
-	c.allocator.idPool.Remove(id)
-
-	c.emitChange(AllocatorChange{Kind: AllocatorChangeUpsert, ID: id, Key: key})
-
-	c.sendEvent(kvstore.EventTypeCreate, id, key)
-}
-
-func (c *cache) OnModify(id idpool.ID, key AllocatorKey) {
+func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -151,9 +133,11 @@ func (c *cache) OnModify(id idpool.ID, key AllocatorKey) {
 		c.nextKeyCache[c.allocator.encodeKey(key)] = id
 	}
 
+	c.allocator.idPool.Remove(id)
+
 	c.emitChange(AllocatorChange{Kind: AllocatorChangeUpsert, ID: id, Key: key})
 
-	c.sendEvent(kvstore.EventTypeModify, id, key)
+	c.sendEvent(AllocatorChangeUpsert, id, key)
 }
 
 func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
@@ -222,7 +206,7 @@ func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey, recreateMissingLo
 
 	c.emitChange(AllocatorChange{Kind: AllocatorChangeDelete, ID: id, Key: key})
 
-	c.sendEvent(kvstore.EventTypeDelete, id, key)
+	c.sendEvent(AllocatorChangeDelete, id, key)
 }
 
 // start requests a LIST operation from the kvstore and starts watching the

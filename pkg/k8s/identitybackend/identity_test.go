@@ -85,19 +85,12 @@ func TestSanitizeK8sLabels(t *testing.T) {
 }
 
 type FakeHandler struct {
-	onAddFunc func()
+	onUpsertFunc func()
 }
 
 func (f FakeHandler) OnListDone() {}
 
-func (f FakeHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey) {
-	if f.onAddFunc != nil {
-		f.onAddFunc()
-	}
-}
-
-func (f FakeHandler) OnModify(id idpool.ID, key allocator.AllocatorKey) {}
-
+func (f FakeHandler) OnUpsert(id idpool.ID, key allocator.AllocatorKey) { f.onUpsertFunc() }
 func (f FakeHandler) OnDelete(id idpool.ID, key allocator.AllocatorKey) {}
 
 func getLabelsKey(rawMap map[string]string) allocator.AllocatorKey {
@@ -220,7 +213,7 @@ func TestGetIdentity(t *testing.T) {
 				}
 			}
 
-			go backend.ListAndWatch(ctx, FakeHandler{onAddFunc: func() { addWaitGroup.Done() }}, stopChan)
+			go backend.ListAndWatch(ctx, FakeHandler{onUpsertFunc: func() { addWaitGroup.Done() }}, stopChan)
 
 			// Wait for watcher to process the identities in the background
 			addWaitGroup.Wait()

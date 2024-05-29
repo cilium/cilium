@@ -905,8 +905,8 @@ type AllocatorEventSendChan = chan<- AllocatorEvent
 
 // AllocatorEvent is an event sent over AllocatorEventChan
 type AllocatorEvent struct {
-	// Typ is the type of event (create / modify / delete)
-	Typ kvstore.EventType
+	// Typ is the type of event (upsert / delete)
+	Typ AllocatorChangeKind
 
 	// ID is the allocated ID
 	ID idpool.ID
