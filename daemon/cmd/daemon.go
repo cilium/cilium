@@ -502,7 +502,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.endpointManager,
 		params.NodeManager,
 		&d,
-		d.policy,
 		d.svc,
 		d.lrpManager,
 		d.bgpSpeaker,

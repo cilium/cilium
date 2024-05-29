@@ -48,7 +48,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/service"
@@ -128,10 +127,6 @@ type policyManager interface {
 	TriggerPolicyUpdates(force bool, reason string)
 }
 
-type policyRepository interface {
-	GetSelectorCache() *policy.SelectorCache
-}
-
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
@@ -191,7 +186,6 @@ type K8sWatcher struct {
 
 	nodeManager           nodeManager
 	policyManager         policyManager
-	policyRepository      policyRepository
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
@@ -230,7 +224,6 @@ func NewK8sWatcher(
 	endpointManager endpointManager,
 	nodeManager nodeManager,
 	policyManager policyManager,
-	policyRepository policyRepository,
 	svcManager svcManager,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
@@ -252,7 +245,6 @@ func NewK8sWatcher(
 		endpointManager:       endpointManager,
 		nodeManager:           nodeManager,
 		policyManager:         policyManager,
-		policyRepository:      policyRepository,
 		svcManager:            svcManager,
 		ipcache:               ipcache,
 		controllersStarted:    make(chan struct{}),
