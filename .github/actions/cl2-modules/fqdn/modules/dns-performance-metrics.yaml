@@ -12,18 +12,27 @@ steps:
       metricVersion: v1
       unit: s
       queries:
-      - name: DNS Lookup Count
-        query: sum(increase(dns_lookups_total[%v]))
-      - name: DNS Timeout Count
-        query: sum(increase(dns_timeouts_total[%v]))
-      - name: DNS Error Count
-        query: sum(increase(dns_errors_total[%v]))
       - name: DNS Error Percentage
         query: sum(increase(dns_errors_total[%v])) / sum(increase(dns_lookups_total[%v])) * 100
       - name: DNS Lookup Latency - Perc50
         query: histogram_quantile(0.5, sum(rate(dns_lookup_latency_bucket[%v])) by (le))
       - name: DNS Lookup Latency - Perc99
         query: histogram_quantile(0.99, sum(rate(dns_lookup_latency_bucket[%v])) by (le))
+
+  - Identifier: DNSPerformanceCounters
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: DNS Performance Counters
+      metricVersion: v1
+      unit: count
+      queries:
+      - name: DNS Lookup Count
+        query: sum(increase(dns_lookups_total[%v]))
+      - name: DNS Timeout Count
+        query: sum(increase(dns_timeouts_total[%v]))
+      - name: DNS Error Count
+        query: sum(increase(dns_errors_total[%v]))
 
   - Identifier: CiliumDNSPerformanceMetrics
     Method: GenericPrometheusQuery
