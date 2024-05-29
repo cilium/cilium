@@ -1,0 +1,21 @@
+apiVersion: cilium.io/v2
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name:  # set by WithCiliumLocalRedirectPolicy()
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip:  # set by WithCiliumLocalRedirectPolicy()
+      toPorts:
+        - port: "80"
+          name: "tcp"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        lrp: backend
+    toPorts:
+      - port: "8080"
+        name: "tcp-8080"
+        protocol: TCP
+  skipRedirectFromBackend: # set by WithCiliumLocalRedirectPolicy()
