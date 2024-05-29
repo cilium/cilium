@@ -146,6 +146,11 @@ func (a *Action) IPFamily() features.IPFamily {
 	return a.ipFam
 }
 
+// Scenario returns the scenario the Action belongs to.
+func (a *Action) Scenario() Scenario {
+	return a.scenario
+}
+
 // Run executes function f.
 //
 // This method is to be called from a Scenario implementation.
