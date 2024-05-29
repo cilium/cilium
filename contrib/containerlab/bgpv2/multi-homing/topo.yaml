@@ -11,6 +11,9 @@ topology:
         - ip addr add 10.0.2.1/24 dev net1
         - ip addr add 10.0.3.1/24 dev net2
         - sysctl net.ipv6.conf.all.forwarding=1
+        - ip link add name loopback type dummy
+        - ip link set dev loopback up
+        - ip addr add fd00:10:0:0::1/128 dev loopback
         - ip addr add fd00:10:0:1::1/64 dev net0
         - ip addr add fd00:10:0:2::1/64 dev net1
         - ip addr add fd00:10:0:3::1/64 dev net2
@@ -48,6 +51,9 @@ topology:
         - ip addr add 10.11.2.1/24 dev net1
         - ip addr add 10.11.3.1/24 dev net2
         - sysctl net.ipv6.conf.all.forwarding=1
+        - ip link add name loopback type dummy
+        - ip link set dev loopback up
+        - ip addr add fd00:11:0:0::1/128 dev loopback
         - ip addr add fd00:11:0:1::1/64 dev net0
         - ip addr add fd00:11:0:2::1/64 dev net1
         - ip addr add fd00:11:0:3::1/64 dev net2
@@ -91,6 +97,8 @@ topology:
         - ip route append 10.0.0.0/8 via 10.11.1.1 dev net1
         - ip route add fd00::/16 via fd00:10:0:1::1 dev net0
         - ip route append fd00::/16 via fd00:11:0:1::1 dev net1
+        - ip route add fd00:10:0:0::1/128 via fd00:10:0:1::1 dev net0
+        - ip route add fd00:11:0:0::1/128 via fd00:11:0:1::1 dev net1
     # Server with Cilium. It shares netns with kind node.
     server1:
       kind: linux
@@ -106,6 +114,8 @@ topology:
         - ip route append 10.0.0.0/8 via 10.11.2.1 dev net1
         - ip route add fd00::/16 via fd00:10:0:2::1 dev net0
         - ip route append fd00::/16 via fd00:11:0:2::1 dev net1
+        - ip route add fd00:10:0:0::1/128 via fd00:10:0:2::1 dev net0
+        - ip route add fd00:11:0:0::1/128 via fd00:11:0:2::1 dev net1
     # Server without Cilium. Useful for testing connectivity.
     server2:
       kind: linux
