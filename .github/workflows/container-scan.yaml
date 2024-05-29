@@ -13,6 +13,8 @@ jobs:
     name: Scan Containers
     runs-on: ubuntu-22.04
     continue-on-error: true
+    outputs:
+      scan_result: ${{ steps.failure-flag.outputs.scan_result }}
     strategy:
       matrix:
         image: [
@@ -54,5 +56,23 @@ jobs:
         with:
           image: ${{ matrix.image.name }}:${{ matrix.branch }}
           output-format: table
-          severity-cutoff: high
+          severity-cutoff: medium
           vex: vex/.openvex.json
+      - name: Set failure flag if necessary
+        id: failure-flag
+        if: ${{ failure() }}
+        run: echo "scan_result=failure" >> $GITHUB_OUTPUT
+
+  check-scan-results:
+      name: Check Scan Results
+      runs-on: ubuntu-22.04
+      needs: container-scan
+      steps:
+        - name: Check if any scans failed
+          run: |
+            if [ "${{ needs.container-scan.outputs.scan_result }}" = "failure" ]; then
+              echo "One or more container scans failed."
+              exit 1
+            else
+              echo "All container scans succeeded."
+            fi
