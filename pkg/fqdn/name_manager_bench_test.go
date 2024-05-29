@@ -46,14 +46,14 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 	})
 
 	for i := 0; i < numSelectors; i++ {
-		nameManager.RegisterForIPUpdatesLocked(api.FQDNSelector{
+		nameManager.RegisterFQDNSelector(api.FQDNSelector{
 			MatchName: fmt.Sprintf("%d.example.com", i),
 		})
-		nameManager.RegisterForIPUpdatesLocked(api.FQDNSelector{
+		nameManager.RegisterFQDNSelector(api.FQDNSelector{
 			MatchPattern: fmt.Sprintf("*.%d.example.com", i),
 		})
 	}
-	nameManager.RegisterForIPUpdatesLocked(api.FQDNSelector{
+	nameManager.RegisterFQDNSelector(api.FQDNSelector{
 		MatchPattern: "*.example.com",
 	})
 

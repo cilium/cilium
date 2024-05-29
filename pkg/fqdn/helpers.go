@@ -8,7 +8,6 @@ import (
 	"regexp"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -16,75 +15,58 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-// mapSelectorsToIPsLocked iterates through a set of FQDNSelectors and evalutes
-// whether they match the DNS Names in the cache. If so, the set of IPs which
-// the cache maintains as mapping to each DNS Name are mapped to the matching
-// FQDNSelector.
-// Returns the mapping of FQDNSelector to all IPs selected by that selector.
-func (n *NameManager) mapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSelector]) (selectorIPMapping map[api.FQDNSelector][]netip.Addr) {
-	selectorIPMapping = make(map[api.FQDNSelector][]netip.Addr)
+// mapSelectorsToNamesLocked iterates through all DNS Names in the cache and
+// evaluates if they match the provided fqdnSelector. If so, the matching DNS
+// Name with all its associated IPs is collected.
+//
+// Returns the mapping of DNS names to all IPs selected by that selector.
+func (n *NameManager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (namesIPMapping map[string][]netip.Addr) {
+	namesIPMapping = make(map[string][]netip.Addr)
 
-	log.WithField("fqdnSelectors", fqdnSelectors).Debug("mapSelectorsToIPs")
-
-	// Map each FQDNSelector to set of CIDRs
-	for ToFQDN := range fqdnSelectors {
-		var ipsSelected []netip.Addr
-		dedup := false
-		// lookup matching DNS names
-		if len(ToFQDN.MatchName) > 0 {
-			dnsName := prepareMatchName(ToFQDN.MatchName)
-			lookupIPs := n.cache.Lookup(dnsName)
-
+	// lookup matching DNS names
+	if len(fqdnSelector.MatchName) > 0 {
+		dnsName := prepareMatchName(fqdnSelector.MatchName)
+		lookupIPs := n.cache.Lookup(dnsName)
+		if len(lookupIPs) > 0 {
 			log.WithFields(logrus.Fields{
 				"DNSName":   dnsName,
 				"IPs":       lookupIPs,
-				"matchName": ToFQDN.MatchName,
+				"matchName": fqdnSelector.MatchName,
 			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-			ipsSelected = lookupIPs
+			namesIPMapping[dnsName] = lookupIPs
 		}
-
-		if len(ToFQDN.MatchPattern) > 0 {
-			// lookup matching DNS names
-			dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
-			patternREStr := matchpattern.ToAnchoredRegexp(dnsPattern)
-			var (
-				err       error
-				patternRE *regexp.Regexp
-			)
-
-			if patternRE, err = re.CompileRegex(patternREStr); err != nil {
-				log.WithError(err).Error("Error compiling matchPattern")
-			}
-			lookupIPs := n.cache.LookupByRegexp(patternRE)
-
-			for name, ips := range lookupIPs {
-				if len(ips) > 0 {
-					if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-						log.WithFields(logrus.Fields{
-							"DNSName":      name,
-							"IPs":          ips,
-							"matchPattern": ToFQDN.MatchPattern,
-						}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-					}
-					if ipsSelected == nil {
-						ipsSelected = ips
-					} else {
-						ipsSelected = append(ipsSelected, ips...)
-						dedup = true
-					}
-				}
-			}
-		}
-		if dedup {
-			s := make(sets.Set[netip.Addr], len(ipsSelected))
-			s.Insert(ipsSelected...)
-			ipsSelected = s.UnsortedList()
-		}
-
-		selectorIPMapping[ToFQDN] = ipsSelected
 	}
 
-	return selectorIPMapping
+	if len(fqdnSelector.MatchPattern) > 0 {
+		// lookup matching DNS names
+		dnsPattern := matchpattern.Sanitize(fqdnSelector.MatchPattern)
+		patternREStr := matchpattern.ToAnchoredRegexp(dnsPattern)
+		var (
+			err       error
+			patternRE *regexp.Regexp
+		)
+
+		if patternRE, err = re.CompileRegex(patternREStr); err != nil {
+			log.WithError(err).Error("Error compiling matchPattern")
+			return namesIPMapping
+		}
+		lookupIPs := n.cache.LookupByRegexp(patternRE)
+
+		for dnsName, ips := range lookupIPs {
+			if len(ips) > 0 {
+				if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+					log.WithFields(logrus.Fields{
+						"DNSName":      dnsName,
+						"IPs":          ips,
+						"matchPattern": fqdnSelector.MatchPattern,
+					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+				}
+				namesIPMapping[dnsName] = append(namesIPMapping[dnsName], ips...)
+			}
+		}
+	}
+
+	return namesIPMapping
 }
 
 // prepareMatchName ensures a ToFQDNs.matchName field is used consistently.
