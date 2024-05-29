@@ -270,6 +270,17 @@ jobs:
             ciliumendpointslice: 'true'
             ingress-controller: 'true'
 
+          - name: '17'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240515.073534'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            ingress-controller: 'true'
+            misc: 'bpf.masquerade=true'
+
     timeout-minutes: 60
     steps:
       - name: Collect Workflow Telemetry
