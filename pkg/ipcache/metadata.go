@@ -574,6 +574,11 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		}
 	}
 
+	// Ensure any prefix with a FQDN label also has the world label set
+	if lbls.HasSource(labels.LabelSourceFQDN) {
+		labels.AddWorldLabel(prefix.Addr(), lbls)
+	}
+
 	// If the prefix is associated with the host or remote-node, then
 	// force-remove the world label.
 	if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||

@@ -845,7 +845,7 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	ident = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.TODO(), id.ID)
 	require.True(t, ok)
 	require.NotNil(t, ident)
-	require.Equal(t, "fqdn:*.internal", ident.Labels.String())
+	require.Equal(t, "fqdn:*.internal,reserved:world-ipv4", ident.Labels.String())
 	newID, ok = IPIdentityCache.LookupByPrefix(child.String())
 	require.True(t, ok)
 	require.Equal(t, id.ID, newID.ID)
