@@ -88,7 +88,7 @@ main() {
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
     sed -i 's/"[^"]*"/""/g' install/kubernetes/Makefile.digests
-    logrun make RELEASE=yes CILIUM_BRANCH="$branch" -C install/kubernetes all USE_DIGESTS=false
+    logrun make RELEASE=yes -C install/kubernetes all USE_DIGESTS=false
     if grep -q update-helm-values Documentation/Makefile; then
         logrun make -C Documentation update-helm-values
     fi

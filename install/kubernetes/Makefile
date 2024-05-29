@@ -47,7 +47,7 @@ update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the curren
 	$(ECHO_GEN)cilium/Chart.yaml
 	$(QUIET)grep -lR -e 'version:' -e 'appVersion:' $(CILIUM_CHARTS)/ \
 		| xargs -L 1 $(SED) -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 '$(VERSION)'/g'
-	$(QUIET)$(SED) -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@$(CILIUM_BRANCH)/$(LOGO_PATH);' $(CHART_FILE)
+	$(QUIET)$(SED) -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@main/$(LOGO_PATH);' $(CHART_FILE)
 
 check-values-yaml: cilium/values.schema.json
 	$(ECHO_CHECK) $@
