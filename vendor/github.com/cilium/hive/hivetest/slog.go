@@ -3,15 +3,26 @@ package hivetest
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
 	"slices"
+	"sync/atomic"
 	"testing"
 )
 
 // Logger returns a logger which forwards structured logs to t.
 func Logger(t testing.TB, opts ...LogOption) *slog.Logger {
+	// We need to make sure that we don't try to log to `t` after the test has
+	// completed since that leads to a panic.
+	var tDone atomic.Bool
+	t.Cleanup(func() {
+		tDone.Store(true)
+	})
+
 	th := &testHandler{
-		t: t,
+		tDone: &tDone,
+		t:     t,
 	}
 	for _, o := range opts {
 		o(th)
@@ -30,6 +41,7 @@ func LogLevel(l slog.Level) LogOption {
 // Will be accessed by multiple goroutines - needs to appear immutable.
 type testHandler struct {
 	t      testing.TB
+	tDone  *atomic.Bool
 	level  slog.Level
 	fields []groupOrAttr
 }
@@ -63,6 +75,17 @@ func (th *testHandler) Handle(ctx context.Context, r slog.Record) error {
 		return err
 	}
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "failed to log (likely because the test is no longer running): %v", r)
+		}
+	}()
+
+	// This is still TOCTOU racy with the call to log below, but we catch the
+	// potential panic above.
+	if th.tDone.Load() {
+		return fmt.Errorf("cannot log to finished test case")
+	}
 	// Chomp the newline.
 	th.t.Log(string(buf.Bytes()[:buf.Len()-1]))
 
