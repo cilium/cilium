@@ -7,23 +7,19 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-func FuzzMapSelectorsToIPsLocked(f *testing.F) {
+func FuzzMapSelectorsToNamesLocked(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		ff := fuzz.NewConsumer(data)
-		fqdnSelectors := make(sets.Set[api.FQDNSelector])
-		ff.FuzzMap(&fqdnSelectors)
-		if len(fqdnSelectors) == 0 {
-			t.Skip()
-		}
+		fqdnSelector := api.FQDNSelector{}
+		ff.FuzzMap(fqdnSelector)
 		nameManager := NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 		})
-		nameManager.mapSelectorsToIPsLocked(fqdnSelectors)
+		nameManager.mapSelectorsToNamesLocked(fqdnSelector)
 	})
 }
