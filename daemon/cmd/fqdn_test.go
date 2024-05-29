@@ -72,10 +72,9 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		DatapathHandler:   d.endpointManager,
 	})
 	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
-		MinTTL:          1,
-		Cache:           fqdn.NewDNSCache(0),
-		UpdateSelectors: d.updateSelectors,
-		IPCache:         d.ipcache,
+		MinTTL:  1,
+		Cache:   fqdn.NewDNSCache(0),
+		IPCache: d.ipcache,
 	})
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
 

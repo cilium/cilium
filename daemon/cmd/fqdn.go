@@ -29,8 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -54,64 +52,6 @@ const (
 	metricErrorAllow   = "allow"
 )
 
-// requestNameKey is used as a key to context.Value(). It is used
-// to pass the triggering DNS name for logging purposes.
-type requestNameKey struct{}
-
-// updateSelectors propagates the mapping of FQDNSelector to IPs
-// to the policy engine.
-// First, it updates any selectors in the SelectorCache, then it triggers
-// all endpoints to push incremental updates via UpdatePolicyMaps.
-//
-// returns a WaitGroup that is done when all policymaps have been updated
-// and all endpoints referencing the IPs are able to pass traffic.
-func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQDNSelector][]netip.Addr, ipcacheRevision uint64) (wg *sync.WaitGroup) {
-	// There may be nothing to update - in this case, we exit and do not need
-	// to trigger policy updates for all endpoints.
-	if len(selectors) == 0 {
-		return &sync.WaitGroup{}
-	}
-	logger := log.WithField("qname", ctx.Value(requestNameKey{}))
-
-	// notifyWg is a waitgroup that is incremented for every "user" of a selector; i.e.
-	// every single SelectorPolicy. Once that selector has pushed out incremental changes
-	// to every relevant endpoint, the WaitGroup will be done.
-	notifyWg := &sync.WaitGroup{}
-	updateResult := policy.UpdateResultUnchanged
-	// Update mapping of selector to set of IPs in selector cache.
-	for selector, ips := range selectors {
-		logger.WithFields(logrus.Fields{
-			"fqdnSelectorString": selector,
-			"ips":                ips}).Debug("updating FQDN selector")
-		res := d.policy.GetSelectorCache().UpdateFQDNSelector(selector, ips, notifyWg)
-		updateResult |= res
-	}
-
-	// UpdatePolicyMaps consumes notifyWG, and returns its own WaitGroup
-	// that is Done() when all endpoints have pushed their incremental changes
-	// down in to their bpf PolicyMap.
-	if updateResult&policy.UpdateResultUpdatePolicyMaps > 0 {
-		logger.Debug("FQDN selector update requires UpdatePolicyMaps.")
-		wg = d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
-	} else {
-		wg = &sync.WaitGroup{}
-	}
-
-	// If any of the selectors indicated they're missing identities,
-	// we also need to wait for a full ipcache round.
-	if updateResult&policy.UpdateResultIdentitiesNeeded > 0 && ipcacheRevision > 0 {
-		wg.Add(1)
-		go func() {
-			logger.Debug("FQDN selector update requires IPCache completion.")
-			d.ipcache.WaitForRevision(ipcacheRevision)
-			wg.Done()
-		}()
-	}
-
-	// This releases the nameManager lock; at this point, it is safe for another fqdn update to proceed
-	return
-}
-
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
@@ -120,7 +60,6 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	cfg := fqdn.Config{
 		MinTTL:              option.Config.ToFQDNsMinTTL,
 		Cache:               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
-		UpdateSelectors:     d.updateSelectors,
 		GetEndpointsDNSInfo: d.getEndpointsDNSInfo,
 		IPCache:             ipcache,
 	}
@@ -434,9 +373,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			"ips":   responseIPs,
 		}).Debug("Updating DNS name in cache from response to query")
 
-		updateCtx, updateCancel := context.WithTimeout(
-			context.WithValue(d.ctx, requestNameKey{}, qname), // set the name as a context key for logging
-			option.Config.FQDNProxyResponseMaxDelay)
+		updateCtx, updateCancel := context.WithTimeout(d.ctx, option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
 		updateStart := time.Now()
 
