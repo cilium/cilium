@@ -275,7 +275,7 @@ var ExpectedPortNetworkPolicyRule1Wildcard = &cilium.PortNetworkPolicyRule{
 	L7: ExpectedHttpRule1,
 }
 
-var L4PolicyMap1 = map[string]*policy.L4Filter{
+var L4PolicyMap1 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
@@ -284,9 +284,9 @@ var L4PolicyMap1 = map[string]*policy.L4Filter{
 			cachedSelector1: L7Rules12,
 		},
 	},
-}
+})
 
-var L4PolicyMap1HeaderMatch = map[string]*policy.L4Filter{
+var L4PolicyMap1HeaderMatch = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
@@ -295,9 +295,9 @@ var L4PolicyMap1HeaderMatch = map[string]*policy.L4Filter{
 			cachedSelector1: L7Rules12HeaderMatch,
 		},
 	},
-}
+})
 
-var L4PolicyMap1RequiresV2 = map[string]*policy.L4Filter{
+var L4PolicyMap1RequiresV2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
@@ -307,9 +307,9 @@ var L4PolicyMap1RequiresV2 = map[string]*policy.L4Filter{
 			cachedRequiresV2Selector1: L7Rules12,
 		},
 	},
-}
+})
 
-var L4PolicyMap2 = map[string]*policy.L4Filter{
+var L4PolicyMap2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"8080/TCP": {
 		Port:     8080,
 		Protocol: api.ProtoTCP,
@@ -318,9 +318,9 @@ var L4PolicyMap2 = map[string]*policy.L4Filter{
 			cachedSelector2: L7Rules1,
 		},
 	},
-}
+})
 
-var L4PolicyMap3 = map[string]*policy.L4Filter{
+var L4PolicyMap3 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
@@ -329,10 +329,10 @@ var L4PolicyMap3 = map[string]*policy.L4Filter{
 			wildcardCachedSelector: L7Rules12,
 		},
 	},
-}
+})
 
 // L4PolicyMap4 is an L4-only policy, with no L7 rules.
-var L4PolicyMap4 = map[string]*policy.L4Filter{
+var L4PolicyMap4 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
@@ -340,10 +340,10 @@ var L4PolicyMap4 = map[string]*policy.L4Filter{
 			cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
 	},
-}
+})
 
 // L4PolicyMap5 is an L4-only policy, with no L7 rules.
-var L4PolicyMap5 = map[string]*policy.L4Filter{
+var L4PolicyMap5 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
@@ -351,10 +351,10 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
 	},
-}
+})
 
 // L4PolicyMapSNI is an L4-only policy, with SNI enforcement
-var L4PolicyMapSNI = map[string]*policy.L4Filter{
+var L4PolicyMapSNI = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"443/TCP": {
 		Port:     443,
 		Protocol: api.ProtoTCP,
@@ -367,7 +367,7 @@ var L4PolicyMapSNI = map[string]*policy.L4Filter{
 			},
 		},
 	},
-}
+})
 
 var ExpectedPerPortPoliciesSNI = []*cilium.PortNetworkPolicy{
 	{
@@ -601,7 +601,7 @@ func TestGetNetworkPolicyEgressNotEnforced(t *testing.T) {
 }
 
 var L4PolicyL7 = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"9090/TCP": {
 			Port: 9090, Protocol: api.ProtoTCP,
 			L7Parser: "tester",
@@ -622,7 +622,7 @@ var L4PolicyL7 = &policy.L4Policy{
 			},
 			Ingress: true,
 		},
-	}},
+	})},
 }
 
 var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
@@ -664,7 +664,7 @@ func TestGetNetworkPolicyL7(t *testing.T) {
 }
 
 var L4PolicyKafka = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"9090/TCP": {
 			Port: 9092, Protocol: api.ProtoTCP,
 			L7Parser: "kafka",
@@ -678,7 +678,7 @@ var L4PolicyKafka = &policy.L4Policy{
 			},
 			Ingress: true,
 		},
-	}},
+	})},
 }
 
 var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
@@ -723,7 +723,7 @@ func TestGetNetworkPolicyKafka(t *testing.T) {
 }
 
 var L4PolicyMySQL = &policy.L4Policy{
-	Egress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"3306/TCP": {
 			Port: 3306, Protocol: api.ProtoTCP,
 			L7Parser: "envoy.filters.network.mysql_proxy",
@@ -740,7 +740,7 @@ var L4PolicyMySQL = &policy.L4Policy{
 			},
 			Ingress: false,
 		},
-	}},
+	})},
 }
 
 var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
@@ -849,7 +849,7 @@ func TestGetNetworkPolicyProxylibVisibility(t *testing.T) {
 }
 
 var L4PolicyTLSEgress = &policy.L4Policy{
-	Egress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
 			L7Parser: "tls",
@@ -861,7 +861,7 @@ var L4PolicyTLSEgress = &policy.L4Policy{
 				},
 			},
 		},
-	}},
+	})},
 }
 
 var ExpectedPerPortPoliciesTLSEgress = []*cilium.PortNetworkPolicy{
@@ -888,7 +888,7 @@ func TestGetNetworkPolicyTLSEgress(t *testing.T) {
 }
 
 var L4PolicyTLSIngress = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
 			L7Parser: "tls",
@@ -902,7 +902,7 @@ var L4PolicyTLSIngress = &policy.L4Policy{
 			},
 			Ingress: true,
 		},
-	}},
+	})},
 }
 
 var ExpectedPerPortPoliciesTLSIngress = []*cilium.PortNetworkPolicy{
@@ -930,7 +930,7 @@ func TestGetNetworkPolicyTLSIngress(t *testing.T) {
 }
 
 var L4PolicyTLSFullContext = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: map[string]*policy.L4Filter{
+	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
 			L7Parser: "tls",
@@ -950,7 +950,7 @@ var L4PolicyTLSFullContext = &policy.L4Policy{
 			},
 			Ingress: true,
 		},
-	}},
+	})},
 }
 
 var ExpectedPerPortPoliciesTLSFullContext = []*cilium.PortNetworkPolicy{
