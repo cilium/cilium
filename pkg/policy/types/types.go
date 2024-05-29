@@ -121,12 +121,6 @@ func (k Key) PortIsEqual(c Key) bool {
 		k.InvertedPortMask == c.InvertedPortMask
 }
 
-// MaskToPrefix returns the amount by which
-// a mask should negate a full prefix.
-func MaskToPrefix(mask uint16) uint {
-	return uint(bits.TrailingZeros16(mask))
-}
-
 // PrefixLength returns the prefix lenth of the key
 // for indexing it for the userspace cache (not the
 // BPF map or datapath).
@@ -138,7 +132,7 @@ func (k Key) PrefixLength() uint {
 		// to be incorrectly set, but even if
 		// it was the default value of "0" is
 		// what we want.
-		portPrefix = MaskToPrefix(k.PortMask())
+		portPrefix = uint(bits.TrailingZeros16(k.PortMask()))
 	}
 	keyPrefix -= portPrefix
 	// If the port is fully wildcarded then

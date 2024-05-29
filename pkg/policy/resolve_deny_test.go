@@ -147,7 +147,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -160,7 +160,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 					},
-				},
+				}),
 					features: denyRules,
 				},
 				Egress: newL4DirectionPolicy(),
@@ -240,7 +240,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -253,7 +253,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 					},
-				},
+				}),
 					features: denyRules,
 				},
 				Egress: newL4DirectionPolicy(),
@@ -332,7 +332,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -345,7 +345,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}},
 					},
-				},
+				}),
 					features: denyRules,
 				},
 				Egress: newL4DirectionPolicy(),
@@ -486,7 +486,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -506,7 +506,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 							cachedSelectorTest:    {ruleLabel},
 						},
 					},
-				},
+				}),
 					features: denyRules,
 				},
 				Egress: newL4DirectionPolicy(),
