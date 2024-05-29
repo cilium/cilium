@@ -18,11 +18,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,6 +43,12 @@ import (
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
+
+	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 )
@@ -683,6 +684,10 @@ func (c *Client) ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav
 
 func (c *Client) DeleteCiliumEgressGatewayPolicy(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Delete(ctx, name, opts)
+}
+
+func (c *Client) DeleteCiliumLocalRedirectPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).Delete(ctx, name, opts)
 }
 
 func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {

@@ -53,6 +53,9 @@ const (
 	kindEchoExternalNodeName                   = "echo-external-node"
 	kindClientName                             = "client"
 	kindPerfName                               = "perf"
+	lrpBackendDeploymentName                   = "lrp-backend"
+	lrpClientDeploymentName                    = "lrp-client"
+	kindLrpName                                = "lrp"
 
 	hostNetNSDeploymentName          = "host-netns"
 	hostNetNSDeploymentNameNonCilium = "host-netns-non-cilium" // runs on non-Cilium test nodes
@@ -934,6 +937,63 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 	}
+
+	if ct.Features[features.LocalRedirectPolicy].Enabled {
+		ct.Logf("✨ [%s] Deploying lrp-client deployment...", ct.clients.src.ClusterName())
+		lrpClientDeployment := newDeployment(deploymentParameters{
+			Name:         lrpClientDeploymentName,
+			Kind:         kindLrpName,
+			Image:        ct.params.CurlImage,
+			Command:      []string{"/usr/bin/pause"},
+			Labels:       map[string]string{"lrp": "client"},
+			Annotations:  ct.params.DeploymentAnnotations.Match(lrpClientDeploymentName),
+			NodeSelector: ct.params.NodeSelector,
+		})
+		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpClientDeploymentName), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create service account %s: %s", lrpClientDeployment, err)
+		}
+		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpClientDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %s", lrpClientDeployment, err)
+		}
+		ct.Logf("✨ [%s] Deploying lrp-backend deployment...", ct.clients.src.ClusterName())
+		containerPort := 8080
+		lrpBackendDeployment := newDeployment(deploymentParameters{
+			Name:           lrpBackendDeploymentName,
+			Kind:           kindLrpName,
+			Image:          ct.params.JSONMockImage,
+			NamedPort:      "tcp-8080",
+			Port:           containerPort,
+			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+			Labels:         map[string]string{"lrp": "backend"},
+			Annotations:    ct.params.DeploymentAnnotations.Match(lrpBackendDeploymentName),
+			Affinity: &corev1.Affinity{
+				PodAffinity: &corev1.PodAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+						{
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{lrpClientDeploymentName}},
+								},
+							},
+							TopologyKey: corev1.LabelHostname,
+						},
+					},
+				},
+			},
+			NodeSelector: ct.params.NodeSelector,
+		})
+		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpBackendDeploymentName), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create service account %s: %s", lrpBackendDeployment, err)
+		}
+		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpBackendDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %s", lrpBackendDeployment, err)
+		}
+	}
+
 	return nil
 }
 
@@ -1087,6 +1147,11 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		srcList = append(srcList, echoExternalNodeDeploymentName)
 	}
 
+	if ct.Features[features.LocalRedirectPolicy].Enabled {
+		srcList = append(srcList, lrpClientDeploymentName)
+		srcList = append(srcList, lrpBackendDeploymentName)
+	}
+
 	return srcList, dstList
 }
 
@@ -1180,6 +1245,28 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return ct.perfClientPods[i].Pod.Name < ct.perfClientPods[j].Pod.Name
 		})
 		return nil
+	}
+
+	if ct.Features[features.LocalRedirectPolicy].Enabled {
+		lrpPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindLrpName})
+		if err != nil {
+			return fmt.Errorf("unable to list lrp pods: %w", err)
+		}
+		for _, lrpPod := range lrpPods.Items {
+			if v, hasLabel := lrpPod.GetLabels()["lrp"]; hasLabel {
+				if v == "backend" {
+					ct.lrpBackendPods[lrpPod.Name] = Pod{
+						K8sClient: ct.client,
+						Pod:       lrpPod.DeepCopy(),
+					}
+				} else if v == "client" {
+					ct.lrpClientPods[lrpPod.Name] = Pod{
+						K8sClient: ct.client,
+						Pod:       lrpPod.DeepCopy(),
+					}
+				}
+			}
+		}
 	}
 
 	clientPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})

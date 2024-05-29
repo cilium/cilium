@@ -71,6 +71,8 @@ type ConnectivityTest struct {
 	ingressService       map[string]Service
 	k8sService           Service
 	externalWorkloads    map[string]ExternalWorkload
+	lrpClientPods        map[string]Pod
+	lrpBackendPods       map[string]Pod
 
 	hostNetNSPodsByNode      map[string]Pod
 	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
@@ -204,6 +206,8 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string, logge
 		echoExternalPods:         make(map[string]Pod),
 		clientPods:               make(map[string]Pod),
 		clientCPPods:             make(map[string]Pod),
+		lrpClientPods:            make(map[string]Pod),
+		lrpBackendPods:           make(map[string]Pod),
 		perfClientPods:           []Pod{},
 		perfServerPod:            []Pod{},
 		PerfResults:              []common.PerfSummary{},
@@ -1115,6 +1119,14 @@ func (ct *ConnectivityTest) PerfClientPods() []Pod {
 
 func (ct *ConnectivityTest) EchoPods() map[string]Pod {
 	return ct.echoPods
+}
+
+func (ct *ConnectivityTest) LrpClientPods() map[string]Pod {
+	return ct.lrpClientPods
+}
+
+func (ct *ConnectivityTest) LrpBackendPods() map[string]Pod {
+	return ct.lrpBackendPods
 }
 
 // EchoServices returns all the non headless services
