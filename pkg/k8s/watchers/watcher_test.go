@@ -65,17 +65,6 @@ func (f *fakePolicyManager) PolicyDelete(labels labels.LabelArray, opts *policy.
 	panic("OnPolicyDelete(labels.LabelArray, *policy.DeleteOptions) (uint64, error) was called and is not set!")
 }
 
-type fakePolicyRepository struct {
-	OnGetSelectorCache func() *policy.SelectorCache
-}
-
-func (f *fakePolicyRepository) GetSelectorCache() *policy.SelectorCache {
-	if f.OnGetSelectorCache != nil {
-		return f.OnGetSelectorCache()
-	}
-	panic("OnGetSelectorCache() (*policy.SelectorCache) was called and is not set!")
-}
-
 type fakeSvcManager struct {
 	OnDeleteService func(frontend loadbalancer.L3n4Addr) (bool, error)
 	OnUpsertService func(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
@@ -353,7 +342,6 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
@@ -397,7 +385,6 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 		nil,
 		nil,
 		policyManager,
-		policyRepository,
 		svcManager,
 		nil,
 		nil,
@@ -522,7 +509,6 @@ func TestChangeSVCPort(t *testing.T) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls := 0
 
@@ -550,7 +536,6 @@ func TestChangeSVCPort(t *testing.T) {
 		nil,
 		nil,
 		policyManager,
-		policyRepository,
 		svcManager,
 		nil,
 		nil,
@@ -988,8 +973,6 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{}
-
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
@@ -1032,7 +1015,6 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 		nil,
 		nil,
 		policyManager,
-		policyRepository,
 		svcManager,
 		nil,
 		nil,
@@ -1302,7 +1284,6 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 	wantSvcUpsertManagerCalls := len(upsert1stWanted) + len(upsert2ndWanted)
@@ -1348,7 +1329,6 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 		nil,
 		nil,
 		policyManager,
-		policyRepository,
 		svcManager,
 		nil,
 		nil,
@@ -1611,7 +1591,6 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 	wantSvcUpsertManagerCalls := len(upsert1stWanted) + len(upsert2ndWanted)
@@ -1657,7 +1636,6 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 		nil,
 		nil,
 		policyManager,
-		policyRepository,
 		svcManager,
 		nil,
 		nil,
@@ -2522,7 +2500,6 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
@@ -2580,7 +2557,6 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 		nil,
 		nil,
 		policyManager,
-		policyRepository,
 		svcManager,
 		nil,
 		nil,
@@ -2626,7 +2602,6 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 	w := NewK8sWatcher(
 		fakeClientSet,
 		&synced.Resources{},
-		nil,
 		nil,
 		nil,
 		nil,
