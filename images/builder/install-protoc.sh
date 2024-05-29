@@ -9,14 +9,15 @@ set -o pipefail
 set -o nounset
 
 # renovate: datasource=github-release-attachments depName=protocolbuffers/protobuf
-protoc_version="22.3"
+protoc_version="v22.3"
+protoc_ersion="${protoc_version//v/}"
 arch=$(arch)
 if [[ "${arch}" == "aarch64" ]]; then
   arch="aarch_64"
 fi
 
 curl --fail --show-error --silent --location \
-  "https://github.com/protocolbuffers/protobuf/releases/download/v${protoc_version}/protoc-${protoc_version}-linux-${arch}.zip" \
+  "https://github.com/protocolbuffers/protobuf/releases/download/${protoc_version}/protoc-${protoc_ersion}-linux-${arch}.zip" \
     --output /tmp/protoc.zip
 
 unzip /tmp/protoc.zip -x readme.txt -d /usr/local
