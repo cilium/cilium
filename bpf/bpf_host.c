@@ -54,6 +54,8 @@
 #include "lib/wireguard.h"
 #include "lib/vxlan.h"
 
+ #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
+
 /* Bit 0 is skipped for robustness, as it's used in some places to indicate from_host itself. */
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
 #define FROM_HOST_FLAG_HOST_ID (1 << 2)
@@ -1446,6 +1448,10 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 
 skip_host_firewall:
 #endif /* ENABLE_HOST_FIREWALL */
+
+	ret = host_egress_policy_hook(ctx, src_sec_identity, &ext_err);
+	if (IS_ERR(ret))
+		goto drop_err;
 
 #if defined(ENABLE_BANDWIDTH_MANAGER)
 	ret = edt_sched_departure(ctx);
