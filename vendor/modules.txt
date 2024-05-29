@@ -236,7 +236,7 @@ github.com/cilium/endpointslice-controller/util/endpointslice
 # github.com/cilium/fake v0.6.1
 ## explicit; go 1.20
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.0-20240425092031-f6d2f20c979b
+# github.com/cilium/hive v0.0.0-20240529072208-d997f86e4219
 ## explicit; go 1.21.3
 github.com/cilium/hive
 github.com/cilium/hive/cell
@@ -1072,7 +1072,7 @@ github.com/osrg/gobgp/v3/pkg/packet/mrt
 github.com/osrg/gobgp/v3/pkg/packet/rtr
 github.com/osrg/gobgp/v3/pkg/server
 github.com/osrg/gobgp/v3/pkg/zebra
-# github.com/pelletier/go-toml/v2 v2.2.1
+# github.com/pelletier/go-toml/v2 v2.2.2
 ## explicit; go 1.16
 github.com/pelletier/go-toml/v2
 github.com/pelletier/go-toml/v2/internal/characters
@@ -1367,7 +1367,7 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
+# golang.org/x/exp v0.0.0-20240529005216-23cca8864a10
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
