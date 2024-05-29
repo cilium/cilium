@@ -13,9 +13,7 @@ BGP
    :maxdepth: 3
    :glob:
 
-   bgp-control-plane
-   bgp-control-plane-troubleshooting
-   bgp-control-plane-operation
+   bgp-control-plane/bgp-control-plane
    lb-ipam
    bgp
    kube-router
