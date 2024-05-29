@@ -45,10 +45,6 @@ func NewPolicyCache(repo *Repository, subscribe bool) *PolicyCache {
 	return cache
 }
 
-func (cache *PolicyCache) GetSelectorCache() *SelectorCache {
-	return cache.repo.GetSelectorCache()
-}
-
 // lookupOrCreate adds the specified Identity to the policy cache, with a reference
 // from the specified Endpoint, then returns the threadsafe copy of the policy.
 func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create bool) SelectorPolicy {
