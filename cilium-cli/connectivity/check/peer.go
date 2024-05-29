@@ -9,9 +9,10 @@ import (
 	"net/url"
 	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium/api/v1/flow"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
@@ -494,6 +495,61 @@ func (he httpEndpoint) Labels() map[string]string {
 }
 
 func (he httpEndpoint) FlowFilters() []*flow.FlowFilter {
+	return nil
+}
+
+type LRPFrontend struct {
+	name string
+	ip   string
+	port string
+}
+
+func NewLRPFrontend(frontend ciliumv2.RedirectFrontend) *LRPFrontend {
+	var lf LRPFrontend
+	if f := frontend.AddressMatcher; f != nil {
+		lf.ip = f.IP
+		lf.port = f.ToPorts[0].Port
+		lf.name = fmt.Sprintf("%s:%s", lf.ip, lf.port)
+
+		return &lf
+	}
+
+	return nil
+}
+
+func (l LRPFrontend) Name() string {
+	return l.name
+}
+
+func (l LRPFrontend) Scheme() string {
+	return "http"
+}
+
+func (l LRPFrontend) Path() string {
+	return ""
+}
+
+func (l LRPFrontend) Address(features.IPFamily) string {
+	return l.ip
+}
+
+func (l LRPFrontend) Port() uint32 {
+	p, err := strconv.Atoi(l.port)
+	if err != nil {
+		return 0
+	}
+	return uint32(p)
+}
+
+func (l LRPFrontend) HasLabel(string, string) bool {
+	return false
+}
+
+func (l LRPFrontend) Labels() map[string]string {
+	return nil
+}
+
+func (l LRPFrontend) FlowFilters() []*flow.FlowFilter {
 	return nil
 }
 

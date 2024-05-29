@@ -211,6 +211,23 @@ func createOrUpdateCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.
 	return err
 }
 
+// createOrUpdateCLRP creates the CLRP and updates it if it already exists.
+func createOrUpdateCLRP(ctx context.Context, client *k8s.Client, clrp *ciliumv2.CiliumLocalRedirectPolicy) error {
+	_, err := CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(clrp.Namespace),
+		clrp, func(current *ciliumv2.CiliumLocalRedirectPolicy) bool {
+			if maps.Equal(current.GetLabels(), clrp.GetLabels()) &&
+				current.Spec.DeepEqual(&clrp.Spec) {
+				return false
+			}
+
+			current.ObjectMeta.Labels = clrp.ObjectMeta.Labels
+			current.Spec = clrp.Spec
+			return true
+		},
+	)
+	return err
+}
+
 // deleteCNP deletes a CiliumNetworkPolicy from the cluster.
 func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) error {
 	if err := client.DeleteCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.DeleteOptions{}); err != nil {
@@ -242,6 +259,15 @@ func deleteKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.Networ
 func deleteCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.CiliumEgressGatewayPolicy) error {
 	if err := client.DeleteCiliumEgressGatewayPolicy(ctx, cegp.Name, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("%s/%s policy delete failed: %w", client.ClusterName(), cegp.Name, err)
+	}
+
+	return nil
+}
+
+// deleteCLRP deletes a CiliumLocalRedirectPolicy from the cluster.
+func deleteCLRP(ctx context.Context, client *k8s.Client, clrp *ciliumv2.CiliumLocalRedirectPolicy) error {
+	if err := client.DeleteCiliumLocalRedirectPolicy(ctx, clrp.Namespace, clrp.Name, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), clrp.Namespace, clrp.Name, err)
 	}
 
 	return nil
@@ -334,6 +360,11 @@ func (t *Test) addCEGPs(cegps ...*ciliumv2.CiliumEgressGatewayPolicy) (err error
 	return err
 }
 
+func (t *Test) addCLRPs(clrps ...*ciliumv2.CiliumLocalRedirectPolicy) (err error) {
+	t.clrps, err = RegisterPolicy(t.clrps, clrps...)
+	return err
+}
+
 func sumMap(m map[string]int) int {
 	sum := 0
 	for _, v := range m {
@@ -348,7 +379,7 @@ var policyApplyDeleteLock = sync.Mutex{}
 
 // applyPolicies applies all the Test's registered network policies.
 func (t *Test) applyPolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
+	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 && len(t.clrps) == 0 {
 		return nil
 	}
 
@@ -419,6 +450,16 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		}
 	}
 
+	// Apply all given Cilium Local Redirect Policies.
+	for _, clrp := range t.clrps {
+		for _, client := range t.Context().clients.clients() {
+			t.Infof("📜 Applying CiliumLocalRedirectPolicy '%s' to namespace '%s'..", clrp.Name, clrp.Namespace)
+			if err := createOrUpdateCLRP(ctx, client, clrp); err != nil {
+				return fmt.Errorf("policy application failed: %w", err)
+			}
+		}
+	}
+
 	// Register a finalizer with the Test immediately to enable cleanup.
 	// If we return a cleanup closure from this function, cleanup cannot be
 	// performed if the user cancels during the policy revision wait time.
@@ -457,12 +498,16 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		t.Debugf("📜 Successfully applied %d CiliumEgressGatewayPolicies", len(t.cegps))
 	}
 
+	if len(t.clrps) > 0 {
+		t.Debugf("📜 Successfully applied %d CiliumLocalRedirectPolicies", len(t.clrps))
+	}
+
 	return nil
 }
 
 // deletePolicies deletes a given set of network policies from the cluster.
 func (t *Test) deletePolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
+	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 && len(t.clrps) == 0 {
 		return nil
 	}
 
@@ -522,7 +567,17 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 		}
 	}
 
-	if len(t.cnps) != 0 || len(t.ccnps) != 0 || len(t.knps) != 0 {
+	// Delete all the Test's CLRPs from all clients.
+	for _, clrp := range t.clrps {
+		t.Infof("📜 Deleting CiliumLocalRedirectPolicy '%s' from namespace '%s'..", clrp.Name, clrp.Namespace)
+		for _, client := range t.Context().clients.clients() {
+			if err := deleteCLRP(ctx, client, clrp); err != nil {
+				return fmt.Errorf("deleting CiliumLocalRedirectPolicy: %w", err)
+			}
+		}
+	}
+
+	if len(t.cnps) != 0 || len(t.ccnps) != 0 || len(t.knps) != 0 || len(t.clrps) != 0 {
 		// Wait for policies to be deleted on all Cilium nodes.
 		if err := t.waitCiliumPolicyRevisions(ctx, revs, revDeltas); err != nil {
 			return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
@@ -543,6 +598,10 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 
 	if len(t.cegps) > 0 {
 		t.Debugf("📜 Successfully deleted %d CiliumEgressGatewayPolicies", len(t.cegps))
+	}
+
+	if len(t.clrps) > 0 {
+		t.Debugf("📜 Successfully deleted %d CiliumLocalRedirectPolicies", len(t.clrps))
 	}
 
 	return nil
@@ -608,4 +667,10 @@ func parseK8SPolicyYAML(policy string) (policies []*networkingv1.NetworkPolicy, 
 // CiliumEgressGatewayPolicies.
 func parseCiliumEgressGatewayPolicyYAML(policy string) (cegps []*ciliumv2.CiliumEgressGatewayPolicy, err error) {
 	return ParsePolicyYAML[*ciliumv2.CiliumEgressGatewayPolicy](policy, scheme.Scheme)
+}
+
+// parseCiliumLocalRedirectPolicyYAML decodes policy yaml into a slice of
+// CiliumLocalRedirectPolicies.
+func parseCiliumLocalRedirectPolicyYAML(policy string) (clrp []*ciliumv2.CiliumLocalRedirectPolicy, err error) {
+	return ParsePolicyYAML[*ciliumv2.CiliumLocalRedirectPolicy](policy, scheme.Scheme)
 }
