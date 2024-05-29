@@ -4,56 +4,14 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _bgp_control_plane:
+.. _bgp_control_plane_v1:
 
-Cilium BGP Control Plane
-========================
+BGP Peering Policy
+##################
 
-BGP Control Plane provides a way for Cilium to advertise routes to connected routers by using the
-`Border Gateway Protocol`_ (BGP). BGP Control Plane makes Pod networks and/or Services reachable
-from outside the cluster for environments that support BGP. Because BGP
-Control Plane does not program the :ref:`datapath <ebpf_datapath>`, do not use it to establish
-reachability within the cluster.
-
-.. _Border Gateway Protocol: https://datatracker.ietf.org/doc/html/rfc4271
-
-Prerequisites
--------------
-
-- If you are using the older MetalLB-based :ref:`bgp` feature, it must be disabled.
-
-Installation
-------------
-
-.. tabs::
-
-  .. group-tab:: Helm
-
-        Cilium BGP Control Plane can be enabled with Helm flag ``bgpControlPlane.enabled``
-        set as true.
-
-        .. parsed-literal::
-
-            $ helm upgrade cilium |CHART_RELEASE| \\
-                --namespace kube-system \\
-                --reuse-values \\
-                --set bgpControlPlane.enabled=true
-            $ kubectl -n kube-system rollout restart ds/cilium
-
-  .. group-tab:: Cilium CLI
-
-        .. include:: ../installation/cli-download.rst
-
-        Cilium BGP Control Plane can be enabled with the following command
-
-        .. parsed-literal::
-
-            $ cilium install |CHART_VERSION| --set bgpControlPlane.enabled=true
-
-IPv4/IPv6 single-stack and dual-stack setup are supported. Note that the BGP
-Control Plane can only advertise the route of the address family that the
-Cilium is configured to use. You cannot advertise IPv4 routes when the Cilium
-Agent is configured to use only IPv6 address family. The opposite is also true.
+.. warning::
+    ``CiliumBGPPeeringPolicy`` will be discontinued in future. Consider
+    using new :ref:`BGP APIs <bgp_control_plane_v2>` to configure the BGP Control Plane.
 
 Configure Peering
 -----------------
