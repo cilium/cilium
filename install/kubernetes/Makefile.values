@@ -16,7 +16,6 @@ ifeq ($(RELEASE),yes)
     export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
     export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
 else
-    export CILIUM_BRANCH:=main
     export PULL_POLICY:=Always
     export CILIUM_REPO:=${CI_REGISTRY}/${CI_ORG}/cilium-ci
     export CILIUM_OPERATOR_BASE_REPO:=${CI_REGISTRY}/${CI_ORG}/operator
@@ -24,10 +23,6 @@ else
     export CILIUM_VERSION:=latest
     export CLUSTERMESH_APISERVER_REPO:=${CI_REGISTRY}/${CI_ORG}/clustermesh-apiserver-ci
     export HUBBLE_RELAY_REPO:=${CI_REGISTRY}/${CI_ORG}/hubble-relay-ci
-endif
-
-ifndef CILIUM_BRANCH
-$(error "CILIUM_BRANCH needs to be defined")
 endif
 
 export CERTGEN_REPO:=quay.io/cilium/certgen
