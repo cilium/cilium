@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -121,6 +122,16 @@ func (c *cache) OnListDone() {
 }
 
 func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
+	for _, validator := range c.allocator.cacheValidators {
+		if err := validator(AllocatorChangeUpsert, id, key); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Identity: id,
+				logfields.Event:    AllocatorChangeUpsert,
+			}).Warning("Skipping event for invalid identity")
+			return
+		}
+	}
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -141,6 +152,16 @@ func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 }
 
 func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
+	for _, validator := range c.allocator.cacheValidators {
+		if err := validator(AllocatorChangeDelete, id, key); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Identity: id,
+				logfields.Event:    AllocatorChangeDelete,
+			}).Warning("Skipping event for invalid identity")
+			return
+		}
+	}
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
