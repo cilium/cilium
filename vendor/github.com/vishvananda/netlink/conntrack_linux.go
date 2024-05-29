@@ -146,6 +146,7 @@ type ConntrackFlow struct {
 	Forward    ipTuple
 	Reverse    ipTuple
 	Mark       uint32
+	Zone       uint16
 	TimeStart  uint64
 	TimeStop   uint64
 	TimeOut    uint32
@@ -154,7 +155,7 @@ type ConntrackFlow struct {
 
 func (s *ConntrackFlow) String() string {
 	// conntrack cmd output:
-	// udp      17 src=127.0.0.1 dst=127.0.0.1 sport=4001 dport=1234 packets=5 bytes=532 [UNREPLIED] src=127.0.0.1 dst=127.0.0.1 sport=1234 dport=4001 packets=10 bytes=1078 mark=0 labels=0x00000000050012ac4202010000000000
+	// udp      17 src=127.0.0.1 dst=127.0.0.1 sport=4001 dport=1234 packets=5 bytes=532 [UNREPLIED] src=127.0.0.1 dst=127.0.0.1 sport=1234 dport=4001 packets=10 bytes=1078 mark=0 labels=0x00000000050012ac4202010000000000 zone=100
 	//             start=2019-07-26 01:26:21.557800506 +0000 UTC stop=1970-01-01 00:00:00 +0000 UTC timeout=30(sec)
 	start := time.Unix(0, int64(s.TimeStart))
 	stop := time.Unix(0, int64(s.TimeStop))
@@ -166,6 +167,9 @@ func (s *ConntrackFlow) String() string {
 		s.Mark)
 	if len(s.Labels) > 0 {
 		res += fmt.Sprintf("labels=0x%x ", s.Labels)
+	}
+	if s.Zone != 0 {
+		res += fmt.Sprintf("zone=%d ", s.Zone)
 	}
 	res += fmt.Sprintf("start=%v stop=%v timeout=%d(sec)", start, stop, timeout)
 	return res
@@ -318,6 +322,12 @@ func parseConnectionLabels(r *bytes.Reader) (label []byte) {
 	return
 }
 
+func parseConnectionZone(r *bytes.Reader) (zone uint16) {
+	parseBERaw16(r, &zone)
+	r.Seek(2, seekCurrent)
+	return
+}
+
 func parseRawData(data []byte) *ConntrackFlow {
 	s := &ConntrackFlow{}
 	// First there is the Nfgenmsg header
@@ -369,6 +379,8 @@ func parseRawData(data []byte) *ConntrackFlow {
 				s.TimeOut = parseTimeOut(reader)
 			case nl.CTA_STATUS, nl.CTA_USE, nl.CTA_ID:
 				skipNfAttrValue(reader, l)
+			case nl.CTA_ZONE:
+				s.Zone = parseConnectionZone(reader)
 			default:
 				skipNfAttrValue(reader, l)
 			}
@@ -413,18 +425,18 @@ func parseRawData(data []byte) *ConntrackFlow {
 type ConntrackFilterType uint8
 
 const (
-	ConntrackOrigSrcIP   = iota                // -orig-src ip    Source address from original direction
-	ConntrackOrigDstIP                         // -orig-dst ip    Destination address from original direction
-	ConntrackReplySrcIP                        // --reply-src ip  Reply Source IP
-	ConntrackReplyDstIP                        // --reply-dst ip  Reply Destination IP
-	ConntrackReplyAnyIP                        // Match source or destination reply IP
-	ConntrackOrigSrcPort                       // --orig-port-src port    Source port in original direction
-	ConntrackOrigDstPort                       // --orig-port-dst port    Destination port in original direction
-	ConntrackMatchLabels                       // --label label1,label2   Labels used in entry
-	ConntrackUnmatchLabels                     // --label label1,label2   Labels not used in entry
-	ConntrackNatSrcIP    = ConntrackReplySrcIP // deprecated use instead ConntrackReplySrcIP
-	ConntrackNatDstIP    = ConntrackReplyDstIP // deprecated use instead ConntrackReplyDstIP
-	ConntrackNatAnyIP    = ConntrackReplyAnyIP // deprecated use instead ConntrackReplyAnyIP
+	ConntrackOrigSrcIP     = iota                // -orig-src ip    Source address from original direction
+	ConntrackOrigDstIP                           // -orig-dst ip    Destination address from original direction
+	ConntrackReplySrcIP                          // --reply-src ip  Reply Source IP
+	ConntrackReplyDstIP                          // --reply-dst ip  Reply Destination IP
+	ConntrackReplyAnyIP                          // Match source or destination reply IP
+	ConntrackOrigSrcPort                         // --orig-port-src port    Source port in original direction
+	ConntrackOrigDstPort                         // --orig-port-dst port    Destination port in original direction
+	ConntrackMatchLabels                         // --label label1,label2   Labels used in entry
+	ConntrackUnmatchLabels                       // --label label1,label2   Labels not used in entry
+	ConntrackNatSrcIP      = ConntrackReplySrcIP // deprecated use instead ConntrackReplySrcIP
+	ConntrackNatDstIP      = ConntrackReplyDstIP // deprecated use instead ConntrackReplyDstIP
+	ConntrackNatAnyIP      = ConntrackReplyAnyIP // deprecated use instead ConntrackReplyAnyIP
 )
 
 type CustomConntrackFilter interface {
@@ -438,6 +450,7 @@ type ConntrackFilter struct {
 	portFilter  map[ConntrackFilterType]uint16
 	protoFilter uint8
 	labelFilter map[ConntrackFilterType][][]byte
+	zoneFilter  *uint16
 }
 
 // AddIPNet adds a IP subnet to the conntrack filter
@@ -493,14 +506,14 @@ func (f *ConntrackFilter) AddProtocol(proto uint8) error {
 
 // AddLabels adds the provided list (zero or more) of labels to the conntrack filter
 // ConntrackFilterType here can be either:
-// 1) ConntrackMatchLabels: This matches every flow that has a label value (len(flow.Labels) > 0)
-//    against the list of provided labels. If `flow.Labels` contains ALL the provided labels
-//    it is considered a match. This can be used when you want to match flows that contain
-//    one or more labels.
-// 2) ConntrackUnmatchLabels:  This matches every flow that has a label value (len(flow.Labels) > 0)
-//    against the list of provided labels. If `flow.Labels` does NOT contain ALL the provided labels
-//    it is considered a match. This can be used when you want to match flows that don't contain
-//    one or more labels.
+//  1. ConntrackMatchLabels: This matches every flow that has a label value (len(flow.Labels) > 0)
+//     against the list of provided labels. If `flow.Labels` contains ALL the provided labels
+//     it is considered a match. This can be used when you want to match flows that contain
+//     one or more labels.
+//  2. ConntrackUnmatchLabels:  This matches every flow that has a label value (len(flow.Labels) > 0)
+//     against the list of provided labels. If `flow.Labels` does NOT contain ALL the provided labels
+//     it is considered a match. This can be used when you want to match flows that don't contain
+//     one or more labels.
 func (f *ConntrackFilter) AddLabels(tp ConntrackFilterType, labels [][]byte) error {
 	if len(labels) == 0 {
 		return errors.New("Invalid length for provided labels")
@@ -515,10 +528,19 @@ func (f *ConntrackFilter) AddLabels(tp ConntrackFilterType, labels [][]byte) err
 	return nil
 }
 
+// AddZone adds a zone to the conntrack filter
+func (f *ConntrackFilter) AddZone(zone uint16) error {
+	if f.zoneFilter != nil {
+		return errors.New("Filter attribute already present")
+	}
+	f.zoneFilter = &zone
+	return nil
+}
+
 // MatchConntrackFlow applies the filter to the flow and returns true if the flow matches the filter
 // false otherwise
 func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
-	if len(f.ipNetFilter) == 0 && len(f.portFilter) == 0 && f.protoFilter == 0 && len(f.labelFilter) == 0 {
+	if len(f.ipNetFilter) == 0 && len(f.portFilter) == 0 && f.protoFilter == 0 && len(f.labelFilter) == 0 && f.zoneFilter == nil {
 		// empty filter always not match
 		return false
 	}
@@ -526,6 +548,11 @@ func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
 	// -p, --protonum proto          Layer 4 Protocol, eg. 'tcp'
 	if f.protoFilter != 0 && flow.Forward.Protocol != f.protoFilter {
 		// different Layer 4 protocol always not match
+		return false
+	}
+
+	// Conntrack zone filter
+	if f.zoneFilter != nil && *f.zoneFilter != flow.Zone {
 		return false
 	}
 
