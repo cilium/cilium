@@ -5,6 +5,7 @@ package allocator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -614,4 +615,56 @@ func TestWatchRemoteKVStore(t *testing.T) {
 
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: AllocatorChangeDelete}, drained[0])
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: AllocatorChangeDelete}, drained[1])
+}
+
+func TestCacheValidators(t *testing.T) {
+	const (
+		validID   = 10
+		invalidID = 11
+		key       = TestAllocatorKey("key")
+	)
+
+	var (
+		kind    AllocatorChangeKind
+		backend = &dummyBackend{disableListDone: true}
+		events  = make(chan AllocatorEvent, 1)
+	)
+
+	allocator, err := NewAllocator(
+		TestAllocatorKey(""), backend,
+		WithEvents(events), WithoutGC(),
+		WithCacheValidator(func(k AllocatorChangeKind, id idpool.ID, _ AllocatorKey) error {
+			kind = k
+			if id == invalidID {
+				return errors.New("invalid")
+			}
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+	allocator.mainCache.OnListDone()
+
+	t.Cleanup(func() { allocator.Delete() })
+
+	allocator.mainCache.OnUpsert(validID, key)
+	require.Len(t, events, 1, "Valid upsert event should be propagated")
+	require.Equal(t, AllocatorEvent{AllocatorChangeUpsert, validID, key}, <-events)
+	require.Equal(t, key, allocator.mainCache.getByID(validID))
+	require.Equal(t, AllocatorChangeUpsert, kind)
+
+	allocator.mainCache.OnDelete(validID, key)
+	require.Len(t, events, 1, "Valid deletion event should be propagated")
+	require.Equal(t, AllocatorEvent{AllocatorChangeDelete, validID, key}, <-events)
+	require.Nil(t, allocator.mainCache.getByID(validID))
+	require.Equal(t, AllocatorChangeDelete, kind)
+
+	allocator.mainCache.OnUpsert(invalidID, key)
+	require.Empty(t, events, "Invalid upsert event should not be propagated")
+	require.Nil(t, allocator.mainCache.getByID(invalidID))
+	require.Equal(t, AllocatorChangeUpsert, kind)
+
+	allocator.mainCache.OnDelete(invalidID, key)
+	require.Empty(t, events, "Invalid delete event should not be propagated")
+	require.Nil(t, allocator.mainCache.getByID(invalidID))
+	require.Equal(t, AllocatorChangeDelete, kind)
 }
