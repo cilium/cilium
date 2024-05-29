@@ -204,6 +204,10 @@ func RouteAppend(route *Route) error {
 	return ErrNotImplemented
 }
 
+func RouteChange(route *Route) error {
+	return ErrNotImplemented
+}
+
 func RouteDel(route *Route) error {
 	return ErrNotImplemented
 }
@@ -277,5 +281,9 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 }
 
 func SocketGet(local, remote net.Addr) (*Socket, error) {
+	return nil, ErrNotImplemented
+}
+
+func SocketDestroy(local, remote net.Addr) (*Socket, error) {
 	return nil, ErrNotImplemented
 }

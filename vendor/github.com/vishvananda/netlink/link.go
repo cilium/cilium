@@ -33,6 +33,7 @@ type LinkAttrs struct {
 	MasterIndex    int         // must be the index of a bridge
 	Namespace      interface{} // nil | NsPid | NsFd
 	Alias          string
+	AltNames       []string
 	Statistics     *LinkStatistics
 	Promisc        int
 	Allmulti       int
@@ -54,6 +55,7 @@ type LinkAttrs struct {
 	GROIPv4MaxSize uint32
 	Vfs            []VfInfo // virtual functions available on link
 	Group          uint32
+	PermHWAddr     net.HardwareAddr
 	Slave          LinkSlave
 }
 
@@ -1021,16 +1023,18 @@ func (v *VrfSlave) SlaveType() string {
 // https://github.com/torvalds/linux/blob/47ec5303d73ea344e84f46660fff693c57641386/drivers/net/geneve.c#L1209-L1223
 type Geneve struct {
 	LinkAttrs
-	ID             uint32 // vni
-	Remote         net.IP
-	Ttl            uint8
-	Tos            uint8
-	Dport          uint16
-	UdpCsum        uint8
-	UdpZeroCsum6Tx uint8
-	UdpZeroCsum6Rx uint8
-	Link           uint32
-	FlowBased      bool
+	ID                uint32 // vni
+	Remote            net.IP
+	Ttl               uint8
+	Tos               uint8
+	Dport             uint16
+	UdpCsum           uint8
+	UdpZeroCsum6Tx    uint8
+	UdpZeroCsum6Rx    uint8
+	Link              uint32
+	FlowBased         bool
+	InnerProtoInherit bool
+	Df                GeneveDf
 }
 
 func (geneve *Geneve) Attrs() *LinkAttrs {
@@ -1040,6 +1044,15 @@ func (geneve *Geneve) Attrs() *LinkAttrs {
 func (geneve *Geneve) Type() string {
 	return "geneve"
 }
+
+type GeneveDf uint8
+
+const (
+	GENEVE_DF_UNSET GeneveDf = iota
+	GENEVE_DF_SET
+	GENEVE_DF_INHERIT
+	GENEVE_DF_MAX
+)
 
 // Gretap devices must specify LocalIP and RemoteIP on create
 type Gretap struct {
