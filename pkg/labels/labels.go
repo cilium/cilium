@@ -644,12 +644,7 @@ func (l Labels) FindReserved() Labels {
 
 // IsReserved returns true if any of the labels has a reserved source.
 func (l Labels) IsReserved() bool {
-	for _, lbl := range l {
-		if lbl.Source == LabelSourceReserved {
-			return true
-		}
-	}
-	return false
+	return l.HasSource(LabelSourceReserved)
 }
 
 // Has returns true if l contains the given label.
