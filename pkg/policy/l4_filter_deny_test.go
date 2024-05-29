@@ -77,7 +77,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 
 	t.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -88,13 +88,13 @@ func TestMergeDenyAllL3(t *testing.T) {
 		},
 		Ingress:    true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
-	}}
+	}})
 
 	require.EqualValues(t, expected, l4IngressDenyPolicy)
 	expected.Detach(td.sc)
 
-	filter, ok := l4IngressDenyPolicy["80/TCP"]
-	require.True(t, ok)
+	filter := l4IngressDenyPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
@@ -141,8 +141,8 @@ func TestMergeDenyAllL3(t *testing.T) {
 
 	t.Log(buffer)
 
-	_, ok = l4IngressDenyPolicy["80/TCP"]
-	require.Equal(t, false, ok)
+	filter = l4IngressDenyPolicy.ExactLookup("80", 0, "TCP")
+	require.Nil(t, filter)
 
 	l4IngressDenyPolicy.Detach(td.repo.GetSelectorCache())
 }
@@ -185,7 +185,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -200,10 +200,10 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -214,7 +214,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -254,7 +254,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
-	expected = L4PolicyMap{"80/TCP": &L4Filter{
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -269,10 +269,10 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -283,7 +283,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -327,7 +327,7 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -342,10 +342,10 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	resDeny, err := selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err := selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -361,7 +361,7 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 	t.Log(buffer)
 
 	state = traceState{}
-	resDeny, err = selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -409,7 +409,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
-	expectedDeny := L4PolicyMap{"80/TCP": &L4Filter{
+	expectedDeny := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -424,10 +424,10 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expectedDeny, resDeny)
@@ -438,7 +438,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	expectedDeny.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -480,7 +480,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
-	expectedDeny = L4PolicyMap{"80/TCP": &L4Filter{
+	expectedDeny = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -495,10 +495,10 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expectedDeny, resDeny)
@@ -509,7 +509,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	expectedDeny.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -562,7 +562,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -582,10 +582,10 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -596,7 +596,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -643,7 +643,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
-	expected = L4PolicyMap{"80/TCP": &L4Filter{
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -663,10 +663,10 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -677,7 +677,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
