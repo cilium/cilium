@@ -268,7 +268,7 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 	stopChan := make(chan struct{})
 
 	go kvstoreBackend.ListAndWatch(ctx, kvstoreListHandler{
-		onAdd: func(id idpool.ID, key allocator.AllocatorKey) {
+		onUpsert: func(id idpool.ID, key allocator.AllocatorKey) {
 			log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
 			identities[id] = key
 		},
@@ -293,11 +293,10 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 
 // kvstoreListHandler is a dummy type to receive callbacks from the kvstore subsystem
 type kvstoreListHandler struct {
-	onAdd      func(id idpool.ID, key allocator.AllocatorKey)
+	onUpsert   func(id idpool.ID, key allocator.AllocatorKey)
 	onListDone func()
 }
 
 func (h kvstoreListHandler) OnListDone()                                       { h.onListDone() }
-func (h kvstoreListHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey)    { h.onAdd(id, key) }
-func (h kvstoreListHandler) OnModify(id idpool.ID, key allocator.AllocatorKey) {}
+func (h kvstoreListHandler) OnUpsert(id idpool.ID, key allocator.AllocatorKey) { h.onUpsert(id, key) }
 func (h kvstoreListHandler) OnDelete(id idpool.ID, key allocator.AllocatorKey) {}

@@ -182,7 +182,7 @@ func testEventWatcherBatching(t *testing.T) {
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeCreate,
+			Typ: allocator.AllocatorChangeUpsert,
 			ID:  idpool.ID(i),
 			Key: key,
 		}
@@ -191,21 +191,21 @@ func testEventWatcherBatching(t *testing.T) {
 	require.EqualValues(t, lbls.LabelArray(), owner.GetIdentity(identity.NumericIdentity(1033)))
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeDelete,
+			Typ: allocator.AllocatorChangeDelete,
 			ID:  idpool.ID(i),
 		}
 	}
 	require.NotEqual(t, 0, owner.WaitUntilID(1033))
 	for i := 2048; i < 2058; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeCreate,
+			Typ: allocator.AllocatorChangeUpsert,
 			ID:  idpool.ID(i),
 			Key: key,
 		}
 	}
 	for i := 2048; i < 2053; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeDelete,
+			Typ: allocator.AllocatorChangeDelete,
 			ID:  idpool.ID(i),
 		}
 	}
@@ -214,7 +214,7 @@ func testEventWatcherBatching(t *testing.T) {
 
 	for i := 2053; i < 2058; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeDelete,
+			Typ: allocator.AllocatorChangeDelete,
 			ID:  idpool.ID(i),
 		}
 	}
