@@ -64,9 +64,9 @@ srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
  */
 #  define SRV6_VRF_STATIC_PREFIX6						\
 	(8 * (sizeof(struct srv6_vrf_key6) - sizeof(struct bpf_lpm_trie_key)\
-	      - 4))
+	      - 16))
 #  define SRV6_VRF_PREFIX6_LEN(PREFIX) (SRV6_VRF_STATIC_PREFIX6 + (PREFIX))
-#  define SRV6_VRF_IPV6_PREFIX SRV6_VRF_PREFIX6_LEN(32)
+#  define SRV6_VRF_IPV6_PREFIX SRV6_VRF_PREFIX6_LEN(128)
 static __always_inline __u32*
 srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
 {
@@ -83,7 +83,7 @@ srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
  */
 # define SRV6_POLICY_STATIC_PREFIX6						\
 	(8 * (sizeof(struct srv6_policy_key6) - sizeof(struct bpf_lpm_trie_key)	\
-	      - 4))
+	      - 16))
 # define SRV6_POLICY_PREFIX6_LEN(PREFIX) (SRV6_POLICY_STATIC_PREFIX6 + (PREFIX))
 # define SRV6_POLICY_IPV6_PREFIX SRV6_POLICY_PREFIX6_LEN(128)
 
