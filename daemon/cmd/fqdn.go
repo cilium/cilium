@@ -173,11 +173,18 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
-		option.Config.EnableIPv4, option.Config.EnableIPv6,
-		option.Config.ToFQDNsEnableDNSCompression,
-		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
-		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit, option.Config.DNSProxyConcurrencyProcessingGracePeriod)
+	dnsProxyConfig := dnsproxy.DNSProxyConfig{
+		Address:                "",
+		Port:                   port,
+		IPv4:                   option.Config.EnableIPv4,
+		IPv6:                   option.Config.EnableIPv6,
+		EnableDNSCompression:   option.Config.ToFQDNsEnableDNSCompression,
+		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
+		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
+		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+	}
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
+		d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
