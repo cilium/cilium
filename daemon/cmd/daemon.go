@@ -509,9 +509,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	d.lrpManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
-	if option.Config.BGPAnnounceLBIP {
-		params.MetalLBBgpSpeaker.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
-	}
 
 	bootstrapStats.daemonInit.End(true)
 
