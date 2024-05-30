@@ -98,6 +98,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 						sysctl,
 					)
 					if launchErr != nil {
+						log.WithError(launchErr).Debug("Failed to launch health endpoint")
 						if err != nil {
 							return fmt.Errorf("failed to restart endpoint (check failed: %w): %w", err, launchErr)
 						}
