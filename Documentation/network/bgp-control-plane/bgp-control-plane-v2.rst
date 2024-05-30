@@ -19,6 +19,12 @@ The following resources are used to manage the BGP Control Plane:
 * ``CiliumBGPAdvertisements``: Defines prefixes that are injected into the BGP routing table.
 * ``CiliumBGPNodeConfigOverride``: Defines node-specific BGP configuration to provide a finer control.
 
+The relationship between various resources is shown in the below diagram:
+
+.. image:: bgpv2.png
+    :align: center
+
+
 BGP Cluster Configuration
 =========================
 
