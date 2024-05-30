@@ -69,8 +69,17 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(tb)
 	require.NotNil(tb, s.dnsServer, "unable to setup DNS server")
-
-	proxy, err := StartDNSProxy("", 0, true, true, true, 1000, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
+	dnsProxyConfig := DNSProxyConfig{
+		Address:                "",
+		Port:                   0,
+		IPv4:                   true,
+		IPv6:                   true,
+		EnableDNSCompression:   true,
+		MaxRestoreDNSIPs:       1000,
+		ConcurrencyLimit:       0,
+		ConcurrencyGracePeriod: 0,
+	}
+	proxy, err := StartDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip netip.Addr) (*endpoint.Endpoint, error) {
 			if s.restoring {
@@ -112,7 +121,6 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
 		},
-		0, 0,
 	)
 	require.Nil(tb, err, "error starting DNS Proxy")
 	s.proxy = proxy
