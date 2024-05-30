@@ -78,17 +78,6 @@ tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 
 #endif
 
-#ifdef ENABLE_BANDWIDTH_MANAGER
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct edt_id);
-	__type(value, struct edt_info);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, THROTTLE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} THROTTLE_MAP __section_maps_btf;
-#endif /* ENABLE_BANDWIDTH_MANAGER */
-
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
 struct {
