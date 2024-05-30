@@ -8,6 +8,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -22,11 +23,12 @@ var Cell = cell.Module(
 type lrpManagerParams struct {
 	cell.In
 
-	Svc service.ServiceManager
-	Lpr agentK8s.LocalPodResource
-	Ep  endpointmanager.EndpointManager
+	Svc      service.ServiceManager
+	SvcCache *k8s.ServiceCache
+	Lpr      agentK8s.LocalPodResource
+	Ep       endpointmanager.EndpointManager
 }
 
 func newLRPManager(params lrpManagerParams) *Manager {
-	return NewRedirectPolicyManager(params.Svc, params.Lpr, params.Ep)
+	return NewRedirectPolicyManager(params.Svc, params.SvcCache, params.Lpr, params.Ep)
 }
