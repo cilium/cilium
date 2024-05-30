@@ -33,7 +33,7 @@ var ErrShutDown = errors.New("cannot enqueue event, speaker is shutdown")
 
 // newSpeaker creates a new MetalLB BGP speaker controller. Options are provided to
 // specify what the Speaker should announce via BGP.
-func newSpeaker(clientset client.Clientset, opts Opts) (*MetalLBSpeaker, error) {
+func newSpeaker(clientset client.Clientset, endpointsGetter endpointsGetter, opts Opts) (*MetalLBSpeaker, error) {
 	ctrl, err := newMetalLBSpeaker(clientset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MetalLB speaker: %w", err)
@@ -46,6 +46,7 @@ func newSpeaker(clientset client.Clientset, opts Opts) (*MetalLBSpeaker, error) 
 		announcePodCIDR: opts.PodCIDR,
 		queue:           workqueue.New(),
 		services:        make(map[k8s.ServiceID]*slim_corev1.Service),
+		endpointsGetter: endpointsGetter,
 	}
 
 	return spkr, nil
@@ -286,11 +287,6 @@ func eventLoop[T metaGetterObject](ctx context.Context, s *MetalLBSpeaker, res r
 			return
 		}
 	}
-}
-
-// RegisterSvcCache registers the K8s watcher cache with this Speaker.
-func (s *MetalLBSpeaker) RegisterSvcCache(cache endpointsGetter) {
-	s.endpointsGetter = cache
 }
 
 // endpointsGetter abstracts the github.com/cilium/cilium/pkg/k8s.ServiceCache

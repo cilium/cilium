@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -26,6 +27,7 @@ type speakerParams struct {
 	Lifecycle cell.Lifecycle
 
 	Clientset k8sClient.Clientset
+	SvcCache  *k8s.ServiceCache
 }
 
 func newMetalLBBGPSpeaker(params speakerParams) (*MetalLBSpeaker, error) {
@@ -38,7 +40,7 @@ func newMetalLBBGPSpeaker(params speakerParams) (*MetalLBSpeaker, error) {
 		Warn("You are using the legacy BGP feature, which will only receive security updates and bugfixes. " +
 			"It is recommended to migrate to the BGP Control Plane feature if possible, which has better support.")
 
-	speaker, err := newSpeaker(params.Clientset, Opts{
+	speaker, err := newSpeaker(params.Clientset, params.SvcCache, Opts{
 		LoadBalancerIP: option.Config.BGPAnnounceLBIP,
 		PodCIDR:        option.Config.BGPAnnouncePodCIDR,
 	})
