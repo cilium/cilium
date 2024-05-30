@@ -499,8 +499,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	)
 	params.NodeDiscovery.RegisterK8sGetters(d.k8sWatcher)
 
-	d.lrpManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
-
 	bootstrapStats.daemonInit.End(true)
 
 	// Stop all endpoints (its goroutines) on exit.
