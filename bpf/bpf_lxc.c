@@ -1147,7 +1147,7 @@ ct_recreate4:
 
 		ret = egress_gw_request_needs_redirect_hook(tuple, ct_status, &gateway_ip);
 		if (IS_ERR(ret))
-			return DROP_NO_EGRESS_GATEWAY;
+			return ret;
 
 		if (ret == CTX_ACT_OK)
 			goto skip_egress_gateway;
