@@ -17,6 +17,15 @@
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct tunnel_key);
+	__type(value, struct tunnel_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} TUNNEL_MAP __section_maps_btf;
+
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
