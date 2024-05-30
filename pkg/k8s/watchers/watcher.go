@@ -135,6 +135,8 @@ type ipcacheManager interface {
 }
 
 type K8sWatcher struct {
+	resourceGroupsFn func(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string)
+
 	clientset client.Clientset
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
@@ -206,6 +208,7 @@ func NewK8sWatcher(
 	nodeAddrs statedb.Table[datapathTables.NodeAddress],
 ) *K8sWatcher {
 	return &K8sWatcher{
+		resourceGroupsFn:      resourceGroups,
 		db:                    db,
 		clientset:             clientset,
 		k8sResourceSynced:     k8sResourceSynced,
@@ -296,9 +299,9 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
 }
 
-// ResourceGroups are all of the core Kubernetes and Cilium resource groups
+// resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
-func (k *K8sWatcher) ResourceGroups() (resourceGroups, waitForCachesOnly []string) {
+func resourceGroups(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
@@ -315,7 +318,7 @@ func (k *K8sWatcher) ResourceGroups() (resourceGroups, waitForCachesOnly []strin
 		resources.K8sAPIGroupEndpointSliceOrEndpoint,
 	}
 
-	if k.cfg.K8sNetworkPolicyEnabled() {
+	if cfg.K8sNetworkPolicyEnabled() {
 		// When the flag is set,
 		// We need all network policies in place before restoring to
 		// make sure we are enforcing the correct policies for each
@@ -347,14 +350,12 @@ func (k *K8sWatcher) ResourceGroups() (resourceGroups, waitForCachesOnly []strin
 // caches essential for daemon are synchronized.
 // It initializes the K8s subsystem and starts the watchers for the resources
 // that the daemon is interested in.
-// The resources slice contains the names of the resources that the daemon
-// is interested in. The cachesOnly slice contains the names of the resources
-// that the daemon is interested in, but only for cache synchronization.
-// The cachesSynced channel is closed when all caches are synchronized, both
-// for the resources and cachesOnly slices.
+// The cachesSynced channel is closed when all caches are synchronized.
 // To be called after WaitForCRDsToRegister() so that all needed CRDs have
 // already been registered.
-func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, resources []string, cachesOnly []string, cachesSynced chan struct{}) {
+func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
+	resources, cachesOnly := k.resourceGroupsFn(k.cfg)
+
 	log.Info("Enabling k8s event listener")
 	k.enableK8sWatchers(ctx, resources)
 	close(k.controllersStarted)
