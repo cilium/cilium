@@ -6,7 +6,6 @@ package manager
 import (
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -56,8 +55,6 @@ type CgroupManager struct {
 	podEventsDone chan podEventStatus
 	// Cgroup path provider
 	pathProvider cgroupPathProvider
-	// Object to get cgroup path provider
-	checkPathProvider *sync.Once
 	// Flag to check if manager is enabled, and processing events
 	enabled bool
 	// Channel to shut down manager
@@ -88,11 +85,6 @@ type FullPodMetadata struct {
 type cgroupMetadata struct {
 	CgroupId   uint64
 	CgroupPath string
-}
-
-// NewCgroupManager returns an initialized version of CgroupManager.
-func NewCgroupManager() *CgroupManager {
-	return initManager(nil, cgroupImpl{}, podEventsChannelSize, nil)
 }
 
 func (m *CgroupManager) OnAddPod(pod *v1.Pod) {
@@ -212,23 +204,15 @@ func (c cgroupImpl) GetCgroupID(cgroupPath string) (uint64, error) {
 	return cgroups.GetCgroupID(cgroupPath)
 }
 
-func initManager(provider cgroupPathProvider, cg cgroup, channelSize int, events chan podEventStatus) *CgroupManager {
-	m := &CgroupManager{
+func newManager(cg cgroup, channelSize int) *CgroupManager {
+	return &CgroupManager{
 		podMetadataById:           make(map[string]*podMetadata),
 		containerMetadataByCgrpId: make(map[uint64]*containerMetadata),
 		podEvents:                 make(chan podEvent, channelSize),
 		shutdown:                  make(chan struct{}),
 		metadataCache:             map[uint64]PodMetadata{},
+		cgroupsChecker:            cg,
 	}
-	m.cgroupsChecker = cg
-	m.checkPathProvider = new(sync.Once)
-	m.pathProvider = provider
-	m.podEventsDone = events
-
-	m.enable()
-	go m.processPodEvents()
-
-	return m
 }
 
 func (m *CgroupManager) enable() {
@@ -237,17 +221,17 @@ func (m *CgroupManager) enable() {
 		return
 	}
 	m.enabled = true
-	m.checkPathProvider.Do(func() {
-		if m.pathProvider != nil {
-			return
-		}
-		var err error
-		if m.pathProvider, err = getCgroupPathProvider(); err != nil {
-			log.Warn("No valid cgroup base path found: socket load-balancing tracing with Hubble will not work." +
-				"See the kubeproxy-free guide for more details.")
-			m.enabled = false
-		}
-	})
+
+	if m.pathProvider != nil {
+		return
+	}
+
+	var err error
+	if m.pathProvider, err = getCgroupPathProvider(); err != nil {
+		log.Warn("No valid cgroup base path found: socket load-balancing tracing with Hubble will not work." +
+			"See the kubeproxy-free guide for more details.")
+		m.enabled = false
+	}
 
 	if m.enabled {
 		log.Info("Cgroup metadata manager is enabled")
