@@ -36,7 +36,6 @@ func (pm providerMock) getContainerPath(podId string, containerId string, qos sl
 
 func (pm providerMock) getBasePath() (string, error) {
 	return "", nil
-
 }
 
 var (
@@ -120,9 +119,19 @@ var (
 	}
 )
 
-func newCgroupManagerTest(pMock providerMock, cg cgroup, events chan podEventStatus) *CgroupManager {
+func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events chan podEventStatus) *CgroupManager {
 	// Unbuffered channel tests to detect any issues on the caller side.
-	return initManager(pMock, cg, 0, events)
+	tcm := newManager(cg, 0)
+
+	tcm.pathProvider = pMock
+	tcm.podEventsDone = events
+
+	tcm.enable()
+
+	go tcm.processPodEvents()
+	t.Cleanup(tcm.Close)
+
+	return tcm
 }
 
 func setup(tb testing.TB) {
@@ -149,7 +158,7 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 		c3Id: pod2C1CgrpPath,
 	}}
 	pod10 := pod1.DeepCopy()
-	mm := newCgroupManagerTest(provMock, cgMock, nil)
+	mm := newCgroupManagerTest(t, provMock, cgMock, nil)
 
 	type test struct {
 		input  *slimcorev1.Pod
@@ -191,7 +200,7 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 		c1Id: pod3C2CgrpPath,
 	}}
 	events := make(chan podEventStatus)
-	mm := newCgroupManagerTest(provMock, cgMock, events)
+	mm := newCgroupManagerTest(t, provMock, cgMock, events)
 	deleteEv := make(chan podEventStatus)
 	go func() {
 		for status := range events {
@@ -243,7 +252,7 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 	// Disable the feature flag.
 	option.Config.EnableSocketLBTracing = false
-	mm := newCgroupManagerTest(providerMock{}, cgroupMock{}, nil)
+	mm := newCgroupManagerTest(t, providerMock{}, cgroupMock{}, nil)
 	c1CId := uint64(1234)
 
 	mm.OnAddPod(pod1)
@@ -271,7 +280,7 @@ func BenchmarkGetPodMetadataForContainer(b *testing.B) {
 		c3Id: pod3C1CgrpPath,
 		c1Id: pod3C2CgrpPath,
 	}}
-	mm := newCgroupManagerTest(provMock, cgMock, nil)
+	mm := newCgroupManagerTest(b, provMock, cgMock, nil)
 
 	// Add pod, and check for pod metadata for their containers.
 	mm.OnAddPod(pod3)
