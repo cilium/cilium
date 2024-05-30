@@ -60,6 +60,12 @@
   {{- end }}
 {{- end }}
 
+{{- if and .Values.ingressController.enabled (or (eq .Values.ingressController.service.type "LoadBalancer") (eq .Values.ingressController.service.type "NodePort"))}}
+  {{- if not (or (eq .Values.ingressController.service.externalTrafficPolicy "Cluster") (eq .Values.ingressController.service.externalTrafficPolicy "Local")) }}
+    {{ fail "Cilium Ingress services of type 'LoadBalancer' or 'NodePort' need an externalTrafficPolicy set to 'Cluster' or 'Local'." }}
+  {{- end }}
+{{- end }}
+
 {{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   {{- if or (eq (toString .Values.kubeProxyReplacement) "disabled") (and (not (hasKey .Values "kubeProxyReplacement")) (not (semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility)))) }}
     {{ fail "Ingress/Gateway API controller and EnvoyConfig require .Values.kubeProxyReplacement to be explicitly set to 'false' or 'true'" }}

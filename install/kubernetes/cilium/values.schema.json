@@ -3631,6 +3631,9 @@
             "annotations": {
               "type": "object"
             },
+            "externalTrafficPolicy": {
+              "type": "string"
+            },
             "insecureNodePort": {
               "type": [
                 "null",
