@@ -41,14 +41,12 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
-	hiveHealth "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -121,9 +119,8 @@ type Daemon struct {
 	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	deviceManager *linuxdatapath.DeviceManager
-	devices       statedb.Table[*datapathTables.Device]
-	nodeAddrs     statedb.Table[datapathTables.NodeAddress]
+	devices   statedb.Table[*datapathTables.Device]
+	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -177,8 +174,6 @@ type Daemon struct {
 
 	lrpManager *redirectpolicy.Manager
 
-	egressGatewayManager *egressgateway.Manager
-
 	cgroupManager manager.CGroupManager
 
 	ipamMetadata *ipamMetadata.Manager
@@ -205,8 +200,6 @@ type Daemon struct {
 
 	// read-only map of all the hive settings
 	settings cellSettings
-
-	healthProvider hiveHealth.Provider
 
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
@@ -418,7 +411,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
-		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -429,28 +421,27 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
-		identityAllocator:    params.IdentityAllocator,
-		ipcache:              params.IPCache,
-		policy:               params.Policy,
-		policyUpdater:        params.PolicyUpdater,
-		egressGatewayManager: params.EgressGatewayManager,
-		ipamMetadata:         params.IPAMMetadataManager,
-		cniConfigManager:     params.CNIConfigManager,
-		clusterInfo:          params.ClusterInfo,
-		clustermesh:          params.ClusterMesh,
-		monitorAgent:         params.MonitorAgent,
-		svc:                  params.ServiceManager,
-		l7Proxy:              params.L7Proxy,
-		envoyXdsServer:       params.EnvoyXdsServer,
-		authManager:          params.AuthManager,
-		settings:             params.Settings,
-		healthProvider:       params.HealthV2Provider,
-		bigTCPConfig:         params.BigTCPConfig,
-		tunnelConfig:         params.TunnelConfig,
-		bwManager:            params.BandwidthManager,
-		lrpManager:           params.LRPManager,
-		cgroupManager:        params.CGroupManager,
-		preFilter:            params.Prefilter,
+		identityAllocator: params.IdentityAllocator,
+		ipcache:           params.IPCache,
+		policy:            params.Policy,
+		policyUpdater:     params.PolicyUpdater,
+		ipamMetadata:      params.IPAMMetadataManager,
+		cniConfigManager:  params.CNIConfigManager,
+		clusterInfo:       params.ClusterInfo,
+		clustermesh:       params.ClusterMesh,
+		monitorAgent:      params.MonitorAgent,
+		svc:               params.ServiceManager,
+		l7Proxy:           params.L7Proxy,
+		envoyXdsServer:    params.EnvoyXdsServer,
+		authManager:       params.AuthManager,
+		settings:          params.Settings,
+		bigTCPConfig:      params.BigTCPConfig,
+		tunnelConfig:      params.TunnelConfig,
+		bwManager:         params.BandwidthManager,
+		lrpManager:        params.LRPManager,
+		cgroupManager:     params.CGroupManager,
+		preFilter:         params.Prefilter,
+		endpointManager:   params.EndpointManager,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -476,8 +467,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err := d.initPolicy(); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-
-	d.endpointManager = params.EndpointManager
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		params.Clientset,
@@ -694,8 +683,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
 	var devices []string
-	if d.deviceManager != nil {
-		if devices, err = d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
+	if params.DeviceManager != nil {
+		if devices, err = params.DeviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
 			if option.Config.AreDevicesRequired() {
 				// Fail hard if devices are required to function.
 				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
