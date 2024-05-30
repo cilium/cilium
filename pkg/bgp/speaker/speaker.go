@@ -8,6 +8,7 @@ package speaker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -28,32 +29,24 @@ import (
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 )
 
-var (
-	ErrShutDown = errors.New("cannot enqueue event, speaker is shutdown")
-)
+var ErrShutDown = errors.New("cannot enqueue event, speaker is shutdown")
 
-// New creates a new MetalLB BGP speaker controller. Options are provided to
+// newSpeaker creates a new MetalLB BGP speaker controller. Options are provided to
 // specify what the Speaker should announce via BGP.
-func New(ctx context.Context, clientset client.Clientset, opts Opts) (*MetalLBSpeaker, error) {
-	ctrl, err := newMetalLBSpeaker(ctx, clientset)
+func newSpeaker(clientset client.Clientset, opts Opts) (*MetalLBSpeaker, error) {
+	ctrl, err := newMetalLBSpeaker(clientset)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create MetalLB speaker: %w", err)
 	}
-	spkr := &MetalLBSpeaker{
-		Fencer:  fence.Fencer{},
-		speaker: ctrl,
 
+	spkr := &MetalLBSpeaker{
+		Fencer:          fence.Fencer{},
+		speaker:         ctrl,
 		announceLBIP:    opts.LoadBalancerIP,
 		announcePodCIDR: opts.PodCIDR,
-
-		queue: workqueue.New(),
-
-		services: make(map[k8s.ServiceID]*slim_corev1.Service),
+		queue:           workqueue.New(),
+		services:        make(map[k8s.ServiceID]*slim_corev1.Service),
 	}
-
-	go spkr.run(ctx)
-
-	log.Info("Started BGP speaker")
 
 	return spkr, nil
 }
