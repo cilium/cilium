@@ -34,9 +34,9 @@ type speakerParams struct {
 	LocalCiliumNode daemonk8s.LocalCiliumNodeResource
 }
 
-func newMetalLBBGPSpeaker(params speakerParams) (*MetalLBSpeaker, error) {
+func newMetalLBBGPSpeaker(params speakerParams) (MetalLBBgpSpeaker, error) {
 	if !option.Config.BGPAnnounceLBIP && !option.Config.BGPAnnouncePodCIDR {
-		return nil, nil
+		return &noopSpeaker{}, nil
 	}
 
 	log.

@@ -1677,7 +1677,7 @@ type daemonParams struct {
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	Prefilter           datapath.PreFilter
 	CompilationLock     datapath.CompilationLock
-	MetalLBBgpSpeaker   *speaker.MetalLBSpeaker
+	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
