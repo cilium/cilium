@@ -353,12 +353,6 @@ const (
 	// EnableIPv4EgressGateway enables the IPv4 egress gateway
 	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
 
-	// EnableIngressController enables Ingress Controller
-	EnableIngressController = "enable-ingress-controller"
-
-	// EnableGatewayAPI enables Gateway API support
-	EnableGatewayAPI = "enable-gateway-api"
-
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
 
@@ -1690,8 +1684,6 @@ type DaemonConfig struct {
 	EnableBPFClockProbe     bool
 	EnableIPv4EgressGateway bool
 	EnableEnvoyConfig       bool
-	EnableIngressController bool
-	EnableGatewayAPI        bool
 	InstallIptRules         bool
 	MonitorAggregation      string
 	PreAllocateMaps         bool
@@ -2639,16 +2631,6 @@ func (c *DaemonConfig) K8sNetworkPolicyEnabled() bool {
 	return c.EnableK8sNetworkPolicy
 }
 
-// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
-func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
-	return c.EnableIngressController
-}
-
-// K8sGatewayAPIEnabled returns true if Gateway API feature is enabled in Cilium
-func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
-	return c.EnableGatewayAPI
-}
-
 func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
 	for _, mode := range c.PolicyCIDRMatchMode {
 		if mode == "nodes" {
@@ -3046,8 +3028,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableIPv4EgressGateway = vp.GetBool(EnableIPv4EgressGateway)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
-	c.EnableIngressController = vp.GetBool(EnableIngressController)
-	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
@@ -3726,12 +3706,9 @@ func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
 		if c.EnableEndpointHealthChecking {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}
-		// Ingress controller and envoy config require cilium-agent to create an IP address
-		// specifically for differentiating ingress and envoy traffic, which is not possible
+		// envoy config (Ingress, Gateway API, ...) require cilium-agent to create an IP address
+		// specifically for differentiating envoy traffic, which is not possible
 		// with delegated IPAM.
-		if c.EnableIngressController {
-			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableIngressController, IPAM, ipamOption.IPAMDelegatedPlugin)
-		}
 		if c.EnableEnvoyConfig {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEnvoyConfig, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}
