@@ -2644,13 +2644,17 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 	)
 
+	w.resourceGroupsFn = func(cfg WatcherConfiguration) (resourceGroups []string, waitForCachesOnly []string) {
+		return []string{}, []string{}
+	}
+
 	// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	deadline, _ := t.Deadline()
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 
 	cachesSynced := make(chan struct{})
-	w.InitK8sSubsystem(ctx, []string{}, []string{}, cachesSynced)
+	w.InitK8sSubsystem(ctx, cachesSynced)
 	// Expect channel to be closed.
 	select {
 	case <-ctx.Done():
