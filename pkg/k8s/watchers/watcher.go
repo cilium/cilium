@@ -464,16 +464,3 @@ func (k *K8sWatcher) K8sServiceEventProcessed(action string, startTime time.Time
 	duration, _ := safetime.TimeSinceSafe(startTime, log)
 	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
 }
-
-// initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
-func (k *K8sWatcher) initCiliumEndpointOrSlices(ctx context.Context, asyncControllers *sync.WaitGroup) {
-	// If CiliumEndpointSlice feature is enabled, Cilium-agent watches CiliumEndpointSlice
-	// objects instead of CiliumEndpoints. Hence, skip watching CiliumEndpoints if CiliumEndpointSlice
-	// feature is enabled.
-	asyncControllers.Add(1)
-	if option.Config.EnableCiliumEndpointSlice {
-		go k.ciliumEndpointSliceInit(ctx, asyncControllers)
-	} else {
-		go k.ciliumEndpointsInit(ctx, asyncControllers)
-	}
-}
