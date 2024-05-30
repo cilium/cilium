@@ -371,41 +371,53 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Start conn-disrupt-test
+      - name: Setup conn-disrupt-test before upgrading (${{ matrix.name }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/conn-disrupt-test-setup
+        with:
+          job-name: ipsec-setup-${{ matrix.name }}
+
+      - name: Upgrade Cilium (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
-          # Create pods which establish long lived connections. It will be used by
-          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
-          # interruption in such flows.
-          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-            --conn-disrupt-dispatch-interval 0ms
+          ./cilium-cli upgrade \
+            ${{ steps.cilium-newest-config.outputs.config }}
 
-      - name: Upgrade Cilium & Test (${{ matrix.name }})
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+      - name: Run tests after upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test
+        uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: ipsec-upgrade-${{ matrix.name }}
-          operation-cmd: |
-            ./cilium-cli upgrade \
-              ${{ steps.cilium-newest-config.outputs.config }}
+          job-name: ipsec-setup-${{ matrix.name }}
+          full-test: 'true'
 
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
-
-      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
+      - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test
+        uses: ./.github/actions/conn-disrupt-test-setup
         with:
-          job-name: ipsec-downgrade-${{ matrix.name }}
-          operation-cmd: |
-            ./cilium-cli upgrade \
-              ${{ steps.cilium-stable-config.outputs.config }}
+          job-name: ipsec-setup-${{ matrix.name }}
 
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        shell: bash
+        run: |
+          ./cilium-cli upgrade \
+            ${{ steps.cilium-stable-config.outputs.config }}
+
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+      - name: Check conn-disrupt-test after downgrading
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: ipsec-setup-${{ matrix.name }}
+          full-test: 'true'
 
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
