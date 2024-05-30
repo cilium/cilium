@@ -449,6 +449,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		tunnelConfig:         params.TunnelConfig,
 		bwManager:            params.BandwidthManager,
 		lrpManager:           params.LRPManager,
+		cgroupManager:        params.CGroupManager,
 		preFilter:            params.Prefilter,
 	}
 
@@ -478,8 +479,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d.endpointManager = params.EndpointManager
 
-	d.cgroupManager = manager.NewCgroupManager()
-
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		params.Clientset,
 		params.K8sResourceSynced,
@@ -492,7 +491,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		params.MetalLBBgpSpeaker,
 		option.Config,
 		d.ipcache,
-		d.cgroupManager,
+		params.CGroupManager,
 		params.Resources,
 		params.ServiceCache,
 		d.bwManager,
@@ -969,7 +968,6 @@ func (d *Daemon) Close() {
 		d.datapathRegenTrigger.Shutdown()
 	}
 	identitymanager.RemoveAll()
-	d.cgroupManager.Close()
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
