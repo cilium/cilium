@@ -105,6 +105,11 @@ func (s *metallbspeaker) OnUpdateService(svc *slim_corev1.Service) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
+
+	if !s.announceLBIP {
+		return nil
+	}
+
 	var (
 		svcID = k8s.ParseServiceID(svc)
 		l     = log.WithFields(logrus.Fields{
@@ -143,6 +148,11 @@ func (s *metallbspeaker) OnDeleteService(svc *slim_corev1.Service) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
+
+	if !s.announceLBIP {
+		return nil
+	}
+
 	var (
 		svcID = k8s.ParseServiceID(svc)
 		l     = log.WithFields(logrus.Fields{
@@ -177,6 +187,11 @@ func (s *metallbspeaker) OnUpdateEndpoints(eps *k8s.Endpoints) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
+
+	if !s.announceLBIP {
+		return nil
+	}
+
 	var (
 		epSliceID = eps.EndpointSliceID
 		svcID     = epSliceID.ServiceID

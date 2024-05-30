@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -64,9 +63,7 @@ func (k *K8sWatcher) endpointsInit() {
 
 func (k *K8sWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.StoppableWaitGroup) {
 	k.K8sSvcCache.UpdateEndpoints(eps, swgEps)
-	if option.Config.BGPAnnounceLBIP {
-		k.bgpSpeakerManager.OnUpdateEndpoints(eps)
-	}
+	k.bgpSpeakerManager.OnUpdateEndpoints(eps)
 	k.addKubeAPIServerServiceEndpoints(eps)
 }
 
