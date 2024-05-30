@@ -13,17 +13,13 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cgroup-manager")
-	// Channel buffer size for pod events in order to not block callers
-	podEventsChannelSize = 20
-)
+// Channel buffer size for pod events in order to not block callers
+var podEventsChannelSize = 20
 
 // Pod events processed by CgroupManager
 const (
@@ -45,6 +41,7 @@ const (
 // During initialization, the manager checks for a valid cgroup path pathProvider.
 // If it fails to find a pathProvider, it will ignore all the subsequent pod events.
 type CgroupManager struct {
+	logger logrus.FieldLogger
 	// Map of pod metadata indexed by their UIDs
 	podMetadataById map[podUID]*podMetadata
 	// Map of container metadata indexed by their cgroup ids
@@ -204,8 +201,9 @@ func (c cgroupImpl) GetCgroupID(cgroupPath string) (uint64, error) {
 	return cgroups.GetCgroupID(cgroupPath)
 }
 
-func newManager(cg cgroup, channelSize int) *CgroupManager {
+func newManager(logger logrus.FieldLogger, cg cgroup, channelSize int) *CgroupManager {
 	return &CgroupManager{
+		logger:                    logger,
 		podMetadataById:           make(map[string]*podMetadata),
 		containerMetadataByCgrpId: make(map[uint64]*containerMetadata),
 		podEvents:                 make(chan podEvent, channelSize),
@@ -228,13 +226,13 @@ func (m *CgroupManager) enable() {
 
 	var err error
 	if m.pathProvider, err = getCgroupPathProvider(); err != nil {
-		log.Warn("No valid cgroup base path found: socket load-balancing tracing with Hubble will not work." +
+		m.logger.Warn("No valid cgroup base path found: socket load-balancing tracing with Hubble will not work." +
 			"See the kubeproxy-free guide for more details.")
 		m.enabled = false
 	}
 
 	if m.enabled {
-		log.Info("Cgroup metadata manager is enabled")
+		m.logger.Info("Cgroup metadata manager is enabled")
 	}
 }
 
@@ -317,7 +315,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 		// Example:containerd://e275d1a37782ab30008aa3ae6666cccefe53b3a14a2ab5a8dc459939107c8c0e
 		_, after, found := strings.Cut(cId, "//")
 		if !found || after == "" {
-			log.WithFields(logrus.Fields{
+			m.logger.WithFields(logrus.Fields{
 				logfields.K8sPodName:   pod.Name,
 				logfields.K8sNamespace: pod.Namespace,
 				"container-id":         cId,
@@ -337,7 +335,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 		// Container could've been gone, so don't log any errors.
 		cgrpPath, err := m.pathProvider.getContainerPath(id, cId, pod.Status.QOSClass)
 		if err != nil {
-			log.WithFields(logrus.Fields{
+			m.logger.WithFields(logrus.Fields{
 				logfields.K8sPodName:   pod.Name,
 				logfields.K8sNamespace: pod.Namespace,
 				"container-id":         cId,
@@ -346,7 +344,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 		}
 		cgrpId, err := m.cgroupsChecker.GetCgroupID(cgrpPath)
 		if err != nil {
-			log.WithFields(logrus.Fields{
+			m.logger.WithFields(logrus.Fields{
 				logfields.K8sPodName:   pod.Name,
 				logfields.K8sNamespace: pod.Namespace,
 				"cgroup-path":          cgrpPath,
@@ -427,7 +425,7 @@ func (m *CgroupManager) dumpPodMetadata(allMetadataOut chan []*FullPodMetadata) 
 	for _, cm := range m.containerMetadataByCgrpId {
 		pm, ok := m.podMetadataById[cm.podId]
 		if !ok {
-			log.WithFields(logrus.Fields{
+			m.logger.WithFields(logrus.Fields{
 				"container-cgroup-id": cm.cgroupId,
 			}).Debugf("Pod metadata not found")
 			continue
