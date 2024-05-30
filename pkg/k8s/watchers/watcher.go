@@ -240,27 +240,6 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 	k.k8sResourceSynced.WaitForCacheSync(resourceNames...)
 }
 
-// WaitForCacheSyncWithTimeout calls WaitForCacheSync to block until given resources have had their caches
-// synced from K8s. This will wait up to the timeout duration after starting or since the last K8s
-// registered watcher event (i.e. each event causes the timeout to be pushed back). Events are recorded
-// using K8sResourcesSynced.Event function. If the timeout is exceeded, an error is returned.
-func (k *K8sWatcher) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceNames ...string) error {
-	return k.k8sResourceSynced.WaitForCacheSyncWithTimeout(timeout, resourceNames...)
-}
-
-func (k *K8sWatcher) cancelWaitGroupToSyncResources(resourceName string) {
-	k.k8sResourceSynced.CancelWaitGroupToSyncResources(resourceName)
-}
-
-func (k *K8sWatcher) blockWaitGroupToSyncResources(
-	stop <-chan struct{},
-	swg *lock.StoppableWaitGroup,
-	hasSyncedFunc cache.InformerSynced,
-	resourceName string,
-) {
-	k.k8sResourceSynced.BlockWaitGroupToSyncResources(stop, swg, hasSyncedFunc, resourceName)
-}
-
 func (k *K8sWatcher) GetAPIGroups() []string {
 	return k.k8sAPIGroups.GetGroups()
 }
@@ -383,7 +362,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, resources []string, c
 	go func() {
 		log.Info("Waiting until all pre-existing resources have been received")
 		allResources := append(resources, cachesOnly...)
-		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
+		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
 			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
 		close(cachesSynced)

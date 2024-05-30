@@ -158,7 +158,7 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 			}
 		}()
 
-		k.blockWaitGroupToSyncResources(ctx.Done(), nil, synced.Load, resources.K8sAPIGroupPodV1Core)
+		k.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), nil, synced.Load, resources.K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
@@ -182,7 +182,7 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
+		k.k8sResourceSynced.BlockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
@@ -979,7 +979,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 // GetCachedPod returns a pod from the local store.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
-	k.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
+	k.k8sResourceSynced.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 	<-k.podStoreSet
 	k.podStoreMU.RLock()
 	defer k.podStoreMU.RUnlock()
