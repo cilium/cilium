@@ -8,6 +8,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
@@ -26,8 +28,10 @@ type speakerParams struct {
 
 	Lifecycle cell.Lifecycle
 
-	Clientset k8sClient.Clientset
-	SvcCache  *k8s.ServiceCache
+	Clientset       k8sClient.Clientset
+	SvcCache        *k8s.ServiceCache
+	LocalNode       daemonk8s.LocalNodeResource
+	LocalCiliumNode daemonk8s.LocalCiliumNodeResource
 }
 
 func newMetalLBBGPSpeaker(params speakerParams) (*MetalLBSpeaker, error) {
@@ -55,6 +59,12 @@ func newMetalLBBGPSpeaker(params speakerParams) (*MetalLBSpeaker, error) {
 			go speaker.run(ctx)
 			log.Info("Started BGP speaker")
 
+			switch option.Config.IPAMMode() {
+			case ipamOption.IPAMKubernetes:
+				speaker.subscribeToLocalNodeResource(ctx, params.LocalNode)
+			case ipamOption.IPAMClusterPool:
+				speaker.subscribeToLocalCiliumNodeResource(ctx, params.LocalCiliumNode)
+			}
 			return nil
 		},
 		OnStop: func(_ cell.HookContext) error {
