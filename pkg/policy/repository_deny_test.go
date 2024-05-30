@@ -169,8 +169,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, true, ing, genCommentf(true, true))
 	require.Equal(t, false, egr, genCommentf(false, false))
-	require.EqualValues(t, fooIngressDenyRule1, matchingRules[0].Rule, "returned matching rules did not match")
-	require.EqualValues(t, fooIngressDenyRule2, matchingRules[1].Rule, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressDenyRule1, &fooIngressDenyRule2}, "returned matching rules did not match")
 
 	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressDenyRule1Label})
 	require.Equal(t, 1, numDeleted)
