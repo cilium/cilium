@@ -37,6 +37,9 @@ spec:
   {{- if .Values.ingressController.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.ingressController.service.loadBalancerIP }}
   {{- end }}
+  {{- if .Values.ingressController.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.ingressController.service.externalTrafficPolicy }}
+  {{- end }}
 ---
 apiVersion: v1
 kind: Endpoints
