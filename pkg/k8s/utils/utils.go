@@ -66,12 +66,6 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	return ns + "/" + obj.GetName()
 }
 
-// PolicyConfiguration is the required configuration for K8s NetworkPolicy
-type PolicyConfiguration interface {
-	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
-	K8sNetworkPolicyEnabled() bool
-}
-
 // GetEndpointSliceListOptionsModifier returns the options modifier for endpointSlice object list.
 // This methods returns a ListOptions modifier which adds a label selector to
 // select all endpointSlice objects they are not from remote clusters in Cilium cluster mesh.
