@@ -5,6 +5,7 @@ package manager
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
 )
 
 // Cell provides access to the cgroup manager.
@@ -18,11 +19,12 @@ var Cell = cell.Module(
 type cgroupManagerParams struct {
 	cell.In
 
+	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 }
 
 func newCGroupManager(params cgroupManagerParams) *CgroupManager {
-	cm := newManager(cgroupImpl{}, podEventsChannelSize)
+	cm := newManager(params.Logger, cgroupImpl{}, podEventsChannelSize)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
