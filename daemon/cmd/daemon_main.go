@@ -1679,7 +1679,7 @@ type daemonParams struct {
 	Prefilter           datapath.PreFilter
 	CompilationLock     datapath.CompilationLock
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
-	CGroupManager       *cgroup.CgroupManager
+	CGroupManager       cgroup.CGroupManager
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {

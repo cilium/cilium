@@ -177,7 +177,7 @@ type Daemon struct {
 
 	egressGatewayManager *egressgateway.Manager
 
-	cgroupManager *manager.CgroupManager
+	cgroupManager manager.CGroupManager
 
 	ipamMetadata *ipamMetadata.Manager
 
