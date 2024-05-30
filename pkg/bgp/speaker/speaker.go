@@ -240,11 +240,11 @@ func (s *MetalLBSpeaker) notifyNodeEvent(op Op, nodeMeta metaGetter, podCIDRs *[
 	return nil
 }
 
-func (s *MetalLBSpeaker) SubscribeToLocalNodeResource(ctx context.Context, lnr agentK8s.LocalNodeResource) {
+func (s *MetalLBSpeaker) subscribeToLocalNodeResource(ctx context.Context, lnr agentK8s.LocalNodeResource) {
 	go eventLoop[*slim_corev1.Node](ctx, s, lnr, nodePodCIDRs)
 }
 
-func (s *MetalLBSpeaker) SubscribeToLocalCiliumNodeResource(ctx context.Context, lcnr agentK8s.LocalCiliumNodeResource) {
+func (s *MetalLBSpeaker) subscribeToLocalCiliumNodeResource(ctx context.Context, lcnr agentK8s.LocalCiliumNodeResource) {
 	go eventLoop[*ciliumv2.CiliumNode](ctx, s, lcnr, ciliumNodePodCIDRs)
 }
 

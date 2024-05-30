@@ -499,15 +499,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	)
 	params.NodeDiscovery.RegisterK8sGetters(d.k8sWatcher)
 
-	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
-		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMKubernetes:
-			params.MetalLBBgpSpeaker.SubscribeToLocalNodeResource(ctx, params.Resources.LocalNode)
-		case ipamOption.IPAMClusterPool:
-			params.MetalLBBgpSpeaker.SubscribeToLocalCiliumNodeResource(ctx, params.Resources.LocalCiliumNode)
-		}
-	}
-
 	d.lrpManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 
 	bootstrapStats.daemonInit.End(true)
