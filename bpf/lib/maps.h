@@ -131,19 +131,6 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 };
 #endif /* SKIP_CALLS_MAP */
 
-#ifdef HAVE_ENCAP
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct tunnel_key);
-	__type(value, struct tunnel_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} TUNNEL_MAP __section_maps_btf;
-
-#endif
-
 #if defined(ENABLE_CUSTOM_CALLS) && defined(CUSTOM_CALLS_MAP)
 /* Private per-EP map for tail calls to user-defined programs.
  * CUSTOM_CALLS_MAP is a per-EP map name, only defined for programs that need
