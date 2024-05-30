@@ -399,6 +399,11 @@ func (c *Client) KVStoreMeshStatus(ctx context.Context, namespace, pod string) (
 	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, pod, defaults.ClusterMeshKVStoreMeshContainerName,
 		[]string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "-o", "json"})
 	if err != nil {
+		// Cilium v1.14 has a separate kvstoremesh container, with a separate binary
+		if strings.Contains(err.Error(), "stat /usr/bin/clustermesh-apiserver: no such file or directory") {
+			return nil, ErrKVStoreMeshStatusNotImplemented
+		}
+
 		// Try to figure out if the status command is not yet supported in this version
 		stderrStr := stderr.String()
 		if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
