@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -398,7 +397,8 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, resources []string, c
 
 // WatcherConfiguration is the required configuration for enableK8sWatchers
 type WatcherConfiguration interface {
-	utils.PolicyConfiguration
+	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
+	K8sNetworkPolicyEnabled() bool
 }
 
 // enableK8sWatchers starts watchers for given resources.
