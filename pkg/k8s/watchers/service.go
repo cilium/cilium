@@ -31,7 +31,7 @@ func (k *K8sWatcher) servicesInit() {
 	var synced atomic.Bool
 	swgSvcs := lock.NewStoppableWaitGroup()
 
-	k.blockWaitGroupToSyncResources(
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(
 		k.stop,
 		swgSvcs,
 		func() bool { return synced.Load() },

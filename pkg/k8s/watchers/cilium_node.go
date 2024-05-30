@@ -32,7 +32,7 @@ func (k *K8sWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.
 		var synced atomic.Bool
 		stop := make(chan struct{})
 
-		k.blockWaitGroupToSyncResources(
+		k.k8sResourceSynced.BlockWaitGroupToSyncResources(
 			stop,
 			nil,
 			func() bool { return synced.Load() },
@@ -104,7 +104,7 @@ func (k *K8sWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.
 		case <-kvstore.Connected():
 			log.Info("Connected to key-value store, stopping CiliumNode watcher")
 			cancel()
-			k.cancelWaitGroupToSyncResources(apiGroup)
+			k.k8sResourceSynced.CancelWaitGroupToSyncResources(apiGroup)
 			k.k8sAPIGroups.RemoveAPI(apiGroup)
 			wg.Wait()
 		case <-ctx.Done():

@@ -27,7 +27,7 @@ func (k *K8sWatcher) endpointsInit() {
 
 	var synced atomic.Bool
 
-	k.blockWaitGroupToSyncResources(
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(
 		k.stop,
 		swg,
 		func() bool { return synced.Load() },

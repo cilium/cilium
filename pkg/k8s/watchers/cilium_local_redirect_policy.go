@@ -34,11 +34,9 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 					err := k.addCiliumLocalRedirectPolicy(cLRP)
 					k.K8sEventProcessed(metricCLRP, resources.MetricCreate, err == nil)
 				}
-
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Info("Local Redirect Policy updates are not handled")
-
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
@@ -55,7 +53,7 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 		nil,
 	)
 
-	k.blockWaitGroupToSyncResources(
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(
 		k.stop,
 		nil,
 		lrpController.HasSynced,
@@ -87,7 +85,7 @@ func (k *K8sWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRed
 		scopedLog.Info("Added CiliumLocalRedirectPolicy")
 	}
 
-	//TODO update status
+	// TODO update status
 
 	return policyAddErr
 }
