@@ -13,9 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 )
 
-var (
-	emptyAdverts = []*metallbbgp.Advertisement{}
-)
+var emptyAdverts = []*metallbbgp.Advertisement{}
 
 // CidrSlice is a slice of Cidr strings with a method set for
 // converting them to MetalLB advertisements.
@@ -26,11 +24,9 @@ type CidrSlice []string
 // If a cidr cannot be parsed it is omitted from the array of Advertisements
 // returned an an error is logged.
 func (cs CidrSlice) ToAdvertisements() []*metallbbgp.Advertisement {
-	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "CidrSlice.ToAdvertisements",
-		})
-	)
+	l := log.WithFields(logrus.Fields{
+		"component": "CidrSlice.ToAdvertisements",
+	})
 
 	adverts := make([]*metallbbgp.Advertisement, 0, len(cs))
 	for _, c := range cs {
@@ -54,12 +50,10 @@ func (cs CidrSlice) ToAdvertisements() []*metallbbgp.Advertisement {
 	return adverts
 }
 
-func (s *MetalLBSpeaker) withdraw() {
-	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.withdraw",
-		})
-	)
+func (s *metallbspeaker) withdraw() {
+	l := log.WithFields(logrus.Fields{
+		"component": "MetalLBSpeaker.withdraw",
+	})
 	// flip this bool so we start rejecting new events from
 	// entering the queue.
 	s.shutdown.Store(true)
@@ -88,12 +82,10 @@ func (s *MetalLBSpeaker) withdraw() {
 //
 // This function is not thread safe and should not be called while other functions that modify the underlying speaker
 // are being called.
-func (s *MetalLBSpeaker) announcePodCIDRs(cidrs CidrSlice) error {
-	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.announcePodCidrs",
-		})
-	)
+func (s *metallbspeaker) announcePodCIDRs(cidrs CidrSlice) error {
+	l := log.WithFields(logrus.Fields{
+		"component": "MetalLBSpeaker.announcePodCidrs",
+	})
 
 	ctl := s.speaker.GetBGPController()
 

@@ -27,9 +27,7 @@ const (
 	DefaultTimeout = 60 * time.Second
 )
 
-var (
-	errTimeout = errors.New("timeout occurred before mock received event")
-)
+var errTimeout = errors.New("timeout occurred before mock received event")
 
 // TestSpeakerOnUpdateService confirms the speaker performs the correct
 // actions when an OnUpdateService event takes place.
@@ -74,7 +72,7 @@ func TestSpeakerOnUpdateService(t *testing.T) {
 		},
 	}
 
-	spkr := &MetalLBSpeaker{
+	spkr := &metallbspeaker{
 		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
@@ -157,7 +155,7 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 
 	// in this test, we want to construct our speaker
 	// with a "known" service, and test that it is deleted.
-	spkr := &MetalLBSpeaker{
+	spkr := &metallbspeaker{
 		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
@@ -243,7 +241,7 @@ func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	// in this test we expect the service associated with the endpoints
 	// to exist as a lookup of the service is done in the OnUpdateEndpoints
 	// call.
-	spkr := &MetalLBSpeaker{
+	spkr := &metallbspeaker{
 		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
@@ -362,7 +360,7 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 		},
 	}
 
-	spkr := &MetalLBSpeaker{
+	spkr := &metallbspeaker{
 		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
@@ -466,7 +464,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 		},
 	}
 
-	spkr := &MetalLBSpeaker{
+	spkr := &metallbspeaker{
 		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
@@ -553,7 +551,7 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 		},
 	}
 
-	spkr := &MetalLBSpeaker{
+	spkr := &metallbspeaker{
 		Fencer:          fence.Fencer{},
 		speaker:         mockSpeaker,
 		announceLBIP:    true,

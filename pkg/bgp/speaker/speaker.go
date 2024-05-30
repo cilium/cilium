@@ -31,15 +31,28 @@ import (
 
 var ErrShutDown = errors.New("cannot enqueue event, speaker is shutdown")
 
+// MetalLBBgpSpeaker represents the BGP speaker. It integrates Cilium's K8s events with
+// MetalLB's logic for making BGP announcements. It is responsible for
+// announcing BGP messages containing a loadbalancer IP address to peers.
+type MetalLBBgpSpeaker interface {
+	// OnUpdateEndpoints notifies the Speaker of an update to the backends of a
+	// service.
+	OnUpdateEndpoints(eps *k8s.Endpoints) error
+	// OnUpdateService notifies the Speaker of an update to a service.
+	OnUpdateService(svc *slim_corev1.Service) error
+	// OnDeleteService notifies the Speaker of a delete of a service.
+	OnDeleteService(svc *slim_corev1.Service) error
+}
+
 // newSpeaker creates a new MetalLB BGP speaker controller. Options are provided to
 // specify what the Speaker should announce via BGP.
-func newSpeaker(clientset client.Clientset, endpointsGetter endpointsGetter, opts Opts) (*MetalLBSpeaker, error) {
+func newSpeaker(clientset client.Clientset, endpointsGetter endpointsGetter, opts Opts) (*metallbspeaker, error) {
 	ctrl, err := newMetalLBSpeaker(clientset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MetalLB speaker: %w", err)
 	}
 
-	spkr := &MetalLBSpeaker{
+	spkr := &metallbspeaker{
 		Fencer:          fence.Fencer{},
 		speaker:         ctrl,
 		announceLBIP:    opts.LoadBalancerIP,
@@ -58,10 +71,7 @@ type Opts struct {
 	PodCIDR        bool
 }
 
-// MetalLBSpeaker represents the BGP speaker. It integrates Cilium's K8s events with
-// MetalLB's logic for making BGP announcements. It is responsible for
-// announcing BGP messages containing a loadbalancer IP address to peers.
-type MetalLBSpeaker struct {
+type metallbspeaker struct {
 	// Our speaker requeues our own event structures on failure.
 	// Use a fence to avoid replaying stale events.
 	fence.Fencer
@@ -87,12 +97,11 @@ type MetalLBSpeaker struct {
 	shutdown atomic.Bool
 }
 
-func (s *MetalLBSpeaker) shutDown() bool {
+func (s *metallbspeaker) shutDown() bool {
 	return s.shutdown.Load()
 }
 
-// OnUpdateService notifies the Speaker of an update to a service.
-func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
+func (s *metallbspeaker) OnUpdateService(svc *slim_corev1.Service) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
@@ -130,8 +139,7 @@ func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
 	return nil
 }
 
-// OnDeleteService notifies the Speaker of a delete of a service.
-func (s *MetalLBSpeaker) OnDeleteService(svc *slim_corev1.Service) error {
+func (s *metallbspeaker) OnDeleteService(svc *slim_corev1.Service) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
@@ -165,9 +173,7 @@ func (s *MetalLBSpeaker) OnDeleteService(svc *slim_corev1.Service) error {
 	return nil
 }
 
-// OnUpdateEndpoints notifies the Speaker of an update to the backends of a
-// service.
-func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *k8s.Endpoints) error {
+func (s *metallbspeaker) OnUpdateEndpoints(eps *k8s.Endpoints) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
@@ -209,7 +215,7 @@ type metaGetter interface {
 }
 
 // notifyNodeEvent notifies the speaker of a node (K8s Node or CiliumNode) event
-func (s *MetalLBSpeaker) notifyNodeEvent(op Op, nodeMeta metaGetter, podCIDRs *[]string, withDraw bool) error {
+func (s *metallbspeaker) notifyNodeEvent(op Op, nodeMeta metaGetter, podCIDRs *[]string, withDraw bool) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
@@ -240,11 +246,11 @@ func (s *MetalLBSpeaker) notifyNodeEvent(op Op, nodeMeta metaGetter, podCIDRs *[
 	return nil
 }
 
-func (s *MetalLBSpeaker) subscribeToLocalNodeResource(ctx context.Context, lnr agentK8s.LocalNodeResource) {
+func (s *metallbspeaker) subscribeToLocalNodeResource(ctx context.Context, lnr agentK8s.LocalNodeResource) {
 	go eventLoop[*slim_corev1.Node](ctx, s, lnr, nodePodCIDRs)
 }
 
-func (s *MetalLBSpeaker) subscribeToLocalCiliumNodeResource(ctx context.Context, lcnr agentK8s.LocalCiliumNodeResource) {
+func (s *metallbspeaker) subscribeToLocalCiliumNodeResource(ctx context.Context, lcnr agentK8s.LocalCiliumNodeResource) {
 	go eventLoop[*ciliumv2.CiliumNode](ctx, s, lcnr, ciliumNodePodCIDRs)
 }
 
@@ -253,7 +259,7 @@ type metaGetterObject interface {
 	metaGetter
 }
 
-func eventLoop[T metaGetterObject](ctx context.Context, s *MetalLBSpeaker, res resource.Resource[T], nodePodCIDRs func(T) *[]string) {
+func eventLoop[T metaGetterObject](ctx context.Context, s *metallbspeaker, res resource.Resource[T], nodePodCIDRs func(T) *[]string) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -369,4 +375,20 @@ func ciliumNodePodCIDRs(node *ciliumv2.CiliumNode) *[]string {
 	podCIDRs := make([]string, 0, len(node.Spec.IPAM.PodCIDRs))
 	podCIDRs = append(podCIDRs, node.Spec.IPAM.PodCIDRs...)
 	return &podCIDRs
+}
+
+var _ MetalLBBgpSpeaker = &noopSpeaker{}
+
+type noopSpeaker struct{}
+
+func (n *noopSpeaker) OnDeleteService(svc *slim_corev1.Service) error {
+	return nil
+}
+
+func (n *noopSpeaker) OnUpdateEndpoints(eps *k8s.Endpoints) error {
+	return nil
+}
+
+func (n *noopSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
+	return nil
 }
