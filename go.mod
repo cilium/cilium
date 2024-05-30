@@ -95,13 +95,13 @@ require (
 	go.uber.org/zap v1.26.0
 	go.universe.tf/metallb v0.11.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/crypto v0.18.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
 	golang.org/x/mod v0.14.0
-	golang.org/x/net v0.20.0
+	golang.org/x/net v0.23.0
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.16.0
-	golang.org/x/term v0.16.0
+	golang.org/x/sys v0.18.0
+	golang.org/x/term v0.18.0
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.16.1
 	golang.zx2c4.com/wireguard v0.0.0-20231022001213-2e0774f246fb
