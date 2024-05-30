@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	dto "github.com/prometheus/client_model/go"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 )
 
 type Result struct {
@@ -73,6 +74,125 @@ const (
 
 	ExitCurlHTTPError ExitCode = 22
 	ExitCurlTimeout   ExitCode = 28
+)
+
+var (
+	// ResultNone expects a successful command, don't match any packets.
+	ResultNone = Result{
+		None: true,
+	}
+
+	// ResultCurlTimeout expects a failed command, don't match any packets.
+	ResultCurlTimeout = Result{
+		ExitCode: ExitCurlTimeout,
+	}
+
+	// ResultOK expects a successful command and a matching flow.
+	ResultOK = Result{}
+
+	// ResultDNSOK expects a successful command, only generating DNS traffic.
+	ResultDNSOK = Result{
+		DNSProxy: true,
+	}
+
+	// ResultDNSOKDropCurlTimeout expects a failed command, generating DNS traffic and a dropped flow.
+	ResultDNSOKDropCurlTimeout = Result{
+		DNSProxy:       true,
+		Drop:           true,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitCurlTimeout,
+	}
+
+	// ResultDNSOKDropCurlHTTPError expects a failed command, generating DNS traffic and a dropped flow.
+	ResultDNSOKDropCurlHTTPError = Result{
+		DNSProxy:       true,
+		L7Proxy:        true,
+		Drop:           true,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitCurlHTTPError,
+	}
+
+	// ResultCurlHTTPError expects a failed command, but no dropped flow or DNS proxy.
+	ResultCurlHTTPError = Result{
+		L7Proxy:        true,
+		Drop:           false,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitCurlHTTPError,
+	}
+
+	// ResultDrop expects a dropped flow and a failed command.
+	ResultDrop = Result{
+		Drop:           true,
+		ExitCode:       ExitAnyError,
+		DropReasonFunc: defaultDropReason,
+	}
+
+	// ResultDropAuthRequired expects a dropped flow with auth required as reason.
+	ResultDropAuthRequired = Result{
+		Drop:           true,
+		DropReasonFunc: authRequiredDropReason,
+	}
+
+	// ResultAnyReasonEgressDrop expects a dropped flow at Egress and a failed command.
+	ResultAnyReasonEgressDrop = Result{
+		Drop:           true,
+		DropReasonFunc: defaultDropReason,
+		EgressDrop:     true,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultPolicyDenyEgressDrop expects a dropped flow at Egress due to policy deny and a failed command.
+	ResultPolicyDenyEgressDrop = Result{
+		Drop:           true,
+		DropReasonFunc: policyDenyReason,
+		EgressDrop:     true,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultDefaultDenyEgressDrop expects a dropped flow at Egress due to default deny and a failed command.
+	ResultDefaultDenyEgressDrop = Result{
+		Drop:           true,
+		DropReasonFunc: defaultDenyReason,
+		EgressDrop:     true,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultIngressAnyReasonDrop expects a dropped flow at Ingress and a failed command.
+	ResultIngressAnyReasonDrop = Result{
+		Drop:           true,
+		IngressDrop:    true,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultPolicyDenyIngressDrop expects a dropped flow at Ingress due to policy deny reason and a failed command.
+	ResultPolicyDenyIngressDrop = Result{
+		Drop:           true,
+		IngressDrop:    true,
+		DropReasonFunc: policyDenyReason,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultDefaultDenyIngressDrop expects a dropped flow at Ingress due to default deny reason and a failed command.
+	ResultDefaultDenyIngressDrop = Result{
+		Drop:           true,
+		IngressDrop:    true,
+		DropReasonFunc: defaultDenyReason,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultDropCurlTimeout expects a dropped flow and a failed command.
+	ResultDropCurlTimeout = Result{
+		Drop:     true,
+		ExitCode: ExitCurlTimeout,
+	}
+
+	// ResultDropCurlHTTPError expects a dropped flow and a failed command.
+	ResultDropCurlHTTPError = Result{
+		L7Proxy:  true,
+		Drop:     true,
+		ExitCode: ExitCurlHTTPError,
+	}
 )
 
 func (e ExitCode) String() string {
