@@ -367,7 +367,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
+				if oldIdentity, ok := oldObj.(*v2.CiliumIdentity); ok {
 					if newIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
 						if oldIdentity.DeepEqual(newIdentity) {
 							return
