@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // Channel buffer size for pod events in order to not block callers
@@ -30,6 +29,16 @@ const (
 	podDumpMetadataEvent
 )
 
+type CGroupManager interface {
+	OnAddPod(pod *v1.Pod)
+	OnUpdatePod(oldPod, newPod *v1.Pod)
+	OnDeletePod(pod *v1.Pod)
+	// GetPodMetadataForContainer returns pod metadata for the given container
+	// cgroup id in case of success, or nil otherwise.
+	GetPodMetadataForContainer(cgroupId uint64) *PodMetadata
+	DumpPodMetadata() []*FullPodMetadata
+}
+
 // CgroupManager maintains Kubernetes and low-level metadata (cgroup path and
 // cgroup id) for local pods and their containers. In order to do that, it defines
 // and implements callback functions that are called on Kubernetes pod watcher events.
@@ -40,7 +49,7 @@ const (
 //
 // During initialization, the manager checks for a valid cgroup path pathProvider.
 // If it fails to find a pathProvider, it will ignore all the subsequent pod events.
-type CgroupManager struct {
+type cgroupManager struct {
 	logger logrus.FieldLogger
 	// Map of pod metadata indexed by their UIDs
 	podMetadataById map[podUID]*podMetadata
@@ -52,8 +61,6 @@ type CgroupManager struct {
 	podEventsDone chan podEventStatus
 	// Cgroup path provider
 	pathProvider cgroupPathProvider
-	// Flag to check if manager is enabled, and processing events
-	enabled bool
 	// Channel to shut down manager
 	shutdown chan struct{}
 	// Interface to do cgroups related operations
@@ -84,7 +91,7 @@ type cgroupMetadata struct {
 	CgroupPath string
 }
 
-func (m *CgroupManager) OnAddPod(pod *v1.Pod) {
+func (m *cgroupManager) OnAddPod(pod *v1.Pod) {
 	if pod.Spec.NodeName != nodetypes.GetName() {
 		return
 	}
@@ -94,7 +101,7 @@ func (m *CgroupManager) OnAddPod(pod *v1.Pod) {
 	}
 }
 
-func (m *CgroupManager) OnUpdatePod(oldPod, newPod *v1.Pod) {
+func (m *cgroupManager) OnUpdatePod(oldPod, newPod *v1.Pod) {
 	if newPod.Spec.NodeName != nodetypes.GetName() {
 		return
 	}
@@ -105,7 +112,7 @@ func (m *CgroupManager) OnUpdatePod(oldPod, newPod *v1.Pod) {
 	}
 }
 
-func (m *CgroupManager) OnDeletePod(pod *v1.Pod) {
+func (m *cgroupManager) OnDeletePod(pod *v1.Pod) {
 	if pod.Spec.NodeName != nodetypes.GetName() {
 		return
 	}
@@ -115,12 +122,7 @@ func (m *CgroupManager) OnDeletePod(pod *v1.Pod) {
 	}
 }
 
-// GetPodMetadataForContainer returns pod metadata for the given container
-// cgroup id in case of success, or nil otherwise.
-func (m *CgroupManager) GetPodMetadataForContainer(cgroupId uint64) *PodMetadata {
-	if !m.enabled {
-		return nil
-	}
+func (m *cgroupManager) GetPodMetadataForContainer(cgroupId uint64) *PodMetadata {
 	m.metadataCacheLock.RLock()
 	if metadata, ok := m.metadataCache[cgroupId]; ok {
 		m.metadataCacheLock.RUnlock()
@@ -139,10 +141,7 @@ func (m *CgroupManager) GetPodMetadataForContainer(cgroupId uint64) *PodMetadata
 	return <-podMetaOut
 }
 
-func (m *CgroupManager) DumpPodMetadata() []*FullPodMetadata {
-	if !m.enabled {
-		return nil
-	}
+func (m *cgroupManager) DumpPodMetadata() []*FullPodMetadata {
 	allMetaOut := make(chan []*FullPodMetadata)
 
 	m.podEvents <- podEvent{
@@ -153,7 +152,7 @@ func (m *CgroupManager) DumpPodMetadata() []*FullPodMetadata {
 }
 
 // Close should only be called once from daemon close.
-func (m *CgroupManager) Close() {
+func (m *cgroupManager) Close() {
 	close(m.shutdown)
 }
 
@@ -201,8 +200,8 @@ func (c cgroupImpl) GetCgroupID(cgroupPath string) (uint64, error) {
 	return cgroups.GetCgroupID(cgroupPath)
 }
 
-func newManager(logger logrus.FieldLogger, cg cgroup, channelSize int) *CgroupManager {
-	return &CgroupManager{
+func newManager(logger logrus.FieldLogger, cg cgroup, pathProvider cgroupPathProvider, channelSize int) *cgroupManager {
+	return &cgroupManager{
 		logger:                    logger,
 		podMetadataById:           make(map[string]*podMetadata),
 		containerMetadataByCgrpId: make(map[uint64]*containerMetadata),
@@ -210,39 +209,14 @@ func newManager(logger logrus.FieldLogger, cg cgroup, channelSize int) *CgroupMa
 		shutdown:                  make(chan struct{}),
 		metadataCache:             map[uint64]PodMetadata{},
 		cgroupsChecker:            cg,
+		pathProvider:              pathProvider,
 	}
 }
 
-func (m *CgroupManager) enable() {
-	if !option.Config.EnableSocketLBTracing {
-		m.enabled = false
-		return
-	}
-	m.enabled = true
-
-	if m.pathProvider != nil {
-		return
-	}
-
-	var err error
-	if m.pathProvider, err = getCgroupPathProvider(); err != nil {
-		m.logger.Warn("No valid cgroup base path found: socket load-balancing tracing with Hubble will not work." +
-			"See the kubeproxy-free guide for more details.")
-		m.enabled = false
-	}
-
-	if m.enabled {
-		m.logger.Info("Cgroup metadata manager is enabled")
-	}
-}
-
-func (m *CgroupManager) processPodEvents() {
+func (m *cgroupManager) processPodEvents() {
 	for {
 		select {
 		case ev := <-m.podEvents:
-			if !m.enabled {
-				continue
-			}
 			switch ev.eventType {
 			case podAddEvent, podUpdateEvent:
 				m.updatePodMetadata(ev.pod, ev.oldPod)
@@ -276,7 +250,7 @@ func (m *CgroupManager) processPodEvents() {
 	}
 }
 
-func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
+func (m *cgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 	id := string(pod.ObjectMeta.UID)
 	pm, ok := m.podMetadataById[id]
 	if !ok {
@@ -377,7 +351,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 	}
 }
 
-func (m *CgroupManager) deletePodMetadata(pod *v1.Pod) {
+func (m *cgroupManager) deletePodMetadata(pod *v1.Pod) {
 	podId := string(pod.ObjectMeta.UID)
 
 	if _, ok := m.podMetadataById[podId]; !ok {
@@ -394,7 +368,7 @@ func (m *CgroupManager) deletePodMetadata(pod *v1.Pod) {
 	delete(m.podMetadataById, podId)
 }
 
-func (m *CgroupManager) getPodMetadata(cgroupId uint64, podMetadataOut chan *PodMetadata) {
+func (m *cgroupManager) getPodMetadata(cgroupId uint64, podMetadataOut chan *PodMetadata) {
 	cm, ok := m.containerMetadataByCgrpId[cgroupId]
 	if !ok {
 		close(podMetadataOut)
@@ -420,7 +394,7 @@ func (m *CgroupManager) getPodMetadata(cgroupId uint64, podMetadataOut chan *Pod
 	close(podMetadataOut)
 }
 
-func (m *CgroupManager) dumpPodMetadata(allMetadataOut chan []*FullPodMetadata) {
+func (m *cgroupManager) dumpPodMetadata(allMetadataOut chan []*FullPodMetadata) {
 	allMetas := make(map[string]*FullPodMetadata)
 	for _, cm := range m.containerMetadataByCgrpId {
 		pm, ok := m.podMetadataById[cm.podId]
@@ -448,4 +422,25 @@ func (m *CgroupManager) dumpPodMetadata(allMetadataOut chan []*FullPodMetadata) 
 
 	allMetadataOut <- maps.Values(allMetas)
 	close(allMetadataOut)
+}
+
+var _ CGroupManager = &noopCGroupManager{}
+
+type noopCGroupManager struct{}
+
+func (n *noopCGroupManager) OnAddPod(pod *v1.Pod) {
+}
+
+func (n *noopCGroupManager) OnDeletePod(pod *v1.Pod) {
+}
+
+func (n *noopCGroupManager) OnUpdatePod(oldPod *v1.Pod, newPod *v1.Pod) {
+}
+
+func (n *noopCGroupManager) GetPodMetadataForContainer(cgroupId uint64) *PodMetadata {
+	return nil
+}
+
+func (n *noopCGroupManager) DumpPodMetadata() []*FullPodMetadata {
+	return nil
 }

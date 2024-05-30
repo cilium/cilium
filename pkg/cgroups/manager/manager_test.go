@@ -121,17 +121,14 @@ var (
 	}
 )
 
-func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events chan podEventStatus) *CgroupManager {
+func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events chan podEventStatus) CGroupManager {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 
 	// Unbuffered channel tests to detect any issues on the caller side.
-	tcm := newManager(logger, cg, 0)
+	tcm := newManager(logger, cg, pMock, 0)
 
-	tcm.pathProvider = pMock
 	tcm.podEventsDone = events
-
-	tcm.enable()
 
 	go tcm.processPodEvents()
 	t.Cleanup(tcm.Close)
@@ -139,8 +136,7 @@ func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events ch
 	return tcm
 }
 
-func setup(tb testing.TB) {
-	option.Config.EnableSocketLBTracing = true
+func setup() {
 	nodetypes.SetName("n1")
 }
 
@@ -149,7 +145,7 @@ func getFullPath(path string) string {
 }
 
 func TestGetPodMetadataOnPodAdd(t *testing.T) {
-	setup(t)
+	setup()
 
 	c1CId := uint64(1234)
 	c2CId := uint64(4567)
@@ -192,7 +188,7 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 }
 
 func TestGetPodMetadataOnPodUpdate(t *testing.T) {
-	setup(t)
+	setup()
 
 	c3CId := uint64(2345)
 	c1CId := uint64(1234)
@@ -274,7 +270,7 @@ func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 }
 
 func BenchmarkGetPodMetadataForContainer(b *testing.B) {
-	setup(b)
+	setup()
 	c3CId := uint64(2345)
 	c1CId := uint64(1234)
 	cgMock := cgroupMock{cgroupIds: map[string]uint64{
