@@ -6,6 +6,8 @@ package manager
 import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell provides access to the cgroup manager.
@@ -21,24 +23,38 @@ type cgroupManagerParams struct {
 
 	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
+
+	AgentConfig *option.DaemonConfig
 }
 
-func newCGroupManager(params cgroupManagerParams) *CgroupManager {
-	cm := newManager(params.Logger, cgroupImpl{}, podEventsChannelSize)
+func newCGroupManager(params cgroupManagerParams) CGroupManager {
+	if !params.AgentConfig.EnableSocketLBTracing {
+		return &noopCGroupManager{}
+	}
+
+	pathProvider, err := getCgroupPathProvider()
+	if err != nil {
+		params.Logger.
+			WithError(err).
+			Warn("Failed to setup socket load-balancing tracing with Hubble. See the kubeproxy-free guide for more details.")
+
+		return &noopCGroupManager{}
+	}
+
+	cm := newManager(params.Logger, cgroupImpl{}, pathProvider, podEventsChannelSize)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
-			cm.enable()
 			go cm.processPodEvents()
-
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
 			cm.Close()
-
 			return nil
 		},
 	})
+
+	params.Logger.Info("Cgroup metadata manager is enabled")
 
 	return cm
 }
