@@ -2,9 +2,9 @@ package linux
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/hive/cell"
@@ -24,61 +24,43 @@ type nodeReconcilerParams struct {
 
 	Log              *slog.Logger
 	Table            statedb.RWTable[node.Node]
+	Handler          datapath.NodeHandler
 	ReconcilerParams reconciler.Params
 }
 
 func registerNodeReconcilers(p nodeReconcilerParams) error {
-	mock := reconcilerConfig("mock", &mockOps{p.Log}, p.Table)
-	failing := reconcilerConfig("failing", &mockFailingOps{p.Log}, p.Table)
-	if err := reconciler.Register(mock, p.ReconcilerParams); err != nil {
-		return err
+	proxy := reconcilerConfig("linux", &proxyOps{p.Log, p.Handler, make(map[string]node.Node)}, p.Table)
+	return reconciler.Register(proxy, p.ReconcilerParams)
+}
+
+type proxyOps struct {
+	log      *slog.Logger
+	handler  datapath.NodeHandler
+	previous map[string]node.Node
+}
+
+// Delete implements reconciler.Operations.
+func (m *proxyOps) Delete(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
+	return m.handler.NodeDelete(node.GetNode())
+}
+
+// Prune implements reconciler.Operations.
+func (m *proxyOps) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[node.Node]) error {
+	return nil
+}
+
+// Update implements reconciler.Operations.
+func (m *proxyOps) Update(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
+	old, hadOld := m.previous[node.Name()]
+	m.previous[node.Name()] = node
+
+	if hadOld {
+		return m.handler.NodeUpdate(node.GetNode(), old.GetNode())
 	}
-	return reconciler.Register(failing, p.ReconcilerParams)
+	return m.handler.NodeAdd(node.GetNode())
 }
 
-type mockOps struct {
-	log *slog.Logger
-}
-
-// Delete implements reconciler.Operations.
-func (m *mockOps) Delete(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
-	m.log.Info("Delete node", "node", node.Name())
-	return nil
-}
-
-// Prune implements reconciler.Operations.
-func (m *mockOps) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[node.Node]) error {
-	return nil
-}
-
-// Update implements reconciler.Operations.
-func (m *mockOps) Update(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
-	m.log.Info("Update node", "node", node.Name())
-	return nil
-}
-
-var _ reconciler.Operations[node.Node] = &mockOps{}
-
-type mockFailingOps struct {
-	log *slog.Logger
-}
-
-// Delete implements reconciler.Operations.
-func (m *mockFailingOps) Delete(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
-	return errors.New("ohno")
-}
-
-// Prune implements reconciler.Operations.
-func (m *mockFailingOps) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[node.Node]) error {
-	return nil
-}
-
-// Update implements reconciler.Operations.
-func (m *mockFailingOps) Update(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
-	return errors.New("ohno")
-}
-
-var _ reconciler.Operations[node.Node] = &mockFailingOps{}
+var _ reconciler.Operations[node.Node] = &proxyOps{}
 
 func reconcilerConfig(name string, ops reconciler.Operations[node.Node], tbl statedb.RWTable[node.Node]) reconciler.Config[node.Node] {
 	return reconciler.Config[node.Node]{
