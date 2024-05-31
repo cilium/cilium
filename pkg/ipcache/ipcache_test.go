@@ -18,6 +18,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -111,7 +112,7 @@ func TestIPCache(t *testing.T) {
 	require.Equal(t, false, exists)
 
 	hostIP := net.ParseIP("192.168.1.10")
-	k8sMeta := &K8sMetadata{
+	k8sMeta := &ipcachetypes.K8sMetadata{
 		Namespace: "default",
 		PodName:   "podname",
 	}
@@ -195,7 +196,7 @@ func TestIPCache(t *testing.T) {
 	// Assert IPCache entry is overwritten when a different pod (different
 	// k8sMeta) with the same IP as what's already inside the IPCache is
 	// inserted.
-	_, err = IPIdentityCache.Upsert("10.1.1.250", net.ParseIP("10.0.0.1"), 0, &K8sMetadata{
+	_, err = IPIdentityCache.Upsert("10.1.1.250", net.ParseIP("10.0.0.1"), 0, &ipcachetypes.K8sMetadata{
 		Namespace: "ns-1",
 		PodName:   "pod1",
 	}, Identity{
@@ -206,7 +207,7 @@ func TestIPCache(t *testing.T) {
 	_, exists = IPIdentityCache.LookupByPrefix("10.1.1.250/32")
 	require.Equal(t, true, exists)
 	// Insert different pod now.
-	_, err = IPIdentityCache.Upsert("10.1.1.250", net.ParseIP("10.0.0.2"), 0, &K8sMetadata{
+	_, err = IPIdentityCache.Upsert("10.1.1.250", net.ParseIP("10.0.0.2"), 0, &ipcachetypes.K8sMetadata{
 		Namespace: "ns-1",
 		PodName:   "pod2",
 	}, Identity{
@@ -248,7 +249,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	namedPortsChanged := IPIdentityCache.Delete(endpointIP, source.KVStore)
 	require.Equal(t, false, namedPortsChanged)
 
-	meta := K8sMetadata{
+	meta := ipcachetypes.K8sMetadata{
 		Namespace: "default",
 		PodName:   "app1",
 		NamedPorts: types.NamedPortMap{
@@ -302,7 +303,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	endpointIP2 := "10.0.0.16"
 	identity2 := (identityPkg.NumericIdentity(70))
 
-	meta2 := K8sMetadata{
+	meta2 := ipcachetypes.K8sMetadata{
 		Namespace: "testing",
 		PodName:   "app2",
 		NamedPorts: types.NamedPortMap{
@@ -367,7 +368,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.Equal(t, false, exists)
 
 	hostIP := net.ParseIP("192.168.1.10")
-	k8sMeta := &K8sMetadata{
+	k8sMeta := &ipcachetypes.K8sMetadata{
 		Namespace: "default",
 		PodName:   "podname",
 	}
@@ -521,7 +522,7 @@ func BenchmarkIPCacheUpsert10000(b *testing.B) {
 }
 
 func benchmarkIPCacheUpsert(b *testing.B, num int) {
-	meta := K8sMetadata{
+	meta := ipcachetypes.K8sMetadata{
 		Namespace: "default",
 		PodName:   "app",
 		NamedPorts: types.NamedPortMap{
@@ -585,7 +586,7 @@ func newDummyListener(ipc *IPCache) *dummyListener {
 
 func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
 	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *Identity,
-	newID Identity, encryptKey uint8, k8sMeta *K8sMetadata) {
+	newID Identity, encryptKey uint8, k8sMeta *ipcachetypes.K8sMetadata) {
 
 	switch modType {
 	case Upsert:

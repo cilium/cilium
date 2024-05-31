@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -32,7 +33,7 @@ func NewIPCache(events bool) *IPCache {
 	}
 }
 
-func (i *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
+func (i *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcachetypes.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
 	i.Events <- NodeEvent{EventUpsert, net.ParseIP(ip)}
 	return false, nil
 }

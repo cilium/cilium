@@ -409,6 +409,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 		nil,
 		db,
 		nodeAddrs,
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -562,6 +563,7 @@ func TestChangeSVCPort(t *testing.T) {
 		nil,
 		db,
 		nodeAddrs,
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1044,6 +1046,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 		nil,
 		db,
 		nodeAddrs,
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1360,6 +1363,7 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 		nil,
 		db,
 		nodeAddrs,
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1669,6 +1673,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 		nil,
 		db,
 		nodeAddrs,
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2592,6 +2597,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 		nil,
 		db,
 		nodeAddrs,
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2638,6 +2644,7 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
+		nil,
 		nil,
 		nil,
 		nil,

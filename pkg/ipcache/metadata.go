@@ -282,6 +282,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		identity   Identity
 		tunnelPeer net.IP
 		encryptKey uint8
+		k8sMeta    types.K8sMetadata
 
 		force bool
 	}
@@ -305,6 +306,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		pstr := prefix.String()
 		oldID, entryExists := ipc.LookupByIP(pstr)
 		oldTunnelIP, oldEncryptionKey := ipc.GetHostIPCache(pstr)
+		oldK8sMeta := ipc.GetK8sMetadataByString(pstr)
 		prefixInfo := ipc.metadata.getLocked(prefix)
 		var newID *identity.Identity
 		var isNew bool
@@ -342,9 +344,11 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// We can safely skip the ipcache upsert if the entry matches with
 			// the entry in the metadata cache exactly.
 			// Note that checking ID alone is insufficient, see GH-24502.
+			newK8sMeta := prefixInfo.K8sMetadata()
 			if oldID.ID == newID.ID && prefixInfo.Source() == oldID.Source &&
 				oldTunnelIP.Equal(prefixInfo.TunnelPeer().IP()) &&
-				oldEncryptionKey == prefixInfo.EncryptKey().Uint8() {
+				oldEncryptionKey == prefixInfo.EncryptKey().Uint8() &&
+				oldK8sMeta.Equal(&newK8sMeta) {
 				goto releaseIdentity
 			}
 
@@ -360,6 +364,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				},
 				tunnelPeer: prefixInfo.TunnelPeer().IP(),
 				encryptKey: prefixInfo.EncryptKey().Uint8(),
+				k8sMeta:    prefixInfo.K8sMetadata(),
 				// IPCache.Upsert() and friends currently require a
 				// Source to be provided during upsert. If the old
 				// Source was higher precedence due to labels that
@@ -436,16 +441,19 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		ipc.UpdatePolicyMaps(ctx, idsToAdd, nil)
 	}
 
+	var (
+		namedPortsChanged bool
+		reason            string
+	)
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 	for p, entry := range entriesToReplace {
 		prefix := p.String()
-		meta := ipc.getK8sMetadata(prefix)
-		if _, err2 := ipc.upsertLocked(
+		if npc, err2 := ipc.upsertLocked(
 			prefix,
 			entry.tunnelPeer,
 			entry.encryptKey,
-			meta,
+			&entry.k8sMeta,
 			entry.identity,
 			entry.force,
 		); err2 != nil {
@@ -466,6 +474,9 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 					logfields.Identity: entry.identity.ID,
 				}).Error("Failed to replace ipcache entry with new identity after label removal. Traffic may be disrupted.")
 			}
+		} else if npc {
+			namedPortsChanged = true
+			reason = "Named ports added or updated"
 		}
 	}
 
@@ -497,7 +508,18 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		ipc.UpdatePolicyMaps(ctx, nil, idsToDelete)
 	}
 	for prefix, id := range entriesToDelete {
-		ipc.deleteLocked(prefix.String(), id.Source)
+		if npc := ipc.deleteLocked(prefix.String(), id.Source); npc {
+			namedPortsChanged = true
+			if reason != "" { // if the reason has already been set from above
+				reason = "Named ports updated"
+			} else {
+				reason = "Named ports deleted"
+			}
+		}
+	}
+
+	if namedPortsChanged {
+		ipc.TriggerPolicyUpdates(true, reason)
 	}
 
 	return remainingPrefixes, err
@@ -544,6 +566,31 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
 	// Override identities always take precedence
 	if identityOverrideLabels, ok := info.identityOverride(); ok {
+		switch {
+		// CES mode special case. The identity numeric value is known through
+		// the CES resource, but the labels aren't known because the resource
+		// does not contain labels. We rely on the labels to be propagated via
+		// CID resource by the kube-apisever or kvstore instead.
+		case option.Config.EnableCiliumEndpointSlice && len(identityOverrideLabels) == 0 && restoredIdentity != 0:
+			// First, see if we have received the CID event containing the
+			// labels. If so, return it.
+			id := ipc.IdentityAllocator.LookupIdentityByID(ctx, restoredIdentity)
+			if id == nil {
+				// At this point, we have not received the CID. The identity
+				// event handler will handle the update once it arrives and
+				// properly update the SelectorCache via UpdateIdentities().
+				// Therefore, force the creation of the "partial" identity so
+				// that it is pushed into the BPF ipcache map. We don't need
+				// the labels for the BPF ipcache map.
+				return &identity.Identity{
+					ID:             restoredIdentity,
+					Labels:         labels.NewFrom(nil),
+					LabelArray:     labels.LabelArray{},
+					ReferenceCount: 1,
+				}, true, nil
+			}
+			return id, false, nil
+		}
 		return ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
 	}
 
@@ -618,9 +665,11 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// other labels with such IPs, but this assumption will break if/when
 	// we allow more arbitrary labels to be associated with these IPs that
 	// correspond to remote nodes.
-	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
+	if !info.HasK8sMetadata() &&
+		!lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
 		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) &&
 		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) &&
+		!lbls.Has(labels.LabelUnmanaged[labels.IDNameUnmanaged]) &&
 		!lbls.HasSource(labels.LabelSourceFQDN) &&
 		!lbls.HasSource(labels.LabelSourceCIDR) {
 		cidrLabels := labels.GetCIDRLabels(prefix)

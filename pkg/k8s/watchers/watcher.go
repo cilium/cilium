@@ -20,6 +20,7 @@ import (
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -125,13 +126,21 @@ type cgroupManager interface {
 
 type ipcacheManager interface {
 	// GH-21142: Re-evaluate the need for these APIs
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (namedPortsChanged bool, err error)
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcacheTypes.K8sMetadata, newIdentity ipcache.Identity) (namedPortsChanged bool, err error)
 	LookupByIP(IP string) (ipcache.Identity, bool)
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
 
 	UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
+	RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource ipcacheTypes.ResourceID)
+	UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
+	RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
 	RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcacheTypes.ResourceID)
-	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
+	OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
+	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
+}
+
+type identityManager interface {
+	LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity
 }
 
 type K8sWatcher struct {
@@ -163,6 +172,8 @@ type K8sWatcher struct {
 	cgroupManager         cgroupManager
 
 	bandwidthManager datapath.BandwidthManager
+
+	identityManager identityManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -206,6 +217,7 @@ func NewK8sWatcher(
 	bandwidthManager datapath.BandwidthManager,
 	db *statedb.DB,
 	nodeAddrs statedb.Table[datapathTables.NodeAddress],
+	identityManager identityManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		resourceGroupsFn:      resourceGroups,
@@ -227,6 +239,7 @@ func NewK8sWatcher(
 		bgpSpeakerManager:     bgpSpeakerManager,
 		cgroupManager:         cgroupManager,
 		bandwidthManager:      bandwidthManager,
+		identityManager:       identityManager,
 		cfg:                   cfg,
 		resources:             resources,
 		nodeAddrs:             nodeAddrs,

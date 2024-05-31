@@ -6,6 +6,7 @@ package ipcache
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync"
 	"testing"
 	"time"
@@ -14,8 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -31,7 +34,7 @@ func NewEvent(ev, ip string, source source.Source) event { return event{ev, ip, 
 func NewFakeIPCache() *fakeIPCache                       { return &fakeIPCache{events: make(chan event)} }
 func NewFakeBackend() *fakeBackend                       { return &fakeBackend{} }
 
-func (m *fakeIPCache) Upsert(ip string, _ net.IP, _ uint8, _ *K8sMetadata, id Identity) (bool, error) {
+func (m *fakeIPCache) Upsert(ip string, _ net.IP, _ uint8, _ *ipcachetypes.K8sMetadata, id Identity) (bool, error) {
 	m.events <- NewEvent("upsert", ip, id.Source)
 	return true, nil
 }
@@ -39,6 +42,16 @@ func (m *fakeIPCache) Upsert(ip string, _ net.IP, _ uint8, _ *K8sMetadata, id Id
 func (m *fakeIPCache) Delete(ip string, source source.Source) (namedPortsChanged bool) {
 	m.events <- NewEvent("delete", ip, source)
 	return true
+}
+
+// TODO: Implement
+func (m *fakeIPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcachetypes.ResourceID, aux ...IPMetadata) {
+}
+func (m *fakeIPCache) RemoveMetadata(prefix netip.Prefix, resource ipcachetypes.ResourceID, aux ...IPMetadata) {
+}
+func (m *fakeIPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcachetypes.ResourceID) {
+}
+func (m *fakeIPCache) RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcachetypes.ResourceID) {
 }
 
 func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *kvstore.Watcher {
