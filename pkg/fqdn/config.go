@@ -19,6 +19,10 @@ type Config struct {
 	// MinTTL is the time used by the poller to cache information.
 	MinTTL int
 
+	// Active Connections TTL is the time used by the GC to determines how long that
+	// connections should be idle for after the DNS TTL expires.
+	ActiveConnectionsTTL int
+
 	// Cache is where the poller stores DNS data used to generate rules.
 	// When set to nil, it uses fqdn.DefaultDNSCache, a global cache instance.
 	Cache *DNSCache

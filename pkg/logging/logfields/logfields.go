@@ -786,4 +786,7 @@ const (
 
 	// NetnsCookie is the Linux kernel netns cookie.
 	NetnsCookie = "netnsCookie"
+
+	// Invalid Value identifies the provided invalid value.
+	InvalidValue = "invalidValue"
 )
