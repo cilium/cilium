@@ -150,6 +150,11 @@ func (cm *clusterMesh) add(name, path string) {
 		return
 	}
 
+	if err := types.ValidateClusterName(name); err != nil {
+		log.WithField(fieldClusterName, name).WithError(err).
+			Error("Remote cluster name is invalid. The connection will be forbidden starting from Cilium v1.17")
+	}
+
 	inserted := false
 	cm.mutex.Lock()
 	cluster, ok := cm.clusters[name]
