@@ -1618,13 +1618,14 @@ var daemonCell = cell.Module(
 
 	cell.Provide(
 		newDaemonPromise,
-		newRestorerPromise,
+		promise.New[endpointstate.Restorer],
 		func() k8s.CacheStatus { return make(k8s.CacheStatus) },
 		newSyncHostIPs,
 	),
 	// Provide a read-only copy of the current daemon settings to be consumed
 	// by the debuginfo API
 	cell.ProvidePrivate(daemonSettings),
+	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 	endpointBPFrogWatchdogCell,
 )
@@ -1917,8 +1918,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	return nil
 }
 
-func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[endpointstate.Restorer] {
-	resolver, promise := promise.New[endpointstate.Restorer]()
+func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			daemon, err := daemonPromise.Await(context.Background())
@@ -1930,7 +1930,6 @@ func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon
 			return nil
 		},
 	})
-	return promise
 }
 
 func initClockSourceOption() {
