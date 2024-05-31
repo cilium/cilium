@@ -303,7 +303,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(t *testing.T) {
 
 	var linuxNodeHandler *linuxNodeHandler
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler = newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler = newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -351,7 +351,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 	net2 := cidr.MustParseCIDR("cafe:f00d::/112")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -425,7 +425,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	externalNodeIP2 := net.ParseIP("8.8.8.8")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	require.NotNil(t, linuxNodeHandler)
 	linuxNodeHandler.OverrideEnableEncapsulation(override)
@@ -691,7 +691,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 	nodeMap := nodemapfake.NewFakeNodeMapV2()
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodeMap, new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodeMap)
 
 	nodeConfig := s.nodeConfigTemplate
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
@@ -832,7 +832,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(t, err)
@@ -922,7 +922,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	defer removeDevice(externalNode2Device)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -1136,7 +1136,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	underlayIP := net.ParseIP("4.4.4.4")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -1238,7 +1238,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	if s.enableIPv4 {
 		insertFakeRoute(t, linuxNodeHandler, ip4Alloc1)
@@ -1394,10 +1394,8 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
 
-	mq := new(mockEnqueuer)
 	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -2145,10 +2143,8 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
 
-	mq := new(mockEnqueuer)
 	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -2420,10 +2416,8 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
 
-	mq := new(mockEnqueuer)
 	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = []*tables.Device{
@@ -3169,10 +3163,8 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
 
-	mq := new(mockEnqueuer)
 	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -3402,7 +3394,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -3498,7 +3490,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -3566,7 +3558,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(dpConfig, nodemapfake.NewFakeNodeMapV2())
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)

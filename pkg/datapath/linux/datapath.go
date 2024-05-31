@@ -10,7 +10,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
-	"github.com/cilium/cilium/pkg/node/manager"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -28,7 +27,6 @@ type linuxDatapath struct {
 	datapath.IptablesManager
 	nodeHandler    datapath.NodeHandler
 	nodeIDHandler  datapath.NodeIDHandler
-	nodeNeighbors  datapath.NodeNeighbors
 	nodeAddressing datapath.NodeAddressing
 	loader         datapath.Loader
 	wgAgent        datapath.WireguardAgent
@@ -46,13 +44,11 @@ type DatapathParams struct {
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
 	Loader         datapath.Loader
-	NodeManager    manager.NodeManager
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
 	Orchestrator   datapath.Orchestrator
 	NodeHandler    datapath.NodeHandler
 	NodeIDHandler  datapath.NodeIDHandler
-	NodeNeighbors  datapath.NodeNeighbors
 }
 
 // NewDatapath creates a new Linux datapath
@@ -68,7 +64,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 		orchestrator:    p.Orchestrator,
 		nodeHandler:     p.NodeHandler,
 		nodeIDHandler:   p.NodeIDHandler,
-		nodeNeighbors:   p.NodeNeighbors,
 	}
 
 	return dp
@@ -85,10 +80,6 @@ func (l *linuxDatapath) Node() datapath.NodeHandler {
 
 func (l *linuxDatapath) NodeIDs() datapath.NodeIDHandler {
 	return l.nodeIDHandler
-}
-
-func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
-	return l.nodeNeighbors
 }
 
 // LocalNodeAddressing returns the node addressing implementation of the local

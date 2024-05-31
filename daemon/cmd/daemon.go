@@ -142,6 +142,8 @@ type Daemon struct {
 	// implement all aspects of an agent
 	datapath datapath.Datapath
 
+	nodeNeighbors datapath.NodeNeighbors
+
 	// nodeDiscovery defines the node discovery logic of the agent
 	nodeDiscovery  *nodediscovery.NodeDiscovery
 	nodeLocalStore *node.LocalNodeStore
@@ -402,8 +404,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	lbmap.Init(lbmapInitParams)
 
-	params.NodeManager.Subscribe(params.Datapath.Node())
-
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 	})
@@ -416,6 +416,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
+		nodeNeighbors:     params.NodeNeighbors,
 		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
@@ -685,8 +686,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Error("failed to initialize WireGuard agent")
 			return nil, nil, fmt.Errorf("failed to initialize WireGuard agent: %w", err)
 		}
-
-		params.NodeManager.Subscribe(params.WGAgent)
 	}
 
 	// The kube-proxy replacement and host-fw devices detection should happen after

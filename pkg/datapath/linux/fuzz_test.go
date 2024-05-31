@@ -21,7 +21,7 @@ func FuzzNodeHandler(f *testing.F) {
 			t.Skip()
 		}
 		dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-		linuxNodeHandler := newNodeHandler(dpConfig, nil, new(mockEnqueuer))
+		linuxNodeHandler := newNodeHandler(dpConfig, nil)
 		if linuxNodeHandler == nil {
 			panic("Should not be nil")
 		}
@@ -33,16 +33,4 @@ func FuzzNodeHandler(f *testing.F) {
 		linuxNodeHandler.NodeDelete(nodev1)
 		linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev1, true)
 	})
-}
-
-type mockEnqueuer struct {
-	nh *linuxNodeHandler
-}
-
-func (q *mockEnqueuer) Enqueue(n *nodeTypes.Node, refresh bool) {
-	if q.nh != nil {
-		if err := q.nh.insertNeighbor(context.Background(), n, refresh); err != nil {
-			log.Errorf("MockQ NodeNeighborRefresh failed: %s", err)
-		}
-	}
 }

@@ -111,7 +111,7 @@ func TestLocalNodeSync(t *testing.T) {
 	require.Equal(t, "provider://foobar", local.ProviderID)
 
 	store := node.NewTestLocalNodeStore(local)
-	updates := stream.ToChannel(context.Background(), store.Observable, stream.WithBufferSize(4))
+	updates := stream.ToChannel(context.Background(), store, stream.WithBufferSize(4))
 
 	sync.SyncLocalNode(context.Background(), store)
 	require.EqualValues(t, 5, fln.done)

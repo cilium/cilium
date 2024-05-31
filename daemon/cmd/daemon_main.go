@@ -1623,6 +1623,7 @@ type daemonParams struct {
 	Lifecycle            cell.Lifecycle
 	Clientset            k8sClient.Clientset
 	Datapath             datapath.Datapath
+	NodeNeighbors        datapath.NodeNeighbors
 	WGAgent              *wireguard.Agent
 	LocalNodeStore       *node.LocalNodeStore
 	Shutdowner           hive.Shutdowner
@@ -1865,21 +1866,14 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
-	// Watches for node neighbors link updates.
-	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(d.datapath.NodeNeighbors())
-
 	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		if !d.datapath.NodeNeighbors().NodeNeighDiscoveryEnabled() {
+		if !d.nodeNeighbors.NodeNeighDiscoveryEnabled() {
 			// Remove all non-GC'ed neighbor entries that might have previously set
 			// by a Cilium instance.
-			d.datapath.NodeNeighbors().NodeCleanNeighbors(false)
+			d.nodeNeighbors.NodeCleanNeighbors(false)
 		} else {
 			// If we came from an agent upgrade, migrate entries.
-			d.datapath.NodeNeighbors().NodeCleanNeighbors(true)
-			// Start periodical refresh of the neighbor table from the agent if needed.
-			if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-				d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.NodeNeighbors())
-			}
+			d.nodeNeighbors.NodeCleanNeighbors(true)
 		}
 	}
 

@@ -13,17 +13,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/statedb"
 	"github.com/liggitt/tabwriter"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/statedb"
-
 	clientPkg "github.com/cilium/cilium/pkg/client"
-
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var StatedbCmd = &cobra.Command{
@@ -152,6 +151,7 @@ func init() {
 		statedbTableCommand[types.Status](health.TableName),
 		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
 		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
+		statedbTableCommand[*node.TableNode](node.NodesTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

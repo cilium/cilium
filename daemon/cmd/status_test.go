@@ -38,14 +38,14 @@ func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	option.Config.IPv6ServiceRange = AutoCIDR
 
 	h, _ := cell.NewSimpleHealth()
-	nm, err := manager.New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, manager.NewNodeMetrics(), h)
-	require.Nil(tb, err)
-
-	g := &GetNodesSuite{
-		nm: nm,
-	}
-	return g
-
+	nm, err := manager.New(manager.NodeManagerParams{
+		DaemonConfig: fakeConfig,
+		IPSetMgr:     &fakeTypes.IPSet{},
+		NodeMetrics:  manager.NewNodeMetrics(),
+		Health:       h,
+	})
+	require.NoError(tb, err)
+	return &GetNodesSuite{nm}
 }
 
 func Test_getNodesHandle(t *testing.T) {

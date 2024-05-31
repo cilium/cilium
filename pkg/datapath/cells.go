@@ -4,9 +4,6 @@
 package datapath
 
 import (
-	"log"
-	"path/filepath"
-
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
@@ -16,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
@@ -36,10 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // Datapath provides the privileged operations to apply control-plane
@@ -72,8 +65,10 @@ var Cell = cell.Module(
 	// Manages Cilium-specific iptables rules.
 	iptables.Cell,
 
+	// Wireguard agent
+	wg.Cell,
+
 	cell.Provide(
-		newWireguardAgent,
 		newDatapath,
 	),
 
@@ -128,35 +123,9 @@ var Cell = cell.Module(
 
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
+
+	linuxdatapath.NodeReconcilerCell,
 )
-
-func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
-	var wgAgent *wg.Agent
-	if option.Config.EnableWireguard {
-		if option.Config.EnableIPSec {
-			log.Fatalf("WireGuard (--%s) cannot be used with IPsec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName)
-		}
-
-		var err error
-		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
-		wgAgent, err = wg.NewAgent(privateKeyPath, sysctl)
-		if err != nil {
-			log.Fatalf("failed to initialize WireGuard: %s", err)
-		}
-
-		lc.Append(cell.Hook{
-			OnStop: func(cell.HookContext) error {
-				wgAgent.Close()
-				return nil
-			},
-		})
-	} else {
-		// Delete WireGuard device from previous run (if such exists)
-		link.DeleteByName(wgTypes.IfaceName)
-	}
-	return wgAgent
-}
 
 func newDatapath(params datapathParams) types.Datapath {
 	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
@@ -167,13 +136,11 @@ func newDatapath(params datapathParams) types.Datapath {
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
 		Loader:         params.Loader,
-		NodeManager:    params.NodeManager,
 		DB:             params.DB,
 		Devices:        params.Devices,
 		Orchestrator:   params.Orchestrator,
 		NodeHandler:    params.NodeHandler,
 		NodeIDHandler:  params.NodeIDHandler,
-		NodeNeighbors:  params.NodeNeighbors,
 	})
 
 	params.LC.Append(cell.Hook{
@@ -218,8 +185,6 @@ type datapathParams struct {
 	TunnelConfig tunnel.Config
 
 	Loader types.Loader
-
-	NodeManager nodeManager.NodeManager
 
 	Orchestrator types.Orchestrator
 

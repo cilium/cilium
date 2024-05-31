@@ -13,8 +13,14 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -32,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -62,6 +69,9 @@ type wireguardClient interface {
 type Agent struct {
 	lock.RWMutex
 
+	db    *statedb.DB
+	nodes statedb.Table[node.Node]
+
 	wgClient   wireguardClient
 	ipCache    *ipcache.IPCache
 	listenPort int
@@ -79,9 +89,38 @@ type Agent struct {
 	optOut bool
 }
 
+type params struct {
+	cell.In
+
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+	Sysctl    sysctl.Sysctl
+	DB        *statedb.DB
+	Nodes     statedb.Table[node.Node]
+}
+
 // NewAgent creates a new WireGuard Agent
-func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
-	key, err := loadOrGeneratePrivKey(privKeyPath)
+func NewAgent(p params) (*Agent, error) {
+	if !option.Config.EnableWireguard {
+		p.Lifecycle.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
+				// Delete WireGuard device from previous run (if such exists)
+				link.DeleteByName(types.IfaceName)
+				return nil
+			},
+		})
+		return nil, nil
+	}
+
+	if option.Config.EnableIPSec {
+		return nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)",
+			option.EnableWireguard, option.EnableIPSecName)
+	}
+
+	var err error
+	privateKeyPath := filepath.Join(option.Config.StateDir, types.PrivKeyFilename)
+
+	key, err := loadOrGeneratePrivKey(privateKeyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -91,11 +130,14 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
 		return nil, err
 	}
 
-	return &Agent{
+	wgAgent := &Agent{
+		db:    p.DB,
+		nodes: p.Nodes,
+
 		wgClient:   wgClient,
 		privKey:    key,
 		listenPort: types.ListenPort,
-		sysctl:     sysctl,
+		sysctl:     p.Sysctl,
 
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
@@ -103,12 +145,81 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
 		restoredPubKeys:  map[wgtypes.Key]struct{}{},
 
 		cleanup: []func(){},
-	}, nil
+	}
+
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(cell.HookContext) error {
+			wgAgent.Close()
+			return nil
+		},
+	})
+
+	return wgAgent, nil
+
 }
 
 func (a *Agent) Name() string {
 	return "wireguard-agent"
 }
+
+type nodeOps struct {
+	a *Agent
+}
+
+// Delete implements reconciler.Operations.
+func (ops *nodeOps) Delete(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
+	node := n.GetNode()
+	return ops.a.DeletePeer(node.Fullname())
+}
+
+// Prune implements reconciler.Operations.
+func (ops *nodeOps) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[node.Node]) error {
+	return nil
+}
+
+// Update implements reconciler.Operations.
+func (ops *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
+	if n.IsLocal() {
+		return nil
+	}
+	node := n.GetNode()
+
+	if node.WireguardPubKey == "" {
+		return nil
+	}
+
+	newIP4 := node.GetNodeIP(false)
+	newIP6 := node.GetNodeIP(true)
+
+	if err := ops.a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
+		log.WithError(err).
+			WithField(logfields.NodeName, node.Fullname()).
+			Warning("Failed to update WireGuard configuration for peer")
+		return err
+	}
+	return nil
+}
+
+func nodeReconcilerConfig(a *Agent, tbl statedb.RWTable[node.Node]) reconciler.Config[node.Node] {
+	ops := &nodeOps{a}
+	return reconciler.Config[node.Node]{
+		Table:                   tbl,
+		RetryBackoffMinDuration: 100 * time.Millisecond,
+		RetryBackoffMaxDuration: time.Minute,
+		IncrementalRoundSize:    100,
+		GetObjectStatus: func(n node.Node) reconciler.Status {
+			return n.GetReconciliationStatus("wireguard")
+		},
+		SetObjectStatus: func(n node.Node, s reconciler.Status) node.Node {
+			return n.SetReconciliationStatus("wireguard", s)
+		},
+		CloneObject:     node.Node.Clone,
+		Operations:      ops,
+		BatchOperations: nil,
+	}
+}
+
+var _ reconciler.Operations[node.Node] = &nodeOps{}
 
 // Close is called when the agent stops
 func (a *Agent) Close() error {

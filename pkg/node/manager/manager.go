@@ -7,19 +7,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand/v2"
+	"math/rand"
 	"net"
 	"net/netip"
 	"slices"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/workerpool"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/time/rate"
+	"golang.org/x/exp/maps"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -29,7 +30,6 @@ import (
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -45,27 +46,7 @@ import (
 var (
 	baseBackgroundSyncInterval = time.Minute
 	defaultNodeUpdateInterval  = 10 * time.Second
-
-	neighborTableRefreshControllerGroup = controller.NewGroup("neighbor-table-refresh")
-	neighborTableUpdateControllerGroup  = controller.NewGroup("neighbor-table-update")
 )
-
-const (
-	numBackgroundWorkers = 1
-)
-
-type nodeEntry struct {
-	// mutex serves two purposes:
-	// 1. Serialize any direct access to the node field in this entry.
-	// 2. Serialize all calls do the datapath layer for a particular node.
-	//
-	// See description of Manager.mutex for more details
-	//
-	// If both the nodeEntry.mutex and Manager.mutex must be held, then the
-	// Manager.mutex must *always* be acquired first.
-	mutex lock.Mutex
-	node  nodeTypes.Node
-}
 
 // IPCache is the set of interactions the node manager performs with the ipcache
 type IPCache interface {
@@ -85,36 +66,11 @@ var _ Notifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
 type manager struct {
-	// mutex is the lock protecting access to the nodes map. The mutex must
-	// be held for any access of the nodes map.
-	//
-	// The manager mutex works together with the entry mutex in the
-	// following way to minimize the duration the manager mutex is held:
-	//
-	// 1. Acquire manager mutex to safely access nodes map and to retrieve
-	//    node entry.
-	// 2. Acquire mutex of the entry while the manager mutex is still held.
-	//    This guarantees that no change to the entry has happened.
-	// 3. Release of the manager mutex to unblock changes or reads to other
-	//    node entries.
-	// 4. Change of entry data or performing of datapath interactions
-	// 5. Release of the entry mutex
-	//
-	// If both the nodeEntry.mutex and Manager.mutex must be held, then the
-	// Manager.mutex must *always* be acquired first.
-	mutex lock.RWMutex
+	db         *statedb.DB
+	nodesTable statedb.RWTable[node.Node]
 
-	// nodes is the list of nodes. Access must be protected via mutex.
-	nodes map[nodeTypes.Identity]*nodeEntry
-
-	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
-	nodeHandlersMu lock.RWMutex
-	// nodeHandlers has a slice containing all node handlers subscribed to node
-	// events.
-	nodeHandlers map[datapath.NodeHandler]struct{}
-
-	// workerpool manages background workers
-	workerpool *workerpool.WorkerPool
+	addHandler chan datapath.NodeHandler
+	delHandler chan datapath.NodeHandler
 
 	// metrics to track information about the node manager
 	metrics *nodeMetrics
@@ -131,67 +87,21 @@ type manager struct {
 	ipsetInitializer ipset.Initializer
 	ipsetFilter      IPSetFilterFn
 
-	// controllerManager manages the controllers that are launched within the
-	// Manager.
-	controllerManager *controller.Manager
+	jobGroup job.Group
 
-	// health reports on the current health status of the node manager module.
-	health cell.Health
+	nodeNeighbors datapath.NodeNeighbors
 
-	// nodeNeighborQueue tracks node neighbor link updates.
-	nodeNeighborQueue queue[nodeQueueEntry]
-}
-
-type nodeQueueEntry struct {
-	node    *nodeTypes.Node
-	refresh bool
-}
-
-// Enqueue add a node to a controller managed queue which sets up the neighbor link.
-func (m *manager) Enqueue(n *nodeTypes.Node, refresh bool) {
-	if n == nil {
-		log.WithFields(logrus.Fields{
-			logfields.LogSubsys: "enqueue",
-		}).Warn("Skipping nodeNeighbor insert: No node given")
-	}
-	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n, refresh: refresh})
+	markTableInitialized func(statedb.WriteTxn)
 }
 
 // Subscribe subscribes the given node handler to node events.
 func (m *manager) Subscribe(nh datapath.NodeHandler) {
-	m.nodeHandlersMu.Lock()
-	m.nodeHandlers[nh] = struct{}{}
-	m.nodeHandlersMu.Unlock()
-	// Add all nodes already received by the manager.
-	m.mutex.RLock()
-	for _, v := range m.nodes {
-		v.mutex.Lock()
-		if err := nh.NodeAdd(v.node); err != nil {
-			log.WithFields(logrus.Fields{
-				"handler": nh.Name(),
-				"node":    v.node.Name,
-			}).WithError(err).Error("Failed applying node handler following initial subscribe. Cilium may have degraded functionality. See error message for more details.")
-		}
-		v.mutex.Unlock()
-	}
-	m.mutex.RUnlock()
+	m.addHandler <- nh
 }
 
 // Unsubscribe unsubscribes the given node handler with node events.
 func (m *manager) Unsubscribe(nh datapath.NodeHandler) {
-	m.nodeHandlersMu.Lock()
-	delete(m.nodeHandlers, nh)
-	m.nodeHandlersMu.Unlock()
-}
-
-// Iter executes the given function in all subscribed node handlers.
-func (m *manager) Iter(f func(nh datapath.NodeHandler)) {
-	m.nodeHandlersMu.RLock()
-	defer m.nodeHandlersMu.RUnlock()
-
-	for nh := range m.nodeHandlers {
-		f(nh)
-	}
+	m.delHandler <- nh
 }
 
 type nodeMetrics struct {
@@ -262,44 +172,45 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetFilter IPSetFilterFn, nodeMetrics *nodeMetrics, health cell.Health) (*manager, error) {
-	if ipsetFilter == nil {
-		ipsetFilter = func(*nodeTypes.Node) bool { return false }
+func New(p NodeManagerParams) (*manager, error) {
+	if p.IPSetFilter == nil {
+		p.IPSetFilter = func(*nodeTypes.Node) bool { return false }
 	}
 
+	txn := p.DB.WriteTxn(p.NodesTable)
+	init := p.NodesTable.RegisterInitializer(txn)
+	txn.Commit()
+
 	m := &manager{
-		nodes:             map[nodeTypes.Identity]*nodeEntry{},
-		conf:              c,
-		controllerManager: controller.NewManager(),
-		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
-		ipcache:           ipCache,
-		ipsetMgr:          ipsetMgr,
-		ipsetInitializer:  ipsetMgr.NewInitializer(),
-		ipsetFilter:       ipsetFilter,
-		metrics:           nodeMetrics,
-		health:            health,
+		db:                   p.DB,
+		nodesTable:           p.NodesTable,
+		markTableInitialized: init,
+		addHandler:           make(chan datapath.NodeHandler),
+		delHandler:           make(chan datapath.NodeHandler),
+		conf:                 p.DaemonConfig,
+		ipcache:              p.IPCache,
+		ipsetMgr:             p.IPSetMgr,
+		ipsetInitializer:     p.IPSetMgr.NewInitializer(),
+		ipsetFilter:          p.IPSetFilter,
+		metrics:              p.NodeMetrics,
+		nodeNeighbors:        p.NodeNeighbors,
+		jobGroup:             p.Jobs.NewGroup(p.Health),
 	}
+
+	m.jobGroup.Add(job.OneShot(
+		"node-handlers",
+		m.nodeHandlerLoop))
 
 	return m, nil
 }
 
-func (m *manager) Start(cell.HookContext) error {
-	m.workerpool = workerpool.New(numBackgroundWorkers)
-	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
+func (m *manager) Start(ctx cell.HookContext) error {
+	return m.jobGroup.Start(ctx)
 }
 
 // Stop shuts down a node manager
-func (m *manager) Stop(cell.HookContext) error {
-	if m.workerpool != nil {
-		if err := m.workerpool.Close(); err != nil {
-			return err
-		}
-	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	return nil
+func (m *manager) Stop(ctx cell.HookContext) error {
+	return m.jobGroup.Stop(ctx)
 }
 
 // ClusterSizeDependantInterval returns a time.Duration that is dependant on
@@ -327,10 +238,7 @@ func (m *manager) Stop(cell.HookContext) error {
 // 8192  | 9m00.662124608s
 // 16384 | 9m42.247293667s
 func (m *manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
-	m.mutex.RLock()
-	numNodes := len(m.nodes)
-	m.mutex.RUnlock()
-
+	numNodes := m.nodesTable.NumObjects(m.db.ReadTxn())
 	return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
 }
 
@@ -338,82 +246,219 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 	return m.ClusterSizeDependantInterval(baseBackgroundSyncInterval)
 }
 
-// backgroundSync ensures that local node has a valid datapath in-place for
-// each node in the cluster. See NodeValidateImplementation().
-func (m *manager) backgroundSync(ctx context.Context) error {
+func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error {
+	wtxn := m.db.WriteTxn(m.nodesTable)
+	changes, err := m.nodesTable.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		return err
+	}
+	defer changes.Close()
+	changesWatch := make(chan struct{})
+	close(changesWatch)
+
+	currentNodes := map[nodeTypes.Identity]node.Node{}
+	handlers := sets.New[datapath.NodeHandler]()
+
 	syncTimer, syncTimerDone := inctimer.New()
 	defer syncTimerDone()
+	syncInterval := m.backgroundSyncInterval()
+	syncWatch := syncTimer.After(syncInterval)
+
+	syncHealth := health.NewScope("validate")
+	defer syncHealth.Close()
+	numEvents := 0
+
+	handlerHealth := health.NewScope("handlers")
+	defer handlerHealth.Close()
+
+	limiter := rate.NewLimiter(10*time.Millisecond, 1)
+	defer limiter.Stop()
+
 	for {
-		syncInterval := m.backgroundSyncInterval()
-		startWaiting := syncTimer.After(syncInterval)
-		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
-		err := m.singleBackgroundLoop(ctx, syncInterval)
-		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
+		for change, _, ok := changes.Next(); ok; change, _, ok = changes.Next() {
+			numEvents++
+			node := change.Object
+			identity := node.Identity()
+			oldNode, oldNodeExists := currentNodes[identity]
+			var emit func(h datapath.NodeHandler) error
+			switch {
+			case change.Deleted:
+				delete(currentNodes, identity)
+				emit = func(h datapath.NodeHandler) error {
+					return h.NodeDelete(node.GetNode())
+				}
+				m.metrics.NumNodes.Dec()
+				m.metrics.ProcessNodeDeletion(node.Cluster(), node.Name())
+
+			case oldNodeExists:
+				currentNodes[identity] = node
+				emit = func(h datapath.NodeHandler) error {
+					return h.NodeUpdate(oldNode.GetNode(), node.GetNode())
+				}
+			default:
+				m.metrics.NumNodes.Inc()
+				currentNodes[identity] = node
+				emit = func(h datapath.NodeHandler) error {
+					return h.NodeAdd(node.GetNode())
+				}
+			}
+			var lastError error
+			for h := range handlers {
+				err := emit(h)
+				if err != nil {
+					log.WithFields(logrus.Fields{
+						"handler": h.Name(),
+						"node":    node.Name,
+					}).WithError(err).
+						Error("Failed to handle node event while applying handler. Cilium may be have degraded functionality.")
+
+					lastError = err
+				}
+			}
+			if lastError != nil {
+				handlerHealth.Degraded("Failure handling node event", lastError)
+			} else {
+				handlerHealth.OK(fmt.Sprintf("%d nodes, %d events processed", len(currentNodes), numEvents))
+			}
+		}
+
+		if err := limiter.Wait(ctx); err != nil {
+			return err
+		}
 
 		select {
 		case <-ctx.Done():
 			return nil
-		// This handles cases when we didn't fetch nodes yet (e.g. on bootstrap)
-		// but also case when we have 1 node, in which case rate.Limiter doesn't
-		// throttle anything.
-		case <-startWaiting:
-		}
 
-		hr := m.health.NewScope("background-sync")
-		if err != nil {
-			hr.Degraded("Failed to apply node validation", err)
-		} else {
-			hr.OK("Node validation successful")
+		case <-changes.Watch(m.db.ReadTxn()):
+
+		case h := <-m.addHandler:
+			handlers.Insert(h)
+			for _, node := range currentNodes {
+				if err := h.NodeAdd(node.GetNode()); err != nil {
+					log.WithFields(logrus.Fields{
+						"handler": h.Name(),
+						"node":    node.Name,
+					}).WithError(err).Error("Failed applying node handler following initial subscribe. Cilium may have degraded functionality.")
+				}
+			}
+		case h := <-m.delHandler:
+			handlers.Delete(h)
+
+		case <-syncWatch:
+			syncInterval = m.backgroundSyncInterval()
+			log.WithField("syncInterval", syncInterval.String()).Debug("Performing regular background work")
+			syncWatch = syncTimer.After(syncInterval)
+			var errs []error
+			for _, node := range currentNodes {
+				for h := range handlers {
+					if err := h.NodeValidateImplementation(node.GetNode()); err != nil {
+						log.WithFields(logrus.Fields{
+							"handler": h.Name(),
+							"node":    node.Name,
+						}).WithError(err).
+							Error("Failed to apply node handler during background sync. Cilium may have degraded functionality.")
+						errs = append(errs, fmt.Errorf("%s: node %s: %w", h.Name(), node.Name(), err))
+					}
+				}
+				m.metrics.DatapathValidations.Inc()
+			}
+			if errs != nil {
+				syncHealth.Degraded("Failed to apply node validation", errors.Join(errs...))
+			} else {
+				syncHealth.OK("Node validation successful")
+			}
 		}
 	}
 }
 
-func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime time.Duration) error {
-	var errs error
-	// get a copy of the node identities to avoid locking the entire manager
-	// throughout the process of running the datapath validation.
-	nodes := m.GetNodeIdentities()
-	limiter := rate.NewLimiter(
-		rate.Limit(float64(len(nodes))/float64(expectedLoopTime.Seconds())),
-		1, // One token in bucket to amortize for latency of the operation
-	)
-	for _, nodeIdentity := range nodes {
-		if err := limiter.Wait(ctx); err != nil {
-			log.WithError(err).Debug("Error while rate limiting backgroundSync updates")
-		}
+// neighRefreshLoop does periodic neighbor table refresh for non-local nodes.
+// Every [ARPPingRefreshPeriod] it will queue refreshes for the neighbors, spread over
+// a random time interval. On failure to refresh the health with scope 'neighbors'
+// is marked degraded.
+func (m *manager) neighRefreshLoop(ctx context.Context, health cell.Health) error {
+	if m.nodeNeighbors == nil || !m.nodeNeighbors.NodeNeighDiscoveryEnabled() || option.Config.ARPPingRefreshPeriod == 0 || option.Config.ARPPingKernelManaged {
+		return nil
+	}
 
+	neighRefreshTimer, neighRefreshTimerDone := inctimer.New()
+	defer neighRefreshTimerDone()
+	neighRefreshWatch := neighRefreshTimer.After(m.conf.ARPPingRefreshPeriod)
+
+	neighRefreshTicker := time.NewTicker(50 * time.Millisecond)
+	defer neighRefreshTicker.Stop()
+
+	neighToRefresh := map[nodeTypes.Identity]time.Time{}
+
+	refreshErrors := map[nodeTypes.Identity]error{}
+
+	health = health.NewScope("neighbors")
+	defer health.Close()
+
+	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		default:
-		}
-		// Retrieve latest node information in case any event
-		// changed the node since the call to GetNodes()
-		m.mutex.RLock()
-		entry, ok := m.nodes[nodeIdentity]
-		if !ok {
-			m.mutex.RUnlock()
-			continue
-		}
-		entry.mutex.Lock()
-		m.mutex.RUnlock()
-		{
-			m.Iter(func(nh datapath.NodeHandler) {
-				if err := nh.NodeValidateImplementation(entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"handler": nh.Name(),
-						"node":    entry.node.Name,
-					}).WithError(err).
-						Error("Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.")
-					errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
-				}
-			})
-		}
-		entry.mutex.Unlock()
 
-		m.metrics.DatapathValidations.Inc()
+		case <-neighRefreshWatch:
+			// Queue refreshes for yet unrefreshed neighbors.
+			neighRefreshWatch = neighRefreshTimer.After(m.conf.ARPPingRefreshPeriod)
+			iter, _ := m.nodesTable.All(m.db.ReadTxn())
+			for n, _, ok := iter.Next(); ok; n, _, ok = iter.Next() {
+				if n.IsLocal() {
+					continue
+				}
+				id := n.Identity()
+				if _, ok := neighToRefresh[id]; !ok {
+					// To avoid flooding network with arping requests
+					// at the same time, spread them over the
+					// [0; ARPPingRefreshPeriod/2) period.
+					duration := rand.Int63n(int64(m.conf.ARPPingRefreshPeriod / 2))
+					neighToRefresh[id] = time.Now().Add(time.Duration(duration))
+				}
+			}
+
+		case <-neighRefreshTicker.C:
+			if len(neighToRefresh) == 0 {
+				continue
+			}
+			txn := m.db.ReadTxn()
+			now := time.Now()
+			refreshed := false
+
+			for id, refreshAt := range neighToRefresh {
+				if refreshAt.After(now) {
+					continue
+				}
+				delete(neighToRefresh, id)
+
+				node, _, ok := m.nodesTable.Get(txn, node.NodeIdentityIndex.Query(id))
+				if !ok {
+					// Node has been removed.
+					delete(refreshErrors, id)
+					continue
+				}
+
+				log.Debugf("Refreshing node neighbor link for %s", node.Name())
+				err := m.nodeNeighbors.NodeNeighborRefresh(ctx, node.GetNode(), false)
+				if err != nil {
+					refreshErrors[id] = err
+				} else {
+					delete(refreshErrors, id)
+				}
+				refreshed = true
+			}
+
+			if refreshed {
+				if len(refreshErrors) > 0 {
+					health.Degraded("Node neighbor refresh failed", errors.Join(maps.Values(refreshErrors)...))
+				} else {
+					health.OK("Node neighbor refresh successful")
+				}
+			}
+		}
 	}
-	return errs
 }
 
 func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
@@ -501,7 +546,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 
 	nodeIdentifier := n.Identity()
-	dpUpdate := true
 	var nodeIP netip.Addr
 	if nIP := n.GetNodeIP(false); nIP != nil {
 		// GH-24829: Support IPv6-only nodes.
@@ -513,6 +557,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		nodeIP, _ = ip.AddrFromIP(nIP)
 	}
 
+	dpUpdate := true
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
 	nodeLabels, nodeIdentityOverride := m.nodeIdentityLabels(n)
 
@@ -618,77 +663,39 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		ingressIPsAdded = append(ingressIPsAdded, ingressIP)
 	}
 
-	m.mutex.Lock()
-	entry, oldNodeExists := m.nodes[nodeIdentifier]
+	txn := m.db.WriteTxn(m.nodesTable)
+	defer txn.Commit()
+
+	oldNode, _, oldNodeExists := m.nodesTable.Get(txn, node.NodeIdentityIndex.Query(nodeIdentifier))
+
 	if oldNodeExists {
 		m.metrics.EventsReceived.WithLabelValues("update", string(n.Source)).Inc()
 
-		if !source.AllowOverwrite(entry.node.Source, n.Source) {
+		if !source.AllowOverwrite(oldNode.Source(), n.Source) {
 			// Done; skip node-handler updates and label injection
 			// triggers below. Includes case where the local host
 			// was discovered locally and then is subsequently
 			// updated by the k8s watcher.
-			m.mutex.Unlock()
 			return
 		}
 
-		entry.mutex.Lock()
-		m.mutex.Unlock()
-		oldNode := entry.node
-		entry.node = n
+		// FIXME: This "dpUpdate" thing should be done differently. We should still store
+		// the data and only skip the handler calls.
 		if dpUpdate {
-			var errs error
-			m.Iter(func(nh datapath.NodeHandler) {
-				if err := nh.NodeUpdate(oldNode, entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"handler": nh.Name(),
-						"node":    entry.node.Name,
-					}).WithError(err).
-						Error("Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.")
-					errs = errors.Join(errs, err)
-				}
-			})
-
-			hr := m.health.NewScope("nodes-update")
-			if errs != nil {
-				hr.Degraded("Failed to update nodes", errs)
+			newNode, err := oldNode.Builder().ModifyNode(func(node *nodeTypes.Node) { *node = n }).Build()
+			if err == nil {
+				m.nodesTable.Insert(txn, newNode)
 			} else {
-				hr.OK("Node updates successful")
+				log.WithError(err).WithField(logfields.Node, n.Name).Warn("Ignoring update for node")
 			}
 		}
-
-		m.removeNodeFromIPCache(oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
-
-		entry.mutex.Unlock()
+		m.removeNodeFromIPCache(oldNode.GetNode(), resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
 	} else {
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
-		m.metrics.NumNodes.Inc()
 
-		entry = &nodeEntry{node: n}
-		entry.mutex.Lock()
-		m.nodes[nodeIdentifier] = entry
-		m.mutex.Unlock()
-		var errs error
 		if dpUpdate {
-			m.Iter(func(nh datapath.NodeHandler) {
-				if err := nh.NodeAdd(entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"node":    entry.node.Name,
-						"handler": nh.Name(),
-					}).WithError(err).
-						Error("Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.")
-					errs = errors.Join(errs, err)
-				}
-			})
+			m.nodesTable.Insert(txn, node.NewTableNode(n, nil))
 		}
-		entry.mutex.Unlock()
-		hr := m.health.NewScope("nodes-add")
-		if errs != nil {
-			hr.Degraded("Failed to add nodes", errs)
-		} else {
-			hr.OK("Node adds successful")
-		}
-
 	}
 }
 
@@ -794,10 +801,10 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	nodeIdentifier := n.Identity()
 
-	m.mutex.Lock()
-	entry, oldNodeExists := m.nodes[nodeIdentifier]
+	txn := m.db.WriteTxn(m.nodesTable)
+	defer txn.Commit()
+	oldNode, _, oldNodeExists := m.nodesTable.Get(txn, node.NodeIdentityIndex.Query(nodeIdentifier))
 	if !oldNodeExists {
-		m.mutex.Unlock()
 		return
 	}
 
@@ -806,48 +813,20 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	// If the source is Kubernetes and the node is the node we are running on
 	// Kubernetes is giving us a hint it is about to delete our node. Close down
 	// the agent gracefully in this case.
-	if n.Source != entry.node.Source {
-		m.mutex.Unlock()
+	if n.Source != oldNode.Source() {
 		if n.IsLocal() && n.Source == source.Kubernetes {
 			log.Debugf("Kubernetes is deleting local node, close manager")
 			m.Stop(context.Background())
 		} else {
 			log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
-				n.Name, n.Source, entry.node.Source)
+				n.Name, n.Source, oldNode.Source())
 		}
 		return
 	}
 
-	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
+	m.removeNodeFromIPCache(oldNode.GetNode(), resource, nil, nil, nil, nil)
 
-	m.metrics.NumNodes.Dec()
-	m.metrics.ProcessNodeDeletion(n.Cluster, n.Name)
-
-	entry.mutex.Lock()
-	delete(m.nodes, nodeIdentifier)
-	m.mutex.Unlock()
-	var errs error
-	m.Iter(func(nh datapath.NodeHandler) {
-		if err := nh.NodeDelete(n); err != nil {
-			// For now we log the error and continue. Eventually we will want to encorporate
-			// this into the node managers health status.
-			// However this is a bit tricky - as leftover node deletes are not retries so this will
-			// need to be accompanied by some kind of retry mechanism.
-			log.WithFields(logrus.Fields{
-				"handler": nh.Name(),
-				"node":    n.Name,
-			}).WithError(err).Error("Failed to handle node delete event while applying handler. Cilium may be have degraded functionality.")
-			errs = errors.Join(errs, err)
-		}
-	})
-	entry.mutex.Unlock()
-
-	hr := m.health.NewScope("nodes-delete")
-	if errs != nil {
-		hr.Degraded("Failed to delete nodes", errs)
-	} else {
-		hr.OK("Node deletions successful")
-	}
+	m.nodesTable.Delete(txn, oldNode)
 }
 
 // NodeSync signals the manager that the initial nodes listing (either from k8s or kvstore)
@@ -855,17 +834,22 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 // in the kernel IP sets managed by Cilium.
 func (m *manager) NodeSync() {
 	m.ipsetInitializer.InitDone()
+
+	txn := m.db.WriteTxn(m.nodesTable)
+	m.markTableInitialized(txn)
+	txn.Commit()
 }
 
 // GetNodeIdentities returns a list of all node identities store in node
 // manager.
 func (m *manager) GetNodeIdentities() []nodeTypes.Identity {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	txn := m.db.ReadTxn()
+	numNodes := m.nodesTable.NumObjects(txn)
+	iter, _ := m.nodesTable.All(m.db.ReadTxn())
 
-	nodes := make([]nodeTypes.Identity, 0, len(m.nodes))
-	for nodeIdentity := range m.nodes {
-		nodes = append(nodes, nodeIdentity)
+	nodes := make([]nodeTypes.Identity, 0, numNodes)
+	for node, _, ok := iter.Next(); ok; node, _, ok = iter.Next() {
+		nodes = append(nodes, node.Identity())
 	}
 
 	return nodes
@@ -873,92 +857,12 @@ func (m *manager) GetNodeIdentities() []nodeTypes.Identity {
 
 // GetNodes returns a copy of all of the nodes as a map from Identity to Node.
 func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	nodes := make(map[nodeTypes.Identity]nodeTypes.Node, len(m.nodes))
-	for nodeIdentity, entry := range m.nodes {
-		entry.mutex.Lock()
-		nodes[nodeIdentity] = entry.node
-		entry.mutex.Unlock()
+	txn := m.db.ReadTxn()
+	numNodes := m.nodesTable.NumObjects(txn)
+	iter, _ := m.nodesTable.All(m.db.ReadTxn())
+	nodes := make(map[nodeTypes.Identity]nodeTypes.Node, numNodes)
+	for node, _, ok := iter.Next(); ok; node, _, ok = iter.Next() {
+		nodes[node.Identity()] = node.GetNode()
 	}
-
 	return nodes
-}
-
-// StartNodeNeighborLinkUpdater manages node neighbors links sync.
-// This provides a central location for all node neighbor link updates.
-// Under proper conditions, publisher enqueues the node which requires a link update.
-// This controller is agnostic of the condition under which the links must be established, thus
-// that responsibility lies on the publishers.
-// This controller also provides for module health to be reported in a single central location.
-func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
-	sc := m.health.NewScope("neighbor-link-updater")
-	controller.NewManager().UpdateController(
-		"node-neighbor-link-updater",
-		controller.ControllerParams{
-			Group: neighborTableUpdateControllerGroup,
-			DoFunc: func(ctx context.Context) error {
-				if m.nodeNeighborQueue.isEmpty() {
-					return nil
-				}
-				var errs error
-				for {
-					e := m.nodeNeighborQueue.pop()
-					if e == nil || e.node == nil {
-						errs = errors.Join(errs, fmt.Errorf("invalid node spec found in queue: %#v", e))
-						break
-					}
-
-					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
-					hr := sc.NewScope(e.node.Name)
-					if errs = errors.Join(errs, nh.NodeNeighborRefresh(ctx, *e.node, e.refresh)); errs != nil {
-						hr.Degraded("Failed node neighbor link update", errs)
-					} else {
-						hr.OK("Node neighbor link update successful")
-					}
-				}
-				return errs
-			},
-			RunInterval: defaultNodeUpdateInterval,
-		},
-	)
-}
-
-// StartNeighborRefresh spawns a controller which refreshes neighbor table
-// by forcing node neighbors refresh periodically based on the arping settings.
-func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
-	ctx, cancel := context.WithCancel(context.Background())
-	controller.NewManager().UpdateController(
-		"neighbor-table-refresh",
-		controller.ControllerParams{
-			Group: neighborTableRefreshControllerGroup,
-			DoFunc: func(controllerCtx context.Context) error {
-				// Cancel previous goroutines from previous controller run
-				cancel()
-				ctx, cancel = context.WithCancel(controllerCtx)
-				m.mutex.RLock()
-				defer m.mutex.RUnlock()
-				for _, entry := range m.nodes {
-					entry.mutex.Lock()
-					entryNode := entry.node
-					entry.mutex.Unlock()
-					if entryNode.IsLocal() {
-						continue
-					}
-					go func(ctx context.Context, e *nodeTypes.Node) {
-						// TODO Should this be moved to dequeue instead?
-						// To avoid flooding network with arping requests
-						// at the same time, spread them over the
-						// [0; ARPPingRefreshPeriod/2) period.
-						n := rand.Int64N(int64(m.conf.ARPPingRefreshPeriod / 2))
-						time.Sleep(time.Duration(n))
-						m.Enqueue(e, false)
-					}(ctx, &entryNode)
-				}
-				return nil
-			},
-			RunInterval: m.conf.ARPPingRefreshPeriod,
-		},
-	)
 }

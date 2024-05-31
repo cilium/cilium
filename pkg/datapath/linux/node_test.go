@@ -81,7 +81,7 @@ func TestCreateNodeRoute(t *testing.T) {
 		HostDevice: "host_device",
 	}
 
-	nodeHandler := newNodeHandler(dpConfig, nil, new(mockEnqueuer))
+	nodeHandler := newNodeHandler(dpConfig, nil)
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
