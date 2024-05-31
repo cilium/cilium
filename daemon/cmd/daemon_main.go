@@ -1629,8 +1629,9 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(newDaemonPromise),
-	cell.Provide(newRestorerPromise),
+	cell.Provide(promise.New[endpointstate.Restorer]),
 	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
+	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
@@ -2095,8 +2096,7 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 	return restAPI
 }
 
-func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[endpointstate.Restorer] {
-	resolver, promise := promise.New[endpointstate.Restorer]()
+func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			daemon, err := daemonPromise.Await(context.Background())
@@ -2108,7 +2108,6 @@ func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon
 			return nil
 		},
 	})
-	return promise
 }
 
 func initClockSourceOption() {
