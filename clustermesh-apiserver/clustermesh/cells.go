@@ -32,8 +32,8 @@ var Cell = cell.Module(
 	// ClusterName is not the default one), because they are valid in
 	// case we only use the external workloads feature, and not clustermesh.
 	cell.Config(cmtypes.DefaultClusterInfo),
-	cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.InitClusterIDMax() }),
-	cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.Validate() }),
+	cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
+	cell.Invoke(cmtypes.ClusterInfo.Validate),
 
 	pprof.Cell,
 	cell.Config(pprof.Config{
