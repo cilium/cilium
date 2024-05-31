@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium-cli/utils/junit"
 )
 
 func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
@@ -240,9 +241,7 @@ func newConnectivityTests(params check.Parameters, logger *check.ConcurrentLogge
 		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
-		if params.JunitFile != "" {
-			params.JunitFile = fmt.Sprintf("%s-%s", params.TestNamespace, params.JunitFile)
-		}
+		params.JunitFile = junit.NamespacedFileName(params.TestNamespace, params.JunitFile)
 		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion, logger)
 		if err != nil {
 			return nil, err
