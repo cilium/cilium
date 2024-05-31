@@ -296,7 +296,18 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (*state) {
 		barrier_data(*state);
-		return 0;
+		struct ipv4_nat_entry *rstate;
+		struct ipv4_ct_tuple rtuple;
+
+		snat_v4_swap_tuple(tuple, &rtuple);
+		rstate = snat_v4_lookup(&rtuple);
+		if (rstate) {
+			barrier_data(*rstate);
+			return 0;
+		} 
+		rstate->to_daddr = tuple->saddr;
+		rstate->to_dport = tuple->sport;
+		return snat_v4_update(tuple, *state, &rtuple, rstate);
 	}
 
 	*state = tmp;
