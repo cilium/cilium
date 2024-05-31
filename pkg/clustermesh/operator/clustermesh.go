@@ -188,7 +188,7 @@ func (cm *clusterMesh) ServicesSynced(ctx context.Context) error {
 }
 
 func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {
-	wctx, cancel := context.WithTimeout(ctx, cm.syncTimeoutConfig.Timeout())
+	wctx, cancel := context.WithTimeout(ctx, cm.syncTimeoutConfig.ClusterMeshSyncTimeout)
 	defer cancel()
 
 	waiters := make([]wait.Fn, 0)

@@ -313,6 +313,9 @@ Annotations:
 Removed Options
 ~~~~~~~~~~~~~~~
 
+* The previously deprecated ``clustermesh-ip-identities-sync-timeout`` flag has
+  been removed in favor of ``clustermesh-sync-timeout``.
+
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
