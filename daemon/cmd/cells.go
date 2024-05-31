@@ -6,6 +6,8 @@ package cmd
 import (
 	"net/http"
 
+	"github.com/cilium/cilium/pkg/labelsfilter/dynamic"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
@@ -231,6 +233,8 @@ var (
 		// The node discovery cell provides the local node configuration and node discovery
 		// which communicate changes in local node information to the API server or KVStore.
 		nodediscovery.Cell,
+
+		dynamic.Cell,
 	)
 )
 
