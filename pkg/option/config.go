@@ -1186,6 +1186,9 @@ const (
 	// EnableNodeSelectorLabels)
 	NodeLabels = "node-labels"
 
+	// EnableDynamicLabelFilter enables support for dynamically limiting the labels used for CIDs
+	EnableDynamicLabelFilter = "enable-dynamic-label-filter"
+
 	// BPFEventsDropEnabled defines the DropNotification setting for any endpoint
 	BPFEventsDropEnabled = "bpf-events-drop-enabled"
 
@@ -2373,6 +2376,10 @@ type DaemonConfig struct {
 	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
 	// EnableNodeSelectorLabels)
 	NodeLabels []string
+
+	// EnableDynamicLabelFilter enables to filter dynamically the label prefixes used to determine identities based
+	// on network policy labels.
+	EnableDynamicLabelFilter bool
 }
 
 var (
@@ -2644,6 +2651,10 @@ func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
 // is enabled
 func (c *DaemonConfig) PerNodeLabelsEnabled() bool {
 	return c.EnableNodeSelectorLabels
+}
+
+func (c *DaemonConfig) DynamicLabelFilterEnabled() bool {
+	return c.EnableDynamicLabelFilter
 }
 
 func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
@@ -3476,6 +3487,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
 	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
 	c.NodeLabels = vp.GetStringSlice(NodeLabels)
+	c.EnableDynamicLabelFilter = vp.GetBool(EnableDynamicLabelFilter)
 
 	// Parse node label patterns
 	nodeLabelPatterns := vp.GetStringSlice(ExcludeNodeLabelPatterns)
