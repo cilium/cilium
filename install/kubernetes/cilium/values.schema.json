@@ -871,6 +871,12 @@
                     }
                   },
                   "type": "object"
+                },
+                "storageMedium": {
+                  "enum": [
+                    "Disk",
+                    "Memory"
+                  ]
                 }
               },
               "type": "object"
