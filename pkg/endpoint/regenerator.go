@@ -50,7 +50,7 @@ func newRegenerator(in struct {
 	return &Regenerator{
 		logger:        in.Logger,
 		cmWaitFn:      waitFn,
-		cmWaitTimeout: in.Config.Timeout(),
+		cmWaitTimeout: in.Config.ClusterMeshSyncTimeout,
 	}
 }
 
