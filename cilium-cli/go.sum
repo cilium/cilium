@@ -68,8 +68,8 @@ github.com/chai2010/gettext-go v1.0.2/go.mod h1:y+wnP2cHYaVj19NZhYKAwEMH2CI1gNHe
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
-github.com/cilium/charts v0.0.0-20240517144447-a8ec8771aab8 h1:24TOgTkDuh2LTMtGA7HS+J0/wtYLLM120xBVEShhARA=
-github.com/cilium/charts v0.0.0-20240517144447-a8ec8771aab8/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
+github.com/cilium/charts v0.0.0-20240530135756-f365292ba791 h1:G6b9UgNv2E6qlNEI3hrpyQQow0/OAFkuIxNBFAj9YrI=
+github.com/cilium/charts v0.0.0-20240530135756-f365292ba791/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/checkmate v1.0.3 h1:CQC5eOmlAZeEjPrVZY3ZwEBH64lHlx9mXYdUehEwI5w=
 github.com/cilium/checkmate v1.0.3/go.mod h1:KiBTasf39/F2hf2yAmHw21YFl3hcEyP4Yk6filxc12A=
 github.com/cilium/cilium v1.16.0-pre.2 h1:7lMNYh/LhegbZOalC13k5xrYQN6u7cmz3veqEd2r76c=
