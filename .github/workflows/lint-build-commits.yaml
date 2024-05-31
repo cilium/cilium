@@ -174,7 +174,7 @@ jobs:
         if: steps.test-tree.outputs.src == 'true'
         uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
         with:
-          version: "17.0.6"
+          version: "18.1.4"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
       - name: Install ginkgo
