@@ -16,15 +16,16 @@ import (
 )
 
 const (
-	LBModeAnnotation           = annotation.IngressPrefix + "/loadbalancer-mode"
-	LBClassAnnotation          = annotation.IngressPrefix + "/loadbalancer-class"
-	ServiceTypeAnnotation      = annotation.IngressPrefix + "/service-type"
-	InsecureNodePortAnnotation = annotation.IngressPrefix + "/insecure-node-port"
-	SecureNodePortAnnotation   = annotation.IngressPrefix + "/secure-node-port"
-	HostListenerPortAnnotation = annotation.IngressPrefix + "/host-listener-port"
-	TLSPassthroughAnnotation   = annotation.IngressPrefix + "/tls-passthrough"
-	ForceHTTPSAnnotation       = annotation.IngressPrefix + "/force-https"
-	RequestTimeoutAnnotation   = annotation.IngressPrefix + "/request-timeout"
+	LBModeAnnotation                       = annotation.IngressPrefix + "/loadbalancer-mode"
+	LBClassAnnotation                      = annotation.IngressPrefix + "/loadbalancer-class"
+	ServiceTypeAnnotation                  = annotation.IngressPrefix + "/service-type"
+	ServiceExternalTrafficPolicyAnnotation = annotation.IngressPrefix + "/service-external-traffic-policy"
+	InsecureNodePortAnnotation             = annotation.IngressPrefix + "/insecure-node-port"
+	SecureNodePortAnnotation               = annotation.IngressPrefix + "/secure-node-port"
+	HostListenerPortAnnotation             = annotation.IngressPrefix + "/host-listener-port"
+	TLSPassthroughAnnotation               = annotation.IngressPrefix + "/tls-passthrough"
+	ForceHTTPSAnnotation                   = annotation.IngressPrefix + "/force-https"
+	RequestTimeoutAnnotation               = annotation.IngressPrefix + "/request-timeout"
 
 	LBModeAnnotationAlias           = annotation.Prefix + ".ingress" + "/loadbalancer-mode"
 	ServiceTypeAnnotationAlias      = annotation.Prefix + ".ingress" + "/service-type"
@@ -72,6 +73,21 @@ func GetAnnotationServiceType(ingress *networkingv1.Ingress) string {
 		return string(corev1.ServiceTypeLoadBalancer)
 	}
 	return val
+}
+
+// GetAnnotationServiceExternalTrafficPolicy returns the service externalTrafficPolicy for the ingress.
+func GetAnnotationServiceExternalTrafficPolicy(ingress *networkingv1.Ingress) (string, error) {
+	val, exists := annotation.Get(ingress, ServiceExternalTrafficPolicyAnnotation)
+	if !exists {
+		return string(corev1.ServiceExternalTrafficPolicyCluster), nil
+	}
+
+	switch val {
+	case string(corev1.ServiceExternalTrafficPolicyCluster), string(corev1.ServiceExternalTrafficPolicyLocal):
+		return val, nil
+	default:
+		return string(corev1.ServiceExternalTrafficPolicyCluster), fmt.Errorf("invalid value for externalTrafficPolicy %q", val)
+	}
 }
 
 // GetAnnotationRequestTimeout retrieves the RequestTimeout annotation's value.
