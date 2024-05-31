@@ -279,6 +279,7 @@ EventTypeFilter is a filter describing a particular event type.
 | destination | [Endpoint](#flow-Endpoint) |  |  |
 | Type | [FlowType](#flow-FlowType) |  |  |
 | node_name | [string](#string) |  | NodeName is the name of the node from which this Flow was captured. |
+| node_labels | [string](#string) | repeated | node labels in `foo=bar` format. |
 | source_names | [string](#string) | repeated | all names the source IP can have. |
 | destination_names | [string](#string) | repeated | all names the destination IP can have. |
 | l7 | [Layer7](#flow-Layer7) |  | L7 information. This field is set if and only if FlowType is L7. |
