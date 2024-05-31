@@ -1916,7 +1916,6 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 		return err
 	}
 
-	var rev int
 	// If the client made a request to modify labels, even if there was
 	// no new labels added or deleted then we can safely remove the init
 	// label. This is a workaround to allow the cilium-docker plugin
@@ -1925,7 +1924,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 	if len(addLabels) == 0 && len(delLabels) == 0 && e.IsInit() {
 		idLabls := e.OpLabels.IdentityLabels()
 		delete(idLabls, labels.IDNameInit)
-		rev = e.replaceIdentityLabels(source, idLabls)
+		e.replaceIdentityLabels(source, idLabls)
 		changed = true
 	}
 	if changed {
@@ -1935,12 +1934,11 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 		e.setState(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
 
 		e.identityRevision++
-		rev = e.identityRevision
 	}
 	e.unlock()
 
 	if changed {
-		e.runIdentityResolver(context.Background(), rev, false)
+		e.runIdentityResolver(context.Background(), false)
 	}
 	return nil
 }
@@ -2056,7 +2054,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 
 	e.unlock()
 	if rev != 0 {
-		return e.runIdentityResolver(ctx, rev, blocking)
+		return e.runIdentityResolver(ctx, blocking)
 	}
 
 	return false
@@ -2093,7 +2091,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 // are currently configured on the endpoint.
 //
 // Must be called with e.mutex NOT held.
-func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blocking bool) (regenTriggered bool) {
+func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (regenTriggered bool) {
 	err := e.rlockAlive()
 	if err != nil {
 		// If a labels update and an endpoint delete API request arrive
@@ -2112,7 +2110,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 	regenTriggered = false
 	if blocking || identity.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Info("Resolving identity labels (blocking)")
-		regenTriggered, err = e.identityLabelsChanged(ctx, myChangeRev)
+		regenTriggered, err = e.identityLabelsChanged(ctx)
 		if err != nil {
 			if errors.Is(err, ErrNotAlive) {
 				scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -2129,7 +2127,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 		controller.ControllerParams{
 			Group: resolveIdentityControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				_, err := e.identityLabelsChanged(ctx, myChangeRev)
+				_, err := e.identityLabelsChanged(ctx)
 				if errors.Is(err, ErrNotAlive) {
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
 					return controller.NewExitReason("Endpoint disappeared")
@@ -2144,12 +2142,13 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 	return regenTriggered
 }
 
-func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (regenTriggered bool, err error) {
+func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bool, err error) {
 	// e.setState() called below, can't take a read lock.
 	if err := e.lockAlive(); err != nil {
 		return false, err
 	}
 	newLabels := e.OpLabels.IdentityLabels()
+	myChangeRev := e.identityRevision
 	elog := e.getLogger().WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.IdentityLabels: newLabels,
