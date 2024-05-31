@@ -566,6 +566,31 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
 	// Override identities always take precedence
 	if identityOverrideLabels, ok := info.identityOverride(); ok {
+		switch {
+		// CES mode special case. The identity numeric value is known through
+		// the CES resource, but the labels aren't known because the resource
+		// does not contain labels. We rely on the labels to be propagated via
+		// CID resource by the kube-apisever or kvstore instead.
+		case option.Config.EnableCiliumEndpointSlice && len(identityOverrideLabels) == 0 && restoredIdentity != 0:
+			// First, see if we have received the CID event containing the
+			// labels. If so, return it.
+			id := ipc.IdentityAllocator.LookupIdentityByID(ctx, restoredIdentity)
+			if id == nil {
+				// At this point, we have not received the CID. The identity
+				// event handler will handle the update once it arrives and
+				// properly update the SelectorCache via UpdateIdentities().
+				// Therefore, force the creation of the "partial" identity so
+				// that it is pushed into the BPF ipcache map. We don't need
+				// the labels for the BPF ipcache map.
+				return &identity.Identity{
+					ID:             restoredIdentity,
+					Labels:         labels.NewFrom(nil),
+					LabelArray:     labels.LabelArray{},
+					ReferenceCount: 1,
+				}, true, nil
+			}
+			return id, false, nil
+		}
 		return ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
 	}
 

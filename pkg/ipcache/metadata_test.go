@@ -599,6 +599,44 @@ func TestOverrideIdentity(t *testing.T) {
 	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
 	assert.Equal(t, identity.ReservedIdentityUnmanaged, id.ID)
 	assert.True(t, ok)
+
+	// With CES enabled.
+	prevCES := option.Config.EnableCiliumEndpointSlice
+	option.Config.EnableCiliumEndpointSlice = true
+	defer func() { option.Config.EnableCiliumEndpointSlice = prevCES }()
+	// Add unmanaged labels to simulate what the pod watcher does when it
+	// receives a pod-add event.
+	ipc.metadata.upsertLocked(inClusterPrefix, source.Kubernetes, "pod-uid", labels.LabelUnmanaged)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, identity.ReservedIdentityUnmanaged, id.ID)
+	assert.True(t, ok)
+
+	// Override identity CEP event without labels (because CES mode does not
+	// propagate labels).
+	ipc.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "cep-uid", types.OverrideIdentity(true), types.RequestedIdentity(9999))
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, identity.NumericIdentity(9999), id.ID)
+	// Skip labels assertion because the identity doesn't have labels (because
+	// of CES) mode.
+	assert.True(t, ok)
+
+	// Remove the override and assert that the identity falls back to unmanaged.
+	ipc.metadata.remove(inClusterPrefix, "cep-uid", types.OverrideIdentity(true), types.RequestedIdentity(9999))
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, identity.ReservedIdentityUnmanaged, id.ID)
+	assert.True(t, ok)
 }
 
 func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {

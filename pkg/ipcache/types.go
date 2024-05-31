@@ -233,17 +233,25 @@ func (s prefixInfo) HasK8sMetadata() bool {
 // This pre-determined identity will overwrite any other identity which may
 // be derived from the prefix labels.
 func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
+	var cesOverride bool
 	identities := make([]labels.Labels, 0, 1)
 	for _, info := range s {
 		// We emit a warning in logConflicts if an identity override
 		// was requested without labels
 		if info.identityOverride && len(info.labels) > 0 {
 			identities = append(identities, info.labels)
+		} else if info.identityOverride == true && len(info.labels) == 0 && option.Config.EnableCiliumEndpointSlice {
+			cesOverride = true
 		}
 	}
 
+	switch {
+	// When CES is enabled, labels are not propagated with identities. This is
+	// a special case for CES mode.
+	case cesOverride:
+		return lbls, true
 	// No override identity present
-	if len(identities) == 0 {
+	case len(identities) == 0:
 		return nil, false
 	}
 
@@ -295,7 +303,7 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 					"This may cause connectivity issues for this address.")
 			}
 
-			if len(info.labels) == 0 {
+			if len(info.labels) == 0 && !info.requestedIdentity.IsValid() {
 				scopedLog.WithFields(logrus.Fields{
 					logfields.Resource:    resourceID,
 					logfields.OldIdentity: s.ToLabels().String(),
