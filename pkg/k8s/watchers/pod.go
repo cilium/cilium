@@ -633,8 +633,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
 					nodeAddrAll = append(nodeAddrAll, addr.Addr)
 				}
-				nodeAddrAll = append(nodeAddrAll, ip.MustAddrFromIP(net.IPv4zero))
-				nodeAddrAll = append(nodeAddrAll, ip.MustAddrFromIP(net.IPv6zero))
+				nodeAddrAll = append(nodeAddrAll, netip.IPv4Unspecified())
+				nodeAddrAll = append(nodeAddrAll, netip.IPv6Unspecified())
 			}
 			for _, addr := range nodeAddrAll {
 				fe := loadbalancer.L3n4AddrID{
