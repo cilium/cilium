@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
