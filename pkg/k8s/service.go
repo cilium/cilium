@@ -205,11 +205,11 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 
 	ipv4 := option.Config.EnableIPv4 && utils.GetClusterIPByFamily(slim_corev1.IPv4Protocol, svc) != ""
 	if ipv4 {
-		nodePortAddrs = append(nodePortAddrs, ip.MustAddrFromIP(net.IPv4zero))
+		nodePortAddrs = append(nodePortAddrs, netip.IPv4Unspecified())
 	}
 	ipv6 := option.Config.EnableIPv6 && utils.GetClusterIPByFamily(slim_corev1.IPv6Protocol, svc) != ""
 	if ipv6 {
-		nodePortAddrs = append(nodePortAddrs, ip.MustAddrFromIP(net.IPv6zero))
+		nodePortAddrs = append(nodePortAddrs, netip.IPv6Unspecified())
 	}
 
 	for _, port := range svc.Spec.Ports {
