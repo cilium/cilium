@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
@@ -158,6 +157,7 @@ var Cell = cell.Module(
 				return nil
 			}))
 	}),
+	linuxdatapath.NodeReconcilerCell,
 
 	// Provides Active Connection Tracking metrics based on counts of
 	// opened (from BPF ACT map), closed (from BPF ACT map), and failed

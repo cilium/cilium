@@ -162,7 +162,7 @@ type nodeOps struct {
 
 // Delete implements reconciler.Operations.
 func (ops *nodeOps) Delete(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
-	node := n.Node()
+	node := n.GetNode()
 	return ops.a.DeletePeer(node.Fullname())
 }
 
@@ -176,7 +176,7 @@ func (ops *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, n node.Node
 	if n.IsLocal() {
 		return nil
 	}
-	node := n.Node()
+	node := n.GetNode()
 
 	if node.WireguardPubKey == "" {
 		return nil
