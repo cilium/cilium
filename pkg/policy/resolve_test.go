@@ -202,38 +202,6 @@ func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
 	log.WithFields(fields).Info(msg)
 }
 
-/*
-func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, tb testing.TB) *Repository {
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	ids := mgr.GetIdentityCache()
-	fakeAllocator := testidentity.NewMockIdentityAllocator(ids)
-	testRepo := NewPolicyRepository(fakeAllocator, ids, nil, nil)
-
-	SetPolicyEnabled(option.DefaultEnforcement)
-	wg := &sync.WaitGroup{}
-	testSelectorCache.UpdateIdentities(generateNumIdentities(3000), nil, wg)
-	wg.Wait()
-	testRepo.selectorCache = testSelectorCache
-	rulez, _ := testRepo.AddList(ruleGenFunc(numRules))
-
-	epSet := NewEndpointSet(map[Endpoint]struct{}{
-		&dummyEndpoint{
-			ID:               9001,
-			SecurityIdentity: fooIdentity,
-		}: {},
-	})
-
-	epsToRegen := NewEndpointSet(nil)
-	wg = &sync.WaitGroup{}
-	rulez.UpdateRulesEndpointsCaches(epSet, epsToRegen, wg)
-	wg.Wait()
-
-	require.Equal(tb, 0, epSet.Len())
-	require.Equal(tb, 1, epsToRegen.Len())
-
-	return testRepo
-}*/
-
 func (td *testData) bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, tb testing.TB) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	wg := &sync.WaitGroup{}
