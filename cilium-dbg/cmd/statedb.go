@@ -138,7 +138,7 @@ func init() {
 		statedbTableCommand[types.Status](healthv2.HealthTableName),
 		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
 		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
-		statedbTableCommand[node.Node](node.NodesTableName),
+		statedbTableCommand[*node.TableNode](node.NodesTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

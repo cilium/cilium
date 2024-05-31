@@ -144,9 +144,9 @@ func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
 }
 
 func toLocalNode(n Node) LocalNode {
-	local := n.Local()
+	local := n.GetLocal()
 	return LocalNode{
-		Node:           n.Node(),
+		Node:           n.GetNode(),
 		LocalNodeAttrs: *local,
 	}
 }
@@ -161,8 +161,8 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 	var local LocalNode
 	n, _, ok := GetLocalNode(txn, s.table)
 	if ok {
-		local.Node = n.Node()
-		local.LocalNodeAttrs = *n.Local()
+		local.Node = n.GetNode()
+		local.LocalNodeAttrs = *n.GetLocal()
 	} else {
 		n = NewTableNode(types.Node{}, nil)
 	}

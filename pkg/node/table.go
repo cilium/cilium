@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -62,13 +63,13 @@ type Node interface {
 
 	GetNodeIP(ipv6 bool) net.IP
 
-	// Node returns a shallow copy of the node struct. The node struct is the internal
+	// GetNode returns a shallow copy of the node struct. The node struct is the internal
 	// model behind the interface and it is also used for marshalling the node to KVStore.
-	Node() types.Node
+	GetNode() types.Node
 
-	// Local returns the extra information carried for the local node. Nil if this
+	// GetLocal returns the extra information carried for the local node. Nil if this
 	// node is not the local node.
-	Local() *LocalNodeAttrs
+	GetLocal() *LocalNodeAttrs
 
 	IsLocal() bool
 
@@ -94,8 +95,8 @@ type Node interface {
 }
 
 type NodeBuilder struct {
-	orig *tableNode
-	new  *tableNode
+	orig *TableNode
+	new  *TableNode
 }
 
 func (b *NodeBuilder) Build() (Node, error) {
@@ -107,42 +108,42 @@ func (b *NodeBuilder) Build() (Node, error) {
 }
 
 func (b *NodeBuilder) ModifyNode(mod func(n *types.Node)) *NodeBuilder {
-	mod(&b.new.node)
+	mod(&b.new.Node)
 	return b
 }
 
 func (b *NodeBuilder) ModifyLocal(mod func(l *LocalNodeAttrs)) *NodeBuilder {
-	if b.new.local == nil {
-		b.new.local = &LocalNodeAttrs{}
+	if b.new.Local == nil {
+		b.new.Local = &LocalNodeAttrs{}
 	}
-	mod(b.new.local)
+	mod(b.new.Local)
 	return b
 }
 
-// tableNode is the concrete struct stored in the node table.
-type tableNode struct {
-	node  types.Node
-	local *LocalNodeAttrs
-
-	statuses map[string]reconciler.Status
+// TableNode is the concrete struct stored in the node table.
+// This is exported and JSON serializable for cilium-dbg.
+type TableNode struct {
+	Node     types.Node                   `json:"node"`
+	Local    *LocalNodeAttrs              `json:"local",omitempty`
+	Statuses map[string]reconciler.Status `json:"statuses",omitempty`
 }
 
 var emptyStatusMap = map[string]reconciler.Status{}
 
 func NewTableNode(n types.Node, l *LocalNodeAttrs) Node {
-	return &tableNode{node: n, local: l, statuses: emptyStatusMap}
+	return &TableNode{Node: n, Local: l, Statuses: emptyStatusMap}
 }
 
-func (n *tableNode) Clone() Node {
-	return &tableNode{
-		node:     n.node,
-		local:    n.local,
-		statuses: n.statuses,
+func (n *TableNode) Clone() Node {
+	return &TableNode{
+		Node:     n.Node,
+		Local:    n.Local,
+		Statuses: n.Statuses,
 	}
 }
 
-func (n *tableNode) GetReconciliationStatus(rc string) reconciler.Status {
-	status, ok := n.statuses[rc]
+func (n *TableNode) GetReconciliationStatus(rc string) reconciler.Status {
+	status, ok := n.Statuses[rc]
 	if ok {
 		return status
 	}
@@ -151,63 +152,63 @@ func (n *tableNode) GetReconciliationStatus(rc string) reconciler.Status {
 	return reconciler.StatusPending()
 }
 
-func (n *tableNode) SetReconciliationStatus(rc string, status reconciler.Status) Node {
-	n.statuses = maps.Clone(n.statuses)
-	n.statuses[rc] = status
+func (n *TableNode) SetReconciliationStatus(rc string, status reconciler.Status) Node {
+	n.Statuses = maps.Clone(n.Statuses)
+	n.Statuses[rc] = status
 	return n
 }
 
-func (n *tableNode) Builder() *NodeBuilder {
+func (n *TableNode) Builder() *NodeBuilder {
 	return &NodeBuilder{
 		orig: n,
-		new: &tableNode{
-			node:     *n.node.DeepCopy(),
-			local:    n.local.Clone(),
-			statuses: emptyStatusMap,
+		new: &TableNode{
+			Node:     *n.Node.DeepCopy(),
+			Local:    n.Local.Clone(),
+			Statuses: emptyStatusMap,
 		},
 	}
 }
 
-func (n *tableNode) Name() string {
-	return n.node.Name
+func (n *TableNode) Name() string {
+	return n.Node.Name
 }
 
-func (n *tableNode) Source() source.Source {
-	return n.node.Source
+func (n *TableNode) Source() source.Source {
+	return n.Node.Source
 }
 
-func (n *tableNode) Identity() types.Identity {
-	return n.node.Identity()
+func (n *TableNode) Identity() types.Identity {
+	return n.Node.Identity()
 }
 
 // Cluster implements Node.
-func (n *tableNode) Cluster() string {
-	return n.node.Cluster
+func (n *TableNode) Cluster() string {
+	return n.Node.Cluster
 }
 
 // GetKeyName implements Node.
-func (n *tableNode) GetKeyName() string {
-	return n.node.GetKeyName()
+func (n *TableNode) GetKeyName() string {
+	return n.Node.GetKeyName()
 }
 
 // GetNodeIP implements Node.
-func (n *tableNode) GetNodeIP(ipv6 bool) net.IP {
-	return n.node.GetNodeIP(ipv6)
+func (n *TableNode) GetNodeIP(ipv6 bool) net.IP {
+	return n.Node.GetNodeIP(ipv6)
 }
 
-func (n *tableNode) Node() types.Node {
-	return n.node
+func (n *TableNode) GetNode() types.Node {
+	return n.Node
 }
 
-func (n *tableNode) Local() *LocalNodeAttrs {
-	return n.local
+func (n *TableNode) GetLocal() *LocalNodeAttrs {
+	return n.Local
 }
 
-func (n *tableNode) IsLocal() bool {
-	return n.local != nil
+func (n *TableNode) IsLocal() bool {
+	return n.Local != nil
 }
 
-func (n *tableNode) TableHeader() []string {
+func (n *TableNode) TableHeader() []string {
 	return []string{
 		"Identity",
 		"Source",
@@ -215,7 +216,7 @@ func (n *tableNode) TableHeader() []string {
 		"Health IP",
 		"Ingress IP",
 		"Alloc CIDRs",
-		"Reconciliation status",
+		"Reconciliation",
 	}
 }
 
@@ -229,8 +230,8 @@ func joinStringers(ss ...fmt.Stringer) string {
 	return strings.Join(out, ", ")
 }
 
-func (n *tableNode) TableRow() []string {
-	addrs := make([]string, len(n.node.IPAddresses))
+func (n *TableNode) TableRow() []string {
+	addrs := make([]string, len(n.Node.IPAddresses))
 	if ip := n.GetNodeIP(false); ip != nil {
 		addrs = append(addrs, ip.String())
 	}
@@ -241,23 +242,81 @@ func (n *tableNode) TableRow() []string {
 		n.GetKeyName(),
 		string(n.Source()),
 		joinStringers(n.GetNodeIP(false), n.GetNodeIP(true)),
-		joinStringers(n.node.IPv4HealthIP, n.node.IPv6HealthIP),
-		joinStringers(n.node.IPv4IngressIP, n.node.IPv6IngressIP),
-		joinStringers(n.node.IPv4AllocCIDR, n.node.IPv6AllocCIDR),
-		collapseStatuses(n.statuses),
+		joinStringers(n.Node.IPv4HealthIP, n.Node.IPv6HealthIP),
+		joinStringers(n.Node.IPv4IngressIP, n.Node.IPv6IngressIP),
+		joinStringers(n.Node.IPv4AllocCIDR, n.Node.IPv6AllocCIDR),
+		collapseStatuses(n.Statuses),
 	}
 }
 
 func collapseStatuses(s map[string]reconciler.Status) string {
-	// If all Done, then Done, otherwise show which are still pending.
+	// TODO clean this up
+
 	if len(s) == 0 {
 		// All pending
 		return "Pending"
 	}
-	return "TODO"
+
+	var updatedAt time.Time
+
+	done := []string{}
+	pending := []string{}
+	errored := []string{}
+	for name, status := range s {
+		if status.UpdatedAt.After(updatedAt) {
+			updatedAt = status.UpdatedAt
+		}
+		switch status.Kind {
+		case reconciler.StatusKindDone:
+			done = append(done, name)
+		case reconciler.StatusKindError:
+			errored = append(errored, name+" ("+status.Error+")")
+		default:
+			pending = append(pending, name)
+		}
+	}
+	out := ""
+	if len(errored) > 0 {
+		out += "Errored: " + strings.Join(errored, " ")
+	}
+	if len(pending) > 0 {
+		if len(out) > 0 {
+			out += ", "
+		}
+		out += "Pending: " + strings.Join(pending, " ")
+	}
+	if len(done) > 0 {
+		if len(out) > 0 {
+			out += ", "
+		}
+		out += "Done: " + strings.Join(done, " ")
+	}
+	return out + " -- " + prettySince(updatedAt) + " ago"
 }
 
-var _ Node = &tableNode{}
+// copy-pasta from statedb reconciler
+func prettySince(t time.Time) string {
+	ago := float64(time.Now().Sub(t)) / float64(time.Millisecond)
+	// millis
+	if ago < 1000.0 {
+		return fmt.Sprintf("%.1fms", ago)
+	}
+	// secs
+	ago /= 1000.0
+	if ago < 60.0 {
+		return fmt.Sprintf("%.1fs", ago)
+	}
+	// mins
+	ago /= 60.0
+	if ago < 60.0 {
+		return fmt.Sprintf("%.1fm", ago)
+	}
+	// hours
+	ago /= 60.0
+	return fmt.Sprintf("%.1fh", ago)
+}
+
+var _ Node = &TableNode{}
 
 var (
 	NodeIdentityIndex = statedb.Index[Node, types.Identity]{

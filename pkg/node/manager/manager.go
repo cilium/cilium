@@ -286,7 +286,7 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 			case change.Deleted:
 				delete(currentNodes, identity)
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeDelete(node.Node())
+					return h.NodeDelete(node.GetNode())
 				}
 				m.metrics.NumNodes.Dec()
 				m.metrics.ProcessNodeDeletion(node.Cluster(), node.Name())
@@ -294,13 +294,13 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 			case oldNodeExists:
 				currentNodes[identity] = node
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeUpdate(oldNode.Node(), node.Node())
+					return h.NodeUpdate(oldNode.GetNode(), node.GetNode())
 				}
 			default:
 				m.metrics.NumNodes.Inc()
 				currentNodes[identity] = node
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeAdd(node.Node())
+					return h.NodeAdd(node.GetNode())
 				}
 			}
 			var lastError error
@@ -336,7 +336,7 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 		case h := <-m.addHandler:
 			handlers.Insert(h)
 			for _, node := range currentNodes {
-				if err := h.NodeAdd(node.Node()); err != nil {
+				if err := h.NodeAdd(node.GetNode()); err != nil {
 					log.WithFields(logrus.Fields{
 						"handler": h.Name(),
 						"node":    node.Name,
@@ -353,7 +353,7 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 			var errs []error
 			for _, node := range currentNodes {
 				for h := range handlers {
-					if err := h.NodeValidateImplementation(node.Node()); err != nil {
+					if err := h.NodeValidateImplementation(node.GetNode()); err != nil {
 						log.WithFields(logrus.Fields{
 							"handler": h.Name(),
 							"node":    node.Name,
@@ -441,7 +441,7 @@ func (m *manager) neighRefreshLoop(ctx context.Context, health cell.Health) erro
 				}
 
 				log.Debugf("Refreshing node neighbor link for %s", node.Name())
-				err := m.nodeNeighbors.NodeNeighborRefresh(ctx, node.Node(), false)
+				err := m.nodeNeighbors.NodeNeighborRefresh(ctx, node.GetNode(), false)
 				if err != nil {
 					refreshErrors[id] = err
 				} else {
@@ -689,7 +689,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 				log.WithError(err).WithField(logfields.Node, n.Name).Warn("Ignoring update for node")
 			}
 		}
-		m.removeNodeFromIPCache(oldNode.Node(), resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
+		m.removeNodeFromIPCache(oldNode.GetNode(), resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
 	} else {
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
 
@@ -824,7 +824,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	m.removeNodeFromIPCache(oldNode.Node(), resource, nil, nil, nil, nil)
+	m.removeNodeFromIPCache(oldNode.GetNode(), resource, nil, nil, nil, nil)
 
 	m.nodesTable.Delete(txn, oldNode)
 }
@@ -862,7 +862,7 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	iter, _ := m.nodesTable.All(m.db.ReadTxn())
 	nodes := make(map[nodeTypes.Identity]nodeTypes.Node, numNodes)
 	for node, _, ok := iter.Next(); ok; node, _, ok = iter.Next() {
-		nodes[node.Identity()] = node.Node()
+		nodes[node.Identity()] = node.GetNode()
 	}
 	return nodes
 }

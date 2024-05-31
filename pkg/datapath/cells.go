@@ -123,6 +123,8 @@ var Cell = cell.Module(
 
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
+
+	linuxdatapath.NodeReconcilerCell,
 )
 
 func newDatapath(params datapathParams) types.Datapath {
