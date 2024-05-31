@@ -2618,7 +2618,7 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	if err := cinfo.InitClusterIDMax(); err != nil {
 		return err
 	}
-	if err := cinfo.Validate(log); err != nil {
+	if err := cinfo.Validate(); err != nil {
 		return err
 	}
 
