@@ -319,6 +319,9 @@ communicating via the proxy must reconnect to re-establish connections.
   ``--mtu`` agent flag or ``mtu`` option in CNI configuration.
 * Support for L7 protocol visibility using Pod annotations (``policy.cilium.io/proxy-visibility``),
   deprecated since v1.15, has been removed.
+* The Cilium cluster name validation cannot be bypassed anymore, both for the local and
+  remote clusters. The cluster name is strictly enforced to consist of at most 32 lower
+  case alphanumeric characters and '-', start and end with an alphanumeric character.
 
 Removed Options
 ~~~~~~~~~~~~~~~
