@@ -88,6 +88,11 @@ Supported Ingress Annotations
        | Applicable values are ``LoadBalancer``
        | and ``NodePort``.
      - ``LoadBalancer``
+   * - ``ingress.cilium.io/service-external-traffic-policy``
+     - | The Service externalTrafficPolicy for dedicated
+       | Ingress. Applicable values are ``Cluster``
+       | and ``Local``.
+     - ``Cluster``
    * - ``ingress.cilium.io/insecure-node-port``
      - | The NodePort to use for the HTTP Ingress.
        | Applicable only if ``ingress.cilium.io/service-type``
