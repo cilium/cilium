@@ -500,6 +500,10 @@
      - Security context to be added to clustermesh-apiserver etcd containers
      - object
      - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
+   * - :spelling:ignore:`clustermesh.apiserver.etcd.storageMedium`
+     - Specifies whether etcd data is stored in a temporary volume backed by the node's default medium, such as disk, SSD or network storage (Disk), or RAM (Memory). The Memory option enables improved etcd read and write performance at the cost of additional memory usage, which counts against the memory limits of the container.
+     - string
+     - ``"Disk"``
    * - :spelling:ignore:`clustermesh.apiserver.extraArgs`
      - Additional clustermesh-apiserver arguments.
      - list
