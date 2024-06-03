@@ -72,6 +72,7 @@ cilium-operator [flags]
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
+      --gateway-api-service-externaltrafficpolicy string     Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances. (default "Cluster")
       --gateway-api-xff-num-trusted-hops uint32              The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
   -h, --help                                                 help for cilium-operator

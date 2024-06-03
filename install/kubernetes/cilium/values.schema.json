@@ -2395,6 +2395,9 @@
         "enabled": {
           "type": "boolean"
         },
+        "externalTrafficPolicy": {
+          "type": "string"
+        },
         "hostNetwork": {
           "properties": {
             "enabled": {
