@@ -2603,9 +2603,17 @@ type CreditSpecificationRequest struct {
 // Describes a customer gateway.
 type CustomerGateway struct {
 
-	// The customer gateway's Border Gateway Protocol (BGP) Autonomous System Number
-	// (ASN).
+	// The customer gateway device's Border Gateway Protocol (BGP) Autonomous System
+	// Number (ASN).
+	//
+	// Valid values: 1 to 2,147,483,647
 	BgpAsn *string
+
+	// The customer gateway device's Border Gateway Protocol (BGP) Autonomous System
+	// Number (ASN).
+	//
+	// Valid values: 2,147,483,648 to 4,294,967,295
+	BgpAsnExtended *string
 
 	// The Amazon Resource Name (ARN) for the customer gateway certificate.
 	CertificateArn *string
@@ -2616,7 +2624,10 @@ type CustomerGateway struct {
 	// The name of customer gateway device.
 	DeviceName *string
 
-	// The IP address of the customer gateway device's outside interface.
+	//  IPv4 address for the customer gateway device's outside interface. The address
+	// must be static. If OutsideIpAddressType in your VPN connection options is set
+	// to PrivateIpv4 , you can use an RFC6598 or RFC1918 private IPv4 address. If
+	// OutsideIpAddressType is set to PublicIpv4 , you can use a public IPv4 address.
 	IpAddress *string
 
 	// The current state of the customer gateway ( pending | available | deleting |
