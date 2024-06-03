@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -26,7 +25,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -36,13 +34,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -134,6 +129,8 @@ type K8sWatcher struct {
 
 	clientset client.Clientset
 
+	k8sEventReporter *K8sEventReporter
+
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
@@ -183,6 +180,7 @@ type K8sWatcher struct {
 
 func newWatcher(
 	clientset client.Clientset,
+	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
 	endpointManager endpointManager,
@@ -204,6 +202,7 @@ func newWatcher(
 		resourceGroupsFn:      resourceGroups,
 		db:                    db,
 		clientset:             clientset,
+		k8sEventReporter:      k8sEventReporter,
 		k8sResourceSynced:     k8sResourceSynced,
 		k8sAPIGroups:          k8sAPIGroups,
 		K8sSvcCache:           serviceCache,
@@ -410,29 +409,11 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 // K8sEventProcessed is called to do metrics accounting for each processed
 // Kubernetes event
 func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
-	result := "success"
-	if !status {
-		result = "failed"
-	}
-
-	metrics.KubernetesEventProcessed.WithLabelValues(scope, action, result).Inc()
+	k.k8sEventReporter.K8sEventProcessed(scope, action, status)
 }
 
 // K8sEventReceived does metric accounting for each received Kubernetes event, as well
 // as notifying of events for k8s resources synced.
 func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, valid, equal bool) {
-	k8smetrics.LastInteraction.Reset()
-
-	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action).SetToCurrentTime()
-	validStr := strconv.FormatBool(valid)
-	equalStr := strconv.FormatBool(equal)
-	metrics.KubernetesEventReceived.WithLabelValues(scope, action, validStr, equalStr).Inc()
-
-	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
-}
-
-// K8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
-func (k *K8sWatcher) K8sServiceEventProcessed(action string, startTime time.Time) {
-	duration, _ := safetime.TimeSinceSafe(startTime, log)
-	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
+	k.k8sEventReporter.K8sEventReceived(apiResourceName, scope, action, valid, equal)
 }

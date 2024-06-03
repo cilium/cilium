@@ -81,34 +81,34 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 			AddFunc: func(obj interface{}) {
 				if pod := k8s.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
 					err := k.addK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
-					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, true, false)
+					k.k8sEventReporter.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
+					k.k8sEventReporter.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, true, false)
 				} else {
-					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, false, false)
+					k.k8sEventReporter.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, false, false)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if oldPod := k8s.CastInformerEvent[slim_corev1.Pod](oldObj); oldPod != nil {
 					if newPod := k8s.CastInformerEvent[slim_corev1.Pod](newObj); newPod != nil {
 						if oldPod.DeepEqual(newPod) {
-							k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, true)
+							k.k8sEventReporter.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, true)
 						} else {
 							err := k.updateK8sPodV1(oldPod, newPod)
-							k.K8sEventProcessed(metricPod, resources.MetricUpdate, err == nil)
-							k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, true, false)
+							k.k8sEventReporter.K8sEventProcessed(metricPod, resources.MetricUpdate, err == nil)
+							k.k8sEventReporter.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, true, false)
 						}
 					}
 				} else {
-					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, false)
+					k.k8sEventReporter.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, false)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				if pod := k8s.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
 					err := k.deleteK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
-					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, true, false)
+					k.k8sEventReporter.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
+					k.k8sEventReporter.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, true, false)
 				} else {
-					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, false, false)
+					k.k8sEventReporter.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, false, false)
 				}
 			},
 		},

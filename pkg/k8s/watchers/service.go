@@ -22,7 +22,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -100,7 +102,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 	eventHandler := func(event k8s.ServiceEvent) {
 		defer func(startTime time.Time) {
 			event.SWG.Done()
-			k.K8sServiceEventProcessed(event.Action.String(), startTime)
+			k.k8sServiceEventProcessed(event.Action.String(), startTime)
 		}(time.Now())
 
 		svc := event.Service
@@ -426,4 +428,10 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			}
 		}
 	}
+}
+
+// k8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
+func (k *K8sWatcher) k8sServiceEventProcessed(action string, startTime time.Time) {
+	duration, _ := safetime.TimeSinceSafe(startTime, log)
+	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
 }
