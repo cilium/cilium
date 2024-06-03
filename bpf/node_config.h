@@ -18,9 +18,9 @@
 
 #define CLUSTER_ID 0
 
-#ifndef NODE_MAC
-DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
-#define NODE_MAC fetch_mac(NODE_MAC)
+#ifndef THIS_INTERFACE_MAC
+DEFINE_MAC(THIS_INTERFACE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
+#define THIS_INTERFACE_MAC fetch_mac(THIS_INTERFACE_MAC)
 #endif
 
 #ifndef ROUTER_IP

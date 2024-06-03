@@ -47,7 +47,7 @@ static __always_inline int icmp6_load_type(struct __ctx_buff *ctx, int l4_off, _
 
 static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 {
-	union macaddr smac, dmac = NODE_MAC;
+	union macaddr smac, dmac = THIS_INTERFACE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	union v6addr sip, dip, router_ip;
 	__be32 sum;
@@ -293,7 +293,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 {
 	union v6addr target, router;
 	struct endpoint_info *ep;
-	union macaddr router_mac = NODE_MAC;
+	union macaddr router_mac = THIS_INTERFACE_MAC;
 
 	if (ctx_load_bytes(ctx, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
