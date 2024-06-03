@@ -8,13 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/workerpool"
+	"golang.org/x/term"
 	"helm.sh/helm/v3/pkg/action"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -361,7 +364,7 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 			if k.params.Output == OutputSummary && k.params.Interactive {
 				statusFmt := s.Format()
 				cursorUp(lines)
-				lines = len(strings.Split(statusFmt, "\n"))
+				lines = countWrappedLines(statusFmt)
 				fmt.Print(statusFmt)
 			}
 			continue
@@ -373,9 +376,21 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 }
 
 func cursorUp(lines int) {
-	for i := 1; i < lines; i++ {
+	for i := 0; i < lines; i++ {
 		fmt.Print("\033[A\033[2K")
 	}
+}
+
+func countWrappedLines(text string) int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		width = 80 // default width if we can't get the terminal size
+	}
+	lines := 1
+	for _, line := range strings.Split(text, "\n") {
+		lines += (utf8.RuneCountInString(line) + width - 1) / width
+	}
+	return lines
 }
 
 type statusTask struct {
