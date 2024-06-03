@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: c76e70d09f909bc673c9705e0f9303f7d1f1f9a2
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
@@ -135,7 +135,7 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@d86ae1ca5755139d6ca9423b9606cb047fc8e00f # v0.16.9
+        uses: cilium/cilium-cli@c76e70d09f909bc673c9705e0f9303f7d1f1f9a2 # v0.16.9
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}

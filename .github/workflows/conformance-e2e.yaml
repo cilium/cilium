@@ -53,7 +53,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: c76e70d09f909bc673c9705e0f9303f7d1f1f9a2
 
 jobs:
   echo-inputs:
@@ -162,6 +162,7 @@ jobs:
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
             ingress-controller: 'true'
+            local-redirect-policy: 'true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -221,6 +222,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             ingress-controller: 'true'
+            local-redirect-policy: 'true'
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -318,11 +320,11 @@ jobs:
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@d86ae1ca5755139d6ca9423b9606cb047fc8e00f # v0.16.9
+        uses: cilium/cilium-cli@c76e70d09f909bc673c9705e0f9303f7d1f1f9a2 # v0.16.9
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          ci-version: c76e70d09f909bc673c9705e0f9303f7d1f1f9a2
           binary-name: cilium-cli
           binary-dir: ./
 

@@ -58,7 +58,7 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-vm
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-vm
   vmStartupScript: .github/gcp-vm-startup.sh
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: c76e70d09f909bc673c9705e0f9303f7d1f1f9a2
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 478.0.0
@@ -219,7 +219,7 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@d86ae1ca5755139d6ca9423b9606cb047fc8e00f # v0.16.9
+        uses: cilium/cilium-cli@c76e70d09f909bc673c9705e0f9303f7d1f1f9a2 # v0.16.9
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
