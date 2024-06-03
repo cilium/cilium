@@ -187,7 +187,7 @@ jobs:
           cd image-digest/
           echo "## Docker Manifests" > ../image-digest-output.txt
           echo "" >> ../image-digest-output.txt
-          find -type f -not -name "makefile-digest.txt" | sort | xargs -d '\n' cat >> ../image-digest-output.txt
+          find -type f -regex ".*image-digest .*" -not -name "makefile-digest.txt" | sort | xargs -d '\n' cat >> ../image-digest-output.txt
 
       - name: Image Makefile Digests
         shell: bash
