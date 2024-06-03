@@ -395,6 +395,12 @@ func buildQuery(r v4Internal.Rule, header http.Header) (url.Values, http.Header)
 	query := url.Values{}
 	unsignedHeaders := http.Header{}
 	for k, h := range header {
+		// literally just this header has this constraint for some stupid reason,
+		// see #2508
+		if k == "X-Amz-Expected-Bucket-Owner" {
+			k = "x-amz-expected-bucket-owner"
+		}
+
 		if r.IsValid(k) {
 			query[k] = h
 		} else {
