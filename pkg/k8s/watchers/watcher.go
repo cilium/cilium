@@ -10,14 +10,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/cache"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -31,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -130,6 +125,7 @@ type K8sWatcher struct {
 	clientset client.Clientset
 
 	k8sEventReporter *K8sEventReporter
+	k8sPodWatcher    *K8sPodWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -151,35 +147,19 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	ipcache               ipcacheManager
-	cgroupManager         cgroupManager
-
-	bandwidthManager datapath.BandwidthManager
-
-	// controllersStarted is a channel that is closed when all watchers that do not depend on
-	// local node configuration have been started
-	controllersStarted chan struct{}
 
 	stop chan struct{}
-
-	podStoreMU lock.RWMutex
-	podStore   cache.Store
-	// podStoreSet is a channel that is closed when the podStore cache is
-	// variable is written for the first time.
-	podStoreSet  chan struct{}
-	podStoreOnce sync.Once
 
 	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
 	cfg WatcherConfiguration
 
 	resources agentK8s.Resources
-
-	db        *statedb.DB
-	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 }
 
 func newWatcher(
 	clientset client.Clientset,
+	k8sPodWatcher *K8sPodWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
@@ -191,18 +171,14 @@ func newWatcher(
 	bgpSpeakerManager bgpSpeakerManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
-	cgroupManager cgroupManager,
 	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
-	bandwidthManager datapath.BandwidthManager,
-	db *statedb.DB,
-	nodeAddrs statedb.Table[datapathTables.NodeAddress],
 ) *K8sWatcher {
 	return &K8sWatcher{
 		resourceGroupsFn:      resourceGroups,
-		db:                    db,
 		clientset:             clientset,
 		k8sEventReporter:      k8sEventReporter,
+		k8sPodWatcher:         k8sPodWatcher,
 		k8sResourceSynced:     k8sResourceSynced,
 		k8sAPIGroups:          k8sAPIGroups,
 		K8sSvcCache:           serviceCache,
@@ -211,16 +187,11 @@ func newWatcher(
 		policyManager:         policyManager,
 		svcManager:            svcManager,
 		ipcache:               ipcache,
-		controllersStarted:    make(chan struct{}),
 		stop:                  make(chan struct{}),
-		podStoreSet:           make(chan struct{}),
 		redirectPolicyManager: redirectPolicyManager,
 		bgpSpeakerManager:     bgpSpeakerManager,
-		cgroupManager:         cgroupManager,
-		bandwidthManager:      bandwidthManager,
 		cfg:                   cfg,
 		resources:             resources,
-		nodeAddrs:             nodeAddrs,
 	}
 }
 
@@ -349,7 +320,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 
 	log.Info("Enabling k8s event listener")
 	k.enableK8sWatchers(ctx, resources)
-	close(k.controllersStarted)
+	close(k.k8sPodWatcher.controllersStarted)
 
 	go func() {
 		log.Info("Waiting until all pre-existing resources have been received")
@@ -380,7 +351,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		// Core Cilium
 		case resources.K8sAPIGroupPodV1Core:
 			asyncControllers.Add(1)
-			go k.podsInit(k.clientset.Slim(), asyncControllers)
+			go k.k8sPodWatcher.podsInit(asyncControllers)
 		case k8sAPIGroupNamespaceV1Core:
 			k.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
@@ -416,4 +387,9 @@ func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
 // as notifying of events for k8s resources synced.
 func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, valid, equal bool) {
 	k.k8sEventReporter.K8sEventReceived(apiResourceName, scope, action, valid, equal)
+}
+
+// GetCachedPod returns a pod from the local store.
+func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
+	return k.k8sPodWatcher.GetCachedPod(namespace, name)
 }
