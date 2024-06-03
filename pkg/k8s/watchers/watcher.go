@@ -181,7 +181,7 @@ type K8sWatcher struct {
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 }
 
-func NewK8sWatcher(
+func newWatcher(
 	clientset client.Clientset,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
