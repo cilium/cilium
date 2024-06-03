@@ -67210,6 +67210,19 @@ func awsEc2query_deserializeDocumentCustomerGateway(v **types.CustomerGateway, d
 				sv.BgpAsn = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("bgpAsnExtended", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.BgpAsnExtended = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("certificateArn", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
