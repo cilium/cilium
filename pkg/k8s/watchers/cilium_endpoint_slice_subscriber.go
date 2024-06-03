@@ -31,7 +31,7 @@ type cesSubscriber struct {
 	cepMap    *cepToCESmap
 }
 
-func newCESSubscriber(k *K8sWatcher) *cesSubscriber {
+func newCESSubscriber(k *K8sCiliumEndpointsWatcher) *cesSubscriber {
 	return &cesSubscriber{
 		epWatcher: k,
 		epCache:   k.endpointManager,
