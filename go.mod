@@ -11,9 +11,9 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.754
-	github.com/aws/aws-sdk-go-v2 v1.27.0
-	github.com/aws/aws-sdk-go-v2/config v1.27.16
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.3
+	github.com/aws/aws-sdk-go-v2 v1.27.1
+	github.com/aws/aws-sdk-go-v2/config v1.27.17
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.4
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.162.0
 	github.com/aws/smithy-go v1.20.2
 	github.com/blang/semver/v4 v4.0.0
@@ -148,15 +148,15 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.16 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.7 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.8 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.20.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.24.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.28.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.20.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.24.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.28.11 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
