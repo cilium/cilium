@@ -127,6 +127,7 @@ type K8sWatcher struct {
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher
 	k8sNamespaceWatcher  *K8sNamespaceWatcher
 	k8sServiceWatcher    *K8sServiceWatcher
+	k8sEndpointsWatcher  *K8sEndpointsWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -144,7 +145,6 @@ type K8sWatcher struct {
 
 	policyManager         policyManager
 	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
 	ipcache               ipcacheManager
 
 	stop chan struct{}
@@ -160,13 +160,13 @@ func newWatcher(
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
 	k8sNamespaceWatcher *K8sNamespaceWatcher,
 	k8sServiceWatcher *K8sServiceWatcher,
+	k8sEndpointsWatcher *K8sEndpointsWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
 	endpointManager endpointManager,
 	policyManager policyManager,
 	redirectPolicyManager redirectPolicyManager,
-	bgpSpeakerManager bgpSpeakerManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	resources agentK8s.Resources,
@@ -180,6 +180,7 @@ func newWatcher(
 		k8sCiliumNodeWatcher:  k8sCiliumNodeWatcher,
 		k8sNamespaceWatcher:   k8sNamespaceWatcher,
 		k8sServiceWatcher:     k8sServiceWatcher,
+		k8sEndpointsWatcher:   k8sEndpointsWatcher,
 		k8sResourceSynced:     k8sResourceSynced,
 		k8sAPIGroups:          k8sAPIGroups,
 		K8sSvcCache:           serviceCache,
@@ -188,7 +189,6 @@ func newWatcher(
 		ipcache:               ipcache,
 		stop:                  make(chan struct{}),
 		redirectPolicyManager: redirectPolicyManager,
-		bgpSpeakerManager:     bgpSpeakerManager,
 		cfg:                   cfg,
 		resources:             resources,
 	}
@@ -359,7 +359,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case resources.K8sAPIGroupServiceV1Core:
 			k.k8sServiceWatcher.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
-			k.endpointsInit()
+			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
 			k.initCiliumEndpointOrSlices(ctx, asyncControllers)
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
@@ -380,6 +380,7 @@ func (k *K8sWatcher) StopWatcher() {
 	close(k.stop)
 	k.k8sNamespaceWatcher.stopWatcher()
 	k.k8sServiceWatcher.stopWatcher()
+	k.k8sEndpointsWatcher.stopWatcher()
 }
 
 // K8sEventProcessed is called to do metrics accounting for each processed
