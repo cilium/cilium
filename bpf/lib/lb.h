@@ -447,7 +447,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct lb6_reverse_nat *nat)
 {
 	struct csum_offset csum_off = {};
-	union v6addr old_saddr;
+	union v6addr old_saddr __align_stack_8;
 	__be32 sum;
 	int ret;
 

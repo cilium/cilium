@@ -359,7 +359,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 int *ifindex, int *ohead)
 {
 	struct remote_endpoint_info *info;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
 	bool need_opt = true;
@@ -900,7 +900,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		},
 	};
 	int ret, l4_off;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1136,7 +1136,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.addr = IPV6_DIRECT_ROUTING,
 	};
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct trace_ctx trace = {
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -1391,7 +1391,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 {
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 
@@ -1469,7 +1469,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	struct lb6_reverse_nat *nat_info;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int ret, l4_off;

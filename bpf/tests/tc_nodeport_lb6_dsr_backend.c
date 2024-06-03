@@ -215,7 +215,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
 
-	struct ipv6_ct_tuple tuple;
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_entry *ct_entry;
 	int l4_off, ret;
 
