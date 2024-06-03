@@ -12,11 +12,24 @@ import (
 type clientEgressL7 struct{}
 
 func (t clientEgressL7) build(ct *check.ConnectivityTest, templates map[string]string) {
+	clientEgressL7Test(ct, templates, false)
+	if ct.Features[features.PortRanges].Enabled {
+		clientEgressL7Test(ct, templates, true)
+	}
+}
+
+func clientEgressL7Test(ct *check.ConnectivityTest, templates map[string]string, portRanges bool) {
+	testName := "client-egress-l7"
+	templateName := "clientEgressL7HTTPPolicyYAML"
+	if portRanges {
+		testName = "client-egress-l7-port-range"
+		templateName = "clientEgressL7HTTPPolicyPortRangeYAML"
+	}
 	// Test L7 HTTP introspection using an egress policy on the clients.
-	newTest("client-egress-l7", ct).
+	newTest(testName, ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).             // DNS resolution only
-		WithCiliumPolicy(templates["clientEgressL7HTTPPolicyYAML"]). // L7 allow policy with HTTP introspection
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithCiliumPolicy(templates[templateName]).       // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),
