@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -201,16 +202,50 @@ func (iao *identityAllocatorOwner) GetNodeSuffix() string {
 	return ip.String()
 }
 
+type PolicyManagerParams struct {
+	cell.In
+
+	Lifecycle cell.Lifecycle
+
+	Repo            *policy.Repository
+	EndpointManager endpointmanager.EndpointManager
+	MonitorAgent    monitorAgent.Agent
+	IPcache         *ipcache.IPCache
+}
+
+type PolicyManager struct {
+	PolicyManagerParams
+	ctx context.Context
+}
+
+func NewPolicyManager(p PolicyManagerParams) policy.PolicyManager {
+	m := &PolicyManager{
+		PolicyManagerParams: p,
+		ctx:                 context.Background(),
+	}
+
+	var cancel context.CancelFunc
+	m.ctx, cancel = context.WithCancel(context.Background())
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			cancel()
+			return nil
+		},
+	})
+
+	return m
+}
+
 // PolicyAddEvent is a wrapper around the parameters for policyAdd.
 type PolicyAddEvent struct {
 	rules policyAPI.Rules
 	opts  *policy.AddOptions
-	d     *Daemon
+	m     *PolicyManager
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (p *PolicyAddEvent) Handle(res chan interface{}) {
-	p.d.policyAdd(p.rules, p.opts, res)
+	p.m.policyAdd(p.rules, p.opts, res)
 }
 
 // PolicyAddResult is a wrapper around the values returned by policyAdd. It
@@ -226,14 +261,14 @@ type PolicyAddResult struct {
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
+func (m *PolicyManager) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
 	p := &PolicyAddEvent{
 		rules: rules,
 		opts:  opts,
-		d:     d,
+		m:     m,
 	}
 	polAddEvent := eventqueue.NewEvent(p)
-	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
+	resChan, err := m.Repo.RepositoryChangeQueue.Enqueue(polAddEvent)
 	if err != nil {
 		return 0, fmt.Errorf("enqueue of PolicyAddEvent failed: %w", err)
 	}
@@ -251,7 +286,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions, resChan chan interface{}) {
+func (m *PolicyManager) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
 	if opts != nil && !opts.ProcessingStartTime.IsZero() {
 		policyAddStartTime = opts.ProcessingStartTime
@@ -269,7 +304,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	// No errors past this point!
 
-	d.policy.Mutex.Lock()
+	m.Repo.Mutex.Lock()
 
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
@@ -285,7 +320,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := d.endpointManager.GetPolicyEndpoints()
+	allEndpoints := m.EndpointManager.GetPolicyEndpoints()
 
 	// Start with all endpoints to be in set for which we need to bump their
 	// revision.
@@ -298,7 +333,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// This block of code is, sadly, copy-pasty because DeleteByLabels / AddList return an unexported type.
 	if opts != nil && opts.ReplaceByResource && len(opts.Resource) > 0 {
 		// Update the policy repository with the new rules
-		addedRules, deletedRules, rev := d.policy.ReplaceByResourceLocked(sourceRules, opts.Resource)
+		addedRules, deletedRules, rev := m.Repo.ReplaceByResourceLocked(sourceRules, opts.Resource)
 		newRev = rev
 
 		if len(deletedRules) > 0 {
@@ -326,25 +361,25 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		if opts != nil {
 			if opts.Replace {
 				for _, r := range sourceRules {
-					oldRules := d.policy.SearchRLocked(r.Labels)
+					oldRules := m.Repo.SearchRLocked(r.Labels)
 					removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 					if len(oldRules) > 0 {
-						deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
+						deletedRules, _, _ := m.Repo.DeleteByLabelsLocked(r.Labels)
 						deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 					}
 				}
 			}
 			if len(opts.ReplaceWithLabels) > 0 {
-				oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
+				oldRules := m.Repo.SearchRLocked(opts.ReplaceWithLabels)
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
-					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+					deletedRules, _, _ := m.Repo.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 				}
 			}
 		}
 
-		addedRules, rev := d.policy.AddListLocked(sourceRules)
+		addedRules, rev := m.Repo.AddListLocked(sourceRules)
 		newRev = rev
 
 		// The information needed by the caller is available at this point, signal
@@ -357,7 +392,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 	}
 
-	d.policy.Mutex.Unlock()
+	m.Repo.Mutex.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
 	// time is from before the locking above, and thus includes all waits and
@@ -366,7 +401,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	if opts != nil {
 		source = string(opts.Source)
 	}
-	d.endpointManager.CallbackForEndpointsAtPolicyRev(d.ctx, newRev, func(now time.Time) {
+	m.EndpointManager.CallbackForEndpointsAtPolicyRev(m.ctx, newRev, func(now time.Time) {
 		duration, _ := safetime.TimeSinceSafe(policyAddStartTime, logger)
 		metrics.PolicyImplementationDelay.WithLabelValues(source).Observe(duration.Seconds())
 	})
@@ -377,9 +412,12 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	for _, r := range sourceRules {
 		labels = append(labels, r.Labels.GetModel()...)
 	}
-	err := d.SendNotification(monitorAPI.PolicyUpdateMessage(len(sourceRules), labels, newRev))
-	if err != nil {
-		logger.WithError(err).WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
+
+	if option.Config.DryMode {
+		err := m.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.PolicyUpdateMessage(len(sourceRules), labels, newRev))
+		if err != nil {
+			logger.WithError(err).WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
+		}
 	}
 
 	// Only regenerate endpoints which are needed to be regenerated as a
@@ -393,7 +431,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// and serialized with the corresponding ipcache deletes via the
 	// policy reaction queue.
 	r := &PolicyReactionEvent{
-		d:                 d,
+		m:                 m,
 		wg:                &policySelectionWG,
 		epsToBumpRevision: endpointsToBumpRevision,
 		endpointsToRegen:  endpointsToRegen,
@@ -408,7 +446,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// This event may block if the RuleReactionQueue is full. We don't care
 	// about when it finishes, just that the work it does is done in a serial
 	// order.
-	_, err = d.policy.RuleReactionQueue.Enqueue(ev)
+	_, err := m.Repo.RuleReactionQueue.Enqueue(ev)
 	if err != nil {
 		log.WithError(err).WithField(logfields.PolicyRevision, newRev).Error("enqueue of RuleReactionEvent failed")
 	}
@@ -418,7 +456,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 // to a policy repository for a daemon. This currently consists of endpoint
 // regenerations / policy revision incrementing for a given endpoint.
 type PolicyReactionEvent struct {
-	d                 *Daemon
+	m                 *PolicyManager
 	wg                *sync.WaitGroup
 	epsToBumpRevision *policy.EndpointSet
 	endpointsToRegen  *policy.EndpointSet
@@ -459,7 +497,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	//   this operation completes regardless of whether the BPF ipcache or
 	//   policymap gets updated first, so the ordering is not consequential.
 	if len(releasePrefixes) != 0 {
-		r.d.ipcache.RemovePrefixes(releasePrefixes, r.source, r.resource)
+		r.m.IPcache.RemovePrefixes(releasePrefixes, r.source, r.resource)
 	}
 
 	// Bump revision of endpoints which don't need to be regenerated.
@@ -503,7 +541,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	// SelectorCache / Endpoints to do an incremental identity update to
 	// the datapath maps (if necessary).
 	if len(upsertPrefixes) != 0 {
-		r.d.ipcache.UpsertPrefixes(upsertPrefixes, r.source, r.resource)
+		r.m.IPcache.UpsertPrefixes(upsertPrefixes, r.source, r.resource)
 	}
 }
 
@@ -512,12 +550,12 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 type PolicyDeleteEvent struct {
 	labels labels.LabelArray
 	opts   *policy.DeleteOptions
-	d      *Daemon
+	m      *PolicyManager
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (p *PolicyDeleteEvent) Handle(res chan interface{}) {
-	p.d.policyDelete(p.labels, p.opts, res)
+	p.m.policyDelete(p.labels, p.opts, res)
 }
 
 // PolicyDeleteResult is a wrapper around the values returned by policyDelete.
@@ -532,15 +570,15 @@ type PolicyDeleteResult struct {
 // the policy repository of the daemon.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
+func (m *PolicyManager) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
 
 	p := &PolicyDeleteEvent{
 		labels: labels,
 		opts:   opts,
-		d:      d,
+		m:      m,
 	}
 	policyDeleteEvent := eventqueue.NewEvent(p)
-	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
+	resChan, err := m.Repo.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
 	if err != nil {
 		return 0, fmt.Errorf("enqueue of PolicyDeleteEvent failed: %w", err)
 	}
@@ -553,10 +591,10 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	return 0, fmt.Errorf("policy deletion event cancelled")
 }
 
-func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptions, res chan interface{}) {
+func (m *PolicyManager) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptions, res chan interface{}) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
-	d.policy.Mutex.Lock()
+	m.Repo.Mutex.Lock()
 
 	// policySelectionWG is used to signal when the updating of all of the
 	// caches of allEndpoints in the rules which were added / updated have been
@@ -565,7 +603,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := d.endpointManager.GetPolicyEndpoints()
+	allEndpoints := m.EndpointManager.GetPolicyEndpoints()
 	// Initially keep all endpoints in set of endpoints which need to have
 	// revision bumped.
 	epsToBumpRevision := policy.NewEndpointSet(allEndpoints)
@@ -577,7 +615,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	var prefixes []netip.Prefix
 
 	if opts.DeleteByResource && len(opts.Resource) > 0 {
-		deletedRules, newRev := d.policy.DeleteByResourceLocked(opts.Resource)
+		deletedRules, newRev := m.Repo.DeleteByResourceLocked(opts.Resource)
 		rev = newRev
 		deleted = len(deletedRules)
 
@@ -585,7 +623,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		prefixes = policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())
 	} else {
 
-		deletedRules, newRev, _ := d.policy.DeleteByLabelsLocked(labels)
+		deletedRules, newRev, _ := m.Repo.DeleteByLabelsLocked(labels)
 		rev = newRev
 		deleted = len(deletedRules)
 
@@ -593,8 +631,8 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		// rules matching it. A deletion request for all policy entries should
 		// not fail if no policies are loaded.
 		if len(deletedRules) == 0 && len(labels) != 0 {
-			rev := d.policy.GetRevision()
-			d.policy.Mutex.Unlock()
+			rev := m.Repo.GetRevision()
+			m.Repo.Mutex.Unlock()
 
 			err := api.New(DeletePolicyNotFoundCode, "policy not found")
 
@@ -614,7 +652,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		err:    nil,
 	}
 
-	d.policy.Mutex.Unlock()
+	m.Repo.Mutex.Unlock()
 
 	// Now that the policies are deleted, we can also attempt to remove
 	// all CIDR identities referenced by the deleted rules.
@@ -628,7 +666,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	// This way there is a canonical ordering for policy updates and hence
 	// the subsequent Endpoint regenerations and ipcache updates.
 	r := &PolicyReactionEvent{
-		d:                 d,
+		m:                 m,
 		wg:                &policySelectionWG,
 		epsToBumpRevision: epsToBumpRevision,
 		endpointsToRegen:  endpointsToRegen,
@@ -642,17 +680,19 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	// This event may block if the RuleReactionQueue is full. We don't care
 	// about when it finishes, just that the work it does is done in a serial
 	// order.
-	if _, err := d.policy.RuleReactionQueue.Enqueue(ev); err != nil {
+	if _, err := m.Repo.RuleReactionQueue.Enqueue(ev); err != nil {
 		log.WithError(err).WithField(logfields.PolicyRevision, rev).Error("enqueue of RuleReactionEvent failed")
 	}
-	if err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev)); err != nil {
-		log.WithError(err).WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
+	if option.Config.DryMode {
+		if err := m.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev)); err != nil {
+			log.WithError(err).WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
+		}
 	}
 }
 
 func deletePolicyHandler(d *Daemon, params DeletePolicyParams) middleware.Responder {
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	rev, err := d.PolicyDelete(lbls, &policy.DeleteOptions{Source: source.LocalAPI})
+	rev, err := d.policyManager.PolicyDelete(lbls, &policy.DeleteOptions{Source: source.LocalAPI})
 	if err != nil {
 		return api.Error(DeletePolicyFailureCode, err)
 	}
@@ -685,7 +725,7 @@ func putPolicyHandler(d *Daemon, params PutPolicyParams) middleware.Responder {
 	}
 	replaceWithLabels := labels.ParseSelectLabelArrayFromArray(params.ReplaceWithLabels)
 
-	rev, err := d.PolicyAdd(rules, &policy.AddOptions{
+	rev, err := d.policyManager.PolicyAdd(rules, &policy.AddOptions{
 		Replace:           replace,
 		ReplaceWithLabels: replaceWithLabels,
 		Source:            source.LocalAPI,

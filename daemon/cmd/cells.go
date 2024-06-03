@@ -200,6 +200,10 @@ var (
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
 
+		// PolicyManager translates simple add/remove policy requests into the necessary
+		// operations to be done and signals to be generated.
+		cell.Provide(NewPolicyManager),
+
 		// IPAM metadata manager, determines which IPAM pool a pod should allocate from
 		ipamMetadata.Cell,
 

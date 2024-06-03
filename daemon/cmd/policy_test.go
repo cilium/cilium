@@ -311,7 +311,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
+	_, err3 := ds.d.policyManager.PolicyAdd(rules, policyAddOptions)
 	require.Equal(t, nil, err3)
 
 	// Prepare the identities necessary for testing
@@ -497,7 +497,7 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
+	_, err = ds.d.policyManager.PolicyAdd(rules, policyAddOptions)
 	require.Equal(t, nil, err)
 
 	// Prepare endpoints
@@ -593,7 +593,7 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
+	_, err = ds.d.policyManager.PolicyAdd(rules, policyAddOptions)
 	require.Equal(t, nil, err)
 
 	// Prepare endpoints
@@ -693,7 +693,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
+	_, err = ds.d.policyManager.PolicyAdd(rules, policyAddOptions)
 	require.Equal(t, nil, err)
 
 	// Prepare endpoints
@@ -779,7 +779,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	_, err := ds.d.PolicyAdd(rules, policyAddOptions)
+	_, err := ds.d.policyManager.PolicyAdd(rules, policyAddOptions)
 	require.Nil(t, err)
 	ds.d.policy.Mutex.RLock()
 	require.Equal(t, 2, len(ds.d.policy.SearchRLocked(lbls)))
@@ -794,7 +794,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 			},
 		},
 	}
-	_, err = ds.d.PolicyAdd(rules, &policy.AddOptions{Replace: true})
+	_, err = ds.d.policyManager.PolicyAdd(rules, &policy.AddOptions{Replace: true})
 
 	require.Nil(t, err)
 	ds.d.policy.Mutex.RLock()
@@ -875,7 +875,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
+	_, err3 := ds.d.policyManager.PolicyAdd(rules, policyAddOptions)
 	require.Equal(t, nil, err3)
 
 	cleanup, err2 := prepareEndpointDirs()
@@ -973,7 +973,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
+	_, err3 := ds.d.policyManager.PolicyAdd(rules, policyAddOptions)
 	require.Equal(t, nil, err3)
 
 	cleanup, err2 := prepareEndpointDirs()
@@ -1385,7 +1385,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 		// Only add policies if we have successfully parsed them. Otherwise, if
 		// parsing fails, `rules` is nil, which would wipe out the repo.
 		if want.err == nil {
-			_, policyImportErr = ds.d.PolicyAdd(rules, &policy.AddOptions{
+			_, policyImportErr = ds.d.policyManager.PolicyAdd(rules, &policy.AddOptions{
 				ReplaceWithLabels: args.cnp.GetIdentityLabels(),
 				Source:            metrics.LabelEventSourceK8s,
 			})

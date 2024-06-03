@@ -18,6 +18,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 type policyWatcher struct {
@@ -27,7 +28,7 @@ type policyWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
-	policyManager         PolicyManager
+	policyManager         policy.PolicyManager
 	svcCache              serviceCache
 	svcCacheNotifications <-chan k8s.ServiceNotification
 
