@@ -70,10 +70,6 @@ type AckingResourceMutator interface {
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
 
-	// UseCurrent inserts a completion that allows the caller to wait for the current
-	// version of the given typeURL to be ACKed.
-	UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup)
-
 	// DeleteNode frees resources held for the named node
 	DeleteNode(nodeID string)
 
@@ -159,18 +155,22 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
+	wait := wg != nil
+
 	var updated bool
 	var revert ResourceMutatorRevertFunc
 	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource)
 
 	if !updated {
-		if wg != nil {
+		if wait {
 			m.useCurrent(typeURL, nodeIDs, wg, callback)
+		} else if callback != nil {
+			callback(nil)
 		}
 		return func(completion *completion.Completion) {}
 	}
 
-	if wg != nil {
+	if wait {
 		// Create a new completion
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
@@ -190,6 +190,8 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
 		}
 		m.pendingCompletions[c] = comp
+	} else if callback != nil {
+		callback(nil)
 	}
 
 	// Returned revert function locks again, so it can NOT be called from 'callback' directly,
@@ -218,16 +220,6 @@ func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []stri
 	}
 }
 
-// UseCurrent adds a completion to the WaitGroup if the current
-// version of the cached resource has not been acked yet, allowing the
-// caller to wait for the ACK.
-func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	m.useCurrent(typeURL, nodeIDs, wg, nil)
-}
-
 func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) bool {
 	for _, node := range nodeIDs {
 		if acked, exists := m.ackedVersions[node]; !exists || acked < m.version {
@@ -247,6 +239,8 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
+	wait := wg != nil
+
 	// Always delete the resource, even if the completion's context was
 	// canceled before we even started, since we have no way to signal whether
 	// the resource is actually deleted.
@@ -260,13 +254,15 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	m.version, updated, revert = m.mutator.Delete(typeURL, resourceName)
 
 	if !updated {
-		if wg != nil {
+		if wait {
 			m.useCurrent(typeURL, nodeIDs, wg, callback)
+		} else if callback != nil {
+			callback(nil)
 		}
 		return func(completion *completion.Completion) {}
 	}
 
-	if wg != nil {
+	if wait {
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
 			log.WithFields(logrus.Fields{
@@ -276,6 +272,8 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		}
 
 		m.addVersionCompletion(typeURL, m.version, nodeIDs, c)
+	} else if callback != nil {
+		callback(nil)
 	}
 
 	return func(completion *completion.Completion) {
