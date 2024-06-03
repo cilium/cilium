@@ -125,6 +125,7 @@ type K8sWatcher struct {
 	k8sEventReporter     *K8sEventReporter
 	k8sPodWatcher        *K8sPodWatcher
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher
+	k8sNamespaceWatcher  *K8sNamespaceWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -157,6 +158,7 @@ func newWatcher(
 	clientset client.Clientset,
 	k8sPodWatcher *K8sPodWatcher,
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
+	k8sNamespaceWatcher *K8sNamespaceWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
@@ -176,6 +178,7 @@ func newWatcher(
 		k8sEventReporter:      k8sEventReporter,
 		k8sPodWatcher:         k8sPodWatcher,
 		k8sCiliumNodeWatcher:  k8sCiliumNodeWatcher,
+		k8sNamespaceWatcher:   k8sNamespaceWatcher,
 		k8sResourceSynced:     k8sResourceSynced,
 		k8sAPIGroups:          k8sAPIGroups,
 		K8sSvcCache:           serviceCache,
@@ -349,7 +352,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			asyncControllers.Add(1)
 			go k.k8sPodWatcher.podsInit(asyncControllers)
 		case k8sAPIGroupNamespaceV1Core:
-			k.namespacesInit()
+			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
 			go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
@@ -371,6 +374,11 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 	}
 
 	asyncControllers.Wait()
+}
+
+func (k *K8sWatcher) StopWatcher() {
+	close(k.stop)
+	k.k8sNamespaceWatcher.stopWatcher()
 }
 
 // K8sEventProcessed is called to do metrics accounting for each processed
@@ -399,4 +407,9 @@ func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, err
 // for a given interval to be sure that a CiliumNode with that name has not actually been created.
 func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
 	return k.k8sCiliumNodeWatcher.GetCiliumNode(ctx, nodeName)
+}
+
+// GetCachedNamespace returns a namespace from the local store.
+func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
+	return k.k8sNamespaceWatcher.GetCachedNamespace(namespace)
 }
