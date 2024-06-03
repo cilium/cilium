@@ -1,0 +1,32 @@
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: echo-ingress-l7-http-port-range
+spec:
+  description: "Allow other client port range to GET on echo"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  # Only allow 'other' client to make a GET /public requests.
+  # Allow GET /private' only if a particular HTTP header is set.
+  # Disallow L3 traffic for now, flow matcher doesn't yet support L7 drops.
+  - fromEndpoints:
+    - matchLabels:
+        other: client
+    toPorts:
+    - ports:
+      - port: "4096"
+        endPort: 8191
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/$"
+        - method: "GET"
+          path: "/public$"
+        - method: "GET"
+          path: "/private$"
+          headers:
+          - "X-Very-Secret-Token: 42"
