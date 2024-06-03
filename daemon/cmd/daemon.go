@@ -471,8 +471,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 
-	params.NodeDiscovery.RegisterK8sGetters(d.k8sWatcher)
-
 	bootstrapStats.daemonInit.End(true)
 
 	// Stop all endpoints (its goroutines) on exit.
