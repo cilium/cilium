@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/netip"
 	"sync"
-	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -21,7 +20,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -124,8 +122,9 @@ type K8sWatcher struct {
 
 	clientset client.Clientset
 
-	k8sEventReporter *K8sEventReporter
-	k8sPodWatcher    *K8sPodWatcher
+	k8sEventReporter     *K8sEventReporter
+	k8sPodWatcher        *K8sPodWatcher
+	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -141,7 +140,6 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeManager           nodeManager
 	policyManager         policyManager
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
@@ -149,8 +147,6 @@ type K8sWatcher struct {
 	ipcache               ipcacheManager
 
 	stop chan struct{}
-
-	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
 	cfg WatcherConfiguration
 
@@ -160,11 +156,11 @@ type K8sWatcher struct {
 func newWatcher(
 	clientset client.Clientset,
 	k8sPodWatcher *K8sPodWatcher,
+	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
 	endpointManager endpointManager,
-	nodeManager nodeManager,
 	policyManager policyManager,
 	svcManager svcManager,
 	redirectPolicyManager redirectPolicyManager,
@@ -179,11 +175,11 @@ func newWatcher(
 		clientset:             clientset,
 		k8sEventReporter:      k8sEventReporter,
 		k8sPodWatcher:         k8sPodWatcher,
+		k8sCiliumNodeWatcher:  k8sCiliumNodeWatcher,
 		k8sResourceSynced:     k8sResourceSynced,
 		k8sAPIGroups:          k8sAPIGroups,
 		K8sSvcCache:           serviceCache,
 		endpointManager:       endpointManager,
-		nodeManager:           nodeManager,
 		policyManager:         policyManager,
 		svcManager:            svcManager,
 		ipcache:               ipcache,
@@ -356,7 +352,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
-			go k.ciliumNodeInit(ctx, asyncControllers)
+			go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
 		case resources.K8sAPIGroupServiceV1Core:
 			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
@@ -392,4 +388,15 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 // GetCachedPod returns a pod from the local store.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	return k.k8sPodWatcher.GetCachedPod(namespace, name)
+}
+
+// GetCiliumNode returns the CiliumNode "nodeName" from the local Resource[T] store. If the
+// local Resource[T] store is not initialized or the key value store is connected, then it will
+// retrieve the node from kube-apiserver.
+// Note that it may be possible (although rare) that the requested nodeName is not yet in the
+// store if the local cache is falling behind due to the high amount of CiliumNode events
+// received from the k8s API server. To mitigate this, the caller should retry GetCiliumNode
+// for a given interval to be sure that a CiliumNode with that name has not actually been created.
+func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
+	return k.k8sCiliumNodeWatcher.GetCiliumNode(ctx, nodeName)
 }
