@@ -62,7 +62,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer, err := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
+	xdsServer, err := StartXDSServer(nil, testipcache.NewMockIPCache(), testRunDir)
 	c.Assert(err, IsNil)
 	defer xdsServer.Stop()
 
@@ -146,7 +146,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer, err := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
+	xdsServer, err := StartXDSServer(nil, testipcache.NewMockIPCache(), testRunDir)
 	c.Assert(err, IsNil)
 	defer xdsServer.Stop()
 

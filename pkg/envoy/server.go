@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -134,6 +136,8 @@ type XDSServer struct {
 
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
+
+	restorerPromise promise.Promise[endpointstate.Restorer]
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -145,7 +149,7 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServer, error) {
+func StartXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipcache IPCacheEventSource, envoySocketDir string) (*XDSServer, error) {
 	xdsSocketPath := getXDSSocketPath(envoySocketDir)
 
 	os.Remove(xdsSocketPath)
@@ -212,19 +216,10 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServ
 		AckObserver: &nphdsCache,
 	}
 
-	stopServer := startXDSGRPCServer(socketListener, map[string]*xds.ResourceTypeConfiguration{
-		ListenerTypeURL:           ldsConfig,
-		RouteTypeURL:              rdsConfig,
-		ClusterTypeURL:            cdsConfig,
-		EndpointTypeURL:           edsConfig,
-		SecretTypeURL:             sdsConfig,
-		NetworkPolicyTypeURL:      npdsConfig,
-		NetworkPolicyHostsTypeURL: nphdsConfig,
-	}, 5*time.Second)
-
-	return &XDSServer{
+	s := &XDSServer{
 		socketPath:             xdsSocketPath,
 		accessLogPath:          getAccessLogSocketPath(envoySocketDir),
+		restorerPromise:        restorerPromise,
 		listenerMutator:        ldsMutator,
 		listenerCount:          make(map[string]uint),
 		routeMutator:           rdsMutator,
@@ -234,8 +229,19 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServ
 		networkPolicyCache:     npdsCache,
 		NetworkPolicyMutator:   npdsMutator,
 		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
-		stopServer:             stopServer,
-	}, nil
+	}
+
+	s.stopServer = s.startXDSGRPCServer(socketListener, map[string]*xds.ResourceTypeConfiguration{
+		ListenerTypeURL:           ldsConfig,
+		RouteTypeURL:              rdsConfig,
+		ClusterTypeURL:            cdsConfig,
+		EndpointTypeURL:           edsConfig,
+		SecretTypeURL:             sdsConfig,
+		NetworkPolicyTypeURL:      npdsConfig,
+		NetworkPolicyHostsTypeURL: nphdsConfig,
+	}, 5*time.Second)
+
+	return s, nil
 }
 
 func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
