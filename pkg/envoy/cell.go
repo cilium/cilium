@@ -15,12 +15,14 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -112,6 +114,7 @@ type xdsServerParams struct {
 
 	Lifecycle          cell.Lifecycle
 	IPCache            *ipcache.IPCache
+	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
 
 	EnvoyProxyConfig envoyProxyConfig
@@ -128,6 +131,7 @@ type xdsServerParams struct {
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	xdsServer, err := newXDSServer(
+		params.RestorerPromise,
 		params.IPCache,
 		params.LocalEndpointStore,
 		xdsServerConfig{
