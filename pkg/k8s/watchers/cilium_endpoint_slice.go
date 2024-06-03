@@ -14,11 +14,9 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
-var (
-	cesNotify = subscriber.NewCES()
-)
+var cesNotify = subscriber.NewCES()
 
-func (k *K8sWatcher) ciliumEndpointSliceInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
+func (k *K8sCiliumEndpointsWatcher) ciliumEndpointSliceInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
 	log.Info("Initializing CES controller")
 
 	var once sync.Once

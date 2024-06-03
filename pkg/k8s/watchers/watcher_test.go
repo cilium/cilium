@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -20,49 +19,15 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
-
-var emptyResources = agentK8s.Resources{}
 
 type fakeWatcherConfiguration struct{}
 
 func (f *fakeWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
-}
-
-type fakePolicyManager struct {
-	OnTriggerPolicyUpdates func(force bool, reason string)
-	OnPolicyAdd            func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	OnPolicyDelete         func(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
-}
-
-func (f *fakePolicyManager) TriggerPolicyUpdates(force bool, reason string) {
-	if f.OnTriggerPolicyUpdates != nil {
-		f.OnTriggerPolicyUpdates(force, reason)
-		return
-	}
-	panic("OnTriggerPolicyUpdates(force bool, reason string) was called and is not set!")
-}
-
-func (f *fakePolicyManager) PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
-	if f.OnPolicyAdd != nil {
-		return f.OnPolicyAdd(rules, opts)
-	}
-	panic("OnPolicyAdd(api.Rules, *policy.AddOptions) (uint64, error) was called and is not set!")
-}
-
-func (f *fakePolicyManager) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
-	if f.OnPolicyDelete != nil {
-		return f.OnPolicyDelete(labels, opts)
-	}
-	panic("OnPolicyDelete(labels.LabelArray, *policy.DeleteOptions) (uint64, error) was called and is not set!")
 }
 
 type fakeSvcManager struct {
@@ -338,11 +303,6 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	upsert2nd := map[string]loadbalancer.SVC{}
 	del1st := map[string]struct{}{}
 
-	policyManager := &fakePolicyManager{
-		OnTriggerPolicyUpdates: func(force bool, reason string) {
-		},
-	}
-
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
@@ -395,10 +355,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		policyManager,
 		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		emptyResources,
 		k8sSvcCache,
 	)
 	go svcWatcher.k8sServiceHandler()
@@ -509,11 +466,6 @@ func TestChangeSVCPort(t *testing.T) {
 
 	upserts := []loadbalancer.SVC{}
 
-	policyManager := &fakePolicyManager{
-		OnTriggerPolicyUpdates: func(force bool, reason string) {
-		},
-	}
-
 	svcUpsertManagerCalls := 0
 
 	svcManager := &fakeSvcManager{
@@ -550,10 +502,7 @@ func TestChangeSVCPort(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		policyManager,
 		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		emptyResources,
 		k8sSvcCache,
 	)
 	go svcWatcher.k8sServiceHandler()
@@ -977,11 +926,6 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 	upsert2nd := map[string]loadbalancer.SVC{}
 	del1st := map[string]struct{}{}
 
-	policyManager := &fakePolicyManager{
-		OnTriggerPolicyUpdates: func(force bool, reason string) {
-		},
-	}
-
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
@@ -1034,10 +978,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		policyManager,
 		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		emptyResources,
 		k8sSvcCache,
 	)
 	go svcWatcher.k8sServiceHandler()
@@ -1293,11 +1234,6 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 	upsert2nd := map[string]loadbalancer.SVC{}
 	del1st := map[string]loadbalancer.L3n4Addr{}
 
-	policyManager := &fakePolicyManager{
-		OnTriggerPolicyUpdates: func(force bool, reason string) {
-		},
-	}
-
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 	wantSvcUpsertManagerCalls := len(upsert1stWanted) + len(upsert2ndWanted)
 	wantSvcDeleteManagerCalls := len(del1stWanted)
@@ -1352,10 +1288,7 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		policyManager,
 		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		emptyResources,
 		k8sSvcCache,
 	)
 	go svcWatcher.k8sServiceHandler()
@@ -1604,11 +1537,6 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 	upsert2nd := map[string]loadbalancer.SVC{}
 	del1st := map[string]loadbalancer.L3n4Addr{}
 
-	policyManager := &fakePolicyManager{
-		OnTriggerPolicyUpdates: func(force bool, reason string) {
-		},
-	}
-
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 	wantSvcUpsertManagerCalls := len(upsert1stWanted) + len(upsert2ndWanted)
 	wantSvcDeleteManagerCalls := len(del1stWanted)
@@ -1663,10 +1591,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		policyManager,
 		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		emptyResources,
 		k8sSvcCache,
 	)
 	go svcWatcher.k8sServiceHandler()
@@ -2517,11 +2442,6 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	del1st := map[string]struct{}{}
 	del2nd := map[string]struct{}{}
 
-	policyManager := &fakePolicyManager{
-		OnTriggerPolicyUpdates: func(force bool, reason string) {
-		},
-	}
-
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
@@ -2588,10 +2508,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		policyManager,
 		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		emptyResources,
 		k8sSvcCache,
 	)
 	go svcWatcher.k8sServiceHandler()
@@ -2636,13 +2553,10 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		&synced.Resources{},
 		nil,
-		nil,
-		nil,
 		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		emptyResources,
 		nil,
 	)
 

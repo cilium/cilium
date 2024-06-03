@@ -6,14 +6,10 @@ package watchers
 import (
 	"github.com/cilium/hive/cell"
 
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 // Cell provides the global k8s watcher.
@@ -28,29 +24,27 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newK8sServiceWatcher),
 	cell.ProvidePrivate(newK8sEndpointsWatcher),
 	cell.ProvidePrivate(newK8sCiliumLRPWatcher),
+	cell.ProvidePrivate(newK8sCiliumEndpointsWatcher),
 	cell.ProvidePrivate(newK8sEventReporter),
 )
 
 type k8sWatcherParams struct {
 	cell.In
 
-	K8sEventReporter     *K8sEventReporter
-	K8sPodWatcher        *K8sPodWatcher
-	K8sCiliumNodeWatcher *K8sCiliumNodeWatcher
-	K8sNamespaceWatcher  *K8sNamespaceWatcher
-	K8sServiceWatcher    *K8sServiceWatcher
-	K8sEndpointsWatcher  *K8sEndpointsWatcher
-	K8sCiliumLRPWatcher  *K8sCiliumLRPWatcher
+	K8sEventReporter          *K8sEventReporter
+	K8sPodWatcher             *K8sPodWatcher
+	K8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
+	K8sNamespaceWatcher       *K8sNamespaceWatcher
+	K8sServiceWatcher         *K8sServiceWatcher
+	K8sEndpointsWatcher       *K8sEndpointsWatcher
+	K8sCiliumLRPWatcher       *K8sCiliumLRPWatcher
+	K8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher
 
 	AgentConfig *option.DaemonConfig
 
 	Clientset         k8sClient.Clientset
-	Resources         agentK8s.Resources
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
-	EndpointManager   endpointmanager.EndpointManager
-	PolicyUpdater     *policy.Updater
-	IPCache           *ipcache.IPCache
 	ServiceCache      *k8s.ServiceCache
 }
 
@@ -63,14 +57,11 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.K8sServiceWatcher,
 		params.K8sEndpointsWatcher,
 		params.K8sCiliumLRPWatcher,
+		params.K8sCiliumEndpointsWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
-		params.EndpointManager,
-		params.PolicyUpdater,
 		params.AgentConfig,
-		params.IPCache,
-		params.Resources,
 		params.ServiceCache,
 	)
 }
