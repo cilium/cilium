@@ -4,6 +4,7 @@
 package watchers
 
 import (
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -11,17 +12,60 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
-func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Clientset) {
+type k8sCiliumLRPWatcherParams struct {
+	cell.In
+
+	K8sEventReporter *K8sEventReporter
+
+	Clientset         k8sClient.Clientset
+	K8sResourceSynced *k8sSynced.Resources
+	K8sAPIGroups      *k8sSynced.APIGroups
+
+	LRPManager *redirectpolicy.Manager
+}
+
+func newK8sCiliumLRPWatcher(params k8sCiliumLRPWatcherParams) *K8sCiliumLRPWatcher {
+	return &K8sCiliumLRPWatcher{
+		clientset:             params.Clientset,
+		k8sEventReporter:      params.K8sEventReporter,
+		k8sResourceSynced:     params.K8sResourceSynced,
+		k8sAPIGroups:          params.K8sAPIGroups,
+		redirectPolicyManager: params.LRPManager,
+		stop:                  make(chan struct{}),
+	}
+}
+
+type K8sCiliumLRPWatcher struct {
+	clientset k8sClient.Clientset
+
+	k8sEventReporter *K8sEventReporter
+
+	// k8sResourceSynced maps a resource name to a channel. Once the given
+	// resource name is synchronized with k8s, the channel for which that
+	// resource name maps to is closed.
+	k8sResourceSynced *k8sSynced.Resources
+
+	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
+	// and may be disabled while the agent runs.
+	k8sAPIGroups *k8sSynced.APIGroups
+
+	redirectPolicyManager redirectPolicyManager
+
+	stop chan struct{}
+}
+
+func (k *K8sCiliumLRPWatcher) ciliumLocalRedirectPolicyInit() {
 	apiGroup := k8sAPIGroupCiliumLocalRedirectPolicyV2
 	_, lrpController := informer.NewInformer(
-		cache.NewListWatchFromClient(ciliumLRPClient.CiliumV2().RESTClient(),
+		cache.NewListWatchFromClient(k.clientset.CiliumV2().RESTClient(),
 			"ciliumlocalredirectpolicies", v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumLocalRedirectPolicy{},
 		0,
@@ -68,7 +112,11 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumLocalRedirectPolicyV2)
 }
 
-func (k *K8sWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
+func (k *K8sCiliumLRPWatcher) stopWatcher() {
+	close(k.stop)
+}
+
+func (k *K8sCiliumLRPWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumLocalRedirectName: clrp.ObjectMeta.Name,
 		logfields.K8sUID:                  clrp.ObjectMeta.UID,
@@ -94,7 +142,7 @@ func (k *K8sWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRed
 	return policyAddErr
 }
 
-func (k *K8sWatcher) deleteCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
+func (k *K8sCiliumLRPWatcher) deleteCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumLocalRedirectName: clrp.ObjectMeta.Name,
 		logfields.K8sUID:                  clrp.ObjectMeta.UID,
