@@ -5,13 +5,9 @@ package watchers
 
 import (
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
-	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
-	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -30,6 +26,7 @@ var Cell = cell.Module(
 	"K8s Watcher",
 
 	cell.Provide(newK8sWatcher),
+	cell.ProvidePrivate(newK8sPodWatcher),
 	cell.ProvidePrivate(newK8sEventReporter),
 )
 
@@ -37,6 +34,7 @@ type k8sWatcherParams struct {
 	cell.In
 
 	K8sEventReporter *K8sEventReporter
+	K8sPodWatcher    *K8sPodWatcher
 
 	AgentConfig *option.DaemonConfig
 
@@ -50,17 +48,14 @@ type k8sWatcherParams struct {
 	IPCache           *ipcache.IPCache
 	ServiceCache      *k8s.ServiceCache
 	ServiceManager    service.ServiceManager
-	DB                *statedb.DB
-	NodeAddrs         statedb.Table[datapathTables.NodeAddress]
 	LRPManager        *redirectpolicy.Manager
-	BandwidthManager  datapath.BandwidthManager
 	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
-	CGroupManager     cgroup.CGroupManager
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 	return newWatcher(
 		params.Clientset,
+		params.K8sPodWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
@@ -72,11 +67,7 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.MetalLBBgpSpeaker,
 		params.AgentConfig,
 		params.IPCache,
-		params.CGroupManager,
 		params.Resources,
 		params.ServiceCache,
-		params.BandwidthManager,
-		params.DB,
-		params.NodeAddrs,
 	)
 }

@@ -385,18 +385,15 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		policyManager,
 		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
-		nil,
 		emptyResources,
 		k8s.NewServiceCache(db, nodeAddrs),
-		nil,
-		db,
-		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -537,18 +534,15 @@ func TestChangeSVCPort(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		policyManager,
 		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
-		nil,
 		emptyResources,
 		k8s.NewServiceCache(db, nodeAddrs),
-		nil,
-		db,
-		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1018,18 +1012,15 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		policyManager,
 		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
-		nil,
 		emptyResources,
 		k8s.NewServiceCache(db, nodeAddrs),
-		nil,
-		db,
-		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1333,18 +1324,15 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		policyManager,
 		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
-		nil,
 		emptyResources,
 		k8s.NewServiceCache(db, nodeAddrs),
-		nil,
-		db,
-		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1641,18 +1629,15 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		policyManager,
 		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
-		nil,
 		emptyResources,
 		k8s.NewServiceCache(db, nodeAddrs),
-		nil,
-		db,
-		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2563,18 +2548,15 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		policyManager,
 		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
-		nil,
 		emptyResources,
 		k8s.NewServiceCache(db, nodeAddrs),
-		nil,
-		db,
-		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2608,6 +2590,10 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 
 	w := newWatcher(
 		fakeClientSet,
+		&K8sPodWatcher{
+			controllersStarted: make(chan struct{}),
+			podStoreSet:        make(chan struct{}),
+		},
 		nil,
 		&synced.Resources{},
 		nil,
@@ -2619,11 +2605,7 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
-		nil,
 		emptyResources,
-		nil,
-		nil,
-		nil,
 		nil,
 	)
 
