@@ -126,6 +126,7 @@ type K8sWatcher struct {
 	k8sPodWatcher        *K8sPodWatcher
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher
 	k8sNamespaceWatcher  *K8sNamespaceWatcher
+	k8sServiceWatcher    *K8sServiceWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -142,7 +143,6 @@ type K8sWatcher struct {
 	endpointManager endpointManager
 
 	policyManager         policyManager
-	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	ipcache               ipcacheManager
@@ -159,12 +159,12 @@ func newWatcher(
 	k8sPodWatcher *K8sPodWatcher,
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
 	k8sNamespaceWatcher *K8sNamespaceWatcher,
+	k8sServiceWatcher *K8sServiceWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
 	endpointManager endpointManager,
 	policyManager policyManager,
-	svcManager svcManager,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
 	cfg WatcherConfiguration,
@@ -179,12 +179,12 @@ func newWatcher(
 		k8sPodWatcher:         k8sPodWatcher,
 		k8sCiliumNodeWatcher:  k8sCiliumNodeWatcher,
 		k8sNamespaceWatcher:   k8sNamespaceWatcher,
+		k8sServiceWatcher:     k8sServiceWatcher,
 		k8sResourceSynced:     k8sResourceSynced,
 		k8sAPIGroups:          k8sAPIGroups,
 		K8sSvcCache:           serviceCache,
 		endpointManager:       endpointManager,
 		policyManager:         policyManager,
-		svcManager:            svcManager,
 		ipcache:               ipcache,
 		stop:                  make(chan struct{}),
 		redirectPolicyManager: redirectPolicyManager,
@@ -357,7 +357,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			asyncControllers.Add(1)
 			go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
 		case resources.K8sAPIGroupServiceV1Core:
-			k.servicesInit()
+			k.k8sServiceWatcher.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
 			k.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
@@ -379,6 +379,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 func (k *K8sWatcher) StopWatcher() {
 	close(k.stop)
 	k.k8sNamespaceWatcher.stopWatcher()
+	k.k8sServiceWatcher.stopWatcher()
 }
 
 // K8sEventProcessed is called to do metrics accounting for each processed
@@ -412,4 +413,8 @@ func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*ciliu
 // GetCachedNamespace returns a namespace from the local store.
 func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
 	return k.k8sNamespaceWatcher.GetCachedNamespace(namespace)
+}
+
+func (k *K8sWatcher) RunK8sServiceHandler() {
+	k.k8sServiceWatcher.RunK8sServiceHandler()
 }
