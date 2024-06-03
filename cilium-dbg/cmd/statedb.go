@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/nat/stats"
 )
@@ -140,6 +141,35 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 	return cmd
 }
 
+type netPolicy struct {
+	*cilium_api_v2.CiliumNetworkPolicy
+}
+
+func (n netPolicy) TableHeader() []string {
+	return []string{
+		"Namespace",
+		"Name",
+		"Description",
+		"Labels",
+		"EndpointSelector",
+		"NodeSelector",
+		// etc.
+		"Status",
+	}
+}
+
+func (n netPolicy) TableRow() []string {
+	return []string{
+		n.Namespace,
+		n.Name,
+		n.Spec.Description,
+		n.Spec.Labels.String(),
+		n.Spec.EndpointSelector.String(),
+		n.Spec.NodeSelector.String(),
+		fmt.Sprintf("%v", n.Status),
+	}
+}
+
 func init() {
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,
@@ -154,6 +184,8 @@ func init() {
 		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
 		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
 		statedbTableCommand[stats.NatMapStats](stats.TableName),
+
+		statedbTableCommand[netPolicy]("k8s-cilium-network-policies"),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

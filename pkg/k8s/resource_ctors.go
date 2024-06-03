@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -147,15 +148,21 @@ func NetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(
 	return resource.New[*slim_networkingv1.NetworkPolicy](lc, lw, resource.WithMetric("NetworkPolicy")), nil
 }
 
-func CiliumNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
+func CiliumNetworkPolicyResource(params resource.Params, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (tbl statedb.Table[*cilium_api_v2.CiliumNetworkPolicy], idx statedb.Index[*cilium_api_v2.CiliumNetworkPolicy, resource.Key], r resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], retErr error) {
 	if !cs.IsEnabled() {
-		return nil, nil
+		return
 	}
 	lw := utils.ListerWatcherWithModifiers(
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNetworkPolicyList](cs.CiliumV2().CiliumNetworkPolicies("")),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumNetworkPolicy](lc, lw, resource.WithMetric("CiliumNetworkPolicy")), nil
+	table, index, resource := resource.NewTableResource[*cilium_api_v2.CiliumNetworkPolicy](
+		"cilium-network-policies",
+		lw,
+		params,
+		resource.WithMetric("CiliumNetworkPolicy"),
+	)
+	return table, index, resource, nil
 }
 
 func CiliumClusterwideNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy], error) {
