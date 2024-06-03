@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -27,39 +26,16 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
-
-type nodeEvent struct {
-	event  string
-	prefix netip.Prefix
-}
-
-type ipcacheMock struct {
-	events chan nodeEvent
-}
-
-func newIPcacheMock() *ipcacheMock {
-	return &ipcacheMock{
-		events: make(chan nodeEvent, 1024),
-	}
-}
 
 func newFixture(t testing.TB, p NodeManagerParams) *manager {
 	if p.DaemonConfig == nil {
 		p.DaemonConfig = &option.DaemonConfig{}
-	}
-	if p.IPCache == nil {
-		p.IPCache = newIPcacheMock()
 	}
 	if p.IPSetMgr == nil {
 		p.IPSetMgr = newIPSetMock()
@@ -108,44 +84,6 @@ func AddrOrPrefixToIP(ip string) (netip.Prefix, error) {
 	}
 
 	return prefix, err
-}
-
-func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
-	addr, err := AddrOrPrefixToIP(ip)
-	if err != nil {
-		i.events <- nodeEvent{fmt.Sprintf("upsert failed: %s", err), addr}
-		return false, err
-	}
-	i.events <- nodeEvent{"upsert", addr}
-	return false, nil
-}
-
-func (i *ipcacheMock) Delete(ip string, source source.Source) bool {
-	addr, err := AddrOrPrefixToIP(ip)
-	if err != nil {
-		i.events <- nodeEvent{fmt.Sprintf("delete failed: %s", err), addr}
-		return false
-	}
-	i.events <- nodeEvent{"delete", addr}
-	return false
-}
-
-func (i *ipcacheMock) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source {
-	return source.Unspec
-}
-func (i *ipcacheMock) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
-	i.Upsert(prefix.String(), nil, 0, nil, ipcache.Identity{})
-}
-func (i *ipcacheMock) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
-	i.UpsertMetadata(prefix, src, resource)
-}
-
-func (i *ipcacheMock) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
-	i.Delete(prefix.String(), source.CustomResource)
-}
-
-func (i *ipcacheMock) RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
-	i.Delete(prefix.String(), source.CustomResource)
 }
 
 type ipsetMock struct {
@@ -428,12 +366,10 @@ func TestMultipleSources(t *testing.T) {
 }
 
 func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
-	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(NodeManagerParams{
 		DaemonConfig: &option.DaemonConfig{},
-		IPCache:      ipcacheMock,
 		IPSetMgr:     newIPSetMock(),
 		NodeMetrics:  NewNodeMetrics(),
 		Health:       h})
@@ -521,342 +457,6 @@ func TestBackgroundSync(t *testing.T) {
 	allNodeValidateCallsReceived.Wait()
 }*/
 
-func TestIpcache(t *testing.T) {
-	ipcacheMock := newIPcacheMock()
-	mngr := newFixture(t,
-		NodeManagerParams{
-			IPCache: ipcacheMock,
-		})
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
-		},
-	}
-	mngr.NodeUpdated(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-
-	mngr.NodeDeleted(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-}
-
-func TestIpcacheHealthIP(t *testing.T) {
-	ipcacheMock := newIPcacheMock()
-	dp := newSignalNodeHandler()
-	mngr := newFixture(t, NodeManagerParams{IPCache: ipcacheMock})
-	mngr.Subscribe(dp)
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1").To4()},
-		},
-		IPv4HealthIP: net.ParseIP("10.0.0.4"),
-		IPv6HealthIP: net.ParseIP("f00d::4"),
-	}
-	mngr.NodeUpdated(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.4")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::4")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-
-	mngr.NodeDeleted(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.4")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP f00d::4")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-}
-
-func TestNodeEncryption(t *testing.T) {
-	setup(t)
-
-	ipcacheMock := newIPcacheMock()
-	mngr := newFixture(
-		t,
-		NodeManagerParams{
-			IPCache:      ipcacheMock,
-			DaemonConfig: &option.DaemonConfig{EncryptNode: true, EnableIPSec: true},
-		})
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
-		},
-	}
-	mngr.NodeUpdated(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-
-	mngr.NodeDeleted(n1)
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-}
-
-func TestNode(t *testing.T) {
-	ipcacheMock := newIPcacheMock()
-	ipcacheExpect := func(eventType, ipStr string) {
-		select {
-		case event := <-ipcacheMock.events:
-			b := 32
-			if strings.Contains(ipStr, ":") {
-				b = 128
-			}
-			require.Equal(t, nodeEvent{event: eventType, prefix: netip.PrefixFrom(netip.MustParseAddr(ipStr), b)}, event)
-		case <-time.After(5 * time.Second):
-			t.Errorf("timeout while waiting for ipcache upsert for IP %s", ipStr)
-		}
-	}
-
-	dp := newSignalNodeHandler()
-	dp.EnableNodeAddEvent = true
-	dp.EnableNodeUpdateEvent = true
-	dp.EnableNodeDeleteEvent = true
-
-	mngr := newFixture(t, NodeManagerParams{IPCache: ipcacheMock})
-	mngr.Subscribe(dp)
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{
-				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("192.0.2.1"),
-			},
-			{
-				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("2001:DB8::1"),
-			},
-		},
-		IPv4HealthIP: net.ParseIP("192.0.2.2"),
-		IPv6HealthIP: net.ParseIP("2001:DB8::2"),
-		Source:       source.KVStore,
-	}
-	mngr.NodeUpdated(n1)
-
-	select {
-	case nodeEvent := <-dp.NodeAddEvent:
-		require.Equal(t, n1, nodeEvent)
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		t.Errorf("timeout while waiting for NodeAdd() event for node1")
-	}
-
-	ipcacheExpect("upsert", "192.0.2.1")
-	ipcacheExpect("upsert", "2001:DB8::1")
-	ipcacheExpect("upsert", "192.0.2.2")
-	ipcacheExpect("upsert", "2001:DB8::2")
-
-	n1V2 := n1.DeepCopy()
-	n1V2.IPAddresses = []nodeTypes.Address{
-		{
-			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("192.0.2.10"),
-		},
-		{
-			// We will keep the IPv6 the same to make sure we will not delete it
-			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("2001:DB8::1"),
-		},
-	}
-	n1V2.IPv4HealthIP = net.ParseIP("192.0.2.20")
-	n1V2.IPv6HealthIP = net.ParseIP("2001:DB8::20")
-	mngr.NodeUpdated(*n1V2)
-
-	select {
-	case nodeEvent := <-dp.NodeAddEvent:
-		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		require.Equal(t, *n1V2, nodeEvent)
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		t.Errorf("timeout while waiting for NodeUpdate() event for node2")
-	}
-
-	ipcacheExpect("upsert", "192.0.2.10")
-	ipcacheExpect("upsert", "2001:DB8::1")
-	ipcacheExpect("upsert", "192.0.2.20")
-	ipcacheExpect("upsert", "2001:DB8::20")
-
-	ipcacheExpect("delete", "192.0.2.1")
-	ipcacheExpect("delete", "192.0.2.2")
-	ipcacheExpect("delete", "2001:DB8::2")
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("Received unexpected event %+v", event)
-	case <-time.After(1 * time.Second):
-	}
-
-	nodes := mngr.GetNodes()
-	require.Len(t, nodes, 1)
-	n, ok := nodes[n1.Identity()]
-	require.True(t, ok)
-	// Needs to be the same as n2
-	require.Equal(t, *n1V2, n)
-}
-
 /* FIXME
 func TestNodeManagerEmitStatus(t *testing.T) {
 	// Tests health reporting on node manager.
@@ -938,16 +538,7 @@ type testParams struct {
 	IPSetFilterFn IPSetFilterFn
 }*/
 
-type mockUpdater struct{}
-
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap, _ *sync.WaitGroup) {}
-
-type mockTriggerer struct{}
-
-func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
-	return wg
-}
-
+/*
 func TestNodeWithSameInternalIP(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	allocator := testidentity.NewMockIdentityAllocator(nil)
@@ -964,7 +555,6 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	mngr := newFixture(t, NodeManagerParams{
 		DaemonConfig: &option.DaemonConfig{LocalRouterIPv4: "169.254.4.6"},
-		IPCache:      ipcache,
 	})
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1032,7 +622,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
-}
+}*/
 
 // TestNodeIpset tests that the ipset entries on the node are updated correctly
 // when a node is updated or removed.

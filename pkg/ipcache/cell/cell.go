@@ -21,6 +21,7 @@ var Cell = cell.Module(
 	"Managing IP to identity mappings",
 
 	cell.Provide(newIPCache),
+	ipcache.NodeReconcilerCell,
 )
 
 type ipCacheParams struct {

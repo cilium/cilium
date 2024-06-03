@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/fs"
 	"math/rand/v2"
-	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -30,12 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -48,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
-	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -60,15 +53,6 @@ const (
 
 	baseBackgroundSyncInterval = time.Minute
 )
-
-// IPCache is the set of interactions the node manager performs with the ipcache
-type IPCache interface {
-	GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source
-	UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
-	OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
-	RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
-	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
-}
 
 // IPSetFilterFn is a function allowing to optionally filter out the insertion
 // of IPSet entries based on node characteristics. The insertion is performed
@@ -98,9 +82,6 @@ type manager struct {
 	// conf is the configuration of the caller passed in via NewManager.
 	// This field is immutable after NewManager()
 	conf *option.DaemonConfig
-
-	// ipcache is the set operations performed against the ipcache
-	ipcache IPCache
 
 	// ipsetMgr is the ipset cluster nodes configuration manager
 	ipsetMgr         ipset.Manager
@@ -211,11 +192,10 @@ func New(p NodeManagerParams) (*manager, error) {
 		db:               p.DB,
 		nodesTable:       p.NodesTable,
 		markInitialized:  markInit,
+		synthesizeDelete: make(chan *nodeTypes.Node),
 		addHandler:       make(chan datapath.NodeHandler),
 		delHandler:       make(chan datapath.NodeHandler),
-		synthesizeDelete: make(chan *nodeTypes.Node),
 		conf:             p.DaemonConfig,
-		ipcache:          p.IPCache,
 		ipsetMgr:         p.IPSetMgr,
 		ipsetInitializer: p.IPSetMgr.NewInitializer(),
 		ipsetFilter:      p.IPSetFilter,
@@ -623,76 +603,6 @@ func (m *manager) neighRefreshLoop(ctx context.Context, health cell.Health) erro
 	}
 }
 
-func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
-	// If the host firewall is enabled, all traffic to remote nodes must go
-	// through the tunnel to preserve the source identity as part of the
-	// encapsulation. In encryption case we also want to use vxlan device
-	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
-	return address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
-		m.conf.EnableHostFirewall || m.conf.JoinCluster
-}
-
-func (m *manager) nodeAddressHasEncryptKey() bool {
-	// If we are doing encryption, but not node based encryption, then do not
-	// add a key to the nodeIPs so that we avoid a trip through stack and attempting
-	// to encrypt something we know does not have an encryption policy installed
-	// in the datapath. By setting key=0 and tunnelIP this will result in traffic
-	// being sent unencrypted over overlay device.
-	return m.conf.NodeEncryptionEnabled() &&
-		// Also ignore any remote node's key if the local node opted to not perform
-		// node-to-node encryption
-		!node.GetOptOutNodeEncryption()
-}
-
-// endpointEncryptionKey returns the encryption key index to use for the health
-// and ingress endpoints of a node. This is needed for WireGuard where the
-// node's EncryptionKey and the endpoint's EncryptionKey are not the same if
-// a node has opted out of node-to-node encryption by zeroing n.EncryptionKey.
-// With WireGuard, we always want to encrypt pod-to-pod traffic, thus we return
-// a static non-zero encrypt key here.
-// With IPSec (or no encryption), the node's encryption key index and the
-// encryption key of the endpoint on that node are the same.
-func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptKey {
-	if m.conf.EnableWireguard {
-		return ipcacheTypes.EncryptKey(types.StaticEncryptKey)
-	}
-
-	return ipcacheTypes.EncryptKey(n.EncryptionKey)
-}
-
-func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels, hasOverride bool) {
-	nodeLabels = labels.NewFrom(labels.LabelRemoteNode)
-	if n.IsLocal() {
-		nodeLabels = labels.NewFrom(labels.LabelHost)
-		if m.conf.PolicyCIDRMatchesNodes() {
-			for _, address := range n.IPAddresses {
-				addr, ok := netipx.FromStdIP(address.IP)
-				if ok {
-					bitLen := addr.BitLen()
-					if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
-						m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
-						prefix, err := addr.Prefix(bitLen)
-						if err == nil {
-							cidrLabels := labels.GetCIDRLabels(prefix)
-							nodeLabels.MergeLabels(cidrLabels)
-						}
-					}
-				}
-			}
-		}
-	} else if !identity.NumericIdentity(n.NodeIdentity).IsReservedIdentity() {
-		// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
-		nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
-		hasOverride = true
-	} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
-		lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
-		filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
-		nodeLabels.MergeLabels(filteredLbls)
-	}
-
-	return nodeLabels, hasOverride
-}
-
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -708,77 +618,14 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 
 	nodeIdentifier := n.Identity()
-	var nodeIP netip.Addr
-	if nIP := n.GetNodeIP(false); nIP != nil {
-		// GH-24829: Support IPv6-only nodes.
-
-		// Skip returning the error here because at this level, we assume that
-		// the IP is valid as long as it's coming from nodeTypes.Node. This
-		// object is created either from the node discovery (K8s) or from an
-		// event from the kvstore.
-		nodeIP, _ = netipx.FromStdIP(nIP)
-	}
-
-	dpUpdate := true
-	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-	nodeLabels, nodeIdentityOverride := m.nodeIdentityLabels(n)
 
 	var ipsetEntries []netip.Prefix
-	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix
-
 	for _, address := range n.IPAddresses {
 		prefix := ip.IPToNetPrefix(address.IP)
 
 		if address.Type == addressing.NodeInternalIP && !m.ipsetFilter(&n) {
 			ipsetEntries = append(ipsetEntries, prefix)
 		}
-
-		var tunnelIP netip.Addr
-		if m.nodeAddressHasTunnelIP(address) {
-			tunnelIP = nodeIP
-		}
-
-		var key uint8
-		if m.nodeAddressHasEncryptKey() {
-			key = n.EncryptionKey
-		}
-
-		// We expect the node manager to have a source of either Kubernetes,
-		// CustomResource, or KVStore. Prioritize the KVStore source over the
-		// rest as it is the strongest source, i.e. only trigger datapath
-		// updates if the information we receive takes priority.
-		//
-		// There are two exceptions to the rules above:
-		// * kube-apiserver entries - in that case,
-		//   we still want to inform subscribers about changes in auxiliary
-		//   data such as for example the health endpoint.
-		// * CiliumInternal IP addresses that match configured local router IP.
-		//   In that case, we still want to inform subscribers about a new node
-		//   even when IP addresses may seem repeated across the nodes.
-		existing := m.ipcache.GetMetadataSourceByPrefix(prefix)
-		overwrite := source.AllowOverwrite(existing, n.Source)
-		if !overwrite && existing != source.KubeAPIServer &&
-			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.ToString())) {
-			dpUpdate = false
-		}
-
-		lbls := nodeLabels
-		// Add the CIDR labels for this node, if we allow selecting nodes by CIDR
-		if m.conf.PolicyCIDRMatchesNodes() {
-			lbls = labels.NewFrom(nodeLabels)
-			lbls.MergeLabels(labels.GetCIDRLabels(prefix))
-		}
-
-		// Always associate the prefix with metadata, even though this may not
-		// end up in an ipcache entry.
-		m.ipcache.UpsertMetadata(prefix, n.Source, resource,
-			lbls,
-			ipcacheTypes.TunnelPeer{Addr: tunnelIP},
-			ipcacheTypes.EncryptKey(key))
-		if nodeIdentityOverride {
-			m.ipcache.OverrideIdentity(prefix, nodeLabels, n.Source, resource)
-		}
-		nodeIPsAdded = append(nodeIPsAdded, prefix)
 	}
 
 	var v4Addrs, v6Addrs []netip.Addr
@@ -792,38 +639,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
-
-	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
-		healthIP := ip.IPToNetPrefix(address)
-		if !healthIP.IsValid() {
-			continue
-		}
-		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(healthIP), n.Source) {
-			dpUpdate = false
-		}
-
-		m.ipcache.UpsertMetadata(healthIP, n.Source, resource,
-			labels.LabelHealth,
-			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			m.endpointEncryptionKey(&n))
-		healthIPsAdded = append(healthIPsAdded, healthIP)
-	}
-
-	for _, address := range []net.IP{n.IPv4IngressIP, n.IPv6IngressIP} {
-		ingressIP := ip.IPToNetPrefix(address)
-		if !ingressIP.IsValid() {
-			continue
-		}
-		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(ingressIP), n.Source) {
-			dpUpdate = false
-		}
-
-		m.ipcache.UpsertMetadata(ingressIP, n.Source, resource,
-			labels.LabelIngress,
-			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			m.endpointEncryptionKey(&n))
-		ingressIPsAdded = append(ingressIPsAdded, ingressIP)
-	}
 
 	txn := m.db.WriteTxn(m.nodesTable)
 	defer txn.Commit()
@@ -848,38 +663,18 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			log.WithError(err).WithField(logfields.Node, n.Name).Warn("Ignoring update for node")
 		}
 
-		if dpUpdate {
-			m.removeNodeFromIPCache(oldNode.GetNode(), resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
-		}
+		m.cleanupIPSets(oldNode.GetNode(), ipsetEntries)
 	} else {
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
-
-		if dpUpdate {
-			m.nodesTable.Insert(txn, node.NewTableNode(n, nil))
-		}
+		m.nodesTable.Insert(txn, node.NewTableNode(n, nil))
 	}
 }
 
-// removeNodeFromIPCache removes all addresses associated with oldNode from the IPCache,
-// unless they are present in the nodeIPsAdded, healthIPsAdded, ingressIPsAdded lists.
-// Removes ipset entry associated with oldNode if it is not present in ipsetEntries.
-//
-// The removal logic in this function should mirror the upsert logic in NodeUpdated.
-func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix) {
-
-	var oldNodeIP netip.Addr
-	if nIP := oldNode.GetNodeIP(false); nIP != nil {
-		// See comment in NodeUpdated().
-		oldNodeIP, _ = netipx.FromStdIP(nIP)
-	}
-	oldNodeLabels, oldNodeIdentityOverride := m.nodeIdentityLabels(oldNode)
-
-	// Delete the old node IP addresses if they have changed in this node.
+func (m *manager) cleanupIPSets(oldNode nodeTypes.Node, ipsetEntries []netip.Prefix) {
 	var v4Addrs, v6Addrs []netip.Addr
 	for _, address := range oldNode.IPAddresses {
 		oldPrefix := ip.IPToNetPrefix(address.IP)
-		if slices.Contains(nodeIPsAdded, oldPrefix) {
+		if slices.Contains(ipsetEntries, oldPrefix) {
 			continue
 		}
 
@@ -895,54 +690,10 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 				v4Addrs = append(v4Addrs, addr)
 			}
 		}
-
-		var oldTunnelIP netip.Addr
-		if m.nodeAddressHasTunnelIP(address) {
-			oldTunnelIP = oldNodeIP
-		}
-
-		var oldKey uint8
-		if m.nodeAddressHasEncryptKey() {
-			oldKey = oldNode.EncryptionKey
-		}
-
-		m.ipcache.RemoveMetadata(oldPrefix, resource,
-			oldNodeLabels,
-			ipcacheTypes.TunnelPeer{Addr: oldTunnelIP},
-			ipcacheTypes.EncryptKey(oldKey))
-		if oldNodeIdentityOverride {
-			m.ipcache.RemoveIdentityOverride(oldPrefix, oldNodeLabels, resource)
-		}
 	}
 
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
-
-	// Delete the old health IP addresses if they have changed in this node.
-	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {
-		healthIP := ip.IPToNetPrefix(address)
-		if !healthIP.IsValid() || slices.Contains(healthIPsAdded, healthIP) {
-			continue
-		}
-
-		m.ipcache.RemoveMetadata(healthIP, resource,
-			labels.LabelHealth,
-			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			m.endpointEncryptionKey(&oldNode))
-	}
-
-	// Delete the old ingress IP addresses if they have changed in this node.
-	for _, address := range []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP} {
-		ingressIP := ip.IPToNetPrefix(address)
-		if !ingressIP.IsValid() || slices.Contains(ingressIPsAdded, ingressIP) {
-			continue
-		}
-
-		m.ipcache.RemoveMetadata(ingressIP, resource,
-			labels.LabelIngress,
-			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			m.endpointEncryptionKey(&oldNode))
-	}
 }
 
 // NodeDeleted is called after a node has been deleted. It removes the node
@@ -983,9 +734,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
-	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-	m.removeNodeFromIPCache(oldNode.GetNode(), resource, nil, nil, nil, nil)
+	m.cleanupIPSets(oldNode.GetNode(), nil)
 
 	m.nodesTable.Delete(txn, oldNode)
 }

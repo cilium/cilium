@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -26,10 +25,6 @@ var Cell = cell.Module(
 	cell.Provide(newAllNodeManager),
 	cell.Provide(newGetClusterNodesRestAPIHandler),
 	metrics.Metric(NewNodeMetrics),
-
-	cell.ProvidePrivate(
-		func(ipc *ipcache.IPCache) IPCache { return ipc },
-	),
 
 	cell.Provide(
 		node.NewNodesTable,
@@ -84,7 +79,6 @@ type NodeManagerParams struct {
 	cell.In
 
 	Lifecycle     cell.Lifecycle
-	IPCache       IPCache
 	IPSetMgr      ipset.Manager
 	IPSetFilter   IPSetFilterFn `optional:"true"`
 	NodeMetrics   *nodeMetrics
