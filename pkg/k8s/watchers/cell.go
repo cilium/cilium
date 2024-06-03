@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/service"
 )
 
 // Cell provides the global k8s watcher.
@@ -28,6 +27,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newK8sPodWatcher),
 	cell.ProvidePrivate(newK8sCiliumNodeWatcher),
 	cell.ProvidePrivate(newK8sNamespaceWatcher),
+	cell.ProvidePrivate(newK8sServiceWatcher),
 	cell.ProvidePrivate(newK8sEventReporter),
 )
 
@@ -38,6 +38,7 @@ type k8sWatcherParams struct {
 	K8sPodWatcher        *K8sPodWatcher
 	K8sCiliumNodeWatcher *K8sCiliumNodeWatcher
 	K8sNamespaceWatcher  *K8sNamespaceWatcher
+	K8sServiceWatcher    *K8sServiceWatcher
 
 	AgentConfig *option.DaemonConfig
 
@@ -49,7 +50,6 @@ type k8sWatcherParams struct {
 	PolicyUpdater     *policy.Updater
 	IPCache           *ipcache.IPCache
 	ServiceCache      *k8s.ServiceCache
-	ServiceManager    service.ServiceManager
 	LRPManager        *redirectpolicy.Manager
 	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
 }
@@ -60,12 +60,12 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.K8sPodWatcher,
 		params.K8sCiliumNodeWatcher,
 		params.K8sNamespaceWatcher,
+		params.K8sServiceWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		params.EndpointManager,
 		params.PolicyUpdater,
-		params.ServiceManager,
 		params.LRPManager,
 		params.MetalLBBgpSpeaker,
 		params.AgentConfig,

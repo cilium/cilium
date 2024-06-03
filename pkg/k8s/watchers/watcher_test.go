@@ -377,26 +377,31 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	svcWatcher := &K8sServiceWatcher{
+		k8sSvcCache: k8sSvcCache,
+		svcManager:  svcManager,
+	}
 
 	w := newWatcher(
 		nil,
 		nil,
 		nil,
 		nil,
+		svcWatcher,
 		nil,
 		nil,
 		nil,
 		nil,
 		policyManager,
-		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		emptyResources,
-		k8s.NewServiceCache(db, nodeAddrs),
+		k8sSvcCache,
 	)
-	go w.k8sServiceHandler()
+	go svcWatcher.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
 
 	w.K8sSvcCache.UpdateService(k8sSvc, swg)
@@ -527,26 +532,31 @@ func TestChangeSVCPort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	svcWatcher := &K8sServiceWatcher{
+		k8sSvcCache: k8sSvcCache,
+		svcManager:  svcManager,
+	}
 
 	w := newWatcher(
 		nil,
 		nil,
 		nil,
 		nil,
+		svcWatcher,
 		nil,
 		nil,
 		nil,
 		nil,
 		policyManager,
-		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		emptyResources,
-		k8s.NewServiceCache(db, nodeAddrs),
+		k8sSvcCache,
 	)
-	go w.k8sServiceHandler()
+	go svcWatcher.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
 
 	w.K8sSvcCache.UpdateService(k8sSvc, swg)
@@ -1006,26 +1016,31 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	svcWatcher := &K8sServiceWatcher{
+		k8sSvcCache: k8sSvcCache,
+		svcManager:  svcManager,
+	}
 
 	w := newWatcher(
 		nil,
 		nil,
 		nil,
 		nil,
+		svcWatcher,
 		nil,
 		nil,
 		nil,
 		nil,
 		policyManager,
-		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		emptyResources,
-		k8s.NewServiceCache(db, nodeAddrs),
+		k8sSvcCache,
 	)
-	go w.k8sServiceHandler()
+	go svcWatcher.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
 
 	w.K8sSvcCache.UpdateService(k8sSvc, swg)
@@ -1319,26 +1334,31 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	svcWatcher := &K8sServiceWatcher{
+		k8sSvcCache: k8sSvcCache,
+		svcManager:  svcManager,
+	}
 
 	w := newWatcher(
 		nil,
 		nil,
 		nil,
 		nil,
+		svcWatcher,
 		nil,
 		nil,
 		nil,
 		nil,
 		policyManager,
-		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		emptyResources,
-		k8s.NewServiceCache(db, nodeAddrs),
+		k8sSvcCache,
 	)
-	go w.k8sServiceHandler()
+	go svcWatcher.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
 
 	w.K8sSvcCache.UpdateService(k8sSvc1stApply, swg)
@@ -1625,26 +1645,31 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	svcWatcher := &K8sServiceWatcher{
+		k8sSvcCache: k8sSvcCache,
+		svcManager:  svcManager,
+	}
 
 	w := newWatcher(
 		nil,
 		nil,
 		nil,
 		nil,
+		svcWatcher,
 		nil,
 		nil,
 		nil,
 		nil,
 		policyManager,
-		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		emptyResources,
-		k8s.NewServiceCache(db, nodeAddrs),
+		k8sSvcCache,
 	)
-	go w.k8sServiceHandler()
+	go svcWatcher.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
 
 	w.K8sSvcCache.UpdateService(k8sSvc1stApply, swg)
@@ -2545,26 +2570,31 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	svcWatcher := &K8sServiceWatcher{
+		k8sSvcCache: k8sSvcCache,
+		svcManager:  svcManager,
+	}
 
 	w := newWatcher(
 		nil,
 		nil,
 		nil,
 		nil,
+		svcWatcher,
 		nil,
 		nil,
 		nil,
 		nil,
 		policyManager,
-		svcManager,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		emptyResources,
-		k8s.NewServiceCache(db, nodeAddrs),
+		k8sSvcCache,
 	)
-	go w.k8sServiceHandler()
+	go svcWatcher.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
 
 	w.K8sSvcCache.UpdateService(svc1stApply, swg)
@@ -2603,8 +2633,8 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		&synced.Resources{},
 		nil,
+		&synced.Resources{},
 		nil,
 		nil,
 		nil,
