@@ -89,7 +89,7 @@ jobs:
 
       - name: Install LLVM and Clang
         if: steps.test-tree.outputs.src == 'true'
-        uses: KyleMayes/install-llvm-action@8b37482c5a2997a3ab5dbf6561f8109e2eaa7d3b # v2.0.2
+        uses: KyleMayes/install-llvm-action@82fd451e4380968e8336eefc5b8b9292a619de01 # v2.0.3
         with:
           version: "17.0.6"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
