@@ -298,7 +298,6 @@ type params struct {
 	SharedCfg SharedConfig
 
 	JobGroup job.Group
-	Health   cell.Health
 	DB       *statedb.DB
 	Devices  statedb.Table[*tables.Device]
 }
