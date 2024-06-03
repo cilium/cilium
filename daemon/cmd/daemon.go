@@ -442,6 +442,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		cgroupManager:     params.CGroupManager,
 		preFilter:         params.Prefilter,
 		endpointManager:   params.EndpointManager,
+		k8sWatcher:        params.K8sWatcher,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -468,25 +469,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 
-	d.k8sWatcher = watchers.NewK8sWatcher(
-		params.Clientset,
-		params.K8sResourceSynced,
-		params.K8sAPIGroups,
-		d.endpointManager,
-		params.NodeManager,
-		&d,
-		d.svc,
-		d.lrpManager,
-		params.MetalLBBgpSpeaker,
-		option.Config,
-		d.ipcache,
-		params.CGroupManager,
-		params.Resources,
-		params.ServiceCache,
-		d.bwManager,
-		d.db,
-		d.nodeAddrs,
-	)
 	params.NodeDiscovery.RegisterK8sGetters(d.k8sWatcher)
 
 	bootstrapStats.daemonInit.End(true)

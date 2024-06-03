@@ -378,7 +378,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 
 	db, nodeAddrs := newDB(t)
 
-	w := NewK8sWatcher(
+	w := newWatcher(
 		nil,
 		nil,
 		nil,
@@ -529,7 +529,7 @@ func TestChangeSVCPort(t *testing.T) {
 
 	db, nodeAddrs := newDB(t)
 
-	w := NewK8sWatcher(
+	w := newWatcher(
 		nil,
 		nil,
 		nil,
@@ -973,6 +973,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
+
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
@@ -1008,7 +1009,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 
 	db, nodeAddrs := newDB(t)
 
-	w := NewK8sWatcher(
+	w := newWatcher(
 		nil,
 		nil,
 		nil,
@@ -1322,7 +1323,7 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 
 	db, nodeAddrs := newDB(t)
 
-	w := NewK8sWatcher(
+	w := newWatcher(
 		nil,
 		nil,
 		nil,
@@ -1629,7 +1630,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 
 	db, nodeAddrs := newDB(t)
 
-	w := NewK8sWatcher(
+	w := newWatcher(
 		nil,
 		nil,
 		nil,
@@ -2550,7 +2551,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 
 	db, nodeAddrs := newDB(t)
 
-	w := NewK8sWatcher(
+	w := newWatcher(
 		nil,
 		nil,
 		nil,
@@ -2599,7 +2600,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 	fakeClientSet, _ := client.NewFakeClientset()
 
-	w := NewK8sWatcher(
+	w := newWatcher(
 		fakeClientSet,
 		&synced.Resources{},
 		nil,

@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -246,6 +247,9 @@ var (
 		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
 		// and clustermesh.
 		dial.ServiceResolverCell,
+
+		// K8s Watcher provides the core k8s watchers
+		watchers.Cell,
 	)
 )
 
