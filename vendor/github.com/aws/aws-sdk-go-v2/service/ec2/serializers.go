@@ -51664,6 +51664,11 @@ func awsEc2query_serializeOpDocumentCreateCustomerGatewayInput(v *CreateCustomer
 		objectKey.Integer(*v.BgpAsn)
 	}
 
+	if v.BgpAsnExtended != nil {
+		objectKey := object.Key("BgpAsnExtended")
+		objectKey.Long(*v.BgpAsnExtended)
+	}
+
 	if v.CertificateArn != nil {
 		objectKey := object.Key("CertificateArn")
 		objectKey.String(*v.CertificateArn)
