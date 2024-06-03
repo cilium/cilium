@@ -32,6 +32,12 @@ type Config struct {
 	// K8sClientBurst is the burst value allowed for the K8s client. Defaults to k8s client defaults.
 	K8sClientBurst int
 
+	// K8sClientConnectionTimeout configures the timeout for K8s client connections.
+	K8sClientConnectionTimeout time.Duration
+
+	// K8sClientConnectionKeepAlive configures the keep alive duration for K8s client connections.
+	K8sClientConnectionKeepAlive time.Duration
+
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout time.Duration
 
@@ -40,13 +46,15 @@ type Config struct {
 }
 
 var defaultConfig = Config{
-	EnableK8s:             true,
-	K8sAPIServer:          "",
-	K8sKubeConfigPath:     "",
-	K8sClientQPS:          defaults.K8sClientQPSLimit,
-	K8sClientBurst:        defaults.K8sClientBurst,
-	K8sHeartbeatTimeout:   30 * time.Second,
-	EnableK8sAPIDiscovery: defaults.K8sEnableAPIDiscovery,
+	EnableK8s:                    true,
+	K8sAPIServer:                 "",
+	K8sKubeConfigPath:            "",
+	K8sClientQPS:                 defaults.K8sClientQPSLimit,
+	K8sClientBurst:               defaults.K8sClientBurst,
+	K8sClientConnectionTimeout:   30 * time.Second,
+	K8sClientConnectionKeepAlive: 30 * time.Second,
+	K8sHeartbeatTimeout:          30 * time.Second,
+	EnableK8sAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -55,6 +63,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.K8sKubeConfigPath, def.K8sKubeConfigPath, "Absolute path of the kubernetes kubeconfig file")
 	flags.Float32(option.K8sClientQPSLimit, def.K8sClientQPS, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, def.K8sClientBurst, "Burst value allowed for the K8s client")
+	flags.Duration(option.K8sClientConnectionTimeout, def.K8sClientConnectionTimeout, "Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0")
+	flags.Duration(option.K8sClientConnectionKeepAlive, def.K8sClientConnectionKeepAlive, "Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0")
 	flags.Duration(option.K8sHeartbeatTimeout, def.K8sHeartbeatTimeout, "Configures the timeout for api-server heartbeat, set to 0 to disable")
 	flags.Bool(option.K8sEnableAPIDiscovery, def.EnableK8sAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
 }
