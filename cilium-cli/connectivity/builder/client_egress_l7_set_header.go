@@ -15,8 +15,21 @@ import (
 type clientEgressL7SetHeader struct{}
 
 func (t clientEgressL7SetHeader) build(ct *check.ConnectivityTest, templates map[string]string) {
+	clientEgressL7SetHeaderTest(ct, templates, false)
+	if ct.Features[features.PortRanges].Enabled {
+		clientEgressL7SetHeaderTest(ct, templates, true)
+	}
+}
+
+func clientEgressL7SetHeaderTest(ct *check.ConnectivityTest, templates map[string]string, portRanges bool) {
+	testName := "client-egress-l7-set-header"
+	templateName := "clientEgressL7HTTPMatchheaderSecretYAML"
+	if portRanges {
+		testName = "client-egress-l7-set-header-port-range"
+		templateName = "clientEgressL7HTTPMatchheaderSecretPortRangeYAML"
+	}
 	// Test L7 HTTP with a header replace set in the policy
-	newTest("client-egress-l7-set-header", ct).
+	newTest(testName, ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireEnabled(features.SecretBackendK8s)).
 		WithSecret(&corev1.Secret{
@@ -27,7 +40,7 @@ func (t clientEgressL7SetHeader) build(ct *check.ConnectivityTest, templates map
 				"value": []byte("Bearer 123456"),
 			},
 		}).
-		WithCiliumPolicy(templates["clientEgressL7HTTPMatchheaderSecretYAML"]). // L7 allow policy with HTTP introspection (POST only)
+		WithCiliumPolicy(templates[templateName]). // L7 allow policy with HTTP introspection (POST only)
 		WithScenarios(
 			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithPath("auth-header-required"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
 			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithPath("auth-header-required"), tests.WithDestinationLabelsOption(map[string]string{"first": "echo"})),

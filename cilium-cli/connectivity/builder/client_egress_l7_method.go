@@ -14,14 +14,30 @@ import (
 //go:embed manifests/client-egress-l7-http-method.yaml
 var clientEgressL7HTTPMethodPolicyYAML string
 
+//go:embed manifests/client-egress-l7-http-method-port-range.yaml
+var clientEgressL7HTTPMethodPolicyPortRangeYAML string
+
 type clientEgressL7Method struct{}
 
 func (t clientEgressL7Method) build(ct *check.ConnectivityTest, _ map[string]string) {
+	clientEgressL7MethodTest(ct, false)
+	if ct.Features[features.PortRanges].Enabled {
+		clientEgressL7MethodTest(ct, true)
+	}
+}
+
+func clientEgressL7MethodTest(ct *check.ConnectivityTest, portRanges bool) {
+	testName := "client-egress-l7-method"
+	yamlFile := clientEgressL7HTTPMethodPolicyYAML
+	if portRanges {
+		testName = "client-egress-l7-method-port-range"
+		yamlFile = clientEgressL7HTTPMethodPolicyPortRangeYAML
+	}
 	// Test L7 HTTP with different methods introspection using an egress policy on the clients.
-	newTest("client-egress-l7-method", ct).
+	newTest(testName, ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).      // DNS resolution only
-		WithCiliumPolicy(clientEgressL7HTTPMethodPolicyYAML). // L7 allow policy with HTTP introspection (POST only)
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithCiliumPolicy(yamlFile).                      // L7 allow policy with HTTP introspection (POST only)
 		WithScenarios(
 			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
 			tests.PodToPodWithEndpoints(tests.WithDestinationLabelsOption(map[string]string{"first": "echo"})),
