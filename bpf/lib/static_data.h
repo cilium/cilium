@@ -94,7 +94,7 @@
  * ends up in .rodata.config in the ELF and is also inlined by the Go loader,
  * even though it's not handled by ELF variable substitution.
  *
- * Variables relying on this are NODE_MAC, LXC_IP, IPV6_MASQUERADE, ROUTER_IP
+ * Variables relying on this are THIS_INTERFACE_MAC, LXC_IP, IPV6_MASQUERADE, ROUTER_IP
  * and HOST_IP.
  */
 #define DEFINE_IPV6(name, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) \

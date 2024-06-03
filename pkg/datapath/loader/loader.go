@@ -192,15 +192,15 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (m
 		return nil, nil, err
 	}
 
-	// The NODE_MAC value is specific to each attachment interface.
+	// The THIS_INTERFACE_MAC value is specific to each attachment interface.
 	mac := mac.MAC(iface.Attrs().HardwareAddr)
 	if mac == nil {
 		// L2-less device
 		mac = make([]byte, 6)
 		opts["ETH_HLEN"] = uint64(0)
 	}
-	opts["NODE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
-	opts["NODE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
+	opts["THIS_INTERFACE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
+	opts["THIS_INTERFACE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
 
 	ifIndex := uint32(iface.Attrs().Index)
 

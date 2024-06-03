@@ -102,7 +102,7 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 
 	args := []string{
 		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
-		fmt.Sprintf("-DNODE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
+		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		"-DCALLS_MAP=cilium_calls_xdp",
 	}
 	args = append(args, extraCArgs...)

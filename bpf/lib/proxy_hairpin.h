@@ -29,7 +29,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 	union macaddr host_mac = HOST_IFINDEX_MAC;
-	union macaddr router_mac = NODE_MAC;
+	union macaddr router_mac = THIS_INTERFACE_MAC;
 #endif
 	int ret = 0;
 

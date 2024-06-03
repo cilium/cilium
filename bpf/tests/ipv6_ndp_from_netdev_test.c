@@ -100,7 +100,7 @@ int ipv6_from_netdev_ns_for_pod_check(const struct __ctx_buff *ctx)
 	if (l2->h_proto != bpf_htons(ETH_P_IPV6))
 		test_fatal("l2 proto hasn't been set to ETH_P_IP");
 
-	union macaddr node_mac = NODE_MAC;
+	union macaddr node_mac = THIS_INTERFACE_MAC;
 
 	if (memcmp(l2->h_source, (__u8 *)&node_mac.addr, ETH_ALEN) != 0)
 		test_fatal("src mac hasn't been set to node mac");

@@ -6,8 +6,8 @@
 /* Enable debug output */
 #define DEBUG
 
-/* Set NODE_MAC equal to mac_two */
-#define NODE_MAC { .addr = {0x13, 0x37, 0x13, 0x37, 0x13, 0x37} }
+/* Set THIS_INTERFACE_MAC equal to mac_two */
+#define THIS_INTERFACE_MAC { .addr = {0x13, 0x37, 0x13, 0x37, 0x13, 0x37} }
 
 #define SECCTX_FROM_IPCACHE 1
 
