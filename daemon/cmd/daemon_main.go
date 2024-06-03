@@ -1634,6 +1634,7 @@ type daemonParams struct {
 	Resources           agentK8s.Resources
 	CacheStatus         k8s.CacheStatus
 	K8sWatcher          *watchers.K8sWatcher
+	K8sSvcCache         *k8s.ServiceCache
 	K8sResourceSynced   *k8sSynced.Resources
 	K8sAPIGroups        *k8sSynced.APIGroups
 	NodeManager         nodeManager.NodeManager

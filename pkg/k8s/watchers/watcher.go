@@ -139,9 +139,6 @@ type K8sWatcher struct {
 	// and may be disabled while the agent runs.
 	k8sAPIGroups *synced.APIGroups
 
-	// K8sSvcCache is a cache of all Kubernetes services and endpoints
-	K8sSvcCache *k8s.ServiceCache
-
 	cfg WatcherConfiguration
 }
 
@@ -158,7 +155,6 @@ func newWatcher(
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
 	cfg WatcherConfiguration,
-	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		resourceGroupsFn:          resourceGroups,
@@ -173,7 +169,6 @@ func newWatcher(
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		k8sResourceSynced:         k8sResourceSynced,
 		k8sAPIGroups:              k8sAPIGroups,
-		K8sSvcCache:               serviceCache,
 		cfg:                       cfg,
 	}
 }

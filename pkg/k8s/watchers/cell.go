@@ -6,7 +6,6 @@ package watchers
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/option"
@@ -45,7 +44,6 @@ type k8sWatcherParams struct {
 	Clientset         k8sClient.Clientset
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
-	ServiceCache      *k8s.ServiceCache
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
@@ -62,6 +60,5 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		params.AgentConfig,
-		params.ServiceCache,
 	)
 }
