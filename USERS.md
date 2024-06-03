@@ -763,6 +763,12 @@ Users (Alphabetically)
       U: ClusterMesh, Global Service Load Balancing.
       Q: @Oki @luanguimaraesla @rsafonseca
 
+    * N: WSO2
+      D: WSO2 is using Cilium to implemented Zero Trust Network Security for their Kubernetes clusters
+      U: CNI, WireGuard Transparent Encryption, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, Hubble, Layer 7 visibility and Service Mesh via Cilium Envoy
+      L: https://www.cncf.io/case-studies/wso2/
+      Q: @lakwarus @isala404 @tharinduwijewardane
+
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
       L: https://www.youtube.com/watch?v=-C86fBMcp5Q
