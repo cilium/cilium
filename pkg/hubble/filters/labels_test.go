@@ -190,6 +190,42 @@ func TestLabelSelectorFilter(t *testing.T) {
 			},
 		},
 		{
+			name: "node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						NodeLabels: []string{"src1, src2=val2"},
+					},
+				},
+				ev: []*v1.Event{
+					{
+						Event: &flowpb.Flow{
+							NodeLabels: []string{"src1", "src2=val2"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
+								Labels: []string{"src1", "src2=val2"},
+							},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							Destination: &flowpb.Endpoint{
+								Labels: []string{"src1", "src2=val2"},
+							},
+						},
+					},
+				},
+			},
+			want: []bool{
+				true,
+				false,
+				false,
+			},
+		},
+		{
 			name: "source and destination label filter",
 			args: args{
 				f: []*flowpb.FlowFilter{
@@ -522,6 +558,17 @@ func TestLabelSelectorFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{
 					{
 						DestinationLabel: []string{"="},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid node filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						NodeLabels: []string{"!"},
 					},
 				},
 			},
