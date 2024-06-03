@@ -14,6 +14,7 @@ triggers:
     - conformance-gateway-api.yaml
     - conformance-gke.yaml
     - conformance-ingress.yaml
+    - integration-test.yaml
     - tests-clustermesh-upgrade.yaml
     - tests-l4lb.yaml
     - tests-ipsec-upgrade.yaml
@@ -51,6 +52,9 @@ triggers:
   /ci-ingress:
     workflows:
     - conformance-ingress.yaml
+  /ci-integration:
+    workflows:
+    - integration-test.yaml
   /ci-l4lb:
     workflows:
     - tests-l4lb.yaml
@@ -76,6 +80,8 @@ workflows:
     paths-ignore-regex: (test|Documentation)/
   conformance-ingress.yaml:
     paths-ignore-regex: (test|Documentation)/
+  integration-test.yaml:
+    paths-ignore-regex: Documentation/
   tests-clustermesh-upgrade.yaml:
     paths-ignore-regex: (test|Documentation)/
   tests-l4lb.yaml:
