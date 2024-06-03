@@ -1341,8 +1341,8 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.13.0"
-        digest: "sha256:1e7657d997c5a48253bb8dc91ecee75b63018d16ff5e5797e5af367336bc8803"
+        tag: "v0.13.1"
+        digest: "sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b"
         useDigest: true
         pullPolicy: "IfNotPresent"
 
@@ -1372,8 +1372,8 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.13.0"
-        digest: "sha256:7d663dc16538dd6e29061abd1047013a645e6e69c115e008bee9ea9fef9a6666"
+        tag: "v0.13.1"
+        digest: "sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6"
         useDigest: true
         pullPolicy: "IfNotPresent"
 
