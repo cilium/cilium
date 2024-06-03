@@ -30,10 +30,13 @@ var Cell = cell.Module(
 	"K8s Watcher",
 
 	cell.Provide(newK8sWatcher),
+	cell.ProvidePrivate(newK8sEventReporter),
 )
 
 type k8sWatcherParams struct {
 	cell.In
+
+	K8sEventReporter *K8sEventReporter
 
 	AgentConfig *option.DaemonConfig
 
@@ -58,6 +61,7 @@ type k8sWatcherParams struct {
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 	return newWatcher(
 		params.Clientset,
+		params.K8sEventReporter,
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		params.EndpointManager,

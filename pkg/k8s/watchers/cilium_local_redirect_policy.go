@@ -28,11 +28,13 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricCLRP, resources.MetricCreate, valid, equal) }()
+				defer func() {
+					k.k8sEventReporter.K8sEventReceived(apiGroup, metricCLRP, resources.MetricCreate, valid, equal)
+				}()
 				if cLRP := k8s.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj); cLRP != nil {
 					valid = true
 					err := k.addCiliumLocalRedirectPolicy(cLRP)
-					k.K8sEventProcessed(metricCLRP, resources.MetricCreate, err == nil)
+					k.k8sEventReporter.K8sEventProcessed(metricCLRP, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -40,14 +42,16 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricCLRP, resources.MetricDelete, valid, equal) }()
+				defer func() {
+					k.k8sEventReporter.K8sEventReceived(apiGroup, metricCLRP, resources.MetricDelete, valid, equal)
+				}()
 				cLRP := k8s.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj)
 				if cLRP == nil {
 					return
 				}
 				valid = true
 				err := k.deleteCiliumLocalRedirectPolicy(cLRP)
-				k.K8sEventProcessed(metricCLRP, resources.MetricDelete, err == nil)
+				k.k8sEventReporter.K8sEventProcessed(metricCLRP, resources.MetricDelete, err == nil)
 			},
 		},
 		nil,
