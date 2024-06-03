@@ -14,7 +14,6 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
 // Cell provides the global k8s watcher.
@@ -28,6 +27,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newK8sNamespaceWatcher),
 	cell.ProvidePrivate(newK8sServiceWatcher),
 	cell.ProvidePrivate(newK8sEndpointsWatcher),
+	cell.ProvidePrivate(newK8sCiliumLRPWatcher),
 	cell.ProvidePrivate(newK8sEventReporter),
 )
 
@@ -40,6 +40,7 @@ type k8sWatcherParams struct {
 	K8sNamespaceWatcher  *K8sNamespaceWatcher
 	K8sServiceWatcher    *K8sServiceWatcher
 	K8sEndpointsWatcher  *K8sEndpointsWatcher
+	K8sCiliumLRPWatcher  *K8sCiliumLRPWatcher
 
 	AgentConfig *option.DaemonConfig
 
@@ -51,7 +52,6 @@ type k8sWatcherParams struct {
 	PolicyUpdater     *policy.Updater
 	IPCache           *ipcache.IPCache
 	ServiceCache      *k8s.ServiceCache
-	LRPManager        *redirectpolicy.Manager
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
@@ -62,12 +62,12 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.K8sNamespaceWatcher,
 		params.K8sServiceWatcher,
 		params.K8sEndpointsWatcher,
+		params.K8sCiliumLRPWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		params.EndpointManager,
 		params.PolicyUpdater,
-		params.LRPManager,
 		params.AgentConfig,
 		params.IPCache,
 		params.Resources,

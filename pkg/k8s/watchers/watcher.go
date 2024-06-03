@@ -128,6 +128,7 @@ type K8sWatcher struct {
 	k8sNamespaceWatcher  *K8sNamespaceWatcher
 	k8sServiceWatcher    *K8sServiceWatcher
 	k8sEndpointsWatcher  *K8sEndpointsWatcher
+	k8sCiliumLRPWatcher  *K8sCiliumLRPWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -143,11 +144,8 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	policyManager         policyManager
-	redirectPolicyManager redirectPolicyManager
-	ipcache               ipcacheManager
-
-	stop chan struct{}
+	policyManager policyManager
+	ipcache       ipcacheManager
 
 	cfg WatcherConfiguration
 
@@ -161,36 +159,35 @@ func newWatcher(
 	k8sNamespaceWatcher *K8sNamespaceWatcher,
 	k8sServiceWatcher *K8sServiceWatcher,
 	k8sEndpointsWatcher *K8sEndpointsWatcher,
+	k8sCiliumLRPWatcher *K8sCiliumLRPWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
 	endpointManager endpointManager,
 	policyManager policyManager,
-	redirectPolicyManager redirectPolicyManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		resourceGroupsFn:      resourceGroups,
-		clientset:             clientset,
-		k8sEventReporter:      k8sEventReporter,
-		k8sPodWatcher:         k8sPodWatcher,
-		k8sCiliumNodeWatcher:  k8sCiliumNodeWatcher,
-		k8sNamespaceWatcher:   k8sNamespaceWatcher,
-		k8sServiceWatcher:     k8sServiceWatcher,
-		k8sEndpointsWatcher:   k8sEndpointsWatcher,
-		k8sResourceSynced:     k8sResourceSynced,
-		k8sAPIGroups:          k8sAPIGroups,
-		K8sSvcCache:           serviceCache,
-		endpointManager:       endpointManager,
-		policyManager:         policyManager,
-		ipcache:               ipcache,
-		stop:                  make(chan struct{}),
-		redirectPolicyManager: redirectPolicyManager,
-		cfg:                   cfg,
-		resources:             resources,
+		resourceGroupsFn:     resourceGroups,
+		clientset:            clientset,
+		k8sEventReporter:     k8sEventReporter,
+		k8sPodWatcher:        k8sPodWatcher,
+		k8sCiliumNodeWatcher: k8sCiliumNodeWatcher,
+		k8sNamespaceWatcher:  k8sNamespaceWatcher,
+		k8sServiceWatcher:    k8sServiceWatcher,
+		k8sEndpointsWatcher:  k8sEndpointsWatcher,
+		k8sCiliumLRPWatcher:  k8sCiliumLRPWatcher,
+		k8sResourceSynced:    k8sResourceSynced,
+		k8sAPIGroups:         k8sAPIGroups,
+		K8sSvcCache:          serviceCache,
+		endpointManager:      endpointManager,
+		policyManager:        policyManager,
+		ipcache:              ipcache,
+		cfg:                  cfg,
+		resources:            resources,
 	}
 }
 
@@ -365,7 +362,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
-			k.ciliumLocalRedirectPolicyInit(k.clientset)
+			k.k8sCiliumLRPWatcher.ciliumLocalRedirectPolicyInit()
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.Resource: r,
@@ -377,10 +374,10 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 }
 
 func (k *K8sWatcher) StopWatcher() {
-	close(k.stop)
 	k.k8sNamespaceWatcher.stopWatcher()
 	k.k8sServiceWatcher.stopWatcher()
 	k.k8sEndpointsWatcher.stopWatcher()
+	k.k8sCiliumLRPWatcher.stopWatcher()
 }
 
 // K8sEventProcessed is called to do metrics accounting for each processed
