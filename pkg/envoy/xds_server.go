@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -46,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -187,6 +189,8 @@ type xdsServer struct {
 	// them to the proxy via NPHDS in the cases described
 	ipCache IPCacheEventSource
 
+	restorerPromise promise.Promise[endpointstate.Restorer]
+
 	localEndpointStore *LocalEndpointStore
 }
 
@@ -199,10 +203,11 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // newXDSServer creates a new xDS GRPC server.
-func newXDSServer(envoySocketDir string, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore) (*xdsServer, error) {
+func newXDSServer(envoySocketDir string, restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore) (*xdsServer, error) {
 	return &xdsServer{
 		socketPath:         getXDSSocketPath(envoySocketDir),
 		accessLogPath:      getAccessLogSocketPath(envoySocketDir),
+		restorerPromise:    restorerPromise,
 		ipCache:            ipCache,
 		listeners:          make(map[string]*Listener),
 		localEndpointStore: localEndpointStore,
@@ -218,7 +223,7 @@ func (s *xdsServer) start() error {
 
 	resourceConfig := s.initializeXdsConfigs()
 
-	s.stopFunc = startXDSGRPCServer(socketListener, resourceConfig)
+	s.stopFunc = s.startXDSGRPCServer(socketListener, resourceConfig)
 
 	return nil
 }

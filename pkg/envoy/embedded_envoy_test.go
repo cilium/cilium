@@ -64,7 +64,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
+	xdsServer, err := newXDSServer(testRunDir, nil, testipcache.NewMockIPCache(), localEndpointStore)
 	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
 
@@ -157,7 +157,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
+	xdsServer, err := newXDSServer(testRunDir, nil, testipcache.NewMockIPCache(), localEndpointStore)
 	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
 	err = xdsServer.start()

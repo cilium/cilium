@@ -11,10 +11,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -38,6 +40,7 @@ type xdsServerParams struct {
 
 	Lifecycle          cell.Lifecycle
 	IPCache            *ipcache.IPCache
+	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
 
 	// Depend on access log server to enforce init order.
@@ -51,7 +54,7 @@ type xdsServerParams struct {
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
-	xdsServer, err := newXDSServer(GetSocketDir(option.Config.RunDir), params.IPCache, params.LocalEndpointStore)
+	xdsServer, err := newXDSServer(GetSocketDir(option.Config.RunDir), params.RestorerPromise, params.IPCache, params.LocalEndpointStore)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Envoy xDS server: %w", err)
 	}
