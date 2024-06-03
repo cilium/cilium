@@ -18,7 +18,7 @@ var Cell = cell.Module(
 
 	cell.Provide(newK8sWatcher),
 	cell.ProvidePrivate(newK8sPodWatcher),
-	cell.ProvidePrivate(newK8sCiliumNodeWatcher),
+	cell.Provide(newK8sCiliumNodeWatcher),
 	cell.ProvidePrivate(newK8sNamespaceWatcher),
 	cell.ProvidePrivate(newK8sServiceWatcher),
 	cell.ProvidePrivate(newK8sEndpointsWatcher),
