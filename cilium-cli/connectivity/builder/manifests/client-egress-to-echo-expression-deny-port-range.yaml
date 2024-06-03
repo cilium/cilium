@@ -1,0 +1,17 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-echo-expression-deny-port-range
+spec:
+  endpointSelector:
+    matchExpressions:
+    - { key: 'name', operator: In, values: [ 'client' ] }
+  egressDeny:
+  - toPorts:
+    - ports:
+      - port: "4096"
+        endPort: 8191
+        protocol: TCP
+    toEndpoints:
+    - matchExpressions:
+      - { key: 'kind', operator: In, values: [ "echo" ] }
