@@ -379,17 +379,6 @@ func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, err
 	return k.k8sPodWatcher.GetCachedPod(namespace, name)
 }
 
-// GetCiliumNode returns the CiliumNode "nodeName" from the local Resource[T] store. If the
-// local Resource[T] store is not initialized or the key value store is connected, then it will
-// retrieve the node from kube-apiserver.
-// Note that it may be possible (although rare) that the requested nodeName is not yet in the
-// store if the local cache is falling behind due to the high amount of CiliumNode events
-// received from the k8s API server. To mitigate this, the caller should retry GetCiliumNode
-// for a given interval to be sure that a CiliumNode with that name has not actually been created.
-func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
-	return k.k8sCiliumNodeWatcher.GetCiliumNode(ctx, nodeName)
-}
-
 // GetCachedNamespace returns a namespace from the local store.
 func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
 	return k.k8sNamespaceWatcher.GetCachedNamespace(namespace)
