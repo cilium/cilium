@@ -88,10 +88,10 @@
 
 #endif /* ___EP_CONFIG____ */
 
-#ifndef NODE_MAC
-#define NODE_MAC_1 (0xde) << 24 | (0xad) << 16 | (0xbe) << 8 | (0xef)
-#define NODE_MAC_2 (0xc0) << 8 | (0xde)
-#define NODE_MAC { { NODE_MAC_1, NODE_MAC_2 } }
+#ifndef THIS_INTERFACE_MAC
+#define THIS_INTERFACE_MAC_1 (0xde) << 24 | (0xad) << 16 | (0xbe) << 8 | (0xef)
+#define THIS_INTERFACE_MAC_2 (0xc0) << 8 | (0xde)
+#define THIS_INTERACE_MAC { { THIS_INTERFACE_MAC_1, THIS_INTERFACE_MAC_2 } }
 #endif
 
 #ifndef ROUTER_IP

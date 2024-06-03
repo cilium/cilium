@@ -1005,7 +1005,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 #ifdef ENABLE_L2_ANNOUNCEMENTS
 static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 {
-	union macaddr mac = NODE_MAC;
+	union macaddr mac = THIS_INTERFACE_MAC;
 	union macaddr smac;
 	__be32 sip;
 	__be32 tip;
