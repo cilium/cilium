@@ -1,0 +1,42 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l7-policy-tls-port-range"
+specs:
+- description: "L7 policy with TLS port range"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  # Allow DNS
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+      rules:
+        dns:
+          - matchPattern: "*"
+  # Allow HTTPS when X-Very-Secret-Token is set
+  - toFQDNs:
+    - matchName: "{{.ExternalTarget}}"
+    toPorts:
+    - ports:
+      - port: "256"
+        endPort: 511
+        protocol: "TCP"
+      terminatingTLS:
+        secret:
+          namespace: "{{.TestNamespace}}"
+          name: externaltarget-tls # internal certificate to terminate in cluster
+      originatingTLS:
+        secret:
+          namespace: "{{.ExternalTargetCANamespace}}"
+          name: "{{.ExternalTargetCAName}}" # public CA bundle to validate external target
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+          headers:
+          - "X-Very-Secret-Token: 42"

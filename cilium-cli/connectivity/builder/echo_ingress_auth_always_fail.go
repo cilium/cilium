@@ -14,12 +14,28 @@ import (
 //go:embed manifests/echo-ingress-mutual-authentication-fail.yaml
 var echoIngressAuthFailPolicyYAML string
 
+//go:embed manifests/echo-ingress-mutual-authentication-fail-port-range.yaml
+var echoIngressAuthFailPolicyPortRangeYAML string
+
 type echoIngressAuthAlwaysFail struct{}
 
 func (t echoIngressAuthAlwaysFail) build(ct *check.ConnectivityTest, _ map[string]string) {
+	echoIngressAuthAlwaysFailTest(ct, false)
+	if ct.Features[features.PortRanges].Enabled {
+		echoIngressAuthAlwaysFailTest(ct, true)
+	}
+}
+
+func echoIngressAuthAlwaysFailTest(ct *check.ConnectivityTest, portRanges bool) {
+	testName := "echo-ingress-auth-always-fail"
+	policyYAML := echoIngressAuthFailPolicyYAML
+	if portRanges {
+		testName = "echo-ingress-auth-always-fail-port-range"
+		policyYAML = echoIngressAuthFailPolicyPortRangeYAML
+	}
 	// Test mutual auth with always-fail
-	newTest("echo-ingress-auth-always-fail", ct).
-		WithCiliumPolicy(echoIngressAuthFailPolicyYAML).
+	newTest(testName, ct).
+		WithCiliumPolicy(policyYAML).
 		// this test is only useful when auth is supported in the Cilium version and it is enabled
 		// currently this is tested spiffe as that is the only functional auth method
 		WithFeatureRequirements(features.RequireEnabled(features.AuthSpiffe)).

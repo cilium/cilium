@@ -21,6 +21,7 @@ const (
 	L7Proxy            Feature = "l7-proxy"
 	HostFirewall       Feature = "host-firewall"
 	ICMPPolicy         Feature = "icmp-policy"
+	PortRanges         Feature = "port-ranges"
 	Tunnel             Feature = "tunnel"
 	EndpointRoutes     Feature = "endpoint-routes"
 
@@ -198,6 +199,14 @@ func RequireMode(feature Feature, mode string) Requirement {
 // ConfigMap.
 func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
 	fs[Tunnel] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
+	fs[PortRanges] = ExtractPortRanges(ciliumVersion)
+}
+
+func ExtractPortRanges(ciliumVersion semver.Version) Status {
+	enabled := versioncheck.MustCompile(">=1.16.0")(ciliumVersion)
+	return Status{
+		Enabled: enabled,
+	}
 }
 
 func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) Status {

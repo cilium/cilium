@@ -57,14 +57,23 @@ var (
 	//go:embed manifests/client-egress-l7-http.yaml
 	clientEgressL7HTTPPolicyYAML string
 
+	//go:embed manifests/client-egress-l7-http-port-range.yaml
+	clientEgressL7HTTPPolicyPortRangeYAML string
+
 	//go:embed manifests/client-egress-l7-http-named-port.yaml
 	clientEgressL7HTTPNamedPortPolicyYAML string
 
 	//go:embed manifests/client-egress-l7-tls.yaml
 	clientEgressL7TLSPolicyYAML string
 
+	//go:embed manifests/client-egress-l7-tls-port-range.yaml
+	clientEgressL7TLSPolicyPortRangeYAML string
+
 	//go:embed manifests/client-egress-l7-http-matchheader-secret.yaml
 	clientEgressL7HTTPMatchheaderSecretYAML string
+
+	//go:embed manifests/client-egress-l7-http-matchheader-secret-port-range.yaml
+	clientEgressL7HTTPMatchheaderSecretPortRangeYAML string
 
 	//go:embed manifests/echo-ingress-from-cidr.yaml
 	echoIngressFromCIDRYAML string
@@ -260,17 +269,20 @@ func finalTests(ct *check.ConnectivityTest) error {
 
 func renderTemplates(param check.Parameters) (map[string]string, error) {
 	templates := map[string]string{
-		"clientEgressToCIDRExternalPolicyYAML":     clientEgressToCIDRExternalPolicyYAML,
-		"clientEgressToCIDRExternalPolicyKNPYAML":  clientEgressToCIDRExternalPolicyKNPYAML,
-		"clientEgressToCIDRNodeKNPYAML":            clientEgressToCIDRNodeKNPYAML,
-		"clientEgressToCIDRExternalDenyPolicyYAML": clientEgressToCIDRExternalDenyPolicyYAML,
-		"clientEgressL7HTTPPolicyYAML":             clientEgressL7HTTPPolicyYAML,
-		"clientEgressL7HTTPNamedPortPolicyYAML":    clientEgressL7HTTPNamedPortPolicyYAML,
-		"clientEgressToFQDNsPolicyYAML":            clientEgressToFQDNsPolicyYAML,
-		"clientEgressL7TLSPolicyYAML":              clientEgressL7TLSPolicyYAML,
-		"clientEgressL7HTTPMatchheaderSecretYAML":  clientEgressL7HTTPMatchheaderSecretYAML,
-		"echoIngressFromCIDRYAML":                  echoIngressFromCIDRYAML,
-		"denyCIDRPolicyYAML":                       denyCIDRPolicyYAML,
+		"clientEgressToCIDRExternalPolicyYAML":             clientEgressToCIDRExternalPolicyYAML,
+		"clientEgressToCIDRExternalPolicyKNPYAML":          clientEgressToCIDRExternalPolicyKNPYAML,
+		"clientEgressToCIDRNodeKNPYAML":                    clientEgressToCIDRNodeKNPYAML,
+		"clientEgressToCIDRExternalDenyPolicyYAML":         clientEgressToCIDRExternalDenyPolicyYAML,
+		"clientEgressL7HTTPPolicyYAML":                     clientEgressL7HTTPPolicyYAML,
+		"clientEgressL7HTTPPolicyPortRangeYAML":            clientEgressL7HTTPPolicyPortRangeYAML,
+		"clientEgressL7HTTPNamedPortPolicyYAML":            clientEgressL7HTTPNamedPortPolicyYAML,
+		"clientEgressToFQDNsPolicyYAML":                    clientEgressToFQDNsPolicyYAML,
+		"clientEgressL7TLSPolicyYAML":                      clientEgressL7TLSPolicyYAML,
+		"clientEgressL7TLSPolicyPortRangeYAML":             clientEgressL7TLSPolicyPortRangeYAML,
+		"clientEgressL7HTTPMatchheaderSecretYAML":          clientEgressL7HTTPMatchheaderSecretYAML,
+		"clientEgressL7HTTPMatchheaderSecretPortRangeYAML": clientEgressL7HTTPMatchheaderSecretPortRangeYAML,
+		"echoIngressFromCIDRYAML":                          echoIngressFromCIDRYAML,
+		"denyCIDRPolicyYAML":                               denyCIDRPolicyYAML,
 	}
 	if param.K8sLocalHostTest {
 		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML
