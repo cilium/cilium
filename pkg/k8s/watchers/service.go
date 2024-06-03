@@ -146,10 +146,6 @@ func (k *K8sWatcher) RunK8sServiceHandler() {
 	go k.k8sServiceHandler()
 }
 
-func (k *K8sWatcher) StopK8sServiceHandler() {
-	close(k.stop)
-}
-
 func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) {
 	// Headless services do not need any datapath implementation
 	if svcInfo.IsHeadless {
