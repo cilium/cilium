@@ -30,10 +30,11 @@ var (
 // startXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
 // resource watcher and network listener.
 // Returns a function that stops the GRPC server when called.
-func startXDSGRPCServer(listener net.Listener, config map[string]*xds.ResourceTypeConfiguration) context.CancelFunc {
+func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]*xds.ResourceTypeConfiguration) context.CancelFunc {
 	grpcServer := grpc.NewServer()
 
-	xdsServer := xds.NewServer(config)
+	// xdsServer optionally pauses serving any resources until endpoints have been restored
+	xdsServer := xds.NewServer(config, s.restorerPromise)
 	dsServer := (*xdsGRPCServer)(xdsServer)
 
 	// TODO: https://github.com/cilium/cilium/issues/5051
