@@ -360,7 +360,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				identity: Identity{
 					ID:                  newID.ID,
 					Source:              prefixInfo.Source(),
-					createdFromMetadata: true,
+					createdFromMetadata: newID.ReferenceCount != -1, // See resolveIdentity().
 				},
 				tunnelPeer: prefixInfo.TunnelPeer().IP(),
 				encryptKey: prefixInfo.EncryptKey().Uint8(),
@@ -586,8 +586,8 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 					ID:             restoredIdentity,
 					Labels:         labels.NewFrom(nil),
 					LabelArray:     labels.LabelArray{},
-					ReferenceCount: 1,
-				}, true, nil
+					ReferenceCount: -1, // Denote that this is not a real identity.
+				}, false, nil
 			}
 			return id, false, nil
 		}
