@@ -4,7 +4,6 @@
 package watchers
 
 import (
-	"context"
 	"sort"
 	"testing"
 
@@ -15,20 +14,12 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-type fakeWatcherConfiguration struct{}
-
-func (f *fakeWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
-	return true
-}
 
 type fakeSvcManager struct {
 	OnDeleteService func(frontend loadbalancer.L3n4Addr) (bool, error)
@@ -2446,45 +2437,4 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	require.EqualValues(t, upsert3rdWanted, upsert3rd)
 	require.EqualValues(t, del1stWanted, del1st)
 	require.EqualValues(t, del2ndWanted, del2nd)
-}
-
-func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
-	fakeClientSet, _ := client.NewFakeClientset()
-
-	w := newWatcher(
-		fakeClientSet,
-		&K8sPodWatcher{
-			controllersStarted: make(chan struct{}),
-			podStoreSet:        make(chan struct{}),
-		},
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		&synced.Resources{},
-		nil,
-		&fakeWatcherConfiguration{},
-	)
-
-	w.resourceGroupsFn = func(cfg WatcherConfiguration) (resourceGroups []string, waitForCachesOnly []string) {
-		return []string{}, []string{}
-	}
-
-	// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	deadline, _ := t.Deadline()
-	ctx, cancel := context.WithDeadline(context.Background(), deadline)
-	defer cancel()
-
-	cachesSynced := make(chan struct{})
-	w.InitK8sSubsystem(ctx, cachesSynced)
-	// Expect channel to be closed.
-	select {
-	case <-ctx.Done():
-		t.Fail()
-	case _, ok := <-cachesSynced:
-		require.False(t, ok)
-	}
 }
