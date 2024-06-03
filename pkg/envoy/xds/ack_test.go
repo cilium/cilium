@@ -119,6 +119,18 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 }
 
+// UseCurrent adds a completion to the WaitGroup if the current
+// version of the cached resource has not been acked yet, allowing the
+// caller to wait for the ACK.
+func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	if wg != nil {
+		m.useCurrent(typeURL, nodeIDs, wg, nil)
+	}
+}
+
 func TestUseCurrent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
