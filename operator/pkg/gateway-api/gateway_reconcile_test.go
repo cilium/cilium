@@ -304,7 +304,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		Build()
 
 	cecTranslator := translation.NewCECTranslator("", false, false, true, 60, false, nil, false, false, 0)
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false, string(corev1.ServiceExternalTrafficPolicyCluster))
 
 	r := &gatewayReconciler{
 		Client:     c,

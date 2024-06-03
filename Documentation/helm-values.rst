@@ -1516,6 +1516,10 @@
      - Enable support for Gateway API in cilium This will automatically set enable-envoy-config as well.
      - bool
      - ``false``
+   * - :spelling:ignore:`gatewayAPI.externalTrafficPolicy`
+     - Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "Cluster" and "Local". ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
+     - string
+     - ``"Cluster"``
    * - :spelling:ignore:`gatewayAPI.hostNetwork.enabled`
      - Configure whether the Envoy listeners should be exposed on the host network.
      - bool
