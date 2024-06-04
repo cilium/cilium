@@ -2700,6 +2700,14 @@
      - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
      - bool
      - ``true``
+   * - :spelling:ignore:`sysctlfix`
+     - Configure sysctl override described in #20072.
+     - object
+     - ``{"enabled":true}``
+   * - :spelling:ignore:`sysctlfix.enabled`
+     - Enable the sysctl override. When enabled, the init container will mount the /proc of the host so that the ``sysctlfix`` utility can execute.
+     - bool
+     - ``true``
    * - :spelling:ignore:`terminationGracePeriodSeconds`
      - Configure termination grace period for cilium-agent DaemonSet.
      - int

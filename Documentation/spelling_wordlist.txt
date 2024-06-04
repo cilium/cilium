@@ -883,6 +883,7 @@ prestop
 printf
 priori
 priorityClassName
+proc
 procfs
 productpage
 profiler
