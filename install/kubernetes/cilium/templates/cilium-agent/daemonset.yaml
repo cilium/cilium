@@ -526,6 +526,8 @@ spec:
             drop:
               - ALL
           {{- end}}
+      {{- end }}
+      {{- if .Values.sysctlfix.enabled }}
       - name: apply-sysctl-overwrites
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -808,8 +810,8 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
       {{- end }}
-      {{- if .Values.cgroup.autoMount.enabled }}
-      # To mount cgroup2 filesystem on the host
+      {{- if or .Values.cgroup.autoMount.enabled .Values.sysctlfix.enabled }}
+      # To mount cgroup2 filesystem on the host or apply sysctlfix
       - name: hostproc
         hostPath:
           path: /proc
