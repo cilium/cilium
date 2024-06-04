@@ -264,32 +264,23 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 		} else {
 			// The prefix's labels *have* been restored from the checkpoint.
 			//
-			// If the restored identity contains an exact CIDR match
-			// for this prefix, then insert its labels in to the ipcache.
-			//
-			// Otherwise, do nothing. The set of labels for this prefix will
-			// be recreated from other sources on startup, such as reading the FQDN
-			// checkpoint.
-			//
-			// Note that the set of labels may be more than just reserved:world
-			// and the cidr:xxx/32. For example, the CIDR may also have the apiserver
-			// or reserved:remote-node label.
-			wantLbl, _ := labels.IPStringToLabel(prefix.String())
-			if _, exists := id.Labels[wantLbl.Key]; exists {
+			// This is needed in particular for CIDR identities and
+			// FQDN identities, as they are derived from policies and thus are
+			// not available before endpoint regeneration starts, but need to
+			// be present in the new IPCache during endpoint regeneration to
+			// avoid drops.
+			metaUpdates = append(metaUpdates, ipcache.MU{
+				Prefix:   prefix,
+				Source:   source.Restored,
+				Resource: restoredCIDRResource,
+				Metadata: []ipcache.IPMetadata{id.Labels},
+			})
+			log.WithFields(logrus.Fields{
+				logfields.Labels: id.Labels,
+				logfields.Prefix: prefix,
+			}).Debug("restoring local ipcache entry")
 
-				metaUpdates = append(metaUpdates, ipcache.MU{
-					Prefix:   prefix,
-					Source:   source.Restored,
-					Resource: restoredCIDRResource,
-					Metadata: []ipcache.IPMetadata{id.Labels},
-				})
-				log.WithFields(logrus.Fields{
-					logfields.Labels: id.Labels,
-					logfields.Prefix: prefix,
-				}).Debug("restoring local ipcache entry")
-
-				d.restoredCIDRs[prefix] = nid
-			}
+			d.restoredCIDRs[prefix] = nid
 		}
 	}
 
@@ -332,7 +323,7 @@ func (d *Daemon) releaseRestoredIdentities() {
 		return
 	}
 
-	log.WithField(logfields.Count, len(d.restoredCIDRs)).Info("Removing identity reservations for restored CIDR identities")
+	log.WithField(logfields.Count, len(d.restoredCIDRs)).Info("Removing identity reservations for restored identities")
 	updates := make([]ipcache.MU, 0, len(d.restoredCIDRs))
 	nids := make([]identity.NumericIdentity, 0, len(d.restoredCIDRs))
 	for prefix, nid := range d.restoredCIDRs {
