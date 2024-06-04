@@ -256,9 +256,6 @@ var (
 		// Redirect policy manages the Local Redirect Policies.
 		redirectpolicy.Cell,
 
-		// The device reloader reloads the datapath when the devices change at runtime.
-		cell.Invoke(registerDeviceReloader),
-
 		// The node discovery cell provides the local node configuration and node discovery
 		// which communicate changes in local node information to the API server or KVStore.
 		nodediscovery.Cell,
