@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -146,4 +148,50 @@ func TestNameManagerMultiIPUpdate(t *testing.T) {
 	require.Equal(t, false, exists)
 	nameManager.Unlock()
 
+}
+
+func Test_deriveLabelsForNames(t *testing.T) {
+	ciliumIORe, err := ciliumIOSel.ToRegex()
+	require.NoError(t, err)
+	githubRe, err := githubSel.ToRegex()
+	require.NoError(t, err)
+	ciliumIOSelMatchPatternRe, err := ciliumIOSelMatchPattern.ToRegex()
+	require.NoError(t, err)
+
+	selectors := map[api.FQDNSelector]*regexp.Regexp{
+		ciliumIOSel:             ciliumIORe,
+		githubSel:               githubRe,
+		ciliumIOSelMatchPattern: ciliumIOSelMatchPatternRe,
+	}
+
+	nomatchIP := netip.MustParseAddr("10.10.0.1")
+	githubIP := netip.MustParseAddr("10.20.0.1")
+	ciliumIP1 := netip.MustParseAddr("10.30.0.1")
+	ciliumIP2 := netip.MustParseAddr("10.30.0.2")
+
+	names := map[string][]netip.Addr{
+		"nomatch.local.":    {nomatchIP},
+		"github.com.":       {githubIP},
+		"cilium.io.":        {ciliumIP1},
+		"awesomecilium.io.": {ciliumIP1, ciliumIP2},
+	}
+
+	require.Equal(t, deriveLabelsForNames(names, selectors), map[string]nameMetadata{
+		"nomatch.local.": {
+			addrs:  []netip.Addr{nomatchIP},
+			labels: labels.Labels{},
+		},
+		"github.com.": {
+			addrs:  []netip.Addr{githubIP},
+			labels: labels.NewLabelsFromSortedList("fqdn:github.com"),
+		},
+		"cilium.io.": {
+			addrs:  []netip.Addr{ciliumIP1},
+			labels: labels.NewLabelsFromSortedList("fqdn:*cilium.io.;fqdn:cilium.io"),
+		},
+		"awesomecilium.io.": {
+			addrs:  []netip.Addr{ciliumIP1, ciliumIP2},
+			labels: labels.NewLabelsFromSortedList("fqdn:*cilium.io."),
+		},
+	})
 }
