@@ -673,6 +673,29 @@ func TestRequestIdentity(t *testing.T) {
 	hasIdentity(aPrefix, identity.IdentityScopeLocal+2)
 }
 
+// Test that doInjectLabels does the right thing when one allocation fails
+func TestInjectFailedAllocate(t *testing.T) {
+	cancel := setupTest(t)
+	ctx := IPIdentityCache.Context
+	ipc := IPIdentityCache
+	cancel()
+
+	ipc.metadata.upsertLocked(inClusterPrefix, source.Restored, "daemon-uid", labels.GetCIDRLabels(inClusterPrefix))
+	ipc.metadata.upsertLocked(inClusterPrefix2, source.Restored, "daemon-uid", labels.GetCIDRLabels(inClusterPrefix2))
+
+	Allocator.Reject(labels.GetCIDRLabels(inClusterPrefix))
+	remaining, err := ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
+	require.NotNil(t, err)
+	require.Len(t, remaining, 2)
+
+	Allocator.Unreject(labels.GetCIDRLabels(inClusterPrefix))
+	Allocator.Reject(labels.GetCIDRLabels(inClusterPrefix2))
+
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
+	require.NotNil(t, err)
+	require.Len(t, remaining, 1)
+}
+
 func TestMetadataRevision(t *testing.T) {
 	m := newMetadata()
 
@@ -807,11 +830,11 @@ func setupTest(t *testing.T) (cleanup func()) {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	allocator := testidentity.NewMockIdentityAllocator(nil)
+	Allocator = testidentity.NewMockIdentityAllocator(nil)
 	PolicyHandler = newMockUpdater()
 	IPIdentityCache = NewIPCache(&Configuration{
 		Context:           ctx,
-		IdentityAllocator: allocator,
+		IdentityAllocator: Allocator,
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
 	})

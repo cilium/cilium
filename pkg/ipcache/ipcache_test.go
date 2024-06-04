@@ -30,19 +30,20 @@ type IPCacheTestSuite struct{}
 var (
 	IPIdentityCache *IPCache
 	PolicyHandler   *mockUpdater
+	Allocator       *testidentity.MockIdentityAllocator
 )
 
 func setupIPCacheTestSuite(tb testing.TB) *IPCacheTestSuite {
 	s := &IPCacheTestSuite{}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	allocator := testidentity.NewMockIdentityAllocator(nil)
+	Allocator = testidentity.NewMockIdentityAllocator(nil)
 	PolicyHandler = &mockUpdater{
 		identities: make(map[identityPkg.NumericIdentity]labels.LabelArray),
 	}
 	IPIdentityCache = NewIPCache(&Configuration{
 		Context:           ctx,
-		IdentityAllocator: allocator,
+		IdentityAllocator: Allocator,
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
 	})
