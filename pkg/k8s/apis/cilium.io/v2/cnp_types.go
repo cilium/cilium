@@ -71,8 +71,6 @@ func objectMetaDeepEqual(in, other metav1.ObjectMeta) bool {
 
 // CiliumNetworkPolicyStatus is the status of a Cilium policy rule.
 type CiliumNetworkPolicyStatus struct {
-	// Nodes is the Cilium policy status for each node
-	Nodes map[string]CiliumNetworkPolicyNodeStatus `json:"nodes,omitempty"`
 
 	// DerivativePolicies is the status of all policies derived from the Cilium
 	// policy
@@ -148,24 +146,6 @@ func (r *CiliumNetworkPolicy) String() string {
 	}
 	result += fmt.Sprintf("Status: %v", r.Status)
 	return result
-}
-
-// GetPolicyStatus returns the CiliumNetworkPolicyNodeStatus corresponding to
-// nodeName in the provided CiliumNetworkPolicy. If Nodes within the rule's
-// Status is nil, returns an empty CiliumNetworkPolicyNodeStatus.
-func (r *CiliumNetworkPolicy) GetPolicyStatus(nodeName string) CiliumNetworkPolicyNodeStatus {
-	if r.Status.Nodes == nil {
-		return CiliumNetworkPolicyNodeStatus{}
-	}
-	return r.Status.Nodes[nodeName]
-}
-
-// SetPolicyStatus sets the given policy status for the given nodes' map.
-func (r *CiliumNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetworkPolicyNodeStatus) {
-	if r.Status.Nodes == nil {
-		r.Status.Nodes = map[string]CiliumNetworkPolicyNodeStatus{}
-	}
-	r.Status.Nodes[nodeName] = cnpns
 }
 
 // SetDerivedPolicyStatus set the derivative policy status for the given
