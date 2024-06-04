@@ -20,7 +20,12 @@ var (
 	ErrClusterConfigNotFound = errors.New("not found")
 )
 
-func SetClusterConfig(ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
+type ClusterConfigBackend interface {
+	Get(ctx context.Context, key string) ([]byte, error)
+	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
+}
+
+func SetClusterConfig(ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig, backend ClusterConfigBackend) error {
 	key := path.Join(kvstore.ClusterConfigPrefix, clusterName)
 
 	val, err := json.Marshal(config)
@@ -39,7 +44,7 @@ func SetClusterConfig(ctx context.Context, clusterName string, config cmtypes.Ci
 	return nil
 }
 
-func GetClusterConfig(ctx context.Context, clusterName string, backend kvstore.BackendOperations) (cmtypes.CiliumClusterConfig, error) {
+func GetClusterConfig(ctx context.Context, clusterName string, backend ClusterConfigBackend) (cmtypes.CiliumClusterConfig, error) {
 	var config cmtypes.CiliumClusterConfig
 
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
