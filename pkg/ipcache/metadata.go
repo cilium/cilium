@@ -327,13 +327,6 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				// prefixes may be released as part of this,
 				// so hopefully this forward progress will
 				// unblock subsequent calls into this function.
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.IPAddr:   prefix,
-					logfields.Identity: oldID,
-					logfields.Labels:   newID.Labels,
-				}).Warning(
-					"Failed to allocate new identity while handling change in labels associated with a prefix.",
-				)
 				remainingPrefixes = modifiedPrefixes[i:]
 				err = fmt.Errorf("failed to allocate new identity during label injection: %w", err)
 				break
@@ -544,7 +537,14 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
 	// Override identities always take precedence
 	if identityOverrideLabels, ok := info.identityOverride(); ok {
-		return ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
+		id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.IPAddr: prefix,
+				logfields.Labels: identityOverrideLabels,
+			}).Warning("Failed to allocate new identity for prefix's IdentityOverrideLabels.")
+		}
+		return id, isNew, err
 	}
 
 	lbls := info.ToLabels()
@@ -631,6 +631,13 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// which could theoretically fail if we ever allocate a very large
 	// number of identities.
 	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, restoredIdentity)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.IPAddr: prefix,
+			logfields.Labels: lbls,
+		}).Warning("Failed to allocate new identity for prefix's Labels.")
+		return nil, false, err
+	}
 	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) ||
 		lbls.Has(labels.LabelWorldIPv4[labels.IDNameWorldIPv4]) ||
 		lbls.Has(labels.LabelWorldIPv6[labels.IDNameWorldIPv6]) {

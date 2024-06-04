@@ -5,6 +5,7 @@ package testidentity
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -30,6 +31,8 @@ type MockIdentityAllocator struct {
 	labelsToIdentity map[string]int // labels are sorted as a key
 
 	withheldIdentities map[identity.NumericIdentity]struct{}
+
+	labelsToReject map[string]struct{}
 }
 
 // NewMockIdentityAllocator returns a new mock identity allocator to be used
@@ -51,6 +54,8 @@ func NewMockIdentityAllocator(c identity.IdentityMap) *MockIdentityAllocator {
 		idToIdentity:       make(map[int]*identity.Identity),
 		labelsToIdentity:   make(map[string]int),
 		withheldIdentities: map[identity.NumericIdentity]struct{}{},
+
+		labelsToReject: map[string]struct{}{},
 	}
 }
 
@@ -65,11 +70,25 @@ func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 	return result.FromIdentityCache(f.IdentityMap)
 }
 
+// Reject programs the mock allocator to reject an identity
+// for testing purposes
+func (f *MockIdentityAllocator) Reject(lbls labels.Labels) {
+	f.labelsToReject[lbls.String()] = struct{}{}
+}
+
+func (f *MockIdentityAllocator) Unreject(lbls labels.Labels) {
+	delete(f.labelsToReject, lbls.String())
+}
+
 // AllocateIdentity allocates a fake identity. It is meant to generally mock
 // the canonical identity allocator logic.
 func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity, false, nil
+	}
+
+	if _, ok := f.labelsToReject[lbls.String()]; ok {
+		return nil, false, fmt.Errorf("rejecting labels manually")
 	}
 
 	if numID, ok := f.labelsToIdentity[lbls.String()]; ok {
