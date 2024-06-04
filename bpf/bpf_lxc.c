@@ -105,6 +105,15 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			goto skip_service_lookup;
 		}
 #endif /* ENABLE_L7_LB */
+		/* When socket-LB is enabled, local-redirect services are load-balanced in
+		 * bpf_sock. In some cases, load-balancing can be skipped for certain local
+		 * redirect services based on user configured policies. Per packet LB should
+		 * not override LB decisions made for local-redirect services in bpf_sock.
+		 */
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
+		if (unlikely(lb4_svc_is_localredirect(svc)))
+			goto skip_service_lookup;
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ipv4_is_fragment(ip4),
 				ETH_HLEN, l4_off, &key, &tuple, svc, &ct_state_new,
 				has_l4_header, false, &cluster_id, ext_err);
@@ -162,6 +171,11 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			goto skip_service_lookup;
 		}
 #endif /* ENABLE_L7_LB */
+		/* See comment in __per_packet_lb_svc_xlate_4. */
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
+		if (unlikely(lb6_svc_is_localredirect(svc)))
+			goto skip_service_lookup;
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
 				&key, &tuple, svc, &ct_state_new, false, ext_err);
 

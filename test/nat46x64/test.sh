@@ -5,7 +5,7 @@ set -eu
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
-V=${V:-"0"} # Verbosity. 0 = quiet, 1 = loud
+V=${V:-"1"} # Verbosity. 0 = quiet, 1 = loud
 if [ "$V" != "0" ]; then
     set -x
 fi
@@ -251,8 +251,14 @@ function test_services {
 
     cilium_install "$TXT_TC__MAGLEV" ${CFG_TC__MAGLEV[@]}
     info "Testing service ${LB_VIP_SVC} -> ${BACKEND_SVC} via TC + Maglev"
+    info "Debug dump maps"
+    trace_exec "${CILIUM_EXEC} bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb4_services_v2"
+    trace_exec "${CILIUM_EXEC} bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb6_services_v2"
     assert_connectivity_ok "${LB_VIP_SVC}"
     assert_connectivity_ok "${LB_ALT_SVC}"
+    info "Debug dump maps"
+    trace_exec "${CILIUM_EXEC} bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb4_services_v2"
+    trace_exec "${CILIUM_EXEC} bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb6_services_v2"
 
     ${CILIUM_EXEC} cilium-dbg service delete 1
     ${CILIUM_EXEC} cilium-dbg service delete 2
