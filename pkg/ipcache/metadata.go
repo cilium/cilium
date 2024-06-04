@@ -186,20 +186,28 @@ func canonicalPrefix(prefix netip.Prefix) netip.Prefix {
 
 func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource types.ResourceID, info ...IPMetadata) []netip.Prefix {
 	prefix = canonicalPrefix(prefix)
+	changed := false
 	if _, ok := m.m[prefix]; !ok {
+		changed = true
 		m.m[prefix] = make(prefixInfo)
 	}
 	if _, ok := m.m[prefix][resource]; !ok {
+		changed = true
 		m.m[prefix][resource] = &resourceInfo{
 			source: src,
 		}
 	}
 
 	for _, i := range info {
-		m.m[prefix][resource].merge(i, src)
+		c := m.m[prefix][resource].merge(i, src)
+		changed = changed || c
 	}
 
 	m.m[prefix].logConflicts(log.WithField(logfields.CIDR, prefix))
+
+	if !changed {
+		return nil
+	}
 
 	return m.findAffectedChildPrefixes(prefix)
 }
