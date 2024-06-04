@@ -1757,7 +1757,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	// After K8s caches have been synced, IPCache can start label injection.
 	// Ensure that the initial labels are injected before we regenerate endpoints
 	log.Debug("Waiting for initial IPCache revision")
-	d.ipcache.WaitForRevision(1)
+	if err := d.ipcache.WaitForRevision(d.ctx, 1); err != nil {
+		log.WithError(err).Error("Failed to wait for initial IPCache revision")
+	}
 
 	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
 

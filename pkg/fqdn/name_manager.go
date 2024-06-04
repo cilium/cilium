@@ -268,8 +268,9 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		n.config.IPCache.WaitForRevision(ipcacheRevision)
-		wg.Done()
+		if err := n.config.IPCache.WaitForRevision(ctx, ipcacheRevision); err == nil {
+			wg.Done()
+		}
 	}()
 	return wg
 }
