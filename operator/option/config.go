@@ -41,12 +41,6 @@ const (
 	// CES work queue QPS burst cannot exceed this value, regardless of other config.
 	CESWriteQPSBurstMax = 100
 
-	// CNPStatusCleanupQPSDefault is the default rate for the CNP NodeStatus updates GC.
-	CNPStatusCleanupQPSDefault = 10
-
-	// CNPStatusCleanupBurstDefault is the default maximum burst for the CNP NodeStatus updates GC.
-	CNPStatusCleanupBurstDefault = 20
-
 	// PprofAddressOperator is the default value for pprof in the operator
 	PprofAddressOperator = "localhost"
 
@@ -64,15 +58,6 @@ const (
 	// BGPConfigPath is the file path to the BGP configuration. It is
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
-
-	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
-	// nodes updates in CNPs is carried out. It is expressed as queries per second,
-	// and for each query a single CNP status update will be deleted.
-	CNPStatusCleanupQPS = "cnp-status-cleanup-qps"
-
-	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
-	// operation of the status nodes updates in CNPs.
-	CNPStatusCleanupBurst = "cnp-status-cleanup-burst"
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
@@ -257,15 +242,6 @@ type OperatorConfig struct {
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
 
-	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
-	// nodes updates in CNPs is carried out. It is expressed as queries per second,
-	// and for each query a single CNP status update will be deleted.
-	CNPStatusCleanupQPS float64
-
-	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
-	// operation of the status nodes updates in CNPs.
-	CNPStatusCleanupBurst int
-
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
 
@@ -449,8 +425,6 @@ type OperatorConfig struct {
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
-	c.CNPStatusCleanupQPS = vp.GetFloat64(CNPStatusCleanupQPS)
-	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
