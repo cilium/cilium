@@ -899,13 +899,15 @@ func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
 		controller.ControllerParams{
 			Group: neighborTableUpdateControllerGroup,
 			DoFunc: func(ctx context.Context) error {
+				var errs error
 				if m.nodeNeighborQueue.isEmpty() {
 					return nil
 				}
-				var errs error
 				for {
-					e := m.nodeNeighborQueue.pop()
-					if e == nil || e.node == nil {
+					e, ok := m.nodeNeighborQueue.pop()
+					if !ok {
+						break
+					} else if e == nil || e.node == nil {
 						errs = errors.Join(errs, fmt.Errorf("invalid node spec found in queue: %#v", e))
 						break
 					}
