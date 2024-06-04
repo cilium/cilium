@@ -300,7 +300,7 @@ jobs:
           path: cilium-sysdump-*.zip
 
       - name: Cleanup cluster
-        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        if: ${{ always() }}
         uses: cilium/scale-tests-action/cleanup-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
