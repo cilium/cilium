@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ip"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -455,4 +456,35 @@ func nameLockIndex(name string, cnt int) uint32 {
 	h := fnv.New32()
 	_, _ = h.Write([]byte(name)) // cannot return error
 	return h.Sum32() % uint32(cnt)
+}
+
+type nameMetadata struct {
+	addrs  []netip.Addr
+	labels labels.Labels // if empty, metadata will be removed for this name
+}
+
+// deriveLabelsForName derives what `fqdn:` labels we want to associate with
+// IPs for this DNS name, i.e. what selectors match the DNS name.
+func deriveLabelsForName(dnsName string, selectors map[api.FQDNSelector]*regexp.Regexp) labels.Labels {
+	lbls := labels.Labels{}
+	for fqdnSel, fqdnRegex := range selectors {
+		matches := fqdnRegex.MatchString(dnsName)
+		if matches {
+			l := fqdnSel.IdentityLabel()
+			lbls[l.Key] = l
+		}
+	}
+	return lbls
+}
+
+// deriveLabelsForNames derives the labels for all names found in nameToIPs
+func deriveLabelsForNames(nameToIPs map[string][]netip.Addr, selectors map[api.FQDNSelector]*regexp.Regexp) (namesWithMetadata map[string]nameMetadata) {
+	namesWithMetadata = make(map[string]nameMetadata, len(nameToIPs))
+	for dnsName, addrs := range nameToIPs {
+		namesWithMetadata[dnsName] = nameMetadata{
+			addrs:  addrs,
+			labels: deriveLabelsForName(dnsName, selectors),
+		}
+	}
+	return namesWithMetadata
 }
