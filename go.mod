@@ -20,7 +20,7 @@ require (
 	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
-	github.com/cilium/dns v1.1.51-0.20240416134107-d47d0dd702a1
+	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 	github.com/cilium/ebpf v0.15.0
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.6.1
