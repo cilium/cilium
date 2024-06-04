@@ -109,7 +109,6 @@ type Daemon struct {
 	svc              service.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
-	policyUpdater    *policy.Updater
 	preFilter        datapath.PreFilter
 
 	statusCollectMutex lock.RWMutex
@@ -425,7 +424,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		identityAllocator: params.IdentityAllocator,
 		ipcache:           params.IPCache,
 		policy:            params.Policy,
-		policyUpdater:     params.PolicyUpdater,
 		ipamMetadata:      params.IPAMMetadataManager,
 		cniConfigManager:  params.CNIConfigManager,
 		clusterInfo:       params.ClusterInfo,
