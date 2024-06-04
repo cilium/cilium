@@ -32,6 +32,10 @@ type Config struct {
 	GetEndpointsDNSInfo func() []EndpointDNSInfo
 
 	IPCache IPCache
+
+	// CheckpointSelectors enables a controller which writes all FQDN selectors to disk. This allows Cilium 1.16+
+	// (which has a new way of managing identities for FQDN selectors) to perform dropless upgrades.
+	CheckpointSelectors bool
 }
 
 type EndpointDNSInfo struct {

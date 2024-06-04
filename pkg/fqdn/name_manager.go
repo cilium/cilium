@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/trigger"
 )
 
 // NameManager maintains state DNS names, via FQDNSelector or exact match for
@@ -51,6 +52,9 @@ type NameManager struct {
 	bootstrapCompleted bool
 
 	manager *controller.Manager
+
+	// checkpointSelectors writes all known FQDN selectors to disk
+	checkpointSelectors *trigger.Trigger
 
 	// list of locks used as coordination points for name updates
 	// see LockName() for details.
@@ -121,6 +125,9 @@ func (n *NameManager) RegisterForIPUpdatesLocked(selector api.FQDNSelector) []ne
 	// were not previously selected. Upsert them now.
 	n.upsertMetadata(selectorIPMapping[selector])
 
+	// Forward-compatibility with Cilium 1.16+: Checkpoint known selectors
+	n.triggerSelectorCheckpoint()
+
 	return selectorIPMapping[selector]
 }
 
@@ -129,6 +136,9 @@ func (n *NameManager) RegisterForIPUpdatesLocked(selector api.FQDNSelector) []ne
 // for IPs which correspond to said selector are propagated.
 func (n *NameManager) UnregisterForIPUpdatesLocked(selector api.FQDNSelector) {
 	delete(n.allSelectors, selector)
+
+	// Forward-compatibility with Cilium 1.16+: Checkpoint known selectors
+	n.triggerSelectorCheckpoint()
 }
 
 // NewNameManager creates an initialized NameManager.
@@ -160,6 +170,10 @@ func NewNameManager(config Config) *NameManager {
 
 	for i := range n.nameLocks {
 		n.nameLocks[i] = &lock.Mutex{}
+	}
+
+	if config.CheckpointSelectors {
+		n.checkpointSelectors = n.setupSelectorCheckpointController()
 	}
 
 	return n
