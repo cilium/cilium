@@ -230,12 +230,17 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("gateway configuration can't specify both an interface and an egress IP")
 	}
 
-	// EgressIP is not a required field, ignore the error if unable to parse.
-	addr, _ := netip.ParseAddr(egressGateway.EgressIP)
 	policyGwc := &policyGatewayConfig{
 		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
 		iface:        egressGateway.Interface,
-		egressIP:     addr,
+	}
+	// EgressIP is not a required field, validate and parse it only if non-empty
+	if egressGateway.EgressIP != "" {
+		addr, err := netip.ParseAddr(egressGateway.EgressIP)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse egress IP %s: %w", egressGateway.EgressIP, err)
+		}
+		policyGwc.egressIP = addr
 	}
 
 	for _, cidrString := range destinationCIDRs {
