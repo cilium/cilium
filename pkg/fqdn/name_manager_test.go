@@ -75,8 +75,8 @@ func (m *mockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint6
 	return 0
 }
 
-func (m *mockIPCache) WaitForRevision(rev uint64) {
-	// no-op
+func (m *mockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
+	return nil
 }
 
 func ipsFromPrefixes(t *testing.T, prefixes ...netip.Prefix) (ips []net.IP) {

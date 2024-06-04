@@ -4,6 +4,7 @@
 package testipcache
 
 import (
+	"context"
 	"net"
 	"net/netip"
 
@@ -66,7 +67,9 @@ func (m *MockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint6
 	return 0
 }
 
-func (m *MockIPCache) WaitForRevision(rev uint64) {}
+func (m *MockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
+	return nil
+}
 
 func NewMockIPCache() *MockIPCache {
 	return &MockIPCache{}

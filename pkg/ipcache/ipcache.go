@@ -603,15 +603,17 @@ func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels lab
 // metadata updates. Thus, the sequence
 //
 //	rev := UpsertMetadataBatch(prefix1, metadata, ...)
-//	WaitForRevision(rev)
+//	WaitForRevision(ctx, rev)
 //
 // means that prefix1 has had at least one call to InjectLabels with the supplied
 // metadata. It does not guarantee that the metadata matches exactly what was
 // passed to UpsertMetadata, as other callers may have also queued modifications.
 //
 // Note that the revision number should be treated as an opaque identifier.
-func (ipc *IPCache) WaitForRevision(desired uint64) {
-	ipc.metadata.waitForRevision(desired)
+// Returns a non-nil error if the provided context was cancelled before the
+// desired revision was reached.
+func (ipc *IPCache) WaitForRevision(ctx context.Context, desired uint64) error {
+	return ipc.metadata.waitForRevision(ctx, desired)
 }
 
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
