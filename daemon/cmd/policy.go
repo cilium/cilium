@@ -168,12 +168,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	}, nil
 }
 
-// TriggerPolicyUpdates triggers policy updates by deferring to the
-// policy.Updater to handle them.
-func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
-	d.policyUpdater.TriggerPolicyUpdates(force, reason)
-}
-
 // identityAllocatorOwner is used to break the circular dependency between
 // CachingIdentityAllocator and policy.Repository.
 type identityAllocatorOwner struct {
@@ -545,7 +539,6 @@ type PolicyDeleteResult struct {
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
 func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
-
 	p := &PolicyDeleteEvent{
 		labels: labels,
 		opts:   opts,

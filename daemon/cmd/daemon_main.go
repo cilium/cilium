@@ -1646,7 +1646,6 @@ type daemonParams struct {
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   CachingIdentityAllocator
 	Policy              *policy.Repository
-	PolicyUpdater       *policy.Updater
 	IPCache             *ipcache.IPCache
 	PolicyK8sWatcher    *policyK8s.PolicyResourcesWatcher
 	IPAMMetadataManager *ipamMetadata.Manager
