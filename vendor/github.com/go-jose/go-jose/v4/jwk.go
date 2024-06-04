@@ -35,7 +35,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/go-jose/go-jose/v3/json"
+	"github.com/go-jose/go-jose/v4/json"
 )
 
 // rawJSONWebKey represents a public or private key in JWK format, used for parsing/serializing.
@@ -67,9 +67,21 @@ type rawJSONWebKey struct {
 	X5tSHA256 string   `json:"x5t#S256,omitempty"`
 }
 
-// JSONWebKey represents a public or private key in JWK format.
+// JSONWebKey represents a public or private key in JWK format. It can be
+// marshaled into JSON and unmarshaled from JSON.
 type JSONWebKey struct {
-	// Cryptographic key, can be a symmetric or asymmetric key.
+	// Key is the Go in-memory representation of this key. It must have one
+	// of these types:
+	//  - ed25519.PublicKey
+	//  - ed25519.PrivateKey
+	//  - *ecdsa.PublicKey
+	//  - *ecdsa.PrivateKey
+	//  - *rsa.PublicKey
+	//  - *rsa.PrivateKey
+	//  - []byte (a symmetric key)
+	//
+	// When marshaling this JSONWebKey into JSON, the "kty" header parameter
+	// will be automatically set based on the type of this field.
 	Key interface{}
 	// Key identifier, parsed from `kid` header.
 	KeyID string
@@ -254,7 +266,7 @@ func (k *JSONWebKey) UnmarshalJSON(data []byte) (err error) {
 
 	// x5t parameters are base64url-encoded SHA thumbprints
 	// See RFC 7517, Section 4.8, https://tools.ietf.org/html/rfc7517#section-4.8
-	x5tSHA1bytes, err := base64URLDecode(raw.X5tSHA1)
+	x5tSHA1bytes, err := base64.RawURLEncoding.DecodeString(raw.X5tSHA1)
 	if err != nil {
 		return errors.New("go-jose/go-jose: invalid JWK, x5t header has invalid encoding")
 	}
@@ -274,7 +286,7 @@ func (k *JSONWebKey) UnmarshalJSON(data []byte) (err error) {
 
 	k.CertificateThumbprintSHA1 = x5tSHA1bytes
 
-	x5tSHA256bytes, err := base64URLDecode(raw.X5tSHA256)
+	x5tSHA256bytes, err := base64.RawURLEncoding.DecodeString(raw.X5tSHA256)
 	if err != nil {
 		return errors.New("go-jose/go-jose: invalid JWK, x5t#S256 header has invalid encoding")
 	}
@@ -389,6 +401,8 @@ func (k *JSONWebKey) Thumbprint(hash crypto.Hash) ([]byte, error) {
 		input, err = rsaThumbprintInput(key.N, key.E)
 	case ed25519.PrivateKey:
 		input, err = edThumbprintInput(ed25519.PublicKey(key[32:]))
+	case OpaqueSigner:
+		return key.Public().Thumbprint(hash)
 	default:
 		return nil, fmt.Errorf("go-jose/go-jose: unknown key type '%s'", reflect.TypeOf(key))
 	}

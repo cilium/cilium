@@ -33,8 +33,9 @@ type Expected struct {
 	Issuer string
 	// Subject matches the "sub" claim exactly.
 	Subject string
-	// Audience matches the values in "aud" claim, regardless of their order.
-	Audience Audience
+	// AnyAudience matches if there is a non-empty intersection between
+	// its values and the values in the "aud" claim.
+	AnyAudience Audience
 	// ID matches the "jti" claim exactly.
 	ID string
 	// Time matches the "exp", "nbf" and "iat" claims with leeway.
@@ -88,11 +89,17 @@ func (c Claims) ValidateWithLeeway(e Expected, leeway time.Duration) error {
 		return ErrInvalidID
 	}
 
-	if len(e.Audience) != 0 {
-		for _, v := range e.Audience {
-			if !c.Audience.Contains(v) {
-				return ErrInvalidAudience
+	if len(e.AnyAudience) != 0 {
+		var intersection bool
+		for _, v := range e.AnyAudience {
+			if c.Audience.Contains(v) {
+				intersection = true
+				break
 			}
+		}
+
+		if !intersection {
+			return ErrInvalidAudience
 		}
 	}
 

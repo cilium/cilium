@@ -3,7 +3,7 @@ package x509bundle
 import (
 	"crypto/x509"
 	"io"
-	"io/ioutil"
+	"os"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
@@ -40,7 +40,7 @@ func FromX509Authorities(trustDomain spiffeid.TrustDomain, authorities []*x509.C
 // Load loads a bundle from a file on disk. The file must contain PEM-encoded
 // certificate blocks.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
-	fileBytes, err := ioutil.ReadFile(path)
+	fileBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, x509bundleErr.New("unable to load X.509 bundle file: %w", err)
 	}
@@ -51,7 +51,7 @@ func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 // Read decodes a bundle from a reader. The contents must be PEM-encoded
 // certificate blocks.
 func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, x509bundleErr.New("unable to read X.509 bundle: %v", err)
 	}

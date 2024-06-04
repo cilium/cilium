@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-jose/go-jose/v3/json"
+	"github.com/go-jose/go-jose/v4/json"
 )
 
 // Claims represents public claim values (as specified in RFC 7519).
@@ -119,7 +119,7 @@ func (s Audience) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]string(s))
 }
 
-//Contains checks whether a given string is included in the Audience
+// Contains checks whether a given string is included in the Audience
 func (s Audience) Contains(v string) bool {
 	for _, a := range s {
 		if a == v {
