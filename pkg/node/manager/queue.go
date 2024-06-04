@@ -24,15 +24,15 @@ func (q *queue[T]) isEmpty() bool {
 	return len(q.items) == 0
 }
 
-func (q *queue[T]) pop() *T {
-	if q.isEmpty() {
-		return nil
-	}
-
+func (q *queue[T]) pop() (*T, bool) {
 	q.mx.Lock()
 	defer q.mx.Unlock()
+
+	if len(q.items) == 0 {
+		return nil, false
+	}
 	t := q.items[0]
 	q.items = q.items[1:]
 
-	return t
+	return t, true
 }
