@@ -383,6 +383,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// iteration of the loop, then we must balance the
 			// allocation from the prior InjectLabels() call by
 			// releasing the previous reference.
+			_, hasOverride := prefixInfo.identityOverride()
 			entry, entryToBeReplaced := entriesToReplace[prefix]
 			if !oldID.createdFromMetadata && entryToBeReplaced {
 				// If the previous ipcache entry for the prefix
@@ -401,6 +402,14 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 						logfields.OldIdentity: oldID.ID,
 						logfields.Identity:    entry.identity.ID,
 					}).Debug("Acquiring Identity reference")
+				}
+			} else if !oldID.createdFromMetadata && hasOverride && prefixInfo.RequestedIdentity().ID() == oldID.ID {
+				if option.Config.Debug {
+					log.WithFields(logrus.Fields{
+						logfields.Prefix:      prefix,
+						logfields.OldIdentity: oldID.ID,
+						logfields.Identity:    entry.identity.ID,
+					}).Debug("Skipping Identity reference counting decrement due to overriden identity")
 				}
 			} else {
 				previouslyAllocatedIdentities[prefix] = oldID
