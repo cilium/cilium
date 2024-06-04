@@ -68,23 +68,34 @@ type namedPortMultiMapUpdater interface {
 // merge overwrites the field in 'resourceInfo' corresponding to 'info'. This
 // associates the new information with the prefix and ResourceID that this
 // 'resourceInfo' resides under in the outer metadata map.
-func (m *resourceInfo) merge(info IPMetadata, src source.Source) {
+//
+// returns true if the metadata was changed
+func (m *resourceInfo) merge(info IPMetadata, src source.Source) bool {
+	changed := false
 	switch info := info.(type) {
 	case labels.Labels:
+		changed = !info.DeepEqual(&m.labels)
 		m.labels = labels.NewFrom(info)
 	case overrideIdentity:
+		changed = m.identityOverride != info
 		m.identityOverride = info
 	case ipcachetypes.TunnelPeer:
+		changed = m.tunnelPeer != info
 		m.tunnelPeer = info
 	case ipcachetypes.EncryptKey:
+		changed = m.encryptKey != info
 		m.encryptKey = info
 	case ipcachetypes.RequestedIdentity:
+		changed = m.requestedIdentity != info
 		m.requestedIdentity = info
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.merge(): %+v", info)
-		return
+		return false
 	}
+	changed = changed || m.source != src
 	m.source = src
+
+	return changed
 }
 
 // unmerge removes the info of the specified type from 'resourceInfo'.
