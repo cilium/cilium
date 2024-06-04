@@ -158,12 +158,28 @@ func (m *metadata) setInjectedRevision(rev uint64) {
 // supplied revision. We may skip revisions, as the desired revision is bumped
 // every time prefixes are dequeued, but injection may fail. Thus, any revision
 // greater or equal to the desired revision is acceptable.
-func (m *metadata) waitForRevision(rev uint64) {
+func (m *metadata) waitForRevision(ctx context.Context, rev uint64) error {
+	// Allow callers to bail out by cancelling the context
+	cleanupCancellation := context.AfterFunc(ctx, func() {
+		// We need to acquire injectedRevisionCond.L here to be sure that the
+		// Broadcast won't occur before the call to Wait, which would result
+		// in a missed signal.
+		m.injectedRevisionCond.L.Lock()
+		defer m.injectedRevisionCond.L.Unlock()
+		m.injectedRevisionCond.Broadcast()
+	})
+	defer cleanupCancellation()
+
 	m.injectedRevisionCond.L.Lock()
+	defer m.injectedRevisionCond.L.Unlock()
 	for m.injectedRevision < rev {
 		m.injectedRevisionCond.Wait()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 	}
-	m.injectedRevisionCond.L.Unlock()
+
+	return nil
 }
 
 // canonicalPrefix returns the canonical version of the prefix which must be
