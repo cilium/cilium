@@ -1,11 +1,13 @@
 package x509svid
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/internal/x509util"
@@ -35,12 +37,12 @@ type SVID struct {
 // Load loads the X509-SVID from PEM encoded files on disk. certFile and
 // keyFile may be the same file.
 func Load(certFile, keyFile string) (*SVID, error) {
-	certBytes, err := ioutil.ReadFile(certFile)
+	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return nil, x509svidErr.New("cannot read certificate file: %w", err)
 	}
 
-	keyBytes, err := ioutil.ReadFile(keyFile)
+	keyBytes, err := os.ReadFile(keyFile)
 	if err != nil {
 		return nil, x509svidErr.New("cannot read key file: %w", err)
 	}
@@ -229,6 +231,9 @@ func keyMatches(privateKey crypto.PrivateKey, publicKey crypto.PublicKey) (bool,
 	case *ecdsa.PrivateKey:
 		ecdsaPublicKey, ok := publicKey.(*ecdsa.PublicKey)
 		return ok && ecdsaPublicKeyEqual(&privateKey.PublicKey, ecdsaPublicKey), nil
+	case ed25519.PrivateKey:
+		ed25519PublicKey, ok := publicKey.(ed25519.PublicKey)
+		return ok && bytes.Equal(privateKey.Public().(ed25519.PublicKey), ed25519PublicKey), nil
 	default:
 		return false, errs.New("unsupported private key type %T", privateKey)
 	}

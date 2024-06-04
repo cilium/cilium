@@ -1,17 +1,28 @@
 package jwtsvid
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/go-jose/go-jose/v3"
-	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 )
 
 var (
+	allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
+		jose.RS256,
+		jose.RS384,
+		jose.RS512,
+		jose.ES256,
+		jose.ES384,
+		jose.ES512,
+		jose.PS256,
+		jose.PS384,
+		jose.PS512,
+	}
+
 	jwtsvidErr = errs.Class("jwtsvid")
 )
 
@@ -90,14 +101,9 @@ func (svid *SVID) Marshal() string {
 
 func parse(token string, audience []string, getClaims tokenValidator) (*SVID, error) {
 	// Parse serialized token
-	tok, err := jwt.ParseSigned(token)
+	tok, err := jwt.ParseSigned(token, allowedSignatureAlgorithms)
 	if err != nil {
 		return nil, jwtsvidErr.New("unable to parse JWT token")
-	}
-
-	// Validates supported token signed algorithm
-	if err := validateTokenAlgorithm(tok); err != nil {
-		return nil, err
 	}
 
 	// Parse out the unverified claims. We need to look up the key by the trust
@@ -127,8 +133,8 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 
 	// Validate the standard claims.
 	if err := claims.Validate(jwt.Expected{
-		Audience: audience,
-		Time:     time.Now(),
+		AnyAudience: audience,
+		Time:        time.Now(),
 	}); err != nil {
 		// Convert expected validation errors for pretty errors
 		switch err {
@@ -147,24 +153,4 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 		Claims:   claimsMap,
 		token:    token,
 	}, nil
-}
-
-// validateTokenAlgorithm json web token have only one header, and it is signed for a supported algorithm
-func validateTokenAlgorithm(tok *jwt.JSONWebToken) error {
-	// Only one header is expected
-	if len(tok.Headers) != 1 {
-		return fmt.Errorf("expected a single token header; got %d", len(tok.Headers))
-	}
-
-	// Make sure it has an algorithm supported by JWT-SVID
-	alg := tok.Headers[0].Algorithm
-	switch jose.SignatureAlgorithm(alg) {
-	case jose.RS256, jose.RS384, jose.RS512,
-		jose.ES256, jose.ES384, jose.ES512,
-		jose.PS256, jose.PS384, jose.PS512:
-	default:
-		return jwtsvidErr.New("unsupported token signature algorithm %q", alg)
-	}
-
-	return nil
 }
