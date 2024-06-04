@@ -787,22 +787,80 @@ func (ipc *IPCache) TriggerLabelInjection() {
 		ipc.UpdateController(
 			LabelInjectorName,
 			controller.ControllerParams{
-				Group:   injectLabelsControllerGroup,
-				Context: ipc.Configuration.Context,
-				DoFunc: func(ctx context.Context) error {
-					idsToModify, rev := ipc.metadata.dequeuePrefixUpdates()
-					remaining, err := ipc.doInjectLabels(ctx, idsToModify)
-					if len(remaining) > 0 {
-						ipc.metadata.enqueuePrefixUpdates(remaining...)
-					} else {
-						ipc.metadata.setInjectedRevision(rev)
-					}
-
-					return err
-				},
+				Group:            injectLabelsControllerGroup,
+				Context:          ipc.Configuration.Context,
+				DoFunc:           ipc.handleLabelInjection,
 				MaxRetryInterval: 1 * time.Minute,
 			},
 		)
 	})
 	ipc.controllers.TriggerController(LabelInjectorName)
+}
+
+// Changeable just for unit tests.
+var chunkSize = 512
+
+// handleLabelInjection dequeues the set of pending prefixes and processes
+// their metadata updates
+func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
+	if ipc.Configuration.CacheStatus != nil {
+		// wait for k8s caches to sync.
+		// this is duplicated from doInjectLabels(), but it keeps us from needlessly
+		// churning the queue while the agent initializes.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ipc.Configuration.CacheStatus:
+		}
+	}
+
+	// Any prefixes that have failed and must be retried
+	var retry []netip.Prefix
+	var err error
+
+	idsToModify, rev := ipc.metadata.dequeuePrefixUpdates()
+
+	cs := chunkSize
+	// no point in dividing for the first run, we will not be releasing any identities anyways.
+	if rev == 1 {
+		cs = len(idsToModify)
+	}
+
+	// Split ipcache updates in to chunks to reduce resource spikes.
+	// InjectLabels releases all identities only at the end of processing, so
+	// it may allocate up to `chunkSize` additional identities.
+	for len(idsToModify) > 0 {
+		idx := min(len(idsToModify), cs)
+		chunk := idsToModify[0:idx]
+		idsToModify = idsToModify[idx:]
+
+		var failed []netip.Prefix
+
+		// If individual prefixes failed injection, doInjectLabels() the set of failed prefixes
+		// and sets err. We must ensure the failed prefixes are re-queued for injection.
+		failed, err = ipc.doInjectLabels(ctx, chunk)
+		retry = append(retry, failed...)
+		if err != nil {
+			break
+		}
+	}
+
+	ok := true
+	if len(retry) > 0 {
+		// err will also be set, so
+		ipc.metadata.enqueuePrefixUpdates(retry...)
+		ok = false
+	}
+	if len(idsToModify) > 0 {
+		ipc.metadata.enqueuePrefixUpdates(idsToModify...)
+		ok = false
+	}
+	if ok {
+		// if all prefixes were successfully injected, bump the revision
+		// so that any waiters are made aware.
+		ipc.metadata.setInjectedRevision(rev)
+	}
+
+	// non-nil err will re-trigger this controller
+	return err
 }

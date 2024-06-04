@@ -696,6 +696,58 @@ func TestInjectFailedAllocate(t *testing.T) {
 	require.Len(t, remaining, 1)
 }
 
+// Test that handleLabelInjection() correctly splits in to chunks
+// and handles error cases.
+func TestHandleLabelInjection(t *testing.T) {
+	oldChunkSize := chunkSize
+	defer func() {
+		chunkSize = oldChunkSize
+	}()
+	chunkSize = 1
+
+	cancel := setupTest(t)
+	ctx := IPIdentityCache.Context
+	ipc := IPIdentityCache
+	cancel()
+
+	ipc.metadata.upsertLocked(inClusterPrefix, source.Restored, "daemon-uid", labels.GetCIDRLabels(inClusterPrefix))
+	ipc.metadata.upsertLocked(inClusterPrefix2, source.Restored, "daemon-uid", labels.GetCIDRLabels(inClusterPrefix2))
+	ipc.metadata.enqueuePrefixUpdates(inClusterPrefix, inClusterPrefix2)
+
+	// Removing the allocator will cause injection to fail
+	ipc.IdentityAllocator = nil
+
+	// Trigger label injection, we should see failure
+	err := ipc.handleLabelInjection(ctx)
+
+	// Ensure that no prefixes have been lost
+	require.Equal(t, 2, len(ipc.metadata.queuedPrefixes))
+	require.Equal(t, uint64(0), ipc.metadata.injectedRevision)
+	require.NotNil(t, err)
+
+	// enable allocation, but reject one of the prefixes
+	ipc.IdentityAllocator = Allocator
+	Allocator.Reject(labels.GetCIDRLabels(inClusterPrefix))
+
+	err = ipc.handleLabelInjection(ctx)
+	// May be 1 or 2 pending prefixes, depending on which came first
+	require.GreaterOrEqual(t, len(ipc.metadata.queuedPrefixes), 1)
+	require.Equal(t, uint64(0), ipc.metadata.injectedRevision)
+	require.NotNil(t, err)
+	require.NotContains(t, ipc.ipToIdentityCache, inClusterPrefix.String())
+
+	Allocator.Unreject(labels.GetCIDRLabels(inClusterPrefix))
+
+	// No more issues, we should succeed
+	err = ipc.handleLabelInjection(ctx)
+	require.Zero(t, len(ipc.metadata.queuedPrefixes))
+	require.Equal(t, uint64(3), ipc.metadata.injectedRevision)
+	// ensure all IPs are in the ipcache
+	require.Contains(t, ipc.ipToIdentityCache, inClusterPrefix.String())
+	require.Contains(t, ipc.ipToIdentityCache, inClusterPrefix2.String())
+	require.Nil(t, err)
+}
+
 func TestMetadataRevision(t *testing.T) {
 	m := newMetadata()
 
