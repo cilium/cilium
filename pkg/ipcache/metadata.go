@@ -253,7 +253,7 @@ func (m *metadata) findAffectedChildPrefixes(parent netip.Prefix) (children []ne
 	return children
 }
 
-// InjectLabels injects labels from the ipcache metadata (IDMD) map into the
+// doInjectLabels injects labels from the ipcache metadata (IDMD) map into the
 // identities used for the prefixes in the IPCache. The given source is the
 // source of the caller, as inserting into the IPCache requires knowing where
 // this updated information comes from. Conversely, RemoveLabelsExcluded()
@@ -269,7 +269,9 @@ func (m *metadata) findAffectedChildPrefixes(parent netip.Prefix) (children []ne
 // Returns the CIDRs that were not yet processed, for example due to an
 // unexpected error while processing the identity updates for those CIDRs
 // The caller should attempt to retry injecting labels for those CIDRs.
-func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
+//
+// Do not call this directly; rather, use TriggerLabelInjection()
+func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
 	if ipc.IdentityAllocator == nil {
 		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
 	}
@@ -789,7 +791,7 @@ func (ipc *IPCache) TriggerLabelInjection() {
 				Context: ipc.Configuration.Context,
 				DoFunc: func(ctx context.Context) error {
 					idsToModify, rev := ipc.metadata.dequeuePrefixUpdates()
-					remaining, err := ipc.InjectLabels(ctx, idsToModify)
+					remaining, err := ipc.doInjectLabels(ctx, idsToModify)
 					if len(remaining) > 0 {
 						ipc.metadata.enqueuePrefixUpdates(remaining...)
 					} else {
