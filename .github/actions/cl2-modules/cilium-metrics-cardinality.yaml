@@ -1,0 +1,18 @@
+{{$action := .action}}
+
+steps:
+  - name: {{$action}} Cilium Agent Metrics Cardinality
+    measurements:
+    # For debugging cardinality of metrics, fetch prometheus snapshot and use
+    # following query to get the cardinality of metrics:
+    # topk(10, count by (__name__)({__name__=~"cilium_.+"}))
+    - Identifier: CiliumMetricsCardinality
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Metrics Cardinality
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: Max
+          query: max_over_time(count({__name__=~"cilium_.+"})[%v:])
