@@ -41,6 +41,11 @@ Looking at the feature set of a service mesh today, it can be summarized as foll
   transparent manner, i.e. without requiring to change application code.
 
 
+.. admonition:: Video
+  :class: attention
+
+  If you'd like a video explanation of Cilium's Service Mesh implementation, check out `eCHO episode 27: eBPF-enabled Service Mesh <https://www.youtube.com/watch?v=nJT0ASbGLvs>`__ and `eCHO episode 100: Next-gen mutual authentication in Cilium <https://www.youtube.com/watch?v=BWjDlynXhzg>`__.
+
 Why Cilium Service Mesh?
 ########################
 
