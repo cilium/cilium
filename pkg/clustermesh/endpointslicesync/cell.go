@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/dial"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -60,6 +61,9 @@ type clusterMeshParams struct {
 	Metrics       Metrics
 	CommonMetrics common.Metrics
 	StoreFactory  store.Factory
+
+	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
+	ServiceResolver *dial.ServiceResolver
 }
 
 // ClusterMeshConfig contains the configuration for ClusterMesh inside the operator.

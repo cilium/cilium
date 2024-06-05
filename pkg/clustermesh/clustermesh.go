@@ -17,8 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -58,8 +58,8 @@ type Configuration struct {
 	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
-	// ServiceIPGetter, if not nil, is used to create a custom dialer for service resolution.
-	ServiceIPGetter k8s.ServiceIPGetter
+	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
+	ServiceResolver *dial.ServiceResolver
 
 	// IPCacheWatcherExtraOpts returns extra options for watching ipcache entries.
 	IPCacheWatcherExtraOpts IPCacheWatcherOptsFn `optional:"true"`
@@ -142,7 +142,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		Config:                       c.Config,
 		ClusterInfo:                  c.ClusterInfo,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
-		ServiceIPGetter:              c.ServiceIPGetter,
+		ServiceResolver:              c.ServiceResolver,
 
 		NewRemoteCluster: cm.NewRemoteCluster,
 

@@ -7,7 +7,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"net"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -19,13 +18,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -116,52 +110,13 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		Config:           params.Config,
 		ClusterInfo:      params.ClusterInfo,
 		NewRemoteCluster: cm.newRemoteCluster,
-		ServiceIPGetter:  &clusterMeshServiceGetter{services: params.Services},
+		ServiceResolver:  params.ServiceResolver,
 		Metrics:          params.CommonMetrics,
 	})
 
 	lc.Append(cm.common)
 	lc.Append(&cm)
 	return &cm, &cm
-}
-
-// clusterMeshServiceGetter relies on resource.Resource[*slim_corev1.Service]
-// to get the service for the remote clusters.
-type clusterMeshServiceGetter struct {
-	services resource.Resource[*slim_corev1.Service]
-	store    resource.Store[*slim_corev1.Service]
-}
-
-func (cm *clusterMeshServiceGetter) initStore() error {
-	var err error
-	if cm.store == nil {
-		cm.store, err = cm.services.Store(context.Background())
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (cm *clusterMeshServiceGetter) GetServiceIP(svcID k8s.ServiceID) *loadbalancer.L3n4Addr {
-	if cm.initStore() != nil {
-		return nil
-	}
-
-	svc, exists, err := cm.store.GetByKey(resource.Key{Name: svcID.Name, Namespace: svcID.Namespace})
-	if !exists || err != nil {
-		return nil
-	}
-
-	for _, port := range svc.Spec.Ports {
-		return loadbalancer.NewL3n4Addr(
-			string(port.Protocol),
-			cmtypes.MustAddrClusterFromIP(net.ParseIP(svc.Spec.ClusterIP)),
-			uint16(port.Port),
-			loadbalancer.ScopeExternal,
-		)
-	}
-	return nil
 }
 
 // RegisterClusterAddHook register a hook when a cluster is added to the mesh.
