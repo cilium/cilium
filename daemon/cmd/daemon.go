@@ -779,7 +779,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Info("Skipping kvstore configuration")
 	} else {
 		bootstrapStats.kvstore.Start()
-		d.initKVStore()
+		d.initKVStore(params.ServiceResolver)
 		bootstrapStats.kvstore.End(true)
 	}
 
