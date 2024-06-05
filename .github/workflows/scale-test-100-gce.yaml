@@ -94,6 +94,7 @@ jobs:
             --helm-set=endpointHealthChecking.enabled=false \
             --helm-set=healthChecking=false \
             --helm-set=ciliumEndpointSlice.enabled=true \
+            --helm-set=ciliumEndpointSlice.sliceMode="cesSliceModeFCFS" \
             --helm-set=debug.enabled=true \
             --helm-set=kubeProxyReplacement=true"
           fi
