@@ -131,7 +131,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
 	repo.Mutex.RLock()
@@ -219,7 +219,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
 	repo.Mutex.RLock()
@@ -311,7 +311,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
 	repo.Mutex.RLock()
@@ -433,7 +433,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
 	repo.Mutex.RLock()

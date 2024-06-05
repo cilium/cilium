@@ -141,10 +141,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		},
 	}
 
-	_, _, err := repo.Add(*egressDenyRule)
-	if err != nil {
-		t.Fatal(err)
-	}
+	repo.MustAddList(api.Rules{egressDenyRule})
 
 	// Track all IDs we allocate so we can validate later that we never miss any
 	checkMutex := lock.Mutex{}
