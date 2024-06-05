@@ -24,6 +24,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -4146,7 +4148,8 @@ func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, back
 		return fmt.Errorf("invalid service type: %q", svcType)
 	}
 
-	trafficPolicy = strings.Title(strings.ToLower(trafficPolicy))
+	caser := cases.Title(language.English)
+	trafficPolicy = caser.String(strings.ToLower(trafficPolicy))
 	switch trafficPolicy {
 	case "Cluster", "Local":
 		opts = append(opts, "--k8s-ext-traffic-policy "+trafficPolicy)

@@ -21,6 +21,9 @@ import (
 	"path"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"k8s.io/gengo/v2/generator"
 	"k8s.io/gengo/v2/namer"
 	"k8s.io/gengo/v2/types"
@@ -301,7 +304,8 @@ func (g *genFakeForType) GenerateType(c *generator.Context, t *types.Type, w io.
 func adjustTemplate(name, verbType, template string) string {
 	//nolint:staticcheck
 	// TODO: convert this to use golang.org/x/text/cases
-	return strings.ReplaceAll(template, " "+strings.Title(verbType), " "+name)
+	caser := cases.Title(language.English)
+	return strings.ReplaceAll(template, " "+caser.String(verbType), " "+name)
 }
 
 // template for the struct that implements the type's interface
