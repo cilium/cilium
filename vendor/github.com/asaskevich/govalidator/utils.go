@@ -10,9 +10,6 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 // Contains checks if the string contains the substring.
@@ -102,8 +99,7 @@ func addSegment(inrune, segment []rune) []rune {
 // UnderscoreToCamelCase converts from underscore separated form to camel case form.
 // Ex.: my_func => MyFunc
 func UnderscoreToCamelCase(s string) string {
-	caser := cases.Title(language.English)
-	return strings.Replace(caser.String(strings.Replace(strings.ToLower(s), "_", " ", -1)), " ", "", -1)
+	return strings.Replace(strings.Title(strings.Replace(strings.ToLower(s), "_", " ", -1)), " ", "", -1)
 }
 
 // CamelCaseToUnderscore converts from camel case form to underscore separated form.
