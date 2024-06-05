@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -45,7 +44,6 @@ const (
 	EtcdBackendName = "etcd"
 
 	EtcdAddrOption               = "etcd.address"
-	isEtcdOperatorOption         = "etcd.operator"
 	EtcdOptionConfig             = "etcd.config"
 	EtcdOptionKeepAliveHeartbeat = "etcd.keepaliveHeartbeat"
 	EtcdOptionKeepAliveTimeout   = "etcd.keepaliveTimeout"
@@ -104,9 +102,6 @@ func EtcdDummyAddress() string {
 func newEtcdModule() backendModule {
 	return &etcdModule{
 		opts: backendOptions{
-			isEtcdOperatorOption: &backendOption{
-				description: "if the configuration is setting up an etcd-operator",
-			},
 			EtcdAddrOption: &backendOption{
 				description: "Addresses of etcd cluster",
 			},
@@ -1624,73 +1619,6 @@ func (e *etcdClient) UserEnforceAbsence(ctx context.Context, name string) error 
 	}
 
 	return nil
-}
-
-// SplitK8sServiceURL returns the service name and namespace for the given address.
-// If the given address is not parseable or it is not the format
-// '<protocol>://><name>.<namespace>[optional]', returns an error.
-func SplitK8sServiceURL(address string) (string, string, error) {
-	u, err := url.Parse(address)
-	if err != nil {
-		return "", "", err
-	}
-	// typical service name "cilium-etcd-client.kube-system.svc"
-	names := strings.Split(u.Hostname(), ".")
-	if len(names) >= 2 {
-		return names[0], names[1], nil
-	}
-	return "", "",
-		fmt.Errorf("invalid service name. expecting <protocol://><name>.<namespace>[optional], got: %s", address)
-}
-
-// IsEtcdOperator returns the service name if the configuration is setting up an
-// etcd-operator. If the configuration explicitly states it is configured
-// to connect to an etcd operator, e.g. with etcd.operator=true, the returned
-// service name is the first found within the configuration specified.
-func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace string) (string, bool) {
-	if selectedBackend != EtcdBackendName {
-		return "", false
-	}
-
-	isEtcdOperator := strings.ToLower(opts[isEtcdOperatorOption]) == "true"
-
-	fqdnIsEtcdOperator := func(address string) bool {
-		svcName, ns, err := SplitK8sServiceURL(address)
-		return err == nil &&
-			svcName == "cilium-etcd-client" &&
-			ns == k8sNamespace
-	}
-
-	fqdn := opts[EtcdAddrOption]
-	if len(fqdn) != 0 {
-		if fqdnIsEtcdOperator(fqdn) || isEtcdOperator {
-			return fqdn, true
-		}
-		return "", false
-	}
-
-	bm := newEtcdModule()
-	err := bm.setConfig(opts)
-	if err != nil {
-		return "", false
-	}
-	etcdConfig := bm.getConfig()[EtcdOptionConfig]
-	if len(etcdConfig) == 0 {
-		return "", false
-	}
-
-	cfg, err := newConfig(etcdConfig)
-	if err != nil {
-		log.WithError(err).Error("Unable to read etcd configuration.")
-		return "", false
-	}
-	for _, endpoint := range cfg.Endpoints {
-		if fqdnIsEtcdOperator(endpoint) || isEtcdOperator {
-			return endpoint, true
-		}
-	}
-
-	return "", false
 }
 
 // newConfig is a wrapper of clientyaml.NewConfig. Since etcd has deprecated

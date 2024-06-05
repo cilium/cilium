@@ -29,10 +29,6 @@ etcd endpoints:
 +---------------------+---------+---------------------------------------------------+
 | etcd.address        | Address | Address of etcd endpoint                          |
 +---------------------+---------+---------------------------------------------------+
-|                     |         | When set to true, Cilium will resolve the domain  |
-| etcd.operator       | Boolean | name of the etcd server from the associated k8s   |
-|                     |         | service deployed.                                 |
-+---------------------+---------+---------------------------------------------------+
 | etcd.config         | Path    | Path to an etcd configuration file.               |
 +---------------------+---------+---------------------------------------------------+
 
