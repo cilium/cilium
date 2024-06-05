@@ -99,8 +99,8 @@ Several options are available to adjust the performance and behavior of the CES 
 
 * You can configure the way CEPs are batched into CES by changing the maximum number of CEPs in a
   CES (``--ces-max-cilium-endpoints-per-ces``) or by changing the way CEPs are grouped into CES (``--ces-slice-mode``).
-  Right now two modes are supported: ``cesSliceModeIdentity`` which groups CEPs based on :ref:`security_identities`
-  and ``cesSliceModeFCFS`` which groups CEPs on a "First Come, First Served" basis.
+  Right now two modes are supported: ``identity`` which groups CEPs based on :ref:`security_identities`
+  and ``fcfs`` which groups CEPs on a "First Come, First Served" basis.
 
 * You can also fine-tune rate-limiting settings for the Operator communications with the API-server. Refer to the ``--ces-*`` flags for the ``cilium-operator`` binary.
 
