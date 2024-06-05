@@ -99,11 +99,6 @@ serviceAccounts:
     name: cilium-envoy
     automount: true
     annotations: {}
-  etcd:
-    create: true
-    name: cilium-etcd-operator
-    automount: true
-    annotations: {}
   operator:
     create: true
     name: cilium-operator
@@ -2421,104 +2416,10 @@ wellKnownIdentities:
 etcd:
   # -- Enable etcd mode for the agent.
   enabled: false
-  # -- cilium-etcd-operator image.
-  image:
-    # @schema
-    # type: [null, string]
-    # @schema
-    override: ~
-    repository: "${CILIUM_ETCD_OPERATOR_REPO}"
-    tag: "${CILIUM_ETCD_OPERATOR_VERSION}"
-    digest: "${CILIUM_ETCD_OPERATOR_DIGEST}"
-    useDigest: true
-    pullPolicy: "${PULL_POLICY}"
-  # -- The priority class to use for cilium-etcd-operator
-  priorityClassName: ""
-  # -- Additional cilium-etcd-operator container arguments.
-  extraArgs: []
-  # -- Additional cilium-etcd-operator volumes.
-  extraVolumes: []
-  # -- Additional cilium-etcd-operator volumeMounts.
-  extraVolumeMounts: []
-  # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
-  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-  tolerations:
-    - operator: Exists
-      # - key: "key"
-      #   operator: "Equal|Exists"
-      #   value: "value"
-      #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
-  # -- Pod topology spread constraints for cilium-etcd-operator
-  topologySpreadConstraints: []
-  #   - maxSkew: 1
-  #     topologyKey: topology.kubernetes.io/zone
-  #     whenUnsatisfiable: DoNotSchedule
-
-  # -- Node labels for cilium-etcd-operator pod assignment
-  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-  nodeSelector:
-    kubernetes.io/os: linux
-  # -- Annotations to be added to all top-level etcd-operator objects (resources under templates/etcd-operator)
-  annotations: {}
-  # -- Security context to be added to cilium-etcd-operator pods
-  podSecurityContext: {}
-  # -- Annotations to be added to cilium-etcd-operator pods
-  podAnnotations: {}
-  # -- Labels to be added to cilium-etcd-operator pods
-  podLabels: {}
-  # PodDisruptionBudget settings
-  podDisruptionBudget:
-    # -- enable PodDisruptionBudget
-    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-    enabled: false
-    # @schema
-    # type: [null, integer, string]
-    # @schema
-    # -- Minimum number/percentage of pods that should remain scheduled.
-    # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
-    minAvailable: null
-    # @schema
-    # type: [null, integer, string]
-    # @schema
-    # -- Maximum number/percentage of pods that may be made unavailable
-    maxUnavailable: 1
-  # -- cilium-etcd-operator resource limits & requests
-  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-  resources: {}
-  #   limits:
-  #     cpu: 4000m
-  #     memory: 4Gi
-  #   requests:
-  #     cpu: 100m
-  #     memory: 512Mi
-
-  # -- Security context to be added to cilium-etcd-operator pods
-  securityContext: {}
-  #   runAsUser: 0
-
-  # -- cilium-etcd-operator update strategy
-  updateStrategy:
-    type: RollingUpdate
-    rollingUpdate:
-      # @schema
-      # type: [integer, string]
-      # @schema
-      maxSurge: 1
-      # @schema
-      # type: [integer, string]
-      # @schema
-      maxUnavailable: 1
-  # -- If etcd is behind a k8s service set this option to true so that Cilium
-  # does the service translation automatically without requiring a DNS to be
-  # running.
-  k8sService: false
-  # -- Cluster domain for cilium-etcd-operator.
-  clusterDomain: cluster.local
-  # -- List of etcd endpoints (not needed when using managed=true).
+  # -- List of etcd endpoints
   endpoints:
     - https://CHANGE-ME:2379
-  # -- Enable use of TLS/SSL for connectivity to etcd. (auto-enabled if
-  # managed=true)
+  # -- Enable use of TLS/SSL for connectivity to etcd.
   ssl: false
 operator:
   # -- Enable the cilium-operator component (required).

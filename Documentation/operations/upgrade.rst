@@ -406,6 +406,8 @@ Helm Options
   exposed NodePort services on the first (preferably private) IPv4 and IPv6 address of each device.
 * Helm option ``enableCiliumEndpointSlice`` has been deprecated and will be removed in a future release.
   The option has been replaced by ``ciliumEndpointSlice.enabled``.
+* The Helm option for deploying a managed etcd instance via ``etcd.managed``
+  and other related Helm configurations have been removed.
 
 Added Metrics
 ~~~~~~~~~~~~~

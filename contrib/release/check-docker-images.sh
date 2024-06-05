@@ -7,7 +7,6 @@ org="cilium"
 suffix=${CILIUM_OPERATOR_SUFFIX:-}
 
 internal_dependencies_quay_only=(
-  "cilium-etcd-operator:${CILIUM_ETCD_OPERATOR_VERSION}" \
   "startup-script:${CILIUM_NODEINIT_VERSION}"
 )
 

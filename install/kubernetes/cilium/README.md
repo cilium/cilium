@@ -390,29 +390,9 @@ contributors across the globe, there is almost always someone available to help.
 | envoyConfig.secretsNamespace | object | `{"create":true,"name":"cilium-secrets"}` | SecretsNamespace is the namespace in which envoy SDS will retrieve secrets from. |
 | envoyConfig.secretsNamespace.create | bool | `true` | Create secrets namespace for CiliumEnvoyConfig CRDs. |
 | envoyConfig.secretsNamespace.name | string | `"cilium-secrets"` | The name of the secret namespace to which Cilium agents are given read access. |
-| etcd.annotations | object | `{}` | Annotations to be added to all top-level etcd-operator objects (resources under templates/etcd-operator) |
-| etcd.clusterDomain | string | `"cluster.local"` | Cluster domain for cilium-etcd-operator. |
 | etcd.enabled | bool | `false` | Enable etcd mode for the agent. |
-| etcd.endpoints | list | `["https://CHANGE-ME:2379"]` | List of etcd endpoints (not needed when using managed=true). |
-| etcd.extraArgs | list | `[]` | Additional cilium-etcd-operator container arguments. |
-| etcd.extraVolumeMounts | list | `[]` | Additional cilium-etcd-operator volumeMounts. |
-| etcd.extraVolumes | list | `[]` | Additional cilium-etcd-operator volumes. |
-| etcd.image | object | `{"digest":"sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7","useDigest":true}` | cilium-etcd-operator image. |
-| etcd.k8sService | bool | `false` | If etcd is behind a k8s service set this option to true so that Cilium does the service translation automatically without requiring a DNS to be running. |
-| etcd.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for cilium-etcd-operator pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
-| etcd.podAnnotations | object | `{}` | Annotations to be added to cilium-etcd-operator pods |
-| etcd.podDisruptionBudget.enabled | bool | `false` | enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
-| etcd.podDisruptionBudget.maxUnavailable | int | `1` | Maximum number/percentage of pods that may be made unavailable |
-| etcd.podDisruptionBudget.minAvailable | string | `nil` | Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by `maxUnavailable: null` |
-| etcd.podLabels | object | `{}` | Labels to be added to cilium-etcd-operator pods |
-| etcd.podSecurityContext | object | `{}` | Security context to be added to cilium-etcd-operator pods |
-| etcd.priorityClassName | string | `""` | The priority class to use for cilium-etcd-operator |
-| etcd.resources | object | `{}` | cilium-etcd-operator resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |
-| etcd.securityContext | object | `{}` | Security context to be added to cilium-etcd-operator pods |
-| etcd.ssl | bool | `false` | Enable use of TLS/SSL for connectivity to etcd. (auto-enabled if managed=true) |
-| etcd.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for cilium-etcd-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
-| etcd.topologySpreadConstraints | list | `[]` | Pod topology spread constraints for cilium-etcd-operator |
-| etcd.updateStrategy | object | `{"rollingUpdate":{"maxSurge":1,"maxUnavailable":1},"type":"RollingUpdate"}` | cilium-etcd-operator update strategy |
+| etcd.endpoints | list | `["https://CHANGE-ME:2379"]` | List of etcd endpoints |
+| etcd.ssl | bool | `false` | Enable use of TLS/SSL for connectivity to etcd. |
 | externalIPs.enabled | bool | `false` | Enable ExternalIPs service support. |
 | externalWorkloads | object | `{"enabled":false}` | Configure external workloads support |
 | externalWorkloads.enabled | bool | `false` | Enable support for external workloads, such as VMs (false by default). |
