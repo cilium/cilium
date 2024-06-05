@@ -363,6 +363,11 @@ Annotations:
   Cilium itself. This support was complicated and error prone, so the support
   is now deprecated. The following guide provides alternatives for running
   Cilium with Etcd: :ref:`k8s_install_etcd`.
+* Cilium now respects the port specified as part of the etcd configuration, rather
+  than defaulting it to that of the service when the address matches a Kubernetes
+  service DNS name. Additionally, Kubernetes service DNS name to ClusterIP
+  translation is now automatically enabled for etcd (if necessary); the
+  ``etcd.operator`` ``kvstore-opt`` option is now a no-op and has been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
