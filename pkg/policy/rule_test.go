@@ -1658,7 +1658,7 @@ func checkEgress(t *testing.T, repo *Repository, ctx *SearchContext, verdict api
 func TestIngressAllowAll(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1689,7 +1689,7 @@ func TestIngressAllowAll(t *testing.T) {
 func TestIngressAllowAllL4Overlap(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1727,7 +1727,7 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1765,7 +1765,7 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 func TestIngressL4AllowAll(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1808,7 +1808,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 func TestIngressL4AllowAllNamedPort(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1856,7 +1856,7 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 func TestEgressAllowAll(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -1886,7 +1886,7 @@ func TestEgressAllowAll(t *testing.T) {
 func TestEgressL4AllowAll(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -1931,7 +1931,7 @@ func TestEgressL4AllowAll(t *testing.T) {
 func TestEgressL4AllowWorld(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -1988,7 +1988,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 func TestEgressL4AllowAllEntity(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -2045,7 +2045,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 func TestEgressL3AllowWorld(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -2084,7 +2084,7 @@ func TestEgressL3AllowWorld(t *testing.T) {
 func TestEgressL3AllowAllEntity(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -2131,7 +2131,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	// parts of the L4-L7 rule are useless.
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{&api.Rule{
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2259,7 +2259,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	// and L7 metadata exists in the L4Filter we are adding; expect to resolve
 	// to L4-only policy without any L7-metadata.
 	repo = td.resetRepo()
-	repo.AddList(api.Rules{&api.Rule{
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2346,7 +2346,7 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	// Second, test the expeicit allow at L3.
 	repo = td.resetRepo()
-	repo.AddList(api.Rules{&api.Rule{
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2400,7 +2400,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	// and L7 metadata exists in the L4Filter we are adding; expect to resolve
 	// to L4-only policy without any L7-metadata.
 	repo = td.resetRepo()
-	repo.AddList(api.Rules{&api.Rule{
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2463,7 +2463,7 @@ func TestL3L4L7Merge(t *testing.T) {
 	// on "/".
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{&api.Rule{
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2532,7 +2532,7 @@ func TestL3L4L7Merge(t *testing.T) {
 	}, filter)
 
 	repo = td.resetRepo()
-	repo.AddList(api.Rules{&api.Rule{
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2603,7 +2603,7 @@ func TestL3L4L7Merge(t *testing.T) {
 func TestMatches(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
-	repo.AddList(api.Rules{
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Ingress: []api.IngressRule{

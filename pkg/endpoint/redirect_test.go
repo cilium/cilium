@@ -196,7 +196,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 }
 
 func (s *RedirectSuite) AddRules(rules api.Rules) {
-	s.do.repo.AddList(rules)
+	s.do.repo.MustAddList(rules)
 }
 
 func (s *RedirectSuite) TearDownTest(t *testing.T) {

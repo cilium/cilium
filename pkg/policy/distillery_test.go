@@ -642,7 +642,7 @@ func Test_MergeL3(t *testing.T) {
 			round++
 
 			repo := newPolicyDistillery(selectorCache)
-			_, _ = repo.AddList(rules)
+			_, _ = repo.MustAddList(rules)
 
 			t.Run(fmt.Sprintf("permutation_%d-%d", tt.test, round), func(t *testing.T) {
 				logBuffer := new(bytes.Buffer)
@@ -1189,7 +1189,7 @@ func Test_MergeRules(t *testing.T) {
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)
-				_, _ = repo.AddList(api.Rules{rule})
+				_, _ = repo.MustAddList(api.Rules{rule})
 			}
 		}
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
@@ -1296,7 +1296,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)
-				_, _ = repo.AddList(api.Rules{rule})
+				_, _ = repo.MustAddList(api.Rules{rule})
 			}
 		}
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
@@ -1341,7 +1341,7 @@ func Test_AllowAll(t *testing.T) {
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(tt.selector)
-				_, _ = repo.AddList(api.Rules{rule})
+				_, _ = repo.MustAddList(api.Rules{rule})
 			}
 		}
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
@@ -1733,7 +1733,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		repo := newPolicyDistillery(selectorCache)
 		for _, rule := range tt.rules {
 			if rule != nil {
-				_, _ = repo.AddList(api.Rules{rule})
+				_, _ = repo.MustAddList(api.Rules{rule})
 			}
 		}
 		t.Run(tt.test, func(t *testing.T) {
@@ -1783,7 +1783,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 		repo := newPolicyDistillery(selectorCache)
 		for _, rule := range tt.rules {
 			if rule != nil {
-				_, _ = repo.AddList(api.Rules{rule})
+				_, _ = repo.MustAddList(api.Rules{rule})
 			}
 		}
 		t.Run(tt.test, func(t *testing.T) {
