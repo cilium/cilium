@@ -19,7 +19,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/leaderelection"
@@ -55,10 +54,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -466,7 +463,7 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,
@@ -474,6 +471,7 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		clientset:    clientset,
 		resources:    resources,
 		storeFactory: factory,
+		svcResolver:  svcResolver,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -488,6 +486,7 @@ type legacyOnLeader struct {
 	wg           sync.WaitGroup
 	resources    operatorK8s.Resources
 	storeFactory store.Factory
+	svcResolver  *dial.ServiceResolver
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -584,74 +583,20 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
 			})
+		}
+
+		if legacy.clientset.IsEnabled() {
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
-			if legacy.clientset.IsEnabled() {
-				svcURL, isETCDOperator := kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace)
-				if isETCDOperator {
-					scopedLog.Infof("%s running with service synchronization: automatic etcd service translation enabled", binaryName)
-
-					svcGetter := k8s.ServiceIPGetter(operatorWatchers.K8sSvcCache)
-
-					name, namespace, err := kvstore.SplitK8sServiceURL(svcURL)
-					if err != nil {
-						// If we couldn't derive the name/namespace for the given
-						// svcURL log the error so the user can see it.
-						// k8s.CreateCustomDialer won't be able to derive
-						// the name/namespace as well so it does not matter that
-						// we wait for all services to be synchronized with k8s.
-						scopedLog.WithError(err).WithFields(logrus.Fields{
-							"url": svcURL,
-						}).Error("Unable to derive service name from given url")
-					} else {
-						scopedLog.WithFields(logrus.Fields{
-							logfields.ServiceName:      name,
-							logfields.ServiceNamespace: namespace,
-						}).Info("Retrieving service spec from k8s to perform automatic etcd service translation")
-						k8sSvc, err := legacy.clientset.CoreV1().Services(namespace).Get(legacy.ctx, name, metav1.GetOptions{})
-						switch {
-						case err == nil:
-							// Create another service cache that contains the
-							// k8s service for etcd. As soon the k8s caches are
-							// synced, this hijack will stop happening.
-							sc := k8s.NewServiceCache(nil, nil)
-							slimSvcObj, err := k8s.TransformToK8sService(k8sSvc)
-							if err != nil {
-								scopedLog.WithFields(logrus.Fields{
-									logfields.ServiceName:      k8sSvc.Name,
-									logfields.ServiceNamespace: k8sSvc.Namespace,
-								}).Error("Failed to transform k8s service")
-							} else {
-								slimSvc := k8s.CastInformerEvent[slim_corev1.Service](slimSvcObj)
-								if slimSvc == nil {
-									// This will never happen but still log it
-									scopedLog.WithFields(logrus.Fields{
-										logfields.ServiceName:      k8sSvc.Name,
-										logfields.ServiceNamespace: k8sSvc.Namespace,
-									}).Warn("BUG: invalid k8s service")
-								}
-								sc.UpdateService(slimSvc, nil)
-								svcGetter = operatorWatchers.NewServiceGetter(sc)
-							}
-						case k8sErrors.IsNotFound(err):
-							scopedLog.Error("Service not found in k8s")
-						default:
-							scopedLog.Warning("Unable to get service spec from k8s, this might cause network disruptions with etcd")
-						}
-					}
-
-					log := log.WithField(logfields.LogSubsys, "etcd")
-					goopts = &kvstore.ExtraOptions{
-						DialOption: []grpc.DialOption{
-							grpc.WithContextDialer(k8s.CreateCustomDialer(svcGetter, log, true)),
-						},
-					}
-				}
+			log := log.WithField(logfields.LogSubsys, "etcd")
+			goopts = &kvstore.ExtraOptions{
+				DialOption: []grpc.DialOption{
+					grpc.WithContextDialer(dial.NewContextDialer(log, legacy.svcResolver)),
+				},
 			}
-		} else {
-			scopedLog.Infof("%s running without service synchronization: automatic etcd service translation disabled", binaryName)
 		}
+
 		scopedLog.Info("Connecting to kvstore")
 		if err := kvstore.Setup(legacy.ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")

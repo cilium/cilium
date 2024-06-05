@@ -16,7 +16,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -25,10 +24,7 @@ import (
 var (
 	K8sSvcCache = k8s.NewServiceCache(nil, nil)
 
-	// k8sSvcCacheSynced is used do signalize when all services are synced with
-	// k8s.
-	k8sSvcCacheSynced = make(chan struct{})
-	kvs               store.SyncStore
+	kvs store.SyncStore
 )
 
 func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool) {
@@ -146,10 +142,6 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			swg.Stop()
 			swg.Wait()
 
-			// k8sSvcCacheSynced is used by GetServiceIP() to not query an incomplete
-			// service cache.
-			close(k8sSvcCacheSynced)
-
 			log.Info("Initial list of services successfully received from Kubernetes")
 			kvs.Synced(ctx, cfg.SyncCallback)
 		}
@@ -202,33 +194,4 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			}
 		}
 	}()
-}
-
-// ServiceGetter is a wrapper for 2 k8sCaches, its intention is for
-// `shortCutK8sCache` to be used until `k8sSvcCacheSynced` is closed, for which
-// `k8sCache` is started to be used.
-type ServiceGetter struct {
-	shortCutK8sCache k8s.ServiceIPGetter
-	k8sCache         k8s.ServiceIPGetter
-}
-
-// NewServiceGetter returns a new ServiceGetter holding 2 k8sCaches
-func NewServiceGetter(sc *k8s.ServiceCache) *ServiceGetter {
-	return &ServiceGetter{
-		shortCutK8sCache: sc,
-		k8sCache:         K8sSvcCache,
-	}
-}
-
-// GetServiceIP returns the result of GetServiceIP for `s.shortCutK8sCache`
-// until `k8sSvcCacheSynced` is closed. This is helpful as we can have a
-// shortcut of `s.k8sCache` since we can pre-populate `s.shortCutK8sCache` with
-// the entries that we need until `s.k8sCache` is synchronized with kubernetes.
-func (s *ServiceGetter) GetServiceIP(svcID k8s.ServiceID) *loadbalancer.L3n4Addr {
-	select {
-	case <-k8sSvcCacheSynced:
-		return s.k8sCache.GetServiceIP(svcID)
-	default:
-		return s.shortCutK8sCache.GetServiceIP(svcID)
-	}
 }
