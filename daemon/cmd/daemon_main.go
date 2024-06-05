@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -68,7 +69,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
@@ -1561,7 +1561,7 @@ func initEnv(vp *viper.Viper) {
 	}
 }
 
-func (d *Daemon) initKVStore() {
+func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
 	goopts := &kvstore.ExtraOptions{
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
@@ -1582,19 +1582,10 @@ func (d *Daemon) initKVStore() {
 	// If K8s is enabled we can do the service translation automagically by
 	// looking at services from k8s and retrieve the service IP from that.
 	// This makes cilium to not depend on kube dns to interact with etcd
-	_, isETCDOperator := kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace)
-	if d.clientset.IsEnabled() && isETCDOperator {
-		// Wait services and endpoints cache are synced with k8s before setting
-		// up etcd so we can perform the name resolution for etcd-operator
-		// to the service IP as well perform the service -> backend IPs for
-		// that service IP.
-		d.k8sWatcher.WaitForCacheSync(
-			resources.K8sAPIGroupServiceV1Core,
-			resources.K8sAPIGroupEndpointSliceOrEndpoint,
-		)
+	if d.clientset.IsEnabled() {
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
-			grpc.WithContextDialer(k8s.CreateCustomDialer(d.k8sWatcher.K8sSvcCache, log, true)),
+			grpc.WithContextDialer(dial.NewContextDialer(log, resolver)),
 		}
 	}
 
@@ -1690,6 +1681,7 @@ type daemonParams struct {
 	CompilationLock     datapath.CompilationLock
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 	CGroupManager       cgroup.CGroupManager
+	ServiceResolver     *dial.ServiceResolver
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
