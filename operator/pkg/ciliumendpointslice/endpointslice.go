@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -32,8 +33,18 @@ const (
 	// maxRetries is the number of times a cesSync will be retried before it is
 	// dropped out of the queue.
 	maxRetries = 15
+
+	// deprecatedIdentityMode is the old name of `identity` mode. It is kept for backwards
+	// compatibility but will be removed in the future.
+	deprecatedIdentityMode = "cesSliceModeIdentity"
+	// deprecatedFcfsMode is the old name of `fcfs` mode. It is kept for backwards
+	// compatibility but will be removed in the future.
+	deprecatedFcfsMode = "cesSliceModeFCFS"
 	// CEPs are batched into a CES, based on its Identity
-	cesIdentityBasedSlicing = "cesSliceModeIdentity"
+	identityMode = "identity"
+	// CEPs are inserted into the largest, non-empty CiliumEndpointSlice
+	fcfsMode = "fcfs"
+
 	// Default CES Synctime, multiple consecutive syncs with k8s-apiserver are
 	// batched and synced together after a short delay.
 	DefaultCESSyncTime = 500 * time.Millisecond
@@ -110,11 +121,24 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	c.logger.Info("Bootstrap ces controller")
 	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
-	if c.slicingMode == cesIdentityBasedSlicing {
+
+	switch c.slicingMode {
+	case identityMode, deprecatedIdentityMode:
+		if c.slicingMode == deprecatedIdentityMode {
+			c.logger.Warnf("%v is deprecated and has been renamed. Please use %v instead", deprecatedIdentityMode, identityMode)
+		}
 		c.manager = newCESManagerIdentity(c.maxCEPsInCES, c.logger)
-	} else {
+
+	case fcfsMode, deprecatedFcfsMode:
+		if c.slicingMode == deprecatedFcfsMode {
+			c.logger.Warnf("%v is deprecated and has been renamed. Please use %v instead", deprecatedFcfsMode, fcfsMode)
+		}
 		c.manager = newCESManagerFcfs(c.maxCEPsInCES, c.logger)
+
+	default:
+		return fmt.Errorf("Invalid slicing mode: %s", c.slicingMode)
 	}
+
 	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
 
 	c.initializeQueue()

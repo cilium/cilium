@@ -748,6 +748,13 @@ ciliumEndpointSlice:
     - nodes: 500
       limit: 5
       burst: 10
+  # @schema
+  # enum: ["identity", "fcfs"]
+  # @schema
+  # -- The slicing mode to use for CiliumEndpointSlices.
+  # identity groups together CiliumEndpoints that share the same identity.
+  # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
+  sliceMode: identity
 envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
