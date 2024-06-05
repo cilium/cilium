@@ -172,6 +172,8 @@ func isValidArchiveType(archiveType string) bool {
 	return false
 }
 
+type postProcessFunc func(output []byte) ([]byte, error)
+
 func runTool() {
 	// Validate archive type
 	if !isValidArchiveType(archiveType) {
