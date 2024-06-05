@@ -282,19 +282,16 @@ jobs:
             --testoverrides=./modules.yaml \
             2>&1 | tee cl2-output.txt
 
-      - name: Gather debug info
-        if: ${{ !success() }}
+      - name: Gather debug info on failure
+        id: debug-info
+        if: ${{ failure() }}
         run: |
           cilium status
           kubectl get pods --all-namespaces -owide
-
-      - name: Get sysdump
-        if: ${{ always() }}
-        run: |
           cilium sysdump --output-filename cilium-sysdump-final
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ steps.debug-info.outcome != 'skipped' }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: cilium-sysdump-final
@@ -314,4 +311,4 @@ jobs:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
-          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+          other_files: ./perf-tests/clusterloader2/cl2-output.txt
