@@ -196,7 +196,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
 				  ct_tcp_select_action(seen_flags), CT_EGRESS,
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
-		assert(res == CT_REOPENED);
+		assert(res == CT_NEW);
 		assert(monitor == TRACE_PAYLOAD_LEN);
 		assert(timeout_in(entry, CT_SYN_TIMEOUT));
 
