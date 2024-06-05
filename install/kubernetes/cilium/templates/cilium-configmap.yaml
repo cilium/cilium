@@ -1152,6 +1152,9 @@ data:
   {{- if .Values.ciliumEndpointSlice.rateLimits }}
   ces-rate-limits: {{ .Values.ciliumEndpointSlice.rateLimits | toJson | quote }}
   {{- end }}
+  {{- if eq .Values.ciliumEndpointSlice.sliceMode "fcfs" }}
+  ces-slice-mode: "cesSliceModeFCFS"
+  {{- end }}
 {{- end }}
 
 {{- if hasKey .Values "enableK8sTerminatingEndpoint" }}
