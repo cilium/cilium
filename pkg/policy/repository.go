@@ -540,12 +540,15 @@ func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
 	}()
 }
 
-// AddList inserts a rule into the policy repository. It is used for
-// unit-testing purposes only.
-func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
+// MustAddList inserts a rule into the policy repository. It is used for
+// unit-testing purposes only. Panics if the rule is invalid
+func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 	for i := range rules {
 		// FIXME(GH-31162): Many unit tests provide invalid rules
-		_ = rules[i].Sanitize()
+		err := rules[i].Sanitize()
+		if err != nil {
+			panic(err)
+		}
 	}
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()

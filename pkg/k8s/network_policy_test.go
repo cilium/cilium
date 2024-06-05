@@ -146,7 +146,7 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 
 	repo := testNewPolicyRepository()
 
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	epSelector := api.NewESFromLabels(fromEndpoints...)
@@ -273,7 +273,7 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 	require.Equal(t, 1, len(rules))
 
 	repo := testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 
 	endpointLabels := labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
@@ -473,7 +473,7 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 	}
 
 	repo := testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	// Because search context did not contain port-specific policy, deny is
 	// expected.
 	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctx))
@@ -525,7 +525,7 @@ func parseAndAddRules(t *testing.T, p *slim_networkingv1.NetworkPolicy) *policy.
 	rules, err := ParseNetworkPolicy(p)
 	require.NoError(t, err)
 	rev := repo.GetRevision()
-	_, id := repo.AddList(rules)
+	_, id := repo.MustAddList(rules)
 	require.Equal(t, rev+1, id)
 
 	return repo
@@ -739,7 +739,7 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 	}
 
 	repo := testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	// Empty From rules, all sources should be allowed
@@ -763,7 +763,7 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rules))
 	repo = testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 }
 
@@ -794,7 +794,7 @@ func TestParseNetworkPolicyDenyAll(t *testing.T) {
 	}
 
 	repo := testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 }
 
@@ -905,7 +905,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	require.Equal(t, 1, len(rules))
 
 	repo := testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
@@ -1039,7 +1039,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	require.Equal(t, 1, len(rules))
 
 	repo = testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
@@ -1107,7 +1107,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	require.Equal(t, 1, len(rules))
 
 	repo = testNewPolicyRepository()
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
@@ -1247,7 +1247,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	repo = testNewPolicyRepository()
 	// add example 4
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 
 	np = slim_networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex2, &np)
@@ -1256,7 +1256,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
 	// add example 2
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1393,7 +1393,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rules))
-	repo.AddList(rules)
+	repo.MustAddList(rules)
 
 	// A reminder: from the kubernetes network policy spec:
 	// namespaceSelector:

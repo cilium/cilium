@@ -214,7 +214,7 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int,
 
 	td.sc.UpdateIdentities(generateNumIdentities(3000), nil, wg)
 	wg.Wait()
-	rulez, _ := td.repo.AddList(ruleGenFunc(numRules))
+	rulez, _ := td.repo.MustAddList(ruleGenFunc(numRules))
 
 	epSet := NewEndpointSet(map[Endpoint]struct{}{
 		&dummyEndpoint{

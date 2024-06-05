@@ -2120,7 +2120,7 @@ func TestPolicyTrace(t *testing.T) {
 	// Add rules to allow foo=>bar
 	l3rule := buildRule("foo", "bar", "")
 	rules := api.Rules{&l3rule}
-	_, _ = repo.AddList(rules)
+	_, _ = repo.MustAddList(rules)
 
 	// foo=>bar is OK
 	expectedOut := `
@@ -2271,7 +2271,7 @@ Ingress verdict: denied
 func TestRemoveIdentityFromRuleCaches(t *testing.T) {
 	td := newTestData()
 
-	td.repo.AddList(api.Rules{&api.Rule{
+	td.repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{

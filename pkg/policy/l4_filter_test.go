@@ -164,7 +164,7 @@ func init() {
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	td := newTestData()
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
-	td.repo.AddList(api.Rules{&api.Rule{
+	td.repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -212,7 +212,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 
 	// Case1B: an empty non-nil FromEndpoints does not select any identity.
 	td = newTestData()
-	td.repo.AddList(api.Rules{&api.Rule{
+	td.repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -329,7 +329,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	// Case 2B: Flip order of case 2A so that rule being merged with is different
 	// than rule being consumed.
 	td = newTestData()
-	td.repo.AddList(api.Rules{&api.Rule{
+	td.repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{

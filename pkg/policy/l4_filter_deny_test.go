@@ -42,7 +42,7 @@ import (
 func TestMergeDenyAllL3(t *testing.T) {
 	td := newTestData()
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
-	td.repo.AddList(api.Rules{&api.Rule{
+	td.repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		IngressDeny: []api.IngressDenyRule{
 			{
@@ -106,7 +106,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 
 	td = newTestData()
 	// Case1B: an empty non-nil FromEndpoints does not select any identity.
-	td.repo.AddList(api.Rules{&api.Rule{
+	td.repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		IngressDeny: []api.IngressDenyRule{
 			{

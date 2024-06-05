@@ -1115,7 +1115,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			},
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository(nil, nil, nil)
-				r.AddList(api.Rules{
+				r.MustAddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &slim_metav1.LabelSelector{
@@ -1146,7 +1146,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 				r := policy.NewPolicyRepository(nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
-				r.AddList(api.Rules{
+				r.MustAddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
 							LabelSelector: &slim_metav1.LabelSelector{
@@ -1187,7 +1187,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			},
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository(nil, nil, nil)
-				r.AddList(api.Rules{
+				r.MustAddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &slim_metav1.LabelSelector{
@@ -1216,7 +1216,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
 			setupArgs: func() args {
 				r := policy.NewPolicyRepository(nil, nil, nil)
-				r.AddList(api.Rules{
+				r.MustAddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
 							LabelSelector: &slim_metav1.LabelSelector{
@@ -1260,7 +1260,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 				r := policy.NewPolicyRepository(nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
-				r.AddList(api.Rules{
+				r.MustAddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &slim_metav1.LabelSelector{
@@ -1284,7 +1284,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
 			setupArgs: func() args {
 				r := policy.NewPolicyRepository(nil, nil, nil)
-				r.AddList(api.Rules{
+				r.MustAddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
 							LabelSelector: &slim_metav1.LabelSelector{
@@ -1331,7 +1331,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			},
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository(nil, nil, nil)
-				r.AddList(api.Rules{
+				r.MustAddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
 							LabelSelector: &slim_metav1.LabelSelector{
