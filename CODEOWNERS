@@ -449,6 +449,7 @@ Makefile* @cilium/build
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent
+/pkg/dial @cilium/sig-agent
 /pkg/ebpf @cilium/sig-datapath
 /pkg/egressgateway/ @cilium/egress-gateway
 /pkg/endpoint/ @cilium/endpoint
