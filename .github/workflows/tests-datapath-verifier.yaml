@@ -49,7 +49,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.21.10
+  go-version: 1.21.11
 
 jobs:
   echo-inputs:
