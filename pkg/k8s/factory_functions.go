@@ -52,25 +52,6 @@ func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]stri
 	return true
 }
 
-func convertToK8sServicePorts(ports []v1.ServicePort) []slim_corev1.ServicePort {
-	if ports == nil {
-		return nil
-	}
-
-	slimPorts := make([]slim_corev1.ServicePort, 0, len(ports))
-	for _, v1Port := range ports {
-		slimPorts = append(slimPorts,
-			slim_corev1.ServicePort{
-				Name:     v1Port.Name,
-				Protocol: slim_corev1.Protocol(v1Port.Protocol),
-				Port:     v1Port.Port,
-				NodePort: v1Port.NodePort,
-			},
-		)
-	}
-	return slimPorts
-}
-
 func ConvertToK8sV1ServicePorts(slimPorts []slim_corev1.ServicePort) []v1.ServicePort {
 	if slimPorts == nil {
 		return nil
@@ -90,22 +71,6 @@ func ConvertToK8sV1ServicePorts(slimPorts []slim_corev1.ServicePort) []v1.Servic
 	return ports
 }
 
-func convertToK8sServiceAffinityConfig(saCfg *v1.SessionAffinityConfig) *slim_corev1.SessionAffinityConfig {
-	if saCfg == nil {
-		return nil
-	}
-
-	if saCfg.ClientIP == nil {
-		return &slim_corev1.SessionAffinityConfig{}
-	}
-
-	return &slim_corev1.SessionAffinityConfig{
-		ClientIP: &slim_corev1.ClientIPConfig{
-			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
-		},
-	}
-}
-
 func ConvertToK8sV1ServiceAffinityConfig(saCfg *slim_corev1.SessionAffinityConfig) *v1.SessionAffinityConfig {
 	if saCfg == nil {
 		return nil
@@ -120,22 +85,6 @@ func ConvertToK8sV1ServiceAffinityConfig(saCfg *slim_corev1.SessionAffinityConfi
 			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
 		},
 	}
-}
-
-func convertToK8sLoadBalancerIngress(lbIngs []v1.LoadBalancerIngress) []slim_corev1.LoadBalancerIngress {
-	if lbIngs == nil {
-		return nil
-	}
-
-	slimLBIngs := make([]slim_corev1.LoadBalancerIngress, 0, len(lbIngs))
-	for _, lbIng := range lbIngs {
-		slimLBIngs = append(slimLBIngs,
-			slim_corev1.LoadBalancerIngress{
-				IP: lbIng.IP,
-			},
-		)
-	}
-	return slimLBIngs
 }
 
 func ConvertToK8sV1LoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngress) []v1.LoadBalancerIngress {
@@ -187,96 +136,6 @@ func ConvertToNetworkV1IngressLoadBalancerIngress(slimLBIngs []slim_corev1.LoadB
 			})
 	}
 	return ingLBIngs
-}
-
-// TransformToK8sService transforms a *v1.Service into a *slim_corev1.Service
-// or a cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown
-// with a *slim_corev1.Service in its Obj. If obj is a *slim_corev1.Service
-// or a cache.DeletedFinalStateUnknown with a *slim_corev1.Service in its Obj,
-// obj is returned without any transformations. If the given obj can't be cast
-// into either *slim_corev1.Service nor cache.DeletedFinalStateUnknown, an error
-// is returned.
-func TransformToK8sService(obj interface{}) (interface{}, error) {
-	switch concreteObj := obj.(type) {
-	case *v1.Service:
-		return &slim_corev1.Service{
-			TypeMeta: slim_metav1.TypeMeta{
-				Kind:       concreteObj.TypeMeta.Kind,
-				APIVersion: concreteObj.TypeMeta.APIVersion,
-			},
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:            concreteObj.ObjectMeta.Name,
-				Namespace:       concreteObj.ObjectMeta.Namespace,
-				ResourceVersion: concreteObj.ObjectMeta.ResourceVersion,
-				UID:             concreteObj.ObjectMeta.UID,
-				Labels:          concreteObj.ObjectMeta.Labels,
-				Annotations:     concreteObj.ObjectMeta.Annotations,
-			},
-			Spec: slim_corev1.ServiceSpec{
-				Ports:                 convertToK8sServicePorts(concreteObj.Spec.Ports),
-				Selector:              concreteObj.Spec.Selector,
-				ClusterIP:             concreteObj.Spec.ClusterIP,
-				Type:                  slim_corev1.ServiceType(concreteObj.Spec.Type),
-				ExternalIPs:           concreteObj.Spec.ExternalIPs,
-				SessionAffinity:       slim_corev1.ServiceAffinity(concreteObj.Spec.SessionAffinity),
-				LoadBalancerIP:        concreteObj.Spec.LoadBalancerIP,
-				ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyType(concreteObj.Spec.ExternalTrafficPolicy),
-				HealthCheckNodePort:   concreteObj.Spec.HealthCheckNodePort,
-				SessionAffinityConfig: convertToK8sServiceAffinityConfig(concreteObj.Spec.SessionAffinityConfig),
-			},
-			Status: slim_corev1.ServiceStatus{
-				LoadBalancer: slim_corev1.LoadBalancerStatus{
-					Ingress: convertToK8sLoadBalancerIngress(concreteObj.Status.LoadBalancer.Ingress),
-				},
-			},
-		}, nil
-	case *slim_corev1.Service:
-		return obj, nil
-	case cache.DeletedFinalStateUnknown:
-		if _, ok := concreteObj.Obj.(*slim_corev1.Service); ok {
-			return obj, nil
-		}
-		svc, ok := concreteObj.Obj.(*v1.Service)
-		if !ok {
-			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &slim_corev1.Service{
-				TypeMeta: slim_metav1.TypeMeta{
-					Kind:       svc.TypeMeta.Kind,
-					APIVersion: svc.TypeMeta.APIVersion,
-				},
-				ObjectMeta: slim_metav1.ObjectMeta{
-					Name:            svc.ObjectMeta.Name,
-					Namespace:       svc.ObjectMeta.Namespace,
-					ResourceVersion: svc.ObjectMeta.ResourceVersion,
-					UID:             svc.ObjectMeta.UID,
-					Labels:          svc.ObjectMeta.Labels,
-					Annotations:     svc.ObjectMeta.Annotations,
-				},
-				Spec: slim_corev1.ServiceSpec{
-					Ports:                 convertToK8sServicePorts(svc.Spec.Ports),
-					Selector:              svc.Spec.Selector,
-					ClusterIP:             svc.Spec.ClusterIP,
-					Type:                  slim_corev1.ServiceType(svc.Spec.Type),
-					ExternalIPs:           svc.Spec.ExternalIPs,
-					SessionAffinity:       slim_corev1.ServiceAffinity(svc.Spec.SessionAffinity),
-					LoadBalancerIP:        svc.Spec.LoadBalancerIP,
-					ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyType(svc.Spec.ExternalTrafficPolicy),
-					HealthCheckNodePort:   svc.Spec.HealthCheckNodePort,
-					SessionAffinityConfig: convertToK8sServiceAffinityConfig(svc.Spec.SessionAffinityConfig),
-				},
-				Status: slim_corev1.ServiceStatus{
-					LoadBalancer: slim_corev1.LoadBalancerStatus{
-						Ingress: convertToK8sLoadBalancerIngress(svc.Status.LoadBalancer.Ingress),
-					},
-				},
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown object type %T", concreteObj)
-	}
 }
 
 // TransformToCCNP transforms a *cilium_v2.CiliumClusterwideNetworkPolicy into a
