@@ -75,14 +75,14 @@ type Config struct {
 
 var defaultConfig = Config{
 	CESMaxCEPsInCES:           100,
-	CESSlicingMode:            "cesSliceModeIdentity",
+	CESSlicingMode:            identityMode,
 	CESDynamicRateLimitConfig: "[{\"nodes\":0,\"limit\":10,\"burst\":20}]",
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	depUseDLR := fmt.Sprintf("dynamic rate limiting is now configured by default. Please use --%s to supply a custom config", CESRateLimits)
 	flags.Int(CESMaxCEPsInCES, def.CESMaxCEPsInCES, "Maximum number of CiliumEndpoints allowed in a CES")
-	flags.String(CESSlicingMode, def.CESSlicingMode, "Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity (\"cesSliceModeIdentity\") or batched on a \"First Come, First Served\" basis (\"cesSliceModeFCFS\")")
+	flags.String(CESSlicingMode, def.CESSlicingMode, "Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity (\"identity\") or batched on a \"First Come, First Served\" basis (\"fcfs\")")
 	flags.Float64(CESWriteQPSLimit, def.CESWriteQPSLimit, "CES work queue rate limit. Ignored when "+CESEnableDynamicRateLimit+" is set")
 	flags.MarkDeprecated(CESWriteQPSLimit, depUseDLR)
 	flags.Int(CESWriteQPSBurst, def.CESWriteQPSBurst, "CES work queue burst rate. Ignored when "+CESEnableDynamicRateLimit+" is set")
