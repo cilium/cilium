@@ -166,16 +166,13 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 		return CTX_ACT_OK;
 #else
 	/* We lookup CT in forward direction at to-netdev and expect to
-	 * get CT_ESTABLISHED or CT_REOPENED for outbound connection as
+	 * get CT_ESTABLISHED for outbound connection as
 	 * from_container should have already created a CT entry.
 	 * If we get CT_NEW here, it's an indication that it's a reply
 	 * for inbound connection or host-level outbound connection.
 	 * We don't expect to receive any other ct_status here.
-	 *
-	 * (We never get CT_REOPENED here for now since from_container
-	 * should have reopened the close connections)
 	 */
-	if (ct_status != CT_ESTABLISHED && ct_status != CT_REOPENED)
+	if (ct_status != CT_ESTABLISHED)
 		return CTX_ACT_OK;
 #endif
 

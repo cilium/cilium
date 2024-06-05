@@ -882,7 +882,6 @@ enum ct_status {
 	CT_ESTABLISHED,
 	CT_REPLY,
 	CT_RELATED,
-	CT_REOPENED,
 } __packed;
 
 /* Service flags (lb{4,6}_service->flags) */
