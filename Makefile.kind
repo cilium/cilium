@@ -96,7 +96,7 @@ kind-connect-clustermesh: check_deps kind-clustermesh-ready
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
-ENABLE_KVSTOREMESH ?= false
+ENABLE_KVSTOREMESH ?= true
 $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"

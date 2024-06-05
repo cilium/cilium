@@ -188,13 +188,13 @@ clusters.
 
 .. note::
 
-   You can additionally opt in to :ref:`kvstoremesh` when enabling
-   Cluster Mesh. Make sure to configure the Cilium CLI in *helm* mode and run:
+   Starting from v1.16 KVStoreMesh is enabled by default.
+   You can opt out of :ref:`kvstoremesh` when enabling the Cluster Mesh.
 
    .. code-block:: shell-session
 
-     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh
-     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh
+     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh=false
+     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh=false
 
 .. important::
 
