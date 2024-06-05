@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -56,8 +56,8 @@ type remoteCluster struct {
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	clusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
-	// serviceIPGetter, if not nil, is used to create a custom dialer for service resolution.
-	serviceIPGetter k8s.ServiceIPGetter
+	// resolvers are the set of resolvers used to create the custom dialer.
+	resolvers []dial.Resolver
 
 	// changed receives an event when the remote cluster configuration has
 	// changed and is closed when the configuration file was removed
@@ -340,11 +340,9 @@ func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOp
 
 	dialOpts = append(dialOpts, grpc.WithStreamInterceptor(newStreamInterceptor(clusterLock)), grpc.WithUnaryInterceptor(newUnaryInterceptor(clusterLock)))
 
-	if rc.serviceIPGetter != nil {
-		// Allow to resolve service names without depending on the DNS. This prevents the need
-		// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
-		dialOpts = append(dialOpts, grpc.WithContextDialer(k8s.CreateCustomDialer(rc.serviceIPGetter, rc.logger, false)))
-	}
+	// Allow to resolve service names without depending on the DNS. This prevents the need
+	// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
+	dialOpts = append(dialOpts, grpc.WithContextDialer(dial.NewContextDialer(rc.logger, rc.resolvers...)))
 
 	return kvstore.ExtraOptions{
 		NoLockQuorumCheck:            true,

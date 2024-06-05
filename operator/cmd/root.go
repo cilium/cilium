@@ -50,6 +50,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -233,6 +234,11 @@ var (
 
 			// Informational policy validation.
 			networkpolicy.Cell,
+
+			// Provide the logic to map DNS names matching Kubernetes services to the
+			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
+			// and clustermesh.
+			dial.ServiceResolverCell,
 		),
 	)
 
