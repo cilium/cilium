@@ -18,15 +18,17 @@ See :ref:`gs_clustermesh` for instructions on how to set up cluster mesh.
 
 .. _kvstoremesh:
 
-KVStoreMesh (beta)
-==================
-
-.. include:: ../../beta.rst
+KVStoreMesh
+===========
 
 KVStoreMesh is an extension of Cluster Mesh. It caches the information obtained
 from the remote clusters in a local kvstore (such as etcd), to which all local
 Cilium agents connect. This is different from vanilla Cluster Mesh, where each
 agent directly pulls the information from the remote clusters. KVStoreMesh enables
-improved scalability and isolation, and targets large scale Cluster Mesh deployments.
+improved scalability and isolation.
 
-See :ref:`enable_clustermesh` for instructions on how to enable KVStoreMesh.
+.. note::
+
+  Starting from v1.16 KVStoreMesh is enabled by default.
+  If you wish to disable it, please refer to :ref:`enable_clustermesh`
+  for instructions on how to disable KVStoreMesh.
