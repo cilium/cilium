@@ -12,6 +12,8 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	versionapi "k8s.io/apimachinery/pkg/version"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -290,7 +292,8 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
 		if option.Config.NodePortMode == option.NodePortModeHybrid {
-			features.NodePort.Mode = strings.Title(option.Config.NodePortMode)
+			caser := cases.Title(language.English)
+			features.NodePort.Mode = caser.String(option.Config.NodePortMode)
 		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
 		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
@@ -300,7 +303,8 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
 			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGeneric
 		} else {
-			features.NodePort.Acceleration = strings.Title(option.Config.NodePortAcceleration)
+			caser := cases.Title(language.English)
+			features.NodePort.Acceleration = caser.String(option.Config.NodePortAcceleration)
 		}
 		features.NodePort.PortMin = int64(option.Config.NodePortMin)
 		features.NodePort.PortMax = int64(option.Config.NodePortMax)
