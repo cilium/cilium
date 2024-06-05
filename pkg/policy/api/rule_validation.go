@@ -394,6 +394,10 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 	return nil
 }
 
+// It is not allowed to configure an ingress listener, but we still
+// have some unit tests relying on this. So, allow overriding this check in the unit tests.
+var TestAllowIngressListener = false
+
 func (pr *PortRule) sanitize(ingress bool) error {
 	hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 	if ingress && hasDNSRules {
@@ -436,7 +440,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		// For now we have only tested custom listener support on the egress path.  TODO
 		// (jrajahalme): Lift this limitation in follow-up work once proper testing has been
 		// done on the ingress path.
-		if ingress {
+		if ingress && !TestAllowIngressListener {
 			return fmt.Errorf("Listener is not allowed on ingress (%s)", listener.Name)
 		}
 		// There is no quarantee that Listener will support Cilium policy enforcement.  Even

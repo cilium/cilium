@@ -180,7 +180,6 @@ var (
 		HTTP: []api.PortRuleHTTP{
 			{Method: "GET", Path: "/"},
 		},
-		L7Proto: ParserTypeHTTP.String(),
 	}
 	// API rule definitions for default-deny, L3, L3L4, L3L4L7, L4, L4L7
 	lbls____NoAllow = labels.ParseLabelArray("no-allow")
@@ -1615,7 +1614,7 @@ var (
 		IngressCommonRule: api.IngressCommonRule{
 			FromCIDR: api.CIDRSlice{worldSubnet},
 		},
-	}})
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 	mapKeyL3L4NamedPort8080ProtoTCPWorldSubNetIngress = key(worldSubnetIdentity.Uint32(), 8080, 6, trafficdirection.Ingress.Uint8())
 
 	ruleL3AllowWorldSubnetPortRange = api.NewRule().WithIngressRules([]api.IngressRule{{
@@ -1623,11 +1622,13 @@ var (
 			api.PortRule{
 				Ports: []api.PortProtocol{
 					{
-						Port:     "64-127",
+						Port:     "64",
+						EndPort:  127,
 						Protocol: api.ProtoAny,
 					},
 					{
-						Port:     "5-10",
+						Port:     "5",
+						EndPort:  10,
 						Protocol: api.ProtoAny,
 					},
 				},
@@ -1636,7 +1637,7 @@ var (
 		IngressCommonRule: api.IngressCommonRule{
 			FromCIDR: api.CIDRSlice{worldSubnet},
 		},
-	}})
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 	mapKeyL3L4Port64To127ProtoTCPWorldSubNetIngress = keyWithPortMask(worldSubnetIdentity.Uint32(), 64, 0xffc0, 6, trafficdirection.Ingress.Uint8())
 	mapKeyL3L4Port5ProtoTCPWorldSubNetIngress       = key(worldSubnetIdentity.Uint32(), 5, 6, trafficdirection.Ingress.Uint8())
 	mapKeyL3L4Port6To7ProtoTCPWorldSubNetIngress    = keyWithPortMask(worldSubnetIdentity.Uint32(), 6, 0xfffe, 6, trafficdirection.Ingress.Uint8())

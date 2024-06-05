@@ -348,7 +348,6 @@ var (
 		HTTP: []api.PortRuleHTTP{
 			{Method: "GET", Path: "/"},
 		},
-		L7Proto: policy.ParserTypeHTTP.String(),
 	}
 
 	lblsL3DenyFoo = labels.ParseLabelArray("l3-deny")
@@ -557,6 +556,8 @@ func TestRedirectWithPriority(t *testing.T) {
 	s := setupRedirectSuite(t)
 
 	ep := s.NewTestEndpoint(t)
+	api.TestAllowIngressListener = true
+	defer func() { api.TestAllowIngressListener = false }()
 
 	s.AddRules(api.Rules{
 		ruleL4AllowListener1.WithEndpointSelector(selectBar_),
@@ -637,6 +638,8 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	ep := s.NewTestEndpoint(t)
 
+	api.TestAllowIngressListener = true
+	defer func() { api.TestAllowIngressListener = false }()
 	s.AddRules(api.Rules{
 		ruleL4L7AllowListener1Priority1.WithEndpointSelector(selectBar_),
 		ruleL4AllowPort80.WithEndpointSelector(selectBar_),
