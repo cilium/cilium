@@ -141,7 +141,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			return ret;
 	}
 
-	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	/* Emit verdict if drop or if allow for CT_NEW. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
@@ -262,7 +262,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			return ret;
 	}
 
-	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	/* Emit verdict if drop or if allow for CT_NEW. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
@@ -417,7 +417,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			return ret;
 	}
 
-	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	/* Emit verdict if drop or if allow for CT_NEW. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 0,
@@ -540,7 +540,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 			return ret;
 	}
 
-	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	/* Emit verdict if drop or if allow for CT_NEW. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,

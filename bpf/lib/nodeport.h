@@ -543,6 +543,9 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 	}
 #endif
 
+	/* SYN for a new connection that's not / no longer DSR.
+	 * If it's reopened, avoid sending subsequent traffic down the DSR path.
+	 */
 	if (tuple->nexthdr == IPPROTO_TCP)
 		ct_update_dsr(get_ct_map6(&tmp), &tmp, false);
 
@@ -762,7 +765,6 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			      NULL, &monitor);
 	switch (ret) {
 	case CT_NEW:
-	case CT_REOPENED:
 create_ct:
 		if (port == 0)
 			return DROP_INVALID;
@@ -1328,7 +1330,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			if (IS_ERR(ret))
 				return ret;
 			break;
-		case CT_REOPENED:
 		case CT_ESTABLISHED:
 			/* Note that we don't validate whether the matched CT entry
 			 * has identical values (eg. .ifindex) as set above.
@@ -2297,10 +2298,6 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			      CT_ENTRY_DSR, NULL, &monitor);
 	switch (ret) {
 	case CT_NEW:
-	/* Maybe we can be a bit more selective about CT_REOPENED?
-	 * But we have to assume that both the CT and the SNAT entry are stale.
-	 */
-	case CT_REOPENED:
 create_ct:
 		if (port == 0)
 			/* Not expected at all - nodeport_extract_dsr_v4() said
@@ -2875,7 +2872,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			if (IS_ERR(ret))
 				return ret;
 			break;
-		case CT_REOPENED:
 		case CT_ESTABLISHED:
 			/* Note that we don't validate whether the matched CT entry
 			 * has identical values (eg. .ifindex) as set above.
