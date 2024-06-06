@@ -1,15 +1,16 @@
 name: Renovate
 on:
-  # running every hour every working day
-  # running every two hours outside of those hours
   schedule:
+    # Running every hour every working day (Monday to Friday)
     - cron: '0 * * * 1-5'
-    - cron: '0 */2 * * 6-7'
+    # Running every two hours on weekends (Saturday and Sunday)
+    - cron: '0 */2 * * 6,0'
   # allow to manually trigger this workflow
   workflow_dispatch:
     inputs:
       renovate_log_level_debug:
         type: boolean
+        description: "Rune Renovate With Debug Log Levels"
         default: true
 
 jobs:
