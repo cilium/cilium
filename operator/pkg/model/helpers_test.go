@@ -42,8 +42,9 @@ func TestAddSource(t *testing.T) {
 
 func TestComputeHosts(t *testing.T) {
 	type args struct {
-		routeHostnames   []string
-		listenerHostname *string
+		routeHostnames           []string
+		listenerHostname         *string
+		excludeListenerHostnames []string
 	}
 	tests := []struct {
 		name string
@@ -116,10 +117,30 @@ func TestComputeHosts(t *testing.T) {
 			},
 			want: []string{"*.wildcard.io"},
 		},
+		{
+			name: "with excluded listener hostname",
+			args: args{
+				routeHostnames: []string{
+					"non.matching.com",
+					"*.nonmatchingwildcard.io",
+					"wildcard.io",
+					"*.wildcard.io",
+					"very.specific.com",
+				},
+				listenerHostname: strp("*"),
+				excludeListenerHostnames: []string{
+					"non.matching.com",
+					"*.nonmatchingwildcard.io",
+					"*.wildcard.io",
+					"very.specific.com",
+				},
+			},
+			want: []string{"wildcard.io"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ComputeHosts(tt.args.routeHostnames, tt.args.listenerHostname)
+			got := ComputeHosts(tt.args.routeHostnames, tt.args.listenerHostname, tt.args.excludeListenerHostnames)
 			assert.Equalf(t, tt.want, got, "ComputeHosts(%v, %v)", tt.args.routeHostnames, tt.args.listenerHostname)
 		})
 	}

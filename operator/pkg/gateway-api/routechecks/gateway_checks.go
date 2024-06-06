@@ -25,6 +25,7 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 		return false, nil
 	}
 
+	allListenerHostNames := GetAllListenerHostNames(gw.Spec.Listeners)
 	hasNamespaceRestriction := false
 	for _, listener := range gw.Spec.Listeners {
 
@@ -40,7 +41,7 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 			continue
 		}
 
-		if listener.Hostname != nil && (len(computeHostsForListener(&listener, input.GetHostnames())) > 0) {
+		if listener.Hostname != nil && (len(computeHostsForListener(&listener, input.GetHostnames(), allListenerHostNames)) > 0) {
 			continue
 		}
 
@@ -150,7 +151,7 @@ func CheckGatewayMatchingHostnames(input Input, parentRef gatewayv1.ParentRefere
 		return false, nil
 	}
 
-	if len(computeHosts(gw, input.GetHostnames())) == 0 {
+	if len(computeHosts(gw, input.GetHostnames(), nil)) == 0 {
 
 		input.SetParentCondition(parentRef, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionAccepted),
@@ -231,4 +232,14 @@ func CheckGatewayMatchingSection(input Input, parentRef gatewayv1.ParentReferenc
 	}
 
 	return true, nil
+}
+
+func GetAllListenerHostNames(listeners []gatewayv1.Listener) []gatewayv1.Hostname {
+	var hosts []gatewayv1.Hostname
+	for _, listener := range listeners {
+		if listener.Hostname != nil {
+			hosts = append(hosts, *listener.Hostname)
+		}
+	}
+	return hosts
 }
