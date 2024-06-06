@@ -3,7 +3,7 @@
 # Copyright Authors of Cilium
 
 DIR=$(dirname $(readlink -ne $BASH_SOURCE))
-source $DIR/../release/lib/common.sh
+source $DIR/k8s-common.sh
 source $DIR/common.sh
 
 require_linux
