@@ -56,8 +56,14 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 
 	for _, addr := range node.IPAddresses {
 		ip := addr.IP.String()
-		if _, exists := n.nodeIDsByIPs[ip]; exists {
+		if id, exists := n.nodeIDsByIPs[ip]; exists && id == nodeID {
 			continue
+		} else if exists && id != nodeID {
+			log.WithFields(logrus.Fields{
+				logfields.IPAddr:   ip,
+				"mapped-to-nodeID": id,
+				"expected-nodeID":  nodeID,
+			}).Error("BUG: IPs of one node map to multiple node IDs. Overwriting with expected nodeID.")
 		}
 		if err := n.mapNodeID(ip, nodeID); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
