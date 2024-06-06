@@ -263,7 +263,7 @@ jobs:
               --gateway-class cilium \
               --all-features \
               --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
-              --conformance-profiles HTTP,TLS \
+              --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC \
               --organization cilium \
               --project cilium \
               --url github.com/cilium/cilium \
