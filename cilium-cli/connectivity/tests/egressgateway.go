@@ -235,6 +235,26 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		i++
 	}
 
+	// Traffic matching an egress gateway policy should leave the cluster masqueraded with the egress IP (pod to external service using DNS)
+	i = 0
+	for _, client := range ct.ClientPods() {
+		client := client
+
+		for _, externalEchoSvc := range ct.EchoExternalServices() {
+			externalEcho := externalEchoSvc.ToEchoIPService()
+
+			t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, "-4"))
+				clientIP := extractClientIPFromResponse(a.CmdOutput())
+
+				if !clientIP.Equal(egressGatewayNodeInternalIP) {
+					t.Fatal("Request reached external echo service with wrong source IP")
+				}
+			})
+			i++
+		}
+	}
+
 	// Traffic matching an egress gateway policy should leave the cluster masqueraded with the egress IP (pod to external service)
 	i = 0
 	for _, client := range ct.ClientPods() {
