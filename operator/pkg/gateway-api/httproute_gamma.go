@@ -48,6 +48,10 @@ func (r *gammaHttpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if !ok {
 				return nil
 			}
+
+			if !r.hasGammaParent()(route) {
+				return nil
+			}
 			var backendServices []string
 			for _, rule := range route.Spec.Rules {
 				for _, backend := range rule.BackendRefs {
@@ -76,7 +80,15 @@ func (r *gammaHttpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, gammaListenerServiceIndex,
 		func(rawObj client.Object) []string {
-			hr := rawObj.(*gatewayv1.HTTPRoute)
+			hr, ok := rawObj.(*gatewayv1.HTTPRoute)
+			if !ok {
+				return nil
+			}
+
+			if !r.hasGammaParent()(hr) {
+				return nil
+			}
+
 			var services []string
 			for _, parent := range hr.Spec.ParentRefs {
 				if !helpers.IsGammaService(parent) {
@@ -129,7 +141,7 @@ func (r *gammaHttpRouteReconciler) hasGammaParent() func(object client.Object) b
 // enqueueRequestForBackendService makes sure that HTTP Routes are reconciled
 // if the backend services are updated.
 func (r *gammaHttpRouteReconciler) enqueueRequestForBackendService() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(gammaBackendServiceIndex))
 }
 
 // enqueueRequestForReferenceGrant makes sure that all HTTP Routes are reconciled

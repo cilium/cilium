@@ -14,7 +14,7 @@ func CheckGammaServiceAllowedForNamespace(input Input, parentRef gatewayv1.Paren
 		input.SetParentCondition(parentRef, metav1.Condition{
 			Type:    "Accepted",
 			Status:  metav1.ConditionFalse,
-			Reason:  "Invalid " + input.GetGVK().Kind,
+			Reason:  "Invalid" + input.GetGVK().Kind,
 			Message: err.Error(),
 		})
 		return false, nil
