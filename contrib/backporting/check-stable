@@ -20,7 +20,7 @@ PROG=${0##*/}
 STABLE_BRANCH=${1:-}
 SUMMARY_LOG=${2:-}
 
-source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
+source $(dirname $(readlink -ne $BASH_SOURCE))/k8s-common.sh
 source $TOOL_LIB_PATH/gitlib.sh
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 
