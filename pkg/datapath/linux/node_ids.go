@@ -114,10 +114,21 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 
 	for _, addr := range node.IPAddresses {
 		ip := addr.IP.String()
-		if _, exists := n.nodeIDsByIPs[ip]; exists {
+		if id, exists := n.nodeIDsByIPs[ip]; exists && id == nodeID {
 			if !SPIChanged {
 				continue
 			}
+		} else if exists && id != nodeID {
+			// The map is in an inconsistent state. This can occur when a node
+			// is deleted while the agent is down and its IPs are reused. To
+			// allocate a fresh ID, unmap the IPs of this node, and try again.
+			for _, addr := range node.IPAddresses {
+				if err := n.unmapNodeID(addr.IP.String()); err != nil {
+					n.log.Error("Failed to unmap stale nodeID mapping", logfields.IPAddr, ip, logfields.Error, err)
+				}
+			}
+
+			return n.allocateIDForNode(oldNode, node)
 		}
 		if err := n.mapNodeID(ip, nodeID, node.EncryptionKey); err != nil {
 			n.log.Error("Failed to map node IP address to allocated ID",
