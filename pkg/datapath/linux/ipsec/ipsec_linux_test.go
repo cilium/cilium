@@ -25,8 +25,12 @@ func setupIPSecSuitePrivileged(tb testing.TB) {
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
+		ipSecKeysGlobal = make(map[string]*ipSecKey)
 		node.UnsetTestLocalNodeStore()
-		_ = DeleteXFRM()
+		err := DeleteXFRM()
+		if err != nil {
+			tb.Errorf("Failed cleaning XFRM state: %v", err)
+		}
 	})
 }
 
@@ -134,7 +138,8 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
-	cleanIPSecStatesAndPolicies(t)
+	err = DeleteXFRM()
+	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
 	require.NoError(t, err)
@@ -151,10 +156,6 @@ func TestUpsertIPSecEquals(t *testing.T) {
 
 	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
-
-	cleanIPSecStatesAndPolicies(t)
-	ipSecKeysGlobal["1.2.3.4"] = nil
-	ipSecKeysGlobal[""] = nil
 }
 
 func TestUpsertIPSecEndpoint(t *testing.T) {
@@ -183,7 +184,8 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
-	cleanIPSecStatesAndPolicies(t)
+	err = DeleteXFRM()
+	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
 	require.NoError(t, err)
@@ -216,11 +218,6 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, toProxyPolicy)
-
-	cleanIPSecStatesAndPolicies(t)
-	ipSecKeysGlobal["1.1.3.4"] = nil
-	ipSecKeysGlobal["1.2.3.4"] = nil
-	ipSecKeysGlobal[""] = nil
 }
 
 func TestUpsertIPSecKeyMissing(t *testing.T) {
@@ -233,8 +230,6 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 
 	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.ErrorContains(t, err, "unable to replace local state: IPSec key missing")
-
-	cleanIPSecStatesAndPolicies(t)
 }
 
 func TestUpdateExistingIPSecEndpoint(t *testing.T) {
@@ -266,34 +261,4 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	// test updateExisting (xfrm delete + add)
 	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true, DefaultReqID)
 	require.NoError(t, err)
-
-	cleanIPSecStatesAndPolicies(t)
-	ipSecKeysGlobal["1.1.3.4"] = nil
-	ipSecKeysGlobal["1.2.3.4"] = nil
-	ipSecKeysGlobal[""] = nil
-}
-
-func cleanIPSecStatesAndPolicies(t *testing.T) {
-	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
-	if err != nil {
-		t.Fatalf("Can't list XFRM states: %v", err)
-	}
-
-	for _, s := range xfrmStateList {
-		if err := netlink.XfrmStateDel(&s); err != nil {
-			t.Fatalf("Can't delete XFRM state: %v", err)
-		}
-
-	}
-
-	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
-	if err != nil {
-		t.Fatalf("Can't list XFRM policies: %v", err)
-	}
-
-	for _, p := range xfrmPolicyList {
-		if err := netlink.XfrmPolicyDel(&p); err != nil {
-			t.Fatalf("Can't delete XFRM policy: %v", err)
-		}
-	}
 }
