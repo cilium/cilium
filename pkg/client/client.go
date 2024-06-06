@@ -382,12 +382,12 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	}
 
 	if sr.ClusterMesh != nil {
-		fmt.Fprintf(w, "ClusterMesh:\t%d/%d clusters ready, %d global-services\n",
+		fmt.Fprintf(w, "ClusterMesh:\t%d/%d remote clusters ready, %d global-services\n",
 			numReadyClusters(sr.ClusterMesh), len(sr.ClusterMesh.Clusters), sr.ClusterMesh.NumGlobalServices)
 
 		for _, cluster := range sr.ClusterMesh.Clusters {
 			if sd.AllClusters || !cluster.Ready {
-				fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d failures (last: %s)\n",
+				fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d reconnects (last: %s)\n",
 					cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
 					cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices,
 					cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))
