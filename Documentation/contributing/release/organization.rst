@@ -7,20 +7,12 @@
 Organization
 ============
 
-Release tracking
-----------------
-
-Feature work for upcoming releases is tracked through GitHub Projects. You can
-view the projects related to the \ |NEXT_RELEASE| release here:
-
-* :github-project:`GitHub release projects<>`
-
 Release Cadence
 ---------------
 
-New versions of Cilium are released on a cadence of around six months. Minor
-releases are typically designated by by incrementing the ``Y`` in the version
-format ``X.Y.Z``.
+New feature releases of Cilium are released on a cadence of around six months.
+Minor releases are typically designated by incrementing the ``Y`` in the
+version format ``X.Y.Z``.
 
 Three stable branches are maintained at a time: One for the most recent minor
 release, and two for the prior two minor releases. For each minor release that
@@ -31,5 +23,5 @@ for the next stable release. New patch releases for an existing stable version
 New patch releases for stable branches are made periodically to provide
 security and bug fixes, based upon community demand and bugfix severity.
 Potential fixes for an upcoming release are first merged into the ``main``
-branch, then backported to the relevant stable branches using the following
-criteria.
+branch, then backported to the relevant stable branches according to the
+:ref:`backport_criteria`.
