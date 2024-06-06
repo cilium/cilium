@@ -12,6 +12,56 @@ Tuning Guide
 
 This guide helps you optimize a Cilium installation for optimal performance.
 
+Recommendation
+==============
+
+The default out of the box deployment of Cilium is focused on maximum compatibility
+rather than most optimal performance. If you are a performance-conscious user, here
+are the recommended settings for operating Cilium to get the best out of your setup.
+Each of the settings for the recommended performance profile are described in more
+detail on this page and in this `KubeCon talk <https://sched.co/1R2s5>`__:
+
+- netkit device mode
+- eBPF host-routing
+- BIG TCP for IPv4/IPv6
+- Bandwidth Manager (optional, for BBR congestion control)
+
+**Requirements:**
+
+* Kernel >= 6.8
+* Supported NICs for BIG TCP: mlx4, mlx5, ice
+
+To enable the first three settings:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set routingMode=native \\
+             --set bpf.datapathMode=netkit \\
+             --set bpf.masquerade=true \\
+             --set ipv6.enabled=true \\
+             --set enableIPv6BIGTCP=true \\
+             --set ipv4.enabled=true \\
+             --set enableIPv4BIGTCP=true \\
+             --set kubeProxyReplacement=true
+
+For enabling BBR congestion control in addition, consider adding the following
+settings to the above Helm install:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+             --set bandwidthManager.enabled=true \\
+             --set bandwidthManager.bbr=true
+
 .. _netkit:
 
 netkit device mode
