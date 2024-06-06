@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/operator/option"
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
@@ -92,9 +92,9 @@ func TestUpdateFromEC2API(t *testing.T) {
 			Hypervisor:   ec2_types.InstanceTypeHypervisorXen,
 			InstanceType: ec2_types.InstanceType("newinstance.medium"),
 			NetworkInfo: &ec2_types.NetworkInfo{
-				Ipv4AddressesPerInterface: pointer.Int32(30),
-				Ipv6AddressesPerInterface: pointer.Int32(30),
-				MaximumNetworkInterfaces:  pointer.Int32(8),
+				Ipv4AddressesPerInterface: ptr.To[int32](30),
+				Ipv6AddressesPerInterface: ptr.To[int32](30),
+				MaximumNetworkInterfaces:  ptr.To[int32](8),
 			},
 		},
 	}
