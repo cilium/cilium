@@ -77,3 +77,15 @@ which are important for developers:
 
 * Stable release: The new feature release ``X.Y.0`` version is published. All
   restrictions on submissions are lifted, and the cycle begins again.
+
+Stable Releases
+~~~~~~~~~~~~~~~
+
+The Cilium release management team typically aims to publish fresh releases for
+all maintained stable branches around the middle of each month. All changes
+that are merged into the target branch by the first week of the month should
+typically be published in that month's patch release. Changes which do not land
+into the target branch by that time may be deferred to the following month's
+patch release. For more information about how patches are merged into the
+``main`` branch and subsequently backported to stable branches, see the
+:ref:`backport_process`.
