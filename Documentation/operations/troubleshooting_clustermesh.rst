@@ -71,8 +71,8 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
 
  #. Validate that ClusterMesh is healthy running ``cilium-dbg status --all-clusters`` inside each Cilium agent::
 
-        ClusterMesh:   1/1 clusters ready, 10 global-services
-           k8s-c2: ready, 3 nodes, 25 endpoints, 8 identities, 10 services, 0 failures (last: never)
+        ClusterMesh:   1/1 remote clusters ready, 10 global-services
+           k8s-c2: ready, 3 nodes, 25 endpoints, 8 identities, 10 services, 0 reconnections (last: never)
            └  etcd: 1/1 connected, leases=0, lock lease-ID=7c028201b53de662, has-quorum=true: https://k8s-c2.mesh.cilium.io:2379 - 3.5.4 (Leader)
            └  remote configuration: expected=true, retrieved=true, cluster-id=3, kvstoremesh=false, sync-canaries=true
            └  synchronization status: nodes=true, endpoints=true, identities=true, services=true
