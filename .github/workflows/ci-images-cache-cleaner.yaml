@@ -20,23 +20,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: cilium
-
-          - name: operator-aws
-
-          - name: operator-azure
-
-          - name: operator-alibabacloud
-
-          - name: operator-generic
-
-          - name: hubble-relay
-
-          - name: clustermesh-apiserver
-
-          - name: kvstoremesh
-
-          - name: docker-plugin
+          ${{ fromJSON(env.BUILD_AND_PUSH_IMAGES) }}
 
     steps:
       # Fetch the source code so that we can get the right cache key

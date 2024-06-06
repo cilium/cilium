@@ -26,3 +26,38 @@ runs:
         echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
         echo "KIND_K8S_IMAGE=$KIND_K8S_IMAGE" >> $GITHUB_ENV
         echo "KIND_K8S_VERSION=$KIND_K8S_VERSION" >> $GITHUB_ENV
+
+        echo "BUILD_AND_PUSH_IMAGES=[
+          {
+            'name': 'cilium',
+            'dockerfile': './images/cilium/Dockerfile'
+          },
+          {
+            'name': 'operator-aws',
+            'dockerfile': './images/operator/Dockerfile'
+          },
+          {
+            'name': 'operator-azure',
+            'dockerfile': './images/operator/Dockerfile'
+          },
+          {
+            'name': 'operator-alibabacloud',
+            'dockerfile': './images/operator/Dockerfile'
+          },
+          {
+            'name': 'operator-generic',
+            'dockerfile': './images/operator/Dockerfile'
+          },
+          {
+            'name': 'hubble-relay',
+            'dockerfile': './images/hubble-relay/Dockerfile'
+          },
+          {
+            'name': 'clustermesh-apiserver',
+            'dockerfile': './images/clustermesh-apiserver/Dockerfile'
+          },
+          {
+            'name': 'docker-plugin',
+            'dockerfile': './images/cilium-docker-plugin/Dockerfile'
+          }
+        ]" >> $GITHUB_ENV
