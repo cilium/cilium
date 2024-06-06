@@ -426,8 +426,9 @@ func toFilterChainMatch(hostNames []string) *envoy_config_listener.FilterChainMa
 	}
 	// ServerNames must be sorted and unique, however, envoy don't support "*" as a server name
 	serverNames := slices.SortedUnique(hostNames)
-	if len(serverNames) > 1 || (len(serverNames) == 1 && serverNames[0] != "*") {
-		res.ServerNames = serverNames
+	if goslices.Contains(serverNames, "*") {
+		return res
 	}
+	res.ServerNames = serverNames
 	return res
 }
