@@ -95,11 +95,11 @@ Install Cilium
             --namespace kube-system \\
             --set aksbyocni.enabled=true \\
             --set nodeinit.enabled=true
-         
-         .. note::
 
-            Installing Cilium via helm is supported only for AKS BYOCNI cluster and 
-            not for Azure CNI Powered by Cilium clusters.
+       .. note::
+
+          Installing Cilium via helm is supported only for AKS BYOCNI cluster and
+          not for Azure CNI Powered by Cilium clusters.
 
     .. group-tab:: EKS
 
