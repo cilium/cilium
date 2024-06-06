@@ -38,6 +38,11 @@ specific workload.
     information. If unsure, run ``cilium status`` and validate that Cilium is up
     and running.
 
+.. admonition:: Video
+  :class: attention
+
+  For more insights on Cilium's Egress Gateway, check out `eCHO episode 76: Cilium Egress Gateway <https://www.youtube.com/watch?v=zEQdgNGa7bg>`__.
+
 Preliminary Considerations
 ==========================
 

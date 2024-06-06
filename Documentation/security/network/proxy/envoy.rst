@@ -54,6 +54,11 @@ Potential Benefits
 - Dedicated health probes for the Envoy proxy.
 - Explicit deployment of Envoy proxy during Cilium installation (compared to on demand in the embedded mode).
 
+.. admonition:: Video
+ :class: attention
+
+  If you'd like to see Cilium Envoy in action, check out `eCHO episode 127: Cilium & Envoy <https://www.youtube.com/watch?v=HEwruycGbCU>`__.
+
 Known Limitations
 =================
 
