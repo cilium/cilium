@@ -201,7 +201,7 @@ func (s Service) Path() string {
 // Address returns the network address of the Service.
 func (s Service) Address(family features.IPFamily) string {
 	// If the cluster IP is empty (headless service case) or the IP family is set to any, return the service name
-	if s.Service.Spec.ClusterIP == "" || family == features.IPFamilyAny {
+	if s.Service.Spec.ClusterIP == "" || s.Service.Spec.ClusterIP == corev1.ClusterIPNone || family == features.IPFamilyAny {
 		return fmt.Sprintf("%s.%s", s.Service.Name, s.Service.Namespace)
 	}
 
@@ -253,6 +253,12 @@ func (s Service) ToNodeportService(node *corev1.Node) NodeportService {
 	return NodeportService{
 		Service: s,
 		Node:    node,
+	}
+}
+
+func (s Service) ToEchoIPService() EchoIPService {
+	return EchoIPService{
+		Service: s,
 	}
 }
 
@@ -498,4 +504,12 @@ type EchoIPPod struct {
 
 func (p EchoIPPod) Path() string {
 	return p.path + "/client-ip"
+}
+
+type EchoIPService struct {
+	Service
+}
+
+func (s EchoIPService) Path() string {
+	return s.URLPath + "/client-ip"
 }
