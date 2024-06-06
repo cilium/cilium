@@ -133,16 +133,16 @@ func (i *cecTranslator) getBackendServices(m *model.Model) []*ciliumv2.Service {
 	return res
 }
 
-func (i *cecTranslator) getServicesWithPorts(namespace string, name string, model *model.Model) []*ciliumv2.ServiceListener {
+func (i *cecTranslator) getServicesWithPorts(namespace string, name string, m *model.Model) []*ciliumv2.ServiceListener {
 	// Find all the ports used in the model and build a set of them
 	allPorts := make(map[uint16]struct{})
 
-	for _, hl := range model.HTTP {
+	for _, hl := range m.HTTP {
 		if _, ok := allPorts[uint16(hl.Port)]; !ok {
 			allPorts[uint16(hl.Port)] = struct{}{}
 		}
 	}
-	for _, tlsl := range model.TLSPassthrough {
+	for _, tlsl := range m.TLSPassthrough {
 		if _, ok := allPorts[uint16(tlsl.Port)]; !ok {
 			allPorts[uint16(tlsl.Port)] = struct{}{}
 		}
@@ -157,7 +157,7 @@ func (i *cecTranslator) getServicesWithPorts(namespace string, name string, mode
 	return []*ciliumv2.ServiceListener{
 		{
 			Namespace: namespace,
-			Name:      name,
+			Name:      model.Shorten(name),
 			Ports:     ports,
 		},
 	}
