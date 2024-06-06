@@ -49,7 +49,7 @@ jobs:
   install-and-scaletest:
     runs-on: ubuntu-latest
     name: Install and Scale Test
-    timeout-minutes: 150
+    timeout-minutes: 360
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
@@ -85,6 +85,7 @@ jobs:
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
+            --helm-set=operator.extraArgs=\"{--k8s-client-qps=100,--k8s-client-burst=200}\" \
             --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --helm-set=clustermesh.apiserver.image.tag=${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
@@ -95,6 +96,9 @@ jobs:
             --helm-set=healthChecking=false \
             --helm-set=ciliumEndpointSlice.enabled=true \
             --helm-set=ciliumEndpointSlice.sliceMode="cesSliceModeFCFS" \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].nodes=1 \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].limit=100 \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].burst=200 \
             --helm-set=debug.enabled=true \
             --helm-set=kubeProxyReplacement=true"
           fi
@@ -178,15 +182,15 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: thorn3r/scale-tests-action/create-cluster@47a0be7528c75fa414c93d0906e199d6a85ed09e  # updates for 5k
-        timeout-minutes: 30
+        uses: thorn3r/scale-tests-action/create-cluster@5871565671e3d4e0b48cd25d450016d79f07d29c    # updates for 5k
+        timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           control_plane_size: n2-standard-32
           control_plane_count: 5
           control_plane_volume_size: 50
           node_size: e2-medium
-          node_count: 500
+          node_count: 1000
           node_volume_size: 50
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
@@ -227,7 +231,7 @@ jobs:
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
-        timeout-minutes: 20
+        timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
@@ -240,7 +244,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 40
+        timeout-minutes: 360
         run: |
           mkdir ./report
           export CL2_PROMETHEUS_PVC_ENABLED=false
@@ -273,7 +277,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=500 \
+            --nodes=1000 \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
