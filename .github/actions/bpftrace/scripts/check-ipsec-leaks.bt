@@ -5,6 +5,7 @@
 // $4: IPv6 CiliumInternalIP - Node2
 // $5: IPv4 CiliumInternalIP - Node3
 // $6: IPv6 CiliumInternalIP - Node3
+// $7: Report errors if proxy traffic not found - [true|false]
 
 #define CIDR4 (uint32)0x0A000000 // 10.0.0.0/8
 #define MASK4 (uint32)0xFF000000
@@ -204,15 +205,15 @@ kprobe:__dev_queue_xmit
 
 END
 {
-  if (!@sanity[TYPE_PROXY_L7_IP4]) {
+  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP4]) {
     printf("Sanity check failed: detected no IPv4 connections from the L7 proxy. Is the filter correct?\n")
   }
 
-  if (!@sanity[TYPE_PROXY_L7_IP6] && str($2) != "::1") {
+  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP6] && str($2) != "::1") {
     printf("Sanity check failed: detected no IPv6 connections from the L7 proxy. Is the filter correct?\n")
   }
 
-  if (!(@sanity[TYPE_PROXY_DNS_IP4] || @sanity[TYPE_PROXY_DNS_IP6])) {
+  if (str($7) == "true" && !(@sanity[TYPE_PROXY_DNS_IP4] || @sanity[TYPE_PROXY_DNS_IP6])) {
     printf("Sanity check failed: detected no messages sent by the DNS proxy. Is the filter correct?\n")
   }
 
