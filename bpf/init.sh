@@ -114,6 +114,7 @@ function setup_proxy_rules()
 	from_egress_rulespec="fwmark 0xB00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 	use_from_ingress_proxy_rules_v4=0
 	use_from_ingress_proxy_rules_v6=0
+	use_from_egress_proxy_rules=0
 
 	if [ "$IPSEC_ENCRYPTION" = "true" ] && [ "$MODE" != "tunnel" ]; then
 		use_from_ingress_proxy_rules_v4=1
@@ -122,6 +123,9 @@ function setup_proxy_rules()
 	# with ENDPOINT_ROUTES, only install the rules if IPsec needs them.
 	if [[ ("$IPSEC_ENCRYPTION" = "true" && "$MODE" != "tunnel") || "$ENDPOINT_ROUTES" != "true" ]]; then
 		use_from_ingress_proxy_rules_v6=1
+	fi
+	if [[ "$IPSEC_ENCRYPTION" = "true" ]] && [ "$MODE" != "tunnel" ]; then
+		use_from_egress_proxy_rules=1
 	fi
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
@@ -145,8 +149,14 @@ function setup_proxy_rules()
 					ip -4 rule delete $from_ingress_rulespec || true
 				fi
 			fi
-                        if [ ! -z "$(ip -4 rule list $from_egress_rulespec)" ]; then
-                                ip -4 rule delete $from_egress_rulespec 2> /dev/null || true
+                        if [ $use_from_egress_proxy_rules -eq 1 ]; then
+                                if [ -z "$(ip -4 rule list $from_egress_rulespec)" ]; then
+                                        ip -4 rule add $from_egress_rulespec
+                                fi
+                        else
+                                if [ ! -z "$(ip -4 rule list $from_egress_rulespec)" ]; then
+                                        ip -4 rule delete $from_egress_rulespec 2> /dev/null || true
+                                fi
                         fi
 		fi
 
@@ -181,8 +191,14 @@ function setup_proxy_rules()
 					ip -6 rule delete $from_ingress_rulespec
 				fi
 			fi
-                        if [ ! -z "$(ip -6 rule list $from_egress_rulespec)" ]; then
-                                ip -6 rule delete $from_egress_rulespec 2> /dev/null || true
+                        if [ $use_from_egress_proxy_rules -eq 1 ]; then
+                                if [ -z "$(ip -6 rule list $from_egress_rulespec)" ]; then
+                                        ip -6 rule add $from_egress_rulespec
+                                fi
+                        else
+                                if [ ! -z "$(ip -6 rule list $from_egress_rulespec)" ]; then
+                                        ip -6 rule delete $from_egress_rulespec 2> /dev/null || true
+                                fi
                         fi
 		fi
 
