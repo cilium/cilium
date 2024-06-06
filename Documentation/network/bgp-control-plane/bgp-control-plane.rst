@@ -15,6 +15,11 @@ from outside the cluster for environments that support BGP. Because BGP
 Control Plane does not program the :ref:`datapath <ebpf_datapath>`, do not use it to establish
 reachability within the cluster.
 
+.. admonition:: Video
+  :class: attention
+
+  For more insights on Cilium's BGP, check out `eCHO episode 101: More BGP fun with Cilium <https://www.youtube.com/watch?v=Tv0R6VxyWhc>`__.
+
 .. _Border Gateway Protocol: https://datatracker.ietf.org/doc/html/rfc4271
 
 Prerequisites

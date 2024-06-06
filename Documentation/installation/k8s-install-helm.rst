@@ -221,6 +221,11 @@ Install Cilium
 
         .. include:: ../installation/alibabacloud-eni.rst
 
+.. admonition:: Video
+  :class: attention
+
+  If you'd like to learn more about Cilium Helm values, check out `eCHO episode 117: A Tour of the Cilium Helm Values <https://www.youtube.com/watch?v=ni0Uw4WLHYo>`__.
+
 .. include:: k8s-install-restart-pods.rst
 
 .. include:: k8s-install-validate.rst
