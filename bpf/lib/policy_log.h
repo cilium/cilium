@@ -57,8 +57,24 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
 	struct policy_verdict_notify msg;
 
+#if defined(IS_BPF_HOST)
+	/* When this function is called in the context of bpf_host (e.g. by
+	 * host firewall) POLICY_VERDICT_LOG_FILTER is always set to 0,
+	 * preventing any policy verdict notification, as the logic to set it
+	 * is only wired up to endpoints.
+	 *
+	 * Insead of tweaking POLICY_VERDICT_LOG_FILTER and reloading bpf_host
+	 * based on whether host firewall policies are present or not, just
+	 * always enable policy verdicts notifications, and filter out the ones
+	 * for default allow policies, to prevent a flood of notifications for
+	 * traffic allowed by default.
+	 */
+	if (match_type == POLICY_MATCH_ALL && verdict == CTX_ACT_OK)
+		return;
+#else
 	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
 		return;
+#endif
 
 	if (verdict == 0)
 		verdict = (int)proxy_port;
