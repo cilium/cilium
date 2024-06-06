@@ -17,3 +17,25 @@ steps:
           query: histogram_quantile(0.90, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
         - name: Perc50
           query: histogram_quantile(0.50, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
+    - Identifier: ApiserverRequestsFromCilium
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Apiserver Requests From Cilium
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: total
+          query: sum(irate(apiserver_flowcontrol_dispatched_requests_total{priority_level=~"workload-high"}[%v])) by (instance, priority_level)
+    - Identifier: CiliumEndpointPropagationDelay
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Cilium Endpoint Propagation Delay
+        metricVersion: v1
+        unit: s
+        queries:
+        - name: CESQueueDelay
+          query: histogram_quantile(0.95, sum(rate(cilium_operator_ces_queueing_delay_seconds_bucket[%v])) by (le))
+        - name: CEPPropagationDelay
+          query: histogram_quantile(0.95, sum(rate(cilium_endpoint_propagation_delay_seconds_bucket[%v])) by (le))
