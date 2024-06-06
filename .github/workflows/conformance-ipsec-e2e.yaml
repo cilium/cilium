@@ -319,13 +319,21 @@ jobs:
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --flush-ct
 
-      - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
+      - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
+        uses: ./.github/actions/conn-disrupt-test-setup
+
+      - name: Rotate IPsec Key (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/ipsec-key-rotate
         with:
           key-algo: ${{ matrix.key-two }}
           key-type-one: ${{ matrix.key-type-one }}
           key-type-two: ${{ matrix.key-type-two }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
+
+      - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          full-test: 'true'
 
       - name: Fetch artifacts
         if: ${{ !success() }}
