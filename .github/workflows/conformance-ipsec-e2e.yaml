@@ -311,7 +311,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }}
+          args: ${{ steps.bpftrace-params.outputs.params }} "true"
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
