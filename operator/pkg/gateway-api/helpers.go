@@ -109,17 +109,17 @@ func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
 	return false
 }
 
-func computeHosts[T ~string](gw *gatewayv1.Gateway, hostnames []T) []string {
+func computeHosts[T ~string](gw *gatewayv1.Gateway, hostnames []T, excludeHostNames []T) []string {
 	hosts := make([]string, 0, len(hostnames))
 	for _, listener := range gw.Spec.Listeners {
-		hosts = append(hosts, computeHostsForListener(&listener, hostnames)...)
+		hosts = append(hosts, computeHostsForListener(&listener, hostnames, excludeHostNames)...)
 	}
 
 	return hosts
 }
 
-func computeHostsForListener[T ~string](listener *gatewayv1.Listener, hostnames []T) []string {
-	return model.ComputeHosts(toStringSlice(hostnames), (*string)(listener.Hostname))
+func computeHostsForListener[T ~string](listener *gatewayv1.Listener, hostnames []T, excludeHostNames []T) []string {
+	return model.ComputeHosts(toStringSlice(hostnames), (*string)(listener.Hostname), toStringSlice(excludeHostNames))
 }
 
 func toStringSlice[T ~string](s []T) []string {

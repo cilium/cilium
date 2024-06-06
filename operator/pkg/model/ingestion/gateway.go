@@ -54,6 +54,15 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 		}
 	}
 
+	// Find all the listener host names, so that we can match them with the routes
+	// Gateway API spec guarantees that the hostnames are unique across all listeners
+	var allListenerHostNames []string
+	for _, l := range input.Gateway.Spec.Listeners {
+		if l.Hostname != nil {
+			allListenerHostNames = append(allListenerHostNames, toHostname(l.Hostname))
+		}
+	}
+
 	for _, l := range input.Gateway.Spec.Listeners {
 		if l.Protocol != gatewayv1.HTTPProtocolType &&
 			l.Protocol != gatewayv1.HTTPSProtocolType &&
@@ -62,8 +71,8 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 		}
 
 		var httpRoutes []model.HTTPRoute
-		httpRoutes = append(httpRoutes, toHTTPRoutes(l, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
-		httpRoutes = append(httpRoutes, toGRPCRoutes(l, input.GRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
+		httpRoutes = append(httpRoutes, toHTTPRoutes(l, allListenerHostNames, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
+		httpRoutes = append(httpRoutes, toGRPCRoutes(l, allListenerHostNames, input.GRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 		resHTTP = append(resHTTP, model.HTTPListener{
 			Name: string(l.Name),
 			Sources: []model.FullyQualifiedResource{
@@ -97,7 +106,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 			},
 			Port:           uint32(l.Port),
 			Hostname:       toHostname(l.Hostname),
-			Routes:         toTLSRoutes(l, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
+			Routes:         toTLSRoutes(l, allListenerHostNames, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
 			Infrastructure: infra,
 		})
 	}
@@ -134,10 +143,14 @@ func getBackendServiceName(namespace string, services []corev1.Service, serviceI
 	return svcName, nil
 }
 
-func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+func toHTTPRoutes(listener gatewayv1.Listener,
+	allListenerHostNames []string,
+	input []gatewayv1.HTTPRoute,
+	services []corev1.Service,
+	serviceImports []mcsapiv1alpha1.ServiceImport,
+	grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
-
 		listenerIsParent := false
 		// Check parents to see if r can attach to them.
 		// We have to consider _both_ SectionName and Port
@@ -158,7 +171,6 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 
 				if parent.Port != nil && *parent.Port != listener.Port {
 					// If SectionName is set and equal, but Port is set and _unequal_,
-					//
 					continue
 				}
 
@@ -183,7 +195,7 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 			continue
 		}
 
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname))
+		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), allListenerHostNames)
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue
@@ -346,7 +358,12 @@ func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
 	return res
 }
 
-func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+func toGRPCRoutes(listener gatewayv1beta1.Listener,
+	allListenerHostNames []string,
+	input []gatewayv1.GRPCRoute,
+	services []corev1.Service,
+	serviceImports []mcsapiv1alpha1.ServiceImport,
+	grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		isListener := false
@@ -360,7 +377,7 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1.GRPCRoute,
 			continue
 		}
 
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname))
+		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), allListenerHostNames)
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue
@@ -460,7 +477,7 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1.GRPCRoute,
 	return grpcRoutes
 }
 
-func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.TLSPassthroughRoute {
+func toTLSRoutes(listener gatewayv1beta1.Listener, allListenerHostNames []string, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.TLSPassthroughRoute {
 	var tlsRoutes []model.TLSPassthroughRoute
 	for _, r := range input {
 		isListener := false
@@ -474,7 +491,7 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRo
 			continue
 		}
 
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname))
+		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), allListenerHostNames)
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue
