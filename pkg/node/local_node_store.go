@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 	"io"
+	"net"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
+// +deepequal-gen=true
 type LocalNode struct {
 	types.Node
 	// OptOutNodeEncryption will make the local node opt-out of node-to-node
@@ -31,6 +33,7 @@ type LocalNode struct {
 	IPv4NativeRoutingCIDR *cidr.CIDR
 	// v6 CIDR in which pod IPs are routable
 	IPv6NativeRoutingCIDR *cidr.CIDR
+	IPv4Loopback          net.IP
 }
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local

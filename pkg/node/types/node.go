@@ -203,6 +203,7 @@ func (n *RegisterNode) Unmarshal(_ string, data []byte) error {
 // Node contains the nodes name, the list of addresses to this address
 //
 // +k8s:deepcopy-gen=true
+// +deepequal-gen=true
 type Node struct {
 	// Name is the name of the node. This is typically the hostname of the node.
 	Name string
@@ -285,6 +286,10 @@ func (n *Node) Fullname() string {
 type Address struct {
 	Type addressing.AddressType
 	IP   net.IP
+}
+
+func (a *Address) DeepEqual(other *Address) bool {
+	return a.Type == other.Type && slices.Equal(a.IP, other.IP)
 }
 
 func (a Address) ToString() string {

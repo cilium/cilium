@@ -86,7 +86,7 @@ func newLocalNodeConfig(
 		EnableIPSec:                  config.EnableIPSec,
 		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
 		EncryptNode:                  config.EncryptNode,
-		IPv4PodSubnets:               config.IPv4PodSubnets,
-		IPv6PodSubnets:               config.IPv6PodSubnets,
+		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
+		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
 	}, nil
 }

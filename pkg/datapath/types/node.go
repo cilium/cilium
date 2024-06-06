@@ -24,6 +24,8 @@ type MTUConfiguration interface {
 // This configuration struct is immutable even when passed by reference.
 // When the configuration is changed at runtime a new instance is allocated
 // and passed down.
+//
+// +deepequal-gen=true
 type LocalNodeConfiguration struct {
 	// NodeIPv4 is the primary IPv4 address of this node.
 	// Mutable at runtime.
@@ -157,16 +159,24 @@ type LocalNodeConfiguration struct {
 	// IPv4PodSubnets is a list of IPv4 subnets that pod IPs are assigned from
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.
-	IPv4PodSubnets []*net.IPNet
+	IPv4PodSubnets []*cidr.CIDR
 
 	// IPv6PodSubnets is a list of IPv6 subnets that pod IPs are assigned from
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.
-	IPv6PodSubnets []*net.IPNet
+	IPv6PodSubnets []*cidr.CIDR
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {
 	return tables.DeviceNames(cfg.Devices)
+}
+
+func (cfg *LocalNodeConfiguration) GetIPv4PodSubnets() []*net.IPNet {
+	return cidr.CIDRsToIPNets(cfg.IPv4PodSubnets)
+}
+
+func (cfg *LocalNodeConfiguration) GetIPv6PodSubnets() []*net.IPNet {
+	return cidr.CIDRsToIPNets(cfg.IPv6PodSubnets)
 }
 
 // NodeHandler handles node related events such as addition, update or deletion
