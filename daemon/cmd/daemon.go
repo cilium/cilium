@@ -112,6 +112,7 @@ type Daemon struct {
 	rec              *recorder.Recorder
 	policy           *policy.Repository
 	policyUpdater    *policy.Updater
+	policyManager    policy.PolicyManager
 	preFilter        datapath.PreFilter
 
 	statusCollectMutex lock.RWMutex
@@ -433,6 +434,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ipcache:              params.IPCache,
 		policy:               params.Policy,
 		policyUpdater:        params.PolicyUpdater,
+		policyManager:        params.PolicyManager,
 		egressGatewayManager: params.EgressGatewayManager,
 		ipamMetadata:         params.IPAMMetadataManager,
 		cniConfigManager:     params.CNIConfigManager,
@@ -767,7 +769,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 		// Launch the policy K8s watcher
 		if params.PolicyK8sWatcher != nil {
-			params.PolicyK8sWatcher.WatchK8sPolicyResources(d.ctx, &d)
+			params.PolicyK8sWatcher.WatchK8sPolicyResources(d.ctx, d.policyManager)
 		}
 
 		// Launch the K8s watchers in parallel as we continue to process other

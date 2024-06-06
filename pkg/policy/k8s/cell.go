@@ -18,10 +18,8 @@ import (
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 const (
@@ -36,18 +34,13 @@ const (
 // CiliumNetworkPolicy (CNP), ClusterwideCiliumNetworkPolicy (CCNP),
 // and CiliumCIDRGroup (CCG)), translates them to Cilium's own
 // policy representation (api.Rules) and updates the policy repository
-// (via PolicyManager) accordingly.
+// (via policy.PolicyManager) accordingly.
 var Cell = cell.Module(
 	"policy-k8s-watcher",
 	"Watches K8s policy related objects",
 
 	cell.Provide(newPolicyResourcesWatcher),
 )
-
-type PolicyManager interface {
-	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
-}
 
 type serviceCache interface {
 	ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool)
@@ -89,7 +82,7 @@ func newPolicyResourcesWatcher(p PolicyWatcherParams) *PolicyResourcesWatcher {
 
 // WatchK8sPolicyResources starts watching Kubernetes policy resources.
 // Needs to be called before K8sWatcher.InitK8sSubsystem.
-func (p *PolicyResourcesWatcher) WatchK8sPolicyResources(ctx context.Context, policyManager PolicyManager) {
+func (p *PolicyResourcesWatcher) WatchK8sPolicyResources(ctx context.Context, policyManager policy.PolicyManager) {
 	w := newPolicyWatcher(ctx, policyManager, p)
 	w.watchResources(ctx)
 }
@@ -99,11 +92,11 @@ func (p *PolicyResourcesWatcher) WatchK8sPolicyResources(ctx context.Context, po
 // This constructor unfortunately cannot be started via the Hive lifecycle as
 // there exists a circular dependency between this watcher and the Daemon:
 // The constructor newDaemon cannot complete before all pre-existing
-// K8s policy resources have been added via the PolicyManager
+// K8s policy resources have been added via the policy.PolicyManager
 // (i.e. watchResources has observed the Sync event for CNP/CCNP/KNP).
-// Because the PolicyManager interface itself is implemented by the Daemon
+// Because the policy.PolicyManager interface itself is implemented by the Daemon
 // struct, we have a circular dependency.
-func newPolicyWatcher(ctx context.Context, policyManager PolicyManager, p *PolicyResourcesWatcher) *policyWatcher {
+func newPolicyWatcher(ctx context.Context, policyManager policy.PolicyManager, p *PolicyResourcesWatcher) *policyWatcher {
 	// In order to not miss any service events, we register a subscriber here,
 	// before the call to K8sWatcher.InitK8sSubsystem.
 	svcCacheNotifications := stream.ToChannel(ctx, p.params.ServiceCache.Notifications(),
