@@ -13,7 +13,7 @@ cilium troubleshoot clustermesh [clusters...] [flags]
 ```
       --clustermesh-config string   Path to the ClusterMesh configuration directory (default "/var/lib/cilium/clustermesh/")
   -h, --help                        help for clustermesh
-      --timeout duration            Timeout when checking connectivity to a given remote cluster (default 5s)
+      --timeout duration            Timeout when checking connectivity to a given cluster (default 5s)
 ```
 
 ### Options inherited from parent commands
