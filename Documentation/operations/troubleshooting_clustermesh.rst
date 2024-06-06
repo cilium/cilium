@@ -34,8 +34,10 @@ Automatic Verification
     DNS resolution, network connectivity, TLS authentication, etcd authorization
     and more, and reports the output in a user friendly format.
 
-    When KVStoreMesh is enabled, additionally run the troubleshoot command
-    inside the clustermesh-apiserver to investigate KVStoreMesh connectivity
+    When KVStoreMesh is enabled, the output of the troubleshoot command refers
+    to the connections from the agents to the local cache, and it is expected to
+    be the same for all the clusters they are connected to. Run the troubleshoot
+    command inside the clustermesh-apiserver to investigate KVStoreMesh connectivity
     issues towards the ClusterMesh control plane in remote clusters:
 
     .. code-block:: shell-session
