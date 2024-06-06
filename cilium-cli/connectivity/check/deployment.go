@@ -905,6 +905,16 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				if err != nil {
 					return fmt.Errorf("unable to create deployment %s: %s", echoExternalNodeDeploymentName, err)
 				}
+
+				svc := newService(echoExternalNodeDeploymentName,
+					map[string]string{"name": echoExternalNodeDeploymentName, "kind": kindEchoExternalNodeName},
+					map[string]string{"kind": kindEchoExternalNodeName}, "http", 8080)
+				svc.Spec.ClusterIP = corev1.ClusterIPNone
+				svc.Spec.Type = corev1.ServiceTypeClusterIP
+				_, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create service %s: %w", echoExternalNodeDeploymentName, err)
+				}
 			}
 		} else {
 			ct.Infof("Skipping tests that require a node Without Cilium")
@@ -1241,6 +1251,17 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				Pod:       pod.DeepCopy(),
 				scheme:    "http",
 				port:      uint32(ct.Params().ExternalDeploymentPort), // listen port of the echo server inside the container
+			}
+		}
+
+		echoExternalServices, err := ct.clients.dst.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoExternalNodeName})
+		if err != nil {
+			return fmt.Errorf("unable to list echo external services: %w", err)
+		}
+
+		for _, echoExternalService := range echoExternalServices.Items {
+			ct.echoExternalServices[echoExternalService.Name] = Service{
+				Service: echoExternalService.DeepCopy(),
 			}
 		}
 	}
