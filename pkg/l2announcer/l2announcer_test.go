@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -1095,7 +1095,7 @@ func TestUpdateService_LoadBalancerClassMatch(t *testing.T) {
 	fix := baseUpdateSetup(t)
 
 	svc := blueService()
-	svc.Spec.LoadBalancerClass = pointer.String(v2alpha1.L2AnnounceLoadBalancerClass)
+	svc.Spec.LoadBalancerClass = ptr.To[string](v2alpha1.L2AnnounceLoadBalancerClass)
 	fix.fakeSvcStore.slice = append(fix.fakeSvcStore.slice, svc)
 	err := fix.announcer.processSvcEvent(resource.Event[*slim_corev1.Service]{
 		Kind:   resource.Upsert,
@@ -1122,7 +1122,7 @@ func TestUpdateService_LoadBalancerClassNotMatch(t *testing.T) {
 	fix := baseUpdateSetup(t)
 
 	svc := blueService()
-	svc.Spec.LoadBalancerClass = pointer.String("unsupported.io/lb-class")
+	svc.Spec.LoadBalancerClass = ptr.To[string]("unsupported.io/lb-class")
 	fix.fakeSvcStore.slice = append(fix.fakeSvcStore.slice, svc)
 	err := fix.announcer.processSvcEvent(resource.Event[*slim_corev1.Service]{
 		Kind:   resource.Upsert,

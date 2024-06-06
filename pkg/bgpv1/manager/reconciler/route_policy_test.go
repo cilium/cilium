@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -208,7 +208,7 @@ var (
 
 	attrSelectAnyNode = v2alpha1api.CiliumBGPPathAttributes{
 		SelectorType:    v2alpha1api.PodCIDRSelectorName,
-		LocalPreference: pointer.Int64(150),
+		LocalPreference: ptr.To[int64](150),
 	}
 
 	attrSelectNonExistingNode = v2alpha1api.CiliumBGPPathAttributes{
@@ -218,7 +218,7 @@ var (
 				"node": "non-existing",
 			},
 		},
-		LocalPreference: pointer.Int64(150),
+		LocalPreference: ptr.To[int64](150),
 	}
 
 	attrSelectInvalid = v2alpha1api.CiliumBGPPathAttributes{
@@ -1011,7 +1011,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 
 			testSC.Config = &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
-				ExportPodCIDR: pointer.Bool(true),
+				ExportPodCIDR: ptr.To[bool](true),
 				Neighbors:     tt.initial.neighbors,
 			}
 
