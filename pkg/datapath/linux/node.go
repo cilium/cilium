@@ -1008,7 +1008,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		}
 		if n.subnetEncryption() {
 			// Enables subnet IPSec by upserting node host routing table IPSec routing
-			if err := n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets); err != nil {
+			if err := n.enableSubnetIPsec(n.nodeConfig.GetIPv4PodSubnets(), n.nodeConfig.GetIPv6PodSubnets()); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to enable subnet encryption: %w", err))
 			}
 		}
@@ -1275,9 +1275,9 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 			len(option.Config.IPv4PodSubnets) == 0 {
 			if info := node.GetRouterInfo(); info != nil {
 				ipv4CIDRs := info.GetIPv4CIDRs()
-				ipv4PodSubnets := make([]*net.IPNet, 0, len(ipv4CIDRs))
+				ipv4PodSubnets := make([]*cidr.CIDR, 0, len(ipv4CIDRs))
 				for _, c := range ipv4CIDRs {
-					ipv4PodSubnets = append(ipv4PodSubnets, &c)
+					ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(&c))
 				}
 				n.nodeConfig.IPv4PodSubnets = ipv4PodSubnets
 			}

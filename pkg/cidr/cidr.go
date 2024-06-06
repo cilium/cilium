@@ -18,6 +18,30 @@ func NewCIDR(ipnet *net.IPNet) *CIDR {
 	return &CIDR{ipnet}
 }
 
+func NewCIDRSlice(ipnets []*net.IPNet) []*CIDR {
+	if ipnets == nil {
+		return nil
+	}
+
+	cidrs := make([]*CIDR, len(ipnets))
+	for i, ipnet := range ipnets {
+		cidrs[i] = NewCIDR(ipnet)
+	}
+	return cidrs
+}
+
+func CIDRsToIPNets(cidrs []*CIDR) []*net.IPNet {
+	if cidrs == nil {
+		return nil
+	}
+
+	ipnets := make([]*net.IPNet, len(cidrs))
+	for i, cidr := range cidrs {
+		ipnets[i] = cidr.IPNet
+	}
+	return ipnets
+}
+
 // CIDR is a network CIDR representation based on net.IPNet
 type CIDR struct {
 	*net.IPNet
