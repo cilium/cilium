@@ -16,6 +16,11 @@ Install Prometheus & Grafana
 This is an example deployment that includes Prometheus and Grafana in a single
 deployment.
 
+.. admonition:: Video
+ :class: attention
+
+  You can also see Cilium and Grafana in action on `eCHO episode 68: Cilium & Grafana <https://www.youtube.com/watch?v=DdWksYq5Pv4>`__.
+
 The default installation contains:
 
 - **Grafana**: A visualization dashboard with Cilium Dashboard pre-loaded.

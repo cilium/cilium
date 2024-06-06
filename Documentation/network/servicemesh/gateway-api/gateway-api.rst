@@ -33,6 +33,11 @@ tests are passed.
 - `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1alpha2.TLSRoute>`__
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
 
+.. admonition:: Video
+ :class: attention
+
+  If you'd like more insights on Cilium's Gateway API support, check out `eCHO episode 58: Cilium Service Mesh and Ingress <https://www.youtube.com/watch?v=60epwCxO8G4&index=80&t=2024s>`__.
+
 .. include:: installation.rst
 
 .. _gs_gateway_host_network_mode:
