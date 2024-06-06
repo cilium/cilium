@@ -1675,12 +1675,16 @@ int cil_to_host(struct __ctx_buff *ctx)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+		ctx_store_meta(ctx, CB_TRACED, traced);
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY, &ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+		ctx_store_meta(ctx, CB_TRACED, traced);
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY, &ext_err);
 		break;
 # endif
 	default:
@@ -1714,7 +1718,8 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u32 src_id = 0;
+	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
+	bool traced = ctx_load_meta(ctx, CB_TRACED);
 	int ret;
 	__s8 ext_err = 0;
 
@@ -1722,6 +1727,12 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
+
+	if (!traced)
+		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
+				  CILIUM_IFINDEX, trace.reason, trace.monitor);
+
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -1735,7 +1746,8 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 src_id = 0;
+	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
+	bool traced = ctx_load_meta(ctx, CB_TRACED);
 	int ret;
 	__s8 ext_err = 0;
 
@@ -1743,6 +1755,12 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
+
+	if (!traced)
+		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
+				  CILIUM_IFINDEX, trace.reason, trace.monitor);
+
 	return ret;
 }
 #endif /* ENABLE_IPV4 */
@@ -1770,6 +1788,8 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+		ctx_store_meta(ctx, CB_TRACED, 1);
 		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 						    is_defined(ENABLE_IPV6)),
 					      is_defined(DEBUG)),
@@ -1780,6 +1800,8 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+		ctx_store_meta(ctx, CB_TRACED, 1);
 		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 						    is_defined(ENABLE_IPV6)),
 					      is_defined(DEBUG)),
