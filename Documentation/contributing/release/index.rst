@@ -19,7 +19,3 @@ Release preparation steps can be found under `github.com/cilium/release <https:/
 
    organization
    backports
-
-The best way to get help if you get stuck is to ask a question on `Cilium
-Slack`_. With Cilium contributors across the globe, there is almost always
-someone available to help.
