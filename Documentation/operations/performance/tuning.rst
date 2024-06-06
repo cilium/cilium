@@ -12,6 +12,56 @@ Tuning Guide
 
 This guide helps you optimize a Cilium installation for optimal performance.
 
+.. _netkit:
+
+netkit device mode
+==================
+
+netkit devices provide connectivity for Pods with the goal to improve throughput
+and latency for applications as if they would have resided directly in the host
+namespace, meaning, it reduces the datapath overhead for network namespaces down
+to zero. The `netkit driver in the kernel <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/netkit.c>`__
+has been specifically designed for Cilium's needs and replaces the old-style veth
+device type. See also the `KubeCon talk on netkit <https://sched.co/1R2s5>`__ for
+more details.
+
+Cilium utilizes netkit in L3 device mode with blackholing traffic from the Pods
+when there is no BPF program attached. The Pod specific BPF programs are attached
+inside the netkit peer device, and can only be managed from the host namespace
+through Cilium. netkit in combination with eBPF-based host-routing achieves a
+fast network namespace switch for off-node traffic ingressing into the Pod or
+leaving the Pod. When netkit is enabled, Cilium also utilizes tcx for all
+attachments to non-netkit devices. This is done for higher efficiency as well
+as utilizing BPF links for all Cilium attachments. netkit is available for kernel
+6.8 and onwards and it also supports BIG TCP. Once the base kernels become more
+ubiquitous, the veth device mode of Cilium will be deprecated.
+
+To validate whether your installation is running with netkit, run ``cilium status``
+in any of the Cilium Pods and look for the line reporting the status for
+"Device Mode" which should state "netkit". Also, ensure to have eBPF host
+routing enabled - the reporting status under "Host Routing" must state "BPF".
+
+**Requirements:**
+
+* Kernel >= 6.8
+* Direct-routing configuration or tunneling
+* eBPF host-routing
+
+To enable netkit device mode with eBPF host-routing:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set routingMode=native \\
+             --set bpf.datapathMode=netkit \\
+             --set bpf.masquerade=true \\
+             --set kubeProxyReplacement=true
+
 .. _eBPF_Host_Routing:
 
 eBPF Host-Routing
