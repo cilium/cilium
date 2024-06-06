@@ -212,7 +212,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 				remoteIP = remoteNodeInternalIP
 			}
 
-			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
+			for _, cidr := range n.nodeConfig.GetIPv4PodSubnets() {
 				spi, err = ipsec.UpsertIPsecEndpoint(n.log, wildcardCIDR, cidr, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirOut, zeroMark, updateExisting, ipsec.DefaultReqID)
 				errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", wildcardCIDR, cidr, spi, nodeID))
 				if err != nil {
@@ -350,7 +350,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 				remoteIP = remoteNodeInternalIP
 			}
 
-			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
+			for _, cidr := range n.nodeConfig.GetIPv6PodSubnets() {
 				spi, err = ipsec.UpsertIPsecEndpoint(n.log, wildcardCIDR, cidr, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirOut, zeroMark, updateExisting, ipsec.DefaultReqID)
 				errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", wildcardCIDR, cidr, spi, nodeID))
 				if err != nil {
