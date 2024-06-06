@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
@@ -160,8 +160,8 @@ func TestControllerSanity(t *testing.T) {
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
 								// KeepAliveTimeSeconds larger than HoldTimeSeconds = error
-								KeepAliveTimeSeconds: pointer.Int32(10),
-								HoldTimeSeconds:      pointer.Int32(5),
+								KeepAliveTimeSeconds: ptr.To[int32](10),
+								HoldTimeSeconds:      ptr.To[int32](5),
 							},
 						},
 					},

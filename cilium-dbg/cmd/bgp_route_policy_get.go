@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/client/bgp"
 	"github.com/cilium/cilium/api/v1/models"
@@ -33,7 +33,7 @@ var BgpRoutePoliciesCmd = &cobra.Command{
 			if err != nil {
 				Fatalf("failed to parse vrouter ASN: %s\n", err)
 			}
-			params.RouterAsn = pointer.Int64(asn)
+			params.RouterAsn = ptr.To[int64](asn)
 		}
 
 		res, err := client.Bgp.GetBgpRoutePolicies(params)

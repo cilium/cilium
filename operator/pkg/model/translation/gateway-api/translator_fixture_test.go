@@ -26,7 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -2991,7 +2991,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 					{
 						Name:      "infra-backend-v2",
@@ -2999,7 +2999,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 				},
 				BackendHTTPFilters: []*model.BackendHTTPFilter{
@@ -3063,7 +3063,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 					{
 						Name:      "infra-backend-v2",
@@ -3071,7 +3071,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 				},
 				BackendHTTPFilters: []*model.BackendHTTPFilter{
@@ -3106,7 +3106,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(10),
+						Weight: ptr.To[int32](10),
 					},
 					{
 						Name:      "infra-backend-v2",
@@ -3114,7 +3114,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(20),
+						Weight: ptr.To[int32](20),
 					},
 					{
 						Name:      "infra-backend-v3",
@@ -3122,7 +3122,7 @@ var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(70),
+						Weight: ptr.To[int32](70),
 					},
 				},
 				BackendHTTPFilters: []*model.BackendHTTPFilter{
@@ -3652,7 +3652,7 @@ var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 					{
 						Name:      "infra-backend-v2",
@@ -3660,7 +3660,7 @@ var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 				},
 				BackendHTTPFilters: []*model.BackendHTTPFilter{
@@ -3724,7 +3724,7 @@ var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 					{
 						Name:      "infra-backend-v2",
@@ -3732,7 +3732,7 @@ var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(50),
+						Weight: ptr.To[int32](50),
 					},
 				},
 				BackendHTTPFilters: []*model.BackendHTTPFilter{
@@ -3767,7 +3767,7 @@ var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(10),
+						Weight: ptr.To[int32](10),
 					},
 					{
 						Name:      "infra-backend-v2",
@@ -3775,7 +3775,7 @@ var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(20),
+						Weight: ptr.To[int32](20),
 					},
 					{
 						Name:      "infra-backend-v3",
@@ -3783,7 +3783,7 @@ var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 8080,
 						},
-						Weight: pointer.Int32(70),
+						Weight: ptr.To[int32](70),
 					},
 				},
 				BackendHTTPFilters: []*model.BackendHTTPFilter{
