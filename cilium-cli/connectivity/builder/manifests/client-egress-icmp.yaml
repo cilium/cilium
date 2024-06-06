@@ -1,0 +1,17 @@
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-icmp
+spec:
+  description: "Allow clients to send ICMP"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - icmps:
+    - fields:
+      - type: 8
+        family: IPv4
+      - type: 128
+        family: IPv6
