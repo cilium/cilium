@@ -137,7 +137,7 @@ jobs:
         if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
         run: |
           docker ps -a
-          docker logs -f lb-node
+          docker logs lb-node
           docker inspect lb-node
           docker exec -t lb-node docker ps
 
