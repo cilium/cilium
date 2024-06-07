@@ -143,7 +143,12 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
-	err = DeleteXFRM()
+	// Let's check that state was not added as source and destination are the same
+	result, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(result))
+
+	err = DeleteXFRM(log)
 	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
@@ -161,6 +166,11 @@ func TestUpsertIPSecEquals(t *testing.T) {
 
 	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
+
+	// Let's check that state was not added as source and destination are the same
+	result, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(result))
 }
 
 func TestUpsertIPSecEndpoint(t *testing.T) {
@@ -189,7 +199,31 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
-	err = DeleteXFRM()
+	getState := &netlink.XfrmState{
+		Src:   local.IP,
+		Dst:   remote.IP,
+		Proto: netlink.XFRM_PROTO_ESP,
+		Spi:   int(key.Spi),
+		Mark: &netlink.XfrmMark{
+			Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(key.Spi)),
+			Mask:  linux_defaults.IPsecMarkMaskOut,
+		},
+	}
+
+	state, err := netlink.XfrmStateGet(getState)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	require.Nil(t, state.Aead)
+	require.NotNil(t, state.Auth)
+	require.Equal(t, "hmac(sha256)", state.Auth.Name)
+	require.Equal(t, authKey, state.Auth.Key)
+	require.NotNil(t, state.Crypt)
+	require.Equal(t, "cbc(aes)", state.Crypt.Name)
+	require.Equal(t, cryptKey, state.Crypt.Key)
+	// ESN bit is not set, so ReplayWindow should be 0
+	require.Equal(t, 0, state.ReplayWindow)
+
+	err = DeleteXFRM(log)
 	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
