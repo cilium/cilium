@@ -330,7 +330,9 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 
 	// Store the new LocalNodeConfiguration
 	l.nodeConfig.Store(&cfg)
-	l.initTemplateCache(&cfg)
+	// Startup relies on not returning an error here, maybe something we
+	// can fix in the future.
+	_ = l.templateCache.UpdateDatapathHash(&cfg)
 
 	var internalIPv4, internalIPv6 net.IP
 	if option.Config.EnableIPv4 {
