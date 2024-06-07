@@ -127,24 +127,6 @@ func updateNetkit(prog *ebpf.Program, progName, bpffsDir string) error {
 	return nil
 }
 
-// detachNetkit attempts to open the link at progName in bpffsDir
-// and unpins it. Only returns unrecoverable errors. Returns nil if
-// the link doesn't exist or if removal was successful.
-func detachNetkit(bpffsDir, progName string) error {
-	pin := filepath.Join(bpffsDir, progName)
-	err := bpf.UnpinLink(pin)
-	if err == nil {
-		log.Infof("Removed netkit link at %s", pin)
-		return nil
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-
-	// The pinned link exists, something went wrong unpinning it.
-	return fmt.Errorf("unpinning netkit link: %w", err)
-}
-
 // hasCiliumNetkitLinks returns true if device has a Cilium-managed
 // netkit program with the given attach type.
 func hasCiliumNetkitLinks(device netlink.Link, attach ebpf.AttachType) (bool, error) {
