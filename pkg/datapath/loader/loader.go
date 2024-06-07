@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -104,7 +105,7 @@ type Params struct {
 func newLoader(p Params) *loader {
 	return &loader{
 		cfg:               p.Config,
-		templateCache:     newObjectCache(p.ConfigWriter, option.Config.StateDir),
+		templateCache:     newObjectCache(p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
 		sysctl:            p.Sysctl,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,

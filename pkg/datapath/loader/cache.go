@@ -4,6 +4,7 @@
 package loader
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -20,34 +21,17 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// RestoreTemplates populates the object cache from templates on the filesystem
-// at the specified path.
-func (l *loader) RestoreTemplates(stateDir string) error {
-	// Simplest implementation: Just garbage-collect everything.
-	// In future we should make this smarter.
-	path := filepath.Join(stateDir, defaults.TemplatesDir)
-	err := os.RemoveAll(path)
-	if err == nil || os.IsNotExist(err) {
-		return nil
-	}
-	return &os.PathError{
-		Op:   "failed to remove old BPF templates",
-		Path: path,
-		Err:  err,
-	}
-}
-
-// objectCache is a map from a hash of the datapath to the path on the
-// filesystem where its corresponding BPF object file exists.
+// objectCache amortises the cost of BPF compilation for endpoints.
 type objectCache struct {
 	lock.Mutex
 	datapath.ConfigWriter
 
+	// The directory used for caching. Must not be accessed by another process.
 	workingDirectory string
-	baseHash         datapathHash
 
-	// objects maps a hash to a queue which ensures that only one
-	// attempt is made concurrently to compile the corresponding template.
+	baseHash datapathHash
+
+	// The cached objects.
 	objects map[string]*cachedObject
 }
 
@@ -76,15 +60,36 @@ func (o *objectCache) UpdateDatapathHash(nodeCfg *datapath.LocalNodeConfiguratio
 		return fmt.Errorf("hash datapath config: %w", err)
 	}
 
+	// Prevent new compilation from starting.
 	o.Lock()
 	defer o.Unlock()
+
+	// Don't invalidate if the hash is the same.
+	if bytes.Equal(newHash, o.baseHash) {
+		return nil
+	}
+
+	// Wait until all concurrent compilation has finished.
+	for _, obj := range o.objects {
+		obj.Lock()
+	}
+
+	if err := os.RemoveAll(o.workingDirectory); err != nil {
+		for _, obj := range o.objects {
+			obj.Unlock()
+		}
+
+		return err
+	}
+
 	o.baseHash = newHash
+	o.objects = make(map[string]*cachedObject)
 	return nil
 }
 
 // serialize access to an abitrary key.
 //
-// Lock the returned object to ensure mutual exclusion.
+// The caller must call Unlock on the returned cachedObject.
 func (o *objectCache) serialize(key string) *cachedObject {
 	o.Lock()
 	defer o.Unlock()
@@ -94,6 +99,8 @@ func (o *objectCache) serialize(key string) *cachedObject {
 		obj = new(cachedObject)
 		o.objects[key] = obj
 	}
+
+	obj.Lock()
 	return obj
 }
 
@@ -101,7 +108,7 @@ func (o *objectCache) serialize(key string) *cachedObject {
 // corresponding to the specified endpoint configuration.
 func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
-	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
+	templatePath := filepath.Join(o.workingDirectory, hash)
 	dir = &directoryInfo{
 		Library: dir.Library,
 		Runtime: dir.Runtime,
@@ -172,21 +179,14 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 
 	scopedLog := log.WithField(logfields.BPFHeaderfileHash, hash)
 
+	// Only allow a single concurrent compilation per hash.
 	obj := o.serialize(hash)
-
-	// Only allow a single concurrent compilation.
-	obj.Lock()
 	defer obj.Unlock()
 
-	if obj.path != "" {
-		// Only attempt to use a cached object if we previously built this object.
-		// Otherwise we risk reusing a previous process' output since we're not
-		// guaranteed an empty working directory.
-		if cached, err := os.Open(obj.path); err == nil {
-			return cached, false, nil
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return nil, false, err
-		}
+	if cached, err := os.Open(obj.path); err == nil {
+		return cached, false, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, false, err
 	}
 
 	if stats == nil {
