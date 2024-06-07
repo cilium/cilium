@@ -550,8 +550,9 @@ func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	isLeader.Store(true)
 
-	// Restart kube-dns as soon as possible since it helps etcd-operator to be
-	// properly setup. If kube-dns is not managed by Cilium it can prevent
+	// Restart kube-dns as soon as possible to parallelize re-initialization
+	// of DNS with other operation functions.
+	// If kube-dns is not managed by Cilium it can prevent
 	// etcd from reaching out kube-dns in EKS.
 	// If this logic is modified, make sure the operator's clusterrole logic for
 	// pods/delete is also up-to-date.
