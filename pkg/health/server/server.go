@@ -70,6 +70,10 @@ type Server struct {
 	localStatus  *healthModels.SelfStatus
 }
 
+const (
+	probeTimeout = 60
+)
+
 // DumpUptime returns the time that this server has been running.
 func (s *Server) DumpUptime() string {
 	return time.Since(s.startTime).String()
@@ -186,6 +190,9 @@ func (s *Server) collectNodeConnectivityMetrics() {
 	}
 	localClusterName, localNodeName := getClusterNodeName(s.localStatus.Name)
 
+	endpointStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
+	nodeStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
+
 	for _, n := range s.connectivity.nodes {
 		if n == nil || n.Host == nil || n.Host.PrimaryAddress == nil || n.HealthEndpoint == nil || n.HealthEndpoint.PrimaryAddress == nil {
 			continue
@@ -196,8 +203,12 @@ func (s *Server) collectNodeConnectivityMetrics() {
 		nodePathSecondaryAddress := healthClientPkg.GetHostSecondaryAddresses(n)
 
 		endpointPathStatus := n.HealthEndpoint
-		isEndpointReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllEndpointAddresses(n)) == healthClientPkg.ConnStatusReachable
-		isNodeReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllHostAddresses(n)) == healthClientPkg.ConnStatusReachable
+
+		isEndpointReachable := healthClientPkg.SummarizePathConnectivityStatus(healthClientPkg.GetAllEndpointAddresses(n)) == healthClientPkg.ConnStatusReachable
+		isNodeReachable := healthClientPkg.SummarizePathConnectivityStatus(healthClientPkg.GetAllHostAddresses(n)) == healthClientPkg.ConnStatusReachable
+
+		isHealthEndpointReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllEndpointAddresses(n))
+		isHealthNodeReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllHostAddresses(n))
 
 		location := metrics.LabelLocationLocalNode
 		if targetClusterName != localClusterName {
@@ -215,6 +226,14 @@ func (s *Server) collectNodeConnectivityMetrics() {
 		metrics.NodeConnectivityStatus.WithLabelValues(
 			localClusterName, localNodeName, targetClusterName, targetNodeName, location, metrics.LabelPeerNode).
 			Set(metrics.BoolToFloat64(isNodeReachable))
+
+		// Aggregate health connectivity statuses
+		for connectivityStatusType, value := range isHealthEndpointReachable {
+			endpointStatuses[connectivityStatusType] += value
+		}
+		for connectivityStatusType, value := range isHealthNodeReachable {
+			nodeStatuses[connectivityStatusType] += value
+		}
 
 		// HTTP endpoint primary
 		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
@@ -264,14 +283,60 @@ func (s *Server) collectNodeConnectivityMetrics() {
 				location, metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
 		}
 	}
+
+	// Aggregated health statuses for endpoint connectivity
+	metrics.NodeHealthConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelReachable).
+		Set(float64(endpointStatuses[healthClientPkg.ConnStatusReachable]))
+
+	metrics.NodeHealthConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelUnreachable).
+		Set(float64(endpointStatuses[healthClientPkg.ConnStatusUnreachable]))
+
+	metrics.NodeHealthConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelUnknown).
+		Set(float64(endpointStatuses[healthClientPkg.ConnStatusUnknown]))
+
+	// Aggregated health statuses for node connectivity
+	metrics.NodeHealthConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelReachable).
+		Set(float64(nodeStatuses[healthClientPkg.ConnStatusReachable]))
+
+	metrics.NodeHealthConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelUnreachable).
+		Set(float64(nodeStatuses[healthClientPkg.ConnStatusUnreachable]))
+
+	metrics.NodeHealthConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelUnknown).
+		Set(float64(nodeStatuses[healthClientPkg.ConnStatusUnknown]))
 }
 
 func collectConnectivityMetric(status *healthModels.ConnectivityStatus, labels ...string) {
+	// collect deprecated node_connectivity_latency_seconds
 	var metricValue float64 = -1
 	if status != nil {
 		metricValue = float64(status.Latency) / float64(time.Second)
 	}
 	metrics.NodeConnectivityLatency.WithLabelValues(labels...).Set(metricValue)
+
+	// collect node_health_connectivity_latency_seconds
+	if status != nil {
+		// node_health_connectivity_latency_seconds copies a subset of the labels
+		// of the deprecated metric for use when observing metrics
+		if len(labels) < 7 {
+			log.Warn("node_health_connectivity_latency_seconds metric is missing labels, could not be collected")
+			return
+		}
+		healthLabels := make([]string, 5)
+		copy(healthLabels, labels[0:2])
+		copy(healthLabels[2:], labels[6:])
+		if status.Status == "" {
+			metricValue = float64(status.Latency) / float64(time.Second)
+			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels...).Observe(metricValue)
+		} else {
+			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels...).Observe(probeTimeout)
+		}
+	}
 }
 
 // getClusterNodeName returns the cluster name and node name if possible.

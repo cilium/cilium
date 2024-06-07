@@ -459,6 +459,8 @@ Helm Options
 
 Added Metrics
 ~~~~~~~~~~~~~
+* ``cilium_node_health_connectivity_status``
+* ``cilium_node_health_connectivity_latency_seconds``
 
 * ``cilium_identity_label_sources`` is a new metric which counts the number of
   identities with per label source. This is particularly useful to further break
@@ -477,24 +479,10 @@ The following deprecated metrics were removed:
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
-* The ``cilium_api_limiter_processed_requests_total`` has now label ``return_code`` to specify the http code of the request.
-
-.. _upgrade_cilium_cli_helm_mode:
-
-Cilium CLI
-~~~~~~~~~~
-
-Upgrade Cilium CLI to `v0.15.0 <https://github.com/cilium/cilium-cli/releases/tag/v0.15.0>`_
-or later to switch to `Helm installation mode <https://github.com/cilium/cilium-cli#helm-installation-mode>`_
-to install and manage Cilium v1.16. Classic installation mode is **not**
-supported with Cilium v1.16.
-
-Helm and classic mode installations are not compatible with each other. Do not
-use Cilium CLI in Helm mode to manage classic mode installations, and vice versa.
-
-To migrate a classic mode Cilium installation to Helm mode, you need to
-uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
-using Helm mode Cilium CLI.
+Deprecated Metrics
+~~~~~~~~~~~~~~~~~~
+* ``cilium_node_connectivity_status`` is now deprecated. Please use ``cilium_node_health_connectivity_status`` instead.
+* ``cilium_node_connectivity_latency_seconds`` is now deprecated. Please use ``cilium_node_health_connectivity_latency_seconds`` instead.
 
 Advanced
 ========
