@@ -65,6 +65,11 @@ k8sClientRateLimit:
   burst:
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
+  # It must respect the following constraints:
+  # * It must contain at most 32 characters;
+  # * It must begin and end with a lower case alphanumeric character;
+  # * It may contain lower case alphanumeric characters and dashes between.
+  # The "default" name cannot be used if the Cluster ID is different from 0.
   name: default
   # -- (int) Unique ID of the cluster. Must be unique across all connected
   # clusters and in the range of 1 to 255. Only required for Cluster Mesh,

@@ -50,7 +50,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 	return rootCmd
 }
 
-func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo) {
+func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo, log logrus.FieldLogger) {
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			if err := cinfo.InitClusterIDMax(); err != nil {

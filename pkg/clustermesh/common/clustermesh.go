@@ -150,6 +150,13 @@ func (cm *clusterMesh) add(name, path string) {
 		return
 	}
 
+	if err := types.ValidateClusterName(name); err != nil {
+		log.WithField(fieldClusterName, name).
+			WithError(fmt.Errorf("invalid cluster name: %w", err)).
+			Error("Cannot connect to remote cluster")
+		return
+	}
+
 	inserted := false
 	cm.mutex.Lock()
 	cluster, ok := cm.clusters[name]
