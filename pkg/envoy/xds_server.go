@@ -772,12 +772,19 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	listener.mutex.Lock() // needed for other than 'count'
 	if listener.count > 1 && !listener.nacked {
 		log.Debugf("Envoy: Reusing listener: %s", name)
+		call := true
 		if !listener.acked {
 			// Listener not acked yet, add a completion to the waiter's list
 			log.Debugf("Envoy: Waiting for a non-acknowledged reused listener: %s", name)
-			listener.waiters = append(listener.waiters, wg.AddCompletion())
+			listener.waiters = append(listener.waiters, wg.AddCompletionWithCallback(cb))
+			call = false
 		}
 		listener.mutex.Unlock()
+
+		// call the callback with nil error if the listener was acked already
+		if call && cb != nil {
+			cb(nil)
+		}
 		return
 	}
 	// Try again after a NACK, potentially with a different port number, etc.
@@ -796,6 +803,9 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	}
 	if err := listenerConfig.Validate(); err != nil {
 		log.Errorf("Envoy: Could not validate Listener (%s): %s", err, listenerConfig.String())
+		if cb != nil {
+			cb(err)
+		}
 		return
 	}
 
