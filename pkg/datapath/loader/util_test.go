@@ -65,6 +65,6 @@ func newTestLoader(tb testing.TB) *loader {
 	})
 	l.nodeConfig.Store(&localNodeConfig)
 	cw := configWriterForTest(tb)
-	l.templateCache = newObjectCache(cw, &localNodeConfig, tb.TempDir())
+	l.templateCache = newObjectCache(cw, tb.TempDir())
 	return l
 }

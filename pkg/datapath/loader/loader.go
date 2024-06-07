@@ -73,9 +73,8 @@ type loader struct {
 
 	nodeConfig atomic.Pointer[datapath.LocalNodeConfiguration]
 
-	once sync.Once
-
-	// templateCache is the cache of pre-compiled datapaths.
+	// templateCache is the cache of pre-compiled datapaths. Only set after
+	// a call to Reinitialize.
 	templateCache *objectCache
 
 	ipsecMu lock.Mutex // guards reinitializeIPSec
@@ -105,6 +104,7 @@ type Params struct {
 func newLoader(p Params) *loader {
 	return &loader{
 		cfg:               p.Config,
+		templateCache:     newObjectCache(p.ConfigWriter, option.Config.StateDir),
 		sysctl:            p.Sysctl,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
@@ -112,15 +112,6 @@ func newLoader(p Params) *loader {
 		configWriter:      p.ConfigWriter,
 		nodeHandler:       p.NodeHandler,
 	}
-}
-
-// initTemplateCache initializes the datapath cache with base program hashes derived from
-// the LocalNodeConfiguration.
-func (l *loader) initTemplateCache(cfg *datapath.LocalNodeConfiguration) {
-	l.once.Do(func() {
-		l.templateCache = newObjectCache(l.configWriter, cfg, option.Config.StateDir)
-	})
-	l.templateCache.Update(cfg)
 }
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -646,7 +637,7 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 // EndpointHash hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
 func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
-	return l.templateCache.baseHash.sumEndpoint(l.templateCache, l.nodeConfig.Load(), cfg, true)
+	return l.templateCache.baseHash.hashEndpoint(l.templateCache, l.nodeConfig.Load(), cfg)
 }
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.

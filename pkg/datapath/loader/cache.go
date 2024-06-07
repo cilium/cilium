@@ -44,7 +44,7 @@ type objectCache struct {
 	datapath.ConfigWriter
 
 	workingDirectory string
-	baseHash         *datapathHash
+	baseHash         datapathHash
 
 	// objects maps a hash to a queue which ensures that only one
 	// attempt is made concurrently to compile the corresponding template.
@@ -60,24 +60,26 @@ type cachedObject struct {
 	path string
 }
 
-func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
-	oc := &objectCache{
+func newObjectCache(c datapath.ConfigWriter, workingDir string) *objectCache {
+	return &objectCache{
 		ConfigWriter:     c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedObject),
 	}
-	oc.Update(nodeCfg)
-	return oc
 }
 
-// Update may be called to update the base hash for configuration of datapath
-// configuration that applies across the node.
-func (o *objectCache) Update(nodeCfg *datapath.LocalNodeConfiguration) {
-	newHash := hashDatapath(o.ConfigWriter, nodeCfg, nil, nil)
+// UpdateDatapathHash invalidates the object cache if the configuration of the
+// datapath has changed.
+func (o *objectCache) UpdateDatapathHash(nodeCfg *datapath.LocalNodeConfiguration) error {
+	newHash, err := hashDatapath(o.ConfigWriter, nodeCfg)
+	if err != nil {
+		return fmt.Errorf("hash datapath config: %w", err)
+	}
 
 	o.Lock()
 	defer o.Unlock()
 	o.baseHash = newHash
+	return nil
 }
 
 // serialize access to an abitrary key.
@@ -154,7 +156,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	cfg = wrap(cfg)
 
 	var hash string
-	hash, err = o.baseHash.sumEndpoint(o, nodeCfg, cfg, false)
+	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg)
 	if err != nil {
 		return nil, false, err
 	}
