@@ -23,7 +23,6 @@ type Loader interface {
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, cfg LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
-	RestoreTemplates(stateDir string) error
 	DetachXDP(iface string, bpffsBase, progName string) error
 
 	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error

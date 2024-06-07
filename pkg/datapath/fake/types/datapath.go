@@ -162,10 +162,6 @@ func (f *FakeLoader) HostDatapathInitialized() <-chan struct{} {
 	return nil
 }
 
-func (f *FakeLoader) RestoreTemplates(stateDir string) error {
-	return nil
-}
-
 func (f *FakeLoader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
 	return nil
 }
