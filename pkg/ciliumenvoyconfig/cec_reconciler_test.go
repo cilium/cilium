@@ -788,3 +788,7 @@ func (r *fakeCECManager) updateCiliumEnvoyConfig(oldCECObjectMeta metav1.ObjectM
 
 	return nil
 }
+
+func (r *fakeCECManager) syncCiliumEnvoyConfigService(name string, namespace string, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
+	return nil
+}

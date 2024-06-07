@@ -98,6 +98,7 @@ func registerCECK8sReconciler(params reconcilerParams) {
 	// This covers the cases were the reconciliation fails after changing the labels of a node.
 	if params.Config.EnvoyConfigRetryInterval > 0 {
 		params.JobGroup.Add(job.Timer("reconcile-existing-configs", reconciler.reconcileExistingConfigs, params.Config.EnvoyConfigRetryInterval))
+		params.JobGroup.Add(job.Timer("sync-headless-service", reconciler.syncHeadlessService, params.Config.EnvoyConfigRetryInterval))
 	}
 }
 
