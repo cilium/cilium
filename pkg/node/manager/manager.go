@@ -236,31 +236,6 @@ type nodeMetrics struct {
 	DatapathValidations metric.Counter
 }
 
-// ProcessNodeDeletion upon node deletion ensures metrics associated
-// with the deleted node are no longer reported.
-// Notably for metrics node connectivity status and latency metrics
-func (*nodeMetrics) ProcessNodeDeletion(clusterName, nodeName string) {
-	// Removes all connectivity status associated with the deleted node.
-	_ = metrics.NodeConnectivityStatus.DeletePartialMatch(prometheus.Labels{
-		metrics.LabelSourceCluster:  clusterName,
-		metrics.LabelSourceNodeName: nodeName,
-	})
-	_ = metrics.NodeConnectivityStatus.DeletePartialMatch(prometheus.Labels{
-		metrics.LabelTargetCluster:  clusterName,
-		metrics.LabelTargetNodeName: nodeName,
-	})
-
-	// Removes all connectivity latency associated with the deleted node.
-	_ = metrics.NodeConnectivityLatency.DeletePartialMatch(prometheus.Labels{
-		metrics.LabelSourceCluster:  clusterName,
-		metrics.LabelSourceNodeName: nodeName,
-	})
-	_ = metrics.NodeConnectivityLatency.DeletePartialMatch(prometheus.Labels{
-		metrics.LabelTargetCluster:  clusterName,
-		metrics.LabelTargetNodeName: nodeName,
-	})
-}
-
 func NewNodeMetrics() *nodeMetrics {
 	return &nodeMetrics{
 		EventsReceived: metric.NewCounterVec(metric.CounterOpts{
@@ -991,7 +966,6 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	}
 
 	m.metrics.NumNodes.Dec()
-	m.metrics.ProcessNodeDeletion(n.Cluster, n.Name)
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)

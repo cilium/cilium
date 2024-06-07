@@ -22,7 +22,7 @@ var sampleSingleClusterConnectivity = &healthReport{
 			HealthEndpoint: &healthModels.EndpointStatus{
 				PrimaryAddress: &healthModels.PathStatus{
 					HTTP: &healthModels.ConnectivityStatus{
-						Latency: 212100,
+						Latency: 2121004,
 					},
 					Icmp: &healthModels.ConnectivityStatus{
 						Latency: 672600,
@@ -32,7 +32,7 @@ var sampleSingleClusterConnectivity = &healthReport{
 				SecondaryAddresses: []*healthModels.PathStatus{
 					{
 						HTTP: &healthModels.ConnectivityStatus{
-							Latency: 212101,
+							Latency: 5121015,
 						},
 						Icmp: &healthModels.ConnectivityStatus{
 							Latency: 672601,
@@ -44,20 +44,20 @@ var sampleSingleClusterConnectivity = &healthReport{
 			Host: &healthModels.HostStatus{
 				PrimaryAddress: &healthModels.PathStatus{
 					HTTP: &healthModels.ConnectivityStatus{
-						Latency: 165362,
+						Latency: 1653627,
 					},
 					Icmp: &healthModels.ConnectivityStatus{
-						Latency: 704179,
+						Latency: 7041796,
 					},
 					IP: "172.18.0.3",
 				},
 				SecondaryAddresses: []*healthModels.PathStatus{
 					{
 						HTTP: &healthModels.ConnectivityStatus{
-							Latency: 212102,
+							Latency: 21210242,
 						},
 						Icmp: &healthModels.ConnectivityStatus{
-							Latency: 672602,
+							Latency: 672603,
 						},
 						IP: "172.18.0.4",
 					},
@@ -74,7 +74,7 @@ var sampleClustermeshConnectivity = &healthReport{
 			HealthEndpoint: &healthModels.EndpointStatus{
 				PrimaryAddress: &healthModels.PathStatus{
 					HTTP: &healthModels.ConnectivityStatus{
-						Latency: 312100,
+						Latency: 3121005,
 					},
 					Icmp: &healthModels.ConnectivityStatus{
 						Latency: 772600,
@@ -84,7 +84,7 @@ var sampleClustermeshConnectivity = &healthReport{
 				SecondaryAddresses: []*healthModels.PathStatus{
 					{
 						HTTP: &healthModels.ConnectivityStatus{
-							Latency: 312101,
+							Latency: 3121015,
 						},
 						Icmp: &healthModels.ConnectivityStatus{
 							Latency: 772601,
@@ -99,7 +99,7 @@ var sampleClustermeshConnectivity = &healthReport{
 						Latency: 165362,
 					},
 					Icmp: &healthModels.ConnectivityStatus{
-						Latency: 704179,
+						Latency: 7041793,
 					},
 					IP: "172.18.0.1",
 				},
@@ -109,7 +109,7 @@ var sampleClustermeshConnectivity = &healthReport{
 							Latency: 312105,
 						},
 						Icmp: &healthModels.ConnectivityStatus{
-							Latency: 772606,
+							Latency: 7726063,
 						},
 						IP: "172.18.0.2",
 					},
@@ -124,7 +124,7 @@ var sampleClustermeshConnectivity = &healthReport{
 						Latency: 274815,
 					},
 					Icmp: &healthModels.ConnectivityStatus{
-						Latency: 583711,
+						Latency: 5837115,
 					},
 					IP: "10.1.2.143",
 				},
@@ -134,7 +134,7 @@ var sampleClustermeshConnectivity = &healthReport{
 							Latency: 212101,
 						},
 						Icmp: &healthModels.ConnectivityStatus{
-							Latency: 672601,
+							Latency: 6726012,
 						},
 						IP: "10.1.2.144",
 					},
@@ -143,7 +143,7 @@ var sampleClustermeshConnectivity = &healthReport{
 			Host: &healthModels.HostStatus{
 				PrimaryAddress: &healthModels.PathStatus{
 					HTTP: &healthModels.ConnectivityStatus{
-						Latency: 166101,
+						Latency: 1661017,
 					},
 					Icmp: &healthModels.ConnectivityStatus{
 						Latency: 635688,
@@ -156,7 +156,7 @@ var sampleClustermeshConnectivity = &healthReport{
 							Latency: 212103,
 						},
 						Icmp: &healthModels.ConnectivityStatus{
-							Latency: 672603,
+							Latency: 6726034,
 						},
 						IP: "172.18.0.4",
 					},
@@ -167,55 +167,426 @@ var sampleClustermeshConnectivity = &healthReport{
 	},
 }
 
+var sampleSingleClusterConnectivityBroken = &healthReport{
+	nodes: []*healthModels.NodeStatus{
+		{
+			HealthEndpoint: &healthModels.EndpointStatus{
+				PrimaryAddress: &healthModels.PathStatus{
+					HTTP: &healthModels.ConnectivityStatus{
+						Status: "failed",
+					},
+					Icmp: &healthModels.ConnectivityStatus{
+						Status: "failed",
+					},
+					IP: "10.244.3.219",
+				},
+				SecondaryAddresses: []*healthModels.PathStatus{
+					{
+						HTTP: &healthModels.ConnectivityStatus{
+							Latency: 5121015,
+						},
+						Icmp: &healthModels.ConnectivityStatus{
+							Latency: 672601,
+						},
+						IP: "10.244.3.220",
+					},
+				},
+			},
+			Host: &healthModels.HostStatus{
+				PrimaryAddress: &healthModels.PathStatus{
+					HTTP: &healthModels.ConnectivityStatus{
+						Latency: 1653627,
+					},
+					Icmp: &healthModels.ConnectivityStatus{
+						Latency: 7041796,
+					},
+					IP: "172.18.0.3",
+				},
+				SecondaryAddresses: []*healthModels.PathStatus{
+					{
+						HTTP: &healthModels.ConnectivityStatus{
+							Status: "failed",
+						},
+						Icmp: &healthModels.ConnectivityStatus{
+							Status: "failed",
+						},
+						IP: "172.18.0.4",
+					},
+				},
+			},
+			Name: "kind-worker",
+		},
+	},
+}
+
 var expectedSingleClusterMetric = map[string]string{
 	"cilium_node_connectivity_latency_seconds": `
 # HELP cilium_node_connectivity_latency_seconds The last observed latency between the current Cilium agent and other Cilium nodes in seconds
-# TYPE cilium_node_connectivity_latency_seconds gauge
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="10.244.3.219",target_node_name="kind-worker",target_node_type="local_node",type="endpoint"} 0.0002121
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="172.18.0.3",target_node_name="kind-worker",target_node_type="local_node",type="node"} 0.000165362
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="10.244.3.219",target_node_name="kind-worker",target_node_type="local_node",type="endpoint"} 0.0006726
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="172.18.0.3",target_node_name="kind-worker",target_node_type="local_node",type="node"} 0.000704179
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="10.244.3.220",target_node_name="kind-worker",target_node_type="local_node",type="endpoint"} 0.000212101
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="172.18.0.4",target_node_name="kind-worker",target_node_type="local_node",type="node"} 0.000212102
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="10.244.3.220",target_node_name="kind-worker",target_node_type="local_node",type="endpoint"} 0.000672601
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_ip="172.18.0.4",target_node_name="kind-worker",target_node_type="local_node",type="node"} 0.000672602
+# TYPE cilium_node_connectivity_latency_seconds histogram
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 0.002121004
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node"} 0.001653627
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 0.000672600
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.0025"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.005"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node"} 0.007041796
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.0025"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.005"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 0.005121015
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.0025"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.005"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.01"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node"} 0.021210242
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 0.000672601
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node"} 0.000672603
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node"} 1
 `,
 	"cilium_node_connectivity_status": `
 # HELP cilium_node_connectivity_status The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
 # TYPE cilium_node_connectivity_status gauge
-cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_name="kind-worker",target_node_type="local_node",type="endpoint"} 1
-cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",target_cluster="default",target_node_name="kind-worker",target_node_type="local_node",type="node"} 1
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="reachable",type="endpoint"} 4
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="reachable",type="node"} 4
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unknown",type="endpoint"} 0
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unknown",type="node"} 0
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unreachable",type="endpoint"} 0
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unreachable",type="node"} 0
 `,
 }
 
 var expectedClustermeshMetric = map[string]string{
 	"cilium_node_connectivity_latency_seconds": `
 # HELP cilium_node_connectivity_latency_seconds The last observed latency between the current Cilium agent and other Cilium nodes in seconds
-# TYPE cilium_node_connectivity_latency_seconds gauge
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="10.244.3.219",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="endpoint"} 0.0003121
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="172.18.0.1",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="node"} 0.000165362
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="10.1.2.143",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="endpoint"} 0.000274815
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="172.18.0.3",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="node"} 0.000166101
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="10.244.3.219",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="endpoint"} 0.0007726
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="172.18.0.1",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="node"} 0.000704179
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="10.1.2.143",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="endpoint"} 0.000583711
-cilium_node_connectivity_latency_seconds{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="172.18.0.3",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="node"} 0.000635688
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="10.244.3.220",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="endpoint"} 0.000312101
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="172.18.0.2",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="node"} 0.000312105
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="10.1.2.144",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="endpoint"} 0.000212101
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="172.18.0.4",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="node"} 0.000212103
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="10.244.3.220",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="endpoint"} 0.000772601
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_ip="172.18.0.2",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="node"} 0.000772606
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="10.1.2.144",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="endpoint"} 0.000672601
-cilium_node_connectivity_latency_seconds{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_ip="172.18.0.4",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="node"} 0.000672603
+# TYPE cilium_node_connectivity_latency_seconds histogram
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.005"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.00339582
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.0025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.005"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.0018263790000000002
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.006609715
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.007677481
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.005"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.003333116
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.001"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.0025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.005"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.000524208
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.007498613
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.0025"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.005"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.01"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.025"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.05"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.25"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="0.5"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="1"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="2"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="4"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="8"} 2
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node",le="+Inf"} 2
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.014452097
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 2
 `,
 	"cilium_node_connectivity_status": `
 # HELP cilium_node_connectivity_status The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
 # TYPE cilium_node_connectivity_status gauge
-cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="endpoint"} 1
-cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-1",target_node_name="kind-cilium-mesh-1-worker",target_node_type="local_node",type="node"} 1
-cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="endpoint"} 1
-cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",target_cluster="kind-cilium-mesh-2",target_node_name="kind-cilium-mesh-2-worker",target_node_type="remote_inter_cluster",type="node"} 1
+cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="reachable",type="endpoint"} 8
+cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="reachable",type="node"} 8
+cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unknown",type="endpoint"} 0
+cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unknown",type="node"} 0
+cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unreachable",type="endpoint"} 0
+cilium_node_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unreachable",type="node"} 0
+`,
+}
+
+var expectedSingleClusterBrokenMetric = map[string]string{
+	"cilium_node_connectivity_latency_seconds": `
+# HELP cilium_node_connectivity_latency_seconds The last observed latency between the current Cilium agent and other Cilium nodes in seconds
+# TYPE cilium_node_connectivity_latency_seconds histogram
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node"} 0.001653627
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="node"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.0025"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.005"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node"} 0.007041796
+cilium_node_connectivity_latency_seconds_count{address_type="primary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="node"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.001"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.0025"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.005"} 0
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 0.005121015
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="http",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.001"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.0025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.005"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.01"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.025"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.05"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.25"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="0.5"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="1"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="2"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="4"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="8"} 1
+cilium_node_connectivity_latency_seconds_bucket{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint",le="+Inf"} 1
+cilium_node_connectivity_latency_seconds_sum{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 0.000672601
+cilium_node_connectivity_latency_seconds_count{address_type="secondary",protocol="icmp",source_cluster="default",source_node_name="kind-worker",type="endpoint"} 1
+`,
+	"cilium_node_connectivity_status": `
+# HELP cilium_node_connectivity_status The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
+# TYPE cilium_node_connectivity_status gauge
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="reachable",type="endpoint"} 2
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="reachable",type="node"} 2
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unknown",type="endpoint"} 0
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unknown",type="node"} 0
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unreachable",type="endpoint"} 2
+cilium_node_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unreachable",type="node"} 2
 `,
 }
 
@@ -271,7 +642,7 @@ func Test_server_collectNodeConnectivityMetrics(t *testing.T) {
 			},
 			connectivity:   sampleSingleClusterConnectivity,
 			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityStatus },
-			expectedCount:  2,
+			expectedCount:  6,
 			expectedMetric: expectedSingleClusterMetric["cilium_node_connectivity_status"],
 		},
 		{
@@ -291,7 +662,7 @@ func Test_server_collectNodeConnectivityMetrics(t *testing.T) {
 			},
 			connectivity:   sampleClustermeshConnectivity,
 			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityStatus },
-			expectedCount:  4,
+			expectedCount:  6,
 			expectedMetric: expectedClustermeshMetric["cilium_node_connectivity_status"],
 		},
 		{
@@ -301,8 +672,28 @@ func Test_server_collectNodeConnectivityMetrics(t *testing.T) {
 			},
 			connectivity:   sampleClustermeshConnectivity,
 			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityLatency },
-			expectedCount:  16,
+			expectedCount:  8,
 			expectedMetric: expectedClustermeshMetric["cilium_node_connectivity_latency_seconds"],
+		},
+		{
+			name: "single cluster broken for cilium_node_connectivity_status",
+			localStatus: &healthModels.SelfStatus{
+				Name: "kind-worker",
+			},
+			connectivity:   sampleSingleClusterConnectivityBroken,
+			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityStatus },
+			expectedCount:  6,
+			expectedMetric: expectedSingleClusterBrokenMetric["cilium_node_connectivity_status"],
+		},
+		{
+			name: "single cluster broken for cilium_node_connectivity_latency_seconds",
+			localStatus: &healthModels.SelfStatus{
+				Name: "kind-worker",
+			},
+			connectivity:   sampleSingleClusterConnectivityBroken,
+			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityLatency },
+			expectedCount:  4,
+			expectedMetric: expectedSingleClusterBrokenMetric["cilium_node_connectivity_latency_seconds"],
 		},
 	}
 

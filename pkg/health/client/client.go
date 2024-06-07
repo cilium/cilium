@@ -164,19 +164,12 @@ func GetPathConnectivityStatusType(cp *models.PathStatus) ConnectivityStatusType
 	return status
 }
 
-func SummarizePathConnectivityStatusType(cps []*models.PathStatus) ConnectivityStatusType {
-	status := ConnStatusReachable
+// Returns an array with [# of reachable paths, # of unreachable paths, # of unknown paths].
+func SummarizePathConnectivityStatusType(cps []*models.PathStatus) map[ConnectivityStatusType]int {
+	status := make(map[ConnectivityStatusType]int)
 	for _, cp := range cps {
-		switch GetPathConnectivityStatusType(cp) {
-		case ConnStatusUnreachable:
-			// If any status is unreachable, return it immediately.
-			return ConnStatusUnreachable
-		case ConnStatusUnknown:
-			// If the status is unknown, prepare to return it. It's
-			// going to be returned if there is no unreachable
-			// status in next iterations.
-			status = ConnStatusUnknown
-		}
+		cst := GetPathConnectivityStatusType(cp)
+		status[cst]++
 	}
 	return status
 }
@@ -324,10 +317,18 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 				}
 				ips = append(ips, addr.IP)
 			}
-			fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
-				localStr, strings.Join(ips, ","),
-				SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
-				SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
+			hostStatuses := SummarizePathConnectivityStatusType(GetAllHostAddresses(node))
+			endpointStatuses := SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node))
+
+			fmt.Fprintf(w, "  %s%s\t%s\t%d/%d", node.Name, localStr, strings.Join(ips, ","), hostStatuses[ConnStatusReachable], len(GetAllHostAddresses(node)))
+			if hostStatuses[ConnStatusUnknown] > 0 {
+				fmt.Fprintf(w, " (%d unknown)", hostStatuses[ConnStatusUnknown])
+			}
+			fmt.Fprintf(w, "\t%d/%d", endpointStatuses[ConnStatusReachable], len(GetAllEndpointAddresses(node)))
+			if endpointStatuses[ConnStatusUnknown] > 0 {
+				fmt.Fprintf(w, " (%d unknown)", endpointStatuses[ConnStatusUnknown])
+			}
+			fmt.Fprintf(w, "\n")
 		}
 	} else {
 		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)

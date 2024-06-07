@@ -186,92 +186,108 @@ func (s *Server) collectNodeConnectivityMetrics() {
 	}
 	localClusterName, localNodeName := getClusterNodeName(s.localStatus.Name)
 
+	endpointStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
+	nodeStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
+
 	for _, n := range s.connectivity.nodes {
 		if n == nil || n.Host == nil || n.Host.PrimaryAddress == nil || n.HealthEndpoint == nil || n.HealthEndpoint.PrimaryAddress == nil {
 			continue
 		}
 
-		targetClusterName, targetNodeName := getClusterNodeName(n.Name)
 		nodePathPrimaryAddress := healthClientPkg.GetHostPrimaryAddress(n)
 		nodePathSecondaryAddress := healthClientPkg.GetHostSecondaryAddresses(n)
 
 		endpointPathStatus := n.HealthEndpoint
-		isEndpointReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllEndpointAddresses(n)) == healthClientPkg.ConnStatusReachable
-		isNodeReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllHostAddresses(n)) == healthClientPkg.ConnStatusReachable
 
-		location := metrics.LabelLocationLocalNode
-		if targetClusterName != localClusterName {
-			location = metrics.LabelLocationRemoteInterCluster
-		} else if targetNodeName != localNodeName {
-			location = metrics.LabelLocationRemoteIntraCluster
+		isEndpointReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllEndpointAddresses(n))
+		isNodeReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllHostAddresses(n))
+
+		// Aggregate connectivity statuses
+		for connectivityStatusType, value := range isEndpointReachable {
+			endpointStatuses[connectivityStatusType] += value
+		}
+		for connectivityStatusType, value := range isNodeReachable {
+			nodeStatuses[connectivityStatusType] += value
 		}
 
-		// Aggregated status for endpoint connectivity
-		metrics.NodeConnectivityStatus.WithLabelValues(
-			localClusterName, localNodeName, targetClusterName, targetNodeName, location, metrics.LabelPeerEndpoint).
-			Set(metrics.BoolToFloat64(isEndpointReachable))
-
-		// Aggregated status for node connectivity
-		metrics.NodeConnectivityStatus.WithLabelValues(
-			localClusterName, localNodeName, targetClusterName, targetNodeName, location, metrics.LabelPeerNode).
-			Set(metrics.BoolToFloat64(isNodeReachable))
+		for i := healthClientPkg.ConnStatusReachable; i <= healthClientPkg.ConnStatusUnknown; i++ {
+			endpointStatuses[i] += isEndpointReachable[i]
+			nodeStatuses[i] += isNodeReachable[i]
+		}
 
 		// HTTP endpoint primary
 		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
-			targetClusterName, targetNodeName, endpointPathStatus.PrimaryAddress.IP,
-			location, metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
+			metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
 
 		// HTTP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
 			collectConnectivityMetric(secondary.HTTP, localClusterName, localNodeName,
-				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
+				metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// HTTP node primary
 		collectConnectivityMetric(nodePathPrimaryAddress.HTTP, localClusterName, localNodeName,
-			targetClusterName, targetNodeName, nodePathPrimaryAddress.IP,
-			location, metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
+			metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
 
 		// HTTP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
 			collectConnectivityMetric(secondary.HTTP, localClusterName, localNodeName,
-				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
+				metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// ICMP endpoint primary
 		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.Icmp, localClusterName, localNodeName,
-			targetClusterName, targetNodeName, endpointPathStatus.PrimaryAddress.IP,
-			location, metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
+			metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
 
 		// ICMP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
 			collectConnectivityMetric(secondary.Icmp, localClusterName, localNodeName,
-				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
+				metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// ICMP node primary
 		collectConnectivityMetric(nodePathPrimaryAddress.Icmp, localClusterName, localNodeName,
-			targetClusterName, targetNodeName, nodePathPrimaryAddress.IP,
-			location, metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
+			metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
 
 		// ICMP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
 			collectConnectivityMetric(secondary.Icmp, localClusterName, localNodeName,
-				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
+				metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
 		}
 	}
+
+	// Aggregated statuses for endpoint connectivity
+	metrics.NodeConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelReachable).
+		Set(float64(endpointStatuses[healthClientPkg.ConnStatusReachable]))
+
+	metrics.NodeConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelUnreachable).
+		Set(float64(endpointStatuses[healthClientPkg.ConnStatusUnreachable]))
+
+	metrics.NodeConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelUnknown).
+		Set(float64(endpointStatuses[healthClientPkg.ConnStatusUnknown]))
+
+	// Aggregated statuses for node connectivity
+	metrics.NodeConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelReachable).
+		Set(float64(nodeStatuses[healthClientPkg.ConnStatusReachable]))
+
+	metrics.NodeConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelUnreachable).
+		Set(float64(nodeStatuses[healthClientPkg.ConnStatusUnreachable]))
+
+	metrics.NodeConnectivityStatus.WithLabelValues(
+		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelUnknown).
+		Set(float64(nodeStatuses[healthClientPkg.ConnStatusUnknown]))
 }
 
 func collectConnectivityMetric(status *healthModels.ConnectivityStatus, labels ...string) {
-	var metricValue float64 = -1
-	if status != nil {
-		metricValue = float64(status.Latency) / float64(time.Second)
+	if status != nil && status.Status == "" {
+		metricValue := float64(status.Latency) / float64(time.Second)
+		metrics.NodeConnectivityLatency.WithLabelValues(labels...).Observe(metricValue)
 	}
-	metrics.NodeConnectivityLatency.WithLabelValues(labels...).Set(metricValue)
 }
 
 // getClusterNodeName returns the cluster name and node name if possible.
