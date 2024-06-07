@@ -59,6 +59,8 @@ type NodeManager interface {
 
 	// NodeSync is called when the store completes the initial nodes listing
 	NodeSync()
+	// MeshNodeSync is called when the store completes the initial nodes listing including meshed nodes
+	MeshNodeSync()
 
 	// ClusterSizeDependantInterval returns a time.Duration that is dependent on
 	// the cluster size, i.e. the number of nodes that have been discovered. This
