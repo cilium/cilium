@@ -4,16 +4,23 @@
 package manager
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math/rand/v2"
 	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"slices"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
+	"github.com/google/renameio/v2"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -39,7 +46,16 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/wireguard/types"
+)
+
+const (
+	// The filename for the nodes checkpoint. This is periodically written, and
+	// restored on restart. The default path is /run/cilium/state/nodes.json
+	nodesFilename = "nodes.json"
+	// Minimum amount of time to wait in between writing nodes file.
+	nodeCheckpointMinInterval = time.Minute
 )
 
 var (
@@ -107,6 +123,11 @@ type manager struct {
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
 
+	// Upon agent startup, this is filled with nodes as read from disk. Used to
+	// synthesize node deletion events for nodes which disappeared while we were
+	// down.
+	restoredNodes map[nodeTypes.Identity]*nodeTypes.Node
+
 	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
 	nodeHandlersMu lock.RWMutex
 	// nodeHandlers has a slice containing all node handlers subscribed to node
@@ -140,6 +161,13 @@ type manager struct {
 
 	// nodeNeighborQueue tracks node neighbor link updates.
 	nodeNeighborQueue queue[nodeQueueEntry]
+
+	// nodeCheckpointer triggers writing the current set of nodes to disk
+	nodeCheckpointer *trigger.Trigger
+	checkpointerDone chan struct{} // Closed once the checkpointer is shut down.
+
+	// Ensure the pruning is only attempted once.
+	nodePruneOnce sync.Once
 }
 
 type nodeQueueEntry struct {
@@ -269,6 +297,7 @@ func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetF
 
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
+		restoredNodes:     map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:              c,
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
@@ -285,6 +314,13 @@ func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetF
 
 func (m *manager) Start(cell.HookContext) error {
 	m.workerpool = workerpool.New(numBackgroundWorkers)
+
+	// Ensure that we read a potential nodes file before we overwrite it.
+	m.restoreNodeCheckpoint()
+	if err := m.initNodeCheckpointer(nodeCheckpointMinInterval); err != nil {
+		return fmt.Errorf("failed to initialize node file writer: %w", err)
+	}
+
 	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
 }
 
@@ -298,6 +334,18 @@ func (m *manager) Stop(cell.HookContext) error {
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
+	if m.nodeCheckpointer != nil {
+		// Using the shutdown func of trigger to checkpoint would block shutdown
+		// for up to its MinInterval, which is too long.
+		m.nodeCheckpointer.Shutdown()
+		close(m.checkpointerDone)
+		err := m.checkpoint()
+		if err != nil {
+			log.WithError(err).Error("Failed to write final node checkpoint.")
+		}
+		m.nodeCheckpointer = nil
+	}
 
 	return nil
 }
@@ -414,6 +462,109 @@ func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime tim
 		m.metrics.DatapathValidations.Inc()
 	}
 	return errs
+}
+
+func (m *manager) restoreNodeCheckpoint() {
+	path := filepath.Join(m.conf.StateDir, nodesFilename)
+	l := log.WithField(logfields.Path, path)
+	f, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// If we don't have a file to restore from, there's nothing we can
+			// do. This is expected in the upgrade path.
+			l.Debugf("No %v file found, cannot replay node deletion events for nodes"+
+				" which disappeared during downtime.", nodesFilename)
+			return
+		}
+		l.WithError(err).Error("failed to read node checkpoint file")
+		return
+	}
+
+	r := jsoniter.ConfigFastest.NewDecoder(bufio.NewReader(f))
+	var nodeCheckpoint []*nodeTypes.Node
+	if err := r.Decode(&nodeCheckpoint); err != nil {
+		l.WithError(err).Error("failed to decode node checkpoint file")
+		return
+	}
+
+	// We can't call NodeUpdated for restored nodes here, as the machinery
+	// assumes a fully initialized node manager, which we don't currently have.
+	// In addition, we only want to replay NodeDeletions, since k8s provided
+	// up-to-date information on all live nodes. We keep the restored nodes
+	// separate, let whatever init needs to happen occur and once we're synced
+	// to k8s, compare the restored nodes to the live ones.
+	for _, n := range nodeCheckpoint {
+		n.Source = source.Restored
+		m.restoredNodes[n.Identity()] = n
+	}
+}
+
+// initNodeCheckpointer sets up the trigger for writing nodes to disk.
+func (m *manager) initNodeCheckpointer(minInterval time.Duration) error {
+	var err error
+	health := m.health.NewScope("node-checkpoint-writer")
+	m.checkpointerDone = make(chan struct{})
+
+	m.nodeCheckpointer, err = trigger.NewTrigger(trigger.Parameters{
+		Name:        "node-checkpoint-trigger",
+		MinInterval: minInterval, // To avoid rapid repetition (e.g. during startup).
+		TriggerFunc: func(reasons []string) {
+			m.mutex.RLock()
+			select {
+			// The trigger package does not check whether the trigger is shut
+			// down already after sleeping to honor the MinInterval. Hence, we
+			// do so ourselves.
+			case <-m.checkpointerDone:
+				return
+			default:
+			}
+			err := m.checkpoint()
+			m.mutex.RUnlock()
+
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.Reason: reasons,
+				}).WithError(err).Error("could not write node checkpoint")
+				health.Degraded("failed to write node checkpoint", err)
+			} else {
+				health.OK("node checkpoint written")
+			}
+		},
+	})
+	return err
+}
+
+// checkpoint writes all nodes to disk. Assumes the manager is read locked.
+// Don't call this directly, use the nodeCheckpointer trigger.
+func (m *manager) checkpoint() error {
+	stateDir := m.conf.StateDir
+	nodesPath := filepath.Join(stateDir, nodesFilename)
+	log.WithFields(logrus.Fields{
+		logfields.Path: nodesPath,
+	}).Debug("writing node checkpoint to disk")
+
+	// Write new contents to a temporary file which will be atomically renamed to the
+	// real file at the end of this function to avoid data corruption if we crash.
+	f, err := renameio.TempFile(stateDir, nodesPath)
+	if err != nil {
+		return fmt.Errorf("failed to open temporary file: %w", err)
+	}
+	defer f.Cleanup()
+
+	bw := bufio.NewWriter(f)
+	w := jsoniter.ConfigFastest.NewEncoder(bw)
+	ns := make([]nodeTypes.Node, 0, len(m.nodes))
+	for _, n := range m.nodes {
+		ns = append(ns, n.node)
+	}
+	if err := w.Encode(ns); err != nil {
+		return fmt.Errorf("failed to encode node checkpoint: %w", err)
+	}
+	if err := bw.Flush(); err != nil {
+		return fmt.Errorf("failed to flush node checkpoint writer: %w", err)
+	}
+
+	return f.CloseAtomicallyReplace()
 }
 
 func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
@@ -690,6 +841,10 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		}
 
 	}
+
+	if m.nodeCheckpointer != nil {
+		m.nodeCheckpointer.TriggerWithReason("NodeUpdate")
+	}
 }
 
 // removeNodeFromIPCache removes all addresses associated with oldNode from the IPCache,
@@ -794,14 +949,25 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	nodeIdentifier := n.Identity()
 
-	m.mutex.Lock()
-	entry, oldNodeExists := m.nodes[nodeIdentifier]
-	if !oldNodeExists {
-		m.mutex.Unlock()
-		return
-	}
+	var (
+		entry         *nodeEntry
+		oldNodeExists bool
+	)
 
-	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+	m.mutex.Lock()
+	// If the node is restored from disk, it doesn't exist in the bookkeeping,
+	// but we need to synthesize a deletion event for downstream.
+	if n.Source == source.Restored {
+		entry = &nodeEntry{
+			node: n,
+		}
+	} else {
+		entry, oldNodeExists = m.nodes[nodeIdentifier]
+		if !oldNodeExists {
+			m.mutex.Unlock()
+			return
+		}
+	}
 
 	// If the source is Kubernetes and the node is the node we are running on
 	// Kubernetes is giving us a hint it is about to delete our node. Close down
@@ -818,13 +984,20 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
+	// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
+	if n.Source != source.Restored {
+		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
+	}
 
 	m.metrics.NumNodes.Dec()
 	m.metrics.ProcessNodeDeletion(n.Cluster, n.Name)
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
+	if m.nodeCheckpointer != nil {
+		m.nodeCheckpointer.TriggerWithReason("NodeDeleted")
+	}
 	m.mutex.Unlock()
 	var errs error
 	m.Iter(func(nh datapath.NodeHandler) {
@@ -850,11 +1023,50 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	}
 }
 
-// NodeSync signals the manager that the initial nodes listing (either from k8s or kvstore)
-// has been completed. This allows the manager to initiate the deletion of possible stale entries
-// in the kernel IP sets managed by Cilium.
+// NodeSync signals the manager that the initial nodes listing (either from k8s
+// or kvstore) has been completed. This allows the manager to initiate the
+// deletion of possible stale nodes.
 func (m *manager) NodeSync() {
 	m.ipsetInitializer.InitDone()
+
+	// Due to the complexity around kvstore vs k8s as node sources, it may occur
+	// that both sources call NodeSync at some point. Ensure we only run this
+	// pruning operation once.
+	m.nodePruneOnce.Do(func() {
+		m.pruneNodes(false)
+	})
+}
+
+func (m *manager) MeshNodeSync() {
+	m.pruneNodes(true)
+}
+
+func (m *manager) pruneNodes(includeMeshed bool) {
+	m.mutex.Lock()
+	if m.restoredNodes == nil || len(m.restoredNodes) == 0 {
+		m.mutex.Unlock()
+		return
+	}
+	// Live nodes should not be pruned.
+	for id := range m.nodes {
+		delete(m.restoredNodes, id)
+	}
+
+	if len(m.restoredNodes) > 0 {
+		log.WithFields(logrus.Fields{
+			"stale-nodes": m.restoredNodes,
+		}).Info("Deleting stale nodes")
+	}
+	m.mutex.Unlock()
+
+	// Delete nodes now considered stale. Can't hold the mutex as
+	// NodeDeleted also acquires it.
+	for id, n := range m.restoredNodes {
+		if n.Cluster == m.conf.ClusterName || includeMeshed {
+			m.NodeDeleted(*n)
+			delete(m.restoredNodes, id)
+		}
+	}
 }
 
 // GetNodeIdentities returns a list of all node identities store in node
