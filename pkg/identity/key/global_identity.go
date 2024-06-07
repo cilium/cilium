@@ -7,6 +7,8 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/labelsfilter"
+
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -69,4 +71,10 @@ func (gi *GlobalIdentity) PutValue(key, value any) allocator.AllocatorKey {
 // Value returns the value stored in the metadata map.
 func (gi *GlobalIdentity) Value(key any) any {
 	return gi.metadata[key]
+}
+
+func GetCIDKeyFromLabels(allLabels map[string]string, source string) *GlobalIdentity {
+	lbs := labels.Map2Labels(allLabels, source)
+	idLabels, _ := labelsfilter.Filter(lbs)
+	return &GlobalIdentity{LabelArray: idLabels.LabelArray()}
 }
