@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -30,8 +30,6 @@ import (
 )
 
 const subsystem = "clustermesh"
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
 // Configuration is the configuration that must be provided to
 // NewClusterMesh()
@@ -73,6 +71,8 @@ type Configuration struct {
 	Metrics       Metrics
 	CommonMetrics common.Metrics
 	StoreFactory  store.Factory
+
+	Logger logrus.FieldLogger
 }
 
 // ServiceMerger is the interface to be implemented by the owner of local
@@ -164,6 +164,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		storeFactory:           cm.conf.StoreFactory,
 		remoteIdentityWatcher:  cm.conf.RemoteIdentityWatcher,
 		synced:                 newSynced(),
+		log:                    cm.conf.Logger.WithField(logfields.ClusterName, name),
 	}
 	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,
@@ -185,7 +186,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			serviceStore.ClusterIDValidator(&rc.clusterID),
 		),
 		common.NewSharedServicesObserver(
-			log.WithField(logfields.ClusterName, name),
+			rc.log,
 			cm.globalServices,
 			func(svc *serviceStore.ClusterService) {
 				cm.conf.ServiceMerger.MergeExternalServiceUpdate(svc, rc.synced.services)
@@ -254,7 +255,7 @@ func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 		// and continue normally, as if the synchronization completed successfully.
 		// This ensures that we don't block forever in case of misconfigurations.
 		cm.syncTimeoutLogOnce.Do(func() {
-			log.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
+			cm.conf.Logger.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
 		})
 
 		return nil

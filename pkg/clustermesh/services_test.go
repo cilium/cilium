@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -131,6 +132,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          store,
+		Logger:                logrus.New(),
 	})
 	require.NotNil(tb, s.mesh)
 
