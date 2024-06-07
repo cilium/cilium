@@ -1060,43 +1060,45 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress bool, name strin
 	return m.iptProxyRules(proxyPort, ingress, name)
 }
 
-// GetProxyPort finds a proxy port used for redirect 'name' installed earlier with InstallProxyRules.
-// By convention "ingress" or "egress" is part of 'name' so it does not need to be specified explicitly.
-// Returns 0 a TPROXY entry with 'name' can not be found.
-func (m *Manager) GetProxyPort(name string) uint16 {
+// GetProxyPorts enumerates all existing TPROXY rules in the datapath installed earlier with
+// InstallProxyRules and returns all proxy ports found.
+func (m *Manager) GetProxyPorts() map[string]uint16 {
 	prog := ip4tables
 	if !m.sharedCfg.EnableIPv4 {
 		prog = ip6tables
 	}
 
-	return m.doGetProxyPort(prog, name)
+	return m.doGetProxyPorts(prog)
 }
 
-func (m *Manager) doGetProxyPort(prog iptablesInterface, name string) uint16 {
+func (m *Manager) doGetProxyPorts(prog iptablesInterface) map[string]uint16 {
+	portMap := make(map[string]uint16)
+
+	m.Lock()
+	defer m.Unlock()
+
 	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain})
 	if err != nil {
-		return 0
+		return portMap
 	}
 
 	re := regexp.MustCompile(
-		name + ".*TPROXY redirect " +
+		"(cilium-[^ ]*) proxy.*TPROXY redirect " +
 			"(0.0.0.0|" + ipfamily.IPv4().Localhost +
 			"|::|" + ipfamily.IPv6().Localhost + ")" +
 			":([1-9][0-9]*) mark",
 	)
 	strs := re.FindAllString(rules, -1)
-	if len(strs) == 0 {
-		return 0
+	for _, str := range strs {
+		// Pick the name and port number from each match
+		name := re.ReplaceAllString(str, "$1")
+		portStr := re.ReplaceAllString(str, "$3")
+		portUInt64, err := strconv.ParseUint(portStr, 10, 16)
+		if err == nil {
+			portMap[name] = uint16(portUInt64)
+		}
 	}
-	// Pick the port number from the last match, as rules are appended to the end (-A)
-	portStr := re.ReplaceAllString(strs[len(strs)-1], "$2")
-	portUInt64, err := strconv.ParseUint(portStr, 10, 16)
-	if err != nil {
-		log.WithError(err).Debugf("Port number cannot be parsed: %s", portStr)
-		return 0
-	}
-
-	return uint16(portUInt64)
+	return portMap
 }
 
 func (m *Manager) getDeliveryInterface(ifName string) string {

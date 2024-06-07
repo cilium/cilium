@@ -91,8 +91,8 @@ func (f *FakeDatapath) InstallRules(ctx context.Context, ifName string, quiet, i
 	return nil
 }
 
-func (m *FakeDatapath) GetProxyPort(name string) uint16 {
-	return 0
+func (m *FakeDatapath) GetProxyPorts() map[string]uint16 {
+	return nil
 }
 
 func (m *FakeDatapath) InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
