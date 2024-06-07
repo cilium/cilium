@@ -46,6 +46,7 @@ const (
 type DatapathUpdater interface {
 	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error
 	SupportsOriginalSourceAddr() bool
+	GetProxyPorts() map[string]uint16
 }
 
 type IPCacheManager interface {
@@ -76,7 +77,7 @@ type ProxyPort struct {
 	configured bool
 	// rulesPort contains the proxy port value configured to the datapath rules and
 	// is non-zero when a proxy has been successfully created and the
-	// datapath rules have been created.
+	// (new, if after restart) datapath rules have been created.
 	rulesPort uint16
 }
 
@@ -349,6 +350,29 @@ func proxyNotFoundError(name string) error {
 
 // Exported API
 
+// RestoreProxyPorts tries to find earlier port numbers from datapath and use them
+// as defaults for proxy ports
+func (p *Proxy) RestoreProxyPorts() {
+	portMap := p.datapathUpdater.GetProxyPorts()
+	for name, port := range portMap {
+		pp := proxyPorts[name]
+		if pp != nil {
+			pp.proxyPort = port
+		} else {
+			// Only CRD type proxy ports can be dynamically allocated. Assume a port
+			// from datapath with an unknown name was for a dynamically allocated CRD
+			// proxy and pre-allocate a proxy port for it.
+			// CRD proxy ports always have 'ingress' as 'false'.
+			proxyPorts[name] = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: false, proxyPort: port}
+		}
+		allocatedPorts[port] = false
+		log.
+			WithField(fieldProxyRedirectID, name).
+			WithField("proxyPort", port).
+			Debugf("RestoreProxyPorts: preallocated proxy port")
+	}
+}
+
 // GetProxyPort() returns the fixed listen port for a proxy, if any.
 func GetProxyPort(name string) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
@@ -546,12 +570,17 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			// an error occurred and we are retrying
 			scopedLog.WithError(err).Warningf("Unable to create %s proxy, retrying", ppName)
 		}
-		if !pp.configured {
-			if nRetry > 0 {
-				// Clear the proxy port on retry so that a random new port will be
-				// tried.
-				pp.proxyPort = 0
-			}
+		// Reallocate port only if not yet configured and the first try failed, or the port
+		// has not been (pre)allocated yet.
+		// For example, on restart we may have preallocated port that is not configured
+		// yet. The port may already be listening, causing allocatePort() to select another
+		// one, as the port is not available. We should make the first try with the
+		// preallocated port, as in typical case the listener we are about to configure
+		// already exists (daemonset proxy), or can be created on a new proxy with the same
+		// port (embedded Envoy).
+		if !pp.configured && (nRetry > 0 || pp.proxyPort == 0) {
+			// Clear the proxy port on retry so that a random new port will be tried.
+			pp.proxyPort = 0
 
 			// Check if pp.proxyPort is available and find an another available proxy port if not.
 			pp.proxyPort, err = allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)

@@ -355,20 +355,15 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		return nil
 	}
 
-	// Once we stop returning errors from StartDNSProxy this should live in
-	// StartProxySupport
-	port, err := proxy.GetProxyPort(proxytypes.DNSProxyName)
-	if err != nil {
-		return err
-	}
-	if option.Config.ToFQDNsProxyPort != 0 {
-		port = uint16(option.Config.ToFQDNsProxyPort)
-	} else if port == 0 {
-		// Try locate old DNS proxy port number from the datapath, and reuse it if it's not open
-		oldPort := d.datapath.GetProxyPort(proxytypes.DNSProxyName)
-		openLocalPorts := proxy.OpenLocalPorts()
-		if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
-			port = oldPort
+	// A configured proxy port takes precedence over using the previous port.
+	port := uint16(option.Config.ToFQDNsProxyPort)
+	if port == 0 {
+		// Try reuse previous DNS proxy port number
+		if oldPort, err := proxy.GetProxyPort(proxytypes.DNSProxyName); err == nil {
+			openLocalPorts := proxy.OpenLocalPorts()
+			if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
+				port = oldPort
+			}
 		}
 	}
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
