@@ -118,24 +118,6 @@ func updateTCX(prog *ebpf.Program, progName, bpffsDir string) error {
 	return nil
 }
 
-// detachTCX attempts to open the link at progName in bpffsDir and unpins it.
-// Only returns unrecoverable errors. Returns nil if the link doesn't exist or
-// if removal was successful.
-func detachTCX(bpffsDir, progName string) error {
-	pin := filepath.Join(bpffsDir, progName)
-	err := bpf.UnpinLink(pin)
-	if err == nil {
-		log.Infof("Removed tcx link at %s", pin)
-		return nil
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-
-	// The pinned link exists, something went wrong unpinning it.
-	return fmt.Errorf("unpinning tcx link: %w", err)
-}
-
 // hasCiliumTCXLinks returns true if device has a Cilium-managed tcx program
 // with the given attach type.
 func hasCiliumTCXLinks(device netlink.Link, attach ebpf.AttachType) (bool, error) {
