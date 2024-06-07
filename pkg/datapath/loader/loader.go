@@ -577,15 +577,9 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 
 	cfg := l.nodeConfig.Load()
 
-	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, cfg, ep, &dirs, stats)
+	spec, _, err := l.templateCache.fetchOrCompile(ctx, cfg, ep, &dirs, stats)
 	if err != nil {
 		return err
-	}
-	defer templateFile.Close()
-
-	spec, err := bpf.LoadCollectionSpec(templateFile.Name())
-	if err != nil {
-		return fmt.Errorf("loading eBPF ELF %s: %w", templateFile.Name(), err)
 	}
 
 	stats.BpfLoadProg.Start()
