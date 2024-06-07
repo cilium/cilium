@@ -26,7 +26,7 @@ func TestObjectCache(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	cache := newObjectCache(configWriterForTest(t), &localNodeConfig, tmpDir)
+	cache := newObjectCache(configWriterForTest(t), tmpDir)
 	realEP := testutils.NewTestEndpoint()
 
 	dir := getDirs(t)
@@ -107,7 +107,7 @@ func TestObjectCacheParallel(t *testing.T) {
 		t.Logf("  %s", test.description)
 
 		results := make(chan buildResult, test.builds)
-		cache := newObjectCache(configWriterForTest(t), &localNodeConfig, tmpDir)
+		cache := newObjectCache(configWriterForTest(t), tmpDir)
 		for i := 0; i < test.builds; i++ {
 			go func(i int) {
 				ep := testutils.NewTestEndpoint()
