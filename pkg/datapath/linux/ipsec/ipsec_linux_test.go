@@ -14,6 +14,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -35,6 +36,8 @@ var (
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n1 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
+
+	xfrmMutex = lock.Mutex{}
 )
 
 func TestLoadKeysNoFile(t *testing.T) {
@@ -110,6 +113,9 @@ func TestParseSPI(t *testing.T) {
 }
 
 func TestUpsertIPSecEquals(t *testing.T) {
+	xfrmMutex.Lock()
+	defer xfrmMutex.Unlock()
+
 	setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.2.3.4/16")
@@ -158,6 +164,9 @@ func TestUpsertIPSecEquals(t *testing.T) {
 }
 
 func TestUpsertIPSecEndpoint(t *testing.T) {
+	xfrmMutex.Lock()
+	defer xfrmMutex.Unlock()
+
 	setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -224,6 +233,9 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 }
 
 func TestUpsertIPSecKeyMissing(t *testing.T) {
+	xfrmMutex.Lock()
+	defer xfrmMutex.Unlock()
+
 	setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -238,6 +250,9 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 }
 
 func TestUpdateExistingIPSecEndpoint(t *testing.T) {
+	xfrmMutex.Lock()
+	defer xfrmMutex.Unlock()
+
 	setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
