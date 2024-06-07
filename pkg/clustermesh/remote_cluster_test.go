@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -137,7 +139,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 			<-allocator.InitIdentityAllocator(nil)
 
-			defer t.Cleanup(func() {
+			t.Cleanup(func() {
 				cancel()
 				wg.Wait()
 
@@ -160,6 +162,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					Metrics:               NewMetrics(),
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+					Logger:                logrus.New(),
 				},
 				globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
 			}
@@ -230,8 +233,18 @@ func (o *fakeObserver) MergeExternalServiceDelete(_ *serviceStore.ClusterService
 	swg.Done()
 }
 
+func (o *fakeObserver) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcache.Identity) (bool, error) {
+	o.updates.Add(1)
+	return false, nil
+}
+
+func (o *fakeObserver) Delete(string, source.Source) bool {
+	o.deletes.Add(1)
+	return false
+}
+
 func TestRemoteClusterClusterIDChange(t *testing.T) {
-	const cid1, cid2 = 10, 20
+	const cid1, cid2, cid3 = 10, 20, 30
 	testutils.IntegrationTest(t)
 
 	kvstore.SetupDummyWithConfigOpts(t, "etcd",
@@ -239,13 +252,21 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
 
+	id := func(clusterID uint32) identity.NumericIdentity { return identity.NumericIdentity(clusterID<<16 + 9999) }
+	// Use the KVStoreMesh API to prevent the allocator from thinking that the
+	// identity belongs to the local cluster.
 	kvs := func(clusterID uint32) map[string]string {
 		return map[string]string{
-			"cilium/state/nodes/v1/foo/bar":        fmt.Sprintf(`{"name": "bar", "cluster": "foo", "clusterID": %d}`, clusterID),
-			"cilium/state/nodes/v1/foo/baz":        fmt.Sprintf(`{"name": "baz", "cluster": "foo", "clusterID": %d}`, clusterID),
-			"cilium/state/nodes/v1/foo/qux":        fmt.Sprintf(`{"name": "qux", "cluster": "foo", "clusterID": %d}`, clusterID),
-			"cilium/state/services/v1/foo/baz/bar": fmt.Sprintf(`{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": %d, "shared": true}`, clusterID),
-			"cilium/state/services/v1/foo/baz/qux": fmt.Sprintf(`{"name": "qux", "namespace": "baz", "cluster": "foo", "clusterID": %d, "shared": true}`, clusterID),
+			"cilium/cache/nodes/v1/foo/bar":        fmt.Sprintf(`{"name": "bar", "cluster": "foo", "clusterID": %d}`, clusterID),
+			"cilium/cache/nodes/v1/foo/baz":        fmt.Sprintf(`{"name": "baz", "cluster": "foo", "clusterID": %d}`, clusterID),
+			"cilium/cache/nodes/v1/foo/qux":        fmt.Sprintf(`{"name": "qux", "cluster": "foo", "clusterID": %d}`, clusterID),
+			"cilium/cache/services/v1/foo/baz/bar": fmt.Sprintf(`{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": %d, "shared": true}`, clusterID),
+			"cilium/cache/services/v1/foo/baz/qux": fmt.Sprintf(`{"name": "qux", "namespace": "baz", "cluster": "foo", "clusterID": %d, "shared": true}`, clusterID),
+			"cilium/cache/ip/v1/foo/1.1.1.1":       `{"IP": "1.1.1.1"}`,
+			"cilium/cache/ip/v1/foo/1.1.1.2":       `{"IP": "1.1.1.2"}`,
+			"cilium/cache/ip/v1/foo/1.1.1.3":       `{"IP": "1.1.1.3"}`,
+
+			fmt.Sprintf("cilium/cache/identities/v1/foo/id/%d", id(clusterID)): `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
 		}
 	}
 
@@ -257,29 +278,29 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	<-allocator.InitIdentityAllocator(nil)
 
-	defer t.Cleanup(func() {
+	t.Cleanup(func() {
 		allocator.Close()
 		require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 	})
 
-	var ipc fakeIPCache
 	var obs fakeObserver
 	cm := ClusterMesh{
 		conf: Configuration{
 			NodeObserver:          &obs,
 			ServiceMerger:         &obs,
-			IPCache:               &ipc,
+			IPCache:               &obs,
 			RemoteIdentityWatcher: allocator,
 			ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),
 			Metrics:               NewMetrics(),
 			StoreFactory:          store,
 			ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+			Logger:                logrus.New(),
 		},
 		globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
 	}
 	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 
-	fixture := func(t *testing.T, id uint32, run func(t *testing.T)) {
+	fixture := func(t *testing.T, id uint32, run func(t *testing.T, ready <-chan error)) {
 		ctx, cancel := context.WithCancel(ctx)
 		ready := make(chan error)
 
@@ -290,33 +311,41 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 		wg.Add(1)
 		go func() {
-			rc.Run(ctx, kvstore.Client(), types.CiliumClusterConfig{ID: id}, ready)
+			cfg := types.CiliumClusterConfig{ID: id, Capabilities: types.CiliumClusterConfigCapabilities{Cached: true}}
+			rc.Run(ctx, kvstore.Client(), cfg, ready)
 			wg.Done()
 		}()
 
-		require.NoError(t, <-ready, "rc.Run() failed")
-		run(t)
+		run(t, ready)
 	}
 
-	fixture(t, cid1, func(t *testing.T) {
+	fixture(t, cid1, func(t *testing.T, ready <-chan error) {
+		require.NoError(t, <-ready, "rc.Run() failed")
+
 		// Populate the kvstore with the appropriate KV pairs
 		for key, value := range kvs(cid1) {
 			require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.EqualValues(c, 5, obs.updates.Load(), "Upsertions not observed correctly")
+			assert.EqualValues(c, 8, obs.updates.Load(), "Upsertions not observed correctly")
 			assert.EqualValues(c, 0, obs.deletes.Load(), "Deletions not observed correctly")
+			assert.NotNil(c, allocator.LookupIdentityByID(ctx, id(cid1)), "Identity upsertion not observed correctly")
 		}, timeout, tick)
 	})
 
 	// Reconnect the cluster with a different ID, and assert that a synthetic
-	// deletion event has been generated for all known nodes and services.
+	// deletion event has been generated for all known entries.
 	obs.reset()
-	fixture(t, cid2, func(t *testing.T) {
+	fixture(t, cid2, func(t *testing.T, ready <-chan error) {
+		require.NoError(t, <-ready, "rc.Run() failed")
+
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.EqualValues(c, 0, obs.updates.Load(), "Upsertions not observed correctly")
-			assert.EqualValues(c, 5, obs.deletes.Load(), "Deletions not observed correctly")
+			// The IP entries don't include the ClusterID, hence they are not
+			// filtered out by the validation, but propagated correctly.
+			assert.EqualValues(c, 3, obs.updates.Load(), "Upsertions not observed correctly")
+			assert.EqualValues(c, 8, obs.deletes.Load(), "Deletions not observed correctly")
+			assert.Nil(c, allocator.LookupIdentityByID(ctx, id(cid1)), "Identity deletion not observed correctly")
 		}, timeout, tick)
 
 		// Update the kvstore pairs with the new ClusterID
@@ -326,11 +355,26 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.EqualValues(c, 5, obs.updates.Load(), "Upsertions not observed correctly")
+			assert.EqualValues(c, 8, obs.updates.Load(), "Upsertions not observed correctly")
 			assert.EqualValues(c, 0, obs.deletes.Load(), "Deletions not observed correctly")
+			assert.NotNil(c, allocator.LookupIdentityByID(ctx, id(cid2)), "Identity upsertion not observed correctly")
 		}, timeout, tick)
 	})
 
+	// Reconnect the cluster with yet another different ID, that is already reserved.
+	// Assert that a synthetic deletion event has been generated for all known entries
+	// also in this case (i.e., before actually reserving the Cluster ID).
+	obs.reset()
+	cm.conf.ClusterIDsManager.ReserveClusterID(cid3)
+	fixture(t, cid3, func(t *testing.T, ready <-chan error) {
+		require.ErrorContains(t, <-ready, "clusterID 30 is already used", "rc.Run() should have failed")
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			assert.EqualValues(c, 0, obs.updates.Load(), "Upsertions not observed correctly")
+			assert.EqualValues(c, 8, obs.deletes.Load(), "Deletions not observed correctly")
+			assert.Nil(c, allocator.LookupIdentityByID(ctx, id(cid2)), "Identity deletion not observed correctly")
+		}, timeout, tick)
+	})
 }
 
 func TestIPCacheWatcherOpts(t *testing.T) {

@@ -7,6 +7,8 @@ import (
 	"context"
 	"path"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -17,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -68,6 +71,8 @@ type remoteCluster struct {
 
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
+
+	log logrus.FieldLogger
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
@@ -171,6 +176,22 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) error {
 	if newConfig.ID == rc.clusterID {
 		return nil
+	}
+
+	// Let's fully drain all previously known entries if the remote cluster changed
+	// the cluster ID. Although synthetic deletion events would be generated in any
+	// case upon initial listing (as the entries with the incorrect ID would not pass
+	// validation), that would leave a window of time in which there would still be
+	// stale entries for a Cluster ID that has already been released, potentially
+	// leading to inconsistencies if the same ID is acquired again in the meanwhile.
+	if rc.clusterID != cmtypes.ClusterIDUnset {
+		rc.log.WithField(logfields.ClusterID, newConfig.ID).
+			Info("Remote Cluster ID changed: draining all known entries before reconnecting. ",
+				"Expect connectivity disruption towards this cluster")
+		rc.remoteNodes.Drain()
+		rc.remoteServices.Drain()
+		rc.ipCacheWatcher.Drain()
+		rc.remoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
 	}
 
 	if err := rc.usedIDs.ReserveClusterID(newConfig.ID); err != nil {
