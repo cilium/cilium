@@ -1773,6 +1773,8 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
+	d.nodeDiscovery.Manager.PruneStaleNodes()
+
 	if d.endpointManager.HostEndpointExists() {
 		d.endpointManager.InitHostEndpointLabels(d.ctx)
 	} else {

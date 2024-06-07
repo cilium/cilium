@@ -4,13 +4,20 @@
 package manager
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/google/renameio"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -35,7 +42,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/trigger"
 )
+
+const NodesFilename = "nodes.json"
 
 var (
 	baseBackgroundSyncInterval = time.Minute
@@ -111,6 +121,11 @@ type Manager struct {
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
 
+	// Upon agent startup, this is filled with nodes as read from disk. Used to
+	// synthesize node deletion events for nodes which disappeared while we were
+	// down.
+	restoredNodes map[nodeTypes.Identity]*nodeTypes.Node
+
 	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
 	nodeHandlersMu lock.RWMutex
 	// nodeHandlers has a slice containing all node handlers subscribed to node
@@ -152,6 +167,9 @@ type Manager struct {
 
 	// policyTriggerer triggers policy updates (recalculations).
 	policyTriggerer policyTriggerer
+
+	// persistNodesTrigger triggers writing the current set of nodes to disk
+	persistNodesTrigger *trigger.Trigger
 }
 
 type selectorCacheUpdater interface {
@@ -199,6 +217,7 @@ func NewManager(name string, dp datapath.NodeHandler, c Configuration, sc select
 	m := &Manager{
 		name:                 name,
 		nodes:                map[nodeTypes.Identity]*nodeEntry{},
+		restoredNodes:        map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                 c,
 		controllerManager:    controller.NewManager(),
 		selectorCacheUpdater: sc,
@@ -232,6 +251,12 @@ func NewManager(name string, dp datapath.NodeHandler, c Configuration, sc select
 	err := metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure that we read a potential nodes file before we overwrite it.
+	m.readNodesFromDisk()
+	if err := m.initializePersistNodeTrigger(); err != nil {
+		return nil, fmt.Errorf("failed to initialize node persistence: %w", err)
 	}
 
 	go m.backgroundSync()
@@ -312,6 +337,108 @@ func (m *Manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.
 
 func (m *Manager) backgroundSyncInterval() time.Duration {
 	return m.ClusterSizeDependantInterval(baseBackgroundSyncInterval)
+}
+
+func (m *Manager) readNodesFromDisk() {
+	f, err := os.Open(filepath.Join(option.Config.StateDir, NodesFilename))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// If we don't have a file to restore from, there's nothing we can
+			// do. This is expected in the upgrade path.
+			return
+		}
+		log.WithError(err).Error("failed to read nodes restoration file")
+		return
+	}
+
+	r := json.NewDecoder(bufio.NewReader(f))
+	var restoredNodes []*nodeTypes.Node
+	if err := r.Decode(&restoredNodes); err != nil {
+		log.WithError(err).Error("failed to decode node restoration file")
+		return
+	}
+
+	// We can't call NodeUpdated for the restored nodes here, as the machinery
+	// assumes a fully initialized node manager, which we don't currently have.
+	// In addition, we only want to synthesize NodeDeletions not resurrect
+	// potentially long-dead nodes. Therefore we keep the restored nodes
+	// separate, let whatever init needs to happen occur and once we're synced
+	// to k8s, compare the restored nodes to the live ones.
+	for _, n := range restoredNodes {
+		n.Source = source.Restored
+		m.restoredNodes[n.Identity()] = n
+	}
+}
+
+// PruneStaleNodes emits deletion events to subscribers for nodes which were
+// deleted while the agent was down.
+func (m *Manager) PruneStaleNodes() {
+	m.mutex.RLock()
+	for id := range m.nodes {
+		delete(m.restoredNodes, id)
+	}
+	m.mutex.RUnlock()
+
+	if len(m.restoredNodes) > 0 {
+		log.WithFields(logrus.Fields{
+			"stale-nodes": m.restoredNodes,
+		}).Info("Deleting stale nodes")
+	}
+
+	// Delete nodes now considered stale.
+	for _, n := range m.restoredNodes {
+		m.NodeDeleted(*n)
+	}
+}
+
+// initializePersistNodeTrigger sets up the node persistence machinery
+func (m *Manager) initializePersistNodeTrigger() error {
+	var err error
+	m.persistNodesTrigger, err = trigger.NewTrigger(trigger.Parameters{
+		MinInterval: 5 * time.Second, // TODO min interval?
+		TriggerFunc: func(reasons []string) {
+			m.mutex.RLock()
+			defer m.mutex.RUnlock()
+
+			if err := m.writeNodesToFile(option.Config.StateDir); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.Reason: reasons,
+				}).WithError(err).Warning("could not write nodes file")
+			}
+		},
+	})
+	return err
+}
+
+// writeNodesToFile writes the node state to disk. Assumes the manager is locked.
+func (m *Manager) writeNodesToFile(prefix string) error {
+	nodesPath := filepath.Join(prefix, NodesFilename)
+	log.WithFields(logrus.Fields{
+		logfields.Path: nodesPath,
+	}).Debug("writing nodes.json file")
+
+	// Write new contents to a temporary file which will be atomically renamed to the
+	// real file at the end of this function to avoid data corruption if we crash.
+	f, err := renameio.TempFile(prefix, nodesPath)
+	if err != nil {
+		return fmt.Errorf("failed to open temporary file: %s", err)
+	}
+	defer f.Cleanup()
+
+	bw := bufio.NewWriter(f)
+	w := json.NewEncoder(bw)
+	ns := make([]nodeTypes.Node, 0, len(m.nodes))
+	for _, n := range m.nodes {
+		ns = append(ns, n.node)
+	}
+	if err := w.Encode(ns); err != nil {
+		return fmt.Errorf("failed to json encode nodes: %w", err)
+	}
+	if err := bw.Flush(); err != nil {
+		return fmt.Errorf("failed to flush writer: %w", err)
+	}
+
+	return f.CloseAtomicallyReplace()
 }
 
 // backgroundSync ensures that local node has a valid datapath in-place for
@@ -603,6 +730,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 		entry.mutex.Unlock()
 	}
+	m.persistNodesTrigger.TriggerWithReason("NodeUpdate")
 }
 
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
@@ -668,11 +796,24 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 
 	nodeIdentity := n.Identity()
 
+	var (
+		entry         *nodeEntry
+		oldNodeExists bool
+	)
+
 	m.mutex.Lock()
-	entry, oldNodeExists := m.nodes[nodeIdentity]
-	if !oldNodeExists {
-		m.mutex.Unlock()
-		return
+	// If the node is restored from disk, it doesn't exist in the bookkeeping,
+	// but we need to synthesize a deletion event for downstream.
+	if n.Source == source.Restored {
+		entry = &nodeEntry{
+			node: n,
+		}
+	} else {
+		entry, oldNodeExists = m.nodes[nodeIdentity]
+		if !oldNodeExists {
+			m.mutex.Unlock()
+			return
+		}
 	}
 
 	remoteHostIdentity := identity.ReservedIdentityHost
@@ -734,6 +875,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentity)
+	m.persistNodesTrigger.TriggerWithReason("NodeDeleted")
 	m.mutex.Unlock()
 	m.Iter(func(nh datapath.NodeHandler) {
 		nh.NodeDelete(n)

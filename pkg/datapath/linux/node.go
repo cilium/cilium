@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 const (
@@ -949,8 +950,12 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 	defer n.mutex.Unlock()
 
 	nodeIdentity := oldNode.Identity()
-	if oldCachedNode, nodeExists := n.nodes[nodeIdentity]; nodeExists {
+	if oldCachedNode, nodeExists := n.nodes[nodeIdentity]; nodeExists || oldNode.Source == source.Restored {
 		delete(n.nodes, nodeIdentity)
+
+		if oldNode.Source == source.Restored {
+			oldCachedNode = &oldNode
+		}
 
 		if n.isInitialized {
 			return n.nodeDelete(oldCachedNode)
