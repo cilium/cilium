@@ -35,6 +35,10 @@ func (m *MockDatapathUpdater) SupportsOriginalSourceAddr() bool {
 	return true
 }
 
+func (m *MockDatapathUpdater) GetProxyPorts() map[string]uint16 {
+	return nil
+}
+
 func (s *ProxySuite) TestPortAllocator(c *C) {
 	mockDatapathUpdater := &MockDatapathUpdater{}
 

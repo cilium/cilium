@@ -337,7 +337,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	c.Assert(err, check.IsNil)
 }
 
-func (s *iptablesTestSuite) TestGetProxyPort(c *check.C) {
+func (s *iptablesTestSuite) TestGetProxyPorts(c *check.C) {
 	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
@@ -355,8 +355,9 @@ TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90
 	}
 
 	// Finds the latest port number if multiple rules for the same proxy name
-	port := mockManager.doGetProxyPort(mockIp4tables, "cilium-dns-egress")
-	c.Assert(port, check.Equals, uint16(43479))
+	portMap := mockManager.doGetProxyPorts(mockIp4tables)
+	c.Assert(len(portMap), check.Equals, 1)
+	c.Assert(portMap["cilium-dns-egress"], check.Equals, uint16(43479))
 	c.Assert(mockIp4tables.checkExpectations(), check.IsNil)
 
 	// Now test the proxy port fetch when the proxy is not DNS. It should
@@ -368,16 +369,17 @@ TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90
 				`Chain CILIUM_PRE_mangle (1 references)
 target     prot opt source               destination
 MARK       all  --  0.0.0.0/0            0.0.0.0/0            socket --transparent /* cilium: any->pod redirect proxied traffic to host proxy */ MARK set 0x200
-TPROXY     tcp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd5a90200 /* cilium: TPROXY to host cilium-random-proxy proxy */ TPROXY redirect 0.0.0.0:43477 mark 0x200/0xffffffff
-TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd5a90200 /* cilium: TPROXY to host cilium-random-proxy proxy */ TPROXY redirect 0.0.0.0:43477 mark 0x200/0xffffffff
-TPROXY     tcp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90200 /* cilium: TPROXY to host cilium-random-proxy proxy */ TPROXY redirect 0.0.0.0:43479 mark 0x200/0xffffffff
-TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90200 /* cilium: TPROXY to host cilium-random-proxy proxy */ TPROXY redirect 0.0.0.0:43479 mark 0x200/0xffffffff
+TPROXY     tcp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd5a90200 /* cilium: TPROXY to host cilium-random-ingress proxy */ TPROXY redirect 0.0.0.0:43477 mark 0x200/0xffffffff
+TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd5a90200 /* cilium: TPROXY to host cilium-random-ingress proxy */ TPROXY redirect 0.0.0.0:43477 mark 0x200/0xffffffff
+TPROXY     tcp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90200 /* cilium: TPROXY to host cilium-random-ingress proxy */ TPROXY redirect 0.0.0.0:43479 mark 0x200/0xffffffff
+TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90200 /* cilium: TPROXY to host cilium-random-ingress proxy */ TPROXY redirect 0.0.0.0:43479 mark 0x200/0xffffffff
 `),
 		},
 	}
 
-	port = mockManager.doGetProxyPort(mockIp4tables, "cilium-random-proxy")
-	c.Assert(port, check.Equals, uint16(43479))
+	portMap = mockManager.doGetProxyPorts(mockIp4tables)
+	c.Assert(len(portMap), check.Equals, 1)
+	c.Assert(portMap["cilium-random-ingress"], check.Equals, uint16(43479))
 	c.Assert(mockIp4tables.checkExpectations(), check.IsNil)
 }
 
