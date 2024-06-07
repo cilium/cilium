@@ -143,13 +143,8 @@ const (
 // one is used for Kubernetes >= 1.21 and when the NamespaceDefaultLabelName is
 // enabled.
 const (
-	// ReservedETCDOperator is the reserved identity used for the etcd-operator
-	// managed by Cilium.
-	ReservedETCDOperator NumericIdentity = iota + 100
-
-	// ReservedCiliumKVStore is the reserved identity used for the kvstore
-	// managed by Cilium (etcd-operator).
-	ReservedCiliumKVStore
+	DeprecatedETCDOperator NumericIdentity = iota + 100
+	DeprecatedCiliumKVStore
 
 	// ReservedKubeDNS is the reserved identity used for kube-dns.
 	ReservedKubeDNS
@@ -166,25 +161,24 @@ const (
 	// ReservedEKSCoreDNS is the reserved identity used for CoreDNS on EKS
 	ReservedEKSCoreDNS
 
-	// ReservedCiliumEtcdOperator is the reserved identity used for the Cilium etcd operator
-	ReservedCiliumEtcdOperator
+	DeprecatedCiliumEtcdOperator
 
 	// Second identities for all above components
-	ReservedETCDOperator2
-	ReservedCiliumKVStore2
+	DeprecatedETCDOperator2
+	DeprecatedCiliumKVStore2
 	ReservedKubeDNS2
 	ReservedEKSKubeDNS2
 	ReservedCoreDNS2
 	ReservedCiliumOperator2
 	ReservedEKSCoreDNS2
-	ReservedCiliumEtcdOperator2
+	DeprecatedCiliumEtcdOperator2
 )
 
 type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
 
 // wellKnownIdentitity is an identity for well-known security labels for which
 // a well-known numeric identity is reserved to avoid requiring a cluster wide
-// setup. Examples of this include kube-dns and the etcd-operator.
+// setup. Examples of this include kube-dns.
 type wellKnownIdentity struct {
 	identity   *Identity
 	labelArray labels.LabelArray
@@ -238,43 +232,6 @@ func k8sLabel(key string, value string) string {
 // InitWellKnownIdentities establishes all well-known identities. Returns the
 // number of well-known identities initialized.
 func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
-	// etcd-operator labels
-	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-sa
-	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
-	//   k8s:io.cilium/app=etcd-operator
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	etcdOperatorLabels := []string{
-		"k8s:io.cilium/app=etcd-operator",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
-		k8sLabel(api.PolicyLabelServiceAccount, "cilium-etcd-sa"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedETCDOperator, etcdOperatorLabels)
-	WellKnown.add(ReservedETCDOperator2, append(etcdOperatorLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
-	// cilium-etcd labels
-	//   k8s:app=etcd
-	//   k8s:io.cilium/app=etcd-operator
-	//   k8s:etcd_cluster=cilium-etcd
-	//   k8s:io.cilium.k8s.policy.serviceaccount=default
-	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	// these 2 labels are ignored by cilium-agent as they can change over time
-	//   container:annotation.etcd.version=3.3.9
-	//   k8s:etcd_node=cilium-etcd-6snk6vsjcm
-	ciliumEtcdLabels := []string{
-		"k8s:app=etcd",
-		"k8s:etcd_cluster=cilium-etcd",
-		"k8s:io.cilium/app=etcd-operator",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
-		k8sLabel(api.PolicyLabelServiceAccount, "default"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedCiliumKVStore, ciliumEtcdLabels)
-	WellKnown.add(ReservedCiliumKVStore2, append(ciliumEtcdLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
 	// kube-dns labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
 	//   k8s:io.kubernetes.pod.namespace=kube-system
@@ -358,27 +315,6 @@ func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 	}
 	WellKnown.add(ReservedCiliumOperator, ciliumOperatorLabels)
 	WellKnown.add(ReservedCiliumOperator2, append(ciliumOperatorLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
-	// cilium-etcd-operator labels
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-operator
-	//   k8s:io.cilium/app=etcd-operator
-	//   k8s:app.kubernetes.io/name: cilium-etcd-operator
-	//   k8s:app.kubernetes.io/part-of: cilium
-	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
-	//   k8s:name=cilium-etcd-operator
-	ciliumEtcdOperatorLabels := []string{
-		"k8s:name=cilium-etcd-operator",
-		"k8s:io.cilium/app=etcd-operator",
-		"k8s:app.kubernetes.io/name: cilium-etcd-operator",
-		"k8s:app.kubernetes.io/part-of: cilium",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
-		k8sLabel(api.PolicyLabelServiceAccount, "cilium-etcd-operator"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedCiliumEtcdOperator, ciliumEtcdOperatorLabels)
-	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
 		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
 	return len(WellKnown)

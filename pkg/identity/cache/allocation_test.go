@@ -243,30 +243,6 @@ func testEventWatcherBatching(t *testing.T) {
 	require.NotEqual(t, 0, owner.WaitUntilID(2057))
 }
 
-func TestGetIdentityCache(t *testing.T) {
-	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
-
-	for _, testConfig := range testConfigs {
-		t.Run(testConfig.name, func(t *testing.T) {
-			testGetIdentityCache(t, testConfig)
-		})
-	}
-}
-
-func testGetIdentityCache(t *testing.T, testConfig testConfig) {
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
-	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(newDummyOwner(), testConfig.allocatorConfig)
-	<-mgr.InitIdentityAllocator(nil)
-	defer mgr.Close()
-	defer mgr.IdentityAllocator.DeleteAllKeys()
-
-	cache := mgr.GetIdentityCache()
-	_, ok := cache[identity.ReservedCiliumKVStore]
-	require.True(t, ok)
-}
-
 func TestAllocator(t *testing.T) {
 	testutils.IntegrationTest(t)
 	cl := kvstore.SetupDummy(t, "etcd")
