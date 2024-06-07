@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 // BugtoolRootCmd is the top level command for the bugtool.
@@ -631,7 +632,7 @@ func downloadToFileWithPostProcess(client *http.Client, url, file string, postPr
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad status: %s", resp.Status)
 	}
-	b, err := io.ReadAll(resp.Body)
+	b, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
 	if err != nil {
 		return err
 	}
