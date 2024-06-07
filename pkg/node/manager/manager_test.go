@@ -5,9 +5,13 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -1169,4 +1173,117 @@ func TestNodeIpset(t *testing.T) {
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", false)
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", false)
+}
+
+// Tests that the node manager calls delete on nodes to be pruned.
+func TestNodesStartupPruning(t *testing.T) {
+	n1 := nodeTypes.Node{Name: "node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
+		{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.1"),
+		},
+	}}
+
+	n2 := nodeTypes.Node{Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
+		{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.2"),
+		},
+	}}
+
+	n3 := nodeTypes.Node{Name: "node3", Cluster: "c2", IPAddresses: []nodeTypes.Address{
+		{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.3"),
+		},
+	}}
+
+	// Create a nodes.json file from the above two nodes, simulating a previous instance of the agent.
+	tmp, err := os.MkdirTemp("", "nodes")
+	require.NoError(t, err)
+	path := filepath.Join(tmp, nodesFilename)
+	nf, err := os.Create(path)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		nf.Close()
+		os.Remove(path)
+	})
+	e := json.NewEncoder(nf)
+	require.NoError(t, e.Encode([]nodeTypes.Node{n3, n2, n1}))
+	require.NoError(t, nf.Sync())
+	require.NoError(t, nf.Close())
+
+	checkNodeFileMatches := func(path string, node nodeTypes.Node) {
+		// Wait until the file exists. The node deletion triggers the write, hence
+		// this shouldn't take long.
+		for range 10 {
+			_, err := os.Stat(path)
+			if err == nil {
+				break
+			}
+			require.ErrorIs(t, err, fs.ErrNotExist)
+			time.Sleep(time.Millisecond)
+		}
+		nwf, err := os.Open(path)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			nwf.Close()
+		})
+		var nl []nodeTypes.Node
+		assert.NoError(t, json.NewDecoder(nwf).Decode(&nl))
+		assert.Len(t, nl, 1)
+		assert.Equal(t, node, nl[0])
+		require.NoError(t, os.Remove(path))
+	}
+
+	// Create a node manager and add only node1.
+	ipcacheMock := newIPcacheMock()
+	dp := newSignalNodeHandler()
+	dp.EnableNodeDeleteEvent = true
+	h, _ := cell.NewSimpleHealth()
+	mngr, err := New(&option.DaemonConfig{
+		StateDir:    tmp,
+		ClusterName: "c1",
+	}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		mngr.Stop(context.TODO())
+	})
+	mngr.Subscribe(dp)
+	mngr.NodeUpdated(n1)
+
+	// Load the nodes from disk and initiate pruning. This should prune node 2
+	// (since it's present in the file but not in our current view).
+	mngr.restoreNodeCheckpoint()
+	require.NoError(t, mngr.initNodeCheckpointer(time.Microsecond))
+	// We remove our test file here to be able to tell once the nodemanager has
+	// written one itself.
+	require.NoError(t, os.Remove(path))
+	// Declare cluster nodes synced (but not clustermesh nodes)
+	mngr.NodeSync()
+
+	select {
+	case dn := <-dp.NodeDeleteEvent:
+		n2r := n2
+		n2r.Source = source.Restored
+		assert.Equal(t, n2r, dn, "should have deleted node 2 and (with source=Restored)")
+	case <-time.After(time.Second * 5):
+		t.Fatal("should have received a node deletion event for node 2")
+	}
+
+	checkNodeFileMatches(path, n1)
+
+	// Allow pruning the clustermesh node.
+	mngr.MeshNodeSync()
+
+	select {
+	case dn := <-dp.NodeDeleteEvent:
+		n3r := n3
+		n3r.Source = source.Restored
+		assert.Equal(t, n3r, dn, "should have deleted node 3 and (with source=Restored)")
+	case <-time.After(time.Second * 5):
+		t.Fatal("should have received a node deletion event for node 3")
+	}
+
+	checkNodeFileMatches(path, n1)
 }
