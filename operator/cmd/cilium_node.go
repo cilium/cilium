@@ -302,9 +302,6 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 		}
 		// Start handling events for KVStore **after** nodeManagerSyncHandler
 		// otherwise Cilium Operator will block until the KVStore is available.
-		// This might be problematic in clusters that have etcd-operator with
-		// cluster-pool ipam mode because they depend on Cilium Operator to be
-		// running and handling IP Addresses with nodeManagerSyncHandler.
 		// Only handle events if kvStoreSyncHandler is not nil. If it is nil
 		// then there isn't any event handler set for CiliumNodes events.
 		if s.withKVStore && kvStoreSyncHandler != nil {
