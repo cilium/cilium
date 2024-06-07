@@ -11,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -32,23 +34,22 @@ type objectCache struct {
 	baseHash datapathHash
 
 	// The cached objects.
-	objects map[string]*cachedObject
+	objects map[string]*cachedSpec
 }
 
-type cachedObject struct {
-	// Protects state in cachedObject. Also used to serialize compilation attempts.
+type cachedSpec struct {
+	// Protects state, also used to serialize compilation attempts.
 	lock.Mutex
 
-	// The path at which the object is cached. May be empty if there hasn't
-	// been a successful compile yet.
-	path string
+	// The compiled and parsed spec. May be nil if no compilation has happened yet.
+	spec *ebpf.CollectionSpec
 }
 
 func newObjectCache(c datapath.ConfigWriter, workingDir string) *objectCache {
 	return &objectCache{
 		ConfigWriter:     c,
 		workingDirectory: workingDir,
-		objects:          make(map[string]*cachedObject),
+		objects:          make(map[string]*cachedSpec),
 	}
 }
 
@@ -83,20 +84,20 @@ func (o *objectCache) UpdateDatapathHash(nodeCfg *datapath.LocalNodeConfiguratio
 	}
 
 	o.baseHash = newHash
-	o.objects = make(map[string]*cachedObject)
+	o.objects = make(map[string]*cachedSpec)
 	return nil
 }
 
 // serialize access to an abitrary key.
 //
-// The caller must call Unlock on the returned cachedObject.
-func (o *objectCache) serialize(key string) *cachedObject {
+// The caller must call Unlock on the returned object.
+func (o *objectCache) serialize(key string) *cachedSpec {
 	o.Lock()
 	defer o.Unlock()
 
 	obj, ok := o.objects[key]
 	if !ok {
-		obj = new(cachedObject)
+		obj = new(cachedSpec)
 		o.objects[key] = obj
 	}
 
@@ -157,9 +158,9 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 // threads attempt to concurrently fetchOrCompile a template binary for the
 // same set of EndpointConfiguration.
 //
-// Returns the path to the compiled template datapath object and whether the
-// object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
+// Returns a copy of the compiled and parsed ELF and whether a compilation was
+// triggered.
+func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, compiled bool, err error) {
 	cfg = wrap(cfg)
 
 	var hash string
@@ -183,10 +184,8 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	obj := o.serialize(hash)
 	defer obj.Unlock()
 
-	if cached, err := os.Open(obj.path); err == nil {
-		return cached, false, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, false, err
+	if obj.spec != nil {
+		return obj.spec.Copy(), false, nil
 	}
 
 	if stats == nil {
@@ -201,11 +200,10 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 		return nil, false, err
 	}
 
-	output, err := os.Open(path)
+	obj.spec, err = bpf.LoadCollectionSpec(path)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("load eBPF ELF %s: %w", path, err)
 	}
 
-	obj.path = path
-	return output, !compiled, nil
+	return obj.spec.Copy(), true, nil
 }

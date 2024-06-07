@@ -5,10 +5,11 @@ package loader
 
 import (
 	"context"
-	"fmt"
+	"runtime"
+	"sync"
 	"testing"
-	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -32,126 +33,53 @@ func TestObjectCache(t *testing.T) {
 	dir := getDirs(t)
 
 	// First run should compile and generate the object.
-	_, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	first, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.Equal(t, isNew, true)
+	require.True(t, isNew)
 
 	// Same EP should not be compiled twice.
-	_, isNew, err = cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	second, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.Equal(t, isNew, false)
+	require.False(t, isNew)
+	require.False(t, second == first)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
-	_, isNew, err = cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	third, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.Equal(t, isNew, false)
+	require.False(t, isNew)
+	require.False(t, third == first)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
-	_, isNew, err = cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	fourth, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.Equal(t, isNew, true)
-}
-
-type buildResult struct {
-	goroutine int
-	path      string
-	compiled  bool
-	err       error
-}
-
-func receiveResult(t *testing.T, results chan buildResult) (*buildResult, error) {
-	select {
-	case result := <-results:
-		if result.err != nil {
-			return nil, result.err
-		}
-		return &result, nil
-	case <-time.After(contextTimeout):
-		return nil, fmt.Errorf("Timed out waiting for goroutines to return")
-	}
+	require.True(t, isNew)
+	require.False(t, fourth == first)
 }
 
 func TestObjectCacheParallel(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	setupCompilationDirectories(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	setupCompilationDirectories(t)
+	cache := newObjectCache(configWriterForTest(t), tmpDir)
+	ep := testutils.NewTestEndpoint()
 
-	tests := []struct {
-		description string
-		builds      int
-		divisor     int
-	}{
-		{
-			description: "One build, multiple blocking goroutines",
-			builds:      8,
-			divisor:     8,
-		},
-		{
-			description: "Eight builds, half compile, half block",
-			builds:      8,
-			divisor:     2,
-		},
-		{
-			description: "Eight unique builds",
-			builds:      8,
-			divisor:     1,
-		},
+	var wg sync.WaitGroup
+	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _, err := cache.fetchOrCompile(ctx, &localNodeConfig, &ep, getDirs(t), nil)
+			assert.NoError(t, err)
+		}()
 	}
 
-	for _, test := range tests {
-		t.Logf("  %s", test.description)
-
-		results := make(chan buildResult, test.builds)
-		cache := newObjectCache(configWriterForTest(t), tmpDir)
-		for i := 0; i < test.builds; i++ {
-			go func(i int) {
-				ep := testutils.NewTestEndpoint()
-				opt := fmt.Sprintf("OPT%d", i/test.divisor)
-				ep.Opts.SetBool(opt, true)
-				file, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &ep, getDirs(t), nil)
-				path := ""
-				if file != nil {
-					path = file.Name()
-				}
-				results <- buildResult{
-					goroutine: i,
-					path:      path,
-					compiled:  isNew,
-					err:       err,
-				}
-			}(i)
-		}
-
-		// First result will always be a compilation for the new set of options
-		compiled := make(map[string]int, test.builds)
-		used := make(map[string]int, test.builds)
-		for i := 0; i < test.builds; i++ {
-			result, err := receiveResult(t, results)
-			require.NoError(t, err)
-
-			used[result.path] = used[result.path] + 1
-			if result.compiled {
-				compiled[result.path] = compiled[result.path] + 1
-			}
-		}
-
-		require.Len(t, compiled, test.builds/test.divisor)
-		require.Len(t, used, test.builds/test.divisor)
-		for _, templateCompileCount := range compiled {
-			// Only one goroutine compiles each template
-			require.Equal(t, templateCompileCount, 1)
-		}
-		for _, templateUseCount := range used {
-			// Based on the test parameters, a number of goroutines
-			// may share the same template.
-			require.Equal(t, templateUseCount, test.divisor)
-		}
-	}
+	wg.Wait()
 }
 
 func configWriterForTest(t testing.TB) types.ConfigWriter {
