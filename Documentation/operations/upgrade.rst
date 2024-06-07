@@ -330,6 +330,8 @@ Agent Options
 
 Added Metrics
 ~~~~~~~~~~~~~
+* ``cilium_node_health_connectivity_status``
+* ``cilium_node_health_connectivity_latency_seconds``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
@@ -337,6 +339,10 @@ Removed Metrics
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
+Deprecated Metrics
+~~~~~~~~~~~~~~~~~~
+* ``cilium_node_connectivity_status`` is now deprecated. Please use ``cilium_node_health_connectivity_status`` instead.
+* ``cilium_node_connectivity_latency_seconds`` is now deprecated. Please use ``cilium_node_health_connectivity_latency_seconds`` instead.
 
 Advanced
 ========
