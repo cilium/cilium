@@ -269,3 +269,20 @@ func (r *ciliumEnvoyConfigReconciler) configSelectsLocalNode(cfg *config) (bool,
 
 	return true, nil
 }
+
+func (r *ciliumEnvoyConfigReconciler) syncHeadlessService(_ context.Context) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	var reconcileErr error
+
+	for key, cfg := range r.configs {
+		if err := r.manager.syncCiliumEnvoyConfigService(cfg.meta.Name, cfg.meta.Namespace, cfg.spec); err != nil {
+			r.logger.WithField("key", key).WithError(err).Error("failed to sync headless service")
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile existing config (%s): %w", key, err))
+			continue
+		}
+	}
+
+	return reconcileErr
+}
