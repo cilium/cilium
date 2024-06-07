@@ -59,9 +59,9 @@ type IptablesManager interface {
 	SupportsOriginalSourceAddr() bool
 	InstallRules(ctx context.Context, ifName string, quiet, install bool) error
 
-	// GetProxyPort fetches the existing proxy port configured for the
-	// specified listener. Used early in bootstrap to reopen proxy ports.
-	GetProxyPort(listener string) uint16
+	// GetProxyPorts fetches the existing proxy ports configured in the
+	// datapath. Used early in bootstrap to reopen proxy ports.
+	GetProxyPorts() map[string]uint16
 
 	// InstallNoTrackRules is explicitly called when a pod has valid
 	// "policy.cilium.io/no-track-port" annotation.  When
