@@ -20,7 +20,7 @@ import (
 
 type MockDatapathUpdater struct{}
 
-func (m *MockDatapathUpdater) InstallProxyRules(proxyPort uint16, localOnly bool, name string) {
+func (m *MockDatapathUpdater) InstallProxyRules(proxyPort uint16, name string) {
 }
 
 func (m *MockDatapathUpdater) SupportsOriginalSourceAddr() bool {
@@ -37,7 +37,7 @@ func TestPortAllocator(t *testing.T) {
 
 	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
 
-	port, err := p.AllocateCRDProxyPort("listener1", true)
+	port, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.NotEqual(t, 0, port)
 
@@ -46,7 +46,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, port, port1)
 
 	// Another allocation for the same name gets the same port
-	port1a, err := p.AllocateCRDProxyPort("listener1", true)
+	port1a, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, port1, port1a)
 
@@ -55,7 +55,6 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
 	require.Equal(t, port, pp.proxyPort)
 	require.Equal(t, false, pp.ingress)
-	require.Equal(t, true, pp.localOnly)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
@@ -76,7 +75,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, uint16(0), pp.rulesPort)
 
 	// Allocates a different port (due to port was never acked)
-	port2, err := p.AllocateCRDProxyPort("listener1", true)
+	port2, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.NotEqual(t, port, port2)
 	name2, pp2 := p.findProxyPortByType(types.ProxyTypeCRD, "listener1", false)
@@ -84,7 +83,6 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
 	require.Equal(t, false, pp.ingress)
-	require.Equal(t, true, pp.localOnly)
 	require.Equal(t, port2, pp.proxyPort)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)
@@ -130,7 +128,7 @@ func TestPortAllocator(t *testing.T) {
 	p.allocatedPorts[port2] = true
 
 	// Allocate again, this time a different port is allocated
-	port3, err := p.AllocateCRDProxyPort("listener1", true)
+	port3, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.NotEqual(t, uint16(0), port3)
 	require.NotEqual(t, port2, port3)
@@ -140,7 +138,6 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
 	require.Equal(t, false, pp.ingress)
-	require.Equal(t, true, pp.localOnly)
 	require.Equal(t, port3, pp.proxyPort)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)
@@ -166,12 +163,11 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, false, inuse)
 
 	// No-one used the port so next allocation gets the same port again
-	port4, err := p.AllocateCRDProxyPort("listener1", true)
+	port4, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, port3, port4)
 	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
 	require.Equal(t, false, pp.ingress)
-	require.Equal(t, true, pp.localOnly)
 	require.Equal(t, port4, pp.proxyPort)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)

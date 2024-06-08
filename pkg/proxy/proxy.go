@@ -42,7 +42,7 @@ const (
 )
 
 type DatapathUpdater interface {
-	InstallProxyRules(proxyPort uint16, localOnly bool, name string)
+	InstallProxyRules(proxyPort uint16, name string)
 	SupportsOriginalSourceAddr() bool
 }
 
@@ -69,8 +69,6 @@ type ProxyPort struct {
 	// is non-zero when a proxy has been successfully created and the
 	// datapath rules have been created.
 	rulesPort uint16
-	// localOnly is true when the proxy port is only accessible from the loopback device
-	localOnly bool
 }
 
 // Proxy maintains state about redirects
@@ -132,27 +130,22 @@ func defaultProxyPortMap() map[string]*ProxyPort {
 		"cilium-http-egress": {
 			proxyType: types.ProxyTypeHTTP,
 			ingress:   false,
-			localOnly: true,
 		},
 		"cilium-http-ingress": {
 			proxyType: types.ProxyTypeHTTP,
 			ingress:   true,
-			localOnly: true,
 		},
 		types.DNSProxyName: {
 			proxyType: types.ProxyTypeDNS,
 			ingress:   false,
-			localOnly: true,
 		},
 		"cilium-proxylib-egress": {
 			proxyType: types.ProxyTypeAny,
 			ingress:   false,
-			localOnly: true,
 		},
 		"cilium-proxylib-ingress": {
 			proxyType: types.ProxyTypeAny,
 			ingress:   true,
-			localOnly: true,
 		},
 	}
 }
@@ -232,7 +225,7 @@ func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) er
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
-		p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.localOnly, name)
+		p.datapathUpdater.InstallProxyRules(pp.proxyPort, name)
 		pp.rulesPort = pp.proxyPort
 	}
 	pp.nRedirects++
@@ -331,13 +324,13 @@ func (p *Proxy) GetProxyPort(name string) (uint16, error) {
 // already allocated.
 // Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
 // Each allocated port must be eventually freed with ReleaseProxyPort().
-func (p *Proxy) AllocateCRDProxyPort(name string, localOnly bool) (uint16, error) {
+func (p *Proxy) AllocateCRDProxyPort(name string) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	pp := p.proxyPorts[name]
 	if pp == nil || pp.ingress {
-		pp = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: false, localOnly: localOnly}
+		pp = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: false}
 	}
 
 	// Allocate a new port only if a port was never allocated before.
