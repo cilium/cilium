@@ -73,7 +73,7 @@ type ProxyPort struct {
 	// acknowledged yet. This is reset to false when the underlying proxy listener
 	// is removed.
 	configured bool
-	// rulesPort congains the proxy port value configured to the datapath rules and
+	// rulesPort contains the proxy port value configured to the datapath rules and
 	// is non-zero when a proxy has been successfully created and the
 	// datapath rules have been created.
 	rulesPort uint16
@@ -189,11 +189,11 @@ var (
 
 // Called with proxyPortsMutex held!
 func isPortAvailable(openLocalPorts map[uint16]struct{}, port uint16, reuse bool) bool {
-	if inuse, used := allocatedPorts[port]; used && (inuse || !reuse) {
-		return false // port already used
-	}
 	if port == 0 {
 		return false // zero port requested
+	}
+	if inuse, used := allocatedPorts[port]; used && (inuse || !reuse) {
+		return false // port already used
 	}
 	// Check that the port is not already open
 	if _, alreadyOpen := openLocalPorts[port]; alreadyOpen {
@@ -548,11 +548,9 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		}
 		if !pp.configured {
 			if nRetry > 0 {
-				// Retry with a new proxy port in case there was a conflict with the
-				// previous one when the port has not been `configured` yet.
-				// The incremented port number here is just a hint to allocatePort()
-				// below, it will check if it is available for use.
-				pp.proxyPort++
+				// Clear the proxy port on retry so that a random new port will be
+				// tried.
+				pp.proxyPort = 0
 			}
 
 			// Check if pp.proxyPort is available and find an another available proxy port if not.
@@ -589,6 +587,16 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 				// when reverting. Undo what we have done above.
 				p.mutex.Lock()
 				delete(p.redirects, id)
+
+				// Mark the port for reuse only if no other ports are available
+				// Discourage the reuse of the same port in future as revert may
+				// have been due to port not being available for bind().
+				allocatedPorts[pp.proxyPort] = false
+				// clear proxy port on failure so that a new one will be tried next
+				// time
+				pp.proxyPort = 0
+				pp.configured = false
+
 				p.updateRedirectMetrics()
 				p.mutex.Unlock()
 				implFinalizeFunc, _ := redir.implementation.Close(wg)
