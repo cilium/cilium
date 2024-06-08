@@ -1,5 +1,98 @@
 # Changelog
 
+## v1.15.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* [v1.15] fqdn: Forward-compatibility with Cilium 1.16 FQDN identities (cilium/cilium#32872, @gandro)
+* Generate SBOMs using Syft instead of bom (Backport PR #32691, Upstream PR #32307, @ferozsalam)
+* Improved background resynchronization of nodes. Before all nodes were being updated at the same time, now we spread updates over time to average out CPU usage. (Backport PR #32748, Upstream PR #32577, @marseel)
+* Introduce CLI commands to troubleshoot connectivity issues to the etcd kvstore and clustermesh control plane (Backport PR #32568, Upstream PR #32336, @giorio94)
+* ipsec: Improve CPU usage of cilum-agent in large clusters (Backport PR #32882, Upstream PR #32588, @marseel)
+* KVStoreMesh: expose remote clusters information and introduce dedicated CLI command (Backport PR #32568, Upstream PR #32156, @giorio94)
+
+**Bugfixes:**
+* .github/workflows: fix digests file creation (Backport PR #32889, Upstream PR #32860, @aanm)
+* [v1.15] iptables: Do not install NOTRACK rules if IPv4NativeRoutingCIDR is nil (cilium/cilium#32649, @pippolo84)
+* Add missing kvstore-max-consecutive-quorum-errors option to clustermesh-apiserver/kvstoremesh binaries (Backport PR #32500, Upstream PR #32117, @giorio94)
+* bgp: service eTP=local, withdraw route when last backend on the node goes in terminating state (Backport PR #32691, Upstream PR #32536, @harsimran-pabla)
+* Cilium BGPv1 Reconciler - Handle updated and deprecated Cidr fields for CiliumLoadBalancerIPPool (Backport PR #32889, Upstream PR #32694, @dswaffordcw)
+* cni: Reserve local ports for DNS proxy even if IPv6 is disabled (Backport PR #32789, Upstream PR #32725, @gandro)
+* egressgw: Let the EGW manager relax rp_filter on egress device (Backport PR #32778, Upstream PR #32679, @ysksuzuki)
+* Fix DNS proxy regression from Cilium 1.15 on IPv4 only nodes (Backport PR #32789, Upstream PR #31671, @foyerunix)
+* Fix indexing bug in the logic for picking NodePort addresses. In rare cases this may have caused wrong address to be selected for NodePort use, or an out-of-bounds access. (Backport PR #32691, Upstream PR #32506, @joamaki)
+* Fix PromQL query in Cilium Metrics dashboard (Backport PR #32691, Upstream PR #32017, @mikemykhaylov)
+* Fix rare race condition afflicting clustermesh when disconnecting from a remote cluster, possibly causing the agent to panic (Backport PR #32691, Upstream PR #32513, @giorio94)
+* Fixes accidentally ignoring the preflight.nodeSelector Helm value. (Backport PR #32691, Upstream PR #32548, @squeed)
+* Fixes unencrypted traffic among nodes when IPsec is used with L7 egress proxy. (Backport PR #32932, Upstream PR #32683, @jschwinger233)
+* ingress: Set the default value for max_stream_timeout (Backport PR #32889, Upstream PR #31514, @tskinn)
+* Introduce timeout when waiting for the initial synchronization from remote clusters, to avoid blocking forever necessary GC operations in case of clustermesh misconfigurations. (Backport PR #32802, Upstream PR #32671, @giorio94)
+* ipsec: Safely delete Xfrm state (Backport PR #32691, Upstream PR #32450, @jschwinger233)
+* proxy: Re-enable proxy rule installation in native-routing mode for CEC (Backport PR #32481, Upstream PR #32367, @sayboras)
+* Remove deprecated `hubble.ui.securityContext.enabled` from hubble-ui deployment template (Backport PR #32889, Upstream PR #32338, @stelucz)
+
+**CI Changes:**
+* CI: Add job name validation (Backport PR #32500, Upstream PR #32462, @brlbil)
+* ci: Filter supported versions of EKS (Backport PR #32889, Upstream PR #32304, @marseel)
+* ci: Filter supported versions of GKE (Backport PR #32691, Upstream PR #32302, @marseel)
+* ci: l4lb: gather more infos about docker-in-docker issues (Backport PR #32691, Upstream PR #32570, @mhofstetter)
+* ci: l4lb: restart docker-in-docker container on failure (Backport PR #32691, Upstream PR #32600, @mhofstetter)
+* eks: Don't use spot instances (Backport PR #32691, Upstream PR #32553, @michi-covalent)
+* GCP OIDC instead of SA creds. (Backport PR #32707, Upstream PR #30809, @viktor-kurchenko)
+* gha: cover TLS auth mode in clustermesh upgrade/downgrade tests (Backport PR #32789, Upstream PR #32684, @giorio94)
+* gha: test certificate generation methods in conformance clustermesh (Backport PR #32789, Upstream PR #32654, @giorio94)
+* Modify GitHub Actions Workflows to echo the inputs they are given when triggered by a `workflow_dispatch` event. (Backport PR #32500, Upstream PR #31424, @learnitall)
+* Use GH_RUNNER_EXTRA_POWER for CI image workflow (Backport PR #32500, Upstream PR #32402, @michi-covalent)
+* workflows: ignore "No egress gateway found" drops (Backport PR #32691, Upstream PR #32564, @jibi)
+* workflows: Remove stale CodeQL workflow (Backport PR #32691, Upstream PR #32084, @pchaigno)
+
+**Misc Changes:**
+* (v1.15) Bump go-jose (cilium/cilium#32869, @ferozsalam)
+* (v1.15) Bump golang.org/x/net (cilium/cilium#32793, @ferozsalam)
+* background-sync: fix bootstrap issue and edge-case with 1 node (Backport PR #32748, Upstream PR #32630, @marseel)
+* bpf: add ext_err for more callers of tail_call_internal() (Backport PR #32332, Upstream PR #30023, @julianwiedmann)
+* bpf: add improved helper for program-internal tail-call (Backport PR #32332, Upstream PR #30001, @julianwiedmann)
+* bpf: add multicast in MAX_OVERLAY_OPTIONS (Backport PR #32332, Upstream PR #32129, @harsimran-pabla)
+* bpf: convert ep_tail_call() to tail_call_internal() (Backport PR #32332, Upstream PR #30288, @julianwiedmann)
+* bpf: egw: delay SNAT for local client to actual egress interface (Backport PR #32789, Upstream PR #32428, @julianwiedmann)
+* bpf: hide dynamic/static variant for policy tail-call (Backport PR #32332, Upstream PR #32299, @julianwiedmann)
+* bpf: minor tail-call cleanups (Backport PR #32332, Upstream PR #31990, @julianwiedmann)
+* bump cni plugins to v1.5.0 (Backport PR #32691, Upstream PR #32629, @antonipp)
+* Bump timeout of lint-build-commits.yaml (Backport PR #32789, Upstream PR #32746, @YutaroHayakawa)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#32493, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#32632, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#32719, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#32841, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#32923, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (patch) (cilium/cilium#32633, @renovate[bot])
+* chore(deps): update cilium/cilium-cli action to v0.16.7 (v1.15) (cilium/cilium#32395, @renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.18 (v1.15) (cilium/cilium#32580, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.8 (v1.15) (cilium/cilium#32780, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.9 (v1.15) (cilium/cilium#32835, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.13.4 (v1.15) (cilium/cilium#32519, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.13.5 (v1.15) (cilium/cilium#32948, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 19478ce (v1.15) (cilium/cilium#32922, @renovate[bot])
+* chore(deps): update gcr.io/etcd-development/etcd docker tag to v3.5.14 (v1.15) (cilium/cilium#32838, @renovate[bot])
+* chore(deps): update go (v1.15) (cilium/cilium#32623, @renovate[bot])
+* chore(deps): update go to v1.21.11 (v1.15) (cilium/cilium#32894, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.13.4 (v1.15) (cilium/cilium#32634, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (cilium/cilium#32635, @renovate[bot])
+* contrib: Remove CHARTS_PATH dependency (Backport PR #32691, Upstream PR #32328, @joestringer)
+* datapath: report distinct drop reason for missed endpoint policy tailcall (Backport PR #32332, Upstream PR #32151, @julianwiedmann)
+* docs: Add example for kube-apiserver entity policy (Backport PR #32500, Upstream PR #32278, @joestringer)
+* Docs: add note about AKS kube-apiserver entity (Backport PR #32691, Upstream PR #32464, @darox)
+* docs: ipsec: remove limitation for native-routing with L7 egress policy (Backport PR #32955, Upstream PR #32906, @julianwiedmann)
+* Miscellaneous improvements to the clustermesh troubleshooting guide (Backport PR #32568, Upstream PR #32552, @giorio94)
+
+**Other Changes:**
+* [v1.15] bugtool: Avoid sensitive data in envoy config dump (cilium/cilium#32964, @sayboras)
+* [v1.15] envoy: Bump envoy version to v1.28.4 (cilium/cilium#32908, @sayboras)
+* Fix: LB service lookup for flow matching conntrack entry (cilium/cilium#32608, @sypakine)
+* install: Update image digests for v1.15.5 (cilium/cilium#32544, @nebril)
+* Revert golang image version of hubble-relay (cilium/cilium#32732, @YutaroHayakawa)
+
 ## v1.15.5
 
 Summary of Changes
