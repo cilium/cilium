@@ -56,6 +56,13 @@ func createDummyNode(cluster string) *v1.Node {
 	}
 }
 
+func (i *meshNodeInformer) ListClusters() []string {
+	i.mutex.RLock()
+	defer i.mutex.RUnlock()
+
+	return maps.Keys(i.nodes)
+}
+
 func (i *meshNodeInformer) List(selector labels.Selector) ([]*v1.Node, error) {
 	reqs, _ := selector.Requirements()
 	if !selector.Empty() {

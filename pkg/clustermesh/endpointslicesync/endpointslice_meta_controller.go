@@ -64,7 +64,9 @@ func newEndpointSliceMeshController(
 	factory := informers.NewSharedInformerFactory(meshClient, 12*time.Hour)
 	endpointSliceInformer := factory.Discovery().V1().EndpointSlices()
 
-	meshServiceInformer := newMeshServiceInformer(logger, globalServices, services)
+	meshServiceInformer := newMeshServiceInformer(
+		logger, globalServices, services, meshNodeInformer,
+	)
 
 	controller := endpointslice.NewControllerWithName(
 		ctx, meshPodInformer, meshServiceInformer,
