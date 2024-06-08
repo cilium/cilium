@@ -1,5 +1,79 @@
 # Changelog
 
+## v1.14.12
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* (v1.14) Generate SBOMs using Syft instead of bom (cilium/cilium#32750, @ferozsalam)
+* Improved background resynchronization of nodes. Before all nodes were being updated at the same time, now we spread updates over time to average out CPU usage. (Backport PR #32874, Upstream PR #32577, @marseel)
+* Introduce CLI commands to troubleshoot connectivity issues to the etcd kvstore and clustermesh control plane (Backport PR #32571, Upstream PR #32336, @giorio94)
+* ipsec: Improve CPU usage of cilum-agent in large clusters (Backport PR #32883, Upstream PR #32588, @marseel)
+* pkg/labels: print all leaf CIDRs, not just the last one. (Backport PR #32511, Upstream PR #28224, @squeed)
+
+**Bugfixes:**
+* .github/workflows: fix digests file creation (Backport PR #32888, Upstream PR #32860, @aanm)
+* [v1.14] iptables: Do not install NOTRACK rules if IPv4NativeRoutingCIDR is nil (cilium/cilium#32650, @pippolo84)
+* cni: Reserve local ports for DNS proxy even if IPv6 is disabled (Backport PR #32787, Upstream PR #32725, @gandro)
+* Fix PromQL query in Cilium Metrics dashboard (Backport PR #32695, Upstream PR #32017, @mikemykhaylov)
+* Fix rare race condition afflicting clustermesh when disconnecting from a remote cluster, possibly causing the agent to panic (Backport PR #32695, Upstream PR #32513, @giorio94)
+* Fix: Ensure enabling metrics turns on identity GC metrics (cilium/cilium#32447, @jaredledvina)
+* Fixes accidentally ignoring the preflight.nodeSelector Helm value. (Backport PR #32695, Upstream PR #32548, @squeed)
+* ipsec: Safely delete Xfrm state (Backport PR #32704, Upstream PR #32450, @jschwinger233)
+* proxy: Re-enable proxy rule installation in native-routing mode for CEC (Backport PR #32483, Upstream PR #32367, @sayboras)
+* Remove deprecated `hubble.ui.securityContext.enabled` from hubble-ui deployment template (Backport PR #32888, Upstream PR #32338, @stelucz)
+
+**CI Changes:**
+* ci: Filter supported versions of EKS (Backport PR #32888, Upstream PR #32304, @marseel)
+* ci: Filter supported versions of GKE (Backport PR #32695, Upstream PR #32302, @marseel)
+* ci: l4lb: Don't hang on gathering logs forever (Backport PR #32968, Upstream PR #32947, @joestringer)
+* ci: l4lb: gather more infos about docker-in-docker issues (Backport PR #32695, Upstream PR #32570, @mhofstetter)
+* ci: l4lb: restart docker-in-docker container on failure (Backport PR #32695, Upstream PR #32600, @mhofstetter)
+* eks: Don't use spot instances (Backport PR #32695, Upstream PR #32553, @michi-covalent)
+* GCP OIDC instead of SA creds. (Backport PR #32708, Upstream PR #30809, @viktor-kurchenko)
+* gha: test certificate generation methods in conformance clustermesh (Backport PR #32787, Upstream PR #32654, @giorio94)
+* Modify GitHub Actions Workflows to echo the inputs they are given when triggered by a `workflow_dispatch` event. (Backport PR #32503, Upstream PR #31424, @learnitall)
+* Use GH_RUNNER_EXTRA_POWER for CI image workflow (Backport PR #32503, Upstream PR #32402, @michi-covalent)
+* workflows: ignore "No egress gateway found" drops (Backport PR #32695, Upstream PR #32564, @jibi)
+* workflows: Remove stale CodeQL workflow (Backport PR #32695, Upstream PR #32084, @pchaigno)
+
+**Misc Changes:**
+* (v1.14) Bump golang.org/x/net (cilium/cilium#32792, @ferozsalam)
+* background-sync: fix bootstrap issue and edge-case with 1 node (Backport PR #32874, Upstream PR #32630, @marseel)
+* bump cni plugins to v1.5.0 (Backport PR #32695, Upstream PR #32629, @antonipp)
+* Bump timeout of lint-build-commits.yaml (Backport PR #32787, Upstream PR #32746, @YutaroHayakawa)
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#32495, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#32637, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#32720, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#32741, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#32842, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#32925, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (patch) (cilium/cilium#32638, @renovate[bot])
+* chore(deps): update cilium/cilium-cli action to v0.16.7 (v1.14) (cilium/cilium#32496, @renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.18 (v1.14) (cilium/cilium#32581, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.9 (v1.14) (cilium/cilium#32836, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.13.5 (v1.14) (cilium/cilium#32949, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.10 docker digest to 16438a8 (v1.14) (cilium/cilium#32636, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 19478ce (v1.14) (cilium/cilium#32924, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to a6d2b38 (v1.14) (cilium/cilium#32369, @renovate[bot])
+* chore(deps): update github/codeql-action action to v3.25.5 (v1.14) (cilium/cilium#32510, @renovate[bot])
+* chore(deps): update go to v1.21.11 (v1.14) (cilium/cilium#32895, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.4 (v1.14) (cilium/cilium#32722, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (cilium/cilium#32723, @renovate[bot])
+* contrib: Remove CHARTS_PATH dependency (Backport PR #32695, Upstream PR #32328, @joestringer)
+* Docs: add note about AKS kube-apiserver entity (Backport PR #32695, Upstream PR #32464, @darox)
+* docs: ipsec: remove limitation for native-routing with L7 egress policy (Backport PR #32956, Upstream PR #32906, @julianwiedmann)
+* Miscellaneous improvements to the clustermesh troubleshooting guide (Backport PR #32571, Upstream PR #32552, @giorio94)
+* Remove release scripts (Backport PR #32968, Upstream PR #32938, @aanm)
+
+**Other Changes:**
+* [1.14-backport] ipsec: Fix unencrypted traffic when IPsec is used with L7 egress proxy (cilium/cilium#31976, @jschwinger233)
+* [v1.14] bugtool: Avoid sensitive data in envoy config dump (cilium/cilium#32965, @sayboras)
+* [v1.14] envoy: Bump envoy version to v1.28.4 (cilium/cilium#32910, @sayboras)
+* envoy: Update envoy 1.27.x to 1.28.3 (cilium/cilium#32482, @sayboras)
+* install: Update image digests for v1.14.11 (cilium/cilium#32545, @nebril)
+
 ## v1.14.11
 
 Summary of Changes
