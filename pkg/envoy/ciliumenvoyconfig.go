@@ -57,7 +57,7 @@ type Resources struct {
 }
 
 type PortAllocator interface {
-	AllocateCRDProxyPort(name string, localOnly bool) (uint16, error)
+	AllocateCRDProxyPort(name string) (uint16, error)
 	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
@@ -446,7 +446,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 	// Do this only after all other possible error cases.
 	for _, listener := range resources.Listeners {
 		if listener.GetAddress() == nil {
-			port, err := portAllocator.AllocateCRDProxyPort(listener.Name, true)
+			port, err := portAllocator.AllocateCRDProxyPort(listener.Name)
 			if err != nil || port == 0 {
 				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %w", listener.Name, err)
 			}
