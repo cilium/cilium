@@ -541,6 +541,11 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 	_ = redir.updateRules(l4) // revertFunc not used because revert will remove whole redirect
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
+	if pp.proxyPort == 0 && pp.rulesPort != 0 {
+		// try first with the previous port
+		pp.proxyPort = pp.rulesPort
+	}
+
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if nRetry > 0 {
 			// an error occurred and we are retrying
