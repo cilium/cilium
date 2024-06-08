@@ -821,21 +821,14 @@ func (m *Manager) addProxyRules(prog iptablesInterface, ip string, proxyPort uin
 }
 
 // install or remove rules for a single proxy port
-func (m *Manager) iptProxyRules(proxyPort uint16, ingress, localOnly bool, name string) error {
-	ipv4 := "0.0.0.0"
-	ipv6 := "::"
-
-	if localOnly {
-		ipv4 = "127.0.0.1"
-		ipv6 = "::1"
-	}
+func (m *Manager) iptProxyRules(proxyPort uint16, ingress bool, name string) error {
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, ingress, name); err != nil {
+		if err := m.addProxyRules(ip4tables, "127.0.0.1", proxyPort, ingress, name); err != nil {
 			return err
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, ingress, name); err != nil {
+		if err := m.addProxyRules(ip6tables, "::1", proxyPort, ingress, name); err != nil {
 			return err
 		}
 	}
@@ -1028,7 +1021,7 @@ func (m *Manager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	return nil
 }
 
-func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error {
 	backoff := backoff.Exponential{
 		Min:  20 * time.Second,
 		Max:  3 * time.Minute,
@@ -1040,7 +1033,7 @@ func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingre
 
 	for {
 		attempt += 1
-		err := m.doInstallProxyRules(proxyPort, ingress, localOnly, name)
+		err := m.doInstallProxyRules(proxyPort, ingress, name)
 		if err == nil {
 			log.Info("Iptables proxy rules installed")
 			return nil
@@ -1055,7 +1048,7 @@ func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingre
 	}
 }
 
-func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress bool, name string) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -1064,7 +1057,7 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool,
 			Debug("Skipping proxy rule install due to BPF support")
 		return nil
 	}
-	return m.iptProxyRules(proxyPort, ingress, localOnly, name)
+	return m.iptProxyRules(proxyPort, ingress, name)
 }
 
 // GetProxyPort finds a proxy port used for redirect 'name' installed earlier with InstallProxyRules.
