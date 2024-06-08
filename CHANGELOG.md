@@ -1,5 +1,69 @@
 # Changelog
 
+## v1.13.17
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Improved background resynchronization of nodes. Before all nodes were being updated at the same time, now we spread updates over time to average out CPU usage. (Backport PR #32885, Upstream PR #32577, @marseel)
+* Introduce CLI commands to troubleshoot connectivity issues to the etcd kvstore and clustermesh control plane (Backport PR #32573, Upstream PR #32336, @giorio94)
+* ipsec: Improve CPU usage of cilum-agent in large clusters (Backport PR #32884, Upstream PR #32588, @marseel)
+
+**Bugfixes:**
+* .github/workflows: fix digests file creation (Backport PR #32887, Upstream PR #32860, @aanm)
+* [v1.13] iptables: Do not install NOTRACK rules if IPv4NativeRoutingCIDR is nil (cilium/cilium#32652, @pippolo84)
+* cni: Reserve local ports for DNS proxy even if IPv6 is disabled (Backport PR #32786, Upstream PR #32725, @gandro)
+* Fixes accidentally ignoring the preflight.nodeSelector Helm value. (Backport PR #32696, Upstream PR #32548, @squeed)
+* ipsec: Safely delete Xfrm state (Backport PR #32705, Upstream PR #32450, @jschwinger233)
+* Remove deprecated `hubble.ui.securityContext.enabled` from hubble-ui deployment template (Backport PR #32887, Upstream PR #32338, @stelucz)
+
+**CI Changes:**
+* ci: Filter supported versions of EKS (Backport PR #32887, Upstream PR #32304, @marseel)
+* ci: Filter supported versions of GKE (Backport PR #32696, Upstream PR #32302, @marseel)
+* ci: l4lb: Don't hang on gathering logs forever (Backport PR #32963, Upstream PR #32947, @joestringer)
+* ci: l4lb: gather more infos about docker-in-docker issues (Backport PR #32696, Upstream PR #32570, @mhofstetter)
+* ci: l4lb: restart docker-in-docker container on failure (Backport PR #32696, Upstream PR #32600, @mhofstetter)
+* ci: update unsupported ci-aks k8s version from 1.26 to 1.27 (cilium/cilium#32502, @mhofstetter)
+* eks: Don't use spot instances (Backport PR #32696, Upstream PR #32553, @michi-covalent)
+* GCP OIDC instead of SA creds. (Backport PR #32709, Upstream PR #30809, @viktor-kurchenko)
+* gha: correctly trigger integration tests via ariane commands (cilium/cilium#32843, @giorio94)
+* Modify GitHub Actions Workflows to echo the inputs they are given when triggered by a `workflow_dispatch` event. (Backport PR #32504, Upstream PR #31424, @learnitall)
+* Use GH_RUNNER_EXTRA_POWER for CI image workflow (Backport PR #32504, Upstream PR #32402, @michi-covalent)
+* workflows: ignore "No egress gateway found" drops (Backport PR #32696, Upstream PR #32564, @jibi)
+* workflows: Remove stale CodeQL workflow (Backport PR #32696, Upstream PR #32084, @pchaigno)
+
+**Misc Changes:**
+* (v1.13) Bump golang.org/x/net (cilium/cilium#32791, @ferozsalam)
+* background-sync: fix bootstrap issue and edge-case with 1 node (Backport PR #32885, Upstream PR #32630, @marseel)
+* bump cni plugins to v1.5.0 (Backport PR #32696, Upstream PR #32629, @antonipp)
+* Bump timeout of lint-build-commits.yaml (Backport PR #32786, Upstream PR #32746, @YutaroHayakawa)
+* chore(deps): update all github action dependencies (v1.13) (cilium/cilium#32499, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (cilium/cilium#32742, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (cilium/cilium#32845, @renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.18 (v1.13) (cilium/cilium#32582, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.13.5 (v1.13) (cilium/cilium#32950, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.10 docker digest to 16438a8 (v1.13) (cilium/cilium#32740, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 19478ce (v1.13) (cilium/cilium#32926, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to a6d2b38 (v1.13) (cilium/cilium#32376, @renovate[bot])
+* chore(deps): update github/codeql-action action to v3.25.5 (v1.13) (cilium/cilium#32516, @renovate[bot])
+* chore(deps): update go to v1.21.11 (v1.13) (cilium/cilium#32896, @renovate[bot])
+* chore(deps): update google/cloud-sdk docker tag to v479 (v1.13) (cilium/cilium#32927, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.4 (v1.13) (cilium/cilium#32837, @renovate[bot])
+* chore(deps): update kindest/node docker tag to v1.26.15 (v1.13) (cilium/cilium#32583, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.13) (patch) (cilium/cilium#32844, @renovate[bot])
+* contrib: Remove CHARTS_PATH dependency (Backport PR #32696, Upstream PR #32328, @joestringer)
+* Docs: add note about AKS kube-apiserver entity (Backport PR #32696, Upstream PR #32464, @darox)
+* Miscellaneous improvements to the clustermesh troubleshooting guide (Backport PR #32573, Upstream PR #32552, @giorio94)
+* Remove release scripts (Backport PR #32963, Upstream PR #32938, @aanm)
+
+**Other Changes:**
+* [v1.13] bugtool: Avoid sensitive data in envoy config dump (cilium/cilium#32966, @sayboras)
+* [v1.13] envoy: Bump envoy version to v1.28.4 (cilium/cilium#32911, @sayboras)
+* [v1.13] images: update cilium-{runtime,builder} (cilium/cilium#32449, @michi-covalent)
+* envoy: Update envoy 1.27.x to 1.28.3 (cilium/cilium#32540, @sayboras)
+* install: Update image digests for v1.13.16 (cilium/cilium#32547, @nebril)
+
 ## v1.13.16
 
 Summary of Changes
