@@ -975,33 +975,26 @@ func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 	<-reconciled
 }
 
-func (m *Manager) InstallProxyRules(proxyPort uint16, isLocalOnly bool, name string) {
+func (m *Manager) InstallProxyRules(proxyPort uint16, name string) {
 	reconciled := make(chan struct{})
-	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort, isLocalOnly}, reconciled}
+	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort}, reconciled}
 	<-reconciled
 }
 
-func (m *Manager) doInstallProxyRules(proxyPort uint16, localOnly bool, name string) error {
+func (m *Manager) doInstallProxyRules(proxyPort uint16, name string) error {
 	if m.haveBPFSocketAssign {
 		log.WithField("port", proxyPort).
 			Debug("Skipping proxy rule install due to BPF support")
 		return nil
 	}
 
-	ipv4 := "0.0.0.0"
-	ipv6 := "::"
-	if localOnly {
-		ipv4 = "127.0.0.1"
-		ipv6 = "::1"
-	}
-
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, name); err != nil {
+		if err := m.addProxyRules(ip4tables, "127.0.0.1", proxyPort, name); err != nil {
 			return err
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, name); err != nil {
+		if err := m.addProxyRules(ip6tables, "::1", proxyPort, name); err != nil {
 			return err
 		}
 	}
@@ -1481,7 +1474,7 @@ func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
 		}
 
 		for _, proxy := range state.proxies {
-			if err := m.doInstallProxyRules(proxy.port, proxy.isLocalOnly, proxy.name); err != nil {
+			if err := m.doInstallProxyRules(proxy.port, proxy.name); err != nil {
 				return fmt.Errorf("cannot install proxy rules for %s: %w", proxy.name, err)
 			}
 		}
