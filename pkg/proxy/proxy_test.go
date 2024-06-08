@@ -37,7 +37,7 @@ func TestPortAllocator(t *testing.T) {
 
 	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
 
-	port, err := p.AllocateProxyPort("listener1", false, true)
+	port, err := p.AllocateCRDProxyPort("listener1", true)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, port)
 
@@ -46,7 +46,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, port, port1)
 
 	// Another allocation for the same name gets the same port
-	port1a, err := p.AllocateProxyPort("listener1", false, true)
+	port1a, err := p.AllocateCRDProxyPort("listener1", true)
 	require.NoError(t, err)
 	require.Equal(t, port1, port1a)
 
@@ -76,9 +76,12 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, uint16(0), pp.rulesPort)
 
 	// Allocates a different port (due to port was never acked)
-	port2, err := p.AllocateProxyPort("listener1", true, false)
+	port2, err := p.AllocateCRDProxyPort("listener1", true)
 	require.NoError(t, err)
 	require.NotEqual(t, port, port2)
+	name2, pp2 := p.findProxyPortByType(types.ProxyTypeCRD, "listener1", false)
+	require.Equal(t, name2, name)
+	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
 	require.Equal(t, false, pp.ingress)
 	require.Equal(t, true, pp.localOnly)
@@ -127,11 +130,14 @@ func TestPortAllocator(t *testing.T) {
 	p.allocatedPorts[port2] = true
 
 	// Allocate again, this time a different port is allocated
-	port3, err := p.AllocateProxyPort("listener1", true, true)
+	port3, err := p.AllocateCRDProxyPort("listener1", true)
 	require.NoError(t, err)
 	require.NotEqual(t, uint16(0), port3)
 	require.NotEqual(t, port2, port3)
 	require.NotEqual(t, port1, port3)
+	name2, pp2 = p.findProxyPortByType(types.ProxyTypeCRD, "listener1", false)
+	require.Equal(t, name2, name)
+	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
 	require.Equal(t, false, pp.ingress)
 	require.Equal(t, true, pp.localOnly)
@@ -160,7 +166,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, false, inuse)
 
 	// No-one used the port so next allocation gets the same port again
-	port4, err := p.AllocateProxyPort("listener1", true, true)
+	port4, err := p.AllocateCRDProxyPort("listener1", true)
 	require.NoError(t, err)
 	require.Equal(t, port3, port4)
 	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
