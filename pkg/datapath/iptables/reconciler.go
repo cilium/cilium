@@ -90,9 +90,8 @@ type reconciliationRequest[T any] struct {
 }
 
 type proxyInfo struct {
-	name        string
-	port        uint16
-	isLocalOnly bool
+	name string
+	port uint16
 }
 
 type noTrackPodInfo struct {
@@ -107,7 +106,7 @@ func reconciliationLoop(
 	installIptRules bool,
 	params *reconcilerParams,
 	updateRules func(state desiredState, firstInit bool) error,
-	updateProxyRules func(proxyPort uint16, localOnly bool, name string) error,
+	updateProxyRules func(proxyPort uint16, name string) error,
 	installNoTrackRules func(addr netip.Addr, port uint16) error,
 	removeNoTrackRules func(addr netip.Addr, port uint16) error,
 ) error {
@@ -201,7 +200,7 @@ stop:
 				continue
 			}
 
-			if err := updateProxyRules(req.info.port, req.info.isLocalOnly, req.info.name); err != nil {
+			if err := updateProxyRules(req.info.port, req.info.name); err != nil {
 				if partialLogLimiter.Allow() {
 					log.WithError(err).Error("iptables proxy rules incremental update failed, will retry a full reconciliation")
 				}

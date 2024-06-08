@@ -81,7 +81,7 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, *datapath.LocalNodeConfigu
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(uint16, bool, string) {
+func (f *FakeDatapath) InstallProxyRules(uint16, string) {
 }
 
 func (f *FakeDatapath) SupportsOriginalSourceAddr() bool {
