@@ -628,6 +628,11 @@ func (p *Proxy) createNewRedirect(
 	scopedLog = scopedLog.
 		WithField("portName", ppName)
 
+	if pp.proxyPort == 0 && pp.rulesPort != 0 {
+		// try first with the previous port
+		pp.proxyPort = pp.rulesPort
+	}
+
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if !pp.configured {
 			if nRetry > 0 {
