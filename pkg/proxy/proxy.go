@@ -64,6 +64,7 @@ type ProxyPort struct {
 	// proxy type this port applies to (immutable)
 	proxyType types.ProxyType
 	// 'true' for ingress, 'false' for egress (immutable)
+	// 'false' for CRD redirects, which are accessed by name only.
 	ingress bool
 	// ProxyPort is the desired proxy listening port number.
 	proxyPort uint16
@@ -317,7 +318,8 @@ func findProxyPortByType(l7Type types.ProxyType, listener string, ingress bool) 
 	switch l7Type {
 	case types.ProxyTypeCRD:
 		// CRD proxy ports are dynamically created, look up by name
-		if pp, ok := proxyPorts[listener]; ok && pp.proxyType == types.ProxyTypeCRD {
+		// 'ingress' is always false for CRD type
+		if pp, ok := proxyPorts[listener]; ok && pp.proxyType == types.ProxyTypeCRD && !pp.ingress {
 			return listener, pp
 		}
 		log.Debugf("findProxyPortByType: can not find crd listener %s from %v", listener, proxyPorts)
@@ -366,17 +368,17 @@ func GetProxyPort(name string) (uint16, error) {
 	return 0, proxyNotFoundError(name)
 }
 
-// AllocateProxyPort() allocates a new port for listener 'name', or returns the current one if
+// AllocateCRDProxyPort() allocates a new port for listener 'name', or returns the current one if
 // already allocated.
 // Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
 // Each allocated port must be eventually freed with ReleaseProxyPort().
-func (p *Proxy) AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error) {
+func (p *Proxy) AllocateCRDProxyPort(name string, localOnly bool) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
 	pp := proxyPorts[name]
-	if pp == nil {
-		pp = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: ingress, localOnly: localOnly}
+	if pp == nil || pp.ingress {
+		pp = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: false, localOnly: localOnly}
 	}
 
 	// Allocate a new port only if a port was never allocated before.
