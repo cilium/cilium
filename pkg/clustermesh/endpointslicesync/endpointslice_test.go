@@ -227,6 +227,31 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 0)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
+	})
 
+	t.Run("Create service and global service and then delete global svc", func(t *testing.T) {
+		svcName := "local-svc-no-global-svc"
+		clusterSvc := createGlobalService(globalService, podInformer, svcName, nil)
+		svc1 := createService(svcName)
+		svcStore.CacheStore().Add(svc1)
+		serviceInformer.refreshAllCluster(svc1)
+
+		var epList *discovery.EndpointSliceList
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			// Make sure that we have 1 endpointslice
+			epList, err = getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 1)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
+
+		globalService.OnDelete(clusterSvc)
+		// We manually call the rest of the informer for convenience
+		podInformer.onClusterServiceDelete(clusterSvc)
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			epList, err := getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 0)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
 	})
 }
