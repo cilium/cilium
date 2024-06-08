@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,7 @@ const (
 type meshServiceInformer struct {
 	dummyInformer
 
+	logger             logrus.FieldLogger
 	globalServiceCache *common.GlobalServiceCache
 	services           resource.Resource[*slim_corev1.Service]
 	serviceStore       resource.Store[*slim_corev1.Service]
@@ -94,11 +96,13 @@ func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) error 
 }
 
 func newMeshServiceInformer(
+	logger logrus.FieldLogger,
 	globalServiceCache *common.GlobalServiceCache,
 	services resource.Resource[*slim_corev1.Service],
 ) *meshServiceInformer {
 	return &meshServiceInformer{
-		dummyInformer:      dummyInformer{"meshServiceInformer"},
+		dummyInformer:      dummyInformer{name: "meshServiceInformer", logger: logger},
+		logger:             logger,
 		globalServiceCache: globalServiceCache,
 		services:           services,
 	}
@@ -254,7 +258,7 @@ func (i *meshServiceInformer) Start(ctx context.Context) error {
 			var err error
 			switch event.Kind {
 			case resource.Sync:
-				log.Debug("Local services are synced")
+				i.logger.Debug("Local services are synced")
 				i.servicesSynced.Store(true)
 			case resource.Upsert:
 				err = i.refreshAllCluster(event.Object)
@@ -278,6 +282,6 @@ func (i *meshServiceInformer) Lister() listersv1.ServiceLister {
 }
 
 func (i *meshServiceInformer) List(selector labels.Selector) (ret []*v1.Service, err error) {
-	log.Error("called not implemented function meshServiceInformer.List")
+	i.logger.Error("called not implemented function meshServiceInformer.List")
 	return nil, nil
 }
