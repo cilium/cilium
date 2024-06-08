@@ -44,7 +44,7 @@ const (
 )
 
 type DatapathUpdater interface {
-	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error
+	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error
 	SupportsOriginalSourceAddr() bool
 }
 
@@ -78,8 +78,6 @@ type ProxyPort struct {
 	// is non-zero when a proxy has been successfully created and the
 	// datapath rules have been created.
 	rulesPort uint16
-	// localOnly is true when the proxy port is only accessible from the loopback device
-	localOnly bool
 }
 
 // Proxy maintains state about redirects
@@ -163,27 +161,22 @@ var (
 		"cilium-http-egress": {
 			proxyType: types.ProxyTypeHTTP,
 			ingress:   false,
-			localOnly: true,
 		},
 		"cilium-http-ingress": {
 			proxyType: types.ProxyTypeHTTP,
 			ingress:   true,
-			localOnly: true,
 		},
 		types.DNSProxyName: {
 			proxyType: types.ProxyTypeDNS,
 			ingress:   false,
-			localOnly: true,
 		},
 		"cilium-proxylib-egress": {
 			proxyType: types.ProxyTypeAny,
 			ingress:   false,
-			localOnly: true,
 		},
 		"cilium-proxylib-ingress": {
 			proxyType: types.ProxyTypeAny,
 			ingress:   true,
-			localOnly: true,
 		},
 	}
 )
@@ -271,7 +264,7 @@ func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) er
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
-		if err := p.datapathUpdater.InstallProxyRules(ctx, pp.proxyPort, pp.ingress, pp.localOnly, name); err != nil {
+		if err := p.datapathUpdater.InstallProxyRules(ctx, pp.proxyPort, pp.ingress, name); err != nil {
 			return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 		}
 		pp.rulesPort = pp.proxyPort
@@ -372,13 +365,13 @@ func GetProxyPort(name string) (uint16, error) {
 // already allocated.
 // Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
 // Each allocated port must be eventually freed with ReleaseProxyPort().
-func (p *Proxy) AllocateCRDProxyPort(name string, localOnly bool) (uint16, error) {
+func (p *Proxy) AllocateCRDProxyPort(name string) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
 	pp := proxyPorts[name]
 	if pp == nil || pp.ingress {
-		pp = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: false, localOnly: localOnly}
+		pp = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: false}
 	}
 
 	// Allocate a new port only if a port was never allocated before.
@@ -440,7 +433,7 @@ func (p *Proxy) ReinstallRules(ctx context.Context) error {
 	for name, pp := range proxyPorts {
 		if pp.rulesPort > 0 {
 			// This should always succeed if we have managed to start-up properly
-			if err := p.datapathUpdater.InstallProxyRules(ctx, pp.rulesPort, pp.ingress, pp.localOnly, name); err != nil {
+			if err := p.datapathUpdater.InstallProxyRules(ctx, pp.rulesPort, pp.ingress, name); err != nil {
 				return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 			}
 		}
