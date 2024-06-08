@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/endpointslice-controller/endpointslice"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -111,6 +112,7 @@ func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	var fakeClient k8sClient.FakeClientset
 	var services resource.Resource[*slim_corev1.Service]
+	logger := logrus.New()
 	hive := hive.New(
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,
@@ -131,10 +133,11 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	defer hive.Stop(tlog, context.Background())
 
 	globalService := common.NewGlobalServiceCache(metric.NewGauge(metric.GaugeOpts{}))
-	podInformer := newMeshPodInformer(globalService)
-	nodeInformer := newMeshNodeInformer()
+	podInformer := newMeshPodInformer(logger, globalService)
+	nodeInformer := newMeshNodeInformer(logger)
 	controller, serviceInformer, endpointsliceInformer := newEndpointSliceMeshController(
-		context.Background(), ClusterMeshConfig{ClusterMeshMaxEndpointsPerSlice: 100},
+		context.Background(), logger,
+		EndpointSliceSyncConfig{ClusterMeshMaxEndpointsPerSlice: 100},
 		podInformer, nodeInformer, &fakeClient, services, globalService,
 	)
 	endpointsliceInformer.Start(context.Background().Done())

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
+	"github.com/sirupsen/logrus"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,22 +54,23 @@ func endpointSliceCleanupFactory(ctx context.Context, discoveryClient discoveryv
 }
 
 func newEndpointSliceMeshController(
-	ctx context.Context, meshConfig ClusterMeshConfig, meshPodInformer *meshPodInformer,
-	meshNodeInformer *meshNodeInformer, clientset k8sClient.Clientset,
-	services resource.Resource[*slim_corev1.Service], globalServices *common.GlobalServiceCache,
+	ctx context.Context, logger logrus.FieldLogger, cfg EndpointSliceSyncConfig,
+	meshPodInformer *meshPodInformer, meshNodeInformer *meshNodeInformer,
+	clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service],
+	globalServices *common.GlobalServiceCache,
 ) (*endpointslice.Controller, *meshServiceInformer, informers.SharedInformerFactory) {
 	meshClient := meshClient{clientset}
 
 	factory := informers.NewSharedInformerFactory(meshClient, 12*time.Hour)
 	endpointSliceInformer := factory.Discovery().V1().EndpointSlices()
 
-	meshServiceInformer := newMeshServiceInformer(globalServices, services)
+	meshServiceInformer := newMeshServiceInformer(logger, globalServices, services)
 
 	controller := endpointslice.NewControllerWithName(
 		ctx, meshPodInformer, meshServiceInformer,
 		meshNodeInformer, endpointSliceInformer,
-		int32(meshConfig.ClusterMeshMaxEndpointsPerSlice),
-		meshClient, meshConfig.ClusterMeshEndpointUpdatesBatchPeriod,
+		int32(cfg.ClusterMeshMaxEndpointsPerSlice),
+		meshClient, cfg.ClusterMeshEndpointUpdatesBatchPeriod,
 		utils.EndpointSliceMeshControllerName, nil,
 		endpointSliceCleanupFactory(ctx, clientset.DiscoveryV1(), endpointSliceInformer.Lister()),
 	)

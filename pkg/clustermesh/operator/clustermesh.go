@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package endpointslicesync
+package operator
 
 import (
 	"cmp"
@@ -11,10 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/cilium/endpointslice-controller/endpointslice"
 	"github.com/cilium/hive/cell"
-	"k8s.io/client-go/informers"
-	cache "k8s.io/client-go/tools/cache"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -29,24 +27,14 @@ type clusterMesh struct {
 	// common implements the common logic to connect to remote clusters.
 	common common.ClusterMesh
 
-	context       context.Context
-	contextCancel context.CancelFunc
-	Metrics       Metrics
+	logger  logrus.FieldLogger
+	Metrics Metrics
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
 	globalServices *common.GlobalServiceCache
 
 	storeFactory store.Factory
-
-	concurrentClusterMeshEndpointSync int
-
-	meshPodInformer     *meshPodInformer
-	meshNodeInformer    *meshNodeInformer
-	meshServiceInformer *meshServiceInformer
-
-	endpointSliceMeshController  *endpointslice.Controller
-	endpointSliceInformerFactory informers.SharedInformerFactory
 
 	started                   atomic.Bool
 	clusterAddHooks           []func(string)
@@ -79,33 +67,20 @@ type ClusterMesh interface {
 }
 
 func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, ClusterMesh) {
-	if !params.Clientset.IsEnabled() || params.ClusterMeshConfig == "" || !params.Cfg.ClusterMeshEnableEndpointSync {
+	if params.ClusterMeshConfig == "" || !params.Cfg.ClusterMeshEnableEndpointSync {
 		return nil, nil
 	}
 
-	log.Info("Endpoint Slice Cluster Mesh synchronization enabled")
+	params.Logger.Info("Operator ClusterMesh component enabled")
 
 	cm := clusterMesh{
-		Metrics: params.Metrics,
+		logger: params.Logger,
 		globalServices: common.NewGlobalServiceCache(
 			params.Metrics.TotalGlobalServices.WithLabelValues(params.ClusterInfo.Name),
 		),
-		storeFactory:                      params.StoreFactory,
-		concurrentClusterMeshEndpointSync: params.Cfg.ClusterMeshMaxEndpointsPerSlice,
-		syncTimeoutConfig:                 params.TimeoutConfig,
+		storeFactory:      params.StoreFactory,
+		syncTimeoutConfig: params.TimeoutConfig,
 	}
-	cm.context, cm.contextCancel = context.WithCancel(context.Background())
-	cm.meshPodInformer = newMeshPodInformer(cm.globalServices)
-	cm.RegisterClusterServiceUpdateHook(cm.meshPodInformer.onClusterServiceUpdate)
-	cm.RegisterClusterServiceDeleteHook(cm.meshPodInformer.onClusterServiceDelete)
-	cm.meshNodeInformer = newMeshNodeInformer()
-	cm.RegisterClusterAddHook(cm.meshNodeInformer.onClusterAdd)
-	cm.RegisterClusterDeleteHook(cm.meshNodeInformer.onClusterDelete)
-	cm.endpointSliceMeshController, cm.meshServiceInformer, cm.endpointSliceInformerFactory = newEndpointSliceMeshController(
-		cm.context, params.Cfg, cm.meshPodInformer,
-		cm.meshNodeInformer, params.Clientset,
-		params.Services, cm.globalServices,
-	)
 	cm.common = common.NewClusterMesh(common.Configuration{
 		Config:           params.Config,
 		ClusterInfo:      params.ClusterInfo,
@@ -177,7 +152,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			serviceStore.NamespacedNameValidator(),
 		),
 		common.NewSharedServicesObserver(
-			log.WithField(logfields.ClusterName, name),
+			cm.logger.WithField(logfields.ClusterName, name),
 			cm.globalServices,
 			func(svc *serviceStore.ClusterService) {
 				for _, hook := range cm.clusterServiceUpdateHooks {
@@ -196,32 +171,12 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 	return rc
 }
 
-func (cm *clusterMesh) Start(startCtx cell.HookContext) error {
-	log.Info("Bootstrap clustermesh EndpointSlice controller")
+func (cm *clusterMesh) Start(cell.HookContext) error {
 	cm.started.Store(true)
-
-	cm.endpointSliceInformerFactory.Start(cm.context.Done())
-	if err := cm.meshServiceInformer.Start(cm.context); err != nil {
-		return err
-	}
-	cm.endpointSliceInformerFactory.WaitForCacheSync(startCtx.Done())
-
-	if !cache.WaitForCacheSync(startCtx.Done(), cm.meshServiceInformer.HasSynced) {
-		return fmt.Errorf("waitForCacheSync on service informer not successful")
-	}
-
-	go func() {
-		if err := cm.ServicesSynced(cm.context); err != nil {
-			return // The parent context expired, and we are already terminating
-		}
-		cm.endpointSliceMeshController.Run(cm.context, cm.concurrentClusterMeshEndpointSync)
-	}()
-
 	return nil
 }
 
 func (cm *clusterMesh) Stop(cell.HookContext) error {
-	cm.contextCancel()
 	return nil
 }
 
@@ -250,7 +205,7 @@ func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 		// and continue normally, as if the synchronization completed successfully.
 		// This ensures that we don't block forever in case of misconfigurations.
 		cm.syncTimeoutLogOnce.Do(func() {
-			log.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
+			cm.logger.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
 		})
 
 		return nil
