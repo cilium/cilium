@@ -100,14 +100,14 @@ func createEnvoyRedirect(r *Redirect, runDir string, xdsServer *envoy.XDSServer,
 	l := r.listener
 	if envoyAdminClient != nil {
 		redirect := &envoyRedirect{
-			listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.proxyPort)),
+			listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.ProxyPort)),
 			xdsServer:    xdsServer,
 		}
 		// Only use original source address for egress
-		if l.ingress {
+		if l.Ingress {
 			mayUseOriginalSourceAddr = false
 		}
-		xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.proxyType), l.proxyPort, l.ingress,
+		xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress,
 			mayUseOriginalSourceAddr, wg)
 
 		return redirect, nil

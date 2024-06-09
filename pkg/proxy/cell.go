@@ -14,6 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/endpoint"
+	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/trigger"
 )
 
 // Cell provides the L7 Proxy which provides support for L7 network policies.
@@ -49,36 +51,50 @@ func newProxy(params proxyParams) (*Proxy, error) {
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
 	// FIXME: Make the port range configurable.
-	proxy := createProxy(10000, 20000, option.Config.RunDir, params.Datapath, params.IPCache, params.EndpointInfoRegistry)
+	p := createProxy(10000, 20000, option.Config.RunDir, params.Datapath, params.IPCache, params.EndpointInfoRegistry)
+
+	triggerDone := make(chan struct{})
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(startContext cell.HookContext) error {
-			xdsServer, err := envoy.StartXDSServer(proxy.ipcache, envoy.GetSocketDir(proxy.runDir))
+		OnStart: func(startContext cell.HookContext) (err error) {
+			p.proxyPortsTrigger, err = trigger.NewTrigger(trigger.Parameters{
+				MinInterval:  10 * time.Second,
+				TriggerFunc:  p.storeProxyPorts,
+				ShutdownFunc: func() { close(triggerDone) },
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create proxy ports trigger: %w", err)
+			}
+
+			xdsServer, err := envoy.StartXDSServer(p.ipcache, envoy.GetSocketDir(p.runDir))
 			if err != nil {
 				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
 			}
-			proxy.XDSServer = xdsServer
+			p.XDSServer = xdsServer
 
-			accessLogServer, err := envoy.StartAccessLogServer(envoy.GetSocketDir(proxy.runDir), proxy.XDSServer)
+			accessLogServer, err := envoy.StartAccessLogServer(envoy.GetSocketDir(p.runDir), p.XDSServer)
 			if err != nil {
 				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
 			}
-			proxy.accessLogServer = accessLogServer
+			p.accessLogServer = accessLogServer
 
 			return nil
 		},
 		OnStop: func(stopContext cell.HookContext) error {
-			if proxy.XDSServer != nil {
-				proxy.XDSServer.Stop()
+			p.proxyPortsTrigger.Shutdown()
+			<-triggerDone
+
+			if p.XDSServer != nil {
+				p.XDSServer.Stop()
 			}
-			if proxy.accessLogServer != nil {
-				proxy.accessLogServer.Stop()
+			if p.accessLogServer != nil {
+				p.accessLogServer.Stop()
 			}
 			return nil
 		},
 	})
 
-	return proxy, nil
+	return p, nil
 }
 
 func configureProxyLogger(eir logger.EndpointInfoRegistry, monitorAgent monitoragent.Agent, agentLabels []string) {
