@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,13 +17,25 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
 
+const (
+	k8sAPIGroupCiliumEnvoyConfigV2            = "cilium/v2::CiliumEnvoyConfig"
+	k8sAPIGroupCiliumClusterwideEnvoyConfigV2 = "cilium/v2::CiliumClusterwideEnvoyConfig"
+)
+
 type ciliumEnvoyConfigReconciler struct {
 	logger logrus.FieldLogger
+
+	k8sResourceSynced *synced.Resources
+	k8sAPIGroups      *synced.APIGroups
+
+	cecSynced  atomic.Bool
+	ccecSynced atomic.Bool
 
 	manager ciliumEnvoyConfigManager
 
@@ -40,13 +53,20 @@ type config struct {
 	selectsLocalNode bool
 }
 
-func newCiliumEnvoyConfigReconciler(logger logrus.FieldLogger,
-	manager ciliumEnvoyConfigManager,
-) *ciliumEnvoyConfigReconciler {
+func newCiliumEnvoyConfigReconciler(params reconcilerParams) *ciliumEnvoyConfigReconciler {
 	return &ciliumEnvoyConfigReconciler{
-		logger:  logger,
-		manager: manager,
-		configs: map[resource.Key]*config{},
+		logger:            params.Logger,
+		k8sResourceSynced: params.K8sResourceSynced,
+		k8sAPIGroups:      params.K8sAPIGroups,
+		manager:           params.Manager,
+		configs:           map[resource.Key]*config{},
+	}
+}
+
+func (r *ciliumEnvoyConfigReconciler) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {
+	if r.k8sResourceSynced != nil && r.k8sAPIGroups != nil {
+		r.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), nil, syncFn, resource)
+		r.k8sAPIGroups.AddAPI(resource)
 	}
 }
 
@@ -58,6 +78,9 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 	var err error
 
 	switch event.Kind {
+	case resource.Sync:
+		scopedLogger.Debug("Received CiliumEnvoyConfig sync event")
+		r.cecSynced.Store(true)
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
@@ -87,6 +110,9 @@ func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event
 	var err error
 
 	switch event.Kind {
+	case resource.Sync:
+		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig sync event")
+		r.ccecSynced.Store(true)
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig upsert event")
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})

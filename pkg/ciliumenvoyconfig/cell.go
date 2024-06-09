@@ -4,6 +4,7 @@
 package ciliumenvoyconfig
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
@@ -16,6 +17,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -55,6 +57,9 @@ type reconcilerParams struct {
 	JobGroup  job.Group
 	Health    cell.Health
 
+	K8sResourceSynced *synced.Resources
+	K8sAPIGroups      *synced.APIGroups
+
 	Config  cecConfig
 	Manager ciliumEnvoyConfigManager
 
@@ -68,11 +73,13 @@ func registerCECK8sReconciler(params reconcilerParams) {
 		return
 	}
 
-	reconciler := newCiliumEnvoyConfigReconciler(params.Logger, params.Manager)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	reconciler := newCiliumEnvoyConfigReconciler(params)
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			localNode, err := params.LocalNodeStore.Get(ctx)
+		OnStart: func(startCtx cell.HookContext) error {
+			localNode, err := params.LocalNodeStore.Get(startCtx)
 			if err != nil {
 				return fmt.Errorf("failed to get LocalNodeStore: %w", err)
 			}
@@ -85,6 +92,19 @@ func registerCECK8sReconciler(params reconcilerParams) {
 
 			return nil
 		},
+		OnStop: func(cell.HookContext) error {
+			if cancel != nil {
+				cancel()
+			}
+			return nil
+		},
+	})
+
+	reconciler.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumEnvoyConfigV2, func() bool {
+		return reconciler.cecSynced.Load()
+	})
+	reconciler.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumClusterwideEnvoyConfigV2, func() bool {
+		return reconciler.ccecSynced.Load()
 	})
 
 	params.JobGroup.Add(job.Observer("cec-resource-events", reconciler.handleCECEvent, params.CECResources))
