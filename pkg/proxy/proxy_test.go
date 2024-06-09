@@ -15,6 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	"github.com/cilium/cilium/pkg/proxy/types"
+	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -31,15 +33,29 @@ func (m *MockDatapathUpdater) GetProxyPorts() map[string]uint16 {
 	return nil
 }
 
-func TestPortAllocator(t *testing.T) {
+func proxyForTest() (*Proxy, func()) {
 	mockDatapathUpdater := &MockDatapathUpdater{}
+	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
+	triggerDone := make(chan struct{})
+	p.proxyPortsTrigger, _ = trigger.NewTrigger(trigger.Parameters{
+		MinInterval:  10 * time.Second,
+		TriggerFunc:  func(reasons []string) {},
+		ShutdownFunc: func() { close(triggerDone) },
+	})
+	return p, func() {
+		p.proxyPortsTrigger.Shutdown()
+		<-triggerDone
+	}
+}
 
+func TestPortAllocator(t *testing.T) {
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
 	err := os.MkdirAll(socketDir, 0700)
 	require.NoError(t, err)
 
-	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
+	p, cleaner := proxyForTest()
+	defer cleaner()
 
 	port, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
@@ -56,9 +72,9 @@ func TestPortAllocator(t *testing.T) {
 
 	name, pp := p.findProxyPortByType(types.ProxyTypeCRD, "listener1", false)
 	require.Equal(t, "listener1", name)
-	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
-	require.Equal(t, port, pp.proxyPort)
-	require.Equal(t, false, pp.ingress)
+	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
+	require.Equal(t, port, pp.ProxyPort)
+	require.Equal(t, false, pp.Ingress)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
@@ -71,7 +87,7 @@ func TestPortAllocator(t *testing.T) {
 	port1b, err := p.GetProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, uint16(0), port1b)
-	require.Equal(t, uint16(0), pp.proxyPort)
+	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, false, pp.configured)
 	require.Equal(t, 0, pp.nRedirects)
 
@@ -85,9 +101,9 @@ func TestPortAllocator(t *testing.T) {
 	name2, pp2 := p.findProxyPortByType(types.ProxyTypeCRD, "listener1", false)
 	require.Equal(t, name2, name)
 	require.Equal(t, pp2, pp)
-	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
-	require.Equal(t, false, pp.ingress)
-	require.Equal(t, port2, pp.proxyPort)
+	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
+	require.Equal(t, false, pp.Ingress)
+	require.Equal(t, port2, pp.ProxyPort)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
@@ -110,14 +126,14 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, pp.nRedirects)
 	require.Equal(t, true, pp.configured)
-	require.Equal(t, port2, pp.proxyPort)
+	require.Equal(t, port2, pp.ProxyPort)
 
 	// 2nd release decreases the count to zero
 	err = p.ReleaseProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, false, pp.configured)
-	require.Equal(t, uint16(0), pp.proxyPort)
+	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port2, pp.rulesPort)
 
 	// extra releases are idempotent
@@ -125,7 +141,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, false, pp.configured)
-	require.Equal(t, uint16(0), pp.proxyPort)
+	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port2, pp.rulesPort)
 
 	// mimic some other process taking the port
@@ -140,9 +156,9 @@ func TestPortAllocator(t *testing.T) {
 	name2, pp2 = p.findProxyPortByType(types.ProxyTypeCRD, "listener1", false)
 	require.Equal(t, name2, name)
 	require.Equal(t, pp2, pp)
-	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
-	require.Equal(t, false, pp.ingress)
-	require.Equal(t, port3, pp.proxyPort)
+	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
+	require.Equal(t, false, pp.Ingress)
+	require.Equal(t, port3, pp.ProxyPort)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
@@ -159,7 +175,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, false, pp.configured)
-	require.Equal(t, uint16(0), pp.proxyPort)
+	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port3, pp.rulesPort)
 
 	inuse, exists := p.allocatedPorts[port3]
@@ -170,9 +186,9 @@ func TestPortAllocator(t *testing.T) {
 	port4, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, port3, port4)
-	require.Equal(t, types.ProxyTypeCRD, pp.proxyType)
-	require.Equal(t, false, pp.ingress)
-	require.Equal(t, port4, pp.proxyPort)
+	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
+	require.Equal(t, false, pp.Ingress)
+	require.Equal(t, port4, pp.ProxyPort)
 	require.Equal(t, true, pp.configured)
 	require.Equal(t, false, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
@@ -206,14 +222,13 @@ func (p *fakeProxyPolicy) GetListener() string {
 }
 
 func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
-	mockDatapathUpdater := &MockDatapathUpdater{}
-
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
 	err := os.MkdirAll(socketDir, 0700)
 	require.NoError(t, err)
 
-	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
+	p, cleaner := proxyForTest()
+	defer cleaner()
 
 	ep := &endpointtest.ProxyUpdaterMock{
 		Id:   1000,
