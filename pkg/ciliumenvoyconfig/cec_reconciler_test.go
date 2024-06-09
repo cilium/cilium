@@ -316,7 +316,7 @@ func executeForConfigType[T k8sRuntime.Object](t *testing.T,
 				shouldFailFor: tc.shouldFailFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(logger, manager)
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
 
 			// init current state
 			configs := map[resource.Key]*config{}
@@ -536,7 +536,7 @@ func TestReconcileExistingConfigs(t *testing.T) {
 				shouldFailFor: tc.failFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(logger, manager)
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
 
 			// init current state
 			reconciler.configs = make(map[resource.Key]*config, len(tc.configs))
@@ -673,7 +673,7 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 				shouldFailFor: tc.failFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(logger, manager)
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
 
 			// init current state
 			reconciler.configs = make(map[resource.Key]*config, len(tc.configs))
