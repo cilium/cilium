@@ -66,3 +66,16 @@ type Resources struct {
 	Pods                 resource.Resource[*slim_corev1.Pod]
 	Namespaces           resource.Resource[*slim_corev1.Namespace]
 }
+
+// HasCEWithIdentity returns true or false if the Cilium Endpoint store has
+// the given identity.
+// Once the CiliumEndpoint is migrated to use resources
+// the cepStore can be removed and used the local store.
+func HasCEWithIdentity(cepStore resource.Store[*cilium_api_v2.CiliumEndpoint], identity string) bool {
+	if cepStore == nil {
+		return false
+	}
+	ces, _ := cepStore.IndexKeys(CiliumEndpointIndexIdentity, identity)
+
+	return len(ces) != 0
+}

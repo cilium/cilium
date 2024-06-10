@@ -12,7 +12,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	operatorK8s "github.com/cilium/cilium/operator/k8s"
+	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/controller"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -102,7 +102,7 @@ func (igc *GC) gc(ctx context.Context) error {
 			_, foundInCES = idsInCESs[identity.Name]
 		}
 		// The identity is definitely alive if there's a CE or CES using it.
-		alive := foundInCES || hasCEWithIdentity(cepStore, identity.Name)
+		alive := foundInCES || k8s.HasCEWithIdentity(cepStore, identity.Name)
 
 		if alive {
 			igc.heartbeatStore.markAlive(identity.Name, timeNow)
@@ -228,11 +228,6 @@ func (igc *GC) updateIdentity(ctx context.Context, identity *v2.CiliumIdentity) 
 	log.WithField(logfields.Identity, identity.GetName()).Debug("Updated identity")
 
 	return nil
-}
-
-func hasCEWithIdentity(cepStore resource.Store[*v2.CiliumEndpoint], identity string) bool {
-	ces, _ := cepStore.IndexKeys(operatorK8s.CiliumEndpointIndexIdentity, identity)
-	return len(ces) != 0
 }
 
 func usedIdentitiesInCESs(cesStore resource.Store[*v2alpha1.CiliumEndpointSlice]) map[string]bool {
