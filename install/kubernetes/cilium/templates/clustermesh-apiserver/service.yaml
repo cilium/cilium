@@ -26,6 +26,9 @@ spec:
     {{- if and (eq "NodePort" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.nodePort }}
     nodePort: {{ .Values.clustermesh.apiserver.service.nodePort }}
     {{- end }}
+  {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerClass }}
+  loadBalancerClass: {{ .Values.clustermesh.apiserver.service.loadBalancerClass }}
+  {{- end }}
   {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.clustermesh.apiserver.service.loadBalancerIP }}
   {{- end }}

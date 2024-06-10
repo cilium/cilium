@@ -1212,6 +1212,18 @@
                     "Cluster"
                   ]
                 },
+                "loadBalancerClass": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "loadBalancerIP": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "nodePort": {
                   "type": "integer"
                 },
