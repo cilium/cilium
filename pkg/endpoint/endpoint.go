@@ -79,6 +79,7 @@ const (
 
 	// PropertySkipBPFPolicy will mark the endpoint to skip ebpf
 	// policy regeneration.
+	// Endpoint is still placed in the endpoints map  so that ARP and ND work.
 	PropertySkipBPFPolicy = "property-skip-bpf-policy"
 
 	// PropertySkipBPFRegeneration will mark the endpoint to skip ebpf
