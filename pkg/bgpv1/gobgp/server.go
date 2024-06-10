@@ -22,6 +22,9 @@ const (
 	// idleHoldTimeAfterResetSeconds defines time BGP session will stay idle after neighbor reset.
 	idleHoldTimeAfterResetSeconds = 5
 
+	// globalAllowLocalPolicyName is a special GoBGP policy assignment name that refers to a local route policy
+	// it is used with a global import policy that rejects all paths announced toward Cilium from external peers
+	globalAllowLocalPolicyName = "allow-local"
 	// globalPolicyAssignmentName is a special GoBGP policy assignment name that refers to the router-global policy
 	globalPolicyAssignmentName = "global"
 )
@@ -38,6 +41,20 @@ var (
 	GoBGPIPv4Family = &gobgp.Family{
 		Afi:  gobgp.Family_AFI_IP,
 		Safi: gobgp.Family_SAFI_UNICAST,
+	}
+	// allowLocalPolicy is a GoBGP policy which allows local routes
+	allowLocalPolicy = &gobgp.Policy{
+		Name: globalAllowLocalPolicyName,
+		Statements: []*gobgp.Statement{
+			{
+				Conditions: &gobgp.Conditions{
+					RouteType: gobgp.Conditions_ROUTE_TYPE_LOCAL,
+				},
+				Actions: &gobgp.Actions{
+					RouteAction: gobgp.RouteAction_ACCEPT,
+				},
+			},
+		},
 	}
 	// The default S/Afi pair to use if not provided by the user.
 	defaultSafiAfi = []*gobgp.AfiSafi{
@@ -95,11 +112,32 @@ func NewGoBGPServer(ctx context.Context, log *logrus.Entry, params types.ServerP
 		return nil, fmt.Errorf("failed starting BGP server: %w", err)
 	}
 
+	// Reject all paths announced toward Cilium from external peers. This first step configures an
+	// "allow" policy for local routes. It was observed during testing that global policies are also
+	// applied to local routes, which we need to permit.
+	if err := s.AddPolicy(ctx, &gobgp.AddPolicyRequest{Policy: allowLocalPolicy}); err != nil {
+		return nil, fmt.Errorf("failed to add %s policy: %w", allowLocalPolicy.Name, err)
+	}
+
+	// Reject all paths announced toward Cilium from external peers. This step configures the actual
+	// import policy.
+	err := s.SetPolicyAssignment(ctx, &gobgp.SetPolicyAssignmentRequest{
+		Assignment: &gobgp.PolicyAssignment{
+			Name:          globalPolicyAssignmentName,
+			Direction:     gobgp.PolicyDirection_IMPORT,
+			DefaultAction: gobgp.RouteAction_REJECT,
+			Policies:      []*gobgp.Policy{allowLocalPolicy},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed configuring BGP server's global import policy: %w", err)
+	}
+
 	// will log out any peer changes.
 	watchRequest := &gobgp.WatchEventRequest{
 		Peer: &gobgp.WatchEventRequest_Peer{},
 	}
-	err := s.WatchEvent(ctx, watchRequest, func(r *gobgp.WatchEventResponse) {
+	err = s.WatchEvent(ctx, watchRequest, func(r *gobgp.WatchEventResponse) {
 		if p := r.GetPeer(); p != nil && p.Type == gobgp.WatchEventResponse_PeerEvent_STATE {
 			logger.l.Debug(p)
 		}
