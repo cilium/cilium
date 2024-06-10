@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -74,8 +73,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 type loader struct {
 	cfg Config
 
-	nodeConfig atomic.Pointer[datapath.LocalNodeConfiguration]
-
 	// templateCache is the cache of pre-compiled datapaths. Only set after
 	// a call to Reinitialize.
 	templateCache *objectCache
@@ -136,15 +133,13 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 	})
 }
 
-func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
+func (l *loader) bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, masq6 netip.Addr) {
 	if l.cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	addrs := l.nodeConfig.Load().NodeAddresses
-
 	find := func(devName string) bool {
-		for _, addr := range addrs {
+		for _, addr := range cfg.NodeAddresses {
 			if addr.DeviceName != devName {
 				continue
 			}
@@ -177,7 +172,7 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 
 // patchHostNetdevDatapath calculates the changes necessary
 // to attach the host endpoint datapath to different interfaces.
-func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
+func (l *loader) patchHostNetdevDatapath(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
 	opts := ELFVariableSubstitutions(ep)
 	strings := ELFMapSubstitutions(ep)
 
@@ -207,7 +202,7 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (m
 	opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 
 	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
-		ipv4, ipv6 := l.bpfMasqAddrs(ifName)
+		ipv4, ipv6 := l.bpfMasqAddrs(ifName, cfg)
 
 		if option.Config.EnableIPv4Masquerade && ipv4.IsValid() {
 			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4.AsSlice()))
@@ -320,7 +315,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - cilium_host: cil_to_host ingress and cil_from_host to egress
 // - cilium_net: cil_to_host to ingress
 // - native devices: cil_from_netdev to ingress and (optionally) cil_to_netdev to egress if certain features require it
-func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
+func (l *loader) reloadHostDatapath(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
 	// Replace programs on cilium_host.
 	host, err := netlink.LinkByName(ep.InterfaceName())
 	if err != nil {
@@ -354,7 +349,7 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
 	}
 
-	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(ep, defaults.SecondHostDevice)
+	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(cfg, ep, defaults.SecondHostDevice)
 	if err != nil {
 		return err
 	}
@@ -385,7 +380,7 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
 
-		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(ep, device)
+		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(cfg, ep, device)
 		if err != nil {
 			return err
 		}
@@ -444,7 +439,7 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func (l *loader) reloadDatapath(ep datapath.Endpoint, cfg *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	// Replace all occurrences of the template endpoint ID with the real ID.
@@ -465,13 +460,13 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 	}
 
 	if ep.IsHost() {
-		devices := l.nodeConfig.Load().DeviceNames()
+		devices := cfg.DeviceNames()
 
 		if option.Config.NeedBPFHostOnWireGuardDevice() {
 			devices = append(devices, wgTypes.IfaceName)
 		}
 
-		if err := l.reloadHostDatapath(ep, spec, devices); err != nil {
+		if err := l.reloadHostDatapath(cfg, ep, spec, devices); err != nil {
 			return err
 		}
 	} else {
@@ -609,7 +604,7 @@ func (l *loader) replaceWireguardDatapath(ctx context.Context, cArgs []string, i
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (hash string, err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -617,15 +612,13 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 		Output:  ep.StateDir(),
 	}
 
-	cfg := l.nodeConfig.Load()
-
 	spec, hash, err := l.templateCache.fetchOrCompile(ctx, cfg, ep, &dirs, stats)
 	if err != nil {
 		return "", err
 	}
 
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ep, spec)
+	err = l.reloadDatapath(ep, cfg, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -673,8 +666,8 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 
 // EndpointHash hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
-func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
-	return l.templateCache.baseHash.hashEndpoint(l.templateCache, l.nodeConfig.Load(), cfg)
+func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration, lnCfg *datapath.LocalNodeConfiguration) (string, error) {
+	return l.templateCache.baseHash.hashEndpoint(l.templateCache, lnCfg, cfg)
 }
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
@@ -694,6 +687,6 @@ func (l *loader) HostDatapathInitialized() <-chan struct{} {
 	return l.hostDpInitialized
 }
 
-func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
-	return l.configWriter.WriteEndpointConfig(w, l.nodeConfig.Load(), e)
+func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, lnCfg *datapath.LocalNodeConfiguration) error {
+	return l.configWriter.WriteEndpointConfig(w, lnCfg, e)
 }

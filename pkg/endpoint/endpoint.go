@@ -2527,7 +2527,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}
 
 		// Detach the endpoint program from any tc(x) hooks.
-		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
+		e.owner.Datapath().Orchestrator().Unload(e.createEpInfoCache(""))
 
 		// Delete the endpoint's entries from the global cilium_(egress)call_policy
 		// maps and remove per-endpoint cilium_calls_ and cilium_policy_ map pins.

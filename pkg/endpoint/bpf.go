@@ -187,7 +187,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		return err
 	}
 
-	if err = e.owner.Datapath().Loader().WriteEndpointConfig(f, e); err != nil {
+	if err = e.owner.Datapath().Orchestrator().WriteEndpointConfig(f, e); err != nil {
 		return err
 	}
 
@@ -675,7 +675,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
-		templateHash, err := e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+		templateHash, err := e.owner.Datapath().Orchestrator().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")
@@ -935,7 +935,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
-	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Datapath().Loader().EndpointHash(e)
+	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Datapath().Orchestrator().EndpointHash(e)
 	if err != nil {
 		return fmt.Errorf("hash header file: %w", err)
 	}

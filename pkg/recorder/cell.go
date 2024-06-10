@@ -30,14 +30,14 @@ type recorderParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
 
-	AgentConfig *option.DaemonConfig
-	Datapath    datapath.Datapath
+	AgentConfig  *option.DaemonConfig
+	Orchestrator datapath.Orchestrator
 }
 
 func newRecorderWithLifecycle(params recorderParams) (*Recorder, error) {
 	ctx, cancelCtx := context.WithCancel(context.Background())
 
-	recorder := newRecorder(ctx, params.Logger, params.Datapath.Loader())
+	recorder := newRecorder(ctx, params.Logger, params.Orchestrator)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
