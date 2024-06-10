@@ -407,3 +407,8 @@ func setupRouteToVtepCidr() error {
 func (d *Daemon) Datapath() datapath.Datapath {
 	return d.datapath
 }
+
+// Loader returns a reference to the loader implementation.
+func (d *Daemon) Loader() datapath.Loader {
+	return d.loader
+}
