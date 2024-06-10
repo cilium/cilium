@@ -58,9 +58,7 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.22.4
   test_name: perf-fqdn
-  # Adding k8s.local to the end makes kops happy-
-  # has stricter DNS naming requirements.
-  cluster_base_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
+  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   echo-inputs:
@@ -108,6 +106,7 @@ jobs:
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=dnsProxy.proxyResponseMaxDelay=100s \
+            --helm-set=cluster.name=${{ env.cluster_name }} \
             --wait=false"
 
           # only add SHA to the image tags if it was set
@@ -128,7 +127,9 @@ jobs:
             --helm-set=hubble.relay.image.useDigest=false"
           fi
 
-          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_base_name }}"
+          # Adding k8s.local to the end makes kops happy
+          # has stricter DNS naming requirements.
+          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
 
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
