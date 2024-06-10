@@ -127,6 +127,9 @@ func (c *Client) addOperationProvisionPublicIpv4PoolCidrMiddlewares(stack *middl
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpProvisionPublicIpv4PoolCidrValidationMiddleware(stack); err != nil {
 		return err
 	}

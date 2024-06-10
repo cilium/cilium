@@ -129,6 +129,9 @@ func (c *Client) addOperationReleaseIpamPoolAllocationMiddlewares(stack *middlew
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpReleaseIpamPoolAllocationValidationMiddleware(stack); err != nil {
 		return err
 	}

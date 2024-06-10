@@ -167,6 +167,9 @@ func (c *Client) addOperationModifyImageAttributeMiddlewares(stack *middleware.S
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpModifyImageAttributeValidationMiddleware(stack); err != nil {
 		return err
 	}

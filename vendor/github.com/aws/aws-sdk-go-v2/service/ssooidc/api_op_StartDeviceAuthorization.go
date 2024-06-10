@@ -137,6 +137,9 @@ func (c *Client) addOperationStartDeviceAuthorizationMiddlewares(stack *middlewa
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpStartDeviceAuthorizationValidationMiddleware(stack); err != nil {
 		return err
 	}

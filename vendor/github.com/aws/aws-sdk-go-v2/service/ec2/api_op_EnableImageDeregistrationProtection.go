@@ -120,6 +120,9 @@ func (c *Client) addOperationEnableImageDeregistrationProtectionMiddlewares(stac
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpEnableImageDeregistrationProtectionValidationMiddleware(stack); err != nil {
 		return err
 	}

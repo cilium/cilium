@@ -117,6 +117,9 @@ func (c *Client) addOperationDeleteNetworkInterfacePermissionMiddlewares(stack *
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpDeleteNetworkInterfacePermissionValidationMiddleware(stack); err != nil {
 		return err
 	}

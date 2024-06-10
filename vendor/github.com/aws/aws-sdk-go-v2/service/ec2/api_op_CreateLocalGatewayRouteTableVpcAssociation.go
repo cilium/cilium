@@ -117,6 +117,9 @@ func (c *Client) addOperationCreateLocalGatewayRouteTableVpcAssociationMiddlewar
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpCreateLocalGatewayRouteTableVpcAssociationValidationMiddleware(stack); err != nil {
 		return err
 	}

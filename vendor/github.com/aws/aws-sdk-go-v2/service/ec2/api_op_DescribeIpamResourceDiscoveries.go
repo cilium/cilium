@@ -123,6 +123,9 @@ func (c *Client) addOperationDescribeIpamResourceDiscoveriesMiddlewares(stack *m
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeIpamResourceDiscoveries(options.Region), middleware.Before); err != nil {
 		return err
 	}

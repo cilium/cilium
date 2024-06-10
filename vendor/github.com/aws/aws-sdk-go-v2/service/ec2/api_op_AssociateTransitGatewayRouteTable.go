@@ -115,6 +115,9 @@ func (c *Client) addOperationAssociateTransitGatewayRouteTableMiddlewares(stack 
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpAssociateTransitGatewayRouteTableValidationMiddleware(stack); err != nil {
 		return err
 	}

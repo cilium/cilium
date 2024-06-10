@@ -118,6 +118,9 @@ func (c *Client) addOperationDisassociateEnclaveCertificateIamRoleMiddlewares(st
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpDisassociateEnclaveCertificateIamRoleValidationMiddleware(stack); err != nil {
 		return err
 	}

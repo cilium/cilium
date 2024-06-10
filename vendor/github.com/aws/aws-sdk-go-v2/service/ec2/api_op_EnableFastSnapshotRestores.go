@@ -130,6 +130,9 @@ func (c *Client) addOperationEnableFastSnapshotRestoresMiddlewares(stack *middle
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpEnableFastSnapshotRestoresValidationMiddleware(stack); err != nil {
 		return err
 	}

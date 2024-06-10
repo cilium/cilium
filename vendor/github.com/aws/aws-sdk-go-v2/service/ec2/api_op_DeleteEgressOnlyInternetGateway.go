@@ -108,6 +108,9 @@ func (c *Client) addOperationDeleteEgressOnlyInternetGatewayMiddlewares(stack *m
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpDeleteEgressOnlyInternetGatewayValidationMiddleware(stack); err != nil {
 		return err
 	}
