@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/identity/key"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +52,7 @@ var DefaultConfig = Config{
 
 const (
 	NamespaceIndex = "namespace"
+	ByKeyIndex     = "by-key-index"
 )
 
 // Flags implements the cell.Flagger interface.
@@ -65,6 +69,15 @@ func namespaceIndexFunc(obj any) ([]string, error) {
 		return nil, fmt.Errorf("unexpected object type: %T", obj)
 	}
 	return []string{object.GetNamespace()}, nil
+}
+
+func GetIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj interface{}) ([]string, error) {
+	return func(obj interface{}) ([]string, error) {
+		if identity, ok := obj.(*cilium_api_v2.CiliumIdentity); ok {
+			return []string{keyFunc(identity.SecurityLabels).GetKey()}, nil
+		}
+		return []string{}, fmt.Errorf("object other than CiliumIdentity was pushed to the store")
+	}
 }
 
 // Dependencies for Cilium resources that may be used by Cilium Agent.
@@ -170,7 +183,12 @@ func CiliumIdentityResource(params CiliumResourceParams, opts ...func(*metav1.Li
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumIdentityList](params.ClientSet.CiliumV2().CiliumIdentities()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumIdentity](params.Lifecycle, lw, resource.WithMetric("CiliumIdentityList"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+
+	indexers := cache.Indexers{
+		ByKeyIndex: GetIdentitiesByKeyFunc((&key.GlobalIdentity{}).PutKeyFromMap),
+	}
+
+	return resource.New[*cilium_api_v2.CiliumIdentity](params.Lifecycle, lw, resource.WithMetric("CiliumIdentityList"), resource.WithIndexers(indexers), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
 func NetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_networkingv1.NetworkPolicy], error) {
