@@ -388,6 +388,8 @@ for allocation (if the feature is enabled):
 loadBalancerClass               Feature
 ------------------------------- ------------------------
 ``io.cilium/bgp-control-plane`` :ref:`bgp_control_plane`
+------------------------------- ------------------------
+``io.cilium/l2-announcer``      :ref:`l2_announcements`
 =============================== ========================
 
 If the ``.spec.loadBalancerClass`` is set to a class which isn't handled by Cilium's LB IPAM, 
