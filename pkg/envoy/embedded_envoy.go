@@ -270,10 +270,6 @@ func newEnvoyLogPiper() io.WriteCloser {
 			case "off", "critical", "error":
 				scopedLog.Error(msg)
 			case "warning":
-				if !tracing && (strings.Contains(msg, "Usage of the deprecated runtime key overload.global_downstream_max_connections, consider switching to `envoy.resource_monitors.downstream_connections` instead.This runtime key will be removed in future.") ||
-					strings.Contains(msg, "There is no configured limit to the number of allowed active downstream connections. Configure a limit in `envoy.resource_monitors.downstream_connections` resource monitor.")) {
-					continue
-				}
 				scopedLog.Warn(msg)
 			case "info":
 				scopedLog.Info(msg)
