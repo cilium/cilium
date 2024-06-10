@@ -479,7 +479,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.affinity`
      - Affinity for clustermesh.apiserver
      - object
-     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+     - ``{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}}``
    * - :spelling:ignore:`clustermesh.apiserver.etcd.init.extraArgs`
      - Additional arguments to ``clustermesh-apiserver etcdinit``.
      - list
@@ -783,7 +783,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.updateStrategy`
      - clustermesh-apiserver update strategy
      - object
-     - ``{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}``
+     - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}``
    * - :spelling:ignore:`clustermesh.config`
      - Clustermesh explicit configuration.
      - object
