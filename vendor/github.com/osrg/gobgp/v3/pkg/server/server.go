@@ -1650,9 +1650,10 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				if allEnd {
 					for _, p := range s.neighborMap {
 						p.fsm.lock.Lock()
+						peerLocalRestarting := p.fsm.pConf.GracefulRestart.State.LocalRestarting
 						p.fsm.pConf.GracefulRestart.State.LocalRestarting = false
 						p.fsm.lock.Unlock()
-						if !p.isGracefulRestartEnabled() {
+						if !p.isGracefulRestartEnabled() && !peerLocalRestarting {
 							continue
 						}
 						paths, _ := s.getBestFromLocal(p, p.configuredRFlist())
@@ -1791,9 +1792,10 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 					if allEnd {
 						for _, p := range s.neighborMap {
 							p.fsm.lock.Lock()
+							peerLocalRestarting := p.fsm.pConf.GracefulRestart.State.LocalRestarting
 							p.fsm.pConf.GracefulRestart.State.LocalRestarting = false
 							p.fsm.lock.Unlock()
-							if !p.isGracefulRestartEnabled() {
+							if !p.isGracefulRestartEnabled() && !peerLocalRestarting {
 								continue
 							}
 							paths, _ := s.getBestFromLocal(p, p.negotiatedRFList())
@@ -4213,6 +4215,10 @@ func (s *BgpServer) WatchEvent(ctx context.Context, r *api.WatchEventRequest, fn
 	}
 	w := s.watch(opts...)
 
+	simpleSend := func(paths []*api.Path) {
+		fn(&api.WatchEventResponse{Event: &api.WatchEventResponse_Table{Table: &api.WatchEventResponse_TableEvent{Paths: paths}}})
+	}
+
 	go func() {
 		defer func() {
 			w.Stop()
@@ -4223,52 +4229,41 @@ func (s *BgpServer) WatchEvent(ctx context.Context, r *api.WatchEventRequest, fn
 			case ev := <-w.Event():
 				switch msg := ev.(type) {
 				case *watchEventUpdate:
-					paths := make([]*api.Path, 0)
+					paths := make([]*api.Path, 0, r.BatchSize)
 					for _, path := range msg.PathList {
 						paths = append(paths, toPathApi(path, nil, false, false, false))
-					}
-
-					fn(&api.WatchEventResponse{
-						Event: &api.WatchEventResponse_Table{
-							Table: &api.WatchEventResponse_TableEvent{
-								Paths: paths,
-							},
-						},
-					})
-				case *watchEventBestPath:
-					var pl []*api.Path
-					if len(msg.MultiPathList) > 0 {
-						l := make([]*table.Path, 0)
-						for _, p := range msg.MultiPathList {
-							l = append(l, p...)
+						if r.BatchSize > 0 && len(paths) > int(r.BatchSize) {
+							simpleSend(paths)
+							paths = make([]*api.Path, 0, r.BatchSize)
 						}
-						for _, p := range l {
-							pl = append(pl, toPathApi(p, nil, false, false, false))
+					}
+					simpleSend(paths)
+
+				case *watchEventBestPath:
+					var paths []*table.Path
+					if len(msg.MultiPathList) > 0 {
+						for _, p := range msg.MultiPathList {
+							paths = append(paths, p...)
 						}
 					} else {
-						for _, p := range msg.PathList {
-							pl = append(pl, toPathApi(p, nil, false, false, false))
+						paths = msg.PathList
+					}
+
+					pl := make([]*api.Path, 0, r.BatchSize)
+					for _, path := range paths {
+						pl = append(pl, toPathApi(path, nil, false, false, false))
+						if r.BatchSize > 0 && len(pl) > int(r.BatchSize) {
+							simpleSend(pl)
+							pl = make([]*api.Path, 0, r.BatchSize)
 						}
 					}
-					fn(&api.WatchEventResponse{
-						Event: &api.WatchEventResponse_Table{
-							Table: &api.WatchEventResponse_TableEvent{
-								Paths: pl,
-							},
-						},
-					})
+					simpleSend(pl)
+
 				case *watchEventEor:
 					eor := table.NewEOR(msg.Family)
 					eor.SetSource(msg.PeerInfo)
 					path := eorToPathAPI(eor)
-
-					fn(&api.WatchEventResponse{
-						Event: &api.WatchEventResponse_Table{
-							Table: &api.WatchEventResponse_TableEvent{
-								Paths: []*api.Path{path},
-							},
-						},
-					})
+					simpleSend([]*api.Path{path})
 
 				case *watchEventPeer:
 					fn(&api.WatchEventResponse{

@@ -818,6 +818,7 @@ func newPeerGroupFromAPIStruct(a *api.PeerGroup) (*oc.PeerGroup, error) {
 		pconf.Config.RouteFlapDamping = a.Conf.RouteFlapDamping
 		pconf.Config.Description = a.Conf.Description
 		pconf.Config.PeerGroupName = a.Conf.PeerGroupName
+		pconf.Config.SendSoftwareVersion = a.Conf.SendSoftwareVersion
 
 		switch a.Conf.RemovePrivate {
 		case api.RemovePrivate_REMOVE_ALL:
