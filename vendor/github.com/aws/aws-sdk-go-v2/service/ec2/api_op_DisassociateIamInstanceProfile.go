@@ -105,6 +105,9 @@ func (c *Client) addOperationDisassociateIamInstanceProfileMiddlewares(stack *mi
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpDisassociateIamInstanceProfileValidationMiddleware(stack); err != nil {
 		return err
 	}

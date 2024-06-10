@@ -113,6 +113,9 @@ func (c *Client) addOperationCreateTransitGatewayPolicyTableMiddlewares(stack *m
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpCreateTransitGatewayPolicyTableValidationMiddleware(stack); err != nil {
 		return err
 	}

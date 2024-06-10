@@ -113,6 +113,9 @@ func (c *Client) addOperationAttachInternetGatewayMiddlewares(stack *middleware.
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpAttachInternetGatewayValidationMiddleware(stack); err != nil {
 		return err
 	}

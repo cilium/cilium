@@ -133,6 +133,9 @@ func (c *Client) addOperationDescribeClientVpnTargetNetworksMiddlewares(stack *m
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpDescribeClientVpnTargetNetworksValidationMiddleware(stack); err != nil {
 		return err
 	}

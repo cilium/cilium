@@ -124,6 +124,9 @@ func (c *Client) addOperationDetachVerifiedAccessTrustProviderMiddlewares(stack 
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opDetachVerifiedAccessTrustProviderMiddleware(stack, options); err != nil {
 		return err
 	}

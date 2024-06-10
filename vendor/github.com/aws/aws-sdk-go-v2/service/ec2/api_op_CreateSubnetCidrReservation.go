@@ -136,6 +136,9 @@ func (c *Client) addOperationCreateSubnetCidrReservationMiddlewares(stack *middl
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpCreateSubnetCidrReservationValidationMiddleware(stack); err != nil {
 		return err
 	}

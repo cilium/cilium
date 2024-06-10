@@ -1,3 +1,7 @@
+# v1.27.18 (2024-06-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.27.17 (2024-06-03)
 
 * **Documentation**: Add deprecation docs to global endpoint resolution interfaces. These APIs were previously deprecated with the introduction of service-specific endpoint resolution (EndpointResolverV2 and BaseEndpoint on service client options).

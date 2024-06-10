@@ -130,6 +130,9 @@ func (c *Client) addOperationModifyVerifiedAccessEndpointPolicyMiddlewares(stack
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opModifyVerifiedAccessEndpointPolicyMiddleware(stack, options); err != nil {
 		return err
 	}

@@ -117,6 +117,9 @@ func (c *Client) addOperationDetachClassicLinkVpcMiddlewares(stack *middleware.S
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpDetachClassicLinkVpcValidationMiddleware(stack); err != nil {
 		return err
 	}
