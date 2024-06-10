@@ -358,6 +358,11 @@ Annotations:
 * Certain invalid CiliumNetworkPolicies that have always been ignored will now be rejected by the apiserver.
   Specifically, policies with multiple L7 protocols on the same port, over 40 port rules, or over
   40 ICMP rules will now have server-side validation.
+* Cilium could previously be run in a configuration where the Etcd instances
+  that distribute Cilium state between nodes would be managed in pod network by
+  Cilium itself. This support was complicated and error prone, so the support
+  is now deprecated. The following guide provides alternatives for running
+  Cilium with Etcd: :ref:`k8s_install_etcd`.
 
 Removed Options
 ~~~~~~~~~~~~~~~
