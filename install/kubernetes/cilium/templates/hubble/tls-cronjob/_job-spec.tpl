@@ -1,5 +1,5 @@
 {{- define "hubble-generate-certs.job.spec" }}
-{{- $certValiditySecondsStr := printf "%ds" (mul .Values.hubble.tls.auto.certValidityDuration 24 60 60) -}}
+{{- $certValidityStr := printf "%dh" (mul .Values.hubble.tls.auto.certValidityDuration 24) -}}
 spec:
   template:
     metadata:
@@ -19,7 +19,6 @@ spec:
           # line args instead of via config map. This allows users to inspect
           # the values used in past runs by inspecting the completed pod.
           args:
-            - "--cilium-namespace={{ .Release.Namespace }}"
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
@@ -28,21 +27,74 @@ spec:
             - "--ca-secret-namespace={{ .Release.Namespace }}"
             - "--ca-secret-name=cilium-ca"
             - "--ca-common-name=Cilium CA"
-            - "--hubble-server-cert-generate"
-            - "--hubble-server-cert-common-name={{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." }}"
-            - "--hubble-server-cert-validity-duration={{ $certValiditySecondsStr }}"
-            {{- if .Values.hubble.relay.enabled }}
-            - "--hubble-relay-client-cert-generate"
-            - "--hubble-relay-client-cert-validity-duration={{ $certValiditySecondsStr }}"
-            {{- end }}
-            {{- if and .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
-            - "--hubble-relay-server-cert-generate"
-            - "--hubble-relay-server-cert-validity-duration={{ $certValiditySecondsStr }}"
-            {{- end }}
-            {{- if and .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
-            - "--hubble-metrics-server-cert-generate"
-            - "--hubble-metrics-server-cert-validity-duration={{ $certValiditySecondsStr }}"
-            {{- end }}
+          env:
+            - name: CILIUM_CERTGEN_CONFIG
+              value: |
+                certs:
+                - name: hubble-server-certs
+                  namespace: {{ .Release.Namespace }}
+                  commonName: {{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." | quote }}
+                  hosts:
+                  - {{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." | quote }}
+                  {{- range $dns := .Values.hubble.tls.server.extraDnsNames }}
+                  - {{ $dns | quote }}
+                  {{- end }}
+                  {{- range $ip := .Values.hubble.tls.server.extraIpAddresses }}
+                  - {{ $ip | quote }}
+                  {{- end }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - server auth
+                  validity: {{ $certValidityStr }}
+                {{- if .Values.hubble.relay.enabled }}
+                - name: hubble-relay-client-certs
+                  namespace: {{ .Release.Namespace }}
+                  commonName: "*.hubble-relay.cilium.io"
+                  hosts:
+                  - "*.hubble-relay.cilium.io"
+                  usage:
+                  - signing
+                  - key encipherment
+                  - client auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
+                {{- if and .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
+                - name: hubble-relay-server-certs
+                  namespace: {{ .Release.Namespace }}
+                  commonName: "*.hubble-relay.cilium.io"
+                  hosts:
+                  - "*.hubble-relay.cilium.io"
+                  {{- range $dns := .Values.hubble.relay.tls.server.extraDnsNames }}
+                  - {{ $dns | quote }}
+                  {{- end }}
+                  {{- range $ip := .Values.hubble.relay.tls.server.extraIpAddresses }}
+                  - {{ $ip | quote }}
+                  {{- end }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - server auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
+                {{- if and .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
+                - name: hubble-metrics-server-certs
+                  namespace: {{ .Release.Namespace }}
+                  commonName: {{ list (.Values.cluster.name | replace "." "-") "hubble-metrics.cilium.io" | join "." }} | quote }}
+                  hosts:
+                  - {{ list (.Values.cluster.name | replace "." "-") "hubble-metrics.cilium.io" | join "." }} | quote }}
+                  {{- range $dns := .Values.hubble.metrics.tls.server.extraDnsNames }}
+                  - {{ $dns | quote }}
+                  {{- end }}
+                  {{- range $ip := .Values.hubble.metrics.tls.server.extraIpAddresses }}
+                  - {{ $ip | quote }}
+                  {{- end }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - server auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}
