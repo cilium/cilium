@@ -16,6 +16,7 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
@@ -93,4 +94,25 @@ func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset,
 		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride](lc, lw, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
+}
+
+func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods("")),
+		opts...,
+	)
+
+	// The index will be used only by Operator Managing CIDs to reconcile NS labels changes
+	indexers := cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+	}
+
+	return resource.New[*slim_corev1.Pod](lc, lw,
+			resource.WithMetric("Pod"),
+			resource.WithIndexers(indexers),
+		),
+		nil
 }
