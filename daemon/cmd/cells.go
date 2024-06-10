@@ -222,7 +222,8 @@ var (
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		k8s.ServiceCacheCell,
 
-		// K8s policy resource watcher cell.
+		// K8s policy resource watcher cell. It depends on the half-initialized daemon which is
+		// resolved by newDaemonPromise()
 		policyK8s.Cell,
 
 		// Directory policy watcher cell.
