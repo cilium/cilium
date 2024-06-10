@@ -3155,11 +3155,13 @@ clustermesh:
     # -- Affinity for clustermesh.apiserver
     affinity:
       podAntiAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          - topologyKey: kubernetes.io/hostname
-            labelSelector:
-              matchLabels:
-                k8s-app: clustermesh-apiserver
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  k8s-app: clustermesh-apiserver
+              topologyKey: kubernetes.io/hostname
     # -- Pod topology spread constraints for clustermesh-apiserver
     topologySpreadConstraints: []
     #   - maxSkew: 1
@@ -3180,7 +3182,11 @@ clustermesh:
         # @schema
         # type: [integer, string]
         # @schema
-        maxUnavailable: 1
+        maxSurge: 1
+        # @schema
+        # type: [integer, string]
+        # @schema
+        maxUnavailable: 0
     # -- The priority class to use for clustermesh-apiserver
     priorityClassName: ""
     tls:
