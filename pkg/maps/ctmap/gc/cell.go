@@ -17,6 +17,7 @@ var Cell = cell.Module(
 		// Provide the interface uses to start the GC logic. This hack
 		// should be removed once all dependencies have been modularized,
 		// and we can start the GC through a Start hook.
+		// TODO: GH-33557: Add a hook for purge events to replace ctmap.PurgeHook.
 		func(gc *GC) Enabler { return gc },
 	),
 
