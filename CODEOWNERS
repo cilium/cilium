@@ -226,7 +226,7 @@
 /CONTRIBUTING.md @cilium/contributing
 /.authors.aux @cilium/contributing
 /.clomonitor.yml @cilium/contributing
-/.devcontainer @cilium/contributing
+/.devcontainer @cilium/ci-structure
 /.gitattributes @cilium/contributing
 /.github/ @cilium/contributing
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
