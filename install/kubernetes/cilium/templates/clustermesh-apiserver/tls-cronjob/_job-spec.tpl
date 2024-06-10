@@ -26,7 +26,9 @@ spec:
             {{- end }}
             - "--ca-generate"
             - "--ca-reuse-secret"
+            - "--ca-secret-namespace={{ .Release.Namespace }}"
             - "--ca-secret-name=cilium-ca"
+            - "--ca-common-name=Cilium CA"
             - "--clustermesh-apiserver-server-cert-generate"
             - "--clustermesh-apiserver-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             - "--clustermesh-apiserver-server-cert-sans={{ join "," $clustermeshServerSANs }}"

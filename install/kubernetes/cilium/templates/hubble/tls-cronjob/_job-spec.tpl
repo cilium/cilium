@@ -25,7 +25,9 @@ spec:
             {{- end }}
             - "--ca-generate"
             - "--ca-reuse-secret"
+            - "--ca-secret-namespace={{ .Release.Namespace }}"
             - "--ca-secret-name=cilium-ca"
+            - "--ca-common-name=Cilium CA"
             - "--hubble-server-cert-generate"
             - "--hubble-server-cert-common-name={{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." }}"
             - "--hubble-server-cert-validity-duration={{ $certValiditySecondsStr }}"
