@@ -109,6 +109,9 @@ func (c *Client) addOperationDeleteTransitGatewayRouteTableAnnouncementMiddlewar
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpDeleteTransitGatewayRouteTableAnnouncementValidationMiddleware(stack); err != nil {
 		return err
 	}

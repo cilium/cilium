@@ -129,6 +129,9 @@ func (c *Client) addOperationGetAccessKeyInfoMiddlewares(stack *middleware.Stack
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpGetAccessKeyInfoValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -156,6 +156,9 @@ func (c *Client) addOperationModifySpotFleetRequestMiddlewares(stack *middleware
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpModifySpotFleetRequestValidationMiddleware(stack); err != nil {
 		return err
 	}
