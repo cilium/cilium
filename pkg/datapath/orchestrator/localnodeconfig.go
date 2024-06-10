@@ -37,13 +37,13 @@ func newLocalNodeConfig(
 	txn statedb.ReadTxn,
 	devices statedb.Table[*tables.Device],
 	nodeAddresses statedb.Table[tables.NodeAddress],
-) (datapath.LocalNodeConfiguration, error) {
+) (datapath.LocalNodeConfiguration, <-chan struct{}, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if config.IPv4ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv4ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, nil, nil, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
@@ -52,14 +52,14 @@ func newLocalNodeConfig(
 	if config.IPv6ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv6ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, nil, nil, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
-	nativeDevices, _ := tables.SelectedDevices(devices, txn)
-	nodeAddrsIter, _ := nodeAddresses.All(txn)
+	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
+	nodeAddrsIter, addrsWatch := nodeAddresses.All(txn)
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
@@ -87,5 +87,5 @@ func newLocalNodeConfig(
 		EncryptNode:                  config.EncryptNode,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
-	}, nil
+	}, devsWatch, addrsWatch, nil
 }

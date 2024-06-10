@@ -1612,6 +1612,7 @@ var daemonCell = cell.Module(
 	cell.Provide(
 		newDaemonPromise,
 		promise.New[endpointstate.Restorer],
+		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 	),
 	// Provide a read-only copy of the current daemon settings to be consumed
@@ -1624,6 +1625,8 @@ var daemonCell = cell.Module(
 
 type daemonParams struct {
 	cell.In
+
+	CfgResolver promise.Resolver[*option.DaemonConfig]
 
 	Lifecycle              cell.Lifecycle
 	Health                 cell.Health
@@ -1688,9 +1691,8 @@ type daemonParams struct {
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig], promise.Promise[policyK8s.PolicyManager]) {
+func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
-	cfgResolver, cfgPromise := promise.New[*option.DaemonConfig]()
 	policyManagerResolver, policyManagerPromise := promise.New[policyK8s.PolicyManager]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
@@ -1711,7 +1713,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			defer func() {
 				// Reject promises on error
 				if err != nil {
-					cfgResolver.Reject(err)
+					params.CfgResolver.Reject(err)
 					policyManagerResolver.Reject(err)
 					daemonResolver.Reject(err)
 				}
@@ -1749,7 +1751,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 
 			// 'option.Config' is assumed to be stable at this point, execpt for
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
-			cfgResolver.Resolve(option.Config)
+			params.CfgResolver.Resolve(option.Config)
 			policyManagerResolver.Resolve(daemon)
 
 			if option.Config.DryMode {
@@ -1775,7 +1777,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			return nil
 		},
 	})
-	return daemonPromise, cfgPromise, policyManagerPromise
+	return daemonPromise, policyManagerPromise
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
