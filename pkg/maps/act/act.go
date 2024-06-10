@@ -51,6 +51,7 @@ type ActiveConnectionTrackingIterateCallback func(*ActiveConnectionTrackerKey, *
 
 type ActiveConnectionTrackingMap interface {
 	IterateWithCallback(ActiveConnectionTrackingIterateCallback) error
+	Delete(*ActiveConnectionTrackerKey) error
 }
 
 type actMap struct {
@@ -120,6 +121,11 @@ func (m actMap) IterateWithCallback(cb ActiveConnectionTrackingIterateCallback) 
 
 		cb(key, value)
 	})
+}
+
+func (m actMap) Delete(key *ActiveConnectionTrackerKey) error {
+	_, err := m.m.SilentDelete(key)
+	return err
 }
 
 // ActiveConnectionTrackerKey is the key to ActiveConnectionTrackingMap.
