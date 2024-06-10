@@ -52,10 +52,10 @@ func (d *DynamicExporter) OnDecodedEvent(ctx context.Context, event *v1.Event) (
 
 // Stop stops configuration watcher  and all managed flow log exporters.
 func (d *DynamicExporter) Stop() error {
+	d.watcher.Stop()
+
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
-	d.watcher.Stop()
 
 	var errs error
 	for _, me := range d.managedExporters {
