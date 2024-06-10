@@ -75,10 +75,12 @@ const (
 
 	// PropertyWithouteBPFDatapath marks the endpoint that doesn't contain a
 	// eBPF datapath program.
+	// Endpoint is still placed in the endpoints map so that ARP and ND work.
 	PropertyWithouteBPFDatapath = "property-without-bpf-endpoint"
 
 	// PropertySkipBPFPolicy will mark the endpoint to skip ebpf
 	// policy regeneration.
+	// Endpoint is still placed in the endpoints map  so that ARP and ND work.
 	PropertySkipBPFPolicy = "property-skip-bpf-policy"
 
 	// PropertySkipBPFRegeneration will mark the endpoint to skip ebpf
