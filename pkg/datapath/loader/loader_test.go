@@ -90,7 +90,7 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	_, err := l.ReloadDatapath(ctx, ep, stats)
+	_, err := l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
 	require.NoError(t, err)
 }
 
@@ -171,7 +171,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		_, err = l.ReloadDatapath(ctx, ep, stats)
+		_, err = l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
 	}
 	require.Error(t, err)
 }
@@ -204,12 +204,11 @@ func TestBPFMasqAddrs(t *testing.T) {
 
 	l := newTestLoader(t)
 
-	masq4, masq6 := l.bpfMasqAddrs("test")
+	masq4, masq6 := l.bpfMasqAddrs("test", &localNodeConfig)
 	require.Equal(t, masq4.IsValid(), false)
 	require.Equal(t, masq6.IsValid(), false)
 
-	newConfig := *l.nodeConfig.Load()
-
+	newConfig := localNodeConfig
 	newConfig.NodeAddresses = []tables.NodeAddress{
 		{
 			Addr:       netip.MustParseAddr("1.0.0.1"),
@@ -236,13 +235,12 @@ func TestBPFMasqAddrs(t *testing.T) {
 			DeviceName: tables.WildcardDeviceName,
 		},
 	}
-	l.nodeConfig.Store(&newConfig)
 
-	masq4, masq6 = l.bpfMasqAddrs("test")
+	masq4, masq6 = l.bpfMasqAddrs("test", &newConfig)
 	require.Equal(t, masq4.String(), "1.0.0.1")
 	require.Equal(t, masq6.String(), "1000::1")
 
-	masq4, masq6 = l.bpfMasqAddrs("unknown")
+	masq4, masq6 = l.bpfMasqAddrs("unknown", &newConfig)
 	require.Equal(t, masq4.String(), "2.0.0.2")
 	require.Equal(t, masq6.String(), "2000::2")
 }

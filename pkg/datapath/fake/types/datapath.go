@@ -130,15 +130,15 @@ func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, st
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+func (f *FakeLoader) ReinitializeXDP(ctx context.Context, cfg *datapath.LocalNodeConfiguration, extraCArgs []string) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+func (f *FakeLoader) EndpointHash(cfg datapath.EndpointConfiguration, _ *datapath.LocalNodeConfiguration) (string, error) {
 	panic("implement me")
 }
 
@@ -153,8 +153,12 @@ func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
 	return ""
 }
 
+func (f *FakeLoader) ReinitializeHostDev(ctx context.Context, mtu int) error {
+	return nil
+}
+
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
 
@@ -166,7 +170,7 @@ func (f *FakeLoader) DetachXDP(ifaceName string, bpffsBase, progName string) err
 	return nil
 }
 
-func (f *FakeLoader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+func (f *FakeLoader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, cfg *datapath.LocalNodeConfiguration) error {
 	return nil
 }
 
@@ -175,3 +179,21 @@ type FakeOrchestrator struct{}
 func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
 	return nil
 }
+
+func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
+	return "", nil
+}
+
+func (f *FakeOrchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+	return "", nil
+}
+
+func (f *FakeOrchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
+	return nil
+}
+
+func (f *FakeOrchestrator) Unload(ep datapath.Endpoint) {}
