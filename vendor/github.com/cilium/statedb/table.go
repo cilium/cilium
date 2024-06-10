@@ -5,6 +5,7 @@ package statedb
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -94,7 +95,7 @@ func MustNewTable[Obj any](
 	tableName TableName,
 	primaryIndexer Indexer[Obj],
 	secondaryIndexers ...Indexer[Obj]) RWTable[Obj] {
-	t, err := NewTable[Obj](tableName, primaryIndexer, secondaryIndexers...)
+	t, err := NewTable(tableName, primaryIndexer, secondaryIndexers...)
 	if err != nil {
 		panic(err)
 	}
@@ -168,23 +169,33 @@ func (t *genTable[Obj]) ToTable() Table[Obj] {
 }
 
 func (t *genTable[Obj]) Initialized(txn ReadTxn) bool {
-	return txn.getTxn().root[t.pos].initializers == 0
+	return len(t.PendingInitializers(txn)) == 0
+}
+func (t *genTable[Obj]) PendingInitializers(txn ReadTxn) []string {
+	return txn.getTxn().root[t.pos].pendingInitializers
 }
 
-func (t *genTable[Obj]) RegisterInitializer(txn WriteTxn) func(WriteTxn) {
+func (t *genTable[Obj]) RegisterInitializer(txn WriteTxn, name string) func(WriteTxn) {
 	table := txn.getTxn().modifiedTables[t.pos]
 	if table != nil {
-		table.initializers++
+		if slices.Contains(table.pendingInitializers, name) {
+			panic(fmt.Sprintf("RegisterInitializer: %q already registered", name))
+		}
+		table.pendingInitializers =
+			append(slices.Clone(table.pendingInitializers), name)
+		var once sync.Once
 		return func(txn WriteTxn) {
-			var once sync.Once
 			once.Do(func() {
 				if table := txn.getTxn().modifiedTables[t.pos]; table != nil {
-					table.initializers--
+					table.pendingInitializers = slices.DeleteFunc(
+						slices.Clone(table.pendingInitializers),
+						func(n string) bool { return n == name },
+					)
 				}
 			})
 		}
 	} else {
-		return func(WriteTxn) {}
+		panic(fmt.Sprintf("RegisterInitializer: Table %q not locked for writing", t.table))
 	}
 }
 

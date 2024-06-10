@@ -78,7 +78,6 @@ type reconciler[Obj comparable] struct {
 	retries             *retries
 	externalFullTrigger chan struct{}
 	primaryIndexer      statedb.Indexer[Obj]
-	changes             *statedb.ChangeIterator[Obj]
 }
 
 func (r *reconciler[Obj]) TriggerFullReconciliation() {
@@ -132,7 +131,9 @@ func (r *reconciler[Obj]) loop(ctx context.Context, health cell.Health) error {
 
 	for {
 		if r.Config.RateLimiter != nil {
-			r.Config.RateLimiter.Wait(ctx)
+			if err := r.Config.RateLimiter.Wait(ctx); err != nil {
+				return err
+			}
 		}
 
 		// Wait for trigger

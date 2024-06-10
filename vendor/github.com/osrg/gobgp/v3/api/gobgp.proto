@@ -134,6 +134,9 @@ message WatchEventRequest {
     repeated Filter filters = 1;
   }
   Table table = 2;
+
+  // Max number of paths to include in a single message. 0 for unlimited.
+  uint32 batch_size = 3;
 }
 
 message WatchEventResponse {
@@ -630,6 +633,7 @@ message PeerGroupConf {
   RemovePrivate remove_private = 7;
   bool route_flap_damping = 8;
   uint32 send_community = 9;
+  bool send_software_version = 10;
 }
 
 message PeerGroupState {
