@@ -470,6 +470,13 @@ func xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmSta
 		errs             = resiliency.NewErrorSet("failed to delete conflicting XFRM states", len(states))
 	)
 	for _, s := range states {
+		log.WithFields(logrus.Fields{
+			logfields.SPI:              s.Spi,
+			logfields.SourceIP:         s.Src,
+			logfields.DestinationIP:    s.Dst,
+			logfields.TrafficDirection: getDirFromXfrmMark(s.Mark),
+			logfields.NodeID:           getNodeIDAsHexFromXfrmMark(s.Mark),
+		}).Info("Trying state for deletion")
 		if new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
 			(new.Mark == nil || new.Mark.Value&new.Mark.Mask&s.Mark.Mask == s.Mark.Value) &&
 			xfrmIPEqual(new.Src, s.Src) && xfrmIPEqual(new.Dst, s.Dst) {

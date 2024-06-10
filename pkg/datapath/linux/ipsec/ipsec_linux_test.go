@@ -296,3 +296,45 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true, DefaultReqID)
 	require.NoError(t, err)
 }
+
+func TestUpdateEndpointWithConflictingXfrmState(t *testing.T) {
+	setupIPSecSuitePrivileged(t)
+
+	_, local, err := net.ParseCIDR("1.2.3.4/32")
+	require.NoError(t, err)
+	_, remote, err := net.ParseCIDR("1.2.3.5/32")
+	require.NoError(t, err)
+	_, remote2, err := net.ParseCIDR("1.2.3.6/32")
+	require.NoError(t, err)
+
+	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
+	require.NoError(t, err)
+	key := &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Aead:  &netlink.XfrmStateAlgo{Name: "rfc4106(gcm(aes))", Key: aeadKey, ICVLen: 128},
+		Crypt: nil,
+		Auth:  nil,
+	}
+	ipSecKeysGlobal[""] = key
+
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0x155f, "remote-boot-id", IPSecDirIn, true, false, DefaultReqID)
+	require.NoError(t, err)
+
+	list, err := xfrmStateCache.XfrmStateList()
+	require.NoError(t, err)
+	for _, state := range list {
+		t.Logf("State: %s", state.String())
+	}
+
+	// Let's upsert another node with the same nodeID but different IP
+	_, err = UpsertIPsecEndpoint(local, remote2, local.IP, remote2.IP, 0x155f, "remote-boot-id", IPSecDirIn, true, false, DefaultReqID)
+	require.NoError(t, err)
+
+	list, err = xfrmStateCache.XfrmStateList()
+	require.NoError(t, err)
+	for _, state := range list {
+		t.Logf("State: %s", state.String())
+	}
+	t.Fail() // For testing now to manually check states.
+}
