@@ -91,7 +91,6 @@ type CiliumBGPAdvertisementSpec struct {
 	// Advertisements is a list of BGP advertisements.
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
 	Advertisements []BGPAdvertisement `json:"advertisements"`
 }
 
