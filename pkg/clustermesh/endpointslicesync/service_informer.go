@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/service/store"
@@ -211,18 +212,18 @@ func (l meshServiceLister) List(selector labels.Selector) ([]*v1.Service, error)
 		return nil, fmt.Errorf("meshServiceInformer only supports listing everything as requirements: %s", reqs)
 	}
 
-	svcIter := l.informer.serviceStore.IterKeys()
+	originalSvcs, err := l.informer.serviceStore.ByIndex(k8s.NamespaceIndex, l.namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	clusters := l.informer.meshNodeInformer.ListClusters()
 	var svcs []*v1.Service
-	for svcIter.Next() {
-		if svcIter.Key().Namespace != l.namespace {
-			continue
-		}
-
+	for _, svc := range originalSvcs {
 		for _, cluster := range clusters {
 			dummyClusterSvc := &store.ClusterService{
 				Cluster:   cluster,
-				Name:      svcIter.Key().Name,
+				Name:      svc.Name,
 				Namespace: l.namespace,
 			}
 			if svc, err := l.informer.clusterSvcToSvc(dummyClusterSvc, false); err == nil {
