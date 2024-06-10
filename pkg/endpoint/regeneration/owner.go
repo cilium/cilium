@@ -27,6 +27,9 @@ type Owner interface {
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath
 
+	// Loader returns a reference to the loader implementation.
+	Loader() datapath.Loader
+
 	// GetDNSRules creates a fresh copy of DNS rules that can be used when
 	// endpoint is restored on a restart.
 	// The endpoint lock must not be held while calling this function.

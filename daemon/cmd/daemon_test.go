@@ -302,6 +302,10 @@ func (ds *DaemonSuite) Datapath() datapath.Datapath {
 	return ds.d.datapath
 }
 
+func (ds *DaemonSuite) Loader() datapath.Loader {
+	return ds.d.loader
+}
+
 func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

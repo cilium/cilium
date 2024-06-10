@@ -20,7 +20,6 @@ var _ datapath.Datapath = (*FakeDatapath)(nil)
 type FakeDatapath struct {
 	node           *FakeNodeHandler
 	nodeAddressing datapath.NodeAddressing
-	loader         datapath.Loader
 	lbmap          *mockmaps.LBMockMap
 }
 
@@ -33,7 +32,6 @@ func NewDatapathWithNodeAddressing(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
 		node:           NewNodeHandler(),
 		nodeAddressing: na,
-		loader:         &FakeLoader{},
 		lbmap:          mockmaps.NewLBMockMap(),
 	}
 }
@@ -96,10 +94,6 @@ func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
 }
 
 func (m *FakeDatapath) RemoveNoTrackRules(ip netip.Addr, port uint16) {
-}
-
-func (f *FakeDatapath) Loader() datapath.Loader {
-	return f.loader
 }
 
 func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
