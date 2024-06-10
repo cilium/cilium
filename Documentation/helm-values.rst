@@ -644,12 +644,24 @@
      - Annotations for the clustermesh-apiserver For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal" For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
      - object
      - ``{}``
+   * - :spelling:ignore:`clustermesh.apiserver.service.enableSessionAffinity`
+     - 
+     - string
+     - ``"HAOnly"``
    * - :spelling:ignore:`clustermesh.apiserver.service.externalTrafficPolicy`
      - The externalTrafficPolicy of service used for apiserver access.
      - string
      - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.service.internalTrafficPolicy`
      - The internalTrafficPolicy of service used for apiserver access.
+     - string
+     - ``"Cluster"``
+   * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerClass`
+     - Configure a loadBalancerClass. Allows to configure the loadBalancerClass on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer (requires Kubernetes 1.24+).
+     - string
+     - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerIP`
+     - Configure a specific loadBalancerIP. Allows to configure a specific loadBalancerIP on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer.
      - string
      - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.service.nodePort`
@@ -2034,8 +2046,8 @@
      - ``{"digest":"sha256:6aa840986a3a9722cd967ef63248d675a87add7e1704740902d5d3162f0c0def","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.15.6","useDigest":true}``
    * - :spelling:ignore:`imagePullSecrets`
      - Configure image pull secrets for pulling container images
-     - string
-     - ``nil``
+     - list
+     - ``[]``
    * - :spelling:ignore:`ingressController.default`
      - Set cilium ingress controller to be the default ingress controller This will let cilium ingress controller route entries without ingress class set
      - bool
