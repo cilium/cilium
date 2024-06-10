@@ -6,9 +6,9 @@
 
 .. _local-redirect-policy:
 
-*****************************
-Local Redirect Policy (beta)
-*****************************
+*********************
+Local Redirect Policy
+*********************
 
 This document explains how to configure Cilium's Local Redirect Policy, that
 enables pod traffic destined to an IP address and port/protocol tuple
@@ -48,8 +48,8 @@ Prerequisites
 .. include:: ../../installation/k8s-install-download-release.rst
 
 The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,
-follow the guide to create a new deployment. The beta feature is disabled by default.
-Enable the feature by setting the ``localRedirectPolicy`` value to ``true``.
+follow the guide to create a new deployment. Enable the feature by setting
+the ``localRedirectPolicy`` value to ``true``.
 
 .. parsed-literal::
 
