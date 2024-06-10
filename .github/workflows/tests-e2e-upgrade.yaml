@@ -81,7 +81,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 16
+      max-parallel: 22
       matrix:
         include:
           # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -275,6 +275,70 @@ jobs:
             encryption-node: 'false'
             host-fw: 'true'
             ciliumendpointslice: 'true'
+
+          # Disable until 1.17 has been released, so that 1.16 to 1.17 upgrade
+          # can be tested with netkit.
+          # - name: '17'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: 'bpf-20240610.092500'
+          #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+          #  kube-proxy: 'none'
+          #  kpr: 'true'
+          #  ipv6: 'true'
+          #  tunnel: 'disabled'
+          #  devices: '{eth0,eth1}'
+          #  secondary-network: 'true'
+          #
+          # - name: '18'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: 'bpf-20240610.092500'
+          #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+          #  kube-proxy: 'none'
+          #  kpr: 'true'
+          #  ipv6: 'true'
+          #  tunnel: 'disabled'
+          #  devices: '{eth0,eth1}'
+          #  secondary-network: 'true'
+          #
+          # - name: '19'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: 'bpf-20240610.092500'
+          #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
+          #  kube-proxy: 'none'
+          #  kpr: 'true'
+          #  tunnel: 'vxlan'
+          #  devices: '{eth0,eth1}'
+          #  secondary-network: 'true'
+          #
+          # - name: '20'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: 'bpf-20240610.092500'
+          #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
+          #  kube-proxy: 'none'
+          #  kpr: 'true'
+          #  tunnel: 'vxlan'
+          #  devices: '{eth0,eth1}'
+          #  secondary-network: 'true'
+          #
+          # - name: '21'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: 'bpf-20240610.092500'
+          #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
+          #  kube-proxy: 'none'
+          #  kpr: 'true'
+          #  tunnel: 'geneve'
+          #  devices: '{eth0,eth1}'
+          #  secondary-network: 'true'
+          #
+          # - name: '22'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: 'bpf-20240610.092500'
+          #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
+          #  kube-proxy: 'none'
+          #  kpr: 'true'
+          #  tunnel: 'geneve'
+          #  devices: '{eth0,eth1}'
+          #  secondary-network: 'true'
 
     timeout-minutes: 60
     steps:
