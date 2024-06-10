@@ -95,6 +95,18 @@ spec:
                   - server auth
                   validity: {{ $certValidityStr }}
                 {{- end }}
+                {{- if and .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
+                - name: hubble-ui-client-certs
+                  namespace: {{ .Release.Namespace }}
+                  commonName: "*.hubble-ui.cilium.io"
+                  hosts:
+                  - "*.hubble-ui.cilium.io"
+                  usage:
+                  - signing
+                  - key encipherment
+                  - client auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}

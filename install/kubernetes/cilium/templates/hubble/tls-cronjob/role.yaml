@@ -26,6 +26,7 @@ rules:
       - hubble-relay-client-certs
       - hubble-relay-server-certs
       - hubble-metrics-server-certs
+      - hubble-ui-client-certs
     verbs:
       - update
   - apiGroups:
