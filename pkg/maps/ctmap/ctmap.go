@@ -187,6 +187,14 @@ type GCFilter struct {
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
 type EmitCTEntryCBFunc func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
+// TODO: GH-33557: Remove this hack once ctmap is migrated to a cell.
+type PurgeHook interface {
+	CountFailed4(uint16, uint32)
+	CountFailed6(uint16, uint32)
+}
+
+var ACT PurgeHook
+
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
 // ct entries in m to a string. If clockSource is not nil, it uses it to
 // compute the time difference of each entry from now and prints that too.
@@ -334,12 +342,20 @@ func newMap(mapName string, m mapType) *Map {
 
 func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	err := m.Delete(key)
-	if err != nil || natMap == nil {
+	if err != nil {
 		return err
 	}
 
 	t := key.GetTupleKey()
 	tupleType := t.GetFlags()
+
+	if tupleType == tuple.TUPLE_F_SERVICE && ACT != nil {
+		ACT.CountFailed6(entry.RevNAT, uint32(entry.BackendID))
+	}
+
+	if natMap == nil {
+		return nil
+	}
 
 	if tupleType == tuple.TUPLE_F_OUT {
 		if entry.isDsrInternalEntry() {
@@ -448,12 +464,20 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 
 func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	err := m.Delete(key)
-	if err != nil || natMap == nil {
+	if err != nil {
 		return err
 	}
 
 	t := key.GetTupleKey()
 	tupleType := t.GetFlags()
+
+	if tupleType == tuple.TUPLE_F_SERVICE && ACT != nil {
+		ACT.CountFailed4(entry.RevNAT, uint32(entry.BackendID))
+	}
+
+	if natMap == nil {
+		return nil
+	}
 
 	if tupleType == tuple.TUPLE_F_OUT {
 		if entry.isDsrInternalEntry() {
