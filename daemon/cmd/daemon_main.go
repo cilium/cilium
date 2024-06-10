@@ -1706,7 +1706,15 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 	var wg sync.WaitGroup
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
+		OnStart: func(cell.HookContext) (err error) {
+			defer func() {
+				// Reject promises on error
+				if err != nil {
+					cfgResolver.Reject(err)
+					daemonResolver.Reject(err)
+				}
+			}()
+
 			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, &params)
 			if err != nil {
 				cancelDaemonCtx()
@@ -1716,16 +1724,45 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			daemon = d
 
 			if !option.Config.DryMode {
-				if err := startDaemon(daemon, restoredEndpoints, cleaner, params); err != nil {
-					daemonResolver.Reject(err)
-					cancelDaemonCtx()
-					cleaner.Clean()
-					cfgResolver.Reject(err)
-					return err
+				log.Info("Initializing daemon")
+
+				// This validation needs to be done outside of the agent until
+				// datapath.NodeAddressing is used consistently across the code base.
+				log.Info("Validating configured node address ranges")
+				if err := node.ValidatePostInit(); err != nil {
+					return fmt.Errorf("postinit failed: %w", err)
+				}
+
+				// Store config in file before resolving the DaemonConfig promise.
+				err = option.Config.StoreInFile(option.Config.StateDir)
+				if err != nil {
+					log.WithError(err).Error("Unable to store Cilium's configuration")
+				}
+
+				err = option.StoreViperInFile(option.Config.StateDir)
+				if err != nil {
+					log.WithError(err).Error("Unable to store Viper's configuration")
 				}
 			}
-			daemonResolver.Resolve(daemon)
+
+			// 'option.Config' is assumed to be stable at this point, execpt for
+			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
 			cfgResolver.Resolve(option.Config)
+
+			if option.Config.DryMode {
+				daemonResolver.Resolve(daemon)
+			} else {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if err := startDaemon(daemon, restoredEndpoints, cleaner, params); err != nil {
+						log.WithError(err).Error("Daemon start failed")
+						daemonResolver.Reject(err)
+					} else {
+						daemonResolver.Resolve(daemon)
+					}
+				}()
+			}
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1739,16 +1776,9 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
+// option.Config has already been exposed via *option.DaemonConfig promise,
+// so it may not be modified here
 func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
-	log.Info("Initializing daemon")
-
-	// This validation needs to be done outside of the agent until
-	// datapath.NodeAddressing is used consistently across the code base.
-	log.Info("Validating configured node address ranges")
-	if err := node.ValidatePostInit(); err != nil {
-		return fmt.Errorf("postinit failed: %w", err)
-	}
-
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
@@ -1911,28 +1941,28 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	bootstrapStats.updateMetrics()
 	go d.launchHubble()
 
-	err = option.Config.StoreInFile(option.Config.StateDir)
-	if err != nil {
-		log.WithError(err).Error("Unable to store Cilium's configuration")
-	}
-
-	err = option.StoreViperInFile(option.Config.StateDir)
-	if err != nil {
-		log.WithError(err).Error("Unable to store Viper's configuration")
-	}
-
 	return nil
 }
 
 func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
+	var wg sync.WaitGroup
+
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			daemon, err := daemonPromise.Await(context.Background())
-			if err != nil {
-				resolver.Reject(err)
-				return err
-			}
-			resolver.Resolve(daemon)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				daemon, err := daemonPromise.Await(context.Background())
+				if err != nil {
+					resolver.Reject(err)
+				} else {
+					resolver.Resolve(daemon)
+				}
+			}()
+			return nil
+		},
+		OnStop: func(ctx cell.HookContext) error {
+			wg.Wait()
 			return nil
 		},
 	})

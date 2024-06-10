@@ -49,11 +49,15 @@ var Cell = cell.Module(
 				ipv4Nat, ipv6Nat = GlobalMaps(cfg.EnableIPv4,
 					cfg.EnableIPv6, true)
 
-				// Maps are still created in daemon.initMaps(...) under the same circumstances
+				// Maps are still created before DaemonConfig promise is resolved in
+				// daemon.initMaps(...) under the same circumstances
 				// so we just open them here so they can be provided to hive.
 				//
 				// TODO: Refactor ctmap gc Enable() such that it can use the map descriptors from
 				// here so we can move all nat map creation logic into here.
+				// NOTE: This code runs concurrently with startDaemon(), so if any dependency to
+				// daemon having finished endpoint restore, for example, is added, we should
+				// await for an appropriate promise.
 				if cfg.EnableIPv4 {
 					if err := ipv4Nat.Open(); err != nil {
 						return fmt.Errorf("open IPv4 nat map: %w", err)
