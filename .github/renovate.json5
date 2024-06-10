@@ -309,15 +309,6 @@
       ]
     },
     {
-      "matchPackageNames": [
-        "gcr.io/etcd-development/etcd"
-      ],
-      "allowedVersions": "<3.16",
-      "matchBaseBranches": [
-        "v1.15"
-      ]
-    },
-    {
       "matchDepNames": [
         "golang.zx2c4.com/wireguard"
       ],
