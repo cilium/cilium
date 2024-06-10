@@ -55,6 +55,9 @@ inputs:
   ciliumendpointslice:
     description: 'Enable CiliumEndpointSlice'
     default: 'false'
+  local-redirect-policy:
+    description: 'Enable local redirect policy'
+    default: 'false'
 outputs:
   config:
     description: 'Cilium installation config'
@@ -165,5 +168,10 @@ runs:
             CILIUMENDPOINTSLICE="--helm-set=ciliumEndpointSlice.enabled=true"
           fi
         
-          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE}"
+          LOCAL_REDIRECT_POLICY=""
+          if [ "${{ inputs.local-redirect-policy }}" == "true" ]; then
+            LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicy=true"
+          fi
+
+          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT
