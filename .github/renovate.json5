@@ -309,6 +309,17 @@
       ]
     },
     {
+      "matchPackageNames": [
+        "quay.io/cilium/certgen",
+      ],
+      "allowedVersions": "<0.2.0",
+      "matchBaseBranches": [
+        "v1.15",
+        "v1.14",
+        "v1.13"
+      ]
+    },
+    {
       "matchDepNames": [
         "golang.zx2c4.com/wireguard"
       ],
