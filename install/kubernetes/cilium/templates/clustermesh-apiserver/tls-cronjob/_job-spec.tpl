@@ -66,6 +66,16 @@ spec:
                   - client auth
                   validity: {{ $certValidityStr }}
                 {{- end }}
+                {{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+                - name: clustermesh-apiserver-local-cert
+                  namespace: {{ .Release.Namespace }}
+                  commonName: {{ include "clustermesh-apiserver-generate-certs.local-common-name" . | quote }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - client auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
                 {{- if .Values.externalWorkloads.enabled }}
                 - name: clustermesh-apiserver-client-cert
                   namespace: {{ .Release.Namespace }}
