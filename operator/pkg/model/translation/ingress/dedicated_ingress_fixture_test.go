@@ -1568,6 +1568,7 @@ var complexNodePortIngressCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			{
 				Name:      "cilium-ingress-dummy-ingress",
 				Namespace: "dummy-namespace",
+				Ports:     []uint16{80, 443},
 			},
 		},
 		BackendServices: []*ciliumv2.Service{

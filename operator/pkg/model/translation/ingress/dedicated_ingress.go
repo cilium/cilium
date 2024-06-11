@@ -72,12 +72,6 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	cec.Name = cecName
 
 	dedicatedService := d.getService(sourceResource, modelService)
-	if dedicatedService.Spec.Type == corev1.ServiceTypeNodePort {
-		// clear out the CEC Port field for NodePort services.
-		for i := range cec.Spec.Services {
-			cec.Spec.Services[i].Ports = nil
-		}
-	}
 
 	return cec, dedicatedService, getEndpoints(sourceResource), err
 }
