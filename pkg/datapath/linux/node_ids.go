@@ -56,8 +56,27 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 
 	for _, addr := range node.IPAddresses {
 		ip := addr.IP.String()
-		if _, exists := n.nodeIDsByIPs[ip]; exists {
+		if id, exists := n.nodeIDsByIPs[ip]; exists && id == nodeID {
 			continue
+		} else if exists && id != nodeID {
+			// The map is in an inconsistent state. This can occur when a node
+			// is deleted while the agent is down and its IPs are reused.
+			log.WithFields(logrus.Fields{
+				logfields.IPAddr:   ip,
+				"mapped-to-nodeID": id,
+				"expected-nodeID":  nodeID,
+			}).Error("BUG: IPs of one node map to multiple node IDs. Reallocating a fresh nodeID.")
+
+			// To allocate a fresh ID, unmap the IPs of this node, and try again.
+			for _, addr := range node.IPAddresses {
+				if err := n.unmapNodeID(addr.IP.String()); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						logfields.IPAddr: ip,
+					}).Error("Failed to unmap stale nodeID mapping")
+				}
+			}
+
+			return n.allocateIDForNode(node)
 		}
 		if err := n.mapNodeID(ip, nodeID); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
