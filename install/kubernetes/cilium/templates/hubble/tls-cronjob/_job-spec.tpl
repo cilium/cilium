@@ -9,10 +9,18 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: certgen
           image: {{ include "cilium.image" .Values.certgen.image | quote }}
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            allowPrivilegeEscalation: false
           command:
             - "/usr/bin/cilium-certgen"
           # Because this is executed as a job, we pass the values as command
@@ -111,7 +119,7 @@ spec:
           volumeMounts:
           {{- toYaml . | nindent 10 }}
           {{- end }}
-      hostNetwork: true
+      hostNetwork: false
       {{- with .Values.certgen.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
