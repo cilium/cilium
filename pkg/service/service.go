@@ -271,8 +271,8 @@ type Service struct {
 	backendDiscovery datapathTypes.NodeNeighbors
 }
 
-// NewService creates a new instance of the service handler.
-func NewService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors) *Service {
+// newService creates a new instance of the service handler.
+func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New()
