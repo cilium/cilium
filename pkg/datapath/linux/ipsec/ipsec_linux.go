@@ -479,7 +479,7 @@ func xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmSta
 		}).Info("Trying state for deletion")
 		if new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
 			(new.Mark == nil || new.Mark.Value&new.Mark.Mask&s.Mark.Mask == s.Mark.Value) &&
-			xfrmIPEqual(new.Src, s.Src) && xfrmIPEqual(new.Dst, s.Dst) {
+			xfrmIPEqual(new.Dst, s.Dst) {
 			if err := xfrmStateCache.XfrmStateDel(&s); err != nil {
 				errs.Add(err)
 				continue
