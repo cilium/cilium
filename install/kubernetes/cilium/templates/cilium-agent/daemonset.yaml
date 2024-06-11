@@ -904,6 +904,29 @@ spec:
               - key: {{ .Values.tls.caBundle.key }}
                 path: common-etcd-client-ca.crt
           {{- end }}
+          # note: we configure the volume for the kvstoremesh-specific certificate
+          # regardless of whether KVStoreMesh is enabled or not, so that it can be
+          # automatically mounted in case KVStoreMesh gets subsequently enabled,
+          # without requiring an agent restart.
+          - secret:
+              name: clustermesh-apiserver-local-cert
+              optional: true
+              items:
+              - key: tls.key
+                path: local-etcd-client.key
+              - key: tls.crt
+                path: local-etcd-client.crt
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: local-etcd-client-ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: local-etcd-client-ca.crt
+          {{- end }}
       {{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
       - name: ip-masq-agent
         configMap:
