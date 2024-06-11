@@ -1271,4 +1271,22 @@ struct skip_lb6_key {
  */
 #define TUNNEL_KEY_WITHOUT_SRC_IP offsetof(struct bpf_tunnel_key, local_ipv4)
 
+/* Generate a pseudo-random number between [0, n), with a slight bias.
+ * Adapted from "Integer Multiplication (Biased)" in https://www.pcg-random.org/posts/bounded-rands.html
+ */
+static __always_inline __u32 get_prandom_biased(__u32 n)
+{
+	__u32 x = get_prandom_u32();
+	__u64 m = (__u64)(x) * (__u64)(n);
+
+	return m >> 32;
+}
+
+/* Generate a pseudo-random number between [start, end), with a slight bias.
+ */
+static __always_inline __u32 get_prandom_range_biased(__u32 start, __u32 end)
+{
+	return start + get_prandom_biased(end - start);
+}
+
 #include "overloadable.h"

@@ -40,17 +40,11 @@ struct nat_entry {
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
 
-static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
-						     __u16 val)
-{
-	return (val % (__u16)(end - start)) + start;
-}
-
 static __always_inline __maybe_unused __u16
 __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
 	return val >= start && val <= end ? val :
-	       __snat_clamp_port_range(start, end, (__u16)get_prandom_u32());
+	       (__u16)get_prandom_range_biased(start, end);
 }
 
 static __always_inline __maybe_unused void *
@@ -212,10 +206,8 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 		if (!__snat_lookup(map, &rtuple))
 			goto create_nat_entries;
 
-		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port,
-					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
+		port = (__u16)get_prandom_range_biased(target->min_port,
+						       target->max_port);
 	}
 
 	/* Loop completed without finding a free port: */
@@ -1097,10 +1089,8 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 		if (!snat_v6_lookup(&rtuple))
 			goto create_nat_entries;
 
-		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port,
-					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
+		port = (__u16)get_prandom_range_biased(target->min_port,
+						       target->max_port);
 	}
 
 	ret = DROP_NAT_NO_MAPPING;
