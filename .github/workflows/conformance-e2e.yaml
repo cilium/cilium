@@ -141,6 +141,7 @@ jobs:
             egress-gateway: 'true'
             host-fw: 'true'
             lb-acceleration: 'testing-only'
+            ingress-controller: 'true'
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
