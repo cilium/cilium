@@ -648,7 +648,7 @@ func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
+func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) (err error) {
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
@@ -686,14 +686,13 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
-	reason string,
 ) error {
 	ep, err := endpoint.CreateIngressEndpoint(owner, policyGetter, ipcache, proxy, allocator)
 	if err != nil {
 		return err
 	}
 
-	if err := mgr.AddEndpoint(owner, ep, reason); err != nil {
+	if err := mgr.AddEndpoint(owner, ep); err != nil {
 		return err
 	}
 
@@ -709,14 +708,13 @@ func (mgr *endpointManager) AddHostEndpoint(
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
-	reason, nodeName string,
 ) error {
 	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, ipcache, proxy, allocator)
 	if err != nil {
 		return err
 	}
 
-	if err := mgr.AddEndpoint(owner, ep, reason); err != nil {
+	if err := mgr.AddEndpoint(owner, ep); err != nil {
 		return err
 	}
 
