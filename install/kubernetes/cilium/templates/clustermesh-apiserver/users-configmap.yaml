@@ -17,10 +17,6 @@ metadata:
 data:
   users.yaml: |
     users:
-    {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
-    - name: remote-{{ .Values.cluster.name }}
-      role: remote
-    {{- end }}
     {{- range .Values.clustermesh.config.clusters }}
     - name: remote-{{ .name }}
       role: remote
