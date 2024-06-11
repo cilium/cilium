@@ -60,7 +60,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch GatewayClass resources, which are linked to Gateway
 		Watches(&gatewayv1.GatewayClass{},
 			r.enqueueRequestForOwningGatewayClass(),
-			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
+			builder.WithPredicates(predicate.NewPredicateFuncs(matchesControllerName(controllerName)))).
 		// Watch related LB service for status
 		Watches(&corev1.Service{},
 			r.enqueueRequestForOwningResource(),
