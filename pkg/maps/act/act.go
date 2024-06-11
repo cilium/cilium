@@ -63,13 +63,18 @@ func newActiveConnectionTrackingMap(in struct {
 
 	bpf.MapOut[ActiveConnectionTrackingMap]
 	defines.NodeOut
-}) {
+}, err error) {
 	if !in.Conf.EnableActiveConnectionTracking {
 		return
 	}
-	size := option.Config.LBServiceMapEntries * len(option.Config.FixedZoneMapping)
+	svcSize := option.Config.LBMapEntries
+	if option.Config.LBServiceMapEntries > 0 {
+		svcSize = option.Config.LBServiceMapEntries
+	}
+	zoneSize := len(option.Config.FixedZoneMapping)
+	size := svcSize * zoneSize
 	if size == 0 {
-		return
+		return out, fmt.Errorf("unexpected map size: %d = svc[%d] * zones[%d]", size, svcSize, zoneSize)
 	}
 
 	out.NodeDefines = map[string]string{
