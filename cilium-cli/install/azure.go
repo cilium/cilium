@@ -130,7 +130,7 @@ func (k *K8sInstaller) azureRetrieveAKSClusterInfo() error {
 		return fmt.Errorf("missing Azure resource group name")
 	}
 
-	bytes, err := k.azExec("aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName)
+	bytes, err := k.azExec("aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.client.ClusterName())
 	if err != nil {
 		return err
 	}
