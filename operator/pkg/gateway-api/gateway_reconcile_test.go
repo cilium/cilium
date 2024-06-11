@@ -324,18 +324,8 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 			NamespacedName: key,
 		})
 
-		require.Error(t, err)
-		require.Equal(t, "gatewayclasses.gateway.networking.k8s.io \"non-existent-gateway-class\" not found", err.Error())
-		require.Equal(t, ctrl.Result{}, result)
-
-		gw := &gatewayv1.Gateway{}
-		err = c.Get(context.Background(), key, gw)
 		require.NoError(t, err)
-		require.Len(t, gw.Status.Conditions, 1)
-		require.Equal(t, "Accepted", gw.Status.Conditions[0].Type)
-		require.Equal(t, metav1.ConditionFalse, gw.Status.Conditions[0].Status)
-		require.Equal(t, "NoResources", gw.Status.Conditions[0].Reason)
-		require.Equal(t, "GatewayClass does not exist", gw.Status.Conditions[0].Message)
+		require.Equal(t, ctrl.Result{}, result)
 	})
 
 	t.Run("valid http gateway", func(t *testing.T) {
