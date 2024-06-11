@@ -311,10 +311,5 @@ func rangesForRemoteRole(clusterName string) []keyRange {
 		rangeForPrefix(kvstore.StatePrefix),
 		rangeForKey(path.Join(kvstore.ClusterConfigPrefix, clusterName)),
 		rangeForPrefix(path.Join(kvstore.SyncedPrefix, clusterName)),
-
-		// kvstoremesh-specific prefixes still allowed for backward compatibility
-		rangeForPrefix(kvstore.CachePrefix),
-		rangeForPrefix(kvstore.ClusterConfigPrefix),
-		rangeForPrefix(kvstore.SyncedPrefix),
 	}
 }
