@@ -214,10 +214,10 @@ jobs:
       kind_config_2: .github/kind-config-2.yaml
       # helm/kind-action will override the "name:" provided in the kind config with "chart-testing" unless these are
       # specified as inputs. These must also match the suffix here for CLUSTER1 and CLUSTER2.
-      CLUSTER_NAME_1: c.1
-      CLUSTER_NAME_2: c.2
-      CLUSTER1: kind-c.1
-      CLUSTER2: kind-c.2
+      CLUSTER_NAME_1: c-1
+      CLUSTER_NAME_2: c-2
+      CLUSTER1: kind-c-1
+      CLUSTER2: kind-c-2
 
     steps:
       - name: Checkout
