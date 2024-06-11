@@ -203,7 +203,7 @@ func (l *loader) reinitializeIPSec() error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
-	coll, finalize, err := loadDatapath(spec, nil, nil)
+	coll, commit, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return fmt.Errorf("loading %s: %w", networkObj, err)
 	}
@@ -232,8 +232,9 @@ func (l *loader) reinitializeIPSec() error {
 		return fmt.Errorf("failed to load encryption program: %w", errs)
 	}
 
-	// Defer map removal until all interfaces' progs have been replaced.
-	finalize()
+	if err := commit(); err != nil {
+		return fmt.Errorf("committing bpf pins: %w", err)
+	}
 
 	return nil
 }

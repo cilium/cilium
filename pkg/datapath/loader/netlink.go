@@ -39,26 +39,16 @@ func directionToParent(dir string) uint32 {
 // loadDatapath returns a Collection given the ELF obj, renames maps according
 // to mapRenames and overrides the given constants.
 //
-// When successful, returns a finalizer to allow the map cleanup operation to be
-// deferred by the caller. On error, any maps pending migration are immediately
-// re-pinned to their original paths and a finalizer is not returned.
+// When successful, returns a function that commits pending map pins to the bpf
+// file system, for maps that were found to be incompatible with their pinned
+// counterparts, or for maps with certain flags that modify the default pinning
+// behaviour.
 //
-// When replacing multiple programs from the same ELF in a loop, the finalizer
-// should only be run when all the interface's programs have been replaced
-// since they might share one or more tail call maps.
-//
-// For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
-// gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
-// will miss tail calls (and drop packets) until it has been replaced as well.
-func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (_ *ebpf.Collection, _ func(), err error) {
-	revert := func() {
-		// Program replacement unsuccessful, revert bpffs migration.
-		log.Debug("Reverting bpffs map migration")
-		if err := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, true); err != nil {
-			log.WithError(err).Error("Failed to revert bpffs map migration")
-		}
-	}
-
+// When attaching multiple programs from the same ELF in a loop, the returned
+// function should only be run after all entrypoints have been attached. For
+// example, attach both bpf_host.c:cil_to_netdev and cil_from_netdev before
+// invoking the returned function, otherwise missing tail calls will occur.
+func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (_ *ebpf.Collection, _ func() error, err error) {
 	spec, err = renameMaps(spec, mapRenames)
 	if err != nil {
 		return nil, nil, err
@@ -107,7 +97,6 @@ func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, const
 
 	// Load the CollectionSpec into the kernel, picking up any pinned maps from
 	// bpffs in the process.
-	finalize := func() {}
 	pinPath := bpf.TCGlobalsPath()
 	collOpts := bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
@@ -118,46 +107,19 @@ func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, const
 	if err := bpf.MkdirBPF(pinPath); err != nil {
 		return nil, nil, fmt.Errorf("creating bpffs pin path: %w", err)
 	}
+
 	log.Debug("Loading Collection into kernel")
-	coll, err := bpf.LoadCollection(spec, &collOpts)
-	if errors.Is(err, ebpf.ErrMapIncompatible) {
-		// Temporarily rename bpffs pins of maps whose definitions have changed in
-		// a new version of a datapath ELF.
-		log.Debug("Starting bpffs map migration")
-		if err := bpf.StartBPFFSMigration(bpf.TCGlobalsPath(), spec); err != nil {
-			return nil, nil, fmt.Errorf("Failed to start bpffs map migration: %w", err)
-		}
 
-		finalize = func() {
-			log.Debug("Finalizing bpffs map migration")
-			if err := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, false); err != nil {
-				log.WithError(err).Error("Could not finalize bpffs map migration")
-			}
-		}
-
-		// Retry loading the Collection after starting map migration.
-		log.Debug("Retrying loading Collection into kernel after map migration")
-		coll, err = bpf.LoadCollection(spec, &collOpts)
-	}
+	coll, commit, err := bpf.LoadCollection(spec, &collOpts)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
-			revert()
 			return nil, nil, fmt.Errorf("writing verifier log to stderr: %w", err)
 		}
 	}
 	if err != nil {
-		revert()
 		return nil, nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
 	}
-
-	// TODO(tb): Reverts don't really make sense after this point. Once a policy
-	// prog is inserted, the new Collection will be handling some part of the
-	// datapath. Reverting will clear the new prog array and result in missed tail
-	// calls in the 'new' code path, so the whole endpoint will break anyway.
-	// Since there is no atomicity in attaching a program, let's not create the
-	// illusion that reverts are actually possible. As a follow-up, remove the
-	// map migration system in favor of a 'commit' system.
 
 	// If an ELF contains one of the policy call maps, resolve and insert the
 	// programs it refers to into the map. This always needs to happen _before_
@@ -184,7 +146,7 @@ func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, const
 		}
 	}
 
-	return coll, finalize, nil
+	return coll, commit, nil
 }
 
 // resolveAndInsertCalls resolves a given slice of ebpf.MapKV containing u32 keys
