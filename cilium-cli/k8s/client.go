@@ -590,7 +590,6 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 	// When creating a cluster with eksctl create cluster --name foo,
 	// the cluster name is foo.<region>.eksctl.io
 	if strings.HasSuffix(c.ClusterName(), ".eksctl.io") {
-		f.ClusterName = strings.ReplaceAll(c.ClusterName(), ".", "-")
 		f.Kind = KindEKS
 		return f
 	}
