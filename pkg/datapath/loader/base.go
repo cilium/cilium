@@ -299,6 +299,11 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 			}
 		}
 	}
+
+	// Clean up the legacy cilium_calls_xdp path.
+	// TODO:  Remove in Cilium 1.17.
+	os.Remove(filepath.Join(bpf.TCGlobalsPath(), "cilium_calls_xdp"))
+
 	return nil
 }
 

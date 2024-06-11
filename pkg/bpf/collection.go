@@ -284,7 +284,9 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 		opts.Programs.LogSize = 4_194_303
 	}
 
-	var toReplace []string
+	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
+	// Collection. ebpf-go will reject maps with pins it doesn't recognize.
+	toReplace := consumePinReplace(spec)
 
 	// Attempt to load the Collection.
 	coll, err := ebpf.NewCollectionWithOptions(spec, opts.CollectionOptions)
