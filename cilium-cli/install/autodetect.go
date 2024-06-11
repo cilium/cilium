@@ -127,7 +127,8 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 
 	if k.params.ClusterName == "" {
 		if k.flavor.ClusterName != "" {
-			name := strings.ReplaceAll(k.flavor.ClusterName, "_", "-")
+			// Neither underscores nor dots are allowed as part of the cluster name.
+			name := strings.NewReplacer("_", "-", ".", "-").Replace(k.flavor.ClusterName)
 			k.Log("🔮 Auto-detected cluster name: %s", name)
 			k.params.ClusterName = name
 		}
