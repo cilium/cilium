@@ -29,5 +29,5 @@ type serviceManagerParams struct {
 }
 
 func newServiceManager(params serviceManagerParams) ServiceManager {
-	return NewService(params.MonitorAgent, params.Datapath.LBMap(), params.Datapath.NodeNeighbors())
+	return newService(params.MonitorAgent, params.Datapath.LBMap(), params.Datapath.NodeNeighbors())
 }
