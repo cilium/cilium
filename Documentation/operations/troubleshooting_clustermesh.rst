@@ -101,6 +101,10 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
       optionally the kvstoremesh container in the clustermesh-apiserver deployment,
       to authenticate against remote etcd instances (either internal or external).
 
+    * ``clustermesh-apiserver-local-cert``, which is used by Cilium agents to
+      authenticate against the local etcd instance. Only applicable if KVStoreMesh
+      is enabled.
+
  #. Validate that the configuration for remote clusters is picked up correctly.
     For each remote cluster, an info log message ``New remote cluster
     configuration`` along with the remote cluster name must be logged in the
