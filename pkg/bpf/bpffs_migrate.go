@@ -19,64 +19,6 @@ import (
 
 const bpffsPending = ":pending"
 
-// StartBPFFSMigration the map migration process for a given ELF's maps.
-// When a new ELF contains a map definition that differs from its existing (pinned)
-// counterpart, re-pin it to its current path suffixed by ':pending'.
-// A map's type, key size, value size, flags and max entries are compared to the given spec.
-//
-// Takes a bpffsPath explicitly since it does not necessarily execute within
-// the same runtime as the agent. It is imported from a Cilium cmd that takes
-// its bpffs path from an env.
-func StartBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec) error {
-	if coll == nil {
-		return errors.New("can't migrate a nil CollectionSpec")
-	}
-
-	for name, spec := range coll.Maps {
-		// Skip map specs without the pinning flag. Also takes care of skipping .data,
-		// .rodata and .bss and ignores maps with special pinning flags like cilium_calls.
-		if spec.Pinning != ebpf.PinByName {
-			continue
-		}
-
-		// Re-pin the map with ':pending' suffix if incoming spec differs from
-		// the currently-pinned map.
-		if err := RepinMap(bpffsPath, name, spec); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// FinalizeBPFFSMigration finalizes the migration of an ELF's maps.
-// If revert is true, any pending maps are re-pinned back to their original
-// locations. If revert is false, any pending maps are unpinned (deleted).
-//
-// Takes a bpffsPath explicitly since it does not necessarily execute within
-// the same runtime as the agent. It is imported from a Cilium cmd that takes
-// its bpffs path from an env.
-func FinalizeBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec, revert bool) error {
-	if coll == nil {
-		return errors.New("can't migrate a nil CollectionSpec")
-	}
-
-	for name, spec := range coll.Maps {
-		// Skip map specs without the pinning flag. Also takes care of skipping .data,
-		// .rodata and .bss.
-		// Don't unpin existing maps if their new versions are missing the pinning flag.
-		if spec.Pinning != ebpf.PinByName {
-			continue
-		}
-
-		if err := FinalizeMap(bpffsPath, name, revert); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // RepinMap opens a map from bpffs by its pin in '<bpffs>/tc/globals/',
 // compares its properties against the incoming spec and re-pins it to
 // ':pending' if any of its properties differ.

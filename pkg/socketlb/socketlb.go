@@ -56,7 +56,7 @@ func cgroupLinkPath() string {
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(sysctl sysctl.Sysctl) (err error) {
+func Enable(sysctl sysctl.Sysctl) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -66,27 +66,7 @@ func Enable(sysctl sysctl.Sysctl) (err error) {
 		return fmt.Errorf("failed to load collection spec for bpf_sock.o: %w", err)
 	}
 
-	if err := bpf.StartBPFFSMigration(bpf.TCGlobalsPath(), spec); err != nil {
-		return fmt.Errorf("failed to start bpffs map migration: %w", err)
-	}
-
-	// This captures named return variable err.
-	defer func() {
-		if err != nil {
-			log.WithError(err).Debug("Reverting bpffs map migration")
-			if e := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, true); e != nil {
-				log.WithError(e).Error("Could not revert bpffs map migration")
-				return
-			}
-		}
-
-		log.Debug("Finalizing bpffs map migration")
-		if e := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, false); e != nil {
-			log.WithError(e).Error("Could not finalize bpffs map migration")
-		}
-	}()
-
-	coll, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+	coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -158,6 +138,10 @@ func Enable(sysctl sysctl.Sysctl) (err error) {
 		if err := detachCgroup(p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
 			return fmt.Errorf("cgroup detach: %w", err)
 		}
+	}
+
+	if err := commit(); err != nil {
+		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
 	return nil

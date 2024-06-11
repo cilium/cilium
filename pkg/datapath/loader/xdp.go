@@ -162,7 +162,7 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	coll, finalize, err := loadDatapath(spec, nil, nil)
+	coll, commit, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,9 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("interface %s: %w", xdpDev, err)
 	}
 
-	finalize()
+	if err := commit(); err != nil {
+		return fmt.Errorf("committing bpf pins: %w", err)
+	}
 
 	return nil
 }

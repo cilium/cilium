@@ -38,7 +38,7 @@ func TestLoadCollectionResizeLogBuffer(t *testing.T) {
 		},
 	}
 
-	coll, err := LoadCollection(spec, &CollectionOptions{
+	coll, _, err := LoadCollection(spec, &CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
 				// Request instruction-level verifier state to ensure sufficient

@@ -137,7 +137,7 @@ func TestReload(t *testing.T) {
 		spec, err := bpf.LoadCollectionSpec(objPath)
 		require.NoError(t, err)
 
-		coll, finalize, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := loadDatapath(spec, nil, nil)
 		require.NoError(t, err)
 
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolFromEndpoint],
@@ -145,7 +145,8 @@ func TestReload(t *testing.T) {
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolToEndpoint],
 			symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS, true))
 
-		finalize()
+		require.NoError(t, commit())
+
 		coll.Close()
 	}
 }
@@ -285,11 +286,13 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		coll, finalize, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := loadDatapath(spec, nil, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
-		finalize()
+		if err := commit(); err != nil {
+			b.Fatalf("committing bpf pins: %s", err)
+		}
 		coll.Close()
 	}
 }
