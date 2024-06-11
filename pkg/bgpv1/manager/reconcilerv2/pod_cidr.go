@@ -110,7 +110,7 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{
 		Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:          ctx,
-		Instance:     p.BGPInstance,
+		Router:       p.BGPInstance.Router,
 		DesiredPaths: desiredFamilyAdverts,
 		CurrentPaths: metadata.AFPaths,
 	})
@@ -133,7 +133,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Reconc
 	updatedPolicies, err := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
 		Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
-		Instance:        p.BGPInstance,
+		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredRoutePolicies,
 		CurrentPolicies: r.getMetadata(p.BGPInstance).RoutePolicies,
 	})
