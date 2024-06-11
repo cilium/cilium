@@ -13,6 +13,26 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Cilium-specific pinning flags used in bpf C code to request specific pinning
+// behaviour from the agent.
+const (
+	// PinAlwaysReplace matches CILIUM_PIN_REPLACE.
+	PinReplace = ebpf.PinType(1 << 4)
+)
+
+// consumePinReplace returns the key names of MapSpecs in spec with the
+// CILIUM_PIN_REPLACE pinning flag set. Clears the CILIUM_PIN_REPLACE flag.
+func consumePinReplace(spec *ebpf.CollectionSpec) []string {
+	var toReplace []string
+	for key, ms := range spec.Maps {
+		if ms.Pinning == PinReplace {
+			toReplace = append(toReplace, key)
+			ms.Pinning = 0
+		}
+	}
+	return toReplace
+}
+
 // incompatibleMaps returns the key names MapSpecs in spec with the
 // LIBBPF_PIN_BY_NAME pinning flag that are incompatible with their pinned
 // counterparts. Removes the LIBBPF_PIN_BY_NAME flag. opts.Maps.PinPath must be

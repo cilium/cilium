@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -48,37 +47,10 @@ func directionToParent(dir string) uint32 {
 // function should only be run after all entrypoints have been attached. For
 // example, attach both bpf_host.c:cil_to_netdev and cil_from_netdev before
 // invoking the returned function, otherwise missing tail calls will occur.
-func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (_ *ebpf.Collection, _ func() error, err error) {
-	spec, err = renameMaps(spec, mapRenames)
+func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (*ebpf.Collection, func() error, error) {
+	spec, err := renameMaps(spec, mapRenames)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	// Unconditionally repin cilium_calls_* maps to prevent them from being
-	// repopulated by the loader.
-	for _, ms := range spec.Maps {
-		if !strings.HasPrefix(ms.Name, "cilium_calls_") {
-			continue
-		}
-
-		if err := bpf.RepinMap(bpf.TCGlobalsPath(), ms.Name, ms); err != nil {
-			return nil, nil, fmt.Errorf("repinning map %s: %w", ms.Name, err)
-		}
-
-		defer func() {
-			revert := false
-			// This captures named return variable err.
-			if err != nil {
-				revert = true
-			}
-
-			if err := bpf.FinalizeMap(bpf.TCGlobalsPath(), ms.Name, revert); err != nil {
-				log.WithError(err).Error("Could not finalize map")
-			}
-		}()
-
-		// Only one cilium_calls_* per collection, we can stop here.
-		break
 	}
 
 	// Inserting a program into these maps will immediately cause other BPF
