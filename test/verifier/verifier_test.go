@@ -208,7 +208,7 @@ func TestVerifier(t *testing.T) {
 						m.Pinning = ebpf.PinNone
 					}
 
-					coll, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+					coll, _, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
 						CollectionOptions: ebpf.CollectionOptions{
 							// Enable verifier logs for successful loads.
 							// Use log level 1 since it's known by all target kernels.
