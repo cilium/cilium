@@ -98,6 +98,12 @@ Enable Encryption in Cilium
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
 
+Dependencies
+============
+
+When L7 proxy support is enabled (``--enable-l7-proxy=true``), IPsec requires that the
+DNS proxy operates in transparent mode (``--dnsproxy-enable-transparent-mode=true``).
+
 Encryption interface
 --------------------
 
