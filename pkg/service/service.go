@@ -1987,10 +1987,6 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) ([]lb.BackendID, [
 func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []*lb.Backend,
 	svcType lb.SVCType, svcExtTrafficPolicy, svcIntTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string,
 ) {
-	if s.monitorAgent == nil {
-		return
-	}
-
 	id := uint32(frontend.ID)
 	fe := monitorAPI.ServiceUpsertNotificationAddr{
 		IP:   frontend.AddrCluster.AsNetIP(),
@@ -2011,9 +2007,7 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 }
 
 func (s *Service) notifyMonitorServiceDelete(id lb.ID) {
-	if s.monitorAgent != nil {
-		s.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.ServiceDeleteMessage(uint32(id)))
-	}
+	s.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.ServiceDeleteMessage(uint32(id)))
 }
 
 // GetServiceNameByAddr returns namespace and name of the service with a given L3n4Addr. The third
