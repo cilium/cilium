@@ -165,7 +165,7 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		   __u32 daddr, __u32 seclabel __maybe_unused,
-		   __u32 vni __maybe_unused, void *opt, __u32 opt_len, int *ifindex)
+		   __u32 vni __maybe_unused, void *opt, __u32 opt_len)
 {
 	__u32 inner_len = ctx_full_len(ctx);
 	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
@@ -241,8 +241,6 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	ip4->check = csum_fold(csum_diff(NULL, 0, ip4, sizeof(*ip4), 0));
 
 	eth->h_proto = bpf_htons(ETH_P_IP);
-
-	*ifindex = 0;
 
 	return CTX_ACT_REDIRECT;
 }

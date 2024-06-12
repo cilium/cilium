@@ -36,11 +36,17 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
-			  ct_reason, monitor);
+#if __ctx_is == __ctx_skb
+	*ifindex = ENCAP_IFINDEX;
+#else
+	*ifindex = 0;
+#endif
+
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0,
+			  *ifindex, ct_reason, monitor);
 
 	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
-				  NULL, 0, ifindex);
+				  NULL, 0);
 }
 
 static __always_inline int
@@ -223,11 +229,17 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
-			  ct_reason, monitor);
+#if __ctx_is == __ctx_skb
+	*ifindex = ENCAP_IFINDEX;
+#else
+	*ifindex = 0;
+#endif
+
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0,
+			  *ifindex, ct_reason, monitor);
 
 	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
-				  opt_len, ifindex);
+				  opt_len);
 }
 
 static __always_inline void
