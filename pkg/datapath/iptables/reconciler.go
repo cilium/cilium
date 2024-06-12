@@ -183,7 +183,7 @@ stop:
 			// will be deleted by the manager (see Manager.addProxyRules)
 			state.proxies[req.info.name] = req.info
 
-			if !firstInit {
+			if firstInit {
 				// first init not yet completed, proxy rules will be updated as part of that
 				stateChanged = true
 				updatedChs = append(updatedChs, req.updated)
@@ -210,7 +210,7 @@ stop:
 			}
 			state.noTrackPods.Insert(req.info)
 
-			if !firstInit {
+			if firstInit {
 				// first init not yet completed, no track pod rules will be updated as part of that
 				stateChanged = true
 				updatedChs = append(updatedChs, req.updated)
@@ -237,7 +237,7 @@ stop:
 			}
 			state.noTrackPods.Delete(req.info)
 
-			if !firstInit {
+			if firstInit {
 				// first init not yet completed, no track pod rules will be updated as part of that
 				stateChanged = true
 				updatedChs = append(updatedChs, req.updated)
