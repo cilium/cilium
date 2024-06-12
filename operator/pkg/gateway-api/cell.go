@@ -185,7 +185,10 @@ func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrati
 }
 
 func validateExternalTrafficPolicy(params gatewayAPIParams) error {
-	if params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyCluster) ||
+	if params.GatewayApiConfig.GatewayAPIHostnetworkEnabled && params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy != "" {
+		log.Warn("Gateway API host networking is enabled, externalTrafficPolicy will be ignored.")
+		return nil
+	} else if params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyCluster) ||
 		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyLocal) {
 		return nil
 	}

@@ -107,6 +107,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 
 	if t.hostNetworkEnabled {
 		lbSvc.Spec.Type = corev1.ServiceTypeClusterIP
+		lbSvc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
 	}
 
 	return cec, lbSvc, getEndpoints(*source), err
