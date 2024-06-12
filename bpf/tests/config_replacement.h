@@ -67,6 +67,10 @@
 #define DEBUG
 #endif
 
+#ifndef THIS_INTERFACE_IFINDEX
+#define THIS_INTERFACE_IFINDEX 1
+#endif
+
 #define DROP_NOTIFY
 #define TRACE_NOTIFY
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535

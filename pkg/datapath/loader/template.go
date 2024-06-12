@@ -5,6 +5,7 @@ package loader
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"net/netip"
 
@@ -24,6 +25,7 @@ const (
 	templateSecurityID          = identity.ReservedIdentityWorld
 	templateLxcID               = uint16(65535)
 	templatePolicyVerdictFilter = uint32(0xffff)
+	templateIfIndex             = math.MaxUint32
 )
 
 var (
@@ -102,6 +104,10 @@ func (t *templateCfg) GetIdentityLocked() identity.NumericIdentity {
 // substituted in the ELF.
 func (t *templateCfg) GetNodeMAC() mac.MAC {
 	return templateMAC
+}
+
+func (t *templateCfg) GetIfIndex() int {
+	return templateIfIndex
 }
 
 // IPv4Address always returns an IP in the documentation prefix (RFC5737) as
@@ -255,8 +261,10 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 			}
 		}
 		result["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheDisabled)
+		result["THIS_INTERFACE_IFINDEX"] = uint64(ep.GetIfIndex())
 	} else {
 		result["LXC_ID"] = uint64(ep.GetID())
+		result["THIS_INTERFACE_IFINDEX"] = uint64(ep.GetIfIndex())
 	}
 
 	// Contrary to IPV4_MASQUERADE, we cannot use a simple #define and
