@@ -92,7 +92,6 @@ type IPAM struct {
 	IPv4Allocator Allocator
 
 	// metadata provides information about a particular IP owner.
-	// May be nil.
 	metadata Metadata
 
 	// owner maps an IP to the owner per pool.
