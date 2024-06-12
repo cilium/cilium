@@ -487,21 +487,9 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 	assert.Equal(t, err, io.EOF)
 }
 
-type fakeCiliumDaemon struct{}
-
-func (f *fakeCiliumDaemon) DebugEnabled() bool {
-	return true
-}
-
 func TestHooks(t *testing.T) {
 	numFlows := 10
 	queueSize := 0
-
-	ciliumDaemon := &fakeCiliumDaemon{}
-	onServerInit := func(srv observeroption.Server) error {
-		assert.Equal(t, srv.GetOptions().CiliumDaemon, ciliumDaemon)
-		return nil
-	}
 
 	seenFlows := int64(0)
 	skipEveryNFlows := int64(2)
@@ -531,8 +519,6 @@ func TestHooks(t *testing.T) {
 	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity15),
 		observeroption.WithMonitorBuffer(queueSize),
-		observeroption.WithCiliumDaemon(ciliumDaemon),
-		observeroption.WithOnServerInitFunc(onServerInit),
 		observeroption.WithOnMonitorEventFunc(onMonitorEventFirst),
 		observeroption.WithOnMonitorEventFunc(onMonitorEventSecond),
 		observeroption.WithOnDecodedFlowFunc(onDecodedFlow),
