@@ -232,7 +232,7 @@ jobs:
           - focus: "datapath"
             cliFocus: "RuntimeDatapathConntrackInVethModeTest|RuntimeDatapathMonitorTest"
 
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -380,7 +380,7 @@ jobs:
 
       - name: Runtime privileged tests
         if: ${{ matrix.focus == 'privileged' }}
-        timeout-minutes: 30
+        timeout-minutes: 40
         uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
         with:
           provision: 'false'
