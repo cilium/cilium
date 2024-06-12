@@ -1281,8 +1281,6 @@ func initEnv(vp *viper.Viper) {
 		log.WithError(err).Fatalf("BPF template directory: NOT OK. Please run 'make install-bpf'")
 	}
 
-	linuxdatapath.CheckRequirements()
-
 	if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
 		log.WithError(err).Fatal("failed to create header files with feature macros")
 	}
