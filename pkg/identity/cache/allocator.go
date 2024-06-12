@@ -117,6 +117,12 @@ type IdentityAllocator interface {
 	// previous numeric identity exists.
 	AllocateIdentity(context.Context, labels.Labels, bool, identity.NumericIdentity) (*identity.Identity, bool, error)
 
+	// AllocateLocalIdentity works the same as AllocateIdentity, but it guarantees
+	// that the allocated identity will be local-only.
+	// If the provided set of labels does not map to a local identity scope,
+	// this will return an error.
+	AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error)
+
 	// Release is the reverse operation of AllocateIdentity() and releases the
 	// specified identity.
 	Release(context.Context, *identity.Identity, bool) (released bool, err error)
