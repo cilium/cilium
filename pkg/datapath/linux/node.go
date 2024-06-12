@@ -76,9 +76,9 @@ type linuxNodeHandler struct {
 	// Pool of available IDs for nodes.
 	nodeIDs *idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
-	nodeIDsByIPs map[string]uint16
+	nodeIDsByIPs map[nodeAddress]uint16
 	// reverse map of the above
-	nodeIPsByIDs map[uint16]string
+	nodeIPsByIDs map[uint16]nodeAddress
 
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
@@ -86,6 +86,11 @@ type linuxNodeHandler struct {
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 	enableEncapsulation    func(node *nodeTypes.Node) bool
 	nodeNeighborQueue      datapath.NodeNeighborEnqueuer
+}
+
+type nodeAddress struct {
+	ip       string
+	addrType AddressType
 }
 
 var (
@@ -128,8 +133,8 @@ func newNodeHandler(
 		neighLastPingByNextHop: map[string]time.Time{},
 		nodeMap:                nodeMap,
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
-		nodeIDsByIPs:           map[string]uint16{},
-		nodeIPsByIDs:           map[uint16]string{},
+		nodeIDsByIPs:           map[nodeAddress]uint16{},
+		nodeIPsByIDs:           map[uint16]nodeAddress{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		nodeNeighborQueue:      nbq,
