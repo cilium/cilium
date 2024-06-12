@@ -22,12 +22,12 @@ func Test_IsSuperSetOf(t *testing.T) {
 		subSet   Key
 		res      int
 	}{
-		{Key{}, Key{}, 0},
-		{key(0, 0, 0, 0), key(42, 0, 6, 0), 1},
-		{key(0, 0, 0, 0), key(42, 80, 6, 0), 1},
-		{key(0, 0, 0, 0), key(42, 0, 0, 0), 1},
-		{key(0, 0, 6, 0), key(42, 0, 6, 0), 3}, // port is the same
-		{key(0, 0, 6, 0), key(42, 80, 6, 0), 2},
+		{keyWithPortMask(0, 0, 0, 0, 0), keyWithPortMask(0, 0, 0, 0, 0), 0},
+		{keyWithPortMask(0, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 6, 0), 1},
+		{keyWithPortMask(0, 0, 0, 0, 0), key(42, 80, 6, 0), 1},
+		{keyWithPortMask(0, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 0, 0), 1},
+		{keyWithPortMask(0, 0, 0, 6, 0), keyWithPortMask(42, 0, 0, 6, 0), 3}, // port is the same
+		{keyWithPortMask(0, 0, 0, 6, 0), key(42, 80, 6, 0), 2},
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), key(42, 80, 6, 0), 2}, // port range 64-127,80
 		{key(0, 80, 6, 0), key(42, 80, 6, 0), 3},
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 3}, // port ranges are the same
@@ -35,17 +35,17 @@ func Test_IsSuperSetOf(t *testing.T) {
 		{key(2, 80, 6, 0), key(42, 80, 6, 0), 0},                                         // id is different
 		{key(0, 8080, 6, 0), key(42, 80, 6, 0), 0},                                       // port is different
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), key(42, 8080, 6, 0), 0},                   // port range is different from port
-		{key(42, 0, 0, 0), key(42, 0, 0, 0), 0},                                          // same key
-		{key(42, 0, 0, 0), key(42, 0, 6, 0), 4},
-		{key(42, 0, 0, 0), key(42, 80, 6, 0), 4},
+		{keyWithPortMask(42, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},            // same key
+		{keyWithPortMask(42, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 6, 0), 4},
+		{keyWithPortMask(42, 0, 0, 0, 0), key(42, 80, 6, 0), 4},
 		{keyWithPortMask(42, 64, 0xffc0, 0, 0), key(42, 80, 6, 0), 4}, // port range 64-127,80
-		{key(42, 0, 0, 0), key(42, 0, 17, 0), 4},
-		{key(42, 0, 0, 0), key(42, 80, 17, 0), 4},
+		{keyWithPortMask(42, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 17, 0), 4},
+		{keyWithPortMask(42, 0, 0, 0, 0), key(42, 80, 17, 0), 4},
 		{keyWithPortMask(42, 64, 0xffc0, 0, 0), key(42, 80, 17, 0), 4},
-		{key(42, 0, 6, 0), key(42, 0, 6, 0), 0}, // same key
-		{key(42, 0, 6, 0), key(42, 80, 6, 0), 5},
+		{keyWithPortMask(42, 0, 0, 6, 0), keyWithPortMask(42, 0, 0, 6, 0), 0}, // same key
+		{keyWithPortMask(42, 0, 0, 6, 0), key(42, 80, 6, 0), 5},
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), key(42, 80, 6, 0), 5},
-		{key(42, 0, 6, 0), key(42, 8080, 6, 0), 5},
+		{keyWithPortMask(42, 0, 0, 6, 0), key(42, 8080, 6, 0), 5},
 		{key(42, 80, 6, 0), key(42, 80, 6, 0), 0},                                          // same key
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 0},  // same key
 		{key(42, 80, 6, 0), key(42, 8080, 6, 0), 0},                                        // different port
@@ -54,69 +54,69 @@ func Test_IsSuperSetOf(t *testing.T) {
 		{key(42, 80, 6, 0), key(42, 8080, 17, 0), 0},                                       // different port and proto
 
 		// increasing specificity for a L3/L4 key
-		{key(0, 0, 0, 0), key(42, 80, 6, 0), 1},
+		{keyWithPortMask(0, 0, 0, 0, 0), key(42, 80, 6, 0), 1},
 		{keyWithPortMask(0, 64, 0xffc0, 0, 0), key(42, 80, 6, 0), 1},
-		{key(0, 0, 6, 0), key(42, 80, 6, 0), 2},
+		{keyWithPortMask(0, 0, 0, 6, 0), key(42, 80, 6, 0), 2},
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), key(42, 80, 6, 0), 2},
 		{key(0, 80, 6, 0), key(42, 80, 6, 0), 3},
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 3},
-		{key(42, 0, 0, 0), key(42, 80, 6, 0), 4},
+		{keyWithPortMask(42, 0, 0, 0, 0), key(42, 80, 6, 0), 4},
 		{keyWithPortMask(42, 64, 0xffc0, 0, 0), key(42, 80, 6, 0), 4},
-		{key(42, 0, 6, 0), key(42, 80, 6, 0), 5},
+		{keyWithPortMask(42, 0, 0, 6, 0), key(42, 80, 6, 0), 5},
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), key(42, 80, 6, 0), 5},
 		{key(42, 80, 6, 0), key(42, 80, 6, 0), 0},                                         // same key
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 0}, // same key
 
 		// increasing specificity for a L3-only key
-		{key(0, 0, 0, 0), key(42, 0, 0, 0), 1},
-		{keyWithPortMask(0, 64, 0xffc0, 0, 0), key(42, 0, 0, 0), 1},
-		{key(0, 0, 6, 0), key(42, 0, 0, 0), 0},                                            // not a superset
-		{key(0, 80, 6, 0), key(42, 0, 0, 0), 0},                                           // not a superset
-		{keyWithPortMask(0, 64, 0xffc0, 6, 0), key(42, 0, 0, 0), 0},                       // not a superset
-		{key(42, 0, 0, 0), key(42, 0, 0, 0), 0},                                           // same key
-		{key(42, 0, 6, 0), key(42, 0, 0, 0), 0},                                           // not a superset
+		{keyWithPortMask(0, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 0, 0), 1},
+		{keyWithPortMask(0, 64, 0xffc0, 0, 0), keyWithPortMask(42, 0, 0, 0, 0), 1},
+		{keyWithPortMask(0, 0, 0, 6, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},              // not a superset
+		{key(0, 80, 6, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},                            // not a superset
+		{keyWithPortMask(0, 64, 0xffc0, 6, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},        // not a superset
+		{keyWithPortMask(42, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},             // same key
+		{keyWithPortMask(42, 0, 0, 6, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},             // not a superset
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), keyWithPortMask(42, 64, 0xffc0, 0, 0), 0}, // not a superset
-		{key(42, 80, 6, 0), key(42, 0, 0, 0), 0},                                          // not a superset
-		{keyWithPortMask(42, 64, 0xffc0, 6, 0), key(42, 0, 0, 0), 0},                      // not a superset
+		{key(42, 80, 6, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},                           // not a superset
+		{keyWithPortMask(42, 64, 0xffc0, 6, 0), keyWithPortMask(42, 0, 0, 0, 0), 0},       // not a superset
 
 		// increasing specificity for a L3/proto key
-		{key(0, 0, 0, 0), key(42, 0, 6, 0), 1}, // wildcard
+		{keyWithPortMask(0, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 6, 0), 1}, // wildcard
 		{keyWithPortMask(0, 64, 0xffc0, 0, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 1},
-		{key(0, 0, 6, 0), key(42, 0, 6, 0), 3},                                           // ports are the same
+		{keyWithPortMask(0, 0, 0, 6, 0), keyWithPortMask(42, 0, 0, 6, 0), 3},             // ports are the same
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 3}, // port ranges are the same
-		{key(0, 80, 6, 0), key(42, 0, 6, 0), 0},                                          // not a superset
+		{key(0, 80, 6, 0), keyWithPortMask(42, 0, 0, 6, 0), 0},                           // not a superset
 		{key(0, 80, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 0},                     // not a superset
-		{key(42, 0, 0, 0), key(42, 0, 6, 0), 4},
+		{keyWithPortMask(42, 0, 0, 0, 0), keyWithPortMask(42, 0, 0, 6, 0), 4},
 		{keyWithPortMask(42, 64, 0xffc0, 0, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 4},
-		{key(42, 0, 6, 0), key(42, 0, 6, 0), 0},                                           // same key
+		{keyWithPortMask(42, 0, 0, 6, 0), keyWithPortMask(42, 0, 0, 6, 0), 0},             // same key
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 0}, // same key
-		{key(42, 80, 6, 0), key(42, 0, 6, 0), 0},                                          // not a superset
+		{key(42, 80, 6, 0), keyWithPortMask(42, 0, 0, 6, 0), 0},                           // not a superset
 		{key(42, 80, 6, 0), keyWithPortMask(42, 64, 0xffc0, 6, 0), 0},                     // not a superset
 
 		// increasing specificity for a proto-only key
-		{key(0, 0, 0, 0), key(0, 0, 6, 0), 1},
+		{keyWithPortMask(0, 0, 0, 0, 0), keyWithPortMask(0, 0, 0, 6, 0), 1},
 		{keyWithPortMask(0, 64, 0xffc0, 0, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 1},
-		{key(0, 0, 6, 0), key(0, 0, 6, 0), 0},                                            // same key
+		{keyWithPortMask(0, 0, 0, 6, 0), keyWithPortMask(0, 0, 0, 6, 0), 0},              // same key
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 0},  // same key
-		{key(0, 80, 6, 0), key(0, 0, 6, 0), 0},                                           // not a superset
+		{key(0, 80, 6, 0), keyWithPortMask(0, 0, 0, 6, 0), 0},                            // not a superset
 		{key(0, 80, 6, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 0},                      // not a superset
-		{key(42, 0, 0, 0), key(0, 0, 6, 0), 0},                                           // not a superset
+		{keyWithPortMask(42, 0, 0, 0, 0), keyWithPortMask(0, 0, 0, 6, 0), 0},             // not a superset
 		{keyWithPortMask(42, 64, 0xffc0, 0, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 0}, // not a superset
-		{key(42, 0, 6, 0), key(0, 0, 6, 0), 0},                                           // not a superset
+		{keyWithPortMask(42, 0, 0, 6, 0), keyWithPortMask(0, 0, 0, 6, 0), 0},             // not a superset
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 0}, // not a superset
-		{key(42, 80, 6, 0), key(0, 0, 6, 0), 0},                                          // not a superset
+		{key(42, 80, 6, 0), keyWithPortMask(0, 0, 0, 6, 0), 0},                           // not a superset
 		{key(42, 80, 6, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 0},                     // not a superset
 
 		// increasing specificity for a L4-only key
-		{key(0, 0, 0, 0), key(0, 80, 6, 0), 1},
+		{keyWithPortMask(0, 0, 0, 0, 0), key(0, 80, 6, 0), 1},
 		{keyWithPortMask(0, 64, 0xffc0, 0, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 1},
-		{key(0, 0, 6, 0), key(0, 80, 6, 0), 2},
+		{keyWithPortMask(0, 0, 0, 6, 0), key(0, 80, 6, 0), 2},
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), key(0, 80, 6, 0), 2},
 		{key(0, 80, 6, 0), key(0, 80, 6, 0), 0},                                          // same key
 		{keyWithPortMask(0, 64, 0xffc0, 6, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 0},  // same key
-		{key(42, 0, 0, 0), key(0, 80, 6, 0), 0},                                          // not a superset
+		{keyWithPortMask(42, 0, 0, 0, 0), key(0, 80, 6, 0), 0},                           // not a superset
 		{keyWithPortMask(42, 64, 0xffc0, 0, 0), key(0, 80, 6, 0), 0},                     // not a superset
-		{key(42, 0, 6, 0), key(0, 80, 6, 0), 0},                                          // not a superset
+		{keyWithPortMask(42, 0, 0, 6, 0), key(0, 80, 6, 0), 0},                           // not a superset
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), key(0, 80, 6, 0), 0},                     // not a superset
 		{key(42, 80, 6, 0), key(0, 80, 6, 0), 0},                                         // not a superset
 		{keyWithPortMask(42, 64, 0xffc0, 6, 0), keyWithPortMask(0, 64, 0xffc0, 6, 0), 0}, // not a superset
@@ -2250,9 +2250,14 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 }
 
 func testKey(id int, port uint16, proto uint8, direction trafficdirection.TrafficDirection) Key {
+	var invertedPortMask uint16
+	if port == 0 {
+		invertedPortMask = 0xffff
+	}
 	return Key{
 		Identity:         uint32(id),
 		DestPort:         port,
+		InvertedPortMask: invertedPortMask,
 		Nexthdr:          proto,
 		TrafficDirection: direction.Uint8(),
 	}
@@ -2653,7 +2658,11 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
+			var invertedPortMask uint16
+			if x.port == 0 {
+				invertedPortMask = 0xffff
+			}
+			key := Key{DestPort: x.port, InvertedPortMask: invertedPortMask, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
 			var proxyPort uint16
 			if x.redirect {
 				proxyPort = 1
@@ -2874,7 +2883,11 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
+			var invertedPortMask uint16
+			if x.port == 0 {
+				invertedPortMask = 0xffff
+			}
+			key := Key{DestPort: x.port, InvertedPortMask: invertedPortMask, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
 			var proxyPort uint16
 			if x.redirect {
 				proxyPort = 1
@@ -3441,7 +3454,11 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
+			var invertedPortMask uint16
+			if x.port == 0 {
+				invertedPortMask = 0xffff
+			}
+			key := Key{DestPort: x.port, InvertedPortMask: invertedPortMask, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
 			var proxyPort uint16
 			if x.redirect {
 				proxyPort = 1
@@ -3566,7 +3583,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 		}
 		if tt.outcome&insertAWithBProto > 0 {
-			aKeyWithBProto := Key{Identity: tt.aIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto}
+			var invertedPortMask uint16
+			if tt.bPort == 0 {
+				invertedPortMask = 0xffff // this is a wildcard
+			}
+			aKeyWithBProto := Key{Identity: tt.aIdentity, DestPort: tt.bPort, InvertedPortMask: invertedPortMask, Nexthdr: tt.bProto}
 			aEntryCpy := MapStateEntry{IsDeny: tt.aIsDeny}
 			aEntryCpy.owners = map[MapStateOwner]struct{}{aKey: {}}
 			aEntry.AddDependent(aKeyWithBProto)
@@ -3579,7 +3600,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 		}
 		if tt.outcome&insertBWithAProto > 0 {
-			bKeyWithBProto := Key{Identity: tt.bIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
+			var invertedPortMask uint16
+			if tt.aPort == 0 {
+				invertedPortMask = 0xffff
+			}
+			bKeyWithBProto := Key{Identity: tt.bIdentity, DestPort: tt.aPort, InvertedPortMask: invertedPortMask, Nexthdr: tt.aProto}
 			bEntryCpy := MapStateEntry{IsDeny: tt.bIsDeny}
 			bEntryCpy.owners = map[MapStateOwner]struct{}{bKey: {}}
 			bEntry.AddDependent(bKeyWithBProto)
@@ -3601,9 +3626,16 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	// This should result in both entries being inserted with
 	// no changes, as they do not affect one another anymore.
 	for _, tt := range tests {
-		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
+		var aInvertedMask, bInvertedMask uint16
+		if tt.aPort == 0 {
+			aInvertedMask = 0xffff
+		}
+		if tt.bPort == 0 {
+			bInvertedMask = 0xffff
+		}
+		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, InvertedPortMask: aInvertedMask, Nexthdr: tt.aProto}
 		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
-		bKey := Key{Identity: tt.bIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto, TrafficDirection: 1}
+		bKey := Key{Identity: tt.bIdentity, DestPort: tt.bPort, InvertedPortMask: bInvertedMask, Nexthdr: tt.bProto, TrafficDirection: 1}
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState(nil)
 		if tt.aIsDeny {

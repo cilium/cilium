@@ -140,6 +140,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         key.Identity,
 			DestPort:         0,
+			InvertedPortMask: 0xffff, // this is a wildcard
 			Nexthdr:          0,
 			TrafficDirection: key.TrafficDirection,
 		})
@@ -148,6 +149,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         0,
 			DestPort:         0,
+			InvertedPortMask: 0xffff, // this is a wildcard
 			Nexthdr:          0,
 			TrafficDirection: key.TrafficDirection,
 		})

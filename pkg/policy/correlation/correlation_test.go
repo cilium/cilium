@@ -183,6 +183,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	policyKey = policy.Key{
 		Identity:         uint32(localIdentity),
 		DestPort:         0,
+		InvertedPortMask: 0xffff, // this is a wildcard
 		Nexthdr:          0,
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}

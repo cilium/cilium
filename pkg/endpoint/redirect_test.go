@@ -375,9 +375,9 @@ var (
 	dirIngress      = trafficdirection.Ingress.Uint8()
 	dirEgress       = trafficdirection.Egress.Uint8()
 	mapKeyAllL7     = policy.Key{Identity: 0, DestPort: 80, Nexthdr: 6, TrafficDirection: dirIngress}
-	mapKeyFoo       = policy.Key{Identity: identityFoo, DestPort: 0, Nexthdr: 0, TrafficDirection: dirIngress}
+	mapKeyFoo       = policy.Key{Identity: identityFoo, DestPort: 0, InvertedPortMask: 0xffff, Nexthdr: 0, TrafficDirection: dirIngress}
 	mapKeyFooL7     = policy.Key{Identity: identityFoo, DestPort: 80, Nexthdr: 6, TrafficDirection: dirIngress}
-	mapKeyAllowAllE = policy.Key{Identity: 0, DestPort: 0, Nexthdr: 0, TrafficDirection: dirEgress}
+	mapKeyAllowAllE = policy.Key{Identity: 0, DestPort: 0, Nexthdr: 0, InvertedPortMask: 0xffff, TrafficDirection: dirEgress}
 )
 
 // combineL4L7 returns a new PortRule that refers to the specified l4 ports and

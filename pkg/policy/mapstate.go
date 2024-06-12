@@ -37,11 +37,13 @@ var (
 	// localHostKey represents an ingress L3 allow from the local host.
 	localHostKey = Key{
 		Identity:         identity.ReservedIdentityHost.Uint32(),
+		InvertedPortMask: 0xffff, // This is a wildcard
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	allKey = Key{
-		Identity: identity.IdentityUnknown.Uint32(),
+		Identity:         identity.IdentityUnknown.Uint32(),
+		InvertedPortMask: 0xffff,
 	}
 )
 
@@ -1095,6 +1097,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					if k.Identity != 0 && k.Nexthdr == 0 && newKey.Identity == 0 && newKey.Nexthdr != 0 {
 						newKeyCpy := k
 						newKeyCpy.DestPort = newKey.DestPort
+						newKeyCpy.InvertedPortMask = newKey.InvertedPortMask
 						newKeyCpy.Nexthdr = newKey.Nexthdr
 						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
@@ -1148,6 +1151,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					if newKey.Identity != 0 && newKey.Nexthdr == 0 && k.Identity == 0 && k.Nexthdr != 0 {
 						newKeyCpy := newKey
 						newKeyCpy.DestPort = k.DestPort
+						newKeyCpy.InvertedPortMask = k.InvertedPortMask
 						newKeyCpy.Nexthdr = k.Nexthdr
 						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
@@ -1261,9 +1265,15 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 
 	allowAllKey := Key{
 		TrafficDirection: direction.Uint8(),
+		InvertedPortMask: 0xffff, // This is a wildcard
+	}
+	var invertedPortMask uint16
+	if visMeta.Port == 0 {
+		invertedPortMask = 0xffff
 	}
 	key := Key{
 		DestPort:         visMeta.Port,
+		InvertedPortMask: invertedPortMask,
 		Nexthdr:          uint8(visMeta.Proto),
 		TrafficDirection: direction.Uint8(),
 	}
@@ -1334,6 +1344,7 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 			//
 			k2 := k
 			k2.DestPort = key.DestPort
+			k2.InvertedPortMask = key.InvertedPortMask
 			k2.Nexthdr = key.Nexthdr
 			if !v.IsDeny && !haveL4OnlyKey && !addL4OnlyKey {
 				// 4. For each L3-only ALLOW key add the corresponding L3/L4
@@ -1407,6 +1418,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 		keyToAdd := Key{
 			Identity:         0,
 			DestPort:         0,
+			InvertedPortMask: 0xffff, // This is a wildcard
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Ingress.Uint8(),
 		}

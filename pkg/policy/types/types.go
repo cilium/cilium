@@ -36,7 +36,7 @@ type Key struct {
 	//
 	// For example:
 	// range 2-3 would be DestPort:2 and InvertedPortMask:0x1 (i.e 0xfffe)
-	// range 32768-49151 would be DestPort:32768 and PortMask:0x3fff (i.e. 0xc000)
+	// range 32768-49151 would be DestPort:32768 and InvertedPortMask:0x3fff (i.e. 0xc000)
 	InvertedPortMask uint16
 	// NextHdr is the protocol which is allowed.
 	Nexthdr uint8
@@ -121,26 +121,10 @@ func (k Key) PortIsEqual(c Key) bool {
 		k.InvertedPortMask == c.InvertedPortMask
 }
 
-// maskPrefixMap is the map of all the possible portMasks and their
-// associated prefix lengths.
-var maskPrefixMap = map[uint16]uint{
-	0xffff: 0,
-	0x7fff: 1,
-	0x3fff: 2,
-	0x1fff: 3,
-	0xfff:  4,
-	0x7ff:  5,
-	0x3ff:  6,
-	0x1ff:  7,
-	0xff:   8,
-	0x7f:   9,
-	0x3f:   10,
-	0x1f:   11,
-	0xf:    12,
-	0x7:    13,
-	0x3:    14,
-	0x1:    15,
-	0x0:    16,
+// MaskToPrefix returns the amount by which
+// a mask should negate a full prefix.
+func MaskToPrefix(mask uint16) uint {
+	return uint(bits.TrailingZeros16(mask))
 }
 
 // PrefixLength returns the prefix lenth of the key
@@ -150,11 +134,11 @@ func (k Key) PrefixLength() uint {
 	keyPrefix := MapStatePrefixLen
 	portPrefix := uint(16)
 	if k.DestPort != 0 {
-		// It is not possible for k.PortMask
+		// It is not possible for k.InvertedPortMask
 		// to be incorrectly set, but even if
 		// it was the default value of "0" is
 		// what we want.
-		portPrefix = maskPrefixMap[k.PortMask()]
+		portPrefix = MaskToPrefix(k.PortMask())
 	}
 	keyPrefix -= portPrefix
 	// If the port is fully wildcarded then

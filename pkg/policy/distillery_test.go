@@ -127,7 +127,7 @@ func TestCachePopulation(t *testing.T) {
 
 // Distillery integration tests
 func key(id uint32, port uint16, hdr uint8, dir uint8) Key {
-	return keyWithPortMask(id, port, 0, hdr, dir)
+	return keyWithPortMask(id, port, 0xffff, hdr, dir)
 }
 
 // keyWithPortMask returns a key with a specific port mask.
@@ -355,16 +355,16 @@ var (
 	dirIngress = trafficdirection.Ingress.Uint8()
 	dirEgress  = trafficdirection.Egress.Uint8()
 	// Desired map keys for L3, L3-dependent L4, L4
-	mapKeyAllowFoo__ = key(identityFoo, 0, 0, dirIngress)
-	mapKeyAllowBar__ = key(identityBar, 0, 0, dirIngress)
+	mapKeyAllowFoo__ = keyWithPortMask(identityFoo, 0, 0, 0, dirIngress)
+	mapKeyAllowBar__ = keyWithPortMask(identityBar, 0, 0, 0, dirIngress)
 	mapKeyAllowBarL4 = key(identityBar, 80, 6, dirIngress)
 	mapKeyAllowFooL4 = key(identityFoo, 80, 6, dirIngress)
 	mapKeyDeny_Foo__ = mapKeyAllowFoo__
 	mapKeyDeny_FooL4 = mapKeyAllowFooL4
 	mapKeyAllow___L4 = key(0, 80, 6, dirIngress)
 	mapKeyDeny____L4 = mapKeyAllow___L4
-	mapKeyAllowAll__ = key(0, 0, 0, dirIngress)
-	mapKeyAllowAllE_ = key(0, 0, 0, dirEgress)
+	mapKeyAllowAll__ = keyWithPortMask(0, 0, 0, 0, dirIngress)
+	mapKeyAllowAllE_ = keyWithPortMask(0, 0, 0, 0, dirEgress)
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
 		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, "", 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
@@ -1376,8 +1376,8 @@ var (
 	worldReservedID           = identity.ReservedIdentityWorld.Uint32()
 	worldReservedIPv4ID       = identity.ReservedIdentityWorldIPv4.Uint32()
 	worldReservedIPv6ID       = identity.ReservedIdentityWorldIPv6.Uint32()
-	mapKeyL3WorldIngress      = key(worldReservedID, 0, 0, trafficdirection.Ingress.Uint8())
-	mapKeyL3WorldEgress       = key(worldReservedID, 0, 0, trafficdirection.Egress.Uint8())
+	mapKeyL3WorldIngress      = keyWithPortMask(worldReservedID, 0, 0, 0, trafficdirection.Ingress.Uint8())
+	mapKeyL3WorldEgress       = keyWithPortMask(worldReservedID, 0, 0, 0, trafficdirection.Egress.Uint8())
 	mapEntryDeny              = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
@@ -1398,8 +1398,8 @@ var (
 	}
 
 	worldIPIdentity = localIdentity(16324)
-	worldCIDR       = api.CIDR("192.0.2.3/32")
-	lblWorldIP      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
+	worldIPCIDR     = api.CIDR("192.0.2.3/32")
+	lblWorldIP      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldIPCIDR))
 	hostIPv4        = api.CIDR("172.19.0.1/32")
 	hostIPv6        = api.CIDR("fc00:c111::3/64")
 	lblHostIPv4CIDR = labels.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv4)))
@@ -1407,11 +1407,11 @@ var (
 
 	ruleL3AllowWorldIP = api.NewRule().WithIngressRules([]api.IngressRule{{
 		IngressCommonRule: api.IngressCommonRule{
-			FromCIDR: api.CIDRSlice{worldCIDR},
+			FromCIDR: api.CIDRSlice{worldIPCIDR},
 		},
 	}}).WithEgressRules([]api.EgressRule{{
 		EgressCommonRule: api.EgressCommonRule{
-			ToCIDR: api.CIDRSlice{worldCIDR},
+			ToCIDR: api.CIDRSlice{worldIPCIDR},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
@@ -1430,16 +1430,16 @@ var (
 			ToCIDRSet: api.CIDRRuleSlice{worldSubnetRule},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3SubnetIngress = key(worldSubnetIdentity.Uint32(), 0, 0, trafficdirection.Ingress.Uint8())
-	mapKeyL3SubnetEgress  = key(worldSubnetIdentity.Uint32(), 0, 0, trafficdirection.Egress.Uint8())
+	mapKeyL3SubnetIngress = keyWithPortMask(worldSubnetIdentity.Uint32(), 0, 0, 0, trafficdirection.Ingress.Uint8())
+	mapKeyL3SubnetEgress  = keyWithPortMask(worldSubnetIdentity.Uint32(), 0, 0, 0, trafficdirection.Egress.Uint8())
 
 	ruleL3DenySmallerSubnet = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{{
 		IngressCommonRule: api.IngressCommonRule{
-			FromCIDRSet: api.CIDRRuleSlice{api.CIDRRule{Cidr: worldCIDR}},
+			FromCIDRSet: api.CIDRRuleSlice{api.CIDRRule{Cidr: worldIPCIDR}},
 		},
 	}}).WithEgressDenyRules([]api.EgressDenyRule{{
 		EgressCommonRule: api.EgressCommonRule{
-			ToCIDRSet: api.CIDRRuleSlice{api.CIDRRule{Cidr: worldCIDR}},
+			ToCIDRSet: api.CIDRRuleSlice{api.CIDRRule{Cidr: worldIPCIDR}},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
@@ -1453,8 +1453,8 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	mapKeyL3SmallerSubnetIngress = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Ingress.Uint8())
-	mapKeyL3SmallerSubnetEgress  = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Egress.Uint8())
+	mapKeyL3SmallerSubnetIngress = keyWithPortMask(worldIPIdentity.Uint32(), 0, 0, 0, trafficdirection.Ingress.Uint8())
+	mapKeyL3SmallerSubnetEgress  = keyWithPortMask(worldIPIdentity.Uint32(), 0, 0, 0, trafficdirection.Egress.Uint8())
 
 	ruleL3AllowHostEgress = api.NewRule().WithEgressRules([]api.EgressRule{{
 		EgressCommonRule: api.EgressCommonRule{
@@ -1462,15 +1462,14 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	mapKeyL3UnknownIngress = key(identity.IdentityUnknown.Uint32(), 0, 0, trafficdirection.Ingress.Uint8())
+	mapKeyL3UnknownIngress = keyWithPortMask(identity.IdentityUnknown.Uint32(), 0, 0, 0, trafficdirection.Ingress.Uint8())
 	derivedFrom            = labels.LabelArrayList{
 		labels.LabelArray{
 			labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 		},
 	}
-	mapEntryL3UnknownIngress = NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
-	mapKeyL3HostEgress       = key(identity.ReservedIdentityHost.Uint32(), 0, 0, trafficdirection.Egress.Uint8())
-
+	mapEntryL3UnknownIngress          = NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	mapKeyL3HostEgress                = keyWithPortMask(identity.ReservedIdentityHost.Uint32(), 0, 0, 0, trafficdirection.Egress.Uint8())
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
 			ToPorts: api.PortDenyRules{
@@ -1562,15 +1561,15 @@ var (
 
 	ruleL3DenyWorldIP = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{{
 		IngressCommonRule: api.IngressCommonRule{
-			FromCIDR: api.CIDRSlice{worldCIDR},
+			FromCIDR: api.CIDRSlice{worldIPCIDR},
 		},
 	}}).WithEgressDenyRules([]api.EgressDenyRule{{
 		EgressCommonRule: api.EgressCommonRule{
-			ToCIDR: api.CIDRSlice{worldCIDR},
+			ToCIDR: api.CIDRSlice{worldIPCIDR},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL4Port8080ProtoAnyWorldIPIngress       = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Ingress.Uint8())
-	mapKeyL4Port8080ProtoAnyWorldIPEgress        = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Egress.Uint8())
+	mapKeyL4Port8080ProtoAnyWorldIPIngress       = keyWithPortMask(worldIPIdentity.Uint32(), 0, 0, 0, trafficdirection.Ingress.Uint8())
+	mapKeyL4Port8080ProtoAnyWorldIPEgress        = keyWithPortMask(worldIPIdentity.Uint32(), 0, 0, 0, trafficdirection.Egress.Uint8())
 	mapKeyL4Port8080ProtoTCPWorldIPIngress       = key(worldIPIdentity.Uint32(), 8080, 6, trafficdirection.Ingress.Uint8())
 	mapKeyL4Port8080ProtoTCPWorldIPEgress        = key(worldIPIdentity.Uint32(), 8080, 6, trafficdirection.Egress.Uint8())
 	mapKeyL4Port8080ProtoUDPWorldIPIngress       = key(worldIPIdentity.Uint32(), 8080, 17, trafficdirection.Ingress.Uint8())
