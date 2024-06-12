@@ -193,7 +193,8 @@ jobs:
       - name: Install metallb for LB service
         timeout-minutes: 10
         run: |
-          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+          echo "KIND_NET_CIDR: $KIND_NET_CIDR"
           METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
           METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
           METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
@@ -208,7 +209,8 @@ jobs:
           psp:
             create: false
           EOF
-          
+          cat metallb_values.yaml
+
           helm install --namespace metallb-system \
             --create-namespace \
             --repo https://metallb.github.io/metallb metallb metallb \
