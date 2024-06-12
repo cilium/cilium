@@ -303,68 +303,73 @@ jobs:
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --flush-ct
 
-      - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
-        uses: ./.github/actions/conn-disrupt-test
-        with:
-          job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
-          extra-connectivity-test-flags: --test '!check-log-errors'
-          operation-cmd: |
-            KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
-            if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
-            data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1)))${{ matrix.key-type-two }} "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
-            kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+      - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
+        uses: ./.github/actions/conn-disrupt-test-setup
+
+      - name: Rotate IPsec Key (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
+          if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
+          data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1)))${{ matrix.key-type-two }} "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
+          kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
 
-            # Compute number of expected keys during key rotation depending on
-            # whether we use the single-key system (1 key) or the per-tunnel
-            # keys system (4 keys).
-            exp_nb_keys=2
-            # If IPv6 is disabled, we expect one key per remote node.
-            # Otherwise, we expect two.
-            if [ "${{ matrix.ipv6 }}" == "false" ]; then
-              if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
-                ((exp_nb_keys+=3))
-              fi
-              if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
-                ((exp_nb_keys+=3))
-              fi
-            else
-              if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
-                ((exp_nb_keys+=7))
-              fi
-              if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
-                ((exp_nb_keys+=7))
-              fi
+          # Compute number of expected keys during key rotation depending on
+          # whether we use the single-key system (1 key) or the per-tunnel
+          # keys system (4 keys).
+          exp_nb_keys=2
+          # If IPv6 is disabled, we expect one key per remote node.
+          # Otherwise, we expect two.
+          if [ "${{ matrix.ipv6 }}" == "false" ]; then
+            if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
+              ((exp_nb_keys+=3))
             fi
-
-            # Wait until key rotation starts
-            # We expect the amount of keys in use to grow during rotation.
-            while true; do
-              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == $exp_nb_keys ]]; then
-                break
-              fi
-              echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
-              sleep 30s
-            done
-
-            exp_nb_keys=1
             if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
-              exp_nb_keys=8
+              ((exp_nb_keys+=3))
             fi
+          else
+            if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
+              ((exp_nb_keys+=7))
+            fi
+            if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
+              ((exp_nb_keys+=7))
+            fi
+          fi
 
-            # Wait until key rotation completes
-            # We expect double the number of keys per remote node.
-            # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
-            sleep $((4*60))
-            while true; do
-              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == $exp_nb_keys ]]; then
-                break
-              fi
-              echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
-              sleep 30s
-            done
+          # Wait until key rotation starts
+          # We expect the amount of keys in use to grow during rotation.
+          while true; do
+            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
+            if [[ $keys_in_use == $exp_nb_keys ]]; then
+              break
+            fi
+            echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
+            sleep 30s
+          done
+
+          exp_nb_keys=1
+          if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
+            exp_nb_keys=8
+          fi
+
+          # Wait until key rotation completes
+          # We expect double the number of keys per remote node.
+          # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
+          sleep $((4*60))
+          while true; do
+            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
+            if [[ $keys_in_use == $exp_nb_keys ]]; then
+              break
+            fi
+            echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
+            sleep 30s
+          done
+
+      - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          full-test: 'true'
 
       - name: Fetch artifacts
         if: ${{ !success() }}
