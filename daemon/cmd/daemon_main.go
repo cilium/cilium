@@ -62,7 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
-	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
@@ -1648,7 +1648,6 @@ type daemonParams struct {
 	PolicyK8sWatcher       *policyK8s.PolicyResourcesWatcher
 	DirectoryPolicyWatcher *policyDirectory.PolicyResourcesWatcher
 	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus
-	IPAMMetadataManager    *ipamMetadata.Manager
 	CNIConfigManager       cni.CNIConfigManager
 	SwaggerSpec            *server.Spec
 	HealthAPISpec          *healthApi.Spec
@@ -1686,6 +1685,7 @@ type daemonParams struct {
 	CGroupManager       cgroup.CGroupManager
 	ServiceResolver     *dial.ServiceResolver
 	Recorder            *recorder.Recorder
+	IPAM                *ipam.IPAM
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
