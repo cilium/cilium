@@ -23,6 +23,7 @@ type ownerMock struct{}
 
 func (o *ownerMock) K8sEventReceived(resourceApiGroup, scope string, action string, valid, equal bool) {
 }
+
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool) {}
 
 func (o *ownerMock) UpdateCiliumNodeResource() {}
@@ -46,6 +47,7 @@ func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam.ConfigureAllocator()
 
 	allocv4, allocv6, status := ipam.Dump()
 	require.NotEqual(t, "", status)
@@ -66,6 +68,7 @@ func TestExpirationTimer(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam.ConfigureAllocator()
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
 	require.Nil(t, err)
@@ -132,6 +135,7 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam.ConfigureAllocator()
 
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test
 	// that the allocated pool is passed to StartExpirationTimer

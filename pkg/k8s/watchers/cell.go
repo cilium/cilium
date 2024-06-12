@@ -24,7 +24,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newK8sEndpointsWatcher),
 	cell.ProvidePrivate(newK8sCiliumLRPWatcher),
 	cell.ProvidePrivate(newK8sCiliumEndpointsWatcher),
-	cell.ProvidePrivate(newK8sEventReporter),
+	cell.Provide(newK8sEventReporter),
 )
 
 type k8sWatcherParams struct {
