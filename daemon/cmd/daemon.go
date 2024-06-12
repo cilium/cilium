@@ -79,7 +79,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -170,8 +169,6 @@ type Daemon struct {
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
-
-	lrpManager *redirectpolicy.Manager
 
 	cgroupManager manager.CGroupManager
 
@@ -426,7 +423,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bigTCPConfig:      params.BigTCPConfig,
 		tunnelConfig:      params.TunnelConfig,
 		bwManager:         params.BandwidthManager,
-		lrpManager:        params.LRPManager,
 		cgroupManager:     params.CGroupManager,
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
