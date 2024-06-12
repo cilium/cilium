@@ -45,18 +45,12 @@ type ipamParams struct {
 	NodeResource        k8s.LocalCiliumNodeResource
 	MTU                 mtu.MTU
 	Clientset           k8sClient.Clientset
-	IPAMMetadataManager *ipamMetadata.Manager
+	IPAMMetadataManager ipamMetadata.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 }
 
 func newIPAddressManager(params ipamParams) *ipam.IPAM {
-	ipam := ipam.NewIPAM(params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset)
-
-	if params.IPAMMetadataManager != nil {
-		ipam.WithMetadata(params.IPAMMetadataManager)
-	}
-
-	return ipam
+	return ipam.NewIPAM(params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager)
 }
 
 type ipamAPIHandlerParams struct {

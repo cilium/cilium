@@ -67,7 +67,7 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
+func NewIPAM(nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata) *IPAM {
 	return &IPAM{
 		nodeAddressing:   nodeAddressing,
 		config:           c,
@@ -81,6 +81,7 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDi
 		mtuConfig:      mtuConfig,
 		clientset:      clientset,
 		nodeDiscovery:  nodeDiscovery,
+		metadata:       metadata,
 	}
 }
 
@@ -132,12 +133,6 @@ func (ipam *IPAM) ConfigureAllocator() {
 	default:
 		log.Fatalf("Unknown IPAM backend %s", ipam.config.IPAMMode())
 	}
-}
-
-// WithMetadata sets an optional Metadata provider, which IPAM will use to
-// determine what IPAM pool an IP owner should allocate its IP from
-func (ipam *IPAM) WithMetadata(m Metadata) {
-	ipam.metadata = m
 }
 
 // getIPOwner returns the owner for an IP in a particular pool or the empty
