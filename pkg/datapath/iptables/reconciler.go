@@ -145,6 +145,17 @@ func reconciliationLoop(
 
 	firstInit := true
 
+	// Run an initial full reconciliation before listening on partial reconciliation
+	// request channels (like proxies and no track rules).
+	if err := updateRules(state, firstInit); err != nil {
+		health.Degraded("iptables rules update failed", err)
+		// Keep stateChanged=true and firstInit=true to try again on the next tick.
+	} else {
+		health.OK("iptables rules update completed")
+		firstInit = false
+		stateChanged = false
+	}
+
 	// list of pending channels waiting for reconciliation
 	var updatedChs []chan<- struct{}
 
