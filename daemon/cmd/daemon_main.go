@@ -99,7 +99,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -1676,7 +1675,6 @@ type daemonParams struct {
 	MTU                 mtu.MTU
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
-	LRPManager          *redirectpolicy.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	Prefilter           datapath.PreFilter
 	CompilationLock     datapath.CompilationLock

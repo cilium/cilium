@@ -81,7 +81,6 @@ type handlersOut struct {
 	RecorderPutRecorderIDHandler    recorder.PutRecorderIDHandler
 
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
-	ServiceGetLrpHandler          service.GetLrpHandler
 	ServiceGetServiceHandler      service.GetServiceHandler
 	ServiceGetServiceIDHandler    service.GetServiceIDHandler
 	ServicePutServiceIDHandler    service.PutServiceIDHandler
@@ -170,9 +169,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 		out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
 		out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
 		out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
-
-		// /lrp/
-		out.ServiceGetLrpHandler = wrapAPIHandler(dp, getLRPHandler)
 	}
 
 	// /service/{id}/
