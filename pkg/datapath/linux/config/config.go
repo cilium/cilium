@@ -1019,6 +1019,7 @@ func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e dat
 	}
 
 	fmt.Fprint(fw, defineMAC("THIS_INTERFACE_MAC", e.GetNodeMAC()))
+	fmt.Fprint(fw, defineUint32("THIS_INTERFACE_IFINDEX", uint32(e.GetIfIndex())))
 
 	secID := e.GetIdentityLocked().Uint32()
 	fmt.Fprint(fw, defineUint32("SECLABEL", secID))
