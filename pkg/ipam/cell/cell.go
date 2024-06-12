@@ -6,9 +6,13 @@ package ipamcell
 import (
 	"github.com/cilium/hive/cell"
 
+	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/daemon/k8s"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamapi "github.com/cilium/cilium/pkg/ipam/api"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -24,6 +28,7 @@ var Cell = cell.Module(
 	"IP Address Management",
 
 	cell.Provide(newIPAddressManager),
+	cell.Provide(newIPAMAPIHandler),
 )
 
 type ipamParams struct {
@@ -49,4 +54,38 @@ func newIPAddressManager(params ipamParams) *ipam.IPAM {
 	}
 
 	return ipam
+}
+
+type ipamAPIHandlerParams struct {
+	cell.In
+
+	IPAM            *ipam.IPAM
+	EndpointManager endpointmanager.EndpointManager
+}
+
+type ipamAPIHandlerOut struct {
+	cell.Out
+
+	IpamDeleteIpamIPHandler ipamrestapi.DeleteIpamIPHandler
+	IpamPostIpamHandler     ipamrestapi.PostIpamHandler
+	IpamPostIpamIPHandler   ipamrestapi.PostIpamIPHandler
+}
+
+func newIPAMAPIHandler(params ipamAPIHandlerParams) ipamAPIHandlerOut {
+	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+		return ipamAPIHandlerOut{}
+	}
+
+	return ipamAPIHandlerOut{
+		IpamDeleteIpamIPHandler: &ipamapi.IpamDeleteIpamIPHandler{
+			IPAM:            params.IPAM,
+			EndpointManager: params.EndpointManager,
+		},
+		IpamPostIpamHandler: &ipamapi.IpamPostIpamHandler{
+			IPAM: params.IPAM,
+		},
+		IpamPostIpamIPHandler: &ipamapi.IpamPostIpamIPHandler{
+			IPAM: params.IPAM,
+		},
+	}
 }

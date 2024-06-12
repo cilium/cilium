@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
@@ -48,10 +47,6 @@ type handlersOut struct {
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
-
-	IpamDeleteIpamIPHandler ipam.DeleteIpamIPHandler
-	IpamPostIpamHandler     ipam.PostIpamHandler
-	IpamPostIpamIPHandler   ipam.PostIpamIPHandler
 
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
 
@@ -166,13 +161,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /service/
 	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
-
-	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /ipam/{ip}/
-		out.IpamPostIpamHandler = wrapAPIHandler(dp, postIPAMHandler)
-		out.IpamPostIpamIPHandler = wrapAPIHandler(dp, postIPAMIPHandler)
-		out.IpamDeleteIpamIPHandler = wrapAPIHandler(dp, deleteIPAMIPHandler)
-	}
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
