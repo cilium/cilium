@@ -10,16 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func TestOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
 
 	var nlh *netlink.Handle
 	var err error
@@ -55,7 +56,7 @@ func TestOps(t *testing.T) {
 	require.Equal(t, "noqueue", qdiscs[0].Type()) // the default for dummys
 
 	ops := &ops{
-		log:       logging.DefaultLogger,
+		log:       log,
 		isEnabled: func() bool { return true },
 	}
 	ctx := context.TODO()

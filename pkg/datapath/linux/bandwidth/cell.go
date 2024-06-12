@@ -9,10 +9,11 @@
 package bandwidth
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -37,7 +38,7 @@ var Cell = cell.Module(
 	cell.Invoke(registerReconciler),
 )
 
-func newReconcilerConfig(log logrus.FieldLogger, tbl statedb.RWTable[*tables.BandwidthQDisc], bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
+func newReconcilerConfig(log *slog.Logger, tbl statedb.RWTable[*tables.BandwidthQDisc], bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
 	return reconciler.Config[*tables.BandwidthQDisc]{
 		Table:                     tbl,
 		FullReconcilationInterval: 10 * time.Minute,
@@ -79,7 +80,7 @@ func (*manager) Stop(cell.HookContext) error {
 type bandwidthManagerParams struct {
 	cell.In
 
-	Log          logrus.FieldLogger
+	Log          *slog.Logger
 	Config       types.BandwidthConfig
 	DaemonConfig *option.DaemonConfig
 	Sysctl       sysctl.Sysctl

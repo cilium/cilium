@@ -6,23 +6,22 @@ package bandwidth
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
+	"log/slog"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 type ops struct {
-	log       logrus.FieldLogger
+	log       *slog.Logger
 	isEnabled func() bool
 }
 
-func newOps(log logrus.FieldLogger, mgr types.BandwidthManager) reconciler.Operations[*tables.BandwidthQDisc] {
+func newOps(log *slog.Logger, mgr types.BandwidthManager) reconciler.Operations[*tables.BandwidthQDisc] {
 	return &ops{log, mgr.Enabled}
 }
 
@@ -110,7 +109,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 		}
 		which = "fq"
 	}
-	ops.log.WithField("device", device).Infof("Setting qdisc to %s", which)
+	ops.log.Info("Setting qdisc", "qdisc", which, "device", device)
 
 	// Set the fq parameters
 	qdiscs, err = netlink.QdiscList(link)
