@@ -1453,7 +1453,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`gatewayAPI.externalTrafficPolicy`
-     - Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "Cluster" and "Local". ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
+     - Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "Cluster" and "Local". Note that this value will be ignored when ``hostNetwork.enabled == true``. ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
      - string
      - ``"Cluster"``
    * - :spelling:ignore:`gatewayAPI.hostNetwork.enabled`

@@ -440,23 +440,45 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		translatorCases := []struct {
+			name                 string
+			gatewayAPITranslator *gatewayAPITranslator
+		}{
+			{
+				name: "Without externalTrafficPolicy",
+				gatewayAPITranslator: &gatewayAPITranslator{
+					cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					hostNetworkEnabled: true,
+				},
+			},
+			{
+				name: "With externalTrafficPolicy",
+				gatewayAPITranslator: &gatewayAPITranslator{
+					cecTranslator:         translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					hostNetworkEnabled:    true,
+					externalTrafficPolicy: "Cluster",
+				},
+			},
+		}
+
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &gatewayAPITranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
-				hostNetworkEnabled: true,
+			for _, translatorCase := range translatorCases {
+				t.Run(translatorCase.name, func(t *testing.T) {
+					cec, svc, ep, err := translatorCase.gatewayAPITranslator.Translate(tt.args.m)
+					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
+
+					diffOutput := cmp.Diff(tt.want, cec, protocmp.Transform())
+					if len(diffOutput) != 0 {
+						t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
+					}
+
+					require.NotNil(t, svc)
+					assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
+					require.Emptyf(t, svc.Spec.ExternalTrafficPolicy, "ClusterIP Services must not have an ExternalTrafficPolicy")
+
+					require.NotNil(t, ep)
+				})
 			}
-			cec, svc, ep, err := trans.Translate(tt.args.m)
-			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-
-			diffOutput := cmp.Diff(tt.want, cec, protocmp.Transform())
-			if len(diffOutput) != 0 {
-				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
-			}
-
-			require.NotNil(t, svc)
-			assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
-
-			require.NotNil(t, ep)
 		})
 	}
 }
