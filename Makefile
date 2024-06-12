@@ -487,6 +487,8 @@ endif
 	$(QUIET) contrib/scripts/check-xfrmstate.sh
 	@$(ECHO_CHECK) contrib/scripts/check-legacy-header-guard.sh
 	$(QUIET) contrib/scripts/check-legacy-header-guard.sh
+	@$(ECHO_CHECK) contrib/scripts/check-logrus.sh
+	$(QUIET) contrib/scripts/check-logrus.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
