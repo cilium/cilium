@@ -650,10 +650,10 @@ func Test_MergeL3(t *testing.T) {
 				if err != nil {
 					t.Errorf("Policy resolution failure: %s", err)
 				}
-				if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+				if d := mapstate.Diff(tt.result); len(d) > 0 {
 					t.Logf("Rules:\n%s\n\n", api.Rules(rules).String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-					t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s\nObtained: %v\nExpected: %v", labelsFoo, err, mapstate, tt.result)
+					t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s\nObtained: %v\nExpected: %v", labelsFoo, d, mapstate, tt.result)
 				}
 				for remoteID, expectedAuthTypes := range tt.auths {
 					authTypes := repo.GetAuthTypes(identity.ID, remoteID)
@@ -1124,9 +1124,9 @@ func Test_MergeRules(t *testing.T) {
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
-		test   int
-		rules  api.Rules
-		result MapState
+		test     int
+		rules    api.Rules
+		expected MapState
 	}{
 		// The following table is derived from the Google Doc here:
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
@@ -1172,13 +1172,13 @@ func Test_MergeRules(t *testing.T) {
 	for i := generatedIdx; i < 256; i++ {
 		tests = append(tests,
 			struct {
-				test   int
-				rules  api.Rules
-				result MapState
+				test     int
+				rules    api.Rules
+				expected MapState
 			}{
-				test:   i,
-				rules:  generateRule(i),
-				result: expectedMapState[i],
+				test:     i,
+				rules:    generateRule(i),
+				expected: expectedMapState[i],
 			})
 	}
 
@@ -1201,10 +1201,10 @@ func Test_MergeRules(t *testing.T) {
 			// Ignore generated rules as they lap LabelArrayList which would
 			// make the tests fail.
 			if i < generatedIdx {
-				if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+				if d := mapstate.Diff(tt.expected); len(d) > 0 {
 					t.Logf("Rules:\n%s\n\n", tt.rules.String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-					t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
+					t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, d)
 				}
 			}
 			// It is extremely difficult to derive the "DerivedFromRules" field.
@@ -1248,9 +1248,9 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
-		test   int
-		rules  api.Rules
-		result MapState
+		test     int
+		rules    api.Rules
+		expected MapState
 	}{
 		// The following table is derived from the Google Doc here:
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
@@ -1304,10 +1304,10 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+			if d := mapstate.Diff(tt.expected); len(d) > 0 {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
+				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, d)
 			}
 		})
 	}
@@ -1332,7 +1332,7 @@ func Test_AllowAll(t *testing.T) {
 		test     int
 		selector api.EndpointSelector
 		rules    api.Rules
-		result   MapState
+		expected MapState
 	}{
 		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, NewMapState(map[Key]MapStateEntry{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress)})},
 		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, NewMapState(map[Key]MapStateEntry{mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll)})},
@@ -1353,7 +1353,7 @@ func Test_AllowAll(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+			if equal, err := checker.ExportedEqual(mapstate, tt.expected); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
