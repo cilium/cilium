@@ -113,6 +113,7 @@ function setup_proxy_rules()
 	# Any packet from an ingress proxy uses a separate routing table that routes
 	# the packet back to the cilium host device.
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+	from_egress_rulespec="fwmark 0xB00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
 	# that routes the packet to the loopback device regardless of the destination
@@ -134,6 +135,9 @@ function setup_proxy_rules()
 					ip -4 rule add $from_ingress_rulespec
 				fi
 			fi
+                        if [ ! -z "$(ip -4 rule list $from_egress_rulespec)" ]; then
+                                ip -4 rule delete $from_egress_rulespec 2> /dev/null || true
+                        fi
 		fi
 
 		# Traffic to the host proxy is local
@@ -165,6 +169,9 @@ function setup_proxy_rules()
 					ip -6 rule add $from_ingress_rulespec
 				fi
 			fi
+                        if [ ! -z "$(ip -6 rule list $from_egress_rulespec)" ]; then
+                                ip -6 rule delete $from_egress_rulespec 2> /dev/null || true
+                        fi
 		fi
 
 		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
