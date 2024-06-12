@@ -1681,7 +1681,6 @@ type daemonParams struct {
 	SyncHostIPs         *syncHostIPs
 	LRPManager          *redirectpolicy.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	Prefilter           datapath.PreFilter
 	CompilationLock     datapath.CompilationLock
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 	CGroupManager       cgroup.CGroupManager
