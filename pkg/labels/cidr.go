@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	worldLabelNonDualStack = Label{Key: IDNameWorld, Source: LabelSourceReserved}
-	worldLabelV4           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv4}
-	worldLabelV6           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv6}
+	WorldLabelNonDualStack = Label{Key: IDNameWorld, Source: LabelSourceReserved}
+	WorldLabelV4           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv4}
+	WorldLabelV6           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv6}
 )
 
 // maskedIPToLabelString is the base method for serializing an IP + prefix into
@@ -101,11 +101,11 @@ func GetCIDRLabels(prefix netip.Prefix) Labels {
 func AddWorldLabel(addr netip.Addr, lbls Labels) {
 	switch {
 	case !option.Config.IsDualStack():
-		lbls[worldLabelNonDualStack.Key] = worldLabelNonDualStack
+		lbls[WorldLabelNonDualStack.Key] = WorldLabelNonDualStack
 	case addr.Is4():
-		lbls[worldLabelV4.Key] = worldLabelV4
+		lbls[WorldLabelV4.Key] = WorldLabelV4
 	default:
-		lbls[worldLabelV6.Key] = worldLabelV6
+		lbls[WorldLabelV6.Key] = WorldLabelV6
 	}
 }
 
