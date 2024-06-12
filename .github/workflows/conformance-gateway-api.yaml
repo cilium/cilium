@@ -209,8 +209,10 @@ jobs:
       - name: Install Cilium LB IPPool and L2 Announcement Policy
         timeout-minutes: 10
         run: |
-          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+          echo "KIND_NET_CIDR: $KIND_NET_CIDR"
           LB_CIDR=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200/28@")
+          echo "LB_CIDR: $LB_CIDR"
 
           echo "Deploying LB-IPAM Pool..."
           cat << EOF > pool.yaml
@@ -222,6 +224,7 @@ jobs:
             cidrs:
               - cidr: "$LB_CIDR"
           EOF
+          cat pool.yaml
           kubectl apply -f pool.yaml
           
           echo "Deploying L2-Announcement Policy..."
@@ -239,6 +242,7 @@ jobs:
                 - key: node-role.kubernetes.io/control-plane
                   operator: DoesNotExist
           EOF
+          cat l2policy.yaml
           kubectl apply -f l2policy.yaml
 
       - name: Run Gateway API conformance test
