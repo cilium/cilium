@@ -32,7 +32,6 @@
 #include "lib/identity.h"
 #include "lib/nodeport.h"
 #include "lib/clustermesh.h"
-#include "lib/wireguard.h"
 #include "lib/egress_gateway.h"
 
 #ifdef ENABLE_VTEP
