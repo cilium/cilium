@@ -1626,6 +1626,7 @@ type daemonParams struct {
 	cell.In
 
 	Lifecycle              cell.Lifecycle
+	Health                 cell.Health
 	Clientset              k8sClient.Clientset
 	Datapath               datapath.Datapath
 	WGAgent                *wireguard.Agent
@@ -1948,6 +1949,20 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
 	go d.launchHubble()
+
+	// Start controller to validate daemon config is unchanged
+	cfgGroup := controller.NewGroup("daemon-validate-config")
+	d.controllers.UpdateController(
+		cfgGroup.Name,
+		controller.ControllerParams{
+			Group:  cfgGroup,
+			Health: params.Health,
+			DoFunc: option.Config.ValidateUnchanged,
+			// avoid synhronized run with other
+			// controllers started at same time
+			RunInterval: 61 * time.Second,
+			Context:     d.ctx,
+		})
 
 	return nil
 }
