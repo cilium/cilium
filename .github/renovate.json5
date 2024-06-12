@@ -14,10 +14,6 @@
   // config, for example the regex. See:
   // https://docs.renovatebot.com/self-hosted-configuration/#requireconfig
   "requireConfig": "ignored",
-  "allowedPostUpgradeCommands": [
-    "^make -C install/kubernetes$",
-    "^go mod vendor$",
-  ],
   // This ensures that the gitAuthor and gitSignOff fields match
   "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
@@ -81,6 +77,21 @@
     "release-note/misc"
   ],
   "stopUpdatingLabel": "renovate/stop-updating",
+  "allowedPostUpgradeCommands": [
+    "^make -C install/kubernetes$",
+    "^make -C Documentation update-helm-values$",
+  ],
+  "postUpgradeTasks": {
+    "commands": [
+      "make -C install/kubernetes",
+      "make -C Documentation update-helm-values"
+    ],
+    "fileFilters": [
+      "VERSION",
+      "install/kubernetes/**"
+    ],
+    "executionMode": "update"
+  },
   "packageRules": [
     {
       // Try to group all updates for all dependencies in a single PR. More
@@ -221,12 +232,6 @@
         "main"
       ],
       "allowedVersions": ">1.6",
-      // generate files for helm chart
-      "postUpgradeTasks": {
-        "commands": ["make -C install/kubernetes"],
-        "fileFilters": ["**/**"],
-        "executionMode": "branch"
-      }
     },
     {
       "groupName": "spire-images",
@@ -241,12 +246,6 @@
         "v1.14"
       ],
       "allowedVersions": "<1.7",
-      // generate files for helm chart
-      "postUpgradeTasks": {
-        "commands": ["make -C install/kubernetes"],
-        "fileFilters": ["**/**"],
-        "executionMode": "branch"
-      }
     },
     {
       "matchPackageNames": [
