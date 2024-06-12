@@ -39,3 +39,23 @@ steps:
           query: histogram_quantile(0.95, sum(rate(cilium_operator_ces_queueing_delay_seconds_bucket[%v])) by (le))
         - name: CEPPropagationDelay
           query: histogram_quantile(0.95, sum(rate(cilium_endpoint_propagation_delay_seconds_bucket[%v])) by (le))
+    - Identifier: CiliumEndpointsCount
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Count of Cilium Endpoints
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: total
+          query: max(max_over_time(apiserver_storage_objects{resource="ciliumendpoints.cilium.io"}[4h]))
+    - Identifier: CiliumEndpointSlicesCount
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Count of Cilium Endpoint Slices
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: total
+          query: max(max_over_time(apiserver_storage_objects{resource="ciliumendpointslices.cilium.io"}[4h]))
