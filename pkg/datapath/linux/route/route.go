@@ -5,9 +5,9 @@ package route
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,13 +26,14 @@ type Route struct {
 	Type     int
 }
 
-// LogFields returns the route attributes as logrus.Fields map
-func (r *Route) LogFields() logrus.Fields {
-	return logrus.Fields{
-		"prefix":            r.Prefix,
-		"nexthop":           r.Nexthop,
-		"local":             r.Local,
-		logfields.Interface: r.Device,
+// LogAttrs returns the route attributes as slog attributes.
+// The return type is []any to match with signature of With().
+func (r *Route) LogAttrs() []any {
+	return []any{
+		slog.String("prefix", r.Prefix.String()),
+		slog.String("nexthop", r.Nexthop.String()),
+		slog.String("local", r.Local.String()),
+		slog.String(logfields.Interface, r.Device),
 	}
 }
 
