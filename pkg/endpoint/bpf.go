@@ -1349,6 +1349,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		policyKey := policy.Key{
 			Identity:         policymapKey.Identity,
 			DestPort:         policymapKey.GetDestPort(),
+			InvertedPortMask: ^policymapKey.GetPortMask(),
 			Nexthdr:          policymapKey.Nexthdr,
 			TrafficDirection: policymapKey.TrafficDirection,
 		}

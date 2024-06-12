@@ -664,6 +664,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	policyKey := policyTypes.Key{
 		Identity:         remoteID,
 		DestPort:         0,
+		InvertedPortMask: 0xffff, // this is a wildcard
 		Nexthdr:          0,
 		TrafficDirection: trafficdirection.Egress.Uint8(),
 	}
@@ -861,6 +862,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, true, ok)
 	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(policyTypes.Key{
 		Identity:         f.GetDestination().GetIdentity(),
+		InvertedPortMask: 0xffff, // this is a wildcard
 		TrafficDirection: directionFromProto(f.GetTrafficDirection()).Uint8(),
 	})
 	assert.Equal(t, true, ok)
