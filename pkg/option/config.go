@@ -5,6 +5,8 @@ package option
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +21,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mackerelio/go-osstat/memory"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
@@ -1371,6 +1377,10 @@ func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
+	// Private sum of the config written to file. Used to check that the config is not changed
+	// after.
+	shaSum [32]byte
+
 	CreationTime        time.Time
 	BpfDir              string   // BPF template files directory
 	LibDir              string   // Cilium library files directory
@@ -3942,16 +3952,18 @@ func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 		c.EnableSessionAffinity
 }
 
+var backupFileNames []string = []string{
+	"agent-runtime-config.json",
+	"agent-runtime-config-1.json",
+	"agent-runtime-config-2.json",
+}
+
 // StoreInFile stores the configuration in a the given directory under the file
 // name 'daemon-config.json'. If this file already exists, it is renamed to
 // 'daemon-config-1.json', if 'daemon-config-1.json' also exists,
 // 'daemon-config-1.json' is renamed to 'daemon-config-2.json'
 func (c *DaemonConfig) StoreInFile(dir string) error {
-	backupFileNames := []string{
-		"agent-runtime-config.json",
-		"agent-runtime-config-1.json",
-		"agent-runtime-config-2.json",
-	}
+	c.shaSum = c.checksum()
 	backupFiles(dir, backupFileNames)
 	f, err := os.Create(backupFileNames[0])
 	if err != nil {
@@ -3961,6 +3973,70 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 	e := json.NewEncoder(f)
 	e.SetIndent("", " ")
 	return e.Encode(c)
+}
+
+func (c *DaemonConfig) checksum() [32]byte {
+	// take a shallow copy for summing
+	sumConfig := *c
+	// Ignore variable parts
+	sumConfig.Opts = nil
+	cBytes, err := json.Marshal(&sumConfig)
+	if err != nil {
+		return [32]byte{}
+	}
+	return sha256.Sum256(cBytes)
+}
+
+// ValidateUnchanged takes a context that is unused so that it can be used as a doFunc in a
+// controller
+func (c *DaemonConfig) ValidateUnchanged(context.Context) error {
+	sum := c.checksum()
+	if sum != c.shaSum {
+		return c.diffFromFile()
+	}
+	return nil
+}
+
+func (c *DaemonConfig) diffFromFile() error {
+	f, err := os.Open(backupFileNames[0])
+	if err != nil {
+		return err
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	fileBytes := make([]byte, fi.Size())
+	count, err := f.Read(fileBytes)
+	if err != nil {
+		return err
+	}
+	fileBytes = fileBytes[:count]
+
+	var config DaemonConfig
+	err = json.Unmarshal(fileBytes, &config)
+
+	var diff string
+	if err != nil {
+		diff = fmt.Errorf("unmarshal failed %q: %w", string(fileBytes), err).Error()
+	} else {
+		// from https://github.com/google/go-cmp/issues/313#issuecomment-1315651560
+		opts := cmp.FilterPath(func(p cmp.Path) bool {
+			sf, ok := p.Index(-1).(cmp.StructField)
+			if !ok {
+				return false
+			}
+			r, _ := utf8.DecodeRuneInString(sf.Name())
+			return !unicode.IsUpper(r)
+		}, cmp.Ignore())
+
+		diff = cmp.Diff(&config, c, opts,
+			cmpopts.IgnoreTypes(&IntOptions{}),
+			cmpopts.IgnoreTypes(&OptionLibrary{}))
+	}
+	return fmt.Errorf("Config differs:\n%s", diff)
 }
 
 func (c *DaemonConfig) BGPControlPlaneEnabled() bool {

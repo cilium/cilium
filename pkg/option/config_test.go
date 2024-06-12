@@ -4,11 +4,13 @@
 package option
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -1357,4 +1359,38 @@ func TestDaemonConfig_validateContainerIPLocalReservedPorts(t *testing.T) {
 			tt.wantErr(t, c.validateContainerIPLocalReservedPorts(), "validateContainerIPLocalReservedPorts()")
 		})
 	}
+}
+
+func TestDaemonConfig_StoreInFile(t *testing.T) {
+	err := Config.StoreInFile(".")
+	assert.NoError(t, err)
+
+	err = Config.ValidateUnchanged(context.Background())
+	assert.NoError(t, err)
+
+	// minor change
+	Config.DryMode = true
+	err = Config.ValidateUnchanged(context.Background())
+	assert.Error(t, err)
+	strErr := strings.ReplaceAll(err.Error(), "\u00a0", " ")
+	assert.Equal(t, strErr, `Config differs:
+  &option.DaemonConfig{
+  	... // 1 ignored and 15 identical fields
+  	DatapathMode: "",
+  	RoutingMode:  "",
+- 	DryMode:      false,
++ 	DryMode:      true,
+  	RestoreState: false,
+  	KeepConfig:   false,
+  	... // 5 ignored and 311 identical fields
+  }
+`)
+	Config.DryMode = false
+
+	// IntOptions changes are ignored
+	assert.False(t, Config.Opts.IsEnabled("unit-test-key-only")) // make sure not used
+	Config.Opts.SetBool("unit-test-key-only", true)
+	err = Config.ValidateUnchanged(context.Background())
+	assert.NoError(t, err)
+	Config.Opts.Delete("unit-test-key-only")
 }

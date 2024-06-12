@@ -1920,6 +1920,19 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		log.WithError(err).Error("Unable to store Viper's configuration")
 	}
 
+	// Start controller to validate daemon config is unchanged
+	cfgGroup := controller.NewGroup("daemon-validate-config")
+	d.controllers.UpdateController(
+		cfgGroup.Name,
+		controller.ControllerParams{
+			Group:  cfgGroup,
+			DoFunc: option.Config.ValidateUnchanged,
+			// avoid synhronized run with other
+			// controllers started at same time
+			RunInterval: 61 * time.Second,
+			Context:     d.ctx,
+		})
+
 	return nil
 }
 
