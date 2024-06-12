@@ -211,11 +211,6 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
 }
 
-// DebugEnabled returns if debug mode is enabled.
-func (d *Daemon) DebugEnabled() bool {
-	return option.Config.Opts.IsEnabled(option.Debug)
-}
-
 // GetCompilationLock returns the mutex responsible for synchronizing compilation
 // of BPF programs.
 func (d *Daemon) GetCompilationLock() datapath.CompilationLock {
@@ -979,7 +974,7 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
-		if d.DebugEnabled() {
+		if option.Config.Opts.IsEnabled(option.Debug) {
 			logging.SetLogLevelToDebug()
 		}
 		// Reflect log level change to proxies
