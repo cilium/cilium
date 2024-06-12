@@ -487,7 +487,7 @@ jobs:
           # Create pods which establish long lived connections. It will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
-          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+          ./cilium-cli connectivity test --test-concurrency=5 --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium
@@ -515,7 +515,7 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          ./cilium-cli connectivity test --test-concurrency=5 --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --flush-ct \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
@@ -525,7 +525,7 @@ jobs:
             $EXTRA
 
           # --flush-ct interrupts the flows, so we need to set up again.
-          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+          ./cilium-cli connectivity test --test-concurrency=5 --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Downgrade Cilium ${{ env.cilium_stable_version }}
@@ -553,7 +553,7 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          ./cilium-cli connectivity test --test-concurrency=5 --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --flush-ct \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \

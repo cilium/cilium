@@ -65,7 +65,7 @@ jobs:
             --helm-set=tls.secretsBackend=k8s \
             --helm-set=envoy.enabled=false \
             --wait=false"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=5 --hubble=false --collect-sysdump-on-failure"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
