@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -110,7 +109,7 @@ func (m *manager) probe() error {
 		return nil
 	}
 	if _, err := m.params.Sysctl.Read("net.core.default_qdisc"); err != nil {
-		m.params.Log.WithError(err).Warn("BPF bandwidth manager could not read procfs. Disabling the feature.")
+		m.params.Log.Warn("BPF bandwidth manager could not read procfs. Disabling the feature.", logfields.Error, err)
 		return nil
 	}
 	if !kernelGood {
@@ -136,7 +135,7 @@ func (m *manager) probe() error {
 	}
 
 	if m.params.Config.EnableBandwidthManager && m.params.DaemonConfig.EnableIPSec {
-		m.params.Log.Warning("The bandwidth manager cannot be used with IPSec. Disabling the bandwidth manager.")
+		m.params.Log.Warn("The bandwidth manager cannot be used with IPSec. Disabling the bandwidth manager.")
 		return nil
 	}
 
@@ -171,11 +170,11 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 			return fmt.Errorf("read sysctl %s failed: %w", name, err)
 		}
 
-		scopedLog := p.Log.WithFields(logrus.Fields{
-			logfields.SysParamName:  name,
-			logfields.SysParamValue: currentValue,
-			"baselineValue":         value,
-		})
+		scopedLog := p.Log.With(
+			logfields.SysParamName, name,
+			logfields.SysParamValue, currentValue,
+			"baselineValue", value,
+		)
 
 		if currentValue >= value {
 			scopedLog.Info("Skip setting sysctl as it already meets baseline")
@@ -200,10 +199,10 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 	}
 
 	for name, value := range baseStringSettings {
-		p.Log.WithFields(logrus.Fields{
-			logfields.SysParamName: name,
-			"baselineValue":        value,
-		}).Info("Setting sysctl to baseline for BPF bandwidth manager")
+		p.Log.Info("Setting sysctl to baseline for BPF bandwidth manager",
+			logfields.SysParamName, name,
+			"baselineValue", value,
+		)
 
 		if err := p.Sysctl.Write(name, value); err != nil {
 			return fmt.Errorf("set sysctl %s=%s failed: %w", name, value, err)
@@ -219,10 +218,10 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 	// also provides the right kernel dependency implicitly as well.
 	if p.Config.EnableBBR {
 		for name, value := range extraSettings {
-			p.Log.WithFields(logrus.Fields{
-				logfields.SysParamName: name,
-				"baselineValue":        value,
-			}).Info("Setting sysctl to baseline for BPF bandwidth manager")
+			p.Log.Info("Setting sysctl to baseline for BPF bandwidth manager",
+				logfields.SysParamName, name,
+				"baselineValue", value,
+			)
 
 			if err := p.Sysctl.WriteInt(name, value); err != nil {
 				return fmt.Errorf("set sysctl %s=%d failed: %w", name, value, err)
