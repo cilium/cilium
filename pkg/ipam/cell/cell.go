@@ -29,6 +29,9 @@ var Cell = cell.Module(
 
 	cell.Provide(newIPAddressManager),
 	cell.Provide(newIPAMAPIHandler),
+
+	// IPAM metadata manager, determines which IPAM pool a pod should allocate from
+	ipamMetadata.Cell,
 )
 
 type ipamParams struct {
