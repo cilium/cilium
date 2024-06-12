@@ -62,6 +62,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		Cache:               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
 		GetEndpointsDNSInfo: d.getEndpointsDNSInfo,
 		IPCache:             ipcache,
+		IdentityAllocator:   d.identityAllocator,
 	}
 	// Disable cleanup tracking on the default DNS cache. This cache simply
 	// tracks which api.FQDNSelector are present in policy which apply to

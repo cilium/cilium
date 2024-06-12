@@ -4,7 +4,11 @@
 package fqdn
 
 import (
+	"context"
+
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // Config is a simple configuration structure to set how pkg/fqdn subcomponents
@@ -24,6 +28,10 @@ type Config struct {
 	GetEndpointsDNSInfo func(endpointID string) []EndpointDNSInfo
 
 	IPCache IPCache
+
+	// IdentityAllocator will be used to pre-allocate identities when a new selector
+	// is registered
+	IdentityAllocator IdentityAllocator
 }
 
 type EndpointDNSInfo struct {
@@ -37,4 +45,9 @@ type IPCache interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	WaitForRevision(rev uint64)
+}
+
+type IdentityAllocator interface {
+	AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error)
+	Release(ctx context.Context, id *identity.Identity, notifyOwner bool) (released bool, err error)
 }

@@ -64,6 +64,8 @@ type NameManager struct {
 	// list of locks used as coordination points for name updates
 	// see LockName() for details.
 	nameLocks []*lock.Mutex
+
+	identityQueue *identityQueue
 }
 
 // GetModel returns the API model of the NameManager.
@@ -196,6 +198,14 @@ func (n *NameManager) RegisterFQDNSelector(selector api.FQDNSelector) {
 		}
 
 		n.allSelectors[selector] = regex
+
+		// Enqueue identity pre-allocation in the background. This needs to
+		// happen asynchronously, as identity allocation calls back into
+		// the SelectorCache, which is our caller and thus would cause a
+		// deadlock
+		if n.identityQueue != nil {
+			n.identityQueue.enqueueAllocation(selector)
+		}
 	}
 
 	// The newly added FQDN selector could match DNS Names in the cache. If
@@ -212,6 +222,11 @@ func (n *NameManager) RegisterFQDNSelector(selector api.FQDNSelector) {
 func (n *NameManager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 	n.Lock()
 	defer n.Unlock()
+
+	if _, ok := n.allSelectors[selector]; ok && n.identityQueue != nil {
+		// Release pre-allocated identities (asynchronously)
+		n.identityQueue.enqueueRelease(selector)
+	}
 
 	// Remove selector
 	delete(n.allSelectors, selector)
@@ -245,6 +260,10 @@ func NewNameManager(config Config) *NameManager {
 
 	for i := range n.nameLocks {
 		n.nameLocks[i] = &lock.Mutex{}
+	}
+
+	if config.IdentityAllocator != nil {
+		n.identityQueue = newIdentityAllocationQueue(config.IdentityAllocator)
 	}
 
 	return n
