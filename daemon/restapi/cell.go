@@ -9,5 +9,6 @@ var Cell = cell.Module(
 	"cilium-restapi",
 	"Cilium Agent API handlers",
 
-	rateLimiterCell, // Request rate-limiting
+	rateLimiterCell,        // Request rate-limiting
+	configModificationCell, // Config Modification
 )
