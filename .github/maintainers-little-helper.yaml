@@ -1,5 +1,3 @@
-project: "https://github.com/cilium/cilium/projects/285"
-column: "In progress"
 auto-label:
   - "kind/backports"
   - "backport/1.14"
