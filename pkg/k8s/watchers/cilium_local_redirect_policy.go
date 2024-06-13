@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -75,7 +74,7 @@ func (k *K8sCiliumLRPWatcher) ciliumLocalRedirectPolicyInit() {
 				defer func() {
 					k.k8sEventReporter.K8sEventReceived(apiGroup, metricCLRP, resources.MetricCreate, valid, equal)
 				}()
-				if cLRP := k8s.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj); cLRP != nil {
+				if cLRP := informer.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj); cLRP != nil {
 					valid = true
 					err := k.addCiliumLocalRedirectPolicy(cLRP)
 					k.k8sEventReporter.K8sEventProcessed(metricCLRP, resources.MetricCreate, err == nil)
@@ -89,7 +88,7 @@ func (k *K8sCiliumLRPWatcher) ciliumLocalRedirectPolicyInit() {
 				defer func() {
 					k.k8sEventReporter.K8sEventReceived(apiGroup, metricCLRP, resources.MetricDelete, valid, equal)
 				}()
-				cLRP := k8s.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj)
+				cLRP := informer.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj)
 				if cLRP == nil {
 					return
 				}
