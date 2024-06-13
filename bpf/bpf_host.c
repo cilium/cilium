@@ -1872,7 +1872,7 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
  * Packets to the local endpoints will then tail call back to the original
  * bpf_lxc program.
  */
-__section_tail(CILIUM_MAP_POLICY, TEMPLATE_HOST_EP_ID)
+__section_entry
 int handle_lxc_traffic(struct __ctx_buff *ctx)
 {
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
