@@ -52,6 +52,7 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
@@ -250,6 +251,9 @@ var (
 
 		// K8s Watcher provides the core k8s watchers
 		watchers.Cell,
+
+		// Provide pcap recorder
+		recorder.Cell,
 	)
 )
 
