@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/ipam/allocator"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -174,8 +173,8 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldNode != nil {
-					if newNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](newObj); newNode != nil {
+				if oldNode := informer.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldNode != nil {
+					if newNode := informer.CastInformerEvent[cilium_v2.CiliumNode](newObj); newNode != nil {
 						if oldNode.DeepEqual(newNode) {
 							return
 						}
