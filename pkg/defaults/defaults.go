@@ -594,6 +594,9 @@ const (
 
 	// EnableEnvoyConfig is the default value for option.EnableEnvoyConfig
 	EnableEnvoyConfig = false
+
+	// NetNsPath is the default path to the mounted network namespaces directory
+	NetNsPath = "/var/run/cilium/netns"
 )
 
 var (
