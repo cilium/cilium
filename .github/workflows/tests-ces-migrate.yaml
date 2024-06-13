@@ -2,11 +2,11 @@ name: CiliumEndpointSlice migration (ci-ces-migrate)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request:
-    paths:
-      - pkg/k8s/apis/cilium.io
-      - operator/pkg/ciliumendpointslice
-      - .github/workflows/tests-ces-migrate.yaml
+  pull_request: {}
+  push:
+    branches:
+    - main
+    - ft/main/**
 
 permissions: read-all
 
@@ -19,7 +19,32 @@ env:
   KIND_CONFIG: .github/kind-config.yaml
 
 jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-22.04
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Checkout code
+        if: ${{ !github.event.pull_request }}
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: tested-tree
+        with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
   setup-and-test:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-22.04
     name: Installation and Migration Test
     timeout-minutes: 70
@@ -101,29 +126,36 @@ jobs:
           mkdir -p cilium-junits
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Enable CiliumEndpointSlice & Test
-        uses: ./.github/actions/conn-disrupt-test
+      - name: Setup conn-disrupt-test
+        uses: ./.github/actions/conn-disrupt-test-setup
+
+      - name: Enable CiliumEndpointSlice
+        shell: bash
+        run: |
+          kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"enable-cilium-endpoint-slice":"true"}}'
+
+          kubectl rollout restart -n kube-system deployment cilium-operator
+          for i in $(seq 1 6);
+          do
+            if [[ $(kubectl get crd ciliumendpointslices.cilium.io) != "" ]]; then
+              break
+            fi
+            sleep 10
+          done
+
+          kubectl wait --for condition=established --timeout=2m crd/ciliumendpointslices.cilium.io
+
+          kubectl rollout restart -n kube-system ds cilium
+
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+      - name: Run tests after migration
+        uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: ces-enable
-          operation-cmd: |
-            kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"enable-cilium-endpoint-slice":"true"}}'
-
-            kubectl rollout restart -n kube-system deployment cilium-operator
-            for i in $(seq 1 6);
-            do
-              if [[ $(kubectl get crd ciliumendpointslices.cilium.io) != "" ]]; then
-                break
-              fi
-              sleep 10
-            done
-
-            kubectl wait --for condition=established --timeout=2m crd/ciliumendpointslices.cilium.io
-
-            kubectl rollout restart -n kube-system ds cilium
-
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+          full-test: 'true'
 
       - name: Fetch artifacts
         if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
