@@ -91,7 +91,7 @@ func TestWaitForCacheSyncWithTimeout(t *testing.T) {
 				t.Parallel()
 
 				assert := assert.New(t)
-				r := &Resources{}
+				r := &Resources{CacheStatus: make(CacheStatus)}
 				stop := make(chan struct{})
 				swg := lock.NewStoppableWaitGroup()
 				start := time.Now()
