@@ -128,7 +128,7 @@ jobs:
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
-            --disk-size 10GB \
+            --disk-size 20GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible \
             --async
@@ -146,7 +146,7 @@ jobs:
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
-            --disk-size 10GB \
+            --disk-size 20GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible \
             --async
