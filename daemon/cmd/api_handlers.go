@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -68,12 +67,6 @@ type handlersOut struct {
 	PolicyGetPolicyHandler            policy.GetPolicyHandler
 	PolicyGetPolicySelectorsHandler   policy.GetPolicySelectorsHandler
 	PolicyPutPolicyHandler            policy.PutPolicyHandler
-
-	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
-	RecorderGetRecorderHandler      recorder.GetRecorderHandler
-	RecorderGetRecorderIDHandler    recorder.GetRecorderIDHandler
-	RecorderGetRecorderMasksHandler recorder.GetRecorderMasksHandler
-	RecorderPutRecorderIDHandler    recorder.PutRecorderIDHandler
 
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	ServiceGetServiceHandler      service.GetServiceHandler
@@ -173,17 +166,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /service/
 	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
-
-	// /recorder/{id}/
-	out.RecorderGetRecorderIDHandler = wrapAPIHandler(dp, getRecorderIDHandler)
-	out.RecorderDeleteRecorderIDHandler = wrapAPIHandler(dp, deleteRecorderIDHandler)
-	out.RecorderPutRecorderIDHandler = wrapAPIHandler(dp, putRecorderIDHandler)
-
-	// /recorder/
-	out.RecorderGetRecorderHandler = wrapAPIHandler(dp, getRecorderHandler)
-
-	// /recorder/masks
-	out.RecorderGetRecorderMasksHandler = wrapAPIHandler(dp, getRecorderMasksHandler)
 
 	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 		// /ipam/{ip}/
