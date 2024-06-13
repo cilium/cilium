@@ -727,6 +727,14 @@ ciliumEndpointSlice:
     limit: 5
     burst: 10
 
+  # @schema
+  # enum: ["cesSliceModeIdentity", "cesSliceModeFCFS"]
+  # @schema
+  # -- The slicing mode to use for CiliumEndpointSlices.
+  # cesSliceModeIdentity groups together CiliumEndpoints that share the same identity.
+  # cesSliceModeFCFS groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
+  sliceMode: "cesSliceModeIdentity"
+
 envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.

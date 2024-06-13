@@ -5,9 +5,9 @@ on:
     - cron: '39 0 * * 1-5'
 
 # For testing uncomment following lines:
-#  push:
-#    branches:
-#      - your_branch_name
+  push:
+    branches:
+      - thorn3rCES
 
 permissions:
   # To be able to access the repository with actions/checkout
@@ -43,6 +43,7 @@ env:
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 479.0.0
+  kubectl_version: v1.30.1
 
 jobs:
   install-and-scaletest:
@@ -84,12 +85,23 @@ jobs:
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
+            --helm-set=operator.extraArgs={--k8s-client-qps=100} \
+            --helm-set=operator.extraArgs={--k8s-client-burst=200} \
             --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --helm-set=clustermesh.apiserver.image.tag=${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.useDigest=false"
+            --helm-set=hubble.relay.image.useDigest=false \
+            --helm-set=endpointHealthChecking.enabled=false \
+            --helm-set=healthChecking=false \
+            --helm-set=ciliumEndpointSlice.enabled=true \
+            --helm-set=ciliumEndpointSlice.sliceMode="cesSliceModeFCFS" \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].nodes=1 \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].limit=100 \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].burst=200 \
+            --helm-set=debug.enabled=true \
+            --helm-set=kubeProxyReplacement=true"
           fi
 
           # Adding k8s.local to the end makes kops happy
@@ -130,6 +142,14 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sLO "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
         with:
@@ -163,14 +183,16 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: thorn3r/scale-tests-action/create-cluster@47a0be7528c75fa414c93d0906e199d6a85ed09e  # updates for 5k
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
-          control_plane_count: 1
+          control_plane_size: n2-standard-32
+          control_plane_count: 5
+          control_plane_volume_size: 50
           node_size: e2-medium
-          node_count: 100
+          node_count: 500
+          node_volume_size: 50
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
 
@@ -179,7 +201,7 @@ jobs:
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-standard-8
+          node_size: e2-standard-32
           node_count: 1
           ig_name: heapster
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
@@ -189,10 +211,24 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
+      - name: Get apiserver loadbalancer address
+        id: apiserver-vars
+        run: |
+          APISERVER_ADDRESS="$(gcloud compute addresses list --filter="addressType:external AND name~'${{ steps.vars.outputs.cluster_name }}'" --format json | jq '.[].address')"
+          CILIUM_INSTALL_APISERVER=" --set k8sServiceHost=${APISERVER_ADDRESS} \
+          --set k8sServicePort=443"
+
+          echo cilium_install_apiserver=${CILIUM_INSTALL_APISERVER} >> $GITHUB_OUTPUT
+
       - name: Install Cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install --dry-run-helm-values \
+          ${{ steps.vars.outputs.cilium_install_defaults }} \
+          ${{ steps.apiserver-vars.outputs.cilium_install_apiserver }}
+
+          cilium install \
+          ${{ steps.vars.outputs.cilium_install_defaults }} \
+          ${{ steps.apiserver-vars.outputs.cilium_install_apiserver }}
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
@@ -203,7 +239,11 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --wait-duration=20m
+
+      - name: (debug) check rate limit
+        run: |
+          kubectl -n kube-system logs -l name=cilium-operator --tail -1 | grep 'CES controller workqueue configuration'
 
       - name: Run CL2
         id: run-cl2
@@ -219,7 +259,11 @@ jobs:
           export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
           export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
-          export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=2.0
+          export CL2_PROMETHEUS_MEMORY_LIMIT_FACTOR=20.0
+          export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=18.0
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL="10s"
+          export CL2_LOAD_TEST_THROUGHPUT=50.0
+          export CL2_DELETE_TEST_THROUGHPUT=50.0
 
           # CL2 hardcodes module paths to live in ./testing/load, even
           # if the path given is relative.
@@ -238,24 +282,32 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
+            --nodes=500 \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
-            --testoverrides=./testing/overrides/load_throughput.yaml \
             --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --testoverrides=./modules.yaml \
             2>&1 | tee cl2-output.txt
 
-      - name: Get sysdump
-        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+      - name: Gather debug info on failure
+        id: debug-info
+        if: ${{ failure() }}
         run: |
           cilium status
+          kubectl get pods --all-namespaces -owide
           cilium sysdump --output-filename cilium-sysdump-final
 
+      - name: Upload artifacts
+        if: ${{ steps.debug-info.outcome != 'skipped' }}
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: cilium-sysdump-final
+          path: cilium-sysdump-*.zip
+
       - name: Cleanup cluster
-        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        if: ${{ always() }}
         uses: cilium/scale-tests-action/cleanup-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -268,4 +320,4 @@ jobs:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
-          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+          other_files: ./perf-tests/clusterloader2/cl2-output.txt

@@ -763,6 +763,12 @@
             ]
           },
           "type": "array"
+        },
+        "sliceMode": {
+          "enum": [
+            "cesSliceModeIdentity",
+            "cesSliceModeFCFS"
+          ]
         }
       },
       "type": "object"
