@@ -89,3 +89,56 @@ func cmpToEqual[T any](cmp func(T, T) int) func(T, T) bool {
 		return cmp(a, b) == 0
 	}
 }
+
+// -----
+
+func (s ImmSet[T]) InsertNew(xs ...T) ImmSet[T] {
+	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
+	return s.UnionNew(xsAsImmSet)
+}
+
+func (s ImmSet[T]) DeleteNew(xs ...T) ImmSet[T] {
+	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
+	return s.DifferenceNew(xsAsImmSet)
+}
+
+func (s ImmSet[T]) UnionNew(s2 ImmSet[T]) ImmSet[T] {
+	result := make([]T, 0, len(s.xs)+len(s2.xs))
+	xs1, xs2 := s.xs, s2.xs
+	for len(xs1) > 0 && len(xs2) > 0 {
+		switch diff := s.cmp(xs1[0], xs2[0]); {
+		case diff < 0:
+			result = append(result, xs1[0])
+			xs1 = xs1[1:]
+		case diff > 0:
+			result = append(result, xs2[0])
+			xs2 = xs2[1:]
+		default:
+			result = append(result, xs1[0])
+			xs1 = xs1[1:]
+			xs2 = xs2[1:]
+		}
+	}
+	result = append(result, xs1...)
+	result = append(result, xs2...)
+	return ImmSet[T]{result, s.cmp, s.eq}
+}
+
+func (s ImmSet[T]) DifferenceNew(s2 ImmSet[T]) ImmSet[T] {
+	result := make([]T, 0, len(s.xs))
+	xs1, xs2 := s.xs, s2.xs
+	for len(xs1) > 0 && len(xs2) > 0 {
+		switch diff := s.cmp(xs1[0], xs2[0]); {
+		case diff < 0:
+			result = append(result, xs1[0])
+			xs1 = xs1[1:]
+		case diff > 0:
+			xs2 = xs2[1:]
+		default:
+			xs1 = xs1[1:]
+			xs2 = xs2[1:]
+		}
+	}
+	result = append(result, xs1...)
+	return ImmSet[T]{result, s.cmp, s.eq}
+}

@@ -135,6 +135,46 @@ func BenchmarkImmSetInsert_100(b *testing.B)   { benchmarkImmSetInsert(b, 100) }
 func BenchmarkImmSetInsert_1000(b *testing.B)  { benchmarkImmSetInsert(b, 1000) }
 func BenchmarkImmSetInsert_10000(b *testing.B) { benchmarkImmSetInsert(b, 10000) }
 
+func benchmarkImmSetInsertMany(b *testing.B, numItems int, ins func(s ImmSet[int], xs ...int) ImmSet[int]) {
+	a1 := make([]int, numItems)
+	a2 := make([]int, numItems)
+	for i := 0; i < numItems; i++ {
+		a1[i] = int(rand.IntN(numItems))
+		a2[i] = int(rand.IntN(numItems))
+	}
+	s := NewImmSet(a1...)
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		ins(s, a2...)
+	}
+}
+
+func BenchmarkImmSetInsertMany_100(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 100, ImmSet[int].Insert)
+}
+func BenchmarkImmSetInsertMany_1000(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 1000, ImmSet[int].Insert)
+}
+func BenchmarkImmSetInsertMany_10000(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 10000, ImmSet[int].Insert)
+}
+func BenchmarkImmSetInsertMany_100000(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 100000, ImmSet[int].Insert)
+}
+
+func BenchmarkNewImmSetInsertMany_100(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 100, ImmSet[int].InsertNew)
+}
+func BenchmarkNewImmSetInsertMany_1000(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 1000, ImmSet[int].InsertNew)
+}
+func BenchmarkNewImmSetInsertMany_10000(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 10000, ImmSet[int].InsertNew)
+}
+func BenchmarkNewImmSetInsertMany_100000(b *testing.B) {
+	benchmarkImmSetInsertMany(b, 100000, ImmSet[int].InsertNew)
+}
+
 func benchmarkImmSetDelete(b *testing.B, numItems int) {
 	s := NewImmSet[int]()
 	for i := 0; i < numItems; i++ {
@@ -151,3 +191,102 @@ func benchmarkImmSetDelete(b *testing.B, numItems int) {
 func BenchmarkImmSetDelete_100(b *testing.B)   { benchmarkImmSetDelete(b, 100) }
 func BenchmarkImmSetDelete_1000(b *testing.B)  { benchmarkImmSetDelete(b, 1000) }
 func BenchmarkImmSetDelete_10000(b *testing.B) { benchmarkImmSetDelete(b, 10000) }
+
+func benchmarkImmSetDeleteMany(b *testing.B, numItems int, del func(s ImmSet[int], xs ...int) ImmSet[int]) {
+	s := NewImmSet[int]()
+	a := make([]int, 0, numItems)
+	for i := 0; i < numItems; i++ {
+		s = s.Insert(int(rand.IntN(numItems)))
+		a = append(a, int(rand.IntN(numItems)))
+	}
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		del(s, a...)
+	}
+}
+
+func BenchmarkImmSetDeleteMany_100(b *testing.B) {
+	benchmarkImmSetDeleteMany(b, 100, ImmSet[int].Delete)
+}
+func BenchmarkImmSetDeleteMany_1000(b *testing.B) {
+	benchmarkImmSetDeleteMany(b, 1000, ImmSet[int].Delete)
+}
+func BenchmarkImmSetDeleteMany_10000(b *testing.B) {
+	benchmarkImmSetDeleteMany(b, 10000, ImmSet[int].Delete)
+}
+
+func BenchmarkNewImmSetDeleteMany_100(b *testing.B) {
+	benchmarkImmSetDeleteMany(b, 100, ImmSet[int].DeleteNew)
+}
+func BenchmarkNewImmSetDeleteMany_1000(b *testing.B) {
+	benchmarkImmSetDeleteMany(b, 1000, ImmSet[int].DeleteNew)
+}
+func BenchmarkNewImmSetDeleteMany_10000(b *testing.B) {
+	benchmarkImmSetDeleteMany(b, 10000, ImmSet[int].DeleteNew)
+}
+
+func benchmarkImmSetDifference(b *testing.B, numItems int, diff func(s1 ImmSet[int], s2 ImmSet[int]) ImmSet[int]) {
+	s1 := NewImmSet[int]()
+	s2 := NewImmSet[int]()
+	for i := 0; i < numItems; i++ {
+		s1 = s1.Insert(int(rand.IntN(numItems)))
+		s2 = s2.Insert(int(rand.IntN(numItems)))
+	}
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		diff(s1, s2)
+	}
+}
+
+func BenchmarkImmSetDifference_100(b *testing.B) {
+	benchmarkImmSetDifference(b, 100, ImmSet[int].Difference)
+}
+func BenchmarkImmSetDifference_1000(b *testing.B) {
+	benchmarkImmSetDifference(b, 1000, ImmSet[int].Difference)
+}
+func BenchmarkImmSetDifference_10000(b *testing.B) {
+	benchmarkImmSetDifference(b, 10000, ImmSet[int].Difference)
+}
+func BenchmarkImmSetDifference_100000(b *testing.B) {
+	benchmarkImmSetDifference(b, 100000, ImmSet[int].Difference)
+}
+
+func BenchmarkNewImmSetDifference_100(b *testing.B) {
+	benchmarkImmSetDifference(b, 100, ImmSet[int].DifferenceNew)
+}
+func BenchmarkNewImmSetDifference_1000(b *testing.B) {
+	benchmarkImmSetDifference(b, 1000, ImmSet[int].DifferenceNew)
+}
+func BenchmarkNewImmSetDifference_10000(b *testing.B) {
+	benchmarkImmSetDifference(b, 10000, ImmSet[int].DifferenceNew)
+}
+func BenchmarkNewImmSetDifference_100000(b *testing.B) {
+	benchmarkImmSetDifference(b, 100000, ImmSet[int].DifferenceNew)
+}
+
+func benchmarkImmSetUnion(b *testing.B, numItems int, uni func(s1 ImmSet[int], s2 ImmSet[int]) ImmSet[int]) {
+	a1 := make([]int, numItems)
+	a2 := make([]int, numItems)
+	for i := 0; i < numItems; i++ {
+		a1[i] = int(rand.IntN(numItems))
+		a2[i] = int(rand.IntN(numItems))
+	}
+	s1 := NewImmSet(a1...)
+	s2 := NewImmSet(a2...)
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		uni(s1, s2)
+	}
+}
+
+func BenchmarkImmSetUnion_100(b *testing.B)   { benchmarkImmSetUnion(b, 100, ImmSet[int].Union) }
+func BenchmarkImmSetUnion_1000(b *testing.B)  { benchmarkImmSetUnion(b, 1000, ImmSet[int].Union) }
+func BenchmarkImmSetUnion_10000(b *testing.B) { benchmarkImmSetUnion(b, 10000, ImmSet[int].Union) }
+
+func BenchmarkNewImmSetUnion_100(b *testing.B)  { benchmarkImmSetUnion(b, 100, ImmSet[int].UnionNew) }
+func BenchmarkNewImmSetUnion_1000(b *testing.B) { benchmarkImmSetUnion(b, 1000, ImmSet[int].UnionNew) }
+func BenchmarkNewImmSetUnion_10000(b *testing.B) {
+	benchmarkImmSetUnion(b, 10000, ImmSet[int].UnionNew)
+}
