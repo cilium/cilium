@@ -1575,11 +1575,6 @@ func (in *CiliumLoadBalancerIPPoolSpec) DeepCopyInto(out *CiliumLoadBalancerIPPo
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Cidrs != nil {
-		in, out := &in.Cidrs, &out.Cidrs
-		*out = make([]CiliumLoadBalancerIPPoolIPBlock, len(*in))
-		copy(*out, *in)
-	}
 	if in.Blocks != nil {
 		in, out := &in.Blocks, &out.Blocks
 		*out = make([]CiliumLoadBalancerIPPoolIPBlock, len(*in))
