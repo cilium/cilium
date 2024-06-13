@@ -1292,8 +1292,7 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 	}
 
 	ipam.pools[pool.GetName()] = pool
-	blocks := append(pool.Spec.Cidrs, pool.Spec.Blocks...)
-	for _, ipBlock := range blocks {
+	for _, ipBlock := range pool.Spec.Blocks {
 		from, to, fromCidr, err := ipRangeFromBlock(ipBlock)
 		if err != nil {
 			return fmt.Errorf("Error parsing ip block: %w", err)
@@ -1366,8 +1365,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 		fromCidr bool
 	}
 	var newRanges []rng
-	blocks := append(pool.Spec.Cidrs, pool.Spec.Blocks...)
-	for _, newBlock := range blocks {
+	for _, newBlock := range pool.Spec.Blocks {
 		from, to, fromCidr, err := ipRangeFromBlock(newBlock)
 		if err != nil {
 			return fmt.Errorf("Error parsing ip block: %w", err)
