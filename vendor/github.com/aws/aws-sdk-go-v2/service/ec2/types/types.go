@@ -17291,6 +17291,9 @@ type TrafficMirrorFilterRule struct {
 	// The source port range assigned to the Traffic Mirror rule.
 	SourcePortRange *TrafficMirrorPortRange
 
+	// Tags on Traffic Mirroring filter rules.
+	Tags []Tag
+
 	// The traffic direction assigned to the Traffic Mirror rule.
 	TrafficDirection TrafficDirection
 

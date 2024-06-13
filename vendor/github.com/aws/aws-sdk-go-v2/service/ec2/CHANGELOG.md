@@ -1,3 +1,7 @@
+# v1.164.0 (2024-06-12)
+
+* **Feature**: Tagging support for Traffic Mirroring FilterRule resource
+
 # v1.163.1 (2024-06-07)
 
 * **Bug Fix**: Add clock skew correction on all service clients
