@@ -314,6 +314,25 @@ func Delete(route Route) error {
 	return nil
 }
 
+// DeleteV4 deletes an IPv4 Linux route. Differently from Delete, it does
+// not discard Priority, Local, Type, MTU and Scope fields.
+// An error is returned if the route does not exist or if the route could not be deleted.
+func DeleteV4(route Route) error {
+	link, err := netlink.LinkByName(route.Device)
+	if err != nil {
+		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
+	}
+
+	routeSpec := route.getNetlinkRoute()
+	routeSpec.LinkIndex = link.Attrs().Index
+
+	if err := netlink.RouteDel(&routeSpec); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Rule is the specification of an IP routing rule
 type Rule struct {
 	// Priority is the routing rule priority
