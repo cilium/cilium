@@ -252,7 +252,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	p := &policyWatcher{
 		log:                logrus.NewEntry(logger),
 		config:             &option.DaemonConfig{},
-		k8sResourceSynced:  &k8sSynced.Resources{},
+		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
 		policyManager:      policyManager,
 		svcCache:           svcCache,
