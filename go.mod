@@ -10,7 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.9.24
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.758
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.761
 	github.com/aws/aws-sdk-go-v2 v1.27.2
 	github.com/aws/aws-sdk-go-v2/config v1.27.18
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.5
@@ -25,7 +25,7 @@ require (
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.6.1
 	github.com/cilium/hive v0.0.0-20240529072208-d997f86e4219
-	github.com/cilium/linters v0.0.0-20240521030341-6ee0b54fb7f1
+	github.com/cilium/linters v0.0.0-20240611134452-310e8a3d60a5
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20240418093727-2c7164c53e26
 	github.com/cilium/statedb v0.0.0-20240604111733-b27b7794ffac
@@ -112,9 +112,9 @@ require (
 	golang.org/x/tools v0.22.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240610135401-a8a62080eff3
 	google.golang.org/grpc v1.64.0
-	google.golang.org/protobuf v1.34.1
+	google.golang.org/protobuf v1.34.2
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.30.0
