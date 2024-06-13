@@ -314,6 +314,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 	} else {
 		option.Config.EnableSocketLBTracing = false
+		option.Config.EnableSocketLBPodConnectionTermination = false
 	}
 
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {

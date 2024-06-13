@@ -996,6 +996,8 @@ socketLB:
   enabled: false
   # -- Disable socket lb for non-root ns. This is used to enable Istio routing rules.
   # hostNamespaceOnly: false
+  # -- Enable terminating pod connections to deleted service backends.
+  # terminatePodConnections: true
 # -- Configure certificate generation for Hubble integration.
 # If hubble.tls.auto.method=cronJob, these values are used
 # for the Kubernetes CronJob which will be scheduled regularly to
@@ -2245,18 +2247,18 @@ envoy:
               k8s-app: cilium-envoy
     podAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
-      - topologyKey: kubernetes.io/hostname
-        labelSelector:
-          matchLabels:
-            k8s-app: cilium
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              k8s-app: cilium
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-            - key: cilium.io/no-schedule
-              operator: NotIn
-              values:
-              - "true"
+              - key: cilium.io/no-schedule
+                operator: NotIn
+                values:
+                  - "true"
   # -- Node selector for cilium-envoy.
   nodeSelector:
     kubernetes.io/os: linux
