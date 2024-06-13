@@ -134,14 +134,13 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
  * to use the map, so we do not want to compile this definition if
  * CUSTOM_CALLS_MAP has not been #define-d.
  */
-struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_CUSTOM_CALLS,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
-	.max_elem	= 4,	/* ingress and egress, IPv4 and IPv6 */
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 4); /* ingress and egress, IPv4 and IPv6 */
+} CUSTOM_CALLS_MAP __section_maps_btf;
 
 #define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
 #define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
