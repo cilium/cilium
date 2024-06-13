@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
+	recorderapi "github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -20,6 +21,7 @@ var Cell = cell.Module(
 	"PCAP Recorder",
 
 	cell.Provide(newRecorderWithLifecycle),
+	cell.Provide(newRecorderApiHandler),
 )
 
 type recorderParams struct {
@@ -53,4 +55,24 @@ func newRecorderWithLifecycle(params recorderParams) (*Recorder, error) {
 	})
 
 	return recorder, nil
+}
+
+type recorderApiHandlerOut struct {
+	cell.Out
+
+	GetRecorderHandler      recorderapi.GetRecorderHandler
+	GetRecorderIDHandler    recorderapi.GetRecorderIDHandler
+	GetRecorderMasksHandler recorderapi.GetRecorderMasksHandler
+	PutRecorderIDHandler    recorderapi.PutRecorderIDHandler
+	DeleteRecorderIDHandler recorderapi.DeleteRecorderIDHandler
+}
+
+func newRecorderApiHandler(logger logrus.FieldLogger, recorder *Recorder) recorderApiHandlerOut {
+	return recorderApiHandlerOut{
+		GetRecorderHandler:      &getRecorderHandler{logger: logger, recorder: recorder},
+		GetRecorderIDHandler:    &getRecorderIDHandler{logger: logger, recorder: recorder},
+		GetRecorderMasksHandler: &getRecorderMasksHandler{logger: logger, recorder: recorder},
+		PutRecorderIDHandler:    &putRecorderIDHandler{logger: logger, recorder: recorder},
+		DeleteRecorderIDHandler: &deleteRecorderIDHandler{logger: logger, recorder: recorder},
+	}
 }
