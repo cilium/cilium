@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -25,6 +26,7 @@ type recorderParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
+	Logger    logrus.FieldLogger
 
 	AgentConfig *option.DaemonConfig
 	Datapath    datapath.Datapath
@@ -33,7 +35,7 @@ type recorderParams struct {
 func newRecorderWithLifecycle(params recorderParams) (*Recorder, error) {
 	ctx, cancelCtx := context.WithCancel(context.Background())
 
-	recorder := newRecorder(ctx, params.Datapath.Loader())
+	recorder := newRecorder(ctx, params.Logger, params.Datapath.Loader())
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
