@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
+	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -180,7 +181,8 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 		// Save and restore loadBalancerClass
 		// e.g. if a mutating webhook writes this field
 		lbClass := svc.Spec.LoadBalancerClass
-
+		// This annotation must be set through gateway.spec.addresses, otherwise it will be deleted.
+		delete(svc.Annotations, annotation.LBIPAMIPKeyAlias)
 		svc.Spec = desired.Spec
 		svc.OwnerReferences = desired.OwnerReferences
 		setMergedLabelsAndAnnotations(svc, desired)
