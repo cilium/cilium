@@ -286,7 +286,7 @@ func mkPool(uid types.UID, name string, cidrs []string) *cilium_api_v2alpha1.Cil
 			CreationTimestamp: metav1.Date(2022, 10, 16, 12, 00, 00, 0, time.UTC),
 		},
 		Spec: cilium_api_v2alpha1.CiliumLoadBalancerIPPoolSpec{
-			Cidrs: blocks,
+			Blocks: blocks,
 		},
 	}
 }
