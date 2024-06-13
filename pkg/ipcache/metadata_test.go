@@ -346,6 +346,9 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	// Assert that ipcache has released its final reference to the identity
 	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
 	assert.True(t, realID == nil)
+
+	_, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.False(t, ok)
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
