@@ -427,16 +427,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
+		rec:               params.Recorder,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
 	d.configModifyQueue.Run()
-
-	d.rec, err = recorder.NewRecorder(d.ctx, params.Datapath.Loader())
-	if err != nil {
-		log.WithError(err).Error("error while initializing BPF pcap recorder")
-		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
-	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
 	// in to the metadata layer.

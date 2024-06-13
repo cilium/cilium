@@ -99,6 +99,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -1683,6 +1684,7 @@ type daemonParams struct {
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 	CGroupManager       cgroup.CGroupManager
 	ServiceResolver     *dial.ServiceResolver
+	Recorder            *recorder.Recorder
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
