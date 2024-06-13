@@ -831,7 +831,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	// We cannot update the map while we are
 	// iterating through it, so we record the
 	// changes to be made and then apply them.
-	var updates []MapChange
+	// Additionally, we need to perform deletes
+	// first so that deny entries do not get
+	// merged with allows that are set to be
+	// deleted.
+	var (
+		updates, deletes []MapChange
+	)
 	if newEntry.IsDeny {
 		ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
 			// Protocols and traffic directions that don't match ensure that the policies
@@ -862,12 +868,18 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 				// the new-entry has a broader (or equal) port-protocol then we
 				// should delete the iterated-allow-entry
-				updates = append(updates, MapChange{
+				deletes = append(deletes, MapChange{
 					Key: k,
 				})
+
 			}
 			return true
 		})
+		for _, delete := range deletes {
+			if !delete.Add {
+				ms.deleteKeyWithChanges(delete.Key, nil, changes)
+			}
+		}
 		for _, update := range updates {
 			if update.Add {
 				ms.addKeyWithChanges(update.Key, update.Value, changes)
@@ -875,8 +887,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// effects on other entries so that those effects can be reverted when the
 				// identity is removed.
 				newEntry.AddDependent(update.Key)
-			} else {
-				ms.deleteKeyWithChanges(update.Key, nil, changes)
 			}
 		}
 
