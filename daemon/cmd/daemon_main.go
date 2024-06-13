@@ -1612,7 +1612,6 @@ var daemonCell = cell.Module(
 	cell.Provide(
 		newDaemonPromise,
 		promise.New[endpointstate.Restorer],
-		func() k8s.CacheStatus { return make(k8s.CacheStatus) },
 		newSyncHostIPs,
 	),
 	// Provide a read-only copy of the current daemon settings to be consumed
@@ -1633,9 +1632,9 @@ type daemonParams struct {
 	LocalNodeStore         *node.LocalNodeStore
 	Shutdowner             hive.Shutdowner
 	Resources              agentK8s.Resources
-	CacheStatus            k8s.CacheStatus
 	K8sWatcher             *watchers.K8sWatcher
 	K8sSvcCache            *k8s.ServiceCache
+	CacheStatus            k8sSynced.CacheStatus
 	K8sResourceSynced      *k8sSynced.Resources
 	K8sAPIGroups           *k8sSynced.APIGroups
 	NodeManager            nodeManager.NodeManager

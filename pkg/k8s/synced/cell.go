@@ -15,6 +15,12 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
+type syncedParams struct {
+	cell.In
+
+	CacheStatus CacheStatus
+}
+
 var Cell = cell.Module(
 	"k8s-synced",
 	"Provides types for internal K8s resource synchronization",
@@ -23,8 +29,14 @@ var Cell = cell.Module(
 		return new(APIGroups)
 	}),
 
-	cell.Provide(func() *Resources {
-		return new(Resources)
+	cell.Provide(func(params syncedParams) *Resources {
+		return &Resources{
+			CacheStatus: params.CacheStatus,
+		}
+	}),
+
+	cell.Provide(func() CacheStatus {
+		return make(CacheStatus)
 	}),
 )
 
