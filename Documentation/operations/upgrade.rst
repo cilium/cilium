@@ -371,6 +371,10 @@ Annotations:
 * KVStoreMesh is now enabled by default in Clustermesh.
   If you want to disable KVStoreMesh, set Helm value ``clustermesh.apiserver.kvstoremesh.enabled=false``
   explicitly during the upgrade.
+* The default value of of ``CiliumLoadBalancerIPPool.spec.allowFirstLastIPs`` has been changed to ``yes``.
+  This means that unless explicitly configured otherwise, the first and last IP addresses of the IP pool
+  are available for allocation. If you rely on the previous behavior, you should explicitly set
+  ``allowFirstLastIPs: no`` in your IP pool configuration before the upgrade.
 
 Removed Options
 ~~~~~~~~~~~~~~~
