@@ -5,4 +5,3 @@
 
 /* WARNING: Do not change these ids without updating pkg/bpf/collection.go */
 #define CILIUM_MAP_CALLS	2
-#define CILIUM_MAP_CUSTOM_CALLS	3
