@@ -1,6 +1,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
+.DEFAULT_GOAL := all
+
 include ../Makefile.defs
 
 # Add the ability to override variables
