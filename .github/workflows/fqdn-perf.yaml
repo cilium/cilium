@@ -85,7 +85,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -172,7 +172,7 @@ jobs:
           version: "405.0.0"
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)

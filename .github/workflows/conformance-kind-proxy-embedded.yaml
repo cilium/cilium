@@ -38,7 +38,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout target branch to access local actions
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ github.base_ref || github.ref }}
           persist-credentials: false
@@ -78,7 +78,7 @@ jobs:
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Checkout code
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
