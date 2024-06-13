@@ -9,7 +9,6 @@ include ${ROOT_DIR}/../Makefile.defs
 # ROOT_DIR changes to repo root after including Makefile.defs
 -include ${ROOT_DIR}/Makefile.override
 
-$(warning $(OTHERTEST))
 TARGET := cilium-dbg
 TARGET_OLD := cilium
 
