@@ -281,6 +281,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 
 #ifdef ENABLE_WIREGUARD
 # define WG_IFINDEX	42
+# ifdef ENCRYPTION_STRICT_MODE
+#  define STRICT_IPV4_NET	0
+#  define STRICT_IPV4_NET_SIZE	8
+# endif
 #endif
 
 #ifdef ENABLE_VTEP
