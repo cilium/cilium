@@ -83,7 +83,9 @@ type ModifyTrafficMirrorFilterRuleInput struct {
 
 type ModifyTrafficMirrorFilterRuleOutput struct {
 
-	// Modifies a Traffic Mirror rule.
+	// Tags are not returned for ModifyTrafficMirrorFilterRule.
+	//
+	// A Traffic Mirror rule.
 	TrafficMirrorFilterRule *types.TrafficMirrorFilterRule
 
 	// Metadata pertaining to the operation's result.
