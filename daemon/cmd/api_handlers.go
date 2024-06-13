@@ -26,14 +26,12 @@ type handlersOut struct {
 
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	DaemonGetClusterNodesHandler       daemon.GetClusterNodesHandler
-	DaemonGetConfigHandler             daemon.GetConfigHandler
 	DaemonGetDebuginfoHandler          daemon.GetDebuginfoHandler
 	DaemonGetHealthzHandler            daemon.GetHealthzHandler
 	DaemonGetMapHandler                daemon.GetMapHandler
 	DaemonGetMapNameEventsHandler      daemon.GetMapNameEventsHandler
 	DaemonGetMapNameHandler            daemon.GetMapNameHandler
 	DaemonGetNodeIdsHandler            daemon.GetNodeIdsHandler
-	DaemonPatchConfigHandler           daemon.PatchConfigHandler
 
 	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
@@ -110,10 +108,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /cluster/nodes
 	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
-
-	// /config/
-	out.DaemonGetConfigHandler = wrapAPIHandler(dp, getConfigHandler)
-	out.DaemonPatchConfigHandler = wrapAPIHandler(dp, patchConfigHandler)
 
 	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
 		// /endpoint/

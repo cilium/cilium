@@ -43,27 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 )
-
-// initPolicy initializes the core policy components of the daemon.
-func (d *Daemon) initPolicy() error {
-	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
-	// this is only triggered by agent configuration changes for now and
-	// should be counted in pol.TriggerMetrics.
-	rt, err := trigger.NewTrigger(trigger.Parameters{
-		Name:            "datapath-regeneration",
-		MetricsObserver: &policy.TriggerMetrics{},
-		MinInterval:     option.Config.PolicyTriggerInterval,
-		TriggerFunc:     d.datapathRegen,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create datapath regeneration trigger: %w", err)
-	}
-	d.datapathRegenTrigger = rt
-
-	return nil
-}
 
 type policyParams struct {
 	cell.In
