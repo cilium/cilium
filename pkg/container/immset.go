@@ -45,13 +45,34 @@ func (s ImmSet[T]) Has(x T) bool {
 }
 
 func (s ImmSet[T]) Insert(xs ...T) ImmSet[T] {
-	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
-	return s.Union(xsAsImmSet)
+	if len(xs) > 1 {
+		xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
+		return s.Union(xsAsImmSet)
+	}
+	xs2 := make([]T, 0, len(s.xs)+len(xs))
+	xs2 = append(xs2, s.xs...)
+	for _, x := range xs {
+		idx, found := slices.BinarySearchFunc(s.xs, x, s.cmp)
+		if !found {
+			xs2 = slices.Insert(xs2, idx, x)
+		}
+	}
+	return ImmSet[T]{xs: xs2, cmp: s.cmp, eq: s.eq}
 }
 
 func (s ImmSet[T]) Delete(xs ...T) ImmSet[T] {
-	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
-	return s.Difference(xsAsImmSet)
+	if len(xs) > 1 {
+		xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
+		return s.Difference(xsAsImmSet)
+	}
+	s.xs = slices.Clone(s.xs)
+	for _, x := range xs {
+		idx, found := slices.BinarySearchFunc(s.xs, x, s.cmp)
+		if found {
+			s.xs = slices.Delete(s.xs, idx, idx+1)
+		}
+	}
+	return s
 }
 
 func (s ImmSet[T]) Union(s2 ImmSet[T]) ImmSet[T] {
