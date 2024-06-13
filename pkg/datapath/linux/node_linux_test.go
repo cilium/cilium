@@ -196,7 +196,7 @@ func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv
 }
 
 func tearDownTest(tb testing.TB) {
-	ipsec.DeleteXFRM()
+	ipsec.DeleteXFRM(hivetest.Logger(tb))
 	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
@@ -848,11 +848,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestEncryptedOverlayXFRMLeaks(t *test
 // TestEncryptedOverlayXFRMLeaks tests that the XFRM policies and states are accurate when the encrypted overlay
 // feature is enabled and disabled.
 func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *testing.T, config datapath.LocalNodeConfiguration) {
+	tlog := hivetest.Logger(t)
 	keys := bytes.NewReader([]byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err := ipsec.LoadIPSecKeys(keys)
+	_, _, err := ipsec.LoadIPSecKeys(tlog, keys)
 	require.NoError(t, err)
 
-	tlog := hivetest.Logger(t)
 	var linuxNodeHandler *linuxNodeHandler
 	h := hive.New(
 		DevicesControllerCell,
@@ -904,12 +904,12 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *test
 }
 
 func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testing.T, config datapath.LocalNodeConfiguration) {
+	log := hivetest.Logger(t)
 	keys := bytes.NewReader([]byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err := ipsec.LoadIPSecKeys(keys)
+	_, _, err := ipsec.LoadIPSecKeys(log, keys)
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	log := hivetest.Logger(t)
 	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
