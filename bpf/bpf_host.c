@@ -1347,12 +1347,10 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	__be16 __maybe_unused proto = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
-#if defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_EGRESS_GATEWAY_COMMON)
-	__u16 proto = 0;
-#endif
 
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY)
 		src_sec_identity = HOST_ID;
@@ -1382,6 +1380,9 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 #endif
 
+	/* Load the ethertype just once: */
+	validate_ethertype(ctx, &proto);
+
 #ifdef ENABLE_HOST_FIREWALL
 	/* This was initially added for Egress GW. There it's no longer needed,
 	 * but it potentially also helps other paths (LB-to-remote-backend ?).
@@ -1389,7 +1390,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	if (ctx_snat_done(ctx))
 		goto skip_host_firewall;
 
-	if (!validate_ethertype(ctx, &proto)) {
+	if (!eth_is_supported_ethertype(proto)) {
 		ret = DROP_UNSUPPORTED_L2;
 		goto drop_err;
 	}
@@ -1431,7 +1432,7 @@ skip_host_firewall:
 		goto drop_err;
 
 #if defined(ENABLE_BANDWIDTH_MANAGER)
-	ret = edt_sched_departure(ctx);
+	ret = edt_sched_departure(ctx, proto);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
 	if (ret == CTX_ACT_DROP) {
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
@@ -1482,7 +1483,7 @@ skip_host_firewall:
 	 * is set before the redirect.
 	 */
 	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) != MARK_MAGIC_WG_ENCRYPTED) {
-		ret = wg_maybe_redirect_to_encrypt(ctx);
+		ret = wg_maybe_redirect_to_encrypt(ctx, proto);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
@@ -1490,7 +1491,7 @@ skip_host_firewall:
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
-	if (!strict_allow(ctx)) {
+	if (!strict_allow(ctx, proto)) {
 		ret = DROP_UNENCRYPTED_TRAFFIC;
 		goto drop_err;
 	}
@@ -1498,7 +1499,7 @@ skip_host_firewall:
 #endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_HEALTH_CHECK
-	ret = lb_handle_health(ctx);
+	ret = lb_handle_health(ctx, proto);
 	if (ret != CTX_ACT_OK)
 		goto exit;
 #endif
@@ -1518,7 +1519,7 @@ skip_host_firewall:
 		if (src_sec_identity == HOST_ID)
 			goto skip_egress_gateway;
 
-		if (!validate_ethertype(ctx, &proto) || proto != bpf_htons(ETH_P_IP))
+		if (proto != bpf_htons(ETH_P_IP))
 			goto skip_egress_gateway;
 
 		if (ctx_egw_done(ctx))
@@ -1580,7 +1581,7 @@ skip_egress_gateway:
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx, 0, &trace, &ext_err);
+		ret = handle_nat_fwd(ctx, 0, proto, &trace, &ext_err);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 	}
