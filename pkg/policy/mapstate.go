@@ -61,7 +61,8 @@ type MapState interface {
 	Get(Key) (MapStateEntry, bool)
 	Insert(Key, MapStateEntry)
 	Delete(Key)
-	// ForEach allows iteration over the MapStateEntries. It returns true iff
+
+	// ForEach allows iteration over the MapStateEntries. It returns true if
 	// the iteration was not stopped early by the callback.
 	ForEach(func(Key, MapStateEntry) (cont bool)) (complete bool)
 	// ForEachAllow behaves like ForEach, but only iterates MapStateEntries which are not denies.
@@ -1291,6 +1292,9 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 		addL4OnlyKey = true
 		ms.addKeyWithChanges(key, entry, changes)
 	}
+	// We need to make changes to the map
+	// outside of iteration.
+	var updates []MapChange
 	//
 	// Loop through all L3 keys in the traffic direction of the new key
 	//
@@ -1318,7 +1322,11 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 					logfields.BPFMapKey:   k,
 					logfields.BPFMapValue: v,
 				}, "AddVisibilityKeys: Changing L3/L4 ALLOW key for visibility redirect")
-				ms.addKeyWithChanges(k, v, changes)
+				updates = append(updates, MapChange{
+					Add:   true,
+					Key:   k,
+					Value: v,
+				})
 			}
 		} else if k.DestPort == 0 && k.Nexthdr == 0 {
 			//
@@ -1339,8 +1347,11 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibility redirect")
-					ms.addKeyWithChanges(k2, v2, changes)
-
+					updates = append(updates, MapChange{
+						Add:   true,
+						Key:   k2,
+						Value: v2,
+					})
 					// Mark the new entry as a dependent of 'v'
 					ms.addDependentOnEntry(k, v, k2, changes)
 				}
@@ -1354,16 +1365,21 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only DENY key to L3/L4 key to deny a port with visibility annotation")
-					ms.addKeyWithChanges(k2, v2, changes)
-
+					updates = append(updates, MapChange{
+						Add:   true,
+						Key:   k2,
+						Value: v2,
+					})
 					// Mark the new entry as a dependent of 'v'
 					ms.addDependentOnEntry(k, v, k2, changes)
 				}
 			}
 		}
-
 		return true
 	})
+	for _, update := range updates {
+		ms.addKeyWithChanges(update.Key, update.Value, changes)
+	}
 }
 
 // determineAllowLocalhostIngress determines whether communication should be allowed
