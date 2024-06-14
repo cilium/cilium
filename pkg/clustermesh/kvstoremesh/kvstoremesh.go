@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
@@ -32,6 +33,8 @@ import (
 type Config struct {
 	PerClusterReadyTimeout time.Duration
 	GlobalReadyTimeout     time.Duration
+
+	DisableDrainOnDisconnection bool
 }
 
 var DefaultConfig = Config{
@@ -42,6 +45,9 @@ var DefaultConfig = Config{
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("per-cluster-ready-timeout", def.PerClusterReadyTimeout, "Remote clusters will be disregarded for readiness checks if a connection cannot be established within this duration")
 	flags.Duration("global-ready-timeout", def.GlobalReadyTimeout, "KVStoreMesh will be considered ready even if any remote clusters have failed to synchronize within this duration")
+
+	flags.Bool("disable-drain-on-disconnection", def.DisableDrainOnDisconnection, "Do not drain cached data upon cluster disconnection")
+	flags.MarkHidden("disable-drain-on-disconnection")
 }
 
 // KVStoreMesh is a cache of multiple remote clusters
@@ -56,6 +62,9 @@ type KVStoreMesh struct {
 	storeFactory store.Factory
 
 	logger logrus.FieldLogger
+
+	// clock allows to override the clock for testing purposes
+	clock clock.Clock
 }
 
 type params struct {
@@ -80,6 +89,7 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		backendPromise: params.BackendPromise,
 		storeFactory:   params.StoreFactory,
 		logger:         params.Logger,
+		clock:          clock.RealClock{},
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
 		Config:           params.CommonConfig,
@@ -153,6 +163,9 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		synced:       synced,
 		readyTimeout: km.config.PerClusterReadyTimeout,
 		logger:       km.logger.WithField(logfields.ClusterName, name),
+		clock:        km.clock,
+
+		disableDrainOnDisconnection: km.config.DisableDrainOnDisconnection,
 	}
 
 	run := func(fn func(context.Context)) {
