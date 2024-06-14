@@ -45,64 +45,16 @@ func (s ImmSet[T]) Has(x T) bool {
 }
 
 func (s ImmSet[T]) Insert(xs ...T) ImmSet[T] {
-	xs2 := make([]T, 0, len(s.xs)+len(xs))
-	xs2 = append(xs2, s.xs...)
-	for _, x := range xs {
-		idx, found := slices.BinarySearchFunc(s.xs, x, s.cmp)
-		if !found {
-			xs2 = slices.Insert(xs2, idx, x)
-		}
-	}
-	return ImmSet[T]{xs: xs2, cmp: s.cmp, eq: s.eq}
+	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
+	return s.Union(xsAsImmSet)
 }
 
 func (s ImmSet[T]) Delete(xs ...T) ImmSet[T] {
-	s.xs = slices.Clone(s.xs)
-	for _, x := range xs {
-		idx, found := slices.BinarySearchFunc(s.xs, x, s.cmp)
-		if found {
-			s.xs = slices.Delete(s.xs, idx, idx+1)
-		}
-	}
-	return s
+	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
+	return s.Difference(xsAsImmSet)
 }
 
 func (s ImmSet[T]) Union(s2 ImmSet[T]) ImmSet[T] {
-	result := make([]T, len(s.xs)+len(s2.xs))
-	copy(result, s.xs)
-	copy(result[len(s.xs):], s2.xs)
-	slices.SortFunc(s.xs, s.cmp)
-	result = slices.CompactFunc(result, s.eq)
-	return ImmSet[T]{result, s.cmp, s.eq}
-}
-
-func (s ImmSet[T]) Difference(s2 ImmSet[T]) ImmSet[T] {
-	return s.Delete(s2.xs...)
-}
-
-func (s ImmSet[T]) Equal(s2 ImmSet[T]) bool {
-	return slices.EqualFunc(s.xs, s2.xs, s.eq)
-}
-
-func cmpToEqual[T any](cmp func(T, T) int) func(T, T) bool {
-	return func(a, b T) bool {
-		return cmp(a, b) == 0
-	}
-}
-
-// -----
-
-func (s ImmSet[T]) InsertNew(xs ...T) ImmSet[T] {
-	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
-	return s.UnionNew(xsAsImmSet)
-}
-
-func (s ImmSet[T]) DeleteNew(xs ...T) ImmSet[T] {
-	xsAsImmSet := NewImmSetFunc(s.cmp, xs...)
-	return s.DifferenceNew(xsAsImmSet)
-}
-
-func (s ImmSet[T]) UnionNew(s2 ImmSet[T]) ImmSet[T] {
 	result := make([]T, 0, len(s.xs)+len(s2.xs))
 	xs1, xs2 := s.xs, s2.xs
 	for len(xs1) > 0 && len(xs2) > 0 {
@@ -124,7 +76,7 @@ func (s ImmSet[T]) UnionNew(s2 ImmSet[T]) ImmSet[T] {
 	return ImmSet[T]{result, s.cmp, s.eq}
 }
 
-func (s ImmSet[T]) DifferenceNew(s2 ImmSet[T]) ImmSet[T] {
+func (s ImmSet[T]) Difference(s2 ImmSet[T]) ImmSet[T] {
 	result := make([]T, 0, len(s.xs))
 	xs1, xs2 := s.xs, s2.xs
 	for len(xs1) > 0 && len(xs2) > 0 {
@@ -141,4 +93,14 @@ func (s ImmSet[T]) DifferenceNew(s2 ImmSet[T]) ImmSet[T] {
 	}
 	result = append(result, xs1...)
 	return ImmSet[T]{result, s.cmp, s.eq}
+}
+
+func (s ImmSet[T]) Equal(s2 ImmSet[T]) bool {
+	return slices.EqualFunc(s.xs, s2.xs, s.eq)
+}
+
+func cmpToEqual[T any](cmp func(T, T) int) func(T, T) bool {
+	return func(a, b T) bool {
+		return cmp(a, b) == 0
+	}
 }
