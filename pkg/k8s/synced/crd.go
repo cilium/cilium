@@ -179,6 +179,7 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 	log.Info("Waiting until all Cilium CRDs are available")
 
 	ticker := time.NewTicker(50 * time.Millisecond)
+	count := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -199,6 +200,11 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 				ticker.Stop()
 				log.Info("All Cilium CRDs have been found and are available")
 				return nil
+			}
+			count++
+			if count == 20 {
+				count = 0
+				log.Infof("Still waiting for Cilium Operator to register the following CRDs: %v", crds.unSynced())
 			}
 		}
 	}

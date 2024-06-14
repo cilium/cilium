@@ -75,7 +75,6 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 type parameters struct {
 	cell.In
 
-	CRDSyncPromise promise.Promise[resource.CRDSync]
 	ExternalWorkloadsConfig
 	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
@@ -97,7 +96,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.CRDSyncPromise, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState)
+			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState)
 			return nil
 		},
 	})
@@ -345,7 +344,6 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 
 func startServer(
 	startCtx cell.HookContext,
-	crdSyncPromise promise.Promise[resource.CRDSync],
 	cinfo cmtypes.ClusterInfo,
 	allServices bool,
 	clientset k8sClient.Clientset,
@@ -359,11 +357,6 @@ func startServer(
 		"cluster-id":   cinfo.ID,
 	}).Info("Starting clustermesh-apiserver...")
 
-	_, err := crdSyncPromise.Await(startCtx)
-	if err != nil {
-		log.WithError(err).Fatal("Wait for CRD resources failed")
-	}
-
 	config := cmtypes.CiliumClusterConfig{
 		ID: cinfo.ID,
 		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
@@ -372,7 +365,7 @@ func startServer(
 		},
 	}
 
-	_, err = cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, log)
+	_, err := cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, log)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
