@@ -5,12 +5,9 @@ package loader
 
 import (
 	"fmt"
-	"maps"
 	"math"
 	"net"
 	"net/netip"
-
-	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -276,29 +273,4 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	result["SECLABEL_IPV6"] = uint64(identity)
 	result["POLICY_VERDICT_LOG_FILTER"] = uint64(ep.GetPolicyVerdictLogFilter())
 	return result
-}
-
-func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) (*ebpf.CollectionSpec, error) {
-	// Shallow copy to avoid expensive copy of coll.Programs.
-	coll = &ebpf.CollectionSpec{
-		Maps:      maps.Clone(coll.Maps),
-		Programs:  coll.Programs,
-		Types:     coll.Types,
-		ByteOrder: coll.ByteOrder,
-	}
-
-	for name, rename := range renames {
-		mapSpec := coll.Maps[name]
-		if mapSpec == nil {
-			return nil, fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
-		}
-
-		mapSpec = mapSpec.Copy()
-		// NB: We don't change maps[name] since that is referenced
-		// by instructions.
-		mapSpec.Name = rename
-		coll.Maps[name] = mapSpec
-	}
-
-	return coll, nil
 }
