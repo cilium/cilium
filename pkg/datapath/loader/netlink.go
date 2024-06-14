@@ -48,11 +48,6 @@ func directionToParent(dir string) uint32 {
 // example, attach both bpf_host.c:cil_to_netdev and cil_from_netdev before
 // invoking the returned function, otherwise missing tail calls will occur.
 func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (*ebpf.Collection, func() error, error) {
-	spec, err := renameMaps(spec, mapRenames)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	// Inserting a program into these maps will immediately cause other BPF
 	// programs to call into it, even if other maps like cilium_calls haven't been
 	// fully populated for the current ELF. Save their contents and avoid sending
@@ -74,7 +69,8 @@ func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, const
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: pinPath},
 		},
-		Constants: constants,
+		Constants:  constants,
+		MapRenames: mapRenames,
 	}
 	if err := bpf.MkdirBPF(pinPath); err != nil {
 		return nil, nil, fmt.Errorf("creating bpffs pin path: %w", err)
