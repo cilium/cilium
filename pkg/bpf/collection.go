@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -232,6 +233,30 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
+// LoadAndAssign loads spec into the kernel and assigns the requested eBPF
+// objects to the given object. It is a wrapper around [LoadCollection]. See its
+// documentation for more details on the loading process.
+func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
+	log.Debug("Loading Collection into kernel")
+
+	coll, commit, err := LoadCollection(spec, opts)
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return nil, fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
+	}
+
+	if err := coll.Assign(to); err != nil {
+		return nil, fmt.Errorf("assigning eBPF objects to %T: %w", to, err)
+	}
+
+	return commit, nil
+}
+
 type CollectionOptions struct {
 	ebpf.CollectionOptions
 
@@ -244,19 +269,24 @@ type CollectionOptions struct {
 }
 
 // LoadCollection loads the given spec into the kernel with the specified opts.
-// Returns a function that must be called after the Collection's entrypoints
-// are attached to their respective kernel hooks.
+// Returns a function that must be called after the Collection's entrypoints are
+// attached to their respective kernel hooks. This function commits pending map
+// pins to the bpf file system for maps that were found to be incompatible with
+// their pinned counterparts, or for maps with certain flags that modify the
+// default pinning behaviour.
+//
+// When attaching multiple programs from the same ELF in a loop, the returned
+// function should only be run after all entrypoints have been attached. For
+// example, attach both bpf_host.c:cil_to_netdev and cil_from_netdev before
+// invoking the returned function, otherwise missing tail calls will occur.
 //
 // The value given in ProgramOptions.LogSize is used as the starting point for
-// sizing the verifier's log buffer and defaults to 4MiB. On each retry, the
-// log buffer quadruples in size, for a total of 5 attempts. If that proves
+// sizing the verifier's log buffer and defaults to 4MiB. On each retry, the log
+// buffer quadruples in size, for a total of 5 attempts. If that proves
 // insufficient, a truncated ebpf.VerifierError is returned.
 //
 // Any maps marked as pinned in the spec are automatically loaded from the path
 // given in opts.Maps.PinPath and will be used instead of creating new ones.
-// MapSpecs that differ (type/key/value/max/flags) from their pinned versions
-// will result in an ebpf.ErrMapIncompatible here and the map must be removed
-// before loading the CollectionSpec.
 func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.Collection, func() error, error) {
 	if spec == nil {
 		return nil, nil, errors.New("can't load nil CollectionSpec")
