@@ -505,9 +505,9 @@ jobs:
       - name: Test Cilium after upgrade
         shell: bash
         run: |
-          EXTRA=""
+          EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA="--secondary-network-iface=eth1"
+            EXTRA+=("--secondary-network-iface=eth1")
           fi
 
           # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
@@ -524,7 +524,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            $EXTRA
+            "${EXTRA[@]}"
 
           # --flush-ct interrupts the flows, so we need to set up again.
           ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
@@ -543,9 +543,9 @@ jobs:
       - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
         shell: bash
         run: |
-          EXTRA=""
+          EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA="--secondary-network-iface=eth1"
+            EXTRA+=("--secondary-network-iface=eth1")
           fi
 
           # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
@@ -562,7 +562,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            $EXTRA
+            "${EXTRA[@]}"
 
       - name: Fetch artifacts
         if: ${{ !success() }}
