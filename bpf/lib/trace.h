@@ -147,6 +147,7 @@ struct trace_notify {
 	__u8		ipv6:1;
 	__u8		pad:7;
 	__u32		ifindex;
+	__u64		trace_id; /* Optional trace identifier */
 	union {
 		struct {
 			__be32		orig_ip4;
@@ -188,6 +189,8 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 	return true;
 }
 
+#define HARDCODED_TRACE_ID 0x123456789ABCDEF0
+
 #define send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor) \
 		_send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, \
 		__MAGIC_LINE__, __MAGIC_FILE__)
@@ -214,6 +217,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.dst_id		= dst_id,
 		.reason		= reason,
 		.ifindex	= ifindex,
+		.trace_id 	= HARDCODED_TRACE_ID,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
@@ -247,6 +251,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ifindex	= ifindex,
 		.ipv6		= 0,
 		.orig_ip4	= orig_addr,
+		.trace_id 	= HARDCODED_TRACE_ID,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,

@@ -22,9 +22,9 @@ const (
 	// traceNotifyCommonLen is the minimum length required to determine the version of the TN event.
 	traceNotifyCommonLen = 16
 	// traceNotifyV0Len is the amount of packet data provided in a trace notification v0.
-	traceNotifyV0Len = 32
+	traceNotifyV0Len = 40
 	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1.
-	traceNotifyV1Len = 48
+	traceNotifyV1Len = 56
 )
 
 const (
@@ -55,6 +55,7 @@ type TraceNotifyV0 struct {
 	Reason   uint8
 	Flags    uint8
 	Ifindex  uint32
+	TraceID  uint64
 	// data
 }
 
@@ -80,6 +81,7 @@ func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
 	tn.Reason = data[26]
 	tn.Flags = data[27]
 	tn.Ifindex = byteorder.Native.Uint32(data[28:32])
+	tn.TraceID = byteorder.Native.Uint64(data[32:40])
 
 	return nil
 }
@@ -287,6 +289,13 @@ func (n *TraceNotify) DataOffset() uint {
 	return traceNotifyLength[n.Version]
 }
 
+func (n *TraceNotify) traceIDString() string {
+	if n.TraceID != 0 { // eventually find a way to check if tag is enabled or not
+		return fmt.Sprintf("(Trace ID: %#x)", n.TraceID)
+	}
+	return "(Trace ID: none)"
+}
+
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
@@ -299,7 +308,8 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	}
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
-	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
+
+	fmt.Fprintf(buf, " %s state %s ifindex %s orig-ip %s: %s\n", n.traceIDString(), n.traceReasonString(),
 		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	buf.Flush()
 }
