@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -22,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -52,7 +54,12 @@ type remoteCluster struct {
 	// before removing the cluster from readiness checks.
 	readyTimeout time.Duration
 
+	// disableDrainOnDisconnection disables the removal of cached data upon
+	// cluster disconnection.
+	disableDrainOnDisconnection bool
+
 	logger logrus.FieldLogger
+	clock  clock.Clock
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg types.CiliumClusterConfig, ready chan<- error) {
@@ -129,9 +136,93 @@ func (rc *remoteCluster) Stop() {
 	rc.wg.Wait()
 }
 
-func (rc *remoteCluster) Remove(context.Context) {
-	// Cluster specific keys are not explicitly removed, but they will be
-	// disappear once the associated lease expires.
+func (rc *remoteCluster) Remove(ctx context.Context) {
+	if rc.disableDrainOnDisconnection {
+		rc.logger.Warning("Remote cluster disconnected, but cached data removal is disabled. " +
+			"Reconnecting to the same cluster without first restarting KVStoreMesh may lead to inconsistencies")
+		return
+	}
+
+	const retries = 5
+	var (
+		retry   = 0
+		backoff = 2 * time.Second
+	)
+
+	rc.logger.Info("Remote cluster disconnected: draining cached data")
+	for {
+		err := rc.drain(ctx, retry == 0)
+		switch {
+		case err == nil:
+			rc.logger.Info("Successfully removed all cached data from kvstore")
+			return
+		case ctx.Err() != nil:
+			return
+		case retry == retries:
+			rc.logger.WithError(err).Error(
+				"Failed to remove cached data from kvstore, despite retries. Reconnecting to the " +
+					"same cluster without first restarting KVStoreMesh may lead to inconsistencies")
+			return
+		}
+
+		rc.logger.WithError(err).Warning("Failed to remove cached data from kvstore, retrying")
+		select {
+		case <-rc.clock.After(backoff):
+			retry++
+			backoff *= 2
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// drain drains the cached data from the local kvstore. The cluster configuration
+// is removed as first step, to prevent bootstrapping agents from connecting while
+// removing the rest of the cached data. Indeed, there's no point in retrieving
+// incomplete data, and it is expected that agents will be disconnecting as well.
+func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err error) {
+	keys := []string{
+		path.Join(kvstore.ClusterConfigPrefix, rc.name),
+	}
+	prefixes := []string{
+		path.Join(kvstore.SyncedPrefix, rc.name),
+		path.Join(kvstore.StateToCachePrefix(nodeStore.NodeStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(serviceStore.ServiceStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(identityCache.IdentitiesPath), rc.name),
+		path.Join(kvstore.StateToCachePrefix(ipcache.IPIdentitiesPath), rc.name),
+	}
+
+	for _, key := range keys {
+		if err = rc.localBackend.Delete(ctx, key); err != nil {
+			return fmt.Errorf("deleting key %q: %w", key, err)
+		}
+	}
+
+	if withGracePeriod {
+		// Wait for the grace period before deleting all the cached data. This
+		// allows Cilium agents to disconnect in the meanwhile, to reduce the
+		// overhead on etcd and prevent issues in case KVStoreMesh is disabled
+		// (as the removal of the configurations would cause the draining as
+		// well). The cluster configuration is deleted before waiting to prevent
+		// new agents from connecting in this time window.
+		const drainGracePeriod = 3 * time.Minute
+		rc.logger.WithField(logfields.Duration, drainGracePeriod).
+			Info("Waiting before removing cached data from kvstore, to allow Cilium agents to disconnect")
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-rc.clock.After(drainGracePeriod):
+			rc.logger.Info("Finished waiting before removing cached data from kvstore")
+		}
+	}
+
+	for _, prefix := range prefixes {
+		if err = rc.localBackend.DeletePrefix(ctx, prefix+"/"); err != nil {
+			return fmt.Errorf("deleting prefix %q: %w", prefix+"/", err)
+		}
+	}
+
+	return nil
 }
 
 // waitForConnection waits for a connection to be established to the remote cluster.
