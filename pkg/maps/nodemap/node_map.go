@@ -63,7 +63,8 @@ type NodeKey struct {
 	Pad2   uint8  `align:"pad2"`
 	Family uint8  `align:"family"`
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
-	IP types.IPv6 `align:"$union0"`
+	IP   types.IPv6 `align:"$union0"`
+	Type uint8      `align:"type"`
 }
 
 func (k *NodeKey) String() string {

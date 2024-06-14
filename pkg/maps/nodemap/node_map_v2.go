@@ -24,17 +24,25 @@ const (
 	MapNameV2 = "cilium_node_map_v2"
 )
 
+type AddressType uint8
+
+const (
+	NodeExternalIP AddressType = iota
+	NodeInternalIP
+	NodeCiliumInternalIP
+)
+
 // MapV2 provides access to the eBPF map node.
 //
 // MapV2 will mirror all writes into MapV1.
 type MapV2 interface {
 	// Update inserts or updates the node map object associated with the provided
 	// IP, node id, and SPI.
-	Update(ip net.IP, nodeID uint16, SPI uint8) error
+	Update(ip net.IP, addrType AddressType, nodeID uint16, SPI uint8) error
 
 	// Delete deletes the node map object associated with the provided
 	// IP.
-	Delete(ip net.IP) error
+	Delete(ip net.IP, addrType AddressType) error
 
 	// IterateWithCallback iterates through all the keys/values of a node map,
 	// passing each key/value pair to the cb callback.
