@@ -326,24 +326,31 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
 	}
 
-	coll, commit, err := loadDatapath(spec, ELFMapSubstitutions(ep), ELFVariableSubstitutions(ep))
+	var hostObj hostObjects
+	commit, err := bpf.LoadAndAssign(&hostObj, spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+		MapRenames: ELFMapSubstitutions(ep),
+		Constants:  ELFVariableSubstitutions(ep),
+	})
 	if err != nil {
 		return err
 	}
-	defer coll.Close()
+	defer hostObj.Close()
 
 	// Insert host endpoint policy program.
-	if err := coll.Maps[policymap.PolicyCallMapName].Update(uint32(ep.GetID()), coll.Programs["handle_lxc_traffic"], ebpf.UpdateAny); err != nil {
+	if err := hostObj.PolicyMap.Update(uint32(ep.GetID()), hostObj.PolicyProg, ebpf.UpdateAny); err != nil {
 		return fmt.Errorf("inserting host endpoint policy program: %w", err)
 	}
 
 	// Attach cil_to_host to cilium_host ingress.
-	if err := attachSKBProgram(host, coll.Programs[symbolToHostEp], symbolToHostEp,
+	if err := attachSKBProgram(host, hostObj.ToHost, symbolToHostEp,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", ep.InterfaceName(), err)
 	}
 	// Attach cil_from_host to cilium_host egress.
-	if err := attachSKBProgram(host, coll.Programs[symbolFromHostEp], symbolFromHostEp,
+	if err := attachSKBProgram(host, hostObj.FromHost, symbolFromHostEp,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", ep.InterfaceName(), err)
 	}
@@ -363,14 +370,21 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 		return err
 	}
 
-	coll, commit, err = loadDatapath(spec, secondRenames, secondConsts)
+	var netObj hostNetObjects
+	commit, err = bpf.LoadAndAssign(&netObj, spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+		MapRenames: secondRenames,
+		Constants:  secondConsts,
+	})
 	if err != nil {
 		return err
 	}
-	defer coll.Close()
+	defer netObj.Close()
 
 	// Attach cil_to_host to cilium_net.
-	if err := attachSKBProgram(net, coll.Programs[symbolToHostEp], symbolToHostEp,
+	if err := attachSKBProgram(net, netObj.ToHost, symbolToHostEp,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), net), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", defaults.SecondHostDevice, err)
 	}
@@ -394,14 +408,21 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 			return err
 		}
 
-		coll, commit, err := loadDatapath(spec, netdevRenames, netdevConsts)
+		var netdevObj hostNetdevObjects
+		commit, err := bpf.LoadAndAssign(&netdevObj, spec, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{
+				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			},
+			MapRenames: netdevRenames,
+			Constants:  netdevConsts,
+		})
 		if err != nil {
 			return err
 		}
-		defer coll.Close()
+		defer netdevObj.Close()
 
 		// Attach cil_from_netdev to ingress.
-		if err := attachSKBProgram(iface, coll.Programs[symbolFromHostNetdevEp], symbolFromHostNetdevEp,
+		if err := attachSKBProgram(iface, netdevObj.FromNetdev, symbolFromHostNetdevEp,
 			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
@@ -413,7 +434,7 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 			device != wgTypes.IfaceName {
 
 			// Attach cil_to_netdev to egress.
-			if err := attachSKBProgram(iface, coll.Programs[symbolToHostNetdevEp], symbolToHostNetdevEp,
+			if err := attachSKBProgram(iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
 				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 				return fmt.Errorf("interface %s egress: %w", device, err)
 			}
@@ -479,11 +500,18 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 			return err
 		}
 	} else {
-		coll, commit, err := loadDatapath(spec, ELFMapSubstitutions(ep), ELFVariableSubstitutions(ep))
+		var obj lxcObjects
+		commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{
+				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			},
+			MapRenames: ELFMapSubstitutions(ep),
+			Constants:  ELFVariableSubstitutions(ep),
+		})
 		if err != nil {
 			return err
 		}
-		defer coll.Close()
+		defer obj.Close()
 
 		// Insert policy programs before attaching entrypoints to tc hooks.
 		// Inserting a policy program is considered an attachment, since it makes
@@ -492,14 +520,11 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 		// If the agent dies uncleanly after the first program has been inserted,
 		// the endpoint's connectivity will be partially broken or exhibit undefined
 		// behaviour like missed tail calls or drops.
-		if err := coll.Maps[policymap.PolicyCallMapName].Update(uint32(ep.GetID()), coll.Programs["handle_policy"], ebpf.UpdateAny); err != nil {
+		if err := obj.PolicyMap.Update(uint32(ep.GetID()), obj.PolicyProg, ebpf.UpdateAny); err != nil {
 			return fmt.Errorf("inserting endpoint policy program: %w", err)
 		}
-
-		if prog := coll.Programs["handle_policy_egress"]; prog != nil {
-			if err := coll.Maps[policymap.PolicyEgressCallMapName].Update(uint32(ep.GetID()), prog, ebpf.UpdateAny); err != nil {
-				return fmt.Errorf("inserting endpoint egress policy program: %w", err)
-			}
+		if err := obj.EgressPolicyMap.Update(uint32(ep.GetID()), obj.EgressPolicyProg, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("inserting endpoint egress policy program: %w", err)
 		}
 
 		iface, err := netlink.LinkByName(device)
@@ -508,13 +533,13 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 		}
 
 		linkDir := bpffsEndpointLinksDir(bpf.CiliumPath(), ep)
-		if err := attachSKBProgram(iface, coll.Programs[symbolFromEndpoint], symbolFromEndpoint,
+		if err := attachSKBProgram(iface, obj.FromContainer, symbolFromEndpoint,
 			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
 		if ep.RequireEgressProg() {
-			if err := attachSKBProgram(iface, coll.Programs[symbolToEndpoint], symbolToEndpoint,
+			if err := attachSKBProgram(iface, obj.ToContainer, symbolToEndpoint,
 				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 				return fmt.Errorf("interface %s egress: %w", device, err)
 			}
@@ -563,18 +588,23 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
-	coll, commit, err := loadDatapath(spec, nil, nil)
+	var obj overlayObjects
+	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+	})
 	if err != nil {
 		return err
 	}
-	defer coll.Close()
+	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(device, coll.Programs[symbolFromOverlay], symbolFromOverlay,
+	if err := attachSKBProgram(device, obj.FromOverlay, symbolFromOverlay,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}
-	if err := attachSKBProgram(device, coll.Programs[symbolToOverlay], symbolToOverlay,
+	if err := attachSKBProgram(device, obj.ToOverlay, symbolToOverlay,
 		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", device, err)
 	}

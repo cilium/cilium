@@ -7,13 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -32,49 +30,6 @@ func directionToParent(dir string) uint32 {
 		return netlink.HANDLE_MIN_EGRESS
 	}
 	return 0
-}
-
-// loadDatapath returns a Collection given the ELF obj, renames maps according
-// to mapRenames and overrides the given constants.
-//
-// When successful, returns a function that commits pending map pins to the bpf
-// file system, for maps that were found to be incompatible with their pinned
-// counterparts, or for maps with certain flags that modify the default pinning
-// behaviour.
-//
-// When attaching multiple programs from the same ELF in a loop, the returned
-// function should only be run after all entrypoints have been attached. For
-// example, attach both bpf_host.c:cil_to_netdev and cil_from_netdev before
-// invoking the returned function, otherwise missing tail calls will occur.
-func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (*ebpf.Collection, func() error, error) {
-	// Load the CollectionSpec into the kernel, picking up any pinned maps from
-	// bpffs in the process.
-	pinPath := bpf.TCGlobalsPath()
-	collOpts := bpf.CollectionOptions{
-		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: pinPath},
-		},
-		Constants:  constants,
-		MapRenames: mapRenames,
-	}
-	if err := bpf.MkdirBPF(pinPath); err != nil {
-		return nil, nil, fmt.Errorf("creating bpffs pin path: %w", err)
-	}
-
-	log.Debug("Loading Collection into kernel")
-
-	coll, commit, err := bpf.LoadCollection(spec, &collOpts)
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
-		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
-			return nil, nil, fmt.Errorf("writing verifier log to stderr: %w", err)
-		}
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
-	}
-
-	return coll, commit, nil
 }
 
 // enableForwarding puts the given link into the up state and enables IP forwarding.
