@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -138,19 +139,21 @@ func TestReload(t *testing.T) {
 	require.NoError(t, err)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	linkDir := testutils.TempBPFFS(t)
+	tmp := testutils.TempBPFFS(t)
 
 	for range 2 {
 		spec, err := bpf.LoadCollectionSpec(objPath)
 		require.NoError(t, err)
 
-		coll, commit, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
+		})
 		require.NoError(t, err)
 
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolFromEndpoint],
-			symbolFromEndpoint, linkDir, netlink.HANDLE_MIN_INGRESS, true))
+			symbolFromEndpoint, tmp, netlink.HANDLE_MIN_INGRESS, true))
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolToEndpoint],
-			symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS, true))
+			symbolToEndpoint, tmp, netlink.HANDLE_MIN_EGRESS, true))
 
 		require.NoError(t, commit())
 
@@ -274,6 +277,8 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
+	tmp := testutils.TempBPFFS(b)
+
 	ep := testutils.NewTestEndpoint()
 	initEndpoint(b, &ep)
 
@@ -291,7 +296,9 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		coll, commit, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
+		})
 		if err != nil {
 			b.Fatal(err)
 		}
