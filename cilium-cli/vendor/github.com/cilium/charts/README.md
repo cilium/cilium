@@ -4,6 +4,7 @@ This repository holds helm templates for the following Cilium releases:
 * [v1.16.0-pre.2](https://github.com/cilium/cilium/releases/tag/v1.16.0-pre.2) (_[source](https://github.com/cilium/cilium/tree/v1.16.0-pre.2/install/kubernetes/cilium)_)
 * [v1.16.0-pre.1](https://github.com/cilium/cilium/releases/tag/v1.16.0-pre.1) (_[source](https://github.com/cilium/cilium/tree/v1.16.0-pre.1/install/kubernetes/cilium)_)
 * [v1.16.0-pre.0](https://github.com/cilium/cilium/releases/tag/v1.16.0-pre.0) (_[source](https://github.com/cilium/cilium/tree/v1.16.0-pre.0/install/kubernetes/cilium)_)
+* [v1.15.6](https://github.com/cilium/cilium/releases/tag/v1.15.6) (_[source](https://github.com/cilium/cilium/tree/v1.15.6/install/kubernetes/cilium)_)
 * [v1.15.5](https://github.com/cilium/cilium/releases/tag/v1.15.5) (_[source](https://github.com/cilium/cilium/tree/v1.15.5/install/kubernetes/cilium)_)
 * [v1.15.4](https://github.com/cilium/cilium/releases/tag/v1.15.4) (_[source](https://github.com/cilium/cilium/tree/v1.15.4/install/kubernetes/cilium)_)
 * [v1.15.3](https://github.com/cilium/cilium/releases/tag/v1.15.3) (_[source](https://github.com/cilium/cilium/tree/v1.15.3/install/kubernetes/cilium)_)
@@ -16,6 +17,7 @@ This repository holds helm templates for the following Cilium releases:
 * [v1.15.0-pre.2](https://github.com/cilium/cilium/releases/tag/v1.15.0-pre.2) (_[source](https://github.com/cilium/cilium/tree/v1.15.0-pre.2/install/kubernetes/cilium)_)
 * [v1.15.0-pre.1](https://github.com/cilium/cilium/releases/tag/v1.15.0-pre.1) (_[source](https://github.com/cilium/cilium/tree/v1.15.0-pre.1/install/kubernetes/cilium)_)
 * [v1.15.0-pre.0](https://github.com/cilium/cilium/releases/tag/v1.15.0-pre.0) (_[source](https://github.com/cilium/cilium/tree/v1.15.0-pre.0/install/kubernetes/cilium)_)
+* [v1.14.12](https://github.com/cilium/cilium/releases/tag/v1.14.12) (_[source](https://github.com/cilium/cilium/tree/v1.14.12/install/kubernetes/cilium)_)
 * [v1.14.11](https://github.com/cilium/cilium/releases/tag/v1.14.11) (_[source](https://github.com/cilium/cilium/tree/v1.14.11/install/kubernetes/cilium)_)
 * [v1.14.10](https://github.com/cilium/cilium/releases/tag/v1.14.10) (_[source](https://github.com/cilium/cilium/tree/v1.14.10/install/kubernetes/cilium)_)
 * [v1.14.9](https://github.com/cilium/cilium/releases/tag/v1.14.9) (_[source](https://github.com/cilium/cilium/tree/v1.14.9/install/kubernetes/cilium)_)
@@ -35,6 +37,7 @@ This repository holds helm templates for the following Cilium releases:
 * [v1.14.0-snapshot.0](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.0) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.0/install/kubernetes/cilium)_)
 * [v1.14.0-rc.1](https://github.com/cilium/cilium/releases/tag/v1.14.0-rc.1) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-rc.1/install/kubernetes/cilium)_)
 * [v1.14.0-rc.0](https://github.com/cilium/cilium/releases/tag/v1.14.0-rc.0) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-rc.0/install/kubernetes/cilium)_)
+* [v1.13.17](https://github.com/cilium/cilium/releases/tag/v1.13.17) (_[source](https://github.com/cilium/cilium/tree/v1.13.17/install/kubernetes/cilium)_)
 * [v1.13.16](https://github.com/cilium/cilium/releases/tag/v1.13.16) (_[source](https://github.com/cilium/cilium/tree/v1.13.16/install/kubernetes/cilium)_)
 * [v1.13.15](https://github.com/cilium/cilium/releases/tag/v1.13.15) (_[source](https://github.com/cilium/cilium/tree/v1.13.15/install/kubernetes/cilium)_)
 * [v1.13.14](https://github.com/cilium/cilium/releases/tag/v1.13.14) (_[source](https://github.com/cilium/cilium/tree/v1.13.14/install/kubernetes/cilium)_)
@@ -202,6 +205,7 @@ This repository holds helm templates for the following Cilium releases:
 
 This repository holds helm templates for the following Tetragon releases:
 
+* [v1.1.2](https://github.com/cilium/tetragon/releases/tag/v1.1.2) (_[source](https://github.com/cilium/tetragon/tree/v1.1.2/install/kubernetes/tetragon)_)
 * [v1.1.0](https://github.com/cilium/tetragon/releases/tag/v1.1.0) (_[source](https://github.com/cilium/tetragon/tree/v1.1.0/install/kubernetes/tetragon)_)
 * [v1.0.3](https://github.com/cilium/tetragon/releases/tag/v1.0.3) (_[source](https://github.com/cilium/tetragon/tree/v1.0.3/install/kubernetes)_)
 * [v1.0.2](https://github.com/cilium/tetragon/releases/tag/v1.0.2) (_[source](https://github.com/cilium/tetragon/tree/v1.0.2/install/kubernetes)_)
