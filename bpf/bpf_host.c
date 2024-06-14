@@ -1516,6 +1516,9 @@ skip_host_firewall:
 		struct remote_endpoint_info *info;
 		struct endpoint_info *src_ep;
 
+		if (src_sec_identity == HOST_ID)
+			goto skip_egress_gateway;
+
 		if (!validate_ethertype(ctx, &proto) || proto != bpf_htons(ETH_P_IP))
 			goto skip_egress_gateway;
 
