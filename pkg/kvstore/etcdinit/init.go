@@ -253,9 +253,9 @@ type keyRange struct {
 	end   string
 }
 
-// rangeForKey generates a keyRange for a given key. Differently from rangeForPrefix, it does not enforce a trailing /
+// rangeForKey generates a keyRange for a single key.
 func rangeForKey(key string) keyRange {
-	return keyRange{key, clientv3.GetPrefixRangeEnd(key)}
+	return keyRange{key, ""}
 }
 
 // rangeForPrefix generates a keyRange for a given prefix. This is a wrapper around the client's GetPrefixRangeEnd
@@ -267,7 +267,7 @@ func rangeForPrefix(prefix string) keyRange {
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
-	return rangeForKey(prefix)
+	return keyRange{prefix, clientv3.GetPrefixRangeEnd(prefix)}
 }
 
 // allKeysRange is the range over all keys in etcd. Granting permissions on this range is the same as granting global
