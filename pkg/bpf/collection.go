@@ -237,6 +237,10 @@ type CollectionOptions struct {
 
 	// Replacements for constants defined using the DECLARE_CONFIG macros.
 	Constants map[string]uint64
+
+	// Maps to be renamed during loading. Key is the key in CollectionSpec.Maps,
+	// value is the new name.
+	MapRenames map[string]string
 }
 
 // LoadCollection loads the given spec into the kernel with the specified opts.
@@ -265,6 +269,10 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
 	spec = spec.Copy()
+
+	if err := renameMaps(spec, opts.MapRenames); err != nil {
+		return nil, nil, err
+	}
 
 	if err := inlineGlobalData(spec, opts.Constants); err != nil {
 		return nil, nil, fmt.Errorf("inlining global data: %w", err)
@@ -357,6 +365,20 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 
 	if t == ebpf.UnspecifiedProgram {
 		return errors.New("unable to classify program types")
+	}
+
+	return nil
+}
+
+// renameMaps applies renames to coll.
+func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
+	for name, rename := range renames {
+		mapSpec := coll.Maps[name]
+		if mapSpec == nil {
+			return fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
+		}
+
+		mapSpec.Name = rename
 	}
 
 	return nil
