@@ -57,18 +57,19 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}
-	if len(qdiscs) > 0 {
-		ok := qdiscs[0].Type() == "mq"
-		if qdiscs[0].Type() == "fq" {
-			fq, _ := qdiscs[0].(*netlink.Fq)
+	for _, qdisc := range qdiscs {
+		// We expect either MQ + FQ or just FQ setup. Either is fine.
+		// The most common is the former given multiqueue NICs.
+		if qdisc.Type() == "fq" {
+			fq, _ := qdisc.(*netlink.Fq)
 
-			// If it's "fq" and with our parameters, then assume this was
-			// already set up and there wasn't any MQ support.
-			ok = fq.Horizon == uint32(q.FqHorizon.Microseconds()) &&
+			// If it's "fq" and with our parameters, then assume
+			// this was already set up.
+			ok := fq.Horizon == uint32(q.FqHorizon.Microseconds()) &&
 				fq.Buckets == q.FqBuckets
-		}
-		if ok {
-			return nil
+			if ok {
+				return nil
+			}
 		}
 	}
 
