@@ -2197,10 +2197,10 @@ out:
  * This program will be tail called from bpf_host for packets sent by
  * a L7 LB.
  */
-#if defined(ENABLE_L7_LB)
 __section_entry
 int handle_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 {
+#if defined(ENABLE_L7_LB)
 	__u16 proto;
 	int ret;
 	__u32 sec_label = SECLABEL;
@@ -2243,8 +2243,10 @@ out:
 					    CTX_ACT_DROP, METRIC_EGRESS);
 
 	return ret;
-}
+#else
+	return 0;
 #endif
+}
 
 /* Attached to the lxc device on the way to the container, only if endpoint
  * routes are enabled.

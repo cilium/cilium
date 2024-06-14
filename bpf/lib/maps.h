@@ -55,7 +55,6 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 }
 #endif /* SKIP_POLICY_MAP */
 
-#ifdef ENABLE_L7_LB
 /* Global map to jump into policy enforcement of sending endpoint */
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -72,8 +71,6 @@ tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 	/* same issue as for the POLICY_CALL_MAP calls */
 	return DROP_EP_NOT_READY;
 }
-
-#endif
 
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
