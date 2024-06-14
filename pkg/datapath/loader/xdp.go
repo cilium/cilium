@@ -162,13 +162,18 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	coll, commit, err := loadDatapath(spec, nil, nil)
+	var obj xdpObjects
+	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+	})
 	if err != nil {
 		return err
 	}
-	defer coll.Close()
+	defer obj.Close()
 
-	if err := attachXDPProgram(iface, coll.Programs[symbolFromHostNetdevXDP], symbolFromHostNetdevXDP,
+	if err := attachXDPProgram(iface, obj.Entrypoint, symbolFromHostNetdevXDP,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode)); err != nil {
 		return fmt.Errorf("interface %s: %w", xdpDev, err)
 	}
