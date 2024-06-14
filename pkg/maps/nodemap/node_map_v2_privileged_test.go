@@ -31,6 +31,10 @@ func TestNodeMapV2(t *testing.T) {
 	})
 	err := nodeMap.init()
 	require.Nil(t, err)
+
+	err = nodeMap.v1Map.init()
+	require.Nil(t, err)
+
 	defer nodeMap.bpfMap.Unpin()
 
 	bpfNodeIDMap := map[uint16]string{}
@@ -108,6 +112,9 @@ func TestNodeMapMigration(t *testing.T) {
 	nodeMapV2 := newMapV2(name2, name1, Config{
 		NodeMapMax: 1024,
 	})
+	err = nodeMapV2.v1Map.init()
+	require.Nil(t, err)
+
 	err = nodeMapV2.init()
 	require.Nil(t, err)
 	defer nodeMapV2.bpfMap.Unpin()

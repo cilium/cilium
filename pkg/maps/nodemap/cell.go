@@ -53,6 +53,9 @@ func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[MapV2], error
 			}
 
 			// do v1 to v2 map migration if necessary
+			if err := nodeMap.v1Map.init(); err != nil {
+				return fmt.Errorf("failed to init v1 node map: %w", err)
+			}
 			return nodeMap.migrateV1(MapName, encrypt.MapName)
 		},
 		OnStop: func(context cell.HookContext) error {

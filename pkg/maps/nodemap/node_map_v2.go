@@ -53,16 +53,9 @@ type nodeMapV2 struct {
 }
 
 func newMapV2(mapName string, v1MapName string, conf Config) *nodeMapV2 {
-	v1Map := newMap(v1MapName, conf)
-
-	if err := v1Map.init(); err != nil {
-		log.WithError(err).Error("failed to init v1 node map")
-		return nil
-	}
-
 	return &nodeMapV2{
 		conf:  conf,
-		v1Map: v1Map,
+		v1Map: newMap(v1MapName, conf),
 		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
 			Name:       mapName,
 			Type:       ebpf.Hash,
