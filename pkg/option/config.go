@@ -2525,36 +2525,6 @@ var (
 	}
 )
 
-// GetIPv4NativeRoutingCIDR returns the native routing CIDR if configured
-func (c *DaemonConfig) GetIPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
-	c.ConfigPatchMutex.RLock()
-	cidr = c.IPv4NativeRoutingCIDR
-	c.ConfigPatchMutex.RUnlock()
-	return
-}
-
-// SetIPv4NativeRoutingCIDR sets the native routing CIDR
-func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
-	c.ConfigPatchMutex.Lock()
-	c.IPv4NativeRoutingCIDR = cidr
-	c.ConfigPatchMutex.Unlock()
-}
-
-// GetIPv6NativeRoutingCIDR returns the native routing CIDR if configured
-func (c *DaemonConfig) GetIPv6NativeRoutingCIDR() (cidr *cidr.CIDR) {
-	c.ConfigPatchMutex.RLock()
-	cidr = c.IPv6NativeRoutingCIDR
-	c.ConfigPatchMutex.RUnlock()
-	return
-}
-
-// SetIPv6NativeRoutingCIDR sets the native routing CIDR
-func (c *DaemonConfig) SetIPv6NativeRoutingCIDR(cidr *cidr.CIDR) {
-	c.ConfigPatchMutex.Lock()
-	c.IPv6NativeRoutingCIDR = cidr
-	c.ConfigPatchMutex.Unlock()
-}
-
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
@@ -3761,7 +3731,7 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.GetIPv4NativeRoutingCIDR() != nil {
+	if c.IPv4NativeRoutingCIDR != nil {
 		return nil
 	}
 	if !c.EnableIPv4 || !c.EnableIPv4Masquerade {
@@ -3788,7 +3758,7 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 }
 
 func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
-	if c.GetIPv6NativeRoutingCIDR() != nil {
+	if c.IPv6NativeRoutingCIDR != nil {
 		return nil
 	}
 	if !c.EnableIPv6 || !c.EnableIPv6Masquerade {
