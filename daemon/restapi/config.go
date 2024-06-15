@@ -194,10 +194,9 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 	var policyEnforcementChanged bool
 	// Copy old configurations for potential reversion
 	oldEnforcementValue := policy.GetPolicyEnabled()
-	oldConfigOpts := option.Config.Opts.DeepCopy()
-	oldEpConfigOpts := make(option.OptionMap, len(om))
+	oldConfigOpts := make(option.OptionMap, len(om))
 	for k := range om {
-		oldEpConfigOpts[k] = oldConfigOpts.Opts[k]
+		oldConfigOpts[k] = option.Config.Opts.Opts[k]
 	}
 
 	// Only update if value provided for PolicyEnforcement.
@@ -239,8 +238,8 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 			if policyEnforcementChanged {
 				policy.SetPolicyEnabled(oldEnforcementValue)
 			}
-			option.Config.Opts = oldConfigOpts
-			h.endpointManager.OverrideEndpointOpts(oldEpConfigOpts)
+			option.Config.Opts.ApplyValidated(oldConfigOpts, func(string, option.OptionSetting, interface{}) {}, h)
+			h.endpointManager.OverrideEndpointOpts(oldConfigOpts)
 			option.Config.ConfigPatchMutex.Unlock()
 			h.logger.Debug("finished reverting agent configuration changes")
 			resChan <- api.Error(daemonapi.PatchConfigFailureCode, msg)
