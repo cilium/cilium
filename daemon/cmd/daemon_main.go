@@ -1786,7 +1786,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
-		<-params.CacheStatus
+		select {
+		case <-params.CacheStatus:
+		case <-d.ctx.Done():
+			return d.ctx.Err()
+		}
 	}
 
 	// wait for directory watcher to ingest policy from files
@@ -1855,7 +1859,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	go func() {
 		if d.endpointRestoreComplete != nil {
-			<-d.endpointRestoreComplete
+			select {
+			case <-d.endpointRestoreComplete:
+			case <-d.ctx.Done():
+				return
+			}
 		}
 		d.dnsNameManager.CompleteBootstrap()
 
