@@ -15,6 +15,7 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -28,6 +29,7 @@ func fakeIPv6AllocCIDRIP(fakeAddressing types.NodeAddressing) netip.Addr {
 }
 
 var testConfiguration = &option.DaemonConfig{
+	ConfigPatchMutex:        new(lock.RWMutex),
 	EnableIPv4:              true,
 	EnableIPv6:              true,
 	EnableHealthChecking:    true,

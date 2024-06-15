@@ -15,6 +15,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -26,9 +27,10 @@ type GetNodesSuite struct {
 }
 
 var fakeConfig = &option.DaemonConfig{
-	RoutingMode: option.RoutingModeTunnel,
-	EnableIPSec: true,
-	EncryptNode: true,
+	ConfigPatchMutex: new(lock.RWMutex),
+	RoutingMode:      option.RoutingModeTunnel,
+	EnableIPSec:      true,
+	EncryptNode:      true,
 }
 
 func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
