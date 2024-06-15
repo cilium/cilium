@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -567,7 +568,8 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 		// in a follow-up PR.
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
-				AddressScopeMax: addressScopeMax,
+				ConfigPatchMutex: new(lock.RWMutex),
+				AddressScopeMax:  addressScopeMax,
 			}
 		}),
 	)
