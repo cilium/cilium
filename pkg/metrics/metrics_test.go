@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -26,7 +27,7 @@ func TestGaugeWithThreshold(t *testing.T) {
 	)
 
 	reg := NewRegistry(RegistryParams{
-		DaemonConfig: &option.DaemonConfig{},
+		DaemonConfig: &option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)},
 	})
 
 	metrics, err := reg.inner.Gather()
