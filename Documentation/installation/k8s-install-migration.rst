@@ -219,7 +219,7 @@ Preparation
     .. code-block:: shell-session
 
         cat <<EOF | kubectl apply --server-side -f -
-        apiVersion: cilium.io/v2alpha1
+        apiVersion: cilium.io/v2
         kind: CiliumNodeConfig
         metadata:
           namespace: kube-system
