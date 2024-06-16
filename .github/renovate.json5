@@ -83,6 +83,44 @@
   ],
   "packageRules": [
     {
+      "matchPackageNames": [
+        "go", // golang version directive upgrade in go.mod
+        "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
+        "kindest/node", // official kindest images
+        "kubernetes-sigs/kind", // official kind dependencies
+        "renovatebot/github-action", // Renovate's GH action
+        "renovatebot/renovate", // Renovate's bot name
+      ],
+      "matchPackagePrefixes": [
+        "actions/", // GitHub official's GH actions
+        "cilium/", // Cilium's GH actions
+        "docker.io/library/", // official Docker images
+        "gcr.io/distroless", // official distroless images
+        "gcr.io/etcd-development/etcd", // etcd
+        "ghcr.io/spiffe/", // Spiffe's official images
+        "github.com/actions/", // GitHub official's GH actions
+        "github.com/aws/", // Amazon's dependencies
+        "github.com/Azure/", // Azure's dependencies
+        "github.com/cilium/", // Any Cilium dependency
+        "github.com/docker/", // Docker official org
+        "github.com/golang/", // Golang official org
+        "github.com/google/", // Google official org
+        "github.com/go-openapi/", // Open API official org
+        "github.com/hashicorp/", // Hashicorp's official org
+        "github.com/prometheus/", // Prometheu's official org
+        "go.etcd.io/etcd/", // etcd's official org
+        "golang.org/x/", // Golang official experimental org
+        "google.golang.org/", // Google official repo for api/genproto/grpc/protobuf
+        "k8s.io/", // Kubernetes official repo
+        "quay.io/cilium/", // LVH images
+        "quay.io/lvh-images/", // LVH images
+        "sigs.k8s.io/", // Kubernetes official SIG repo
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "groupName": "auto-merge-trusted-deps"
+    },
+    {
       // Try to group all updates for all dependencies in a single PR. More
       // specific packageRules are followed by this one.
       "matchUpdateTypes": [
