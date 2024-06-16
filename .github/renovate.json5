@@ -80,6 +80,8 @@
   "allowedPostUpgradeCommands": [
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
+    "^make generate-k8s-api$",
+    "^make manifests$"
   ],
   "packageRules": [
     {
@@ -190,10 +192,7 @@
         // Once we decide to spend cycles on ginkgo v2 we should update the
         // dependency manually.
         "github.com/onsi/ginkgo",
-        "github.com/onsi/gomega/*",
-        // k8s dependencies will be updated manually along with tests
-        "k8s.io/*",
-        "sigs.k8s.io/*"
+        "github.com/onsi/gomega/*"
       ]
     },
     {
@@ -456,6 +455,32 @@
           "install/kubernetes/cilium/README.md",
           "install/kubernetes/cilium/values.yaml",
           "Documentation/helm-values.rst"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      enabled: false,
+      matchDepPatterns: [
+        // k8s dependencies will be updated manually along with tests
+        "k8s.io/*",
+        "sigs.k8s.io/*"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ]
+    },
+    {
+      matchDepPatterns: [
+        // k8s dependencies will be updated manually along with tests
+        "k8s.io/*",
+        "sigs.k8s.io/*"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make generate-k8s-api",
+          "make manifests"
         ],
         "executionMode": "update"
       }
