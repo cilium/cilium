@@ -230,46 +230,8 @@ include Makefile.kind
 
 -include Makefile.docker
 
-##@ API targets
-CRD_OPTIONS ?= "crd:crdVersions=v1"
-CRD_PATHS := "$(PWD)/pkg/k8s/apis/cilium.io/v2;\
-              $(PWD)/pkg/k8s/apis/cilium.io/v2alpha1;"
-CRDS_CILIUM_PATHS := $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2\
-                     $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2alpha1
-CRDS_CILIUM_V2 := ciliumnetworkpolicies \
-                  ciliumclusterwidenetworkpolicies \
-                  ciliumendpoints \
-                  ciliumidentities \
-                  ciliumnodes \
-                  ciliumexternalworkloads \
-                  ciliumlocalredirectpolicies \
-                  ciliumegressgatewaypolicies \
-                  ciliumenvoyconfigs \
-                  ciliumclusterwideenvoyconfigs \
-                  ciliumnodeconfigs
-CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
-                        ciliumbgppeeringpolicies \
-                        ciliumbgpclusterconfigs \
-                        ciliumbgppeerconfigs \
-                        ciliumbgpadvertisements \
-                        ciliumbgpnodeconfigs \
-                        ciliumbgpnodeconfigoverrides \
-                        ciliumloadbalancerippools \
-                        ciliumcidrgroups \
-                        ciliuml2announcementpolicies \
-                        ciliumpodippools
-
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
-	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
-	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths=$(CRD_PATHS) output:crd:artifacts:config="$(TMPDIR)"
-	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
-
-	# Clean up old CRD state and start with a blank state.
-	for path in $(CRDS_CILIUM_PATHS); do rm -rf $${path} && mkdir $${path}; done
-
-	for file in $(CRDS_CILIUM_V2); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/$${file}.yaml; done
-	for file in $(CRDS_CILIUM_V2ALPHA1); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/$${file}.yaml; done
-	rm -rf $(TMPDIR)
+	contrib/scripts/k8s-manifests-gen.sh
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
@@ -395,7 +357,7 @@ generate-k8s-api-local:
 
 .PHONY: generate-k8s-api
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
-	contrib/scripts/builder.sh \
+	RUN_AS_NONROOT=1 contrib/scripts/builder.sh \
 		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.

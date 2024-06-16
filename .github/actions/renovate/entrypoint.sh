@@ -2,7 +2,7 @@
 
 apt update
 
-apt install -y gettext
+apt install -y gettext docker-buildx
 
 ls -lah /var/run/docker.sock
 
