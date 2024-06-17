@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -98,6 +100,7 @@ type Backend struct {
 	Terminating   bool
 	HintsForZones []string
 	Preferred     bool
+	Zone          string
 }
 
 // String returns the string representation of an endpoints resource, with
@@ -110,7 +113,11 @@ func (e *Endpoints) String() string {
 	backends := []string{}
 	for addrCluster, be := range e.Backends {
 		for _, port := range be.Ports {
-			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol))
+			if be.Zone != "" {
+				backends = append(backends, fmt.Sprintf("%s/%s[%s]", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol, be.Zone))
+			} else {
+				backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol))
+			}
 		}
 	}
 
@@ -246,7 +253,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
 				endpoints.Backends[addrCluster] = backend
-				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
+				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
 					backend.NodeName = nodeName
 				}
 				if sub.Hostname != nil {
@@ -257,6 +264,9 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 						backend.Terminating = true
 						metrics.TerminatingEndpointsEvents.Inc()
 					}
+				}
+				if zoneName, ok := sub.Topology[corev1.LabelTopologyZone]; ok {
+					backend.Zone = zoneName
 				}
 			}
 
@@ -361,12 +371,17 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 				if sub.NodeName != nil {
 					backend.NodeName = *sub.NodeName
 				} else {
-					if nodeName, ok := sub.DeprecatedTopology["kubernetes.io/hostname"]; ok {
+					if nodeName, ok := sub.DeprecatedTopology[corev1.LabelHostname]; ok {
 						backend.NodeName = nodeName
 					}
 				}
 				if sub.Hostname != nil {
 					backend.Hostname = *sub.Hostname
+				}
+				if sub.Zone != nil {
+					backend.Zone = *sub.Zone
+				} else if zoneName, ok := sub.DeprecatedTopology[corev1.LabelTopologyZone]; ok {
+					backend.Zone = zoneName
 				}
 				// If is not ready check if is serving and terminating
 				if !isReady && option.Config.EnableK8sTerminatingEndpoint &&

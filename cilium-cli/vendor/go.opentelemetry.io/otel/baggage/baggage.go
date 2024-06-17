@@ -335,9 +335,9 @@ func (m Member) String() string {
 	// A key is just an ASCII string. A value is restricted to be
 	// US-ASCII characters excluding CTLs, whitespace,
 	// DQUOTE, comma, semicolon, and backslash.
-	s := fmt.Sprintf("%s%s%s", m.key, keyValueDelimiter, valueEscape(m.value))
+	s := m.key + keyValueDelimiter + valueEscape(m.value)
 	if len(m.properties) > 0 {
-		s = fmt.Sprintf("%s%s%s", s, propertyDelimiter, m.properties.String())
+		s += propertyDelimiter + m.properties.String()
 	}
 	return s
 }

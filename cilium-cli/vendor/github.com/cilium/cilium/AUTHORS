@@ -1,6 +1,7 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
+a5r0n                                   a5r0n@users.noreply.github.com
 Aaron Ecay                              aaron.ecay@sky.uk
 Àbéjídé Àyodélé                         abejideayodele@gmail.com
 Abirdcfly                               fp544037857@gmail.com
@@ -29,6 +30,7 @@ Alex Katsman                            alexkats@google.com
 Alex Romanov                            alex@romanov.ws
 Alex Szakaly                            alex.szakaly@gmail.com
 Alex Waring                             alex.waring@starlingbank.com
+Alkama Hasan                            gl3118@myamu.ac.in
 Alois Petutschnig                       alois@petutschnig.net
 Amey Bhide                              amey@covalent.io
 Amir Kheirkhahan                        amir.kheirkhahan@dbschenker.com
@@ -192,6 +194,7 @@ David Donchez                           donch@dailymotion.com
 David Korczynski                        david@adalogics.com
 David Leadbeater                        dgl@dgl.cx
 David Schlosnagle                       davids@palantir.com
+David Swafford                          dswafford@coreweave.com
 David Wolffberg                         1350533+wolffberg@users.noreply.github.com
 Dawn                                    lx1960753013@gmail.com
 dddddai                                 dddwq@foxmail.com
@@ -262,6 +265,7 @@ Filip Nikolic                           oss.filipn@gmail.com
 Fish-pro                                zechun.chen@daocloud.io
 Florian Koch                            f0@users.noreply.github.com
 Florian Lehner                          dev@der-flo.net
+Foyer Unix                              foyerunix@foyer.lu
 Francois Allard                         francois@breathelife.com
 François Joulaud                        francois.joulaud@radiofrance.com
 Frank Villaro-Dixon                     frank.villaro@infomaniak.com
@@ -285,7 +289,7 @@ Glen Yu                                 glen.yu@gmail.com
 Glib Smaga                              code@gsmaga.com
 Gobinath Krishnamoorthy                 gobinathk@google.com
 Gowtham Sundara                         gowtham.sundara@rapyuta-robotics.com
-Gray Lian                               gray.liang@isovalent.com
+Gray Liang                              gray.liang@isovalent.com
 guangwu                                 guoguangwug@gmail.com
 Guilherme Oki                           guilherme.oki@wildlifestudios.com
 Guilherme Souza                         101073+guilhermef@users.noreply.github.com
@@ -303,6 +307,7 @@ Hector Monsalve                         hmonsalv@gmail.com
 Heiko Rothe                             me@heikorothe.com
 Hemanth Malla                           hemanth.malla@datadoghq.com
 Hemslo Wang                             hemslo.wang@gmail.com
+Hong Chen                               hong.chen.7219@gmail.com
 Hrittik                                 hrittikcom@gmail.com
 Huagong Wang                            wanghuagong@kylinos.cn
 huangxuesen                             huangxuesen@kuaishou.com
@@ -314,6 +319,7 @@ hxysayhi                                51870525+hxysayhi@users.noreply.github.c
 Ian Vernon                              ian@cilium.io
 Ifeanyi Ubah                            ify1992@yahoo.com
 Iiqbal2000                              iqbalhafizh2000@gmail.com
+Ilia Chernov                            cherno8.ilya@gmail.com
 Ilya Dmitrichenko                       errordeveloper@gmail.com
 Ilya Shaisultanov                       ilya.shaisultanov@gmail.com
 Ioannis Androulidakis                   androulidakis.ioannis@gmail.com
@@ -348,6 +354,7 @@ jignyasamishra                          iamjignyasa@gmail.com
 Jim Angel                               jimangel@google.com.com
 Jimmy Song                              rootsongjc@gmail.com
 Jim Ntosas                              ntosas@gmail.com
+Jingyuan Liang                          jingyuanliang@google.com
 JinLin Fu                               withlin@apache.org
 Jiong Wang                              jiong.wang@netronome.com
 jiuker                                  2818723467@qq.com
@@ -438,6 +445,7 @@ Lucas Leblow                            lucasleblow@mailbox.org
 Lucas Rattz                             lucas.rattz@syself.com
 lucming                                 2876757716@qq.com
 Ludovic Ortega                          ludovic.ortega@adminafk.fr
+Lukas Stehlik                           stehlik.lukas@gmail.com
 Maartje Eyskens                         maartje@eyskens.me
 Maciej Fijalkowski                      maciej.fijalkowski@intel.com
 Maciej Kwiek                            maciej@isovalent.com
@@ -461,6 +469,7 @@ Marco Iorio                             marco.iorio@isovalent.com
 Marco Kilchhofer                        mkilchhofer@users.noreply.github.com
 Marc 'risson' Schmitt                   marc.schmitt@risson.space
 Marc Stulz                              m@footek.ch
+Marc Suñé                               marc.sune@isovalent.com
 Marek Chodor                            mchodor@google.com
 Marga Manterola                         marga@isovalent.com
 Marino Wijay                            45947861+distributethe6ix@users.noreply.github.com
@@ -502,6 +511,7 @@ Michael Fischer                         fiscmi@amazon.com
 Michael Fornaro                         20387402+xUnholy@users.noreply.github.com
 Michael Francis                         michael@melenion.com
 Michael Kashin                          mmkashin@gmail.com
+Michael Mykhaylov                       32168861+mikemykhaylov@users.noreply.github.com
 Michael Petrov                          michael@openai.com
 Michael Ryan Dempsey                    bluestealth@bluestealth.pw
 michaelsaah                             michael.saah@segment.com
@@ -701,6 +711,7 @@ Sugang Li                               sugangli@google.com
 Sven Haardiek                           sven.haardiek@uni-muenster.de
 Swaminathan Vasudevan                   svasudevan@suse.com
 Taeung Song                             treeze.taeung@gmail.com
+Taizeng Wu                              wutaizeng@gmail.com
 Takayoshi Nishida                       takayoshi.nishida@gmail.com
 Tamilmani                               tamanoha@microsoft.com
 Tam Mach                                tam.mach@cilium.io
@@ -753,7 +764,7 @@ Viktor Kuzmin                           kvaster@gmail.com
 Viktor Oreshkin                         imselfish@stek29.rocks
 Ville Ojamo                             bluikko@users.noreply.github.com
 Vincent Li                              vincent.mc.li@gmail.com
-Vipul Singh                             vipul21sept@gmail.com
+Vipul Singh                             singhvipul@microsoft.com
 Vishal Choudhary                        sendtovishalchoudhary@gmail.com
 Vishnu Soman K                          vishnusomank05@gmail.com
 Vlad Artamonov                          742047+vladdy@users.noreply.github.com

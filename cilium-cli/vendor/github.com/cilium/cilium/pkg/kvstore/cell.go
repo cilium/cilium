@@ -30,10 +30,11 @@ var Cell = func(defaultBackend string) cell.Cell {
 		"KVStore Client",
 
 		cell.Config(config{
-			KVStore:                    defaultBackend,
-			KVStoreConnectivityTimeout: defaults.KVstoreConnectivityTimeout,
-			KVStoreLeaseTTL:            defaults.KVstoreLeaseTTL,
-			KVStorePeriodicSync:        defaults.KVstorePeriodicSync,
+			KVStore:                           defaultBackend,
+			KVStoreConnectivityTimeout:        defaults.KVstoreConnectivityTimeout,
+			KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
+			KVStorePeriodicSync:               defaults.KVstorePeriodicSync,
+			KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
 		}),
 
 		cell.Provide(func(lc cell.Lifecycle, shutdowner hive.Shutdowner, cfg config, opts *ExtraOptions) promise.Promise[BackendOperations] {
@@ -50,6 +51,7 @@ var Cell = func(defaultBackend string) cell.Cell {
 			option.Config.KVstoreConnectivityTimeout = cfg.KVStoreConnectivityTimeout
 			option.Config.KVstoreLeaseTTL = cfg.KVStoreLeaseTTL
 			option.Config.KVstorePeriodicSync = cfg.KVStorePeriodicSync
+			option.Config.KVstoreMaxConsecutiveQuorumErrors = cfg.KVstoreMaxConsecutiveQuorumErrors
 
 			ctx, cancel := context.WithCancel(context.Background())
 			var wg sync.WaitGroup
@@ -94,11 +96,12 @@ var Cell = func(defaultBackend string) cell.Cell {
 }
 
 type config struct {
-	KVStore                    string
-	KVStoreOpt                 map[string]string
-	KVStoreConnectivityTimeout time.Duration
-	KVStoreLeaseTTL            time.Duration
-	KVStorePeriodicSync        time.Duration
+	KVStore                           string
+	KVStoreOpt                        map[string]string
+	KVStoreConnectivityTimeout        time.Duration
+	KVStoreLeaseTTL                   time.Duration
+	KVStorePeriodicSync               time.Duration
+	KVstoreMaxConsecutiveQuorumErrors uint
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -116,6 +119,9 @@ func (def config) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration(option.KVstorePeriodicSync, def.KVStorePeriodicSync,
 		"Periodic KVstore synchronization interval")
+
+	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, def.KVstoreMaxConsecutiveQuorumErrors,
+		"Max acceptable kvstore consecutive quorum errors before recreating the etcd connection")
 }
 
 // GlobalUserMgmtClientPromiseCell provides a promise returning the global kvstore client to perform users

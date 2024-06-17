@@ -589,6 +589,109 @@ func (e *BpfEncap) Equal(x Encap) bool {
 	return true
 }
 
+// IP6tnlEncap definition
+type IP6tnlEncap struct {
+	ID       uint64
+	Dst      net.IP
+	Src      net.IP
+	Hoplimit uint8
+	TC       uint8
+	Flags    uint16
+}
+
+func (e *IP6tnlEncap) Type() int {
+	return nl.LWTUNNEL_ENCAP_IP6
+}
+
+func (e *IP6tnlEncap) Decode(buf []byte) error {
+	attrs, err := nl.ParseRouteAttr(buf)
+	if err != nil {
+		return err
+	}
+	for _, attr := range attrs {
+		switch attr.Attr.Type {
+		case nl.LWTUNNEL_IP6_ID:
+			e.ID = uint64(native.Uint64(attr.Value[0:4]))
+		case nl.LWTUNNEL_IP6_DST:
+			e.Dst = net.IP(attr.Value[:])
+		case nl.LWTUNNEL_IP6_SRC:
+			e.Src = net.IP(attr.Value[:])
+		case nl.LWTUNNEL_IP6_HOPLIMIT:
+			e.Hoplimit = attr.Value[0]
+		case nl.LWTUNNEL_IP6_TC:
+			// e.TC = attr.Value[0]
+			err = fmt.Errorf("decoding TC in IP6tnlEncap is not supported")
+		case nl.LWTUNNEL_IP6_FLAGS:
+			// e.Flags = uint16(native.Uint16(attr.Value[0:2]))
+			err = fmt.Errorf("decoding FLAG in IP6tnlEncap is not supported")
+		case nl.LWTUNNEL_IP6_PAD:
+			err = fmt.Errorf("decoding PAD in IP6tnlEncap is not supported")
+		case nl.LWTUNNEL_IP6_OPTS:
+			err = fmt.Errorf("decoding OPTS in IP6tnlEncap is not supported")
+		}
+	}
+	return err
+}
+
+func (e *IP6tnlEncap) Encode() ([]byte, error) {
+
+	final := []byte{}
+
+	resID := make([]byte, 12)
+	native.PutUint16(resID, 12) //  2+2+8
+	native.PutUint16(resID[2:], nl.LWTUNNEL_IP6_ID)
+	native.PutUint64(resID[4:], 0)
+	final = append(final, resID...)
+
+	resDst := make([]byte, 4)
+	native.PutUint16(resDst, 20) //  2+2+16
+	native.PutUint16(resDst[2:], nl.LWTUNNEL_IP6_DST)
+	resDst = append(resDst, e.Dst...)
+	final = append(final, resDst...)
+
+	resSrc := make([]byte, 4)
+	native.PutUint16(resSrc, 20)
+	native.PutUint16(resSrc[2:], nl.LWTUNNEL_IP6_SRC)
+	resSrc = append(resSrc, e.Src...)
+	final = append(final, resSrc...)
+
+	// resTc := make([]byte, 5)
+	// native.PutUint16(resTc, 5)
+	// native.PutUint16(resTc[2:], nl.LWTUNNEL_IP6_TC)
+	// resTc[4] = e.TC
+	// final = append(final,resTc...)
+
+	resHops := make([]byte, 5)
+	native.PutUint16(resHops, 5)
+	native.PutUint16(resHops[2:], nl.LWTUNNEL_IP6_HOPLIMIT)
+	resHops[4] = e.Hoplimit
+	final = append(final, resHops...)
+
+	// resFlags := make([]byte, 6)
+	// native.PutUint16(resFlags, 6)
+	// native.PutUint16(resFlags[2:], nl.LWTUNNEL_IP6_FLAGS)
+	// native.PutUint16(resFlags[4:], e.Flags)
+	// final = append(final,resFlags...)
+
+	return final, nil
+}
+
+func (e *IP6tnlEncap) String() string {
+	return fmt.Sprintf("id %d src %s dst %s hoplimit %d tc %d flags 0x%.4x", e.ID, e.Src, e.Dst, e.Hoplimit, e.TC, e.Flags)
+}
+
+func (e *IP6tnlEncap) Equal(x Encap) bool {
+	o, ok := x.(*IP6tnlEncap)
+	if !ok {
+		return false
+	}
+
+	if e.ID != o.ID || e.Flags != o.Flags || e.Hoplimit != o.Hoplimit || e.Src.Equal(o.Src) || e.Dst.Equal(o.Dst) || e.TC != o.TC {
+		return false
+	}
+	return true
+}
+
 type Via struct {
 	AddrFamily int
 	Addr       net.IP
@@ -682,6 +785,21 @@ func RouteAddEcmp(route *Route) error {
 // RouteAddEcmp will add a route to the system.
 func (h *Handle) RouteAddEcmp(route *Route) error {
 	flags := unix.NLM_F_CREATE | unix.NLM_F_ACK
+	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+	_, err := h.routeHandle(route, req, nl.NewRtMsg())
+	return err
+}
+
+// RouteChange will change an existing route in the system.
+// Equivalent to: `ip route change $route`
+func RouteChange(route *Route) error {
+	return pkgHandle.RouteChange(route)
+}
+
+// RouteChange will change an existing route in the system.
+// Equivalent to: `ip route change $route`
+func (h *Handle) RouteChange(route *Route) error {
+	flags := unix.NLM_F_REPLACE | unix.NLM_F_ACK
 	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
 	_, err := h.routeHandle(route, req, nl.NewRtMsg())
 	return err
@@ -1030,12 +1148,16 @@ func (h *Handle) RouteListFiltered(family int, filter *Route, filterMask uint64)
 	var res []Route
 	for _, m := range msgs {
 		msg := nl.DeserializeRtMsg(m)
+		if family != FAMILY_ALL && msg.Family != uint8(family) {
+			// Ignore routes not matching requested family
+			continue
+		}
 		if msg.Flags&unix.RTM_F_CLONED != 0 {
 			// Ignore cloned routes
 			continue
 		}
 		if msg.Table != unix.RT_TABLE_MAIN {
-			if filter == nil || filter != nil && filterMask&RT_FILTER_TABLE == 0 {
+			if filter == nil || filterMask&RT_FILTER_TABLE == 0 {
 				// Ignore non-main tables
 				continue
 			}
@@ -1321,6 +1443,7 @@ func deserializeRoute(m []byte) (Route, error) {
 // RouteGetWithOptions
 type RouteGetOptions struct {
 	Iif      string
+	IifIndex int
 	Oif      string
 	VrfName  string
 	SrcAddr  net.IP
@@ -1372,7 +1495,7 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 
 	if options != nil {
 		if options.VrfName != "" {
-			link, err := LinkByName(options.VrfName)
+			link, err := h.LinkByName(options.VrfName)
 			if err != nil {
 				return nil, err
 			}
@@ -1382,20 +1505,27 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 			req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
 		}
 
+		iifIndex := 0
 		if len(options.Iif) > 0 {
-			link, err := LinkByName(options.Iif)
+			link, err := h.LinkByName(options.Iif)
 			if err != nil {
 				return nil, err
 			}
 
+			iifIndex = link.Attrs().Index
+		} else if options.IifIndex > 0 {
+			iifIndex = options.IifIndex
+		}
+
+		if iifIndex > 0 {
 			b := make([]byte, 4)
-			native.PutUint32(b, uint32(link.Attrs().Index))
+			native.PutUint32(b, uint32(iifIndex))
 
 			req.AddData(nl.NewRtAttr(unix.RTA_IIF, b))
 		}
 
 		if len(options.Oif) > 0 {
-			link, err := LinkByName(options.Oif)
+			link, err := h.LinkByName(options.Oif)
 			if err != nil {
 				return nil, err
 			}
@@ -1561,7 +1691,11 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 					}
 					continue
 				}
-				ch <- RouteUpdate{Type: m.Header.Type, Route: route}
+				ch <- RouteUpdate{
+					Type:    m.Header.Type,
+					NlFlags: m.Header.Flags & (unix.NLM_F_REPLACE | unix.NLM_F_EXCL | unix.NLM_F_CREATE | unix.NLM_F_APPEND),
+					Route:   route,
+				}
 			}
 		}
 	}()

@@ -180,7 +180,8 @@ type RoutePolicy struct {
 
 // RoutePolicyRequest contains parameters for adding or removing a routing policy.
 type RoutePolicyRequest struct {
-	Policy *RoutePolicy
+	DefaultExportAction RoutePolicyAction
+	Policy              *RoutePolicy
 }
 
 // GetPeerStateResponse contains state of peers configured in given instance

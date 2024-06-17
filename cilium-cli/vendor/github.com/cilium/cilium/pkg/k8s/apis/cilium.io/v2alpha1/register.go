@@ -77,9 +77,15 @@ const (
 	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
 
 	// CiliumNodeConfig (CNC)
-	CNCPluralName     = "ciliumnodeconfigs"
+
+	// CNCPluralName is the plural name of Cilium Node Config
+	CNCPluralName = "ciliumnodeconfigs"
+
+	// CNCKindDefinition is the kind name of Cilium Node Config
 	CNCKindDefinition = "CiliumNodeConfig"
-	CNCName           = CNCPluralName + "." + CustomResourceDefinitionGroup
+
+	// CNCName is the full name of Cilium Node Config
+	CNCName = CNCPluralName + "." + CustomResourceDefinitionGroup
 
 	// CiliumCIDRGroup (CCG)
 	CCGPluralName     = "ciliumcidrgroups"
@@ -153,14 +159,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPPeeringPolicyList{},
 		&CiliumLoadBalancerIPPool{},
 		&CiliumLoadBalancerIPPoolList{},
-		&CiliumNodeConfig{},
-		&CiliumNodeConfigList{},
 		&CiliumCIDRGroup{},
 		&CiliumCIDRGroupList{},
 		&CiliumL2AnnouncementPolicy{},
 		&CiliumL2AnnouncementPolicyList{},
 		&CiliumPodIPPool{},
 		&CiliumPodIPPoolList{},
+		&CiliumNodeConfig{},
+		&CiliumNodeConfigList{},
 
 		// new BGP types
 		&CiliumBGPClusterConfig{},

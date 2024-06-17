@@ -19,6 +19,10 @@ const (
 	maxICMPFields = 40
 )
 
+var (
+	ErrFromToNodesRequiresNodeSelectorOption = fmt.Errorf("FromNodes/ToNodes rules can only be applied when the %q flag is set", option.EnableNodeSelectorLabels)
+)
+
 // Sanitize validates and sanitizes a policy rule. Minor edits such as
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
@@ -95,12 +99,15 @@ func countL7Rules(ports []PortRule) map[string]int {
 }
 
 func (i *IngressRule) sanitize() error {
+	var retErr error
+
 	l3Members := map[string]int{
 		"FromEndpoints": len(i.FromEndpoints),
 		"FromCIDR":      len(i.FromCIDR),
 		"FromCIDRSet":   len(i.FromCIDRSet),
 		"FromEntities":  len(i.FromEntities),
 		"FromNodes":     len(i.FromNodes),
+		"FromGroups":    len(i.FromGroups),
 	}
 	l7Members := countL7Rules(i.ToPorts)
 	l7IngressSupport := map[string]bool{
@@ -135,7 +142,7 @@ func (i *IngressRule) sanitize() error {
 	}
 
 	if len(i.FromNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
-		return fmt.Errorf("FromNodes rules can only be applied when the %q flag is set", option.EnableNodeSelectorLabels)
+		retErr = ErrFromToNodesRequiresNodeSelectorOption
 	}
 
 	for _, es := range i.FromEndpoints {
@@ -189,7 +196,7 @@ func (i *IngressRule) sanitize() error {
 
 	i.SetAggregatedSelectors()
 
-	return nil
+	return retErr
 }
 
 // countNonGeneratedRules counts the number of CIDRRule items which are not
@@ -210,6 +217,8 @@ func countNonGeneratedCIDRRules(s CIDRRuleSlice) int {
 }
 
 func (e *EgressRule) sanitize() error {
+	var retErr error
+
 	l3Members := map[string]int{
 		"ToCIDR":      len(e.ToCIDR),
 		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
@@ -268,7 +277,7 @@ func (e *EgressRule) sanitize() error {
 	}
 
 	if len(e.ToNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
-		return fmt.Errorf("ToNodes rules can only be applied when the %q flag is set", option.EnableNodeSelectorLabels)
+		retErr = ErrFromToNodesRequiresNodeSelectorOption
 	}
 
 	for _, es := range e.ToEndpoints {
@@ -328,7 +337,7 @@ func (e *EgressRule) sanitize() error {
 
 	e.SetAggregatedSelectors()
 
-	return nil
+	return retErr
 }
 
 func (pr *L7Rules) sanitize(ports []PortProtocol) error {
@@ -385,6 +394,10 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 	return nil
 }
 
+// It is not allowed to configure an ingress listener, but we still
+// have some unit tests relying on this. So, allow overriding this check in the unit tests.
+var TestAllowIngressListener = false
+
 func (pr *PortRule) sanitize(ingress bool) error {
 	hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 	if ingress && hasDNSRules {
@@ -427,7 +440,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		// For now we have only tested custom listener support on the egress path.  TODO
 		// (jrajahalme): Lift this limitation in follow-up work once proper testing has been
 		// done on the ingress path.
-		if ingress {
+		if ingress && !TestAllowIngressListener {
 			return fmt.Errorf("Listener is not allowed on ingress (%s)", listener.Name)
 		}
 		// There is no quarantee that Listener will support Cilium policy enforcement.  Even

@@ -281,6 +281,32 @@ func (i *sfHistogram) Record(ctx context.Context, x float64, opts ...metric.Reco
 	}
 }
 
+type sfGauge struct {
+	embedded.Float64Gauge
+
+	name string
+	opts []metric.Float64GaugeOption
+
+	delegate atomic.Value // metric.Float64Gauge
+}
+
+var _ metric.Float64Gauge = (*sfGauge)(nil)
+
+func (i *sfGauge) setDelegate(m metric.Meter) {
+	ctr, err := m.Float64Gauge(i.name, i.opts...)
+	if err != nil {
+		GetErrorHandler().Handle(err)
+		return
+	}
+	i.delegate.Store(ctr)
+}
+
+func (i *sfGauge) Record(ctx context.Context, x float64, opts ...metric.RecordOption) {
+	if ctr := i.delegate.Load(); ctr != nil {
+		ctr.(metric.Float64Gauge).Record(ctx, x, opts...)
+	}
+}
+
 type siCounter struct {
 	embedded.Int64Counter
 
@@ -356,5 +382,31 @@ func (i *siHistogram) setDelegate(m metric.Meter) {
 func (i *siHistogram) Record(ctx context.Context, x int64, opts ...metric.RecordOption) {
 	if ctr := i.delegate.Load(); ctr != nil {
 		ctr.(metric.Int64Histogram).Record(ctx, x, opts...)
+	}
+}
+
+type siGauge struct {
+	embedded.Int64Gauge
+
+	name string
+	opts []metric.Int64GaugeOption
+
+	delegate atomic.Value // metric.Int64Gauge
+}
+
+var _ metric.Int64Gauge = (*siGauge)(nil)
+
+func (i *siGauge) setDelegate(m metric.Meter) {
+	ctr, err := m.Int64Gauge(i.name, i.opts...)
+	if err != nil {
+		GetErrorHandler().Handle(err)
+		return
+	}
+	i.delegate.Store(ctr)
+}
+
+func (i *siGauge) Record(ctx context.Context, x int64, opts ...metric.RecordOption) {
+	if ctr := i.delegate.Load(); ctr != nil {
+		ctr.(metric.Int64Gauge).Record(ctx, x, opts...)
 	}
 }

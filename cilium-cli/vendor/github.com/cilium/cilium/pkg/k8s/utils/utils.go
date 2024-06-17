@@ -5,7 +5,6 @@ package utils
 
 import (
 	"net"
-	"sort"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -18,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	labelsPkg "github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -64,12 +64,6 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	}
 
 	return ns + "/" + obj.GetName()
-}
-
-// PolicyConfiguration is the required configuration for K8s NetworkPolicy
-type PolicyConfiguration interface {
-	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
-	K8sNetworkPolicyEnabled() bool
 }
 
 // GetEndpointSliceListOptionsModifier returns the options modifier for endpointSlice object list.
@@ -149,22 +143,18 @@ func ValidIPs(podStatus slim_corev1.PodStatus) []string {
 	}
 
 	// make it a set first to avoid repeated IP addresses
-	ipsMap := make(map[string]struct{}, 1+len(podStatus.PodIPs))
+	ips := []string{}
 	if podStatus.PodIP != "" {
-		ipsMap[podStatus.PodIP] = struct{}{}
+		ips = append(ips, podStatus.PodIP)
 	}
+
 	for _, podIP := range podStatus.PodIPs {
 		if podIP.IP != "" {
-			ipsMap[podIP.IP] = struct{}{}
+			ips = append(ips, podIP.IP)
 		}
 	}
 
-	ips := make([]string, 0, len(ipsMap))
-	for ipStr := range ipsMap {
-		ips = append(ips, ipStr)
-	}
-	sort.Strings(ips)
-	return ips
+	return slices.SortedUnique(ips)
 }
 
 // IsPodRunning returns true if the pod is considered to be in running state.

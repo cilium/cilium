@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -19,12 +20,72 @@ type MTUConfiguration interface {
 }
 
 // LocalNodeConfiguration represents the configuration of the local node
+//
+// This configuration struct is immutable even when passed by reference.
+// When the configuration is changed at runtime a new instance is allocated
+// and passed down.
 type LocalNodeConfiguration struct {
-	// MtuConfig is the MTU configuration of the node.
-	//
+	// NodeIPv4 is the primary IPv4 address of this node.
+	// Mutable at runtime.
+	NodeIPv4 net.IP
+
+	// NodeIPv6 is the primary IPv6 address of this node.
+	// Mutable at runtime.
+	NodeIPv6 net.IP
+
+	// CiliumInternalIPv4 is the internal IP address assigned to the cilium_host
+	// interface.
+	// Immutable at runtime.
+	CiliumInternalIPv4 net.IP
+
+	// CiliumInternalIPv6 is the internal IP address assigned to the cilium_host
+	// interface.
+	// Immutable at runtime.
+	CiliumInternalIPv6 net.IP
+
+	// AllocCIDRIPv4 is the IPv4 allocation CIDR from which IP addresses for
+	// endpoints are allocated from.
+	// Immutable at runtime.
+	AllocCIDRIPv4 *cidr.CIDR
+
+	// AllocCIDRIPv6 is the IPv6 allocation CIDR from which IP addresses for
+	// endpoints are allocated from.
+	// Immutable at runtime.
+	AllocCIDRIPv6 *cidr.CIDR
+
+	// LoopbackIPv4 is the IPv4 loopback address.
+	// Immutable at runtime.
+	LoopbackIPv4 net.IP
+
+	// Devices is the native network devices selected for datapath use.
+	// Mutable at runtime.
+	Devices []*tables.Device
+
+	// NodeAddresses are the IP addresses of the local node that are considered
+	// as this node's addresses. From this set we pick the addresses that are
+	// used as NodePort frontends and the addresses to use for BPF masquerading.
+	// Mutable at runtime.
+	NodeAddresses []tables.NodeAddress
+
+	// HostEndpointID is the endpoint ID assigned to the host endpoint.
+	// Immutable at runtime.
+	HostEndpointID uint64
+
+	// DeviceMTU is the MTU used on workload facing devices.
 	// This field is immutable at runtime. The value will not change in
 	// subsequent calls to NodeConfigurationChanged().
-	MtuConfig MTUConfiguration
+	DeviceMTU int
+
+	// RouteMTU is the MTU used on the network.
+	// This field is immutable at runtime. The value will not change in
+	// subsequent calls to NodeConfigurationChanged().
+	RouteMTU int
+
+	// RoutePostEncryptMTU is the MTU without the encryption overhead
+	// included.
+	// This field is immutable at runtime. The value will not change in
+	// subsequent calls to NodeConfigurationChanged().
+	RoutePostEncryptMTU int
 
 	// AuxiliaryPrefixes is the list of auxiliary prefixes that should be
 	// configured in addition to the node PodCIDR
@@ -75,6 +136,9 @@ type LocalNodeConfiguration struct {
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
 
+	// EnableIPSecEncryptedOverlay enables IPSec routes for overlay traffic
+	EnableIPSecEncryptedOverlay bool
+
 	// EncryptNode enables encrypting NodeIP traffic requires EnableIPSec
 	EncryptNode bool
 
@@ -87,6 +151,10 @@ type LocalNodeConfiguration struct {
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.
 	IPv6PodSubnets []*net.IPNet
+}
+
+func (cfg *LocalNodeConfiguration) DeviceNames() []string {
+	return tables.DeviceNames(cfg.Devices)
 }
 
 // NodeHandler handles node related events such as addition, update or deletion

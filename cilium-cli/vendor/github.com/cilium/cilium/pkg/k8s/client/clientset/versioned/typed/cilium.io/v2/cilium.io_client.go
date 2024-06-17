@@ -25,6 +25,7 @@ type CiliumV2Interface interface {
 	CiliumLocalRedirectPoliciesGetter
 	CiliumNetworkPoliciesGetter
 	CiliumNodesGetter
+	CiliumNodeConfigsGetter
 }
 
 // CiliumV2Client is used to interact with features provided by the cilium.io group.
@@ -70,6 +71,10 @@ func (c *CiliumV2Client) CiliumNetworkPolicies(namespace string) CiliumNetworkPo
 
 func (c *CiliumV2Client) CiliumNodes() CiliumNodeInterface {
 	return newCiliumNodes(c)
+}
+
+func (c *CiliumV2Client) CiliumNodeConfigs(namespace string) CiliumNodeConfigInterface {
+	return newCiliumNodeConfigs(c, namespace)
 }
 
 // NewForConfig creates a new CiliumV2Client for the given config.

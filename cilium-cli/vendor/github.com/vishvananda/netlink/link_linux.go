@@ -497,6 +497,58 @@ func (h *Handle) LinkSetAlias(link Link, name string) error {
 	return err
 }
 
+// LinkAddAltName adds a new alternative name for the link device.
+// Equivalent to: `ip link property add $link altname $name`
+func LinkAddAltName(link Link, name string) error {
+	return pkgHandle.LinkAddAltName(link, name)
+}
+
+// LinkAddAltName adds a new alternative name for the link device.
+// Equivalent to: `ip link property add $link altname $name`
+func (h *Handle) LinkAddAltName(link Link, name string) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_NEWLINKPROP, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	data := nl.NewRtAttr(unix.IFLA_PROP_LIST|unix.NLA_F_NESTED, nil)
+	data.AddRtAttr(unix.IFLA_ALT_IFNAME, []byte(name))
+
+	req.AddData(data)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
+// LinkDelAltName delete an alternative name for the link device.
+// Equivalent to: `ip link property del $link altname $name`
+func LinkDelAltName(link Link, name string) error {
+	return pkgHandle.LinkDelAltName(link, name)
+}
+
+// LinkDelAltName delete an alternative name for the link device.
+// Equivalent to: `ip link property del $link altname $name`
+func (h *Handle) LinkDelAltName(link Link, name string) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_DELLINKPROP, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	data := nl.NewRtAttr(unix.IFLA_PROP_LIST|unix.NLA_F_NESTED, nil)
+	data.AddRtAttr(unix.IFLA_ALT_IFNAME, []byte(name))
+
+	req.AddData(data)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
 // LinkSetHardwareAddr sets the hardware address of the link device.
 // Equivalent to: `ip link set $link address $hwaddr`
 func LinkSetHardwareAddr(link Link, hwaddr net.HardwareAddr) error {
@@ -996,28 +1048,28 @@ func LinkSetXdpFdWithFlags(link Link, fd, flags int) error {
 // LinkSetGSOMaxSegs sets the GSO maximum segment count of the link device.
 // Equivalent to: `ip link set $link gso_max_segs $maxSegs`
 func LinkSetGSOMaxSegs(link Link, maxSegs int) error {
-       return pkgHandle.LinkSetGSOMaxSegs(link, maxSegs)
+	return pkgHandle.LinkSetGSOMaxSegs(link, maxSegs)
 }
 
 // LinkSetGSOMaxSegs sets the GSO maximum segment count of the link device.
 // Equivalent to: `ip link set $link gso_max_segs $maxSegs`
 func (h *Handle) LinkSetGSOMaxSegs(link Link, maxSize int) error {
-       base := link.Attrs()
-       h.ensureIndex(base)
-       req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
 
-       msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-       msg.Index = int32(base.Index)
-       req.AddData(msg)
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
 
-       b := make([]byte, 4)
-       native.PutUint32(b, uint32(maxSize))
+	b := make([]byte, 4)
+	native.PutUint32(b, uint32(maxSize))
 
-       data := nl.NewRtAttr(unix.IFLA_GSO_MAX_SEGS, b)
-       req.AddData(data)
+	data := nl.NewRtAttr(unix.IFLA_GSO_MAX_SEGS, b)
+	req.AddData(data)
 
-       _, err := req.Execute(unix.NETLINK_ROUTE, 0)
-       return err
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
 }
 
 // LinkSetGSOMaxSize sets the IPv6 GSO maximum size of the link device.
@@ -1770,6 +1822,13 @@ func (h *Handle) linkByNameDump(name string) (Link, error) {
 		if link.Attrs().Name == name {
 			return link, nil
 		}
+
+		// support finding interfaces also via altnames
+		for _, altName := range link.Attrs().AltNames {
+			if altName == name {
+				return link, nil
+			}
+		}
 	}
 	return nil, LinkNotFoundError{fmt.Errorf("Link %s not found", name)}
 }
@@ -1808,6 +1867,9 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 	req.AddData(attr)
 
 	nameData := nl.NewRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(name))
+	if len(name) > 15 {
+		nameData = nl.NewRtAttr(unix.IFLA_ALT_IFNAME, nl.ZeroTerminated(name))
+	}
 	req.AddData(nameData)
 
 	link, err := execGetLink(req)
@@ -2136,6 +2198,18 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 				protinfo := parseProtinfo(attrs)
 				base.Protinfo = &protinfo
 			}
+		case unix.IFLA_PROP_LIST | unix.NLA_F_NESTED:
+			attrs, err := nl.ParseRouteAttr(attr.Value[:])
+			if err != nil {
+				return nil, err
+			}
+
+			base.AltNames = []string{}
+			for _, attr := range attrs {
+				if attr.Attr.Type == unix.IFLA_ALT_IFNAME {
+					base.AltNames = append(base.AltNames, nl.BytesToString(attr.Value))
+				}
+			}
 		case unix.IFLA_OPERSTATE:
 			base.OperState = LinkOperState(uint8(attr.Value[0]))
 		case unix.IFLA_PHYS_SWITCH_ID:
@@ -2172,6 +2246,13 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 			base.NumRxQueues = int(native.Uint32(attr.Value[0:4]))
 		case unix.IFLA_GROUP:
 			base.Group = native.Uint32(attr.Value[0:4])
+		case unix.IFLA_PERM_ADDRESS:
+			for _, b := range attr.Value {
+				if b != 0 {
+					base.PermHWAddr = attr.Value[:]
+					break
+				}
+			}
 		}
 	}
 
@@ -2920,6 +3001,10 @@ func linkFlags(rawFlags uint32) net.Flags {
 func addGeneveAttrs(geneve *Geneve, linkInfo *nl.RtAttr) {
 	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 
+	if geneve.InnerProtoInherit {
+		data.AddRtAttr(nl.IFLA_GENEVE_INNER_PROTO_INHERIT, []byte{})
+	}
+
 	if geneve.FlowBased {
 		geneve.ID = 0
 		data.AddRtAttr(nl.IFLA_GENEVE_COLLECT_METADATA, []byte{})
@@ -2948,6 +3033,8 @@ func addGeneveAttrs(geneve *Geneve, linkInfo *nl.RtAttr) {
 	if geneve.Tos != 0 {
 		data.AddRtAttr(nl.IFLA_GENEVE_TOS, nl.Uint8Attr(geneve.Tos))
 	}
+
+	data.AddRtAttr(nl.IFLA_GENEVE_DF, nl.Uint8Attr(uint8(geneve.Df)))
 }
 
 func parseGeneveData(link Link, data []syscall.NetlinkRouteAttr) {
@@ -2966,6 +3053,8 @@ func parseGeneveData(link Link, data []syscall.NetlinkRouteAttr) {
 			geneve.Tos = uint8(datum.Value[0])
 		case nl.IFLA_GENEVE_COLLECT_METADATA:
 			geneve.FlowBased = true
+		case nl.IFLA_GENEVE_INNER_PROTO_INHERIT:
+			geneve.InnerProtoInherit = true
 		}
 	}
 }

@@ -41,6 +41,7 @@ type U32 struct {
 	RedirIndex int
 	Sel        *TcU32Sel
 	Actions    []Action
+	Police     *PoliceAction
 }
 
 func (filter *U32) Attrs() *FilterAttrs {
@@ -330,6 +331,12 @@ func (h *Handle) filterModify(filter Filter, proto, flags int) error {
 		}
 		if filter.Link != 0 {
 			options.AddRtAttr(nl.TCA_U32_LINK, nl.Uint32Attr(filter.Link))
+		}
+		if filter.Police != nil {
+			police := options.AddRtAttr(nl.TCA_U32_POLICE, nil)
+			if err := encodePolice(police, filter.Police); err != nil {
+				return err
+			}
 		}
 		actionsAttr := options.AddRtAttr(nl.TCA_U32_ACT, nil)
 		// backwards compatibility
@@ -952,6 +959,13 @@ func parseU32Data(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) 
 					u32.RedirIndex = int(action.Ifindex)
 				}
 			}
+		case nl.TCA_U32_POLICE:
+			var police PoliceAction
+			adata, _ := nl.ParseRouteAttr(datum.Value)
+			for _, aattr := range adata {
+				parsePolice(aattr, &police)
+			}
+			u32.Police = &police
 		case nl.TCA_U32_CLASSID:
 			u32.ClassId = native.Uint32(datum.Value)
 		case nl.TCA_U32_DIVISOR:
