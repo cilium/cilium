@@ -37,7 +37,7 @@ func init() {
   "paths": {
     "/bgp/peers": {
       "get": {
-        "description": "Retrieves current operational state of BGP peers created by \nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
         "tags": [
           "bgp"
         ],
@@ -1971,11 +1971,11 @@ func init() {
       "description": "BGP graceful restart parameters negotiated with the peer.\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "enabled": {
-          "description": "When set, graceful restart capability is negotiated for all AFI/SAFIs of \nthis peer.",
+          "description": "When set, graceful restart capability is negotiated for all AFI/SAFIs of\nthis peer.",
           "type": "boolean"
         },
         "restart-time-seconds": {
-          "description": "This is the time advertised to peer for the BGP session to be re-established \nafter a restart. After this period, peer will remove stale routes. \n(RFC 4724 section 4.2)",
+          "description": "This is the time advertised to peer for the BGP session to be re-established\nafter a restart. After this period, peer will remove stale routes.\n(RFC 4724 section 4.2)",
           "type": "integer"
         }
       }
@@ -2626,6 +2626,10 @@ func init() {
         },
         "egress-multi-home-ip-rule-compat": {
           "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
+        },
+        "enableRouteMTUForCNIChaining": {
+          "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
         },
         "immutable": {
@@ -5485,7 +5489,7 @@ func init() {
   "paths": {
     "/bgp/peers": {
       "get": {
-        "description": "Retrieves current operational state of BGP peers created by \nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
         "tags": [
           "bgp"
         ],
@@ -7642,11 +7646,11 @@ func init() {
       "description": "BGP graceful restart parameters negotiated with the peer.\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "enabled": {
-          "description": "When set, graceful restart capability is negotiated for all AFI/SAFIs of \nthis peer.",
+          "description": "When set, graceful restart capability is negotiated for all AFI/SAFIs of\nthis peer.",
           "type": "boolean"
         },
         "restart-time-seconds": {
-          "description": "This is the time advertised to peer for the BGP session to be re-established \nafter a restart. After this period, peer will remove stale routes. \n(RFC 4724 section 4.2)",
+          "description": "This is the time advertised to peer for the BGP session to be re-established\nafter a restart. After this period, peer will remove stale routes.\n(RFC 4724 section 4.2)",
           "type": "integer"
         }
       }
@@ -8349,6 +8353,10 @@ func init() {
         },
         "egress-multi-home-ip-rule-compat": {
           "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
+        },
+        "enableRouteMTUForCNIChaining": {
+          "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
         },
         "immutable": {
