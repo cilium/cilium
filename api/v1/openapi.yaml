@@ -1062,7 +1062,7 @@ paths:
     get:
       summary: Lists operational state of BGP peers
       description: |
-        Retrieves current operational state of BGP peers created by 
+        Retrieves current operational state of BGP peers created by
         Cilium BGP virtual router. This includes session state, uptime,
         information per address family, etc.
       tags:
@@ -2678,6 +2678,9 @@ definitions:
       routeMTU:
         description: MTU for network facing routes
         type: integer
+      enableRouteMTUForCNIChaining:
+        description: Enable route MTU for pod netns when CNI chaining is used
+        type: boolean
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
       ipam-mode:
@@ -3892,7 +3895,7 @@ definitions:
   BgpPeer:
     description: |-
       State of a BGP Peer
-      
+
       +k8s:deepcopy-gen=true
     properties:
       local-asn:
@@ -3959,7 +3962,7 @@ definitions:
   BgpPeerFamilies:
     description: |-
       BGP AFI SAFI state of the peer
-      
+
       +k8s:deepcopy-gen=true
     properties:
       afi:
@@ -3985,13 +3988,13 @@ definitions:
     properties:
       enabled:
         description: |-
-          When set, graceful restart capability is negotiated for all AFI/SAFIs of 
+          When set, graceful restart capability is negotiated for all AFI/SAFIs of
           this peer.
         type: boolean
       restart-time-seconds:
         description: |-
-          This is the time advertised to peer for the BGP session to be re-established 
-          after a restart. After this period, peer will remove stale routes. 
+          This is the time advertised to peer for the BGP session to be re-established
+          after a restart. After this period, peer will remove stale routes.
           (RFC 4724 section 4.2)
         type: integer
   BgpRoute:
