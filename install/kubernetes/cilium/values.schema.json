@@ -1411,6 +1411,9 @@
         "customConf": {
           "type": "boolean"
         },
+        "enableRouteMTUForCNIChaining": {
+          "type": "boolean"
+        },
         "exclusive": {
           "type": "boolean"
         },

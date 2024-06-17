@@ -761,7 +761,7 @@
      - object
      - ``{"cert":"","key":""}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.enableSecrets`
-     - Allow users to provide their own certificates Users may need to provide their certificates using  a mechanism that requires they provide their own secrets. This setting does not apply to any of the auto-generated  mechanisms below, it only restricts the creation of secrets via the ``tls-provided`` templates.
+     - Allow users to provide their own certificates Users may need to provide their certificates using a mechanism that requires they provide their own secrets. This setting does not apply to any of the auto-generated mechanisms below, it only restricts the creation of secrets via the ``tls-provided`` templates.
      - bool
      - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.tls.remote`
@@ -850,6 +850,10 @@
      - ``"cni-config"``
    * - :spelling:ignore:`cni.customConf`
      - Skip writing of the CNI configuration. This can be used if writing of the CNI configuration is performed by external automation.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`cni.enableRouteMTUForCNIChaining`
+     - Enable route MTU for pod netns when CNI chaining is used
      - bool
      - ``false``
    * - :spelling:ignore:`cni.exclusive`
@@ -1013,7 +1017,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`enableRuntimeDeviceDetection`
-     - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.   This option has been deprecated and is a no-op.
+     - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op.
      - bool
      - ``true``
    * - :spelling:ignore:`enableXTSocketFallback`
