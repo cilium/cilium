@@ -400,7 +400,12 @@ jobs:
         timeout-minutes: 30
         run: |
           cd ingress-controller-conformance
-          ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 60s -wait-time-for-ready 60s
+          ./ingress-controller-conformance \
+            -ingress-class cilium \
+            -wait-time-for-ingress-status 60s \
+            -wait-time-for-ready 60s \
+            -enable-http-debug \
+            -stop-on-failure
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
