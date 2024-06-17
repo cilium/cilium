@@ -378,6 +378,8 @@ type Backend struct {
 	// Node hosting this backend. This is used to determine backends local to
 	// a node.
 	NodeName string
+	// Zone where backend is located.
+	ZoneID uint8
 	L3n4Addr
 	// State of the backend for load-balancing service traffic
 	State BackendState
@@ -628,20 +630,11 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 // NewBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
 func NewBackend(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16) *Backend {
-	lbport := NewL4Addr(protocol, portNumber)
-	b := Backend{
-		ID:        id,
-		L3n4Addr:  L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport},
-		State:     BackendStateActive,
-		Preferred: Preferred(false),
-		Weight:    DefaultBackendWeight,
-	}
-
-	return &b
+	return NewBackendWithState(id, protocol, addrCluster, portNumber, 0, BackendStateActive)
 }
 
 // NewBackendWithState creates the Backend struct instance from given params.
-func NewBackendWithState(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16,
+func NewBackendWithState(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, zone uint8,
 	state BackendState) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
@@ -649,6 +642,7 @@ func NewBackendWithState(id BackendID, protocol L4Type, addrCluster cmtypes.Addr
 		L3n4Addr: L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport},
 		State:    state,
 		Weight:   DefaultBackendWeight,
+		ZoneID:   zone,
 	}
 
 	return &b
@@ -672,6 +666,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 
 	b := &Backend{
 		NodeName:  base.NodeName,
+		ZoneID:    option.Config.GetZoneID(base.Zone),
 		L3n4Addr:  L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr},
 		State:     state,
 		Preferred: Preferred(base.Preferred),
@@ -729,6 +724,7 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 		IP:        &addrClusterStr,
 		Port:      b.Port,
 		NodeName:  b.NodeName,
+		Zone:      option.Config.GetZone(b.ZoneID),
 		State:     stateStr,
 		Preferred: bool(b.Preferred),
 		Weight:    &b.Weight,

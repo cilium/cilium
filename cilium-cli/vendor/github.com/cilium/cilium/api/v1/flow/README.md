@@ -179,6 +179,7 @@ DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS](htt
 | ----- | ---- | ----- | ----------- |
 | ID | [uint32](#uint32) |  |  |
 | identity | [uint32](#uint32) |  |  |
+| cluster_name | [string](#string) |  |  |
 | namespace | [string](#string) |  |  |
 | labels | [string](#string) | repeated | labels in `foo=bar` format. |
 | pod_name | [string](#string) |  |  |
@@ -321,6 +322,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | ----- | ---- | ----- | ----------- |
 | uuid | [string](#string) | repeated | uuid filters by a list of flow uuids. |
 | source_ip | [string](#string) | repeated | source_ip filters by a list of source ips. Each of the source ips can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
+| source_ip_xlated | [string](#string) | repeated | source_ip_xlated filters by a list IPs. Each of the IPs can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
 | source_pod | [string](#string) | repeated | source_pod filters by a list of source pod name prefixes, optionally within a given namespace (e.g. &#34;xwing&#34;, &#34;kube-system/coredns-&#34;). The pod name can be omitted to only filter by namespace (e.g. &#34;kube-system/&#34;) or the namespace can be omitted to filter for pods in any namespace (e.g. &#34;/xwing&#34;) |
 | source_fqdn | [string](#string) | repeated | source_fqdn filters by a list of source fully qualified domain names |
 | source_label | [string](#string) | repeated | source_labels filters on a list of source label selectors. Selectors support the full Kubernetes label selector syntax. |
@@ -335,6 +337,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | traffic_direction | [TrafficDirection](#flow-TrafficDirection) | repeated | traffic_direction filters flow by direction of the connection, e.g. ingress or egress. |
 | verdict | [Verdict](#flow-Verdict) | repeated | only return Flows that were classified with a particular verdict. |
 | drop_reason_desc | [DropReason](#flow-DropReason) | repeated | only applicable to Verdict = DROPPED (e.g. &#34;POLICY_DENIED&#34;, &#34;UNSUPPORTED_L3_PROTOCOL&#34;) |
+| interface | [NetworkInterface](#flow-NetworkInterface) | repeated | interface is the network interface on which this flow was observed. |
 | event_type | [EventTypeFilter](#flow-EventTypeFilter) | repeated | event_type is the list of event types to filter on |
 | http_status_code | [string](#string) | repeated | http_status_code is a list of string prefixes (e.g. &#34;4&#43;&#34;, &#34;404&#34;, &#34;5&#43;&#34;) to filter on the HTTP status code |
 | protocol | [string](#string) | repeated | protocol filters flows by L4 or L7 protocol, e.g. (e.g. &#34;tcp&#34;, &#34;http&#34;) |
@@ -451,6 +454,7 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogReco
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source | [string](#string) |  |  |
+| source_xlated | [string](#string) |  | source_xlated is the post translation source IP when the flow was SNATed (and in that case source is the the original source IP). |
 | destination | [string](#string) |  |  |
 | ipVersion | [IPVersion](#flow-IPVersion) |  |  |
 | encrypted | [bool](#bool) |  | This field indicates whether the TraceReasonEncryptMask is set or not. https://github.com/cilium/cilium/blob/ba0ed147bd5bb342f67b1794c2ad13c6e99d5236/pkg/monitor/datapath_trace.go#L27 |

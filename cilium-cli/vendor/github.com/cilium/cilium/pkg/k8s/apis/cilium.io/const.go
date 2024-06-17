@@ -34,9 +34,12 @@ const (
 	// kubernetes namespace's labels.
 	PodNamespaceMetaLabels = LabelPrefix + ".namespace.labels"
 
+	// PodNamespaceMetaLabelsPrefix is the prefix used for kubernetes namespace's labels
+	PodNamespaceMetaLabelsPrefix = PodNamespaceMetaLabels + "."
+
 	// PodNamespaceMetaNameLabel is the label that Kubernetes automatically adds
 	// to namespaces.
-	PodNamespaceMetaNameLabel = PodNamespaceMetaLabels + "." + LabelMetadataName
+	PodNamespaceMetaNameLabel = PodNamespaceMetaLabelsPrefix + LabelMetadataName
 
 	// LabelMetadataName is the label name which, in-tree, is used to
 	// automatically label namespaces, so they can be selected easily by tools

@@ -4,14 +4,14 @@
 package node
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
 var bootIDFilePath = "/proc/sys/kernel/random/boot_id"
 
 func init() {
-	bootID, err := ioutil.ReadFile(bootIDFilePath)
+	bootID, err := os.ReadFile(bootIDFilePath)
 	if err != nil {
 		log.WithError(err).Warnf("Could not read boot id from %s", bootIDFilePath)
 		return

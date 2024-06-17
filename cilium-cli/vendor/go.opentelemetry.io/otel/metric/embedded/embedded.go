@@ -102,6 +102,16 @@ type Float64Counter interface{ float64Counter() }
 // the API package).
 type Float64Histogram interface{ float64Histogram() }
 
+// Float64Gauge is embedded in [go.opentelemetry.io/otel/metric.Float64Gauge].
+//
+// Embed this interface in your implementation of the
+// [go.opentelemetry.io/otel/metric.Float64Gauge] if you want users to
+// experience a compilation error, signaling they need to update to your latest
+// implementation, when the [go.opentelemetry.io/otel/metric.Float64Gauge]
+// interface is extended (which is something that can happen without a major
+// version bump of the API package).
+type Float64Gauge interface{ float64Gauge() }
+
 // Float64ObservableCounter is embedded in
 // [go.opentelemetry.io/otel/metric.Float64ObservableCounter].
 //
@@ -173,6 +183,16 @@ type Int64Counter interface{ int64Counter() }
 // extended (which is something that can happen without a major version bump of
 // the API package).
 type Int64Histogram interface{ int64Histogram() }
+
+// Int64Gauge is embedded in [go.opentelemetry.io/otel/metric.Int64Gauge].
+//
+// Embed this interface in your implementation of the
+// [go.opentelemetry.io/otel/metric.Int64Gauge] if you want users to experience
+// a compilation error, signaling they need to update to your latest
+// implementation, when the [go.opentelemetry.io/otel/metric.Int64Gauge]
+// interface is extended (which is something that can happen without a major
+// version bump of the API package).
+type Int64Gauge interface{ int64Gauge() }
 
 // Int64ObservableCounter is embedded in
 // [go.opentelemetry.io/otel/metric.Int64ObservableCounter].

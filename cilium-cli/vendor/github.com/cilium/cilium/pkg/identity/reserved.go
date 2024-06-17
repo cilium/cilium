@@ -62,3 +62,13 @@ func IterateReservedIdentities(f func(_ NumericIdentity, _ *Identity)) {
 		f(ni, identity)
 	}
 }
+
+func ListReservedIdentities() IdentityMap {
+	cacheMU.RLock()
+	defer cacheMU.RUnlock()
+	out := make(IdentityMap, len(reservedIdentityCache))
+	for ni, identity := range reservedIdentityCache {
+		out[ni] = identity.LabelArray
+	}
+	return out
+}

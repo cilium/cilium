@@ -105,6 +105,7 @@ const (
 	SizeofTcNetemCorr    = 0x0c
 	SizeofTcNetemReorder = 0x08
 	SizeofTcNetemCorrupt = 0x08
+	SizeOfTcNetemRate    = 0x10
 	SizeofTcTbfQopt      = 2*SizeofTcRateSpec + 0x0c
 	SizeofTcHtbCopt      = 2*SizeofTcRateSpec + 0x14
 	SizeofTcHtbGlob      = 0x14
@@ -370,6 +371,26 @@ func DeserializeTcNetemCorrupt(b []byte) *TcNetemCorrupt {
 
 func (x *TcNetemCorrupt) Serialize() []byte {
 	return (*(*[SizeofTcNetemCorrupt]byte)(unsafe.Pointer(x)))[:]
+}
+
+// TcNetemRate is a struct that represents the rate of a netem qdisc
+type TcNetemRate struct {
+	Rate           uint32
+	PacketOverhead int32
+	CellSize       uint32
+	CellOverhead   int32
+}
+
+func (msg *TcNetemRate) Len() int {
+	return SizeofTcRateSpec
+}
+
+func DeserializeTcNetemRate(b []byte) *TcNetemRate {
+	return (*TcNetemRate)(unsafe.Pointer(&b[0:SizeofTcRateSpec][0]))
+}
+
+func (msg *TcNetemRate) Serialize() []byte {
+	return (*(*[SizeOfTcNetemRate]byte)(unsafe.Pointer(msg)))[:]
 }
 
 // struct tc_tbf_qopt {

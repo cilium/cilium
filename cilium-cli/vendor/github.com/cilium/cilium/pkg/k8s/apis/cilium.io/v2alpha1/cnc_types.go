@@ -11,8 +11,8 @@ import (
 //+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 //+kubebuilder:resource:categories={cilium}
 //+kubebuilder:object:root=true
+//+kubebuilder:deprecatedversion:warning="cilium.io/v2alpha1 CiliumNodeConfig will be deprecated in cilium v1.16; use cilium.io/v2 CiliumNodeConfig"
 //+deepequal-gen=false
-//+kubebuilder:storageversion
 
 // CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
 // nodes indicated by a label selector.

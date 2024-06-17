@@ -6,7 +6,6 @@ package policy
 import (
 	"bytes"
 	"encoding/json"
-	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -150,38 +149,23 @@ type selectorSource interface {
 	remove(identityNotifier)
 }
 
-// fqdnSelector is implemented as an updatable bag-of-labels. Any identity that matches
-// any of the labels in wantLabels is selected. Unlike the identitySelector, this selector
-// is "mutable" in that the FQDN subsystem may update the set of matched labels arbitrarily.
+// fqdnSelector implements the selectorSource for a FQDNSelector. A fqdnSelector
+// matches an identity if the identity has a `fqdn:` label matching the FQDN
+// selector string.
+// In addition, the remove implementation calls back into the DNS name manager
+// to unregister the FQDN selector.
 type fqdnSelector struct {
-	selector   api.FQDNSelector
-	wantLabels labels.LabelArray // MUST be sorted
+	selector api.FQDNSelector
 }
 
 func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
-	dnsProxy.UnregisterForIPUpdatesLocked(f.selector)
-}
-
-// setSelectorIPs updates the set of desired labels associated with this selector.
-// lock must be held
-func (f *fqdnSelector) setSelectorIPs(ips []netip.Addr) {
-	lbls := make(labels.LabelArray, 0, len(ips))
-	for _, ip := range ips {
-		l, err := labels.IPStringToLabel(ip.String())
-		if err != nil {
-			// not possible
-			continue
-		}
-		lbls = append(lbls, l)
-	}
-	lbls.Sort()
-	f.wantLabels = lbls
+	dnsProxy.UnregisterFQDNSelector(f.selector)
 }
 
 // matches returns true if the identity contains at least one label
-// that is in wantLabels.
+// that matches the FQDNSelector's IdentityLabel string
 func (f *fqdnSelector) matches(identity scIdentity) bool {
-	return identity.lbls.Intersects(f.wantLabels)
+	return identity.lbls.Intersects(labels.LabelArray{f.selector.IdentityLabel()})
 }
 
 type labelIdentitySelector struct {

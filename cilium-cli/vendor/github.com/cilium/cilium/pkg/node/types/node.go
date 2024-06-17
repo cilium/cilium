@@ -5,6 +5,7 @@ package types
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"path"
@@ -627,7 +628,7 @@ func (n *Node) Marshal() ([]byte, error) {
 }
 
 // Unmarshal parses the JSON byte slice and updates the node receiver
-func (n *Node) Unmarshal(_ string, data []byte) error {
+func (n *Node) Unmarshal(key string, data []byte) error {
 	newNode := Node{}
 	if err := json.Unmarshal(data, &newNode); err != nil {
 		return err
@@ -652,6 +653,13 @@ func (n *Node) LogRepr() string {
 }
 
 func (n *Node) validate() error {
+	switch {
+	case n.Cluster == "":
+		return errors.New("cluster is unset")
+	case n.Name == "":
+		return errors.New("name is unset")
+	}
+
 	// Skip the ClusterID check if it matches the local one, as we assume that
 	// it has already been validated, and to allow it to be zero.
 	if n.ClusterID != option.Config.ClusterID {

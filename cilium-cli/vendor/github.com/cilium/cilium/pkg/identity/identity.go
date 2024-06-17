@@ -5,6 +5,7 @@ package identity
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"strconv"
 
@@ -67,6 +68,8 @@ type IPIdentityPair struct {
 	NamedPorts   []NamedPort     `json:"NamedPorts,omitempty"`
 }
 
+type IdentityMap map[NumericIdentity]labels.LabelArray
+
 // GetKeyName returns the kvstore key to be used for the IPIdentityPair
 func (pair *IPIdentityPair) GetKeyName() string { return pair.PrefixString() }
 
@@ -74,10 +77,14 @@ func (pair *IPIdentityPair) GetKeyName() string { return pair.PrefixString() }
 func (pair *IPIdentityPair) Marshal() ([]byte, error) { return json.Marshal(pair) }
 
 // Unmarshal parses the JSON byte slice and updates the IPIdentityPair receiver
-func (pair *IPIdentityPair) Unmarshal(_ string, data []byte) error {
+func (pair *IPIdentityPair) Unmarshal(key string, data []byte) error {
 	newPair := IPIdentityPair{}
 	if err := json.Unmarshal(data, &newPair); err != nil {
 		return err
+	}
+
+	if got := newPair.GetKeyName(); got != key {
+		return fmt.Errorf("IP address does not match key: expected %s, got %s", key, got)
 	}
 
 	*pair = newPair
@@ -202,7 +209,7 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 
 	for _, label := range lbls {
 		switch label.Source {
-		case labels.LabelSourceCIDR, labels.LabelSourceReserved:
+		case labels.LabelSourceCIDR, labels.LabelSourceFQDN, labels.LabelSourceReserved:
 			scope = IdentityScopeLocal
 		default:
 			return IdentityScopeGlobal

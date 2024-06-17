@@ -36,4 +36,10 @@ const (
 
 	// AdvertTypeLogField is used as key for BGP advertisement type in the log field.
 	AdvertTypeLogField = "advertisement_type"
+
+	// PodIPPoolLogField is used as key for Pod IP pool in the log field.
+	PodIPPoolLogField = "pod_ip_pool"
+
+	// PolicyLogField is used as key for BGP policy in the log field.
+	PolicyLogField = "policy"
 )

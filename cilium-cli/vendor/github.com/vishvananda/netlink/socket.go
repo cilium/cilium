@@ -25,3 +25,13 @@ type Socket struct {
 	UID     uint32
 	INode   uint32
 }
+
+// UnixSocket represents a netlink unix socket.
+type UnixSocket struct {
+	Type   uint8
+	Family uint8
+	State  uint8
+	pad    uint8
+	INode  uint32
+	Cookie [2]uint32
+}

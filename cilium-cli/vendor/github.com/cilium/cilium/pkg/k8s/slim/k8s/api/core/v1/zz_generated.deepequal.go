@@ -212,6 +212,13 @@ func (in *EndpointPort) DeepEqual(other *EndpointPort) bool {
 	if in.Protocol != other.Protocol {
 		return false
 	}
+	if (in.AppProtocol == nil) != (other.AppProtocol == nil) {
+		return false
+	} else if in.AppProtocol != nil {
+		if *in.AppProtocol != *other.AppProtocol {
+			return false
+		}
+	}
 
 	return true
 }
@@ -1104,9 +1111,21 @@ func (in *ServicePort) DeepEqual(other *ServicePort) bool {
 	if in.Protocol != other.Protocol {
 		return false
 	}
+	if (in.AppProtocol == nil) != (other.AppProtocol == nil) {
+		return false
+	} else if in.AppProtocol != nil {
+		if *in.AppProtocol != *other.AppProtocol {
+			return false
+		}
+	}
+
 	if in.Port != other.Port {
 		return false
 	}
+	if in.TargetPort != other.TargetPort {
+		return false
+	}
+
 	if in.NodePort != other.NodePort {
 		return false
 	}
@@ -1273,6 +1292,14 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 		return false
 	} else if in.InternalTrafficPolicy != nil {
 		if *in.InternalTrafficPolicy != *other.InternalTrafficPolicy {
+			return false
+		}
+	}
+
+	if (in.TrafficDistribution == nil) != (other.TrafficDistribution == nil) {
+		return false
+	} else if in.TrafficDistribution != nil {
+		if *in.TrafficDistribution != *other.TrafficDistribution {
 			return false
 		}
 	}
