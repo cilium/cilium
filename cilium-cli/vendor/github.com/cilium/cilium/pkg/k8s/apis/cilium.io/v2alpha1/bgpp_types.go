@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -113,7 +113,7 @@ type CiliumBGPNeighborGracefulRestart struct {
 
 func (gr *CiliumBGPNeighborGracefulRestart) SetDefaults() {
 	if gr.RestartTimeSeconds == nil || *gr.RestartTimeSeconds == 0 {
-		gr.RestartTimeSeconds = pointer.Int32(DefaultBGPGRRestartTimeSeconds)
+		gr.RestartTimeSeconds = ptr.To[int32](DefaultBGPGRRestartTimeSeconds)
 	}
 }
 
@@ -353,7 +353,7 @@ func (p *CiliumBGPPeeringPolicy) SetDefaults() {
 // the main use of this method is to avoid the need for nil-checks in the controller code.
 func (r *CiliumBGPVirtualRouter) SetDefaults() {
 	if r.ExportPodCIDR == nil {
-		r.ExportPodCIDR = pointer.Bool(DefaultBGPExportPodCIDR)
+		r.ExportPodCIDR = ptr.To[bool](DefaultBGPExportPodCIDR)
 	}
 	for i := range r.Neighbors {
 		r.Neighbors[i].SetDefaults()
@@ -369,23 +369,23 @@ func (r *CiliumBGPVirtualRouter) SetDefaults() {
 // the main use of this method is to avoid the need for nil-checks in the controller code.
 func (n *CiliumBGPNeighbor) SetDefaults() {
 	if n.PeerPort == nil || *n.PeerPort == 0 {
-		n.PeerPort = pointer.Int32(DefaultBGPPeerPort)
+		n.PeerPort = ptr.To[int32](DefaultBGPPeerPort)
 	}
 	if n.EBGPMultihopTTL == nil {
-		n.EBGPMultihopTTL = pointer.Int32(DefaultBGPEBGPMultihopTTL)
+		n.EBGPMultihopTTL = ptr.To[int32](DefaultBGPEBGPMultihopTTL)
 	}
 	if n.ConnectRetryTimeSeconds == nil || *n.ConnectRetryTimeSeconds == 0 {
-		n.ConnectRetryTimeSeconds = pointer.Int32(DefaultBGPConnectRetryTimeSeconds)
+		n.ConnectRetryTimeSeconds = ptr.To[int32](DefaultBGPConnectRetryTimeSeconds)
 	}
 	if n.HoldTimeSeconds == nil || *n.HoldTimeSeconds == 0 {
-		n.HoldTimeSeconds = pointer.Int32(DefaultBGPHoldTimeSeconds)
+		n.HoldTimeSeconds = ptr.To[int32](DefaultBGPHoldTimeSeconds)
 	}
 	if n.KeepAliveTimeSeconds == nil || *n.KeepAliveTimeSeconds == 0 {
-		n.KeepAliveTimeSeconds = pointer.Int32(DefaultBGPKeepAliveTimeSeconds)
+		n.KeepAliveTimeSeconds = ptr.To[int32](DefaultBGPKeepAliveTimeSeconds)
 	}
 	if n.GracefulRestart != nil && n.GracefulRestart.Enabled &&
 		(n.GracefulRestart.RestartTimeSeconds == nil || *n.GracefulRestart.RestartTimeSeconds == 0) {
-		n.GracefulRestart.RestartTimeSeconds = pointer.Int32(DefaultBGPGRRestartTimeSeconds)
+		n.GracefulRestart.RestartTimeSeconds = ptr.To[int32](DefaultBGPGRRestartTimeSeconds)
 	}
 	if len(n.Families) == 0 {
 		n.Families = []CiliumBGPFamily{
@@ -404,8 +404,8 @@ func (n *CiliumBGPNeighbor) SetDefaults() {
 // Validate validates CiliumBGPNeighbor's configuration constraints
 // that can not be expressed using the kubebuilder validation markers.
 func (n *CiliumBGPNeighbor) Validate() error {
-	keepAliveTime := pointer.Int32Deref(n.KeepAliveTimeSeconds, DefaultBGPKeepAliveTimeSeconds)
-	holdTime := pointer.Int32Deref(n.HoldTimeSeconds, DefaultBGPHoldTimeSeconds)
+	keepAliveTime := ptr.Deref[int32](n.KeepAliveTimeSeconds, DefaultBGPKeepAliveTimeSeconds)
+	holdTime := ptr.Deref[int32](n.HoldTimeSeconds, DefaultBGPHoldTimeSeconds)
 	if keepAliveTime > holdTime {
 		return fmt.Errorf("KeepAliveTimeSeconds larger than HoldTimeSeconds for peer ASN:%d IP:%s", n.PeerASN, n.PeerAddress)
 	}

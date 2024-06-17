@@ -565,6 +565,11 @@ done:
 			}
 
 			if m.Header.Type == unix.NLMSG_DONE || m.Header.Type == unix.NLMSG_ERROR {
+				// NLMSG_DONE might have no payload, if so assume no error.
+				if m.Header.Type == unix.NLMSG_DONE && len(m.Data) == 0 {
+					break done
+				}
+
 				native := NativeEndian()
 				errno := int32(native.Uint32(m.Data[0:4]))
 				if errno == 0 {
@@ -789,8 +794,9 @@ func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, *unix.SockaddrNetli
 	if nr < unix.NLMSG_HDRLEN {
 		return nil, nil, fmt.Errorf("Got short response from netlink")
 	}
-	rb2 := make([]byte, nr)
-	copy(rb2, rb[:nr])
+	msgLen := nlmAlignOf(nr)
+	rb2 := make([]byte, msgLen)
+	copy(rb2, rb[:msgLen])
 	nl, err := syscall.ParseNetlinkMessage(rb2)
 	if err != nil {
 		return nil, nil, err
@@ -903,6 +909,22 @@ func ParseRouteAttr(b []byte) ([]syscall.NetlinkRouteAttr, error) {
 		b = b[alen:]
 	}
 	return attrs, nil
+}
+
+// ParseRouteAttrAsMap parses provided buffer that contains raw RtAttrs and returns a map of parsed
+// atttributes indexed by attribute type or error if occured.
+func ParseRouteAttrAsMap(b []byte) (map[uint16]syscall.NetlinkRouteAttr, error) {
+	attrMap := make(map[uint16]syscall.NetlinkRouteAttr)
+
+	attrs, err := ParseRouteAttr(b)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, attr := range attrs {
+		attrMap[attr.Attr.Type] = attr
+	}
+	return attrMap, nil
 }
 
 func netlinkRouteAttrAndValue(b []byte) (*unix.RtAttr, []byte, int, error) {

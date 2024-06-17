@@ -6,10 +6,12 @@ package k8s
 import (
 	"context"
 	"net"
+	"net/netip"
 	"slices"
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -18,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -137,19 +139,22 @@ type ServiceCache struct {
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
 
-	nodeAddressing types.NodeAddressing
-
 	selfNodeZoneLabel string
 
 	ServiceMutators []func(svc *slim_corev1.Service, svcInfo *Service)
+
+	db        *statedb.DB
+	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
+func NewServiceCache(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) *ServiceCache {
 	events := make(chan ServiceEvent, option.Config.K8sServiceCacheSize)
 	notifications, emitNotifications, completeNotifications := stream.Multicast[ServiceNotification]()
 
 	return &ServiceCache{
+		db:                    db,
+		nodeAddrs:             nodeAddrs,
 		services:              map[ServiceID]*Service{},
 		endpoints:             map[ServiceID]*EndpointSlices{},
 		externalEndpoints:     map[ServiceID]externalEndpoints{},
@@ -158,12 +163,11 @@ func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
 		notifications:         notifications,
 		emitNotifications:     emitNotifications,
 		completeNotifications: completeNotifications,
-		nodeAddressing:        nodeAddressing,
 	}
 }
 
-func newServiceCache(lc cell.Lifecycle, nodeAddressing types.NodeAddressing, cfg ServiceCacheConfig, lns *node.LocalNodeStore) *ServiceCache {
-	sc := NewServiceCache(nodeAddressing)
+func newServiceCache(lc cell.Lifecycle, cfg ServiceCacheConfig, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) *ServiceCache {
+	sc := NewServiceCache(db, nodeAddrs)
 	sc.config = cfg
 
 	var wg sync.WaitGroup
@@ -292,11 +296,6 @@ func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
 	return eps.GetEndpoints()
 }
 
-// GetNodeAddressing returns the registered node addresses to this service cache.
-func (s *ServiceCache) GetNodeAddressing() types.NodeAddressing {
-	return s.nodeAddressing
-}
-
 // ForEachService runs the yield callback for each service and its endpoints.
 // If yield returns false, the iteration is terminated early.
 // Services are iterated in random order.
@@ -323,7 +322,20 @@ func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, 
 // be parsed and a bool to indicate whether the service was changed in the
 // cache or not.
 func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) ServiceID {
-	svcID, newService := ParseService(k8sSvc, s.nodeAddressing)
+	var addrs []netip.Addr
+	if s.nodeAddrs != nil {
+		addrs = statedb.Collect(
+			statedb.Map(
+				// Get all addresses for which NodePort=true
+				s.nodeAddrs.List(
+					s.db.ReadTxn(),
+					datapathTables.NodeAddressNodePortIndex.Query(true)),
+				datapathTables.NodeAddress.GetAddr,
+			),
+		)
+	}
+
+	svcID, newService := ParseService(k8sSvc, addrs)
 	if newService == nil {
 		return svcID
 	}
@@ -562,7 +574,7 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 // filterEndpoints filters local endpoints by using k8s service heuristics.
 // For now it only implements the topology aware hints.
 func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) *Endpoints {
-	if !s.config.EnableServiceTopology || svc == nil || !svc.TopologyAware {
+	if !s.config.EnableServiceTopology || svc == nil {
 		return localEndpoints
 	}
 

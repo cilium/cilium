@@ -137,7 +137,7 @@ func (p Proc) CmdLine() ([]string, error) {
 		return []string{}, nil
 	}
 
-	return strings.Split(string(bytes.TrimRight(data, string("\x00"))), string(byte(0))), nil
+	return strings.Split(string(bytes.TrimRight(data, "\x00")), "\x00"), nil
 }
 
 // Wchan returns the wchan (wait channel) of a process.

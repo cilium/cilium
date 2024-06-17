@@ -12,16 +12,15 @@ import (
 	upstream "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/healthv2"
-	healthTypes "github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 type (
@@ -41,30 +40,37 @@ func New(cells ...cell.Cell) *Hive {
 	cells = append(
 		slices.Clone(cells),
 
-		healthv2.Cell,
+		health.Cell,
 		job.Cell,
 		statedb.Cell,
-		reconciler.Cell,
 
 		cell.Provide(
+			NewStateDBMetrics,
+			NewStateDBReconcilerMetrics,
 			func() logrus.FieldLogger { return logging.DefaultLogger },
-			func(provider healthTypes.Provider) cell.Health {
+			func(provider types.Provider) cell.Health {
 				return provider.ForModule(nil)
 			},
 		))
 	// Scope logging and health by module ID.
 	moduleDecorators := []cell.ModuleDecorator{
 		func(log logrus.FieldLogger, mid cell.ModuleID) logrus.FieldLogger {
-			return log.WithField(logfields.LogSubsys, mid)
+			return log.WithField(logfields.LogSubsys, string(mid))
 		},
-		func(hp healthTypes.Provider, fmid cell.FullModuleID) cell.Health {
+		func(hp types.Provider, fmid cell.FullModuleID) cell.Health {
 			return hp.ForModule(fmid)
+		},
+	}
+	modulePrivateProviders := []cell.ModulePrivateProvider{
+		jobGroupProvider,
+		func(db *statedb.DB, mid cell.ModuleID) statedb.Handle {
+			return db.NewHandle(string(mid))
 		},
 	}
 	return upstream.NewWithOptions(
 		upstream.Options{
 			EnvPrefix:              "CILIUM_",
-			ModulePrivateProviders: []cell.ModulePrivateProvider{jobGroupProvider},
+			ModulePrivateProviders: modulePrivateProviders,
 			ModuleDecorators:       moduleDecorators,
 			DecodeHooks:            decodeHooks,
 			StartTimeout:           5 * time.Minute,

@@ -35,6 +35,8 @@ type HeaderMatch struct {
 	Mismatch MismatchAction `json:"mismatch,omitempty"`
 
 	// Name identifies the header.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// Secret refers to a secret that contains the value to be matched against.

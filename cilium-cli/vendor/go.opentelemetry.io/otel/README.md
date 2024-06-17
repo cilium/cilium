@@ -15,7 +15,7 @@ It provides a set of APIs to directly measure performance and behavior of your s
 |---------|--------------------|
 | Traces  | Stable             |
 | Metrics | Stable             |
-| Logs    | In development[^1] |
+| Logs    | Beta[^1]           |
 
 Progress and status specific to this repository is tracked in our
 [project boards](https://github.com/open-telemetry/opentelemetry-go/projects)
@@ -97,12 +97,12 @@ export pipeline to send that telemetry to an observability platform.
 
 All officially supported exporters for the OpenTelemetry project are contained in the [exporters directory](./exporters).
 
-| Exporter                              | Metrics | Traces |
-|---------------------------------------|:-------:|:------:|
-| [OTLP](./exporters/otlp/)             |    ✓    |   ✓    |
-| [Prometheus](./exporters/prometheus/) |    ✓    |        |
-| [stdout](./exporters/stdout/)         |    ✓    |   ✓    |
-| [Zipkin](./exporters/zipkin/)         |         |   ✓    |
+| Exporter                              | Logs | Metrics | Traces |
+|---------------------------------------|:----:|:-------:|:------:|
+| [OTLP](./exporters/otlp/)             |  ✓   |    ✓    |   ✓    |
+| [Prometheus](./exporters/prometheus/) |      |    ✓    |        |
+| [stdout](./exporters/stdout/)         |  ✓   |    ✓    |   ✓    |
+| [Zipkin](./exporters/zipkin/)         |      |         |   ✓    |
 
 ## Contributing
 

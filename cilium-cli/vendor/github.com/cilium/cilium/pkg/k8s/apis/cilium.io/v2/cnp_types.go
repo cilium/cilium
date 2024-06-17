@@ -71,12 +71,17 @@ func objectMetaDeepEqual(in, other metav1.ObjectMeta) bool {
 
 // CiliumNetworkPolicyStatus is the status of a Cilium policy rule.
 type CiliumNetworkPolicyStatus struct {
-	// Nodes is the Cilium policy status for each node
-	Nodes map[string]CiliumNetworkPolicyNodeStatus `json:"nodes,omitempty"`
 
 	// DerivativePolicies is the status of all policies derived from the Cilium
 	// policy
 	DerivativePolicies map[string]CiliumNetworkPolicyNodeStatus `json:"derivativePolicies,omitempty"`
+
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []NetworkPolicyCondition `json:"conditions,omitempty"`
 }
 
 // +deepequal-gen=true
@@ -141,24 +146,6 @@ func (r *CiliumNetworkPolicy) String() string {
 	}
 	result += fmt.Sprintf("Status: %v", r.Status)
 	return result
-}
-
-// GetPolicyStatus returns the CiliumNetworkPolicyNodeStatus corresponding to
-// nodeName in the provided CiliumNetworkPolicy. If Nodes within the rule's
-// Status is nil, returns an empty CiliumNetworkPolicyNodeStatus.
-func (r *CiliumNetworkPolicy) GetPolicyStatus(nodeName string) CiliumNetworkPolicyNodeStatus {
-	if r.Status.Nodes == nil {
-		return CiliumNetworkPolicyNodeStatus{}
-	}
-	return r.Status.Nodes[nodeName]
-}
-
-// SetPolicyStatus sets the given policy status for the given nodes' map.
-func (r *CiliumNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetworkPolicyNodeStatus) {
-	if r.Status.Nodes == nil {
-		r.Status.Nodes = map[string]CiliumNetworkPolicyNodeStatus{}
-	}
-	r.Status.Nodes[nodeName] = cnpns
 }
 
 // SetDerivedPolicyStatus set the derivative policy status for the given
@@ -279,4 +266,26 @@ type CiliumNetworkPolicyList struct {
 
 	// Items is a list of CiliumNetworkPolicy
 	Items []CiliumNetworkPolicy `json:"items"`
+}
+
+type PolicyConditionType string
+
+const (
+	PolicyConditionValid PolicyConditionType = "Valid"
+)
+
+type NetworkPolicyCondition struct {
+	// The type of the policy condition
+	Type PolicyConditionType `json:"type"`
+	// The status of the condition, one of True, False, or Unknown
+	Status v1.ConditionStatus `json:"status"`
+	// The last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime slimv1.Time `json:"lastTransitionTime,omitempty"`
+	// The reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// A human readable message indicating details about the transition.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
