@@ -1,3 +1,7 @@
+# v1.164.1 (2024-06-14)
+
+* **Documentation**: Documentation updates for Amazon EC2.
+
 # v1.164.0 (2024-06-12)
 
 * **Feature**: Tagging support for Traffic Mirroring FilterRule resource

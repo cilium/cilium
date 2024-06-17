@@ -12,7 +12,7 @@ import (
 )
 
 // Disables Elastic IP address transfer. For more information, see [Transfer Elastic IP addresses] in the Amazon
-// Virtual Private Cloud User Guide.
+// VPC User Guide.
 //
 // [Transfer Elastic IP addresses]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro
 func (c *Client) DisableAddressTransfer(ctx context.Context, params *DisableAddressTransferInput, optFns ...func(*Options)) (*DisableAddressTransferOutput, error) {
