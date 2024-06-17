@@ -37,11 +37,13 @@ var (
 	// localHostKey represents an ingress L3 allow from the local host.
 	localHostKey = Key{
 		Identity:         identity.ReservedIdentityHost.Uint32(),
+		InvertedPortMask: 0xffff, // This is a wildcard
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	allKey = Key{
-		Identity: identity.IdentityUnknown.Uint32(),
+		Identity:         identity.IdentityUnknown.Uint32(),
+		InvertedPortMask: 0xffff,
 	}
 )
 
@@ -61,7 +63,8 @@ type MapState interface {
 	Get(Key) (MapStateEntry, bool)
 	Insert(Key, MapStateEntry)
 	Delete(Key)
-	// ForEach allows iteration over the MapStateEntries. It returns true iff
+
+	// ForEach allows iteration over the MapStateEntries. It returns true if
 	// the iteration was not stopped early by the callback.
 	ForEach(func(Key, MapStateEntry) (cont bool)) (complete bool)
 	// ForEachAllow behaves like ForEach, but only iterates MapStateEntries which are not denies.
@@ -828,7 +831,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	// We cannot update the map while we are
 	// iterating through it, so we record the
 	// changes to be made and then apply them.
-	var updates []MapChange
+	// Additionally, we need to perform deletes
+	// first so that deny entries do not get
+	// merged with allows that are set to be
+	// deleted.
+	var (
+		updates, deletes []MapChange
+	)
 	if newEntry.IsDeny {
 		ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
 			// Protocols and traffic directions that don't match ensure that the policies
@@ -859,12 +868,18 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 				// the new-entry has a broader (or equal) port-protocol then we
 				// should delete the iterated-allow-entry
-				updates = append(updates, MapChange{
+				deletes = append(deletes, MapChange{
 					Key: k,
 				})
+
 			}
 			return true
 		})
+		for _, delete := range deletes {
+			if !delete.Add {
+				ms.deleteKeyWithChanges(delete.Key, nil, changes)
+			}
+		}
 		for _, update := range updates {
 			if update.Add {
 				ms.addKeyWithChanges(update.Key, update.Value, changes)
@@ -872,8 +887,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// effects on other entries so that those effects can be reverted when the
 				// identity is removed.
 				newEntry.AddDependent(update.Key)
-			} else {
-				ms.deleteKeyWithChanges(update.Key, nil, changes)
 			}
 		}
 
@@ -1094,6 +1107,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					if k.Identity != 0 && k.Nexthdr == 0 && newKey.Identity == 0 && newKey.Nexthdr != 0 {
 						newKeyCpy := k
 						newKeyCpy.DestPort = newKey.DestPort
+						newKeyCpy.InvertedPortMask = newKey.InvertedPortMask
 						newKeyCpy.Nexthdr = newKey.Nexthdr
 						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
@@ -1147,6 +1161,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					if newKey.Identity != 0 && newKey.Nexthdr == 0 && k.Identity == 0 && k.Nexthdr != 0 {
 						newKeyCpy := newKey
 						newKeyCpy.DestPort = k.DestPort
+						newKeyCpy.InvertedPortMask = k.InvertedPortMask
 						newKeyCpy.Nexthdr = k.Nexthdr
 						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
@@ -1260,9 +1275,15 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 
 	allowAllKey := Key{
 		TrafficDirection: direction.Uint8(),
+		InvertedPortMask: 0xffff, // This is a wildcard
+	}
+	var invertedPortMask uint16
+	if visMeta.Port == 0 {
+		invertedPortMask = 0xffff
 	}
 	key := Key{
 		DestPort:         visMeta.Port,
+		InvertedPortMask: invertedPortMask,
 		Nexthdr:          uint8(visMeta.Proto),
 		TrafficDirection: direction.Uint8(),
 	}
@@ -1291,6 +1312,9 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 		addL4OnlyKey = true
 		ms.addKeyWithChanges(key, entry, changes)
 	}
+	// We need to make changes to the map
+	// outside of iteration.
+	var updates []MapChange
 	//
 	// Loop through all L3 keys in the traffic direction of the new key
 	//
@@ -1318,7 +1342,11 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 					logfields.BPFMapKey:   k,
 					logfields.BPFMapValue: v,
 				}, "AddVisibilityKeys: Changing L3/L4 ALLOW key for visibility redirect")
-				ms.addKeyWithChanges(k, v, changes)
+				updates = append(updates, MapChange{
+					Add:   true,
+					Key:   k,
+					Value: v,
+				})
 			}
 		} else if k.DestPort == 0 && k.Nexthdr == 0 {
 			//
@@ -1326,6 +1354,7 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 			//
 			k2 := k
 			k2.DestPort = key.DestPort
+			k2.InvertedPortMask = key.InvertedPortMask
 			k2.Nexthdr = key.Nexthdr
 			if !v.IsDeny && !haveL4OnlyKey && !addL4OnlyKey {
 				// 4. For each L3-only ALLOW key add the corresponding L3/L4
@@ -1339,8 +1368,11 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibility redirect")
-					ms.addKeyWithChanges(k2, v2, changes)
-
+					updates = append(updates, MapChange{
+						Add:   true,
+						Key:   k2,
+						Value: v2,
+					})
 					// Mark the new entry as a dependent of 'v'
 					ms.addDependentOnEntry(k, v, k2, changes)
 				}
@@ -1354,16 +1386,21 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only DENY key to L3/L4 key to deny a port with visibility annotation")
-					ms.addKeyWithChanges(k2, v2, changes)
-
+					updates = append(updates, MapChange{
+						Add:   true,
+						Key:   k2,
+						Value: v2,
+					})
 					// Mark the new entry as a dependent of 'v'
 					ms.addDependentOnEntry(k, v, k2, changes)
 				}
 			}
 		}
-
 		return true
 	})
+	for _, update := range updates {
+		ms.addKeyWithChanges(update.Key, update.Value, changes)
+	}
 }
 
 // determineAllowLocalhostIngress determines whether communication should be allowed
@@ -1391,6 +1428,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 		keyToAdd := Key{
 			Identity:         0,
 			DestPort:         0,
+			InvertedPortMask: 0xffff, // This is a wildcard
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Ingress.Uint8(),
 		}

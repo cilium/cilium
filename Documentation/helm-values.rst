@@ -95,7 +95,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.image`
      - SPIRE agent image
      - object
-     - ``{"digest":"sha256:99405637647968245ff9fe215f8bd2bd0ea9807be9725f8bf19fe1b21471e52b","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.8.5","useDigest":true}``
+     - ``{"digest":"sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.9.6","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.labels`
      - SPIRE agent labels
      - object
@@ -175,7 +175,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.server.image`
      - SPIRE server image
      - object
-     - ``{"digest":"sha256:28269265882048dcf0fed32fe47663cd98613727210b8d1a55618826f9bf5428","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.8.5","useDigest":true}``
+     - ``{"digest":"sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.9.6","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.initContainers`
      - SPIRE server init containers
      - list
@@ -712,6 +712,14 @@
      - The internalTrafficPolicy of service used for apiserver access.
      - string
      - ``"Cluster"``
+   * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerClass`
+     - Configure a loadBalancerClass. Allows to configure the loadBalancerClass on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer (requires Kubernetes 1.24+).
+     - string
+     - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerIP`
+     - Configure a specific loadBalancerIP. Allows to configure a specific loadBalancerIP on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer.
+     - string
+     - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.service.nodePort`
      - Optional port to use as the node port for apiserver access.  WARNING: make sure to configure a different NodePort in each cluster if kube-proxy replacement is enabled, as Cilium is currently affected by a known bug (#24692) when NodePorts are handled by the KPR implementation. If a service with the same NodePort exists both in the local and the remote cluster, all traffic originating from inside the cluster and targeting the corresponding NodePort will be redirected to a local backend, regardless of whether the destination node belongs to the local or the remote cluster.
      - int
@@ -916,6 +924,10 @@
      - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy
      - string
      - ``nil``
+   * - :spelling:ignore:`directRoutingSkipUnreachable`
+     - Enable skipping of PodCIDR routes between worker nodes if the worker nodes are in a different L2 network segment.
+     - bool
+     - ``false``
    * - :spelling:ignore:`disableEndpointCRD`
      - Disable the usage of CiliumEndpoint CRD.
      - bool
@@ -1943,7 +1955,7 @@
    * - :spelling:ignore:`hubble.ui.backend.image`
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:1e7657d997c5a48253bb8dc91ecee75b63018d16ff5e5797e5af367336bc8803","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.0","useDigest":true}``
+     - ``{"digest":"sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.1","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
      - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
      - bool
@@ -1983,7 +1995,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.image`
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:7d663dc16538dd6e29061abd1047013a645e6e69c115e008bee9ea9fef9a6666","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.0","useDigest":true}``
+     - ``{"digest":"sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.1","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.frontend.resources`
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object

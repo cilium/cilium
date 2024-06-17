@@ -12,11 +12,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
-	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -51,10 +48,6 @@ type handlersOut struct {
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
 
-	IpamDeleteIpamIPHandler ipam.DeleteIpamIPHandler
-	IpamPostIpamHandler     ipam.PostIpamHandler
-	IpamPostIpamIPHandler   ipam.PostIpamIPHandler
-
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
 
 	PolicyDeleteFqdnCacheHandler      policy.DeleteFqdnCacheHandler
@@ -70,18 +63,7 @@ type handlersOut struct {
 	PolicyGetPolicySelectorsHandler   policy.GetPolicySelectorsHandler
 	PolicyPutPolicyHandler            policy.PutPolicyHandler
 
-	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
-	PrefilterGetPrefilterHandler    prefilter.GetPrefilterHandler
-	PrefilterPatchPrefilterHandler  prefilter.PatchPrefilterHandler
-
-	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
-	RecorderGetRecorderHandler      recorder.GetRecorderHandler
-	RecorderGetRecorderIDHandler    recorder.GetRecorderIDHandler
-	RecorderGetRecorderMasksHandler recorder.GetRecorderMasksHandler
-	RecorderPutRecorderIDHandler    recorder.PutRecorderIDHandler
-
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
-	ServiceGetLrpHandler          service.GetLrpHandler
 	ServiceGetServiceHandler      service.GetServiceHandler
 	ServiceGetServiceIDHandler    service.GetServiceIDHandler
 	ServicePutServiceIDHandler    service.PutServiceIDHandler
@@ -170,9 +152,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 		out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
 		out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
 		out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
-
-		// /lrp/
-		out.ServiceGetLrpHandler = wrapAPIHandler(dp, getLRPHandler)
 	}
 
 	// /service/{id}/
@@ -182,29 +161,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /service/
 	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
-
-	// /recorder/{id}/
-	out.RecorderGetRecorderIDHandler = wrapAPIHandler(dp, getRecorderIDHandler)
-	out.RecorderDeleteRecorderIDHandler = wrapAPIHandler(dp, deleteRecorderIDHandler)
-	out.RecorderPutRecorderIDHandler = wrapAPIHandler(dp, putRecorderIDHandler)
-
-	// /recorder/
-	out.RecorderGetRecorderHandler = wrapAPIHandler(dp, getRecorderHandler)
-
-	// /recorder/masks
-	out.RecorderGetRecorderMasksHandler = wrapAPIHandler(dp, getRecorderMasksHandler)
-
-	// /prefilter/
-	out.PrefilterGetPrefilterHandler = wrapAPIHandler(dp, getPrefilterHandler)
-	out.PrefilterDeletePrefilterHandler = wrapAPIHandler(dp, deletePrefilterHandler)
-	out.PrefilterPatchPrefilterHandler = wrapAPIHandler(dp, patchPrefilterHandler)
-
-	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /ipam/{ip}/
-		out.IpamPostIpamHandler = wrapAPIHandler(dp, postIPAMHandler)
-		out.IpamPostIpamIPHandler = wrapAPIHandler(dp, postIPAMIPHandler)
-		out.IpamDeleteIpamIPHandler = wrapAPIHandler(dp, deleteIPAMIPHandler)
-	}
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)

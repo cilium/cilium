@@ -14,10 +14,6 @@
   // config, for example the regex. See:
   // https://docs.renovatebot.com/self-hosted-configuration/#requireconfig
   "requireConfig": "ignored",
-  "allowedPostUpgradeCommands": [
-    "^make -C install/kubernetes$",
-    "^go mod vendor$",
-  ],
   // This ensures that the gitAuthor and gitSignOff fields match
   "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
@@ -81,6 +77,10 @@
     "release-note/misc"
   ],
   "stopUpdatingLabel": "renovate/stop-updating",
+  "allowedPostUpgradeCommands": [
+    "^make -C install/kubernetes$",
+    "^make -C Documentation update-helm-values$",
+  ],
   "packageRules": [
     {
       // Try to group all updates for all dependencies in a single PR. More
@@ -209,7 +209,6 @@
       ],
     },
     {
-      "groupName": "spire-images",
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
@@ -221,15 +220,8 @@
         "main"
       ],
       "allowedVersions": ">1.6",
-      // generate files for helm chart
-      "postUpgradeTasks": {
-        "commands": ["make -C install/kubernetes"],
-        "fileFilters": ["**/**"],
-        "executionMode": "branch"
-      }
     },
     {
-      "groupName": "spire-images",
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
@@ -241,12 +233,6 @@
         "v1.14"
       ],
       "allowedVersions": "<1.7",
-      // generate files for helm chart
-      "postUpgradeTasks": {
-        "commands": ["make -C install/kubernetes"],
-        "fileFilters": ["**/**"],
-        "executionMode": "branch"
-      }
     },
     {
       "matchPackageNames": [
@@ -455,6 +441,24 @@
         "quay.io/cilium/kindest-node"
       ],
       "ignoreUnstable": false
+    },
+    {
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C install/kubernetes",
+          "make -C Documentation update-helm-values"
+        ],
+        "fileFilters": [
+          "install/kubernetes/Makefile.values",
+          "install/kubernetes/cilium/README.md",
+          "install/kubernetes/cilium/values.yaml",
+          "Documentation/helm-values.rst"
+        ],
+        "executionMode": "update"
+      }
     }
   ],
   "kubernetes": {

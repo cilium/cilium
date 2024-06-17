@@ -10,11 +10,11 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.9.24
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.761
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.763
 	github.com/aws/aws-sdk-go-v2 v1.27.2
 	github.com/aws/aws-sdk-go-v2/config v1.27.18
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.5
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.164.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.164.1
 	github.com/aws/smithy-go v1.20.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bombsimon/logrusr/v4 v4.1.0
@@ -28,7 +28,7 @@ require (
 	github.com/cilium/linters v0.0.0-20240611134452-310e8a3d60a5
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20240418093727-2c7164c53e26
-	github.com/cilium/statedb v0.0.0-20240604111733-b27b7794ffac
+	github.com/cilium/statedb v0.1.0
 	github.com/cilium/stream v0.0.0-20240226091623-f979d32855f8
 	github.com/cilium/workerpool v1.2.0
 	github.com/containernetworking/cni v1.2.0
@@ -83,7 +83,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cast v1.6.0
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/spf13/viper v1.19.0
 	github.com/spiffe/go-spiffe/v2 v2.2.0
@@ -103,7 +103,7 @@ require (
 	go.universe.tf/metallb v0.11.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.24.0
-	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
+	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 	golang.org/x/mod v0.18.0
 	golang.org/x/net v0.26.0
 	golang.org/x/sync v0.7.0
@@ -165,7 +165,7 @@ require (
 	github.com/containerd/containerd v1.7.14 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/distribution/reference v0.5.0 // indirect

@@ -39,6 +39,10 @@ jobs:
           # default to DEBUG log level, this is always useful
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
         with:
+          # renovate: datasource=github-releases depName=renovatebot/renovate
+          renovate-version: 37.410.1
+          docker-user: root
+          docker-cmd-file: .github/actions/renovate/entrypoint.sh
           configurationFile: .github/renovate.json5
           token: '${{ steps.get_token.outputs.app_token }}'
           mount-docker-socket: true

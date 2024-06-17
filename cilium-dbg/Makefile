@@ -1,6 +1,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
+.DEFAULT_GOAL := all
+
 ROOT_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include ${ROOT_DIR}/../Makefile.defs
@@ -9,7 +11,6 @@ include ${ROOT_DIR}/../Makefile.defs
 # ROOT_DIR changes to repo root after including Makefile.defs
 -include ${ROOT_DIR}/Makefile.override
 
-$(warning $(OTHERTEST))
 TARGET := cilium-dbg
 TARGET_OLD := cilium
 

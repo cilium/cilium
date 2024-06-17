@@ -155,7 +155,7 @@ jobs:
 #          is resolved.
 #          - name: '7'
 #            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-#            kernel: 'bpf-next-20240613.013105'
+#            kernel: 'bpf-next-20240617.013201'
 #            kube-proxy: 'none'
 #            kpr: 'true'
 #            devices: '{eth0,eth1}'
@@ -170,7 +170,7 @@ jobs:
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240613.013105'
+            kernel: 'bpf-next-20240617.013201'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -220,7 +220,7 @@ jobs:
           # often.
           #- name: '12'
           #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-next-20240613.013105'
+          #  kernel: 'bpf-next-20240617.013201'
           #  kube-proxy: 'none'
           #  kpr: 'true'
           #  devices: '{eth0,eth1}'
@@ -250,7 +250,7 @@ jobs:
 
           - name: '15'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240613.013105'
+            kernel: 'bpf-next-20240617.013201'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -282,7 +282,7 @@ jobs:
           # can be tested with netkit.
           # - name: '17'
           #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240613.013105'
+          #  kernel: 'bpf-20240617.013201'
           #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
           #  kube-proxy: 'none'
           #  kpr: 'true'
@@ -293,7 +293,7 @@ jobs:
           #
           # - name: '18'
           #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240613.013105'
+          #  kernel: 'bpf-20240617.013201'
           #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
           #  kube-proxy: 'none'
           #  kpr: 'true'
@@ -304,7 +304,7 @@ jobs:
           #
           # - name: '19'
           #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240613.013105'
+          #  kernel: 'bpf-20240617.013201'
           #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
           #  kube-proxy: 'none'
           #  kpr: 'true'
@@ -314,7 +314,7 @@ jobs:
           #
           # - name: '20'
           #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240613.013105'
+          #  kernel: 'bpf-20240617.013201'
           #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #  kube-proxy: 'none'
           #  kpr: 'true'
@@ -324,7 +324,7 @@ jobs:
           #
           # - name: '21'
           #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240613.013105'
+          #  kernel: 'bpf-20240617.013201'
           #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
           #  kube-proxy: 'none'
           #  kpr: 'true'
@@ -334,7 +334,7 @@ jobs:
           #
           # - name: '22'
           #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240613.013105'
+          #  kernel: 'bpf-20240617.013201'
           #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #  kube-proxy: 'none'
           #  kpr: 'true'
@@ -505,9 +505,9 @@ jobs:
       - name: Test Cilium after upgrade
         shell: bash
         run: |
-          EXTRA=""
+          EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA="--secondary-network-iface=eth1"
+            EXTRA+=("--secondary-network-iface=eth1")
           fi
 
           # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
@@ -524,7 +524,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            $EXTRA
+            "${EXTRA[@]}"
 
           # --flush-ct interrupts the flows, so we need to set up again.
           ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
@@ -543,9 +543,9 @@ jobs:
       - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
         shell: bash
         run: |
-          EXTRA=""
+          EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA="--secondary-network-iface=eth1"
+            EXTRA+=("--secondary-network-iface=eth1")
           fi
 
           # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
@@ -562,7 +562,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            $EXTRA
+            "${EXTRA[@]}"
 
       - name: Fetch artifacts
         if: ${{ !success() }}

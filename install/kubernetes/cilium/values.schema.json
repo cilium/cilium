@@ -1212,6 +1212,18 @@
                     "Cluster"
                   ]
                 },
+                "loadBalancerClass": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "loadBalancerIP": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "nodePort": {
                   "type": "integer"
                 },
@@ -1512,6 +1524,9 @@
         }
       },
       "type": "object"
+    },
+    "directRoutingSkipUnreachable": {
+      "type": "boolean"
     },
     "disableEndpointCRD": {
       "type": "boolean"

@@ -202,7 +202,7 @@ func (r *ServiceReconciler) reconcileLBIPPoolRoutePolicies(ctx context.Context, 
 		updatedLBPoolRoutePolicies, rErr := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
 			Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
 			Ctx:             ctx,
-			Instance:        p.BGPInstance,
+			Router:          p.BGPInstance.Router,
 			DesiredPolicies: desiredLBPoolRoutePolicies,
 			CurrentPolicies: currentLBPoolRoutePolicies,
 		})
@@ -273,7 +273,7 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Rec
 		updatedSvcRoutePolicies, rErr := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
 			Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
 			Ctx:             ctx,
-			Instance:        p.BGPInstance,
+			Router:          p.BGPInstance.Router,
 			DesiredPolicies: desiredSvcRoutePolicies,
 			CurrentPolicies: currentSvcRoutePolicies,
 		})
@@ -393,7 +393,7 @@ func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 		updatedAFPaths, rErr := ReconcileAFPaths(&ReconcileAFPathsParams{
 			Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
 			Ctx:          ctx,
-			Instance:     p.BGPInstance,
+			Router:       p.BGPInstance.Router,
 			DesiredPaths: desiredAFPaths,
 			CurrentPaths: currentAFPaths,
 		})

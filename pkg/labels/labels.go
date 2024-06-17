@@ -147,6 +147,9 @@ const (
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
 
+	// LabelSourceDirectory is the label source for policies read from files
+	LabelSourceDirectory = "directory"
+
 	// LabelKeyFixedIdentity is the label that can be used to define a fixed
 	// identity.
 	LabelKeyFixedIdentity = "io.cilium.fixed-identity"

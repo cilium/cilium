@@ -98,7 +98,8 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 		sharedNodeStore.ownNode = cn
 	})
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil)
+	ipam.ConfigureAllocator()
 	sharedNodeStore.updateLocalNodeResource(cn)
 
 	// Allocate the first 3 IPs

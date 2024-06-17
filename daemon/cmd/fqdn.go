@@ -11,7 +11,6 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/cilium/dns"
 	"github.com/go-openapi/runtime/middleware"
@@ -93,20 +92,15 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		return nil
 	}
 
-	// Once we stop returning errors from StartDNSProxy this should live in
-	// StartProxySupport
-	port, err := d.l7Proxy.GetProxyPort(proxytypes.DNSProxyName)
-	if err != nil {
-		return err
-	}
-	if option.Config.ToFQDNsProxyPort != 0 {
-		port = uint16(option.Config.ToFQDNsProxyPort)
-	} else if port == 0 {
-		// Try locate old DNS proxy port number from the datapath, and reuse it if it's not open
-		oldPort := d.datapath.GetProxyPort(proxytypes.DNSProxyName)
-		openLocalPorts := proxy.OpenLocalPorts()
-		if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
-			port = oldPort
+	// A configured proxy port takes precedence over using the previous port.
+	port := uint16(option.Config.ToFQDNsProxyPort)
+	if port == 0 {
+		// Try reuse previous DNS proxy port number
+		if oldPort, err := d.l7Proxy.GetProxyPort(proxytypes.DNSProxyName); err == nil {
+			openLocalPorts := proxy.OpenLocalPorts()
+			if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
+				port = oldPort
+			}
 		}
 	}
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
@@ -377,7 +371,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -385,17 +379,10 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
-		updateComplete := make(chan struct{})
-		go func(wg *sync.WaitGroup, done chan struct{}) {
-			wg.Wait()
-			close(updateComplete)
-		}(wg, updateComplete)
 
-		select {
-		case <-updateCtx.Done():
+		if err := dpUpdates.Wait(); err != nil {
 			log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
-		case <-updateComplete:
 		}
 
 		log.WithFields(logrus.Fields{

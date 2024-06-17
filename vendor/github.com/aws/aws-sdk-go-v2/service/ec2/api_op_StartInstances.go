@@ -32,9 +32,9 @@ import (
 // supported on Dedicated Hosts. Before you start the instance, either change its
 // CPU credit option to standard , or change its tenancy to default or dedicated .
 //
-// For more information, see [Stop and start your instance] in the Amazon EC2 User Guide.
+// For more information, see [Stop and start Amazon EC2 instances] in the Amazon EC2 User Guide.
 //
-// [Stop and start your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html
+// [Stop and start Amazon EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html
 func (c *Client) StartInstances(ctx context.Context, params *StartInstancesInput, optFns ...func(*Options)) (*StartInstancesOutput, error) {
 	if params == nil {
 		params = &StartInstancesInput{}

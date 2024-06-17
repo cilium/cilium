@@ -23,13 +23,13 @@ See the `Gateway API site <https://gateway-api.sigs.k8s.io/>`__ for more details
 Cilium Gateway API Support
 ##########################
 
-Cilium supports Gateway API v1.0.0 for below resources, all the Core conformance
+Cilium supports Gateway API v1.1.0 for below resources, all the Core conformance
 tests are passed.
 
 - `GatewayClass <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/>`_
 - `Gateway <https://gateway-api.sigs.k8s.io/api-types/gateway/>`_
 - `HTTPRoute <https://gateway-api.sigs.k8s.io/api-types/httproute/>`_
-- `GRPCRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1alpha2.GRPCRoute>`__
+- `GRPCRoute <https://gateway-api.sigs.k8s.io/api-types/grpcroute/>`__
 - `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1alpha2.TLSRoute>`__
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
 
@@ -58,7 +58,7 @@ Cilium's Gateway API features:
    splitting
    header
 
-More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.0.0/examples/standard>`_.
+More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.1.0/examples/standard>`_.
 
 Troubleshooting
 ###############

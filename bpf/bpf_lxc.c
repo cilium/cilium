@@ -851,7 +851,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_buffer4 *ct_buffer;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
-	bool has_l4_header = false;
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
@@ -860,8 +859,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
-
-	has_l4_header = ipv4_has_l4_header(ip4);
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
@@ -1020,26 +1017,12 @@ ct_recreate4:
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 						  ext_err);
 		}
-
 #endif /* ENABLE_NODEPORT */
 
-		/* RevNAT for replies on a loopback connection: */
-		if (ct_state->rev_nat_index && ct_state->loopback) {
-			ret = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
-					  ct_state->rev_nat_index,
-					  true, tuple, has_l4_header);
-			if (IS_ERR(ret))
-				return ret;
-		}
 		break;
-
 	default:
 		return DROP_UNKNOWN_CT;
 	}
-
-	/* After L4 write in port mapping: revalidate for direct packet access */
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 #ifdef ENABLE_SRV6
 	{
@@ -1103,17 +1086,18 @@ ct_recreate4:
 	 */
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
 	    is_defined(ENABLE_HOST_ROUTING)) {
-		/* Hairpin requests need to pass through the backend's to-container
-		 * path, to create a CT_INGRESS entry with .lb_loopback set. This
-		 * drives RevNAT in the backend's from-container path.
-		 *
-		 * Hairpin replies are fully RevNATed in the backend's from-container
-		 * path. Thus they don't match the CT_EGRESS entry, and we can't rely
-		 * on a CT_REPLY result that would provide bypass of ingress policy.
-		 * Thus manually skip the ingress policy path.
-		 */
-		bool bypass_ingress_policy = hairpin_flow && ct_status == CT_REPLY;
+		__be32 daddr = ip4->daddr;
 		struct endpoint_info *ep;
+
+		/* Loopback replies are addressed to IPV4_LOOPBACK, so
+		 * an endpoint lookup with ip4->daddr won't work.
+		 *
+		 * But as it is loopback traffic, the clientIP and backendIP
+		 * are identical and we can just use the packet's saddr
+		 * for the destination endpoint lookup.
+		 */
+		if (ct_status == CT_REPLY && hairpin_flow)
+			daddr = ip4->saddr;
 
 		/* Lookup IPv4 address, this will return a match if:
 		 *  - The destination IP address belongs to a local endpoint
@@ -1122,7 +1106,7 @@ ct_recreate4:
 		 *    host itself
 		 *  - The destination IP address belongs to endpoint itself.
 		 */
-		ep = lookup_ip4_endpoint(ip4);
+		ep = __lookup_ip4_endpoint(daddr);
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_F_HOST) {
@@ -1140,7 +1124,7 @@ ct_recreate4:
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV4,
 						   MARK_MAGIC_IDENTITY, ip4,
 						   ep, METRIC_EGRESS, from_l7lb,
-						   bypass_ingress_policy, false, 0);
+						   false, 0);
 		}
 	}
 
@@ -1866,14 +1850,15 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 		}
 
 		/* Reverse NAT applies to return traffic only. */
-		if (unlikely(ct_state->rev_nat_index && !ct_state->loopback)) {
+		if (unlikely(ct_state->rev_nat_index)) {
 			bool has_l4_header = false;
 			int ret2;
 
 			has_l4_header = ipv4_has_l4_header(ip4);
 
 			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
-					   ct_state->rev_nat_index, false,
+					   ct_state->rev_nat_index,
+					   ct_state->loopback,
 					   tuple, has_l4_header);
 			if (IS_ERR(ret2))
 				return ret2;
@@ -1897,6 +1882,9 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 	 * connection. Populate
 	 * - .loopback, so that policy enforcement is bypassed, and
 	 * - .rev_nat_index, so that replies can be RevNATed.
+	 *
+	 * TODO: in v1.17, remove the rev_nat_index part. We're no longer driving
+	 * RevNAT from this CT entry.
 	 */
 	if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
 	    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple,
@@ -2051,76 +2039,6 @@ drop_err:
 				    ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
-static __always_inline bool
-ipv4_to_endpoint_is_hairpin_flow(struct __ctx_buff *ctx, struct iphdr *ip4)
-{
-	__be16 client_port, backend_port, service_port;
-	struct ipv4_ct_tuple tuple = {};
-	struct lb4_backend *backend;
-	__be32 pod_ip, service_ip;
-	struct ct_entry *entry;
-	struct ct_map *map;
-	int err, l4_off;
-
-	/* Extract the tuple from the packet so we can freely access addrs and ports.
-	 * All values are in network byte order.
-	 */
-	err = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
-	if (IS_ERR(err))
-		return false;
-
-	/* If the packet originates from a regular, non-loopback address, it will look
-	 * like service_ip:client_port -> pod_ip:service_port.
-	 *
-	 * In order to determine whether the packet has been hairpinned, we need to
-	 * obtain the backend (listen) port first, requiring a CT lookup with the
-	 * TUPLE_F_SERVICE flag, followed by a backend lookup. After this, the regular
-	 * CT TUPLE_F_OUT lookup can proceed.
-	 */
-	service_ip = tuple.saddr;
-	pod_ip = tuple.daddr;
-	client_port = tuple.sport;
-	service_port = tuple.dport;
-
-	tuple.daddr = service_ip;
-	tuple.saddr = pod_ip;
-	tuple.dport = client_port;
-	tuple.sport = service_port;
-
-	tuple.flags = TUPLE_F_SERVICE;
-
-	map = get_ct_map4(&tuple);
-	entry = map_lookup_elem(map, &tuple);
-	if (!entry)
-		return false;
-
-	backend = lb4_lookup_backend(ctx, entry->backend_id);
-	if (!backend)
-		return false;
-
-	backend_port = backend->port;
-
-	/* Now the backend (listen) port inside the container is known, an egress CT
-	 * lookup can be performed.
-	 */
-	tuple.daddr = IPV4_LOOPBACK;
-	tuple.saddr = pod_ip;
-	tuple.dport = backend_port;
-	tuple.sport = client_port;
-
-	tuple.flags = TUPLE_F_OUT;
-
-	map = get_ct_map4(&tuple);
-	entry = map_lookup_elem(map, &tuple);
-	if (entry)
-		/* The packet is considered hairpinned if its egress CT entry has the
-		 * loopback flag set.
-		 */
-		return entry->lb_loopback == 1;
-
-	return false;
-}
-
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
@@ -2167,24 +2085,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
-
-	/* Check if packet is locally hairpinned (pod reaching itself through a
-	 * service) and skip the policy check if that is the case. Otherwise, pods may
-	 * need to explicitly allow traffic to themselves in some network
-	 * configurations.
-	 */
-	if (ipv4_to_endpoint_is_hairpin_flow(ctx, ip4)) {
-		send_trace_notify4(ctx, TRACE_TO_LXC,
-				   src_sec_identity,
-				   SECLABEL, ip4->saddr, LXC_ID,
-				   ctx->ingress_ifindex,
-				   TRACE_REASON_UNKNOWN, 0);
-
-		/* Skip policy check for hairpinned flow */
-		cilium_dbg(ctx, DBG_SKIP_POLICY, LXC_ID, src_sec_identity);
-		ret = CTX_ACT_OK;
-		goto out;
-	}
 
 	ret = ipv4_policy(ctx, ip4, 0, src_sec_identity, NULL, &ext_err,
 			  &proxy_port, false);

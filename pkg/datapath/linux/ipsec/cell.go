@@ -5,6 +5,7 @@ package ipsec
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -28,6 +29,7 @@ var Cell = cell.Module(
 type custodianParameters struct {
 	cell.In
 
+	Log            *slog.Logger
 	Health         cell.Health
 	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
@@ -35,6 +37,7 @@ type custodianParameters struct {
 
 func newKeyCustodian(lc cell.Lifecycle, p custodianParameters) types.IPsecKeyCustodian {
 	ipsec := &keyCustodian{
+		log:       p.Log,
 		localNode: p.LocalNodeStore,
 		jobs:      p.JobGroup,
 	}
@@ -45,18 +48,18 @@ func newKeyCustodian(lc cell.Lifecycle, p custodianParameters) types.IPsecKeyCus
 
 func (kc *keyCustodian) Start(cell.HookContext) error {
 	if !option.Config.EncryptNode {
-		DeleteIPsecEncryptRoute()
+		DeleteIPsecEncryptRoute(kc.log)
 	}
 	if !option.Config.EnableIPSec {
 		return nil
 	}
 
 	var err error
-	kc.authKeySize, kc.spi, err = LoadIPSecKeysFile(option.Config.IPSecKeyFile)
+	kc.authKeySize, kc.spi, err = LoadIPSecKeysFile(kc.log, option.Config.IPSecKeyFile)
 	if err != nil {
 		return err
 	}
-	if err := SetIPSecSPI(kc.spi); err != nil {
+	if err := SetIPSecSPI(kc.log, kc.spi); err != nil {
 		return err
 	}
 
@@ -70,11 +73,11 @@ func (kc *keyCustodian) Start(cell.HookContext) error {
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
 func (kc *keyCustodian) StartBackgroundJobs(handler types.NodeHandler) error {
 	if option.Config.EnableIPSec {
-		if err := StartKeyfileWatcher(kc.jobs, option.Config.IPSecKeyFile, handler); err != nil {
+		if err := StartKeyfileWatcher(kc.log, kc.jobs, option.Config.IPSecKeyFile, handler); err != nil {
 			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 		}
 
-		kc.jobs.Add(job.Timer("stale-key-reclaimer", staleKeyReclaimer, time.Minute))
+		kc.jobs.Add(job.Timer("stale-key-reclaimer", staleKeyReclaimer{kc.log}.onTimer, time.Minute))
 	}
 
 	return nil
@@ -93,6 +96,7 @@ func (kc *keyCustodian) SPI() uint8 {
 }
 
 type keyCustodian struct {
+	log       *slog.Logger
 	localNode *node.LocalNodeStore
 	jobs      job.Group
 

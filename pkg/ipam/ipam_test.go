@@ -122,7 +122,8 @@ func (f fakePoolAllocator) RestoreFinished() {}
 func TestLock(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil)
+	ipam.ConfigureAllocator()
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
@@ -145,7 +146,8 @@ func TestLock(t *testing.T) {
 func TestExcludeIP(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil)
+	ipam.ConfigureAllocator()
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
@@ -177,25 +179,7 @@ func TestDeriveFamily(t *testing.T) {
 func TestIPAMMetadata(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
-	ipam.IPv4Allocator = newFakePoolAllocator(map[string]string{
-		"default": "10.10.0.0/16",
-		"test":    "192.168.178.0/24",
-		"special": "172.18.19.0/24",
-	})
-	ipam.IPv6Allocator = newFakePoolAllocator(map[string]string{
-		"default": "fd00:100::/80",
-		"test":    "fc00:100::/96",
-		"special": "fe00:100::/80",
-	})
-
-	// Without metadata, should always return PoolDefault()
-	resIPv4, resIPv6, err := ipam.AllocateNext("", "test/some-pod", "")
-	require.Nil(t, err)
-	require.Equal(t, PoolDefault(), resIPv4.IPPoolName)
-	require.Equal(t, PoolDefault(), resIPv6.IPPoolName)
-
-	ipam.WithMetadata(fakeMetadataFunc(func(owner string, family Family) (pool string, err error) {
+	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) {
 		// use namespace to determine pool name
 		namespace, _, _ := strings.Cut(owner, "/")
 		switch namespace {
@@ -208,13 +192,26 @@ func TestIPAMMetadata(t *testing.T) {
 		default:
 			return PoolDefault().String(), nil
 		}
-	}))
+	})
+
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata)
+	ipam.ConfigureAllocator()
+	ipam.IPv4Allocator = newFakePoolAllocator(map[string]string{
+		"default": "10.10.0.0/16",
+		"test":    "192.168.178.0/24",
+		"special": "172.18.19.0/24",
+	})
+	ipam.IPv6Allocator = newFakePoolAllocator(map[string]string{
+		"default": "fd00:100::/80",
+		"test":    "fc00:100::/96",
+		"special": "fe00:100::/80",
+	})
 
 	// Checks AllocateIP
 	specialIP := net.ParseIP("172.18.19.20")
-	_, err = ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "")
+	_, err := ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "")
 	require.NotNil(t, err) // pool required
-	resIPv4, err = ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "special")
+	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "special")
 	require.Nil(t, err)
 	require.Equal(t, Pool("special"), resIPv4.IPPoolName)
 	require.Equal(t, true, resIPv4.IP.Equal(specialIP))
@@ -226,7 +223,7 @@ func TestIPAMMetadata(t *testing.T) {
 	require.Nil(t, err)
 
 	// Checks if pool metadata is used if pool is empty
-	resIPv4, resIPv6, err = ipam.AllocateNext("", "test/some-other-pod", "")
+	resIPv4, resIPv6, err := ipam.AllocateNext("", "test/some-other-pod", "")
 	require.Nil(t, err)
 	require.Equal(t, Pool("test"), resIPv4.IPPoolName)
 	require.Equal(t, Pool("test"), resIPv6.IPPoolName)
@@ -255,10 +252,9 @@ func TestLegacyAllocatorIPAMMetadata(t *testing.T) {
 	// pool
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
-	ipam.WithMetadata(fakeMetadataFunc(func(owner string, family Family) (pool string, err error) {
-		return "some-pool", nil
-	}))
+	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata)
+	ipam.ConfigureAllocator()
 
 	// AllocateIP requires explicit pool
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)

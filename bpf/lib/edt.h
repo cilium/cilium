@@ -7,12 +7,20 @@
 
 #include "common.h"
 #include "time.h"
-#include "maps.h"
 
 /* From XDP layer, we neither go through an egress hook nor qdisc
  * from here, hence nothing to be set.
  */
 #if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct edt_id);
+	__type(value, struct edt_info);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, THROTTLE_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} THROTTLE_MAP __section_maps_btf;
+
 static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
 					      __u32 aggregate)
 {
@@ -32,14 +40,14 @@ static __always_inline __u32 edt_get_aggregate(struct __ctx_buff *ctx)
 	return aggregate;
 }
 
-static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
+static __always_inline int
+edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 {
 	__u64 delay, now, t, t_next;
 	struct edt_id aggregate;
 	struct edt_info *info;
-	__u16 proto;
 
-	if (!validate_ethertype(ctx, &proto))
+	if (!eth_is_supported_ethertype(proto))
 		return CTX_ACT_OK;
 	if (proto != bpf_htons(ETH_P_IP) &&
 	    proto != bpf_htons(ETH_P_IPV6))

@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
-	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
+	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -49,9 +49,11 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
@@ -203,8 +205,8 @@ var (
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
 
-		// IPAM metadata manager, determines which IPAM pool a pod should allocate from
-		ipamMetadata.Cell,
+		// IPAM provides IP address management.
+		ipamcell.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
@@ -214,6 +216,9 @@ var (
 
 		// K8s policy resource watcher cell.
 		policyK8s.Cell,
+
+		// Directory policy watcher cell.
+		policyDirectory.Cell,
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		cell.Config(cmtypes.DefaultClusterInfo),
@@ -250,6 +255,9 @@ var (
 
 		// K8s Watcher provides the core k8s watchers
 		watchers.Cell,
+
+		// Provide pcap recorder
+		recorder.Cell,
 	)
 )
 

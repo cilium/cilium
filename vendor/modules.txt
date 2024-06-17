@@ -55,7 +55,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/alecthomas/participle/v2 v2.1.0
 ## explicit; go 1.18
 github.com/alecthomas/participle/v2/lexer
-# github.com/aliyun/alibaba-cloud-sdk-go v1.62.761
+# github.com/aliyun/alibaba-cloud-sdk-go v1.62.763
 ## explicit; go 1.13
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
@@ -131,7 +131,7 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.164.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.164.1
 ## explicit; go 1.20
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
@@ -501,7 +501,7 @@ github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/go/envoy/watchdog/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/statedb v0.0.0-20240604111733-b27b7794ffac
+# github.com/cilium/statedb v0.1.0
 ## explicit; go 1.22.0
 github.com/cilium/statedb
 github.com/cilium/statedb/index
@@ -548,7 +548,7 @@ github.com/coreos/go-semver/semver
 ## explicit; go 1.12
 github.com/coreos/go-systemd/v22/dbus
 github.com/coreos/go-systemd/v22/journal
-# github.com/cpuguy83/go-md2man/v2 v2.0.3
+# github.com/cpuguy83/go-md2man/v2 v2.0.4
 ## explicit; go 1.11
 github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -1150,7 +1150,7 @@ github.com/spf13/afero/mem
 # github.com/spf13/cast v1.6.0
 ## explicit; go 1.19
 github.com/spf13/cast
-# github.com/spf13/cobra v1.8.0
+# github.com/spf13/cobra v1.8.1
 ## explicit; go 1.15
 github.com/spf13/cobra
 github.com/spf13/cobra/doc
@@ -1365,7 +1365,7 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
+# golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps

@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -782,18 +783,25 @@ func TestMetadataRevision(t *testing.T) {
 func TestMetadataWaitForRevision(t *testing.T) {
 	m := newMetadata()
 
-	p1 := netip.MustParsePrefix("1.1.1.1/32")
-	wantRev := m.enqueuePrefixUpdates(p1)
+	_, wantRev := m.dequeuePrefixUpdates()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		m.waitForRevision(wantRev)
+		err := m.waitForRevision(context.TODO(), wantRev)
+		require.NoError(t, err)
 		wg.Done()
 	}()
 
 	m.setInjectedRevision(wantRev)
 	wg.Wait()
+
+	// Test cancellation
+	_, wantRev = m.dequeuePrefixUpdates()
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Millisecond)
+	t.Cleanup(cancel)
+	err := m.waitForRevision(ctx, wantRev)
+	require.Error(t, err)
 }
 
 func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {

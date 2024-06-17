@@ -158,12 +158,28 @@ func (m *metadata) setInjectedRevision(rev uint64) {
 // supplied revision. We may skip revisions, as the desired revision is bumped
 // every time prefixes are dequeued, but injection may fail. Thus, any revision
 // greater or equal to the desired revision is acceptable.
-func (m *metadata) waitForRevision(rev uint64) {
+func (m *metadata) waitForRevision(ctx context.Context, rev uint64) error {
+	// Allow callers to bail out by cancelling the context
+	cleanupCancellation := context.AfterFunc(ctx, func() {
+		// We need to acquire injectedRevisionCond.L here to be sure that the
+		// Broadcast won't occur before the call to Wait, which would result
+		// in a missed signal.
+		m.injectedRevisionCond.L.Lock()
+		defer m.injectedRevisionCond.L.Unlock()
+		m.injectedRevisionCond.Broadcast()
+	})
+	defer cleanupCancellation()
+
 	m.injectedRevisionCond.L.Lock()
+	defer m.injectedRevisionCond.L.Unlock()
 	for m.injectedRevision < rev {
 		m.injectedRevisionCond.Wait()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 	}
-	m.injectedRevisionCond.L.Unlock()
+
+	return nil
 }
 
 // canonicalPrefix returns the canonical version of the prefix which must be
@@ -307,6 +323,9 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 		// entriesToReplace stores the identity to replace in the ipcache.
 		entriesToReplace = make(map[netip.Prefix]ipcacheEntry)
 		entriesToDelete  = make(map[netip.Prefix]Identity)
+		// unmanagedPrefixes is the set of prefixes for which we no longer have
+		// any metadata, but were created by a call directly to Upsert()
+		unmanagedPrefixes = make(map[netip.Prefix]Identity)
 	)
 
 	ipc.metadata.RLock()
@@ -407,8 +426,16 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 			// and the existing IPCache entry was never touched by any other
 			// subsystem using the old Upsert API, then we can safely remove
 			// the IPCache entry associated with this prefix.
-			if prefixInfo == nil && oldID.createdFromMetadata {
-				entriesToDelete[prefix] = oldID
+			if prefixInfo == nil {
+				if oldID.createdFromMetadata {
+					entriesToDelete[prefix] = oldID
+				} else {
+					// If, on the other hand, this prefix *was* touched by
+					// another, Upsert-based system, flag this prefix as
+					// potentially eligible for deletion if all references
+					// are removed.
+					unmanagedPrefixes[prefix] = oldID
+				}
 			}
 		}
 
@@ -472,7 +499,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 		}
 	}
 
-	for _, id := range previouslyAllocatedIdentities {
+	for prefix, id := range previouslyAllocatedIdentities {
 		realID := ipc.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
 		if realID == nil {
 			continue
@@ -494,6 +521,16 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 		// removed reference to the identity.
 		if released {
 			idsToDelete[id.ID] = nil // SelectorCache removal
+
+			// Corner case: This prefix + identity was initially created by a direct Upsert(),
+			// but all identity references have been released. We should then delete this prefix.
+			if oldID, unmanaged := unmanagedPrefixes[prefix]; unmanaged && oldID.ID == id.ID {
+				entriesToDelete[prefix] = oldID
+				log.WithFields(logrus.Fields{
+					logfields.IPAddr:   prefix,
+					logfields.Identity: id,
+				}).Debug("Force-removing released prefix from the ipcache.")
+			}
 		}
 	}
 	if len(idsToDelete) > 0 {

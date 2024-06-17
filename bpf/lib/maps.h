@@ -78,17 +78,6 @@ tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 
 #endif
 
-#ifdef ENABLE_BANDWIDTH_MANAGER
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct edt_id);
-	__type(value, struct edt_info);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, THROTTLE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} THROTTLE_MAP __section_maps_btf;
-#endif /* ENABLE_BANDWIDTH_MANAGER */
-
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
 struct {
@@ -141,19 +130,6 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 	.max_elem	= CILIUM_CALL_SIZE,
 };
 #endif /* SKIP_CALLS_MAP */
-
-#ifdef HAVE_ENCAP
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct tunnel_key);
-	__type(value, struct tunnel_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} TUNNEL_MAP __section_maps_btf;
-
-#endif
 
 #if defined(ENABLE_CUSTOM_CALLS) && defined(CUSTOM_CALLS_MAP)
 /* Private per-EP map for tail calls to user-defined programs.
@@ -243,17 +219,6 @@ struct {
 	__uint(max_entries, L2_RESPONSER_MAP4_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } L2_RESPONDER_MAP4 __section_maps_btf;
-
-#ifdef ENABLE_EGRESS_GATEWAY
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key);
-	__type(value, struct egress_gw_policy_entry);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} EGRESS_POLICY_MAP __section_maps_btf;
-#endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifdef ENABLE_SRV6
 # define SRV6_VRF_MAP(IP_FAMILY)				\

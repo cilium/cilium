@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.22.4@sha256:969349b8121a56d51c74f4c273ab974c15b3a8ae246a5cffc1df7d28b66cf978
+ARG GOLANG_IMAGE=docker.io/library/golang:1.22.4@sha256:c2010b9c2342431a24a2e64e33d9eb2e484af49e72c820e200d332d214d5e61f
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.20.0@sha256:77726ef6b57ddf65bb551896826ec38bc3e53f75cdde31354fbffb4f25238ebd
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:43a37a93ebfaa75fbc8a5561df2af263d6755e50@sha256:58ad504e639ec090f5ed423fbfbda83d29fc27188748b3e2e39888bef950e288
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:283b3ff907f1eb0a3e12104ebae6fcc84d8be430@sha256:e55c9787c1b02bb6b9bb3149d8f64f182bf6ae400f18a0ec8fb6e4b82648ac79
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -25,8 +25,8 @@ WORKDIR /go/src/github.com/cilium/cilium
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} \
-    DESTDIR=/out/${TARGETOS}/${TARGETARCH} build-container-${OPERATOR_VARIANT} install-container-binary-${OPERATOR_VARIANT}
+    make GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} ${MODIFIERS} \
+    build-container-${OPERATOR_VARIANT} install-container-binary-${OPERATOR_VARIANT}
 
 # licenses-all is a "script" that executes "go run" so its ARCH should be set
 # to the same ARCH specified in the base image of this Docker stage (BUILDARCH)

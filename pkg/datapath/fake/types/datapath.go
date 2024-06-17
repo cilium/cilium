@@ -81,15 +81,15 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, *datapath.LocalNodeConfigu
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(uint16, bool, string) {
+func (f *FakeDatapath) InstallProxyRules(uint16, string) {
 }
 
 func (f *FakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (m *FakeDatapath) GetProxyPort(name string) uint16 {
-	return 0
+func (m *FakeDatapath) GetProxyPorts() map[string]uint16 {
+	return nil
 }
 
 func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {

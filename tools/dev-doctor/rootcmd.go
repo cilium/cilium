@@ -143,7 +143,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionArgs:   []string{"version"},
 			versionRegexp: regexp.MustCompile(versionRegex),
 			minVersion:    &semver.Version{Major: 1, Minor: 27, Patch: 0},
-			hint:          "See https://golangci-lint.run/usage/install/#local-installation.",
+			hint:          "See https://golangci-lint.run/welcome/install/#local-installation.",
 		},
 		&binaryCheck{
 			name:          "docker",

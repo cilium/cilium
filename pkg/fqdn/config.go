@@ -4,6 +4,8 @@
 package fqdn
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/ipcache"
 )
 
@@ -36,5 +38,5 @@ type EndpointDNSInfo struct {
 type IPCache interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
-	WaitForRevision(rev uint64)
+	WaitForRevision(ctx context.Context, rev uint64) error
 }

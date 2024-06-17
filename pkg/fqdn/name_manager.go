@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"sync"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -252,7 +252,7 @@ func NewNameManager(config Config) *NameManager {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) *sync.WaitGroup {
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) *errgroup.Group {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -265,13 +265,11 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 		}).Debug("Updated FQDN with new IPs")
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		n.config.IPCache.WaitForRevision(ipcacheRevision)
-		wg.Done()
-	}()
-	return wg
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return n.config.IPCache.WaitForRevision(ctx, ipcacheRevision)
+	})
+	return g
 }
 
 func (n *NameManager) CompleteBootstrap() {

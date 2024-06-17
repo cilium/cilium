@@ -126,7 +126,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         with:
           provenance: false
           context: /tmp/.cache/${{ matrix.name }}
@@ -141,7 +141,7 @@ jobs:
       # main branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         id: docker_build_ci
         with:
           provenance: false
@@ -161,7 +161,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         id: docker_build_ci_detect_race_condition
         with:
           provenance: false
@@ -177,13 +177,13 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:e7292e797ee4cb45785c2b0a98013bff0e20a423@sha256:9e9da2ff731904ee62689b274b1c213bf002eba889edbef78cdf2e0e004d1e2f
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:8918ac2115904e9e97beaaed3dcc48eb34e7cc26@sha256:b3c75c6ee6a3c6bc884a19b48b933340bba718d00a676517898280a6d8df8e4c
             MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         id: docker_build_ci_unstripped
         with:
           provenance: false
@@ -293,7 +293,7 @@ jobs:
       # PR or feature branch updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         id: docker_build_ci_pr
         with:
           provenance: false
@@ -309,7 +309,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         id: docker_build_ci_pr_detect_race_condition
         with:
           provenance: false
@@ -321,13 +321,13 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:e7292e797ee4cb45785c2b0a98013bff0e20a423@sha256:9e9da2ff731904ee62689b274b1c213bf002eba889edbef78cdf2e0e004d1e2f
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:8918ac2115904e9e97beaaed3dcc48eb34e7cc26@sha256:b3c75c6ee6a3c6bc884a19b48b933340bba718d00a676517898280a6d8df8e4c
             MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         id: docker_build_ci_pr_unstripped
         with:
           provenance: false
@@ -418,7 +418,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch }}
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@c382f710d39a5bb4e430307530a720f50c2d3318 # v6.0.0
         with:
           provenance: false
           context: .

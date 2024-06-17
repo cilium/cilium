@@ -73,7 +73,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.enabled | bool | `false` | Enable SPIRE integration (beta) |
 | authentication.mutual.spire.install.agent.affinity | object | `{}` | SPIRE agent affinity configuration |
 | authentication.mutual.spire.install.agent.annotations | object | `{}` | SPIRE agent annotations |
-| authentication.mutual.spire.install.agent.image | object | `{"digest":"sha256:99405637647968245ff9fe215f8bd2bd0ea9807be9725f8bf19fe1b21471e52b","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.8.5","useDigest":true}` | SPIRE agent image |
+| authentication.mutual.spire.install.agent.image | object | `{"digest":"sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.9.6","useDigest":true}` | SPIRE agent image |
 | authentication.mutual.spire.install.agent.labels | object | `{}` | SPIRE agent labels |
 | authentication.mutual.spire.install.agent.nodeSelector | object | `{}` | SPIRE agent nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | authentication.mutual.spire.install.agent.podSecurityContext | object | `{}` | Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod |
@@ -93,7 +93,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.install.server.dataStorage.enabled | bool | `true` | Enable SPIRE server data storage |
 | authentication.mutual.spire.install.server.dataStorage.size | string | `"1Gi"` | Size of the SPIRE server data storage |
 | authentication.mutual.spire.install.server.dataStorage.storageClass | string | `nil` | StorageClass of the SPIRE server data storage |
-| authentication.mutual.spire.install.server.image | object | `{"digest":"sha256:28269265882048dcf0fed32fe47663cd98613727210b8d1a55618826f9bf5428","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.8.5","useDigest":true}` | SPIRE server image |
+| authentication.mutual.spire.install.server.image | object | `{"digest":"sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.9.6","useDigest":true}` | SPIRE server image |
 | authentication.mutual.spire.install.server.initContainers | list | `[]` | SPIRE server init containers |
 | authentication.mutual.spire.install.server.labels | object | `{}` | SPIRE server labels |
 | authentication.mutual.spire.install.server.nodeSelector | object | `{}` | SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
@@ -228,6 +228,8 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.service.enableSessionAffinity | string | `"HAOnly"` | Defines when to enable session affinity. Each replica in a clustermesh-apiserver deployment runs its own discrete etcd cluster. Remote clients connect to one of the replicas through a shared Kubernetes Service. A client reconnecting to a different backend will require a full resync to ensure data integrity. Session affinity can reduce the likelihood of this happening, but may not be supported by all cloud providers. Possible values:  - "HAOnly" (default) Only enable session affinity for deployments with more than 1 replica.  - "Always" Always enable session affinity.  - "Never" Never enable session affinity. Useful in environments where            session affinity is not supported, but may lead to slightly            degraded performance due to more frequent reconnections. |
 | clustermesh.apiserver.service.externalTrafficPolicy | string | `"Cluster"` | The externalTrafficPolicy of service used for apiserver access. |
 | clustermesh.apiserver.service.internalTrafficPolicy | string | `"Cluster"` | The internalTrafficPolicy of service used for apiserver access. |
+| clustermesh.apiserver.service.loadBalancerClass | string | `nil` | Configure a loadBalancerClass. Allows to configure the loadBalancerClass on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer (requires Kubernetes 1.24+). |
+| clustermesh.apiserver.service.loadBalancerIP | string | `nil` | Configure a specific loadBalancerIP. Allows to configure a specific loadBalancerIP on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer. |
 | clustermesh.apiserver.service.nodePort | int | `32379` | Optional port to use as the node port for apiserver access.  WARNING: make sure to configure a different NodePort in each cluster if kube-proxy replacement is enabled, as Cilium is currently affected by a known bug (#24692) when NodePorts are handled by the KPR implementation. If a service with the same NodePort exists both in the local and the remote cluster, all traffic originating from inside the cluster and targeting the corresponding NodePort will be redirected to a local backend, regardless of whether the destination node belongs to the local or the remote cluster. |
 | clustermesh.apiserver.service.type | string | `"NodePort"` | The type of service used for apiserver access. |
 | clustermesh.apiserver.terminationGracePeriodSeconds | int | `30` | terminationGracePeriodSeconds for the clustermesh-apiserver deployment |
@@ -279,6 +281,7 @@ contributors across the globe, there is almost always someone available to help.
 | dashboards | object | `{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null}` | Grafana dashboards for cilium-agent grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards |
 | debug.enabled | bool | `false` | Enable debug logging |
 | debug.verbose | string | `nil` | Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy |
+| directRoutingSkipUnreachable | bool | `false` | Enable skipping of PodCIDR routes between worker nodes if the worker nodes are in a different L2 network segment. |
 | disableEndpointCRD | bool | `false` | Disable the usage of CiliumEndpoint CRD. |
 | dnsPolicy | string | `""` | DNS policy for Cilium agent pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy |
 | dnsProxy.dnsRejectResponseCode | string | `"refused"` | DNS response code for rejecting DNS requests, available options are '[nameError refused]'. |
@@ -535,7 +538,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.backend.extraEnv | list | `[]` | Additional hubble-ui backend environment variables. |
 | hubble.ui.backend.extraVolumeMounts | list | `[]` | Additional hubble-ui backend volumeMounts. |
 | hubble.ui.backend.extraVolumes | list | `[]` | Additional hubble-ui backend volumes. |
-| hubble.ui.backend.image | object | `{"digest":"sha256:1e7657d997c5a48253bb8dc91ecee75b63018d16ff5e5797e5af367336bc8803","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.0","useDigest":true}` | Hubble-ui backend image. |
+| hubble.ui.backend.image | object | `{"digest":"sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.1","useDigest":true}` | Hubble-ui backend image. |
 | hubble.ui.backend.livenessProbe.enabled | bool | `false` | Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+) |
 | hubble.ui.backend.readinessProbe.enabled | bool | `false` | Enable readiness probe for Hubble-ui backend (requires Hubble-ui 0.12+) |
 | hubble.ui.backend.resources | object | `{}` | Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment. |
@@ -545,7 +548,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.frontend.extraEnv | list | `[]` | Additional hubble-ui frontend environment variables. |
 | hubble.ui.frontend.extraVolumeMounts | list | `[]` | Additional hubble-ui frontend volumeMounts. |
 | hubble.ui.frontend.extraVolumes | list | `[]` | Additional hubble-ui frontend volumes. |
-| hubble.ui.frontend.image | object | `{"digest":"sha256:7d663dc16538dd6e29061abd1047013a645e6e69c115e008bee9ea9fef9a6666","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.0","useDigest":true}` | Hubble-ui frontend image. |
+| hubble.ui.frontend.image | object | `{"digest":"sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.1","useDigest":true}` | Hubble-ui frontend image. |
 | hubble.ui.frontend.resources | object | `{}` | Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment. |
 | hubble.ui.frontend.securityContext | object | `{}` | Hubble-ui frontend security context. |
 | hubble.ui.frontend.server.ipv6 | object | `{"enabled":true}` | Controls server listener for ipv6 |

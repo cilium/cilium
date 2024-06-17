@@ -62,7 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
-	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
@@ -95,11 +95,12 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
+	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -349,6 +350,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(vp, option.EnableAutoDirectRoutingName)
+
+	flags.Bool(option.DirectRoutingSkipUnreachableName, defaults.EnableDirectRoutingSkipUnreachable, "Enable skipping L2 routes between nodes on different subnets")
+	option.BindEnv(vp, option.DirectRoutingSkipUnreachableName)
 
 	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
 	option.BindEnv(vp, option.EnableBPFTProxy)
@@ -1277,8 +1281,6 @@ func initEnv(vp *viper.Viper) {
 		log.WithError(err).Fatalf("BPF template directory: NOT OK. Please run 'make install-bpf'")
 	}
 
-	linuxdatapath.CheckRequirements()
-
 	if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
 		log.WithError(err).Fatal("failed to create header files with feature macros")
 	}
@@ -1624,44 +1626,45 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle           cell.Lifecycle
-	Clientset           k8sClient.Clientset
-	Datapath            datapath.Datapath
-	WGAgent             *wireguard.Agent
-	LocalNodeStore      *node.LocalNodeStore
-	Shutdowner          hive.Shutdowner
-	Resources           agentK8s.Resources
-	CacheStatus         k8s.CacheStatus
-	K8sWatcher          *watchers.K8sWatcher
-	K8sSvcCache         *k8s.ServiceCache
-	K8sResourceSynced   *k8sSynced.Resources
-	K8sAPIGroups        *k8sSynced.APIGroups
-	NodeManager         nodeManager.NodeManager
-	EndpointManager     endpointmanager.EndpointManager
-	CertManager         certificatemanager.CertificateManager
-	SecretManager       certificatemanager.SecretManager
-	IdentityAllocator   CachingIdentityAllocator
-	Policy              *policy.Repository
-	IPCache             *ipcache.IPCache
-	PolicyK8sWatcher    *policyK8s.PolicyResourcesWatcher
-	IPAMMetadataManager *ipamMetadata.Manager
-	CNIConfigManager    cni.CNIConfigManager
-	SwaggerSpec         *server.Spec
-	HealthAPISpec       *healthApi.Spec
-	ServiceCache        *k8s.ServiceCache
-	ClusterMesh         *clustermesh.ClusterMesh
-	MonitorAgent        monitorAgent.Agent
-	L2Announcer         *l2announcer.L2Announcer
-	ServiceManager      service.ServiceManager
-	L7Proxy             *proxy.Proxy
-	EnvoyXdsServer      envoy.XDSServer
-	DB                  *statedb.DB
-	APILimiterSet       *rate.APILimiterSet
-	AuthManager         *auth.AuthManager
-	Settings            cellSettings
-	DeviceManager       *linuxdatapath.DeviceManager `optional:"true"`
-	Devices             statedb.Table[*datapathTables.Device]
-	NodeAddrs           statedb.Table[datapathTables.NodeAddress]
+	Lifecycle              cell.Lifecycle
+	Clientset              k8sClient.Clientset
+	Datapath               datapath.Datapath
+	WGAgent                *wireguard.Agent
+	LocalNodeStore         *node.LocalNodeStore
+	Shutdowner             hive.Shutdowner
+	Resources              agentK8s.Resources
+	CacheStatus            k8s.CacheStatus
+	K8sWatcher             *watchers.K8sWatcher
+	K8sSvcCache            *k8s.ServiceCache
+	K8sResourceSynced      *k8sSynced.Resources
+	K8sAPIGroups           *k8sSynced.APIGroups
+	NodeManager            nodeManager.NodeManager
+	EndpointManager        endpointmanager.EndpointManager
+	CertManager            certificatemanager.CertificateManager
+	SecretManager          certificatemanager.SecretManager
+	IdentityAllocator      CachingIdentityAllocator
+	Policy                 *policy.Repository
+	IPCache                *ipcache.IPCache
+	PolicyK8sWatcher       *policyK8s.PolicyResourcesWatcher
+	DirectoryPolicyWatcher *policyDirectory.PolicyResourcesWatcher
+	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus
+	CNIConfigManager       cni.CNIConfigManager
+	SwaggerSpec            *server.Spec
+	HealthAPISpec          *healthApi.Spec
+	ServiceCache           *k8s.ServiceCache
+	ClusterMesh            *clustermesh.ClusterMesh
+	MonitorAgent           monitorAgent.Agent
+	L2Announcer            *l2announcer.L2Announcer
+	ServiceManager         service.ServiceManager
+	L7Proxy                *proxy.Proxy
+	EnvoyXdsServer         envoy.XDSServer
+	DB                     *statedb.DB
+	APILimiterSet          *rate.APILimiterSet
+	AuthManager            *auth.AuthManager
+	Settings               cellSettings
+	DeviceManager          *linuxdatapath.DeviceManager `optional:"true"`
+	Devices                statedb.Table[*datapathTables.Device]
+	NodeAddrs              statedb.Table[datapathTables.NodeAddress]
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
@@ -1676,13 +1679,13 @@ type daemonParams struct {
 	MTU                 mtu.MTU
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
-	LRPManager          *redirectpolicy.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	Prefilter           datapath.PreFilter
 	CompilationLock     datapath.CompilationLock
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 	CGroupManager       cgroup.CGroupManager
 	ServiceResolver     *dial.ServiceResolver
+	Recorder            *recorder.Recorder
+	IPAM                *ipam.IPAM
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
@@ -1752,12 +1755,18 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		// (Check Daemon.InitK8sSubsystem() for more info)
 		<-params.CacheStatus
 	}
+
+	// wait for directory watcher to ingest policy from files
+	<-params.DirReadStatus
+
 	bootstrapStats.k8sInit.End(true)
 
 	// After K8s caches have been synced, IPCache can start label injection.
 	// Ensure that the initial labels are injected before we regenerate endpoints
 	log.Debug("Waiting for initial IPCache revision")
-	d.ipcache.WaitForRevision(1)
+	if err := d.ipcache.WaitForRevision(d.ctx, 1); err != nil {
+		log.WithError(err).Error("Failed to wait for initial IPCache revision")
+	}
 
 	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
 
