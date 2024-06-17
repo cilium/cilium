@@ -1905,7 +1905,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 
 		if (sep) {
 			auth_type = (__u8)*ext_err;
-			verdict = auth_lookup(ctx, SECLABEL, src_label,
+			verdict = auth_lookup(ctx, SECLABEL_IPV4, src_label,
 					      sep->tunnel_endpoint, auth_type);
 		}
 	}
@@ -1942,7 +1942,7 @@ skip_policy_enforcement:
 	}
 
 	if (*proxy_port > 0) {
-		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
+		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
 				   bpf_ntohs(*proxy_port), ifindex, trace.reason,
 				   trace.monitor);
 		if (tuple_out)
