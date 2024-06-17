@@ -31,13 +31,24 @@ var (
 	timeout = 5 * time.Second
 )
 
-type fakeRemoteCluster struct{}
+type fakeRemoteCluster struct{ onRun, onStop, onRemove func() }
 
-func (*fakeRemoteCluster) Run(_ context.Context, _ kvstore.BackendOperations, _ types.CiliumClusterConfig, ready chan<- error) {
+func (f *fakeRemoteCluster) Run(_ context.Context, _ kvstore.BackendOperations, _ types.CiliumClusterConfig, ready chan<- error) {
+	if f.onRun != nil {
+		f.onRun()
+	}
 	close(ready)
 }
-func (*fakeRemoteCluster) Stop()   {}
-func (*fakeRemoteCluster) Remove() {}
+func (f *fakeRemoteCluster) Stop() {
+	if f.onStop != nil {
+		f.onStop()
+	}
+}
+func (f *fakeRemoteCluster) Remove() {
+	if f.onRemove != nil {
+		f.onRemove()
+	}
+}
 
 func writeFile(t *testing.T, name, content string) {
 	t.Helper()
