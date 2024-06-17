@@ -159,6 +159,7 @@ cilium-agent [flags]
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
       --enable-recorder                                           Enable BPF datapath pcap recorder
+      --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-session-affinity                                   Enable support for service session affinity

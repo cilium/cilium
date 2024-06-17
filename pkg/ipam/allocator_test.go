@@ -41,7 +41,7 @@ func (rm *resourceMock) Store(context.Context) (resource.Store[*ciliumv2.CiliumN
 	return nil, errors.New("unimplemented")
 }
 
-var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
+var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil, false)
 
 func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()

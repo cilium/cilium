@@ -22,4 +22,8 @@ func (*MTU) GetRoutePostEncryptMTU() int {
 	return 1420
 }
 
+func (*MTU) IsEnableRouteMTUForCNIChaining() bool {
+	return false
+}
+
 var _ mtu.MTU = &MTU{}
