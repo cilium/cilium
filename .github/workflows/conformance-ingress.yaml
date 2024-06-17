@@ -193,7 +193,7 @@ jobs:
           # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
           repository: cilium/ingress-controller-conformance
           path: ingress-controller-conformance
-          ref: 010bbae21b71d9785660b87908dfe2ba8cd2f25d
+          ref: ea4049969a830d3ecac0d2a9b71b254212ac4b65
           persist-credentials: false
 
       - name: Install Ingress conformance test tool
