@@ -113,7 +113,7 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// If false , and if a Systems Manager parameter is specified for ImageId , the
 	// parameter is displayed in the response for imageId .
 	//
-	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon Elastic Compute Cloud User Guide.
+	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon EC2 User Guide.
 	//
 	// Default: false
 	//

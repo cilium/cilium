@@ -54,7 +54,7 @@ type CreateVpcEndpointServiceConfigurationInput struct {
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [How to ensure idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without

@@ -17,7 +17,9 @@ import (
 	"time"
 )
 
-// Describes one or more of your NAT gateways.
+// Describes your NAT gateways. The default is to describe all your NAT gateways.
+// Alternatively, you can specify specific NAT gateway IDs or filter the results to
+// include only the NAT gateways that match specific criteria.
 func (c *Client) DescribeNatGateways(ctx context.Context, params *DescribeNatGatewaysInput, optFns ...func(*Options)) (*DescribeNatGatewaysOutput, error) {
 	if params == nil {
 		params = &DescribeNatGatewaysInput{}
