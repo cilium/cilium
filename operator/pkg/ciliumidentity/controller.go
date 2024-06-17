@@ -20,6 +20,17 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+const (
+	// defaultSyncBackOff is the default backoff period for cesSync calls.
+	defaultSyncBackOff = 1 * time.Second
+	// maxSyncBackOff is the max backoff period for cesSync calls.
+	maxSyncBackOff = 100 * time.Second
+	// maxRetries is the number of times a work queue sync will be retried before
+	// it is dropped out of the queue.
+	maxProcessRetries = 15
+	workerPoolSize    = 6
+)
+
 var (
 	// cidDeleteDelay is the delay to enqueue another CID event to be reconciled
 	// after CID is marked for deletion. This is required for simultaneous CID
