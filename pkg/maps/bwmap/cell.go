@@ -49,11 +49,12 @@ func edtReconcilerConfig(m throttleMap, edts statedb.RWTable[Edt]) reconciler.Co
 	ops := bpf.NewMapOps[Edt](m.Map)
 
 	return reconciler.Config[Edt]{
-		Table:                     edts,
-		FullReconcilationInterval: time.Hour,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   time.Minute,
-		IncrementalRoundSize:      100,
+		Table:                   edts,
+		RefreshInterval:         time.Hour,
+		PruneInterval:           time.Hour,
+		RetryBackoffMinDuration: 100 * time.Millisecond,
+		RetryBackoffMaxDuration: time.Minute,
+		IncrementalRoundSize:    100,
 		GetObjectStatus: func(e Edt) reconciler.Status {
 			return e.Status
 		},

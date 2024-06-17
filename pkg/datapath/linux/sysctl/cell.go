@@ -50,14 +50,14 @@ func newReconcilerConfig(
 	tbl statedb.RWTable[*tables.Sysctl],
 ) reconciler.Config[*tables.Sysctl] {
 	return reconciler.Config[*tables.Sysctl]{
-		Table:                     tbl,
-		FullReconcilationInterval: 10 * time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   5 * time.Second,
-		IncrementalRoundSize:      100,
-		GetObjectStatus:           (*tables.Sysctl).GetStatus,
-		SetObjectStatus:           (*tables.Sysctl).SetStatus,
-		CloneObject:               (*tables.Sysctl).Clone,
-		Operations:                ops,
+		Table:                   tbl,
+		RefreshInterval:         10 * time.Minute,
+		RetryBackoffMinDuration: 100 * time.Millisecond,
+		RetryBackoffMaxDuration: 5 * time.Second,
+		IncrementalRoundSize:    100,
+		GetObjectStatus:         (*tables.Sysctl).GetStatus,
+		SetObjectStatus:         (*tables.Sysctl).SetStatus,
+		CloneObject:             (*tables.Sysctl).Clone,
+		Operations:              ops,
 	}
 }

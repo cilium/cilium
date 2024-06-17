@@ -39,15 +39,16 @@ var Cell = cell.Module(
 
 func newReconcilerConfig(log logrus.FieldLogger, tbl statedb.RWTable[*tables.BandwidthQDisc], bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
 	return reconciler.Config[*tables.BandwidthQDisc]{
-		Table:                     tbl,
-		FullReconcilationInterval: 10 * time.Minute,
-		RetryBackoffMinDuration:   time.Second,
-		RetryBackoffMaxDuration:   time.Minute,
-		IncrementalRoundSize:      1000,
-		GetObjectStatus:           (*tables.BandwidthQDisc).GetStatus,
-		SetObjectStatus:           (*tables.BandwidthQDisc).SetStatus,
-		CloneObject:               (*tables.BandwidthQDisc).Clone,
-		Operations:                newOps(log, bwm),
+		Table:                   tbl,
+		RefreshInterval:         10 * time.Minute,
+		PruneInterval:           10 * time.Minute,
+		RetryBackoffMinDuration: time.Second,
+		RetryBackoffMaxDuration: time.Minute,
+		IncrementalRoundSize:    1000,
+		GetObjectStatus:         (*tables.BandwidthQDisc).GetStatus,
+		SetObjectStatus:         (*tables.BandwidthQDisc).SetStatus,
+		CloneObject:             (*tables.BandwidthQDisc).Clone,
+		Operations:              newOps(log, bwm),
 	}
 }
 

@@ -111,6 +111,22 @@ type reconcilerMetricsImpl struct {
 	m ReconcilerMetrics
 }
 
+func (m *reconcilerMetricsImpl) ReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
+	//TODO implement me
+}
+
+func (m *reconcilerMetricsImpl) ReconciliationErrors(moduleID cell.FullModuleID, errs []error) {
+	//TODO implement me`
+}
+
+func (m *reconcilerMetricsImpl) PruneError(moduleID cell.FullModuleID, err error) {
+	//TODO implement me
+}
+
+func (m *reconcilerMetricsImpl) PruneDuration(moduleID cell.FullModuleID, duration time.Duration) {
+	//TODO implement me
+}
+
 // FullReconciliationDuration implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) FullReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
 	if m.m.FullReconciliationDuration.IsEnabled() {

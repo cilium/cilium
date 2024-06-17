@@ -127,17 +127,18 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 		FromKey: index.Uint32,
 		Unique:  true,
 	}
-	table, err := statedb.NewTable("example", keyIndex)
+	table, err := statedb.NewTable[*TestObject]("example", keyIndex)
 	require.NoError(t, err, "NewTable")
 
 	// Create the map operations and the reconciler configuration.
 	ops := NewMapOps[*TestObject](exampleMap)
 	config := reconciler.Config[*TestObject]{
-		Table:                     table,
-		FullReconcilationInterval: time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   10 * time.Second,
-		IncrementalRoundSize:      1000,
+		Table:                   table,
+		RefreshInterval:         time.Minute,
+		PruneInterval:           time.Minute,
+		RetryBackoffMinDuration: 100 * time.Millisecond,
+		RetryBackoffMaxDuration: 10 * time.Second,
+		IncrementalRoundSize:    1000,
 		GetObjectStatus: func(obj *TestObject) reconciler.Status {
 			return obj.Status
 		},

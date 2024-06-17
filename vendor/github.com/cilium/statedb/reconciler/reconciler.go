@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"golang.org/x/time/rate"
 )
 
 // Register creates a new reconciler and registers to the application
@@ -29,6 +30,14 @@ func New[Obj comparable](cfg Config[Obj], p Params) (Reconciler[Obj], error) {
 		return nil, err
 	}
 
+	if cfg.RateLimiter == nil {
+		cfg.RateLimiter = defaultRoundRateLimiter()
+	}
+
+	if cfg.RefreshRateLimiter == nil {
+		cfg.RefreshRateLimiter = defaultRoundRateLimiter()
+	}
+
 	metrics := cfg.Metrics
 	if metrics == nil {
 		if p.DefaultMetrics == nil {
@@ -43,17 +52,20 @@ func New[Obj comparable](cfg Config[Obj], p Params) (Reconciler[Obj], error) {
 		return idx.ObjectToKey(o.(Obj))
 	}
 	r := &reconciler[Obj]{
-		Params:              p,
-		Config:              cfg,
-		metrics:             metrics,
-		retries:             newRetries(cfg.RetryBackoffMinDuration, cfg.RetryBackoffMaxDuration, objectToKey),
-		externalFullTrigger: make(chan struct{}, 1),
-		primaryIndexer:      idx,
+		Params:               p,
+		Config:               cfg,
+		metrics:              metrics,
+		retries:              newRetries(cfg.RetryBackoffMinDuration, cfg.RetryBackoffMaxDuration, objectToKey),
+		externalPruneTrigger: make(chan struct{}, 1),
+		primaryIndexer:       idx,
 	}
 
 	g := p.Jobs.NewGroup(p.Health)
 
-	g.Add(job.OneShot("reconciler-loop", r.loop))
+	g.Add(job.OneShot("reconcile", r.reconcileLoop))
+	if r.Config.RefreshInterval > 0 {
+		g.Add(job.OneShot("refresh", r.refreshLoop))
+	}
 	p.Lifecycle.Append(g)
 
 	return r, nil
@@ -73,49 +85,26 @@ type Params struct {
 
 type reconciler[Obj comparable] struct {
 	Params
-	Config              Config[Obj]
-	metrics             Metrics
-	retries             *retries
-	externalFullTrigger chan struct{}
-	primaryIndexer      statedb.Indexer[Obj]
+	Config               Config[Obj]
+	metrics              Metrics
+	retries              *retries
+	externalPruneTrigger chan struct{}
+	primaryIndexer       statedb.Indexer[Obj]
 }
 
-func (r *reconciler[Obj]) TriggerFullReconciliation() {
+func (r *reconciler[Obj]) Prune() {
 	select {
-	case r.externalFullTrigger <- struct{}{}:
+	case r.externalPruneTrigger <- struct{}{}:
 	default:
 	}
 }
 
-// WaitForReconciliation blocks until all objects have been reconciled or the context
-// has cancelled.
-func WaitForReconciliation[Obj any](ctx context.Context, db *statedb.DB, table statedb.Table[Obj], statusIndex statedb.Index[Obj, StatusKind]) error {
-	for {
-		txn := db.ReadTxn()
-
-		// See if there are any pending or error'd objects.
-		_, _, watchPending, okPending := table.GetWatch(txn, statusIndex.Query(StatusKindPending))
-		_, _, watchError, okError := table.GetWatch(txn, statusIndex.Query(StatusKindError))
-		if !okPending && !okError {
-			return nil
-		}
-
-		// Wait for updates before checking again.
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-watchPending:
-		case <-watchError:
-		}
-	}
-}
-
-func (r *reconciler[Obj]) loop(ctx context.Context, health cell.Health) error {
-	var fullReconTickerChan <-chan time.Time
-	if r.Config.FullReconcilationInterval > 0 {
-		fullReconTicker := time.NewTicker(r.Config.FullReconcilationInterval)
-		defer fullReconTicker.Stop()
-		fullReconTickerChan = fullReconTicker.C
+func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health) error {
+	var pruneTickerChan <-chan time.Time
+	if r.Config.PruneInterval > 0 {
+		pruneTicker := time.NewTicker(r.Config.PruneInterval)
+		defer pruneTicker.Stop()
+		pruneTickerChan = pruneTicker.C
 	}
 
 	// Create the change iterator to watch for inserts and deletes to the table.
@@ -127,52 +116,43 @@ func (r *reconciler[Obj]) loop(ctx context.Context, health cell.Health) error {
 	}
 
 	tableWatchChan := closedWatchChannel
-	fullReconciliation := false
 
 	for {
-		if r.Config.RateLimiter != nil {
-			if err := r.Config.RateLimiter.Wait(ctx); err != nil {
-				return err
-			}
+		// Throttle a bit before reconciliation to allow for a bigger batch to arrive and
+		// for objects to settle.
+		if err := r.Config.RateLimiter.Wait(ctx); err != nil {
+			return err
 		}
+		prune := false
 
 		// Wait for trigger
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-
-		case <-fullReconTickerChan:
-			fullReconciliation = true
-		case <-r.externalFullTrigger:
-			fullReconciliation = true
-
 		case <-r.retries.Wait():
 			// Object(s) are ready to be retried
-
 		case <-tableWatchChan:
 			// Table has changed
+		case <-pruneTickerChan:
+			prune = true
+		case <-r.externalPruneTrigger:
+			prune = true
 		}
+
+		// Grab a new snapshot and refresh the changes iterator to read
+		// in the new changes.
+		txn = r.DB.ReadTxn()
+		tableWatchChan = changes.Watch(txn)
 
 		// Perform incremental reconciliation and retries of previously failed
 		// objects.
 		errs := r.incremental(ctx, txn, changes)
 
-		// Refresh the transaction to read the new changes.
-		txn = r.DB.ReadTxn()
-		tableWatchChan = changes.Watch(txn)
-
-		if fullReconciliation && r.Config.Table.Initialized(txn) {
-			// Time to perform a full reconciliation. An incremental reconciliation
-			// has been performed prior to this, so the assumption is that everything
-			// is up to date (provided incremental reconciliation did not fail). We
-			// report full reconciliation disparencies as they're indicative of something
-			// interfering with Cilium operations.
-
-			// Clear full reconciliation even if there's errors. Individual objects
-			// will be retried via the retry queue.
-			fullReconciliation = false
-
-			errs = append(errs, r.full(ctx, txn)...)
+		// Prune objects if pruning is requested and table is fully initialized.
+		if prune && r.Config.Table.Initialized(txn) {
+			if err := r.prune(ctx, txn); err != nil {
+				errs = append(errs, err)
+			}
 		}
 
 		if len(errs) == 0 {
@@ -184,4 +164,100 @@ func (r *reconciler[Obj]) loop(ctx context.Context, health cell.Health) error {
 				joinErrors(errs))
 		}
 	}
+}
+
+// prune performs the Prune operation to delete unexpected objects in the target system.
+func (r *reconciler[Obj]) prune(ctx context.Context, txn statedb.ReadTxn) error {
+	iter, _ := r.Config.Table.All(txn)
+	start := time.Now()
+	err := r.Config.Operations.Prune(ctx, txn, iter)
+	if err != nil {
+		err = fmt.Errorf("prune failed: %w", err)
+	}
+	r.metrics.PruneDuration(r.ModuleID, time.Since(start))
+	r.metrics.PruneError(r.ModuleID, err)
+
+	return err
+}
+
+func (r *reconciler[Obj]) refreshLoop(ctx context.Context, health cell.Health) error {
+	lastRevision := statedb.Revision(0)
+
+	refreshTimer := time.NewTimer(r.Config.RefreshInterval)
+	defer refreshTimer.Stop()
+
+	health.OK(fmt.Sprintf("Refreshing in %s", r.Config.RefreshInterval))
+outer:
+	for {
+		// Wait until it's time to refresh.
+		select {
+		case <-ctx.Done():
+			return nil
+
+		case <-refreshTimer.C:
+		}
+
+		now := time.Now()
+
+		// Iterate over the objects in revision order, e.g. oldest modification first.
+		// We look for objects that are older than [RefreshInterval] and mark them for
+		// pending in order for them to be reconciled again.
+		iter, _ := r.Config.Table.LowerBound(r.DB.ReadTxn(), statedb.ByRevision[Obj](lastRevision+1))
+		indexer := r.Config.Table.PrimaryIndexer()
+		for obj, rev, ok := iter.Next(); ok; obj, rev, ok = iter.Next() {
+			status := r.Config.GetObjectStatus(obj)
+
+			// Have we reached an object that is newer than RefreshInterval?
+			if now.Sub(status.UpdatedAt) < r.Config.RefreshInterval {
+				// Reset the timer to fire when this now oldest object should be
+				// refreshed.
+				nextRefreshIn := min(
+					0,
+					now.Sub(status.UpdatedAt)-r.Config.RefreshInterval,
+				)
+				refreshTimer.Reset(nextRefreshIn)
+				health.OK(fmt.Sprintf("Refreshing in %s", nextRefreshIn))
+				continue outer
+			}
+
+			lastRevision = rev
+
+			if status.Kind == StatusKindDone {
+				if r.Config.RefreshRateLimiter != nil {
+					// Limit the rate at which objects are marked for refresh to avoid disrupting
+					// normal work.
+					if err := r.Config.RefreshRateLimiter.Wait(ctx); err != nil {
+						break
+					}
+				}
+
+				// Mark the object for refreshing. We make the assumption that refreshing is spread over
+				// time enough that batching of the writes is not useful here.
+				wtxn := r.DB.WriteTxn(r.Config.Table)
+				obj, newRev, ok := r.Config.Table.Get(wtxn, indexer.QueryFromObject(obj))
+				if ok && rev == newRev {
+					obj = r.Config.SetObjectStatus(r.Config.CloneObject(obj), StatusRefreshing())
+					r.Config.Table.Insert(wtxn, obj)
+				}
+				wtxn.Commit()
+			}
+		}
+
+		// Since we reached here there were no objects. Set the timer for the full
+		// RefreshInterval.
+		refreshTimer.Reset(r.Config.RefreshInterval)
+	}
+}
+
+func defaultRoundRateLimiter() *rate.Limiter {
+	// By default limit the rate of reconciliation rounds to 100 times per second.
+	// This enables the reconciler to operate on batches of objects at a time, which
+	// enables efficient use of the batch operations and amortizes the cost of WriteTxn.
+	return rate.NewLimiter(100.0, 1)
+}
+
+func defaultRefreshRateLimiter() *rate.Limiter {
+	// By default limit the object refresh rate to 100 objects per second. This avoids a
+	// stampade of refreshes that could delay normal updates.
+	return rate.NewLimiter(100.0, 1)
 }

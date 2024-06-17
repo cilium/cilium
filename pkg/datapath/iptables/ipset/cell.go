@@ -63,15 +63,16 @@ type config struct {
 
 func newReconcilerConfig(ops *ops, tbl statedb.RWTable[*tables.IPSetEntry]) reconciler.Config[*tables.IPSetEntry] {
 	return reconciler.Config[*tables.IPSetEntry]{
-		Table:                     tbl,
-		FullReconcilationInterval: 30 * time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   5 * time.Second,
-		GetObjectStatus:           (*tables.IPSetEntry).GetStatus,
-		SetObjectStatus:           (*tables.IPSetEntry).SetStatus,
-		CloneObject:               (*tables.IPSetEntry).Clone,
-		Operations:                ops,
-		BatchOperations:           ops,
+		Table:                   tbl,
+		RefreshInterval:         30 * time.Minute,
+		PruneInterval:           30 * time.Minute,
+		RetryBackoffMinDuration: 100 * time.Millisecond,
+		RetryBackoffMaxDuration: 5 * time.Second,
+		GetObjectStatus:         (*tables.IPSetEntry).GetStatus,
+		SetObjectStatus:         (*tables.IPSetEntry).SetStatus,
+		CloneObject:             (*tables.IPSetEntry).Clone,
+		Operations:              ops,
+		BatchOperations:         ops,
 
 		// Set the maximum batch size to 100, and limit the incremental
 		// reconciliation to once every 10ms, giving us maximum throughput

@@ -67,7 +67,7 @@ func (r *reconciler[Obj]) incremental(ctx context.Context, txn statedb.ReadTxn, 
 	// Finally commit the status updates.
 	round.commitStatus()
 
-	r.metrics.IncrementalReconciliationErrors(r.ModuleID, round.errs)
+	r.metrics.ReconciliationErrors(r.ModuleID, round.errs)
 
 	return round.errs
 }
@@ -78,7 +78,7 @@ func (round *incrementalRound[Obj]) single(changes statedb.ChangeIterator[Obj]) 
 		obj := change.Object
 
 		status := round.config.GetObjectStatus(obj)
-		if !change.Deleted && status.Kind != StatusKindPending {
+		if !change.Deleted && !status.IsPendingOrRefreshing() {
 			// Only process objects that are pending reconciliation, e.g.
 			// changed from outside.
 			// Failures (e.g. StatusKindError) are processed via the retry queue.
@@ -108,7 +108,7 @@ func (round *incrementalRound[Obj]) batch(changes statedb.ChangeIterator[Obj]) {
 		obj := change.Object
 
 		status := round.config.GetObjectStatus(obj)
-		if !change.Deleted && status.Kind != StatusKindPending {
+		if !change.Deleted && !status.IsPendingOrRefreshing() {
 			// Only process objects that are pending reconciliation, e.g.
 			// changed from outside.
 			// Failures (e.g. StatusKindError) are processed via the retry queue.
@@ -137,7 +137,7 @@ func (round *incrementalRound[Obj]) batch(changes statedb.ChangeIterator[Obj]) {
 	if len(deleteBatch) > 0 {
 		start := time.Now()
 		ops.DeleteBatch(round.ctx, round.txn, deleteBatch)
-		round.metrics.IncrementalReconciliationDuration(
+		round.metrics.ReconciliationDuration(
 			round.moduleID,
 			OpDelete,
 			time.Since(start),
@@ -155,7 +155,7 @@ func (round *incrementalRound[Obj]) batch(changes statedb.ChangeIterator[Obj]) {
 	if len(updateBatch) > 0 {
 		start := time.Now()
 		ops.UpdateBatch(round.ctx, round.txn, updateBatch)
-		round.metrics.IncrementalReconciliationDuration(
+		round.metrics.ReconciliationDuration(
 			round.moduleID,
 			OpUpdate,
 			time.Since(start),
@@ -227,7 +227,7 @@ func (round *incrementalRound[Obj]) processSingle(obj Obj, rev statedb.Revision,
 			round.results[obj] = opResult{rev: rev, status: StatusError(err)}
 		}
 	}
-	round.metrics.IncrementalReconciliationDuration(round.moduleID, op, time.Since(start))
+	round.metrics.ReconciliationDuration(round.moduleID, op, time.Since(start))
 
 	if err == nil {
 		// Reconciling succeeded, so clear the object.

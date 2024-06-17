@@ -15,15 +15,15 @@ import (
 )
 
 type Reconciler[Obj any] interface {
-	// TriggerFullReconciliation triggers an immediate full reconciliation,
-	// e.g. Prune() of unknown objects and Update() of all objects.
+	// Prune triggers an immediate pruning regardless of [PruneInterval].
 	// Implemented as a select+send to a channel of size 1, so N concurrent
 	// calls of this method may result in less than N full reconciliations.
+	// This still requires the table to be fully initialized to have an effect.
 	//
 	// Primarily useful in tests, but may be of use when there's knowledge
 	// that something has gone wrong in the reconciliation target and full
 	// reconciliation is needed to recover.
-	TriggerFullReconciliation()
+	Prune()
 }
 
 type Config[Obj any] struct {
@@ -40,12 +40,26 @@ type Config[Obj any] struct {
 	// Metrics interface.
 	Metrics Metrics
 
-	// FullReconcilationInterval is the amount of time to wait between full
-	// reconciliation rounds. A full reconciliation is Prune() of unexpected
-	// objects and Update() of all objects. With full reconciliation we're
-	// resilient towards outside changes. If FullReconcilationInterval is
-	// 0 then full reconciliation is disabled.
-	FullReconcilationInterval time.Duration
+	// RefreshInterval is the interval at which the objects are refreshed,
+	// e.g. how often Update() should be called to refresh an object even
+	// when it has not changed. This is implemented by periodically setting
+	// all objects that have not been updated for [RefreshInterval] or longer
+	// as pending.
+	// If set to 0 refreshing is disabled.
+	RefreshInterval time.Duration
+
+	// RefreshRateLimiter is optional and if set is used to limit the rate at
+	// which objects are marked for refresh. If not provided a default rate
+	// limiter is used.
+	RefreshRateLimiter *rate.Limiter
+
+	// PruneInterval is the interval at which Prune() is called to prune
+	// unexpected objects in the target system. If set to 0 pruning is disabled.
+	// Prune() will not be called before the table has been fully initialized
+	// (Initialized() returns true).
+	// A single Prune() can be forced via the [Reconciler.Prune] method regardless
+	// of this value (0 or not).
+	PruneInterval time.Duration
 
 	// RetryBackoffMinDuration is the minimum amount of time to wait before
 	// retrying a failed Update() or Delete() operation on an object.
@@ -86,7 +100,8 @@ type Config[Obj any] struct {
 	// Operations defines how an object is reconciled.
 	Operations Operations[Obj]
 
-	// BatchOperations is optional and if provided these are used instead of normal operations.
+	// BatchOperations is optional and if provided these are used instead of
+	// the single-object operations.
 	BatchOperations BatchOperations[Obj]
 }
 
@@ -106,8 +121,11 @@ func (cfg Config[Obj]) validate() error {
 	if cfg.IncrementalRoundSize <= 0 {
 		return fmt.Errorf("%T.IncrementalBatchSize needs to be >0", cfg)
 	}
-	if cfg.FullReconcilationInterval < 0 {
-		return fmt.Errorf("%T.FullReconcilationInterval must be >=0", cfg)
+	if cfg.RefreshInterval < 0 {
+		return fmt.Errorf("%T.RefreshInterval must be >=0", cfg)
+	}
+	if cfg.PruneInterval < 0 {
+		return fmt.Errorf("%T.PruneInterval must be >=0", cfg)
 	}
 	if cfg.RetryBackoffMaxDuration <= 0 {
 		return fmt.Errorf("%T.RetryBackoffMaxDuration must be >0", cfg)
@@ -167,9 +185,10 @@ type BatchOperations[Obj any] interface {
 type StatusKind string
 
 const (
-	StatusKindPending StatusKind = "Pending"
-	StatusKindDone    StatusKind = "Done"
-	StatusKindError   StatusKind = "Error"
+	StatusKindPending    StatusKind = "Pending"
+	StatusKindRefreshing StatusKind = "Refreshing"
+	StatusKindDone       StatusKind = "Done"
+	StatusKindError      StatusKind = "Error"
 )
 
 // Key implements an optimized construction of index.Key for StatusKind
@@ -178,6 +197,8 @@ func (s StatusKind) Key() index.Key {
 	switch s {
 	case StatusKindPending:
 		return index.Key("P")
+	case StatusKindRefreshing:
+		return index.Key("R")
 	case StatusKindDone:
 		return index.Key("D")
 	case StatusKindError:
@@ -194,6 +215,10 @@ type Status struct {
 	Kind      StatusKind
 	UpdatedAt time.Time
 	Error     string
+}
+
+func (s Status) IsPendingOrRefreshing() bool {
+	return s.Kind == StatusKindPending || s.Kind == StatusKindRefreshing
 }
 
 func (s Status) String() string {
@@ -231,6 +256,22 @@ func prettySince(t time.Time) string {
 func StatusPending() Status {
 	return Status{
 		Kind:      StatusKindPending,
+		UpdatedAt: time.Now(),
+		Error:     "",
+	}
+}
+
+// StatusRefreshing constructs the status for marking the object as
+// requiring refreshing. The reconciler will perform the
+// Update operation and on success transition to Done status, or
+// on failure to Error status.
+//
+// This is distinct from the Pending status in order to give a hint
+// to the Update operation that this is a refresh of the object and
+// should be forced.
+func StatusRefreshing() Status {
+	return Status{
+		Kind:      StatusKindRefreshing,
 		UpdatedAt: time.Now(),
 		Error:     "",
 	}
