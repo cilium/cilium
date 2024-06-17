@@ -89,9 +89,9 @@ jobs:
 
       - name: Install LLVM and Clang
         if: steps.test-tree.outputs.src == 'true'
-        uses: KyleMayes/install-llvm-action@82fd451e4380968e8336eefc5b8b9292a619de01 # v2.0.3
+        uses: gentoo-root/install-llvm-action@abb6cec0ec431e834bc5e5090ea39a2d1d63a4c6 # v2.0.3
         with:
-          version: "17.0.6"
+          version: "18.1.4"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
       - name: Install ginkgo
