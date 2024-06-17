@@ -281,12 +281,15 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 
 func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool, optional int) {
 	tmpl := netlink.XfrmPolicyTmpl{
-		Proto:    netlink.XFRM_PROTO_ESP,
-		Mode:     netlink.XFRM_MODE_TUNNEL,
-		Reqid:    keys.ReqID,
-		Dst:      dstIP,
-		Src:      srcIP,
 		Optional: optional,
+	}
+
+	if optional != 0 {
+		tmpl.Proto = netlink.XFRM_PROTO_ESP
+		tmpl.Mode = netlink.XFRM_MODE_TUNNEL
+		tmpl.Reqid = keys.ReqID
+		tmpl.Dst = dstIP
+		tmpl.Src = srcIP
 	}
 
 	if spi {
