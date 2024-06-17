@@ -81,6 +81,12 @@ triggers:
   /fqdn-perf:
     workflows:
     - fqdn-perf.yaml
+  /scale-100:
+    workflows:
+    - scale-test-100-gce.yaml
+  /net-perf-gke:
+    workflows:
+    - net-perf-gke.yaml
 
 workflows:
   conformance-aks.yaml:
