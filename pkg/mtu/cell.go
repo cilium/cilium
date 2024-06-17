@@ -5,6 +5,7 @@ package mtu
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -18,12 +19,14 @@ var Cell = cell.Module(
 	"MTU discovery",
 
 	cell.Provide(newForCell),
+	cell.Config(defaultConfig),
 )
 
 type MTU interface {
 	GetDeviceMTU() int
 	GetRouteMTU() int
 	GetRoutePostEncryptMTU() int
+	IsEnableRouteMTUForCNIChaining() bool
 }
 
 type mtuParams struct {
@@ -33,9 +36,24 @@ type mtuParams struct {
 	IPsec        types.IPsecKeyCustodian
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
+
+	Config Config
 }
 
-func newForCell(lc cell.Lifecycle, p mtuParams) MTU {
+type Config struct {
+	// Enable route MTU for pod netns when CNI chaining is used
+	EnableRouteMTUForCNIChaining bool
+}
+
+var defaultConfig = Config{
+	EnableRouteMTUForCNIChaining: false,
+}
+
+func (c Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-route-mtu-for-cni-chaining", c.EnableRouteMTUForCNIChaining, "Enable route MTU for pod netns when CNI chaining is used")
+}
+
+func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) MTU {
 	c := &Configuration{}
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -60,6 +78,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams) MTU {
 				option.Config.EnableHighScaleIPcache && option.Config.EnableNodePort,
 				configuredMTU,
 				externalIP,
+				cc.EnableRouteMTUForCNIChaining,
 			)
 			return nil
 		},
