@@ -166,6 +166,9 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	// background goroutines that are not cleaned up.
 	initializeKLog()
 
+	if debug {
+		logOpts[LevelOpt] = "debug"
+	}
 	initializeSlog(logOpts, len(loggers) == 0)
 
 	// Updating the default log format

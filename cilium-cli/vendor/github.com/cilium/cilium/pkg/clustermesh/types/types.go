@@ -4,7 +4,9 @@
 package types
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/cilium/cilium/pkg/defaults"
 )
@@ -13,10 +15,25 @@ const (
 	// ClusterIDMin is the minimum value of the cluster ID
 	ClusterIDMin    = 0
 	ClusterIDExt511 = 511
+
+	ClusterIDUnset = ClusterIDMin
 )
 
 // ClusterIDMax is the maximum value of the cluster ID
 var ClusterIDMax uint32 = defaults.MaxConnectedClusters
+
+// A cluster name must respect the following constraints:
+// * It must contain at most 32 characters;
+// * It must begin and end with a lower case alphanumeric character;
+// * It may contain lower case alphanumeric characters and dashes between.
+const (
+	// clusterNameMaxLength is the maximum allowed length of a cluster name.
+	clusterNameMaxLength = 32
+	// clusterNameRegexStr is the regex to validate a cluster name.
+	clusterNameRegexStr = `^([a-z0-9][-a-z0-9]*)?[a-z0-9]$`
+)
+
+var clusterNameRegex = regexp.MustCompile(clusterNameRegexStr)
 
 // InitClusterIDMax validates and sets the ClusterIDMax package level variable.
 func (c ClusterInfo) InitClusterIDMax() error {
@@ -43,6 +60,23 @@ func ValidateClusterID(clusterID uint32) error {
 	return nil
 }
 
+// ValidateClusterName validates that the given name matches the cluster name specifications.
+func ValidateClusterName(name string) error {
+	if name == "" {
+		return errors.New("must not be empty")
+	}
+
+	if len(name) > clusterNameMaxLength {
+		return fmt.Errorf("must not be more than %d characters", clusterNameMaxLength)
+	}
+
+	if !clusterNameRegex.MatchString(name) {
+		return errors.New("must consist of lower case alphanumeric characters and '-', and must start and end with an alphanumeric character")
+	}
+
+	return nil
+}
+
 type CiliumClusterConfig struct {
 	ID uint32 `json:"id,omitempty"`
 
@@ -61,12 +95,3 @@ type CiliumClusterConfigCapabilities struct {
 	// The maximum number of clusters the given cluster can support in a ClusterMesh.
 	MaxConnectedClusters uint32 `json:"maxConnectedClusters,omitempty"`
 }
-
-// ValidationMode defines if a missing CiliumClusterConfig should be allowed for
-// backward compatibility, or it should be flagged as an error.
-type ValidationMode bool
-
-const (
-	BackwardCompatible ValidationMode = false
-	Strict             ValidationMode = true
-)

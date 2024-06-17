@@ -5,14 +5,9 @@ package common
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/safeio"
 )
 
 // C2GoArray transforms an hexadecimal string representation into a byte slice.
@@ -78,60 +73,4 @@ func RequireRootPrivilege(cmd string) {
 		fmt.Fprintf(os.Stderr, "Please run %q command(s) with root privileges.\n", cmd)
 		os.Exit(1)
 	}
-}
-
-// MapStringStructToSlice returns a slice with all keys of the given
-// map[string]struct{}
-func MapStringStructToSlice(m map[string]struct{}) []string {
-	s := make([]string, 0, len(m))
-	for k := range m {
-		s = append(s, k)
-	}
-	return s
-}
-
-// GetNumPossibleCPUs returns a total number of possible CPUS, i.e. CPUs that
-// have been allocated resources and can be brought online if they are present.
-// The number is retrieved by parsing /sys/devices/system/cpu/possible.
-//
-// See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/cpumask.h?h=v4.19#n50
-// for more details.
-func GetNumPossibleCPUs(log logrus.FieldLogger) int {
-	f, err := os.Open(PossibleCPUSysfsPath)
-	if err != nil {
-		log.WithError(err).Errorf("unable to open %q", PossibleCPUSysfsPath)
-		return 0
-	}
-	defer f.Close()
-
-	return getNumPossibleCPUsFromReader(log, f)
-}
-
-func getNumPossibleCPUsFromReader(log logrus.FieldLogger, r io.Reader) int {
-	out, err := safeio.ReadAllLimit(r, safeio.KB)
-	if err != nil {
-		log.WithError(err).Errorf("unable to read %q to get CPU count", PossibleCPUSysfsPath)
-		return 0
-	}
-
-	var start, end int
-	count := 0
-	for _, s := range strings.Split(string(out), ",") {
-		// Go's scanf will return an error if a format cannot be fully matched.
-		// So, just ignore it, as a partial match (e.g. when there is only one
-		// CPU) is expected.
-		n, err := fmt.Sscanf(s, "%d-%d", &start, &end)
-
-		switch n {
-		case 0:
-			log.WithError(err).Errorf("failed to scan %q to retrieve number of possible CPUs!", s)
-			return 0
-		case 1:
-			count++
-		default:
-			count += (end - start + 1)
-		}
-	}
-
-	return count
 }

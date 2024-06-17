@@ -987,6 +987,9 @@ func (in *PortProtocol) DeepEqual(other *PortProtocol) bool {
 	if in.Port != other.Port {
 		return false
 	}
+	if in.EndPort != other.EndPort {
+		return false
+	}
 	if in.Protocol != other.Protocol {
 		return false
 	}

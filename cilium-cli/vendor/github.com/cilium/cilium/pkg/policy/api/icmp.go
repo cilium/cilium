@@ -69,6 +69,7 @@ type ICMPRule struct {
 	// Fields is a list of ICMP fields.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=40
 	Fields []ICMPField `json:"fields,omitempty"`
 }
 

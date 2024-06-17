@@ -53,6 +53,9 @@ type DaemonConfigurationStatus struct {
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 
+	// Comma-separated list of IP ports should be reserved in the workload network namespace
+	IPLocalReservedPorts string `json:"ipLocalReservedPorts,omitempty"`
+
 	// Configured IPAM mode
 	IpamMode string `json:"ipam-mode,omitempty"`
 

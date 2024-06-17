@@ -4,9 +4,11 @@
 package policy
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -16,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -108,10 +110,14 @@ func (p *policyContext) SetDeny(deny bool) bool {
 type Repository struct {
 	// Mutex protects the whole policy tree
 	Mutex lock.RWMutex
-	rules ruleSlice
 
-	// rulesIndexByK8sUID indexes the rules by k8s UID.
-	rulesIndexByK8sUID map[string]*rule
+	rules           map[ruleKey]*rule
+	rulesByResource map[ipcachetypes.ResourceID]map[ruleKey]*rule
+
+	// We will need a way to synthesize a rule key for rules without a resource;
+	// these are - in practice - very rare, as they only come from the local API,
+	// never via k8s.
+	nextID uint
 
 	// revision is the revision of the policy repository. It will be
 	// incremented whenever the policy repository is changed.
@@ -168,13 +174,13 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 }
 
 // NewPolicyRepository creates a new policy repository.
+// Only used for unit tests.
 func NewPolicyRepository(
-	idAllocator cache.IdentityAllocator,
-	idCache cache.IdentityCache,
+	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {
-	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager)
+	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager)
 	repo.Start()
 	return repo
 }
@@ -185,17 +191,17 @@ func NewPolicyRepository(
 // Qeues must be allocated via [Repository.Start]. The function serves to
 // satisfy hive invariants.
 func NewStoppedPolicyRepository(
-	idAllocator cache.IdentityAllocator,
-	idCache cache.IdentityCache,
+	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {
-	selectorCache := NewSelectorCache(idAllocator, idCache)
+	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
-		rulesIndexByK8sUID: map[string]*rule{},
-		selectorCache:      selectorCache,
-		certManager:        certManager,
-		secretManager:      secretManager,
+		rules:           make(map[ruleKey]*rule),
+		rulesByResource: make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:   selectorCache,
+		certManager:     certManager,
+		secretManager:   secretManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, true)
@@ -267,7 +273,15 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 		repo: p,
 		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
-	result, err := p.rules.resolveL4IngressPolicy(&policyCtx, ctx)
+	rules := make(ruleSlice, 0, len(p.rules))
+	for _, rule := range p.rules {
+		rules = append(rules, rule)
+	}
+	// Sort for unit tests
+	slices.SortFunc[ruleSlice](rules, func(a, b *rule) int {
+		return cmp.Compare(a.key.idx, b.key.idx)
+	})
+	result, err := rules.resolveL4IngressPolicy(&policyCtx, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +304,14 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, err
 		repo: p,
 		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
-	result, err := p.rules.resolveL4EgressPolicy(&policyCtx, ctx)
+	rules := make(ruleSlice, 0, len(p.rules))
+	for _, rule := range p.rules {
+		rules = append(rules, rule)
+	}
+	slices.SortFunc[ruleSlice](rules, func(a, b *rule) int {
+		return cmp.Compare(a.key.idx, b.key.idx)
+	})
+	result, err := rules.resolveL4EgressPolicy(&policyCtx, ctx)
 
 	if err != nil {
 		return nil, err
@@ -370,13 +391,6 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	result := api.Rules{}
 
-	if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
-		r, ok := p.rulesIndexByK8sUID[uid]
-		if ok {
-			result = append(result, &r.Rule)
-		}
-		return result
-	}
 	for _, r := range p.rules {
 		if r.Labels.Contains(lbls) {
 			result = append(result, &r.Rule)
@@ -386,89 +400,111 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	return result
 }
 
-// Add inserts a rule into the policy repository
-// This is just a helper function for unit testing.
-// TODO: this should be in a test_helpers.go file or something similar
-// so we can clearly delineate what helpers are for testing.
-// NOTE: This is only called from unit tests, but from multiple packages.
-func (p *Repository) Add(r api.Rule) (uint64, map[uint16]struct{}, error) {
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
-
-	if err := r.Sanitize(); err != nil {
-		return p.GetRevision(), nil, err
-	}
-
-	newList := make([]*api.Rule, 1)
-	newList[0] = &r
-	_, rev := p.AddListLocked(newList)
-	return rev, map[uint16]struct{}{}, nil
-}
-
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
 func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
+	newRules := make(ruleSlice, 0, len(rules))
+	for _, r := range rules {
+		newRule := p.newRule(*r, ruleKey{idx: p.nextID})
+		newRules = append(newRules, newRule)
+		p.insert(newRule)
+		p.nextID++
+	}
 
-	newList := make(ruleSlice, len(rules))
-	for i := range rules {
-		newRule := &rule{
-			Rule:     *rules[i],
-			metadata: newRuleMetadata(),
-		}
-		newList[i] = newRule
-		if uid := rules[i].Labels.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
-			p.rulesIndexByK8sUID[uid] = newRule
+	return newRules, p.BumpRevision()
+}
+
+// ReplaceByResourceLocked replaces all rules that belong to a given resource with a
+// new set. The set of rules added and removed is returned, along with the new revision number.
+// Resource must not be empty
+func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64) {
+	if len(resource) == 0 {
+		// This should never ever be hit, as the caller should have already validated the resource.
+		// However, if it does happen, it means something very wrong has happened and we are at risk
+		// of removing all network policies. So, we must panic rather than risk disabling network security.
+		panic("may not replace API rules with an empty resource")
+	}
+
+	if old, ok := p.rulesByResource[resource]; ok {
+		oldRules = make(ruleSlice, 0, len(old))
+		for key, oldRule := range old {
+			oldRules = append(oldRules, oldRule)
+			p.del(key)
 		}
 	}
 
-	p.rules = append(p.rules, newList...)
-	p.BumpRevision()
-	metrics.Policy.Add(float64(len(newList)))
-	return newList, p.GetRevision()
-}
-
-// removeIdentityFromRuleCaches removes the identity from the selector cache
-// in each rule in the repository.
-//
-// Returns a sync.WaitGroup that blocks until the policy operation is complete.
-// The repository read lock must be held until the waitgroup is complete.
-func (p *Repository) removeIdentityFromRuleCaches(identity *identity.Identity) *sync.WaitGroup {
-	var wg sync.WaitGroup
-	wg.Add(len(p.rules))
-	for _, r := range p.rules {
-		go func(rr *rule, wgg *sync.WaitGroup) {
-			rr.metadata.delete(identity)
-			wgg.Done()
-		}(r, &wg)
+	newRules = make(ruleSlice, 0, len(rules))
+	if len(rules) > 0 {
+		p.rulesByResource[resource] = make(map[ruleKey]*rule, len(rules))
+		for i, r := range rules {
+			newRule := p.newRule(*r, ruleKey{resource: resource, idx: uint(i)})
+			newRules = append(newRules, newRule)
+			p.insert(newRule)
+		}
 	}
-	return &wg
+
+	return newRules, oldRules, p.BumpRevision()
 }
 
-// LocalEndpointIdentityAdded handles local identity add events.
-func (p *Repository) LocalEndpointIdentityAdded(*identity.Identity) {
-	// no-op for now.
+func (p *Repository) insert(r *rule) {
+	p.rules[r.key] = r
+	rid := r.key.resource
+	if len(rid) > 0 {
+		if p.rulesByResource[rid] == nil {
+			p.rulesByResource[rid] = map[ruleKey]*rule{}
+		}
+		p.rulesByResource[rid][r.key] = r
+	}
+
+	metrics.Policy.Inc()
 }
 
-// LocalEndpointIdentityRemoved handles local identity removal events to
-// remove references from rules in the repository to the specified identity.
-func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
-	go func() {
-		scopedLog := log.WithField(logfields.Identity, identity)
-		scopedLog.Debug("Removing identity references from policy cache")
-		p.Mutex.RLock()
-		wg := p.removeIdentityFromRuleCaches(identity)
-		wg.Wait()
-		p.Mutex.RUnlock()
-		scopedLog.Debug("Finished cleaning policy cache")
-	}()
+func (p *Repository) del(key ruleKey) {
+	if p.rules[key] == nil {
+		return
+	}
+	delete(p.rules, key)
+
+	rid := key.resource
+	if len(rid) > 0 && p.rulesByResource[rid] != nil {
+		delete(p.rulesByResource[rid], key)
+		if len(p.rulesByResource[rid]) == 0 {
+			delete(p.rulesByResource, rid)
+		}
+	}
+	metrics.Policy.Dec()
 }
 
-// AddList inserts a rule into the policy repository. It is used for
-// unit-testing purposes only.
-func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
+// newRule allocates a CachedSelector for a given rule.
+func (p *Repository) newRule(apiRule api.Rule, key ruleKey) *rule {
+	r := &rule{
+		Rule: apiRule,
+		key:  key,
+	}
+	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, r.Labels, *r.getSelector())
+	return r
+}
+
+// Release releases resources owned by a given rule slice.
+// This is needed because we need to evaluate deleted rules after they
+// are removed from the repository, so we must allow for a specific lifecycle
+func (p *Repository) Release(rs ruleSlice) {
+	for _, r := range rs {
+		if r.subjectSelector != nil {
+			p.selectorCache.RemoveSelector(r.subjectSelector, r)
+		}
+	}
+}
+
+// MustAddList inserts a rule into the policy repository. It is used for
+// unit-testing purposes only. Panics if the rule is invalid
+func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 	for i := range rules {
 		// FIXME(GH-31162): Many unit tests provide invalid rules
-		_ = rules[i].Sanitize()
+		err := rules[i].Sanitize()
+		if err != nil {
+			panic(err)
+		}
 	}
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
@@ -485,28 +521,21 @@ func (p *Repository) Iterate(f func(rule *api.Rule)) {
 	}
 }
 
-// UpdateRulesEndpointsCaches updates the caches within each rule in r that
-// specify whether the rule selects the endpoints in eps. If any rule matches
-// the endpoints, it is added to the provided IDSet, and removed from the
-// provided EndpointSet. The provided WaitGroup is signaled for a given endpoint
-// when it is finished being processed.
-func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegenerate *EndpointSet, policySelectionWG *sync.WaitGroup) {
+// FindSelectedEndpoints finds all endpoints selected by a given ruleSlice.
+// All endpoints that are selected will be added to endpointsToRegenerate; all
+// endpoints that are *not* selected (but still valid) remain in endpointsToBumpRevision.
+// policySelectionWG is done when all endpoints have been considered.
+func (r ruleSlice) FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegenerate *EndpointSet, policySelectionWG *sync.WaitGroup) {
 	endpointsToBumpRevision.ForEachGo(policySelectionWG, func(epp Endpoint) {
-		endpointSelected, err := r.updateEndpointsCaches(epp)
-		if endpointSelected {
-			endpointsToRegenerate.Insert(epp)
+		securityIdentity, err := epp.GetSecurityIdentity()
+		if err != nil || securityIdentity == nil {
+			// The endpoint is no longer alive, or it does not have a security identity.
+			// We should remove it from the set of endpoints that will be bumped
+			endpointsToBumpRevision.Delete(epp)
+			return
 		}
-		// If we could not evaluate the rules against the current endpoint, or
-		// the endpoint is selected by the rules, remove it from the set of
-		// endpoints to bump the revision. If the error is non-nil, the
-		// endpoint is no longer in either set (endpointsToBumpRevision or
-		// endpointsToRegenerate, as we could not determine what to do for the
-		// endpoint). This is usually the case when the endpoint is no longer
-		// alive (i.e., it has been marked to be deleted).
-		if endpointSelected || err != nil {
-			if err != nil {
-				log.WithError(err).Debug("could not determine whether endpoint was selected by rule")
-			}
+		if r.matchesSubject(securityIdentity) {
+			endpointsToRegenerate.Insert(epp)
 			endpointsToBumpRevision.Delete(epp)
 		}
 	})
@@ -516,30 +545,37 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpoints
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
 func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
-
-	deleted := 0
-	new := p.rules[:0]
 	deletedRules := ruleSlice{}
 
-	for _, r := range p.rules {
-		if !r.Labels.Contains(lbls) {
-			new = append(new, r)
-		} else {
+	for key, r := range p.rules {
+		if r.Labels.Contains(lbls) {
 			deletedRules = append(deletedRules, r)
-			deleted++
+			p.del(key)
 		}
 	}
+	l := len(deletedRules)
 
-	if deleted > 0 {
+	if l > 0 {
 		p.BumpRevision()
-		p.rules = new
-		if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
-			delete(p.rulesIndexByK8sUID, uid)
-		}
-		metrics.Policy.Sub(float64(deleted))
 	}
 
-	return deletedRules, p.GetRevision(), deleted
+	return deletedRules, p.GetRevision(), l
+}
+
+func (p *Repository) DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSlice, uint64) {
+	rules := p.rulesByResource[rid]
+	if len(rules) == 0 {
+		delete(p.rulesByResource, rid)
+		return nil, p.GetRevision()
+	}
+
+	deletedRules := make(ruleSlice, 0, len(rules))
+	for key, rule := range rules {
+		p.del(key)
+		deletedRules = append(deletedRules, rule)
+	}
+
+	return deletedRules, p.BumpRevision()
 }
 
 // DeleteByLabels deletes all rules in the policy repository which contain the
@@ -628,9 +664,9 @@ func (p *Repository) Empty() bool {
 }
 
 // BumpRevision allows forcing policy regeneration
-func (p *Repository) BumpRevision() {
+func (p *Repository) BumpRevision() uint64 {
 	metrics.PolicyRevision.Inc()
-	p.revision.Add(1)
+	return p.revision.Add(1)
 }
 
 // GetRulesList returns the current policy
@@ -739,7 +775,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 	matchingRules = []*rule{}
 	for _, r := range p.rules {
-		if r.matches(securityIdentity) {
+		if r.matchesSubject(securityIdentity) {
 			matchingRules = append(matchingRules, r)
 		}
 	}
@@ -810,9 +846,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 // wildcardRule generates a wildcard rule that only selects the given identity.
 func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
-	r := &rule{
-		metadata: newRuleMetadata(),
-	}
+	r := &rule{}
 
 	if ingress {
 		r.Ingress = []api.IngressRule{

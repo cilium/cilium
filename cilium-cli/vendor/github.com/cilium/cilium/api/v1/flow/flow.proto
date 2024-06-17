@@ -196,7 +196,7 @@ enum TraceReason {
     ESTABLISHED = 2;
     REPLY = 3;
     RELATED = 4;
-    REOPENED = 5;
+    REOPENED = 5 [deprecated=true];
     SRV6_ENCAP = 6;
     SRV6_DECAP = 7;
     ENCRYPT_OVERLAY = 8;
@@ -252,6 +252,7 @@ message TraceParent {
 message Endpoint {
     uint32 ID = 1;
     uint32 identity = 2;
+    string cluster_name = 7;
     string namespace = 3;
     // labels in `foo=bar` format.
     repeated string labels = 4;
@@ -272,6 +273,9 @@ message TCP {
 
 message IP {
     string source = 1;
+    // source_xlated is the post translation source IP when the flow was SNATed
+    // (and in that case source is the the original source IP).
+    string source_xlated = 5;
     string destination = 2;
     IPVersion ipVersion = 3;
     // This field indicates whether the TraceReasonEncryptMask is set or not.
@@ -409,7 +413,7 @@ enum DropReason {
     INVALID_VNI = 183;
     INVALID_TC_BUFFER = 184;
     NO_SID = 185;
-    MISSING_SRV6_STATE = 186;
+    MISSING_SRV6_STATE = 186 [deprecated = true];
     NAT46 = 187;
     NAT64 = 188;
     AUTH_REQUIRED = 189;
@@ -496,6 +500,10 @@ message FlowFilter {
     // specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
     // "1.1.1.0/24").
     repeated string source_ip = 1;
+    // source_ip_xlated filters by a list IPs. Each of the IPs can be specified
+    // as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
+    // "1.1.1.0/24").
+    repeated string source_ip_xlated = 34;
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
     // The pod name can be omitted to only filter by namespace
@@ -531,11 +539,12 @@ message FlowFilter {
     // traffic_direction filters flow by direction of the connection, e.g.
     // ingress or egress.
     repeated TrafficDirection traffic_direction = 30;
-
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
     // only applicable to Verdict = DROPPED (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
-    repeated DropReason drop_reason_desc = 35;
+    repeated DropReason drop_reason_desc = 33;
+    // interface is the network interface on which this flow was observed.
+    repeated NetworkInterface interface = 35;
     // event_type is the list of event types to filter on
     repeated EventTypeFilter event_type = 6;
     // http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
@@ -593,7 +602,7 @@ message FlowFilter {
       // Using CEL has performance cost compared to other filters, so prefer
       // using non-CEL filters when possible, and try to specify CEL filters
       // last in the list of FlowFilters.
-      repeated string cel_expression = 33;
+      repeated string cel_expression = 1;
     }
     // experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.

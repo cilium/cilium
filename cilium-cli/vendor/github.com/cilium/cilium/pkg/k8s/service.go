@@ -4,11 +4,10 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"net"
-	"net/url"
+	"net/netip"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -17,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -68,6 +66,12 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	return serviceAffinityNone
 }
 
+func getTopologyAware(svc *slim_corev1.Service) bool {
+	return getAnnotationTopologyAwareHints(svc) ||
+		(svc.Spec.TrafficDistribution != nil &&
+			*svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose)
+}
+
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
 	value, ok := svc.ObjectMeta.Annotations[v1.DeprecatedAnnotationTopologyAwareHints]
@@ -96,7 +100,7 @@ func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service.
-func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing) (ServiceID, *Service) {
+func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -196,20 +200,30 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 		}
 	}
 
+	// TODO(brb) Get rid of this hack by moving the creation of surrogate
+	// frontends to pkg/service.
+	//
+	// This is a hack;-( In the case of NodePort service, we need to create
+	// surrogate frontends per IP protocol - one with a zero IP addr and
+	// one per each public iface IP addr.
+
+	ipv4 := option.Config.EnableIPv4 && utils.GetClusterIPByFamily(slim_corev1.IPv4Protocol, svc) != ""
+	if ipv4 {
+		nodePortAddrs = append(nodePortAddrs, netip.IPv4Unspecified())
+	}
+	ipv6 := option.Config.EnableIPv6 && utils.GetClusterIPByFamily(slim_corev1.IPv6Protocol, svc) != ""
+	if ipv6 {
+		nodePortAddrs = append(nodePortAddrs, netip.IPv6Unspecified())
+	}
+
 	for _, port := range svc.Spec.Ports {
 		p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 		portName := loadbalancer.FEPortName(port.Name)
 		if _, ok := svcInfo.Ports[portName]; !ok {
 			svcInfo.Ports[portName] = p
 		}
-		// TODO(brb) Get rid of this hack by moving the creation of surrogate
-		// frontends to pkg/service.
-		//
-		// This is a hack;-( In the case of NodePort service, we need to create
-		// surrogate frontends per IP protocol - one with a zero IP addr and
-		// one per each public iface IP addr.
 		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
-			if option.Config.EnableNodePort && nodeAddressing != nil {
+			if option.Config.EnableNodePort {
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
@@ -227,20 +241,9 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 						make(map[string]*loadbalancer.L3n4AddrID)
 				}
 
-				if option.Config.EnableIPv4 &&
-					utils.GetClusterIPByFamily(slim_corev1.IPv4Protocol, svc) != "" {
-
-					for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.MustAddrClusterFromIP(ip), port,
-							loadbalancer.ScopeExternal, id)
-						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
-					}
-				}
-				if option.Config.EnableIPv6 &&
-					utils.GetClusterIPByFamily(slim_corev1.IPv6Protocol, svc) != "" {
-
-					for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.MustAddrClusterFromIP(ip), port,
+				for _, addr := range nodePortAddrs {
+					if (ipv4 && addr.Is4()) || (ipv6 && addr.Is6()) {
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.AddrClusterFrom(addr, 0), port,
 							loadbalancer.ScopeExternal, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}
@@ -249,7 +252,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 		}
 	}
 
-	svcInfo.TopologyAware = getAnnotationTopologyAwareHints(svc)
+	svcInfo.TopologyAware = getTopologyAware(svc)
 
 	return svcID, svcInfo
 }
@@ -379,7 +382,14 @@ type Service struct {
 	Type loadbalancer.SVCType
 
 	// TopologyAware denotes whether service endpoints might have topology aware
-	// hints
+	// hints. This is used to determine if Services should be reconciled when
+	// Node labels are updated. It is set to true if any of the following are
+	// true:
+	// * TrafficDistribution field is set to "PreferClose"
+	// * service.kubernetes.io/topology-aware-hints annotation is set to "Auto"
+	//   or "auto"
+	// * service.kubernetes.io/topology-mode annotation is set to any value
+	//   other than "Disabled"
 	TopologyAware bool
 }
 
@@ -682,52 +692,4 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 		return true
 	}
 	return false
-}
-
-type ServiceIPGetter interface {
-	GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr
-}
-
-// CreateCustomDialer returns a custom dialer that picks the service IP,
-// from the given ServiceIPGetter, if the address used to dial is a k8s
-// service. If verboseLogs is set, a log message is output when the
-// address to service IP translation fails.
-func CreateCustomDialer(b ServiceIPGetter, log logrus.FieldLogger, verboseLogs bool) func(ctx context.Context, addr string) (conn net.Conn, e error) {
-	return func(ctx context.Context, s string) (conn net.Conn, e error) {
-		// If the service is available, do the service translation to
-		// the service IP. Otherwise dial with the original service
-		// name `s`.
-		u, err := url.Parse(s)
-		if err == nil {
-			var svc *ServiceID
-			// In etcd v3.5.0, 's' doesn't contain the URL Scheme and the u.Host
-			// will be empty because url.Parse will consider the "host" as the
-			// url Scheme. If 's' doesn't contain the URL Scheme then we will be
-			// able to parse the service ID directly from it without the need
-			// to do url.Parse.
-			if u.Host != "" {
-				svc = ParseServiceIDFrom(u.Host)
-			} else {
-				svc = ParseServiceIDFrom(s)
-			}
-			if svc != nil {
-				svcIP := b.GetServiceIP(*svc)
-				if svcIP != nil {
-					s = svcIP.String()
-				} else if verboseLogs {
-					log.Debug("Service not found in the service IP getter")
-				}
-			} else if verboseLogs {
-				log.WithFields(logrus.Fields{
-					"url-host": u.Host,
-					"url":      s,
-				}).Debug("Unable to parse etcd service URL into a service ID")
-			}
-		} else if verboseLogs {
-			log.WithError(err).Error("Unable to parse etcd service URL")
-		}
-
-		log.Debugf("Custom dialer based on k8s service backend is dialing to %q", s)
-		return (&net.Dialer{}).DialContext(ctx, "tcp", s)
-	}
 }
