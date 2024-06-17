@@ -5,13 +5,11 @@ include:
     region: us-west-1
   - version: "1.27"
     region: us-east-2
-    ipsec: true
   - version: "1.28"
     region: ca-central-1
     default: true
-    ipsec: true
     kpr: true
   - version: "1.29"
     region: us-east-1
-    ipsec: true
     default: true
+    wireguard: true

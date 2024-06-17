@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -206,6 +206,12 @@ jobs:
             --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
             --wait=false"
+
+          if [ "${{ matrix.wireguard }}" == "true" ]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true \
+                                      --helm-set=encryption.type=wireguard \
+                                      --helm-set=cni.enableRouteMTUForCNIChaining=true"
+          fi
 
           # L7 policies are not supported in chaining mode.
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
@@ -365,7 +371,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.installation-and-connectivity.result }}
