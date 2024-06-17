@@ -847,6 +847,9 @@ data:
 {{- if (not (kindIs "invalid" .Values.cni.externalRouting)) }}
   cni-external-routing: {{ .Values.cni.externalRouting | quote }}
 {{- end}}
+{{- if .Values.cni.enableRouteMTUForCNIChaining }}
+  enable-route-mtu-for-cni-chaining: {{ .Values.cni.enableRouteMTUForCNIChaining | quote }}
+{{- end }}
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
 {{- end }}

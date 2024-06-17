@@ -630,6 +630,8 @@ cni:
     requests:
       cpu: 100m
       memory: 10Mi
+  # -- Enable route MTU for pod netns when CNI chaining is used
+  enableRouteMTUForCNIChaining: false
 # -- (string) Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
 # @default -- `"0s"`
@@ -690,7 +692,7 @@ daemon:
 # -- Enables experimental support for the detection of new and removed datapath
 # devices. When devices change the eBPF datapath is reloaded and services updated.
 # If "devices" is set then only those devices, or devices matching a wildcard will
-# be considered. 
+# be considered.
 #
 # This option has been deprecated and is a no-op.
 enableRuntimeDeviceDetection: true
@@ -3120,9 +3122,9 @@ clustermesh:
       #               CA is shared across all clusters part of the mesh.
       authMode: legacy
       # -- Allow users to provide their own certificates
-      # Users may need to provide their certificates using 
+      # Users may need to provide their certificates using
       # a mechanism that requires they provide their own secrets.
-      # This setting does not apply to any of the auto-generated 
+      # This setting does not apply to any of the auto-generated
       # mechanisms below, it only restricts the creation of secrets
       # via the `tls-provided` templates.
       enableSecrets: true
