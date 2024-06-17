@@ -20,6 +20,20 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+var (
+	// cidDeleteDelay is the delay to enqueue another CID event to be reconciled
+	// after CID is marked for deletion. This is required for simultaneous CID
+	// management by both cilium-operator and cilium-agent. Without the delay,
+	// operator might immediately clean up CIDs created by agent, before agent can
+	// finish CEP creation.
+	cidDeleteDelay = 30 * time.Second
+)
+
+type queueOperations interface {
+	enqueueCIDReconciliation(cidKey resource.Key, delay time.Duration)
+	enqueuePodReconciliation(podKey resource.Key, delay time.Duration)
+}
+
 type params struct {
 	cell.In
 

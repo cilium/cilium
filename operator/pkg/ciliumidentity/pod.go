@@ -5,6 +5,6 @@ package ciliumidentity
 
 import "github.com/cilium/cilium/pkg/k8s/resource"
 
-func cidResourceKey(cidName string) resource.Key {
-	return resource.Key{Name: cidName}
+func podResourceKey(podName, podNamespace string) resource.Key {
+	return resource.Key{Name: podName, Namespace: podNamespace}
 }
