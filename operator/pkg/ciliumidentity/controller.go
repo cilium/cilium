@@ -5,8 +5,11 @@ package ciliumidentity
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
+
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
@@ -108,15 +111,100 @@ func registerController(p params) {
 		cesEnabled:          p.SharedCfg.EnableCiliumEndpointSlice,
 	}
 
+	// TODO Read identity relevant labels from ConfigMap to update the labelsfilter
+
+	cidController.initializeQueues()
+
 	p.Lifecycle.Append(cidController)
 }
 
-func (c *Controller) Start(hookContext cell.HookContext) error {
-	//TODO implement me
-	panic("implement me")
+func (c *Controller) Start(_ cell.HookContext) error {
+	c.logger.Info("Starting CID controller Operator")
+	defer utilruntime.HandleCrash()
+
+	c.context, c.contextCancel = context.WithCancel(context.Background())
+	c.reconciler = newReconciler(
+		c.context,
+		c.logger,
+		c.clientset,
+		c.namespace,
+		c.pod,
+		c.ciliumIdentity,
+		c.ciliumEndpoint,
+		c.ciliumEndpointSlice,
+		c.cesEnabled,
+		c,
+	)
+
+	c.logger.Info("Starting CID controller reconciler")
+
+	// The desired state needs to be calculated before the events are processed.
+	if err := c.reconciler.calcDesiredStateOnStartup(); err != nil {
+		return fmt.Errorf("cid controller failed to calculate the desired state: %w", err)
+	}
+
+	// The Cilium Identity (CID) controller running in cilium-operator is
+	// responsible only for managing CID API objects.
+	//
+	// Pod events are added to Pod work queue.
+	// Namespace events are processed immediately and added to Pod work queue.
+	// CID events are added to CID work queue.
+	// Processing Pod work queue items are adding items to CID work queue.
+	// Processed CID work queue items result in mutations to CID API objects.
+	//
+	// Diagram:
+	//-------------------------Pod event---------CID event
+	//---------------------------||-----------------||
+	//----------------------------V------------------V
+	// Namespace event -> Pod work queue -> CID work queue -> Mutate CID API objects
+	c.wp = workerpool.New(workerPoolSize)
+	err := c.startEventProcessing()
+	if err != nil {
+		return err
+	}
+	err = c.startWorkQueues()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (c *Controller) Stop(hookContext cell.HookContext) error {
-	//TODO implement me
-	panic("implement me")
+func (c *Controller) Stop(_ cell.HookContext) error {
+	c.cidQueue.ShutDown()
+	c.podQueue.ShutDown()
+
+	c.contextCancel()
+	return c.wp.Close()
+}
+
+func (c *Controller) initializeQueues() {
+	c.initCIDQueue()
+	c.initPodQueue()
+}
+
+func (c *Controller) startEventProcessing() error {
+	if err := c.wp.Submit("proc-cid-events", c.processCiliumIdentityEvents); err != nil {
+		return fmt.Errorf("failed to init worker pool for CiliumIdentityEvents")
+	}
+	if err := c.wp.Submit("proc-pod-events", c.processPodEvents); err != nil {
+		return fmt.Errorf("failed to init worker pool for PodEvents")
+	}
+	if err := c.wp.Submit("proc-ces-events", c.processCiliumEndpointSliceEvents); err != nil {
+		return fmt.Errorf("failed to init worker pool for CiliumEndpointSliceEvents")
+	}
+	if err := c.wp.Submit("proc-ns-events", c.processNamespaceEvents); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) startWorkQueues() error {
+	if err := c.wp.Submit("op-managing-cid-wq", c.runCIDWorker); err != nil {
+		return fmt.Errorf("failed to init worker pool for CID Worker")
+	}
+	if err := c.wp.Submit("op-managing-pod-wq", c.runPodWorker); err != nil {
+		return fmt.Errorf("failed to init worker pool for Pod Worker")
+	}
+	return nil
 }
