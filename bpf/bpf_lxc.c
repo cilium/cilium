@@ -571,9 +571,6 @@ ct_recreate6:
 		return DROP_UNKNOWN_CT;
 	}
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
 #ifdef ENABLE_SRV6
 	{
 		__u32 *vrf_id;
