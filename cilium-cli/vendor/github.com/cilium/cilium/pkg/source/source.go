@@ -33,6 +33,9 @@ const (
 	// Kubernetes is the source used for state derived from Kubernetes
 	Kubernetes Source = "k8s"
 
+	// ClusterMesh is the source used for state derived from remote clusters
+	ClusterMesh Source = "clustermesh"
+
 	// LocalAPI is the source used for state derived from the API served
 	// locally on the node.
 	LocalAPI Source = "api"
@@ -45,6 +48,10 @@ const (
 	// by the previous agent instance. Can be overwritten by all other
 	// sources (except for unspec).
 	Restored Source = "restored"
+
+	// Directory is the source used for watching and reading
+	// cilium network policy files from specific directory.
+	Directory Source = "directory"
 )
 
 // AllowOverwrite returns true if new state from a particular source is allowed
@@ -72,9 +79,14 @@ func AllowOverwrite(existing, new Source) bool {
 	case CustomResource:
 		return new == CustomResource || new == KVStore || new == Local || new == KubeAPIServer
 
-	// Kubernetes state can be overwritten by everything except local API,
-	// generated, restored and unspecified state.
+	// Kubernetes state can be overwritten by everything except clustermesh,
+	// local API, generated, restored and unspecified state.
 	case Kubernetes:
+		return new != ClusterMesh && new != LocalAPI && new != Generated && new != Restored && new != Unspec
+
+	// ClusterMesh state can be overwritten by everything except local API,
+	// generated, restored and unspecified state.
+	case ClusterMesh:
 		return new != LocalAPI && new != Generated && new != Restored && new != Unspec
 
 	// Local API state can be overwritten by everything except restored,

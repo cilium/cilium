@@ -406,19 +406,19 @@ func initClusterIDShift() {
 
 // GetMinimalNumericIdentity returns the minimal numeric identity not used for
 // reserved purposes.
-func GetMinimalAllocationIdentity() NumericIdentity {
-	if option.Config.ClusterID > 0 {
+func GetMinimalAllocationIdentity(clusterID uint32) NumericIdentity {
+	if clusterID > 0 {
 		// For ClusterID > 0, the identity range just starts from cluster shift,
 		// no well-known-identities need to be reserved from the range.
-		return NumericIdentity((1 << GetClusterIDShift()) * option.Config.ClusterID)
+		return NumericIdentity((1 << GetClusterIDShift()) * clusterID)
 	}
 	return MinimalNumericIdentity
 }
 
 // GetMaximumAllocationIdentity returns the maximum numeric identity that
 // should be handed out by the identity allocator.
-func GetMaximumAllocationIdentity() NumericIdentity {
-	return NumericIdentity((1<<GetClusterIDShift())*(option.Config.ClusterID+1) - 1)
+func GetMaximumAllocationIdentity(clusterID uint32) NumericIdentity {
+	return NumericIdentity((1<<GetClusterIDShift())*(clusterID+1) - 1)
 }
 
 var (

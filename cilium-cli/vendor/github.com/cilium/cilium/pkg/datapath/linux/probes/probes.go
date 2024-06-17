@@ -776,3 +776,27 @@ func writeFeatureHeader(writer io.Writer, features map[string]bool, common bool)
 
 	return nil
 }
+
+// HaveBatchAPI checks if kernel supports batched bpf map lookup API.
+func HaveBatchAPI() error {
+	spec := ebpf.MapSpec{
+		Type:       ebpf.LRUHash,
+		KeySize:    1,
+		ValueSize:  1,
+		MaxEntries: 2,
+	}
+	m, err := ebpf.NewMapWithOptions(&spec, ebpf.MapOptions{})
+	if err != nil {
+		return ErrNotSupported
+	}
+	defer m.Close()
+	var cursor ebpf.MapBatchCursor
+	_, err = m.BatchLookup(&cursor, []byte{0}, []byte{0}, nil) // only do one batched lookup
+	if err != nil {
+		if errors.Is(err, ebpf.ErrNotSupported) {
+			return ErrNotSupported
+		}
+		return nil
+	}
+	return nil
+}

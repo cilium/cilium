@@ -93,12 +93,12 @@ func GetCIDRLabels(prefix netip.Prefix) Labels {
 		l.cidr = &prefix
 		lbls[l.Key] = l
 	}
-	addWorldLabel(prefix.Addr(), lbls)
+	AddWorldLabel(prefix.Addr(), lbls)
 
 	return lbls
 }
 
-func addWorldLabel(addr netip.Addr, lbls Labels) {
+func AddWorldLabel(addr netip.Addr, lbls Labels) {
 	switch {
 	case !option.Config.IsDualStack():
 		lbls[worldLabelNonDualStack.Key] = worldLabelNonDualStack

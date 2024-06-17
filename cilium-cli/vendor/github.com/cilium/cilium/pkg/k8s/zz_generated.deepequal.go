@@ -51,6 +51,9 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 	if in.Preferred != other.Preferred {
 		return false
 	}
+	if in.Zone != other.Zone {
+		return false
+	}
 
 	return true
 }

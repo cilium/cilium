@@ -13,7 +13,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 )
 
 const (
@@ -25,7 +25,7 @@ const (
 // GetAndFormatModulesHealth retrieves modules health and formats output.
 //
 // Deprecated: Following #30925 we will move to either a separate cilium-dbg command or
-// use healthv2 statedb dump data to render status reports externally.
+// use health statedb dump data to render status reports externally.
 // Following this we should remove this output as part of status in version v1.17.
 func GetAndFormatModulesHealth(w io.Writer, ss []types.Status, verbose bool) {
 	// Although status' is received from the statedb remote table according to
