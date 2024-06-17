@@ -1,8 +1,24 @@
-name: 100 Nodes Scale Test
+name: 100 Nodes Scale Test (scale-100)
 
 on:
   schedule:
     - cron: '39 0 * * 1-5'
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
 
 # For testing uncomment following lines:
 #  push:
@@ -14,6 +30,10 @@ permissions:
   contents: read
   # To be able to request the JWT from GitHub's OIDC provider
   id-token: write
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
 
 concurrency:
   # Structure:
@@ -45,6 +65,23 @@ env:
   gcloud_version: 480.0.0
 
 jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
   install-and-scaletest:
     runs-on: ubuntu-latest
     name: Install and Scale Test
@@ -63,7 +100,7 @@ jobs:
         id: vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] ; then
-            SHA="${{ inputs.image-tag }}"
+            SHA="${{ inputs.SHA }}"
           else
             SHA="${{ github.sha }}"
           fi
@@ -269,3 +306,15 @@ jobs:
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: install-and-scaletest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.install-and-scaletest.result }}
