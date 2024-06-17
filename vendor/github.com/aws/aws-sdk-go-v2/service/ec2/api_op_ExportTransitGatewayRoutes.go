@@ -16,9 +16,9 @@ import (
 // CIDR range.
 //
 // The routes are saved to the specified bucket in a JSON file. For more
-// information, see [Export Route Tables to Amazon S3]in Transit Gateways.
+// information, see [Export route tables to Amazon S3]in the Amazon Web Services Transit Gateways Guide.
 //
-// [Export Route Tables to Amazon S3]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-route-tables.html#tgw-export-route-tables
+// [Export route tables to Amazon S3]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-route-tables.html#tgw-export-route-tables
 func (c *Client) ExportTransitGatewayRoutes(ctx context.Context, params *ExportTransitGatewayRoutesInput, optFns ...func(*Options)) (*ExportTransitGatewayRoutesOutput, error) {
 	if params == nil {
 		params = &ExportTransitGatewayRoutesInput{}

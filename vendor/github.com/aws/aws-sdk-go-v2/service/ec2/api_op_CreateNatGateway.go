@@ -72,7 +72,7 @@ type CreateNatGatewayInput struct {
 	//
 	// Constraint: Maximum 64 ASCII characters.
 	//
-	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// Indicates whether the NAT gateway supports public or private connectivity. The

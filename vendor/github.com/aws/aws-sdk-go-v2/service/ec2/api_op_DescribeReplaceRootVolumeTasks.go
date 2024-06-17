@@ -12,7 +12,7 @@ import (
 )
 
 // Describes a root volume replacement task. For more information, see [Replace a root volume] in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 //
 // [Replace a root volume]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/replace-root.html
 func (c *Client) DescribeReplaceRootVolumeTasks(ctx context.Context, params *DescribeReplaceRootVolumeTasksInput, optFns ...func(*Options)) (*DescribeReplaceRootVolumeTasksOutput, error) {

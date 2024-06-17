@@ -35,9 +35,9 @@ type DeleteVerifiedAccessGroupInput struct {
 	VerifiedAccessGroupId *string
 
 	// A unique, case-sensitive token that you provide to ensure idempotency of your
-	// modification request. For more information, see [Ensuring Idempotency].
+	// modification request. For more information, see [Ensuring idempotency].
 	//
-	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without

@@ -13,7 +13,7 @@ import (
 )
 
 // Describes the Spot price history. For more information, see [Spot Instance pricing history] in the Amazon EC2
-// User Guide for Linux Instances.
+// User Guide.
 //
 // When you specify a start and end time, the operation returns the prices of the
 // instance types within that time range. It also returns the last price change
