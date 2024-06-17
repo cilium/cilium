@@ -36,7 +36,7 @@ var (
 		RouteMTU:            mtuConfig.GetRouteMTU(),
 		RoutePostEncryptMTU: mtuConfig.GetRoutePostEncryptMTU(),
 	}
-	mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 100, net.IP("1.1.1.1"))
+	mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 100, net.IP("1.1.1.1"), false)
 	nh        = linuxNodeHandler{
 		nodeConfig: nodeConfig,
 		datapathConfig: DatapathConfiguration{

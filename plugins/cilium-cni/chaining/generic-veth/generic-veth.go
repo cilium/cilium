@@ -109,7 +109,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			return errors.New("no link found inside container")
 		}
 
-		if pluginCtx.NetConf.EnableRouteMTU {
+		if pluginCtx.NetConf.EnableRouteMTU || pluginCtx.CiliumConf.EnableRouteMTUForCNIChaining {
 			routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
 			if err != nil {
 				err = fmt.Errorf("unable to list the IPv4 routes: %w", err)

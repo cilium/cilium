@@ -99,13 +99,16 @@ type Configuration struct {
 	encapEnabled     bool
 	encryptEnabled   bool
 	wireguardEnabled bool
+
+	// Enable route MTU for pod netns when CNI chaining is used
+	enableRouteMTUForCNIChaining bool
 }
 
 // NewConfiguration returns a new MTU configuration. The MTU can be manually
 // specified, otherwise it will be automatically detected. if encapEnabled is
 // true, the MTU is adjusted to account for encapsulation overhead for all
 // routes involved in node to node communication.
-func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, hsIpcacheDSRenabled bool, mtu int, mtuDetectIP net.IP) Configuration {
+func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, hsIpcacheDSRenabled bool, mtu int, mtuDetectIP net.IP, enableRouteMTUForCNIChaining bool) Configuration {
 	encryptOverhead := 0
 
 	if mtu == 0 {
@@ -134,13 +137,14 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, w
 	}
 
 	conf := Configuration{
-		standardMTU:      mtu,
-		tunnelMTU:        mtu - (fullTunnelOverhead + encryptOverhead),
-		postEncryptMTU:   mtu - TunnelOverhead,
-		preEncryptMTU:    mtu - encryptOverhead,
-		encapEnabled:     encapEnabled,
-		encryptEnabled:   encryptEnabled,
-		wireguardEnabled: wireguardEnabled,
+		standardMTU:                  mtu,
+		tunnelMTU:                    mtu - (fullTunnelOverhead + encryptOverhead),
+		postEncryptMTU:               mtu - TunnelOverhead,
+		preEncryptMTU:                mtu - encryptOverhead,
+		encapEnabled:                 encapEnabled,
+		encryptEnabled:               encryptEnabled,
+		wireguardEnabled:             wireguardEnabled,
+		enableRouteMTUForCNIChaining: enableRouteMTUForCNIChaining,
 	}
 
 	if conf.tunnelMTU < 0 {
@@ -194,6 +198,10 @@ func (c *Configuration) GetRouteMTU() int {
 	}
 
 	return c.tunnelMTU
+}
+
+func (c *Configuration) IsEnableRouteMTUForCNIChaining() bool {
+	return c.enableRouteMTUForCNIChaining
 }
 
 // GetDeviceMTU returns the MTU to be used on workload facing devices.
