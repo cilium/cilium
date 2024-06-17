@@ -207,11 +207,6 @@ spec:
               name: cilium-config
               key: cluster-id
               optional: true
-        - name: IDENTITY_ALLOCATION_MODE
-          valueFrom:
-            configMapKeyRef:
-              name: cilium-config
-              key: identity-allocation-mode
         - name: ENABLE_K8S_ENDPOINT_SLICE
           valueFrom:
             configMapKeyRef:
