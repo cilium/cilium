@@ -418,6 +418,7 @@ Identity
 Name                                     Labels                                             Default    Description
 ======================================== ================================================== ========== ========================================================
 ``identity``                             ``type``                                           Enabled    Number of identities currently allocated
+``identity_label_sources``               ``source``                                         Enabled    Number of identities which contain at least one label from the given label source
 ``ipcache_errors_total``                 ``type``, ``error``                                Enabled    Number of errors interacting with the ipcache
 ``ipcache_events_total``                 ``type``                                           Enabled    Number of events interacting with the ipcache
 ======================================== ================================================== ========== ========================================================
