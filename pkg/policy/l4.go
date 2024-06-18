@@ -813,6 +813,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	}
 
 	// already validated via L4Proto.Validate(), never "ANY"
+	// NOTE: "ANY" for wildcarded port/proto!
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := &L4Filter{
