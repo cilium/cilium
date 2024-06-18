@@ -316,6 +316,19 @@ Annotations:
   If your current setup has third-party old-style tc BPF users, then this option should be
   disabled via Helm through ``bpf.enableTCX=false`` in order to continue in old-style tc BPF
   attachment mode as before.
+* The implementation of ``toFQDNs`` selectors in policies has been overhauled to improve
+  performance when many different IPs are observed for a selector: Instead of creating
+  ``cidr`` identities for each allowed IP, IPs observed in DNS lookups are now labeled
+  with the selectors ``toFQDNs`` matching them. This reduces tail latency significantly for
+  FQDNs with a highly dynamic set of IPs, such as e.g. content delivery networks and
+  cloud object storage services.
+  Cilium automatically migrates its internal state for ``toFQDNs`` policy entries upon
+  upgrade or downgrade. To avoid drops during upgrades in clusters with ``toFQDNs`` policies,
+  it is required to run Cilium v1.15.6 or newer before upgrading to Cilium v1.16. If upgrading
+  from an older Cilium version, temporary packet drops for connections allowed by ``toFQDNs``
+  policies may occur during the initial endpoint regeneration on Cilium v1.16.
+  Similarly, when downgrading from v1.16 to v1.15 or older, temporary drops may occur for
+  such connections as well during initial endpoint regeneration on the downgraded version.
 * The ``cilium-dbg status --verbose`` command health data may now show health reported on a non-leaf
   component under a leaf named ``reporter``. Health data tree branches will now also be sorted by
   the fully qualified health status identifier.
@@ -432,7 +445,12 @@ Helm Options
 Added Metrics
 ~~~~~~~~~~~~~
 
-* TBD
+* ``cilium_identity_label_sources`` is a new metric which counts the number of
+  identities with per label source. This is particularly useful to further break
+  down the source of local identities by having separate metrics for ``fqdn``
+  and ``cidr`` labels.
+* ``cilium_fqdn_selectors`` is a new metric counting the number of ingested
+  ``toFQDNs`` selectors.
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
