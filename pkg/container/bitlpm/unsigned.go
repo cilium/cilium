@@ -47,8 +47,8 @@ func (tu *UintTrie[K, T]) getKey(k K) Key[K] {
 	panic(fmt.Sprintf("unexpected key size of %d", unsafe.Sizeof(k)))
 }
 
-func (ut *UintTrie[K, T]) Upsert(prefix uint, k K, value T) {
-	ut.trie.Upsert(prefix, ut.getKey(k), value)
+func (ut *UintTrie[K, T]) Upsert(prefix uint, k K, value T) bool {
+	return ut.trie.Upsert(prefix, ut.getKey(k), value)
 }
 
 func (ut *UintTrie[K, T]) Delete(prefix uint, k K) bool {
