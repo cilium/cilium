@@ -443,7 +443,7 @@ func (p *Proxy) GetProxyPort(name string) (uint16, error) {
 	defer p.mutex.RUnlock()
 	pp := p.proxyPorts[name]
 	if pp != nil {
-		return pp.ProxyPort, nil
+		return pp.ProxyPort, nil // noop
 	}
 	return 0, proxyNotFoundError(name)
 }
