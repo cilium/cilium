@@ -961,19 +961,18 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 // specified writer. This must be kept in sync with loader.ELFSubstitutions().
 func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e datapath.EndpointConfiguration) {
 	if e.IsHost() {
-		if option.Config.EnableNodePort {
-			// Values defined here are for the host datapath attached to the
-			// host device and therefore won't be used. We however need to set
-			// non-zero values to prevent the compiler from optimizing them
-			// out, because we need to substitute them for host datapaths
-			// attached to native devices.
-			// When substituting symbols in the object file, we will replace
-			// these values with zero for the host device and with the actual
-			// values for the native devices.
-			fmt.Fprint(fw, "/* Fake values, replaced by 0 for host device and by actual values for native devices. */\n")
-			fmt.Fprint(fw, defineUint32("NATIVE_DEV_IFINDEX", 1))
-			fmt.Fprint(fw, "\n")
-		}
+		// Values defined here are for the host datapath attached to the
+		// host device and therefore won't be used. We however need to set
+		// non-zero values to prevent the compiler from optimizing them
+		// out, because we need to substitute them for host datapaths
+		// attached to native devices.
+		// When substituting symbols in the object file, we will replace
+		// these values with zero for the host device and with the actual
+		// values for the native devices.
+		fmt.Fprint(fw, "/* Fake values, replaced by 0 for host device and by actual values for native devices. */\n")
+		fmt.Fprint(fw, defineUint32("NATIVE_DEV_IFINDEX", 1))
+		fmt.Fprint(fw, "\n")
+
 		if option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4Masquerade {
 				// NodePort comment above applies to IPV4_MASQUERADE too
