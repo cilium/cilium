@@ -240,9 +240,7 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	}
 
 	if ep.IsHost() {
-		if option.Config.EnableNodePort {
-			result["NATIVE_DEV_IFINDEX"] = 0
-		}
+		result["NATIVE_DEV_IFINDEX"] = 0
 		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4 {
 				result["IPV4_MASQUERADE"] = 0

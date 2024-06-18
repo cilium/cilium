@@ -202,9 +202,8 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (m
 		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	}
 
-	if option.Config.EnableNodePort {
-		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
-	}
+	opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
+
 	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
 		ipv4, ipv6 := l.bpfMasqAddrs(ifName)
 
