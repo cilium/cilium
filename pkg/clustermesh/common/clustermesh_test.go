@@ -30,6 +30,7 @@ func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations
 		f.onRun(ctx)
 	}
 	close(ready)
+	<-ctx.Done()
 }
 
 func (f *fakeRemoteCluster) Stop() {
