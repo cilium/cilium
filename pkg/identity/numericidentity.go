@@ -222,6 +222,12 @@ func (w wellKnownIdentities) LookupByLabels(lbls labels.Labels) *Identity {
 	return nil
 }
 
+func (w wellKnownIdentities) ForEach(yield func(*Identity)) {
+	for _, id := range w {
+		yield(id.identity)
+	}
+}
+
 func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *Identity {
 	wki, ok := w[identity]
 	if !ok {

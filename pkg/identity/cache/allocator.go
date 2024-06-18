@@ -394,6 +394,10 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 
 	if allocated {
 		metrics.Identity.WithLabelValues(metricLabel).Inc()
+		for labelSource := range lbls.CollectSources() {
+			metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
+		}
+
 		if m.checkpointTrigger != nil {
 			m.checkpointTrigger.Trigger()
 		}
@@ -470,6 +474,9 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 
 	if allocated || isNewLocally {
 		metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Inc()
+		for labelSource := range lbls.CollectSources() {
+			metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
+		}
 	}
 
 	// Notify the owner of the newly added identities so that the
@@ -678,6 +685,9 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 			}
 			if metricVal != identity.ClusterLocalIdentityType && m.checkpointTrigger != nil {
 				m.checkpointTrigger.Trigger()
+			}
+			for labelSource := range id.Labels.CollectSources() {
+				metrics.IdentityLabelSources.WithLabelValues(labelSource).Dec()
 			}
 			metrics.Identity.WithLabelValues(metricVal).Dec()
 		}
