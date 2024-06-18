@@ -74,6 +74,8 @@ func (c *Controller) runCIDWorker(_ context.Context) error {
 }
 
 func (c *Controller) processNextCIDQueueItem() bool {
+	processingStartTime := time.Now()
+
 	item, quit := c.cidQueue.Get()
 	if quit {
 		return false
@@ -84,10 +86,19 @@ func (c *Controller) processNextCIDQueueItem() bool {
 	err := c.reconciler.reconcileCID(cidKey)
 	c.handleCIDErr(err, item)
 
+	if operatorOption.Config.EnableMetrics {
+		enqueueTime, exists := c.cidEnqueuedAt.GetEnqueueTimeAndReset(cidKey.String())
+		c.metrics.meterLatency(LabelValueCIDWorkQueue, processingStartTime, exists, enqueueTime)
+	}
+
 	return true
 }
 
 func (c *Controller) handleCIDErr(err error, item interface{}) {
+	if operatorOption.Config.EnableMetrics {
+		c.metrics.markEvent(LabelValueCIDWorkQueue, err == nil)
+	}
+
 	if err == nil {
 		c.cidQueue.Forget(item)
 		return

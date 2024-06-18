@@ -4,6 +4,7 @@
 package ciliumidentity
 
 import (
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/hive/cell"
 )
 
@@ -13,6 +14,7 @@ var Cell = cell.Module(
 	"k8s-cid-controller",
 	"Cilium Identity Controller Operator",
 	cell.Invoke(registerController),
+	metrics.Metric(NewMetrics),
 )
 
 // SharedConfig contains the configuration that is shared between

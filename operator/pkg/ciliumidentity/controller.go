@@ -55,6 +55,7 @@ type params struct {
 	Lifecycle           cell.Lifecycle
 	Clientset           k8sClient.Clientset
 	SharedCfg           SharedConfig
+	Metrics             *Metrics
 	Namespace           resource.Resource[*slim_corev1.Namespace]
 	Pod                 resource.Resource[*slim_corev1.Pod]
 	CiliumIdentity      resource.Resource[*cilium_api_v2.CiliumIdentity]
@@ -66,6 +67,7 @@ type Controller struct {
 	logger              *slog.Logger
 	context             context.Context
 	contextCancel       context.CancelFunc
+	metrics             *Metrics
 	clientset           k8sClient.Clientset
 	reconciler          *reconciler
 	namespace           resource.Resource[*slim_corev1.Namespace]
@@ -109,6 +111,7 @@ func registerController(p params) {
 		podEnqueuedAt:       &EnqueueTimeTracker{enqueuedAt: make(map[string]time.Time)},
 		oldNSSecurityLabels: make(map[string]labels.Labels),
 		cesEnabled:          p.SharedCfg.EnableCiliumEndpointSlice,
+		metrics:             p.Metrics,
 	}
 
 	// TODO Read identity relevant labels from ConfigMap to update the labelsfilter

@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
+
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 
 	"k8s.io/client-go/util/workqueue"
@@ -73,6 +75,8 @@ func (c *Controller) runPodWorker(_ context.Context) error {
 }
 
 func (c *Controller) processNextPodQueueItem() bool {
+	processingStartTime := time.Now()
+
 	item, quit := c.podQueue.Get()
 	if quit {
 		return false
@@ -84,10 +88,19 @@ func (c *Controller) processNextPodQueueItem() bool {
 	err := c.reconciler.reconcilePod(podKey)
 	c.handlePodErr(err, item)
 
+	if operatorOption.Config.EnableMetrics {
+		enqueueTime, exists := c.podEnqueuedAt.GetEnqueueTimeAndReset(podKey.String())
+		c.metrics.meterLatency(LabelValuePodWorkQueue, processingStartTime, exists, enqueueTime)
+	}
+
 	return true
 }
 
 func (c *Controller) handlePodErr(err error, item interface{}) {
+	if operatorOption.Config.EnableMetrics {
+		c.metrics.markEvent(LabelValuePodWorkQueue, err == nil)
+	}
+
 	if err == nil {
 		c.podQueue.Forget(item)
 		return
