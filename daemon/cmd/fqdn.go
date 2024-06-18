@@ -359,10 +359,16 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	port := uint16(option.Config.ToFQDNsProxyPort)
 	if port == 0 {
 		// Try reuse previous DNS proxy port number
-		if oldPort, err := proxy.GetProxyPort(proxytypes.DNSProxyName); err == nil {
-			openLocalPorts := proxy.OpenLocalPorts()
-			if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
+		if oldPort, isStatic, err := proxy.GetProxyPort(proxytypes.DNSProxyName); err == nil {
+			if isStatic {
 				port = oldPort
+			} else {
+				openLocalPorts := proxy.OpenLocalPorts()
+				if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
+					port = oldPort
+				} else {
+					log.WithField(logfields.Port, oldPort).Info("Unable re-use old DNS proxy port as it is already in use")
+				}
 			}
 		}
 	}

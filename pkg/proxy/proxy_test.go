@@ -70,7 +70,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port, Not(Equals), 0)
 
-	port1, err := GetProxyPort("listener1")
+	port1, _, err := GetProxyPort("listener1")
 	c.Assert(err, IsNil)
 	c.Assert(port1, Equals, port)
 
@@ -93,7 +93,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
-	port1b, err := GetProxyPort("listener1")
+	port1b, _, err := GetProxyPort("listener1")
 	c.Assert(err, IsNil)
 	c.Assert(port1b, Equals, uint16(0))
 	c.Assert(pp.ProxyPort, Equals, uint16(0))
