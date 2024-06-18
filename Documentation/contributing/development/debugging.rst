@@ -286,10 +286,10 @@ allocated Security Identities. These can be listed with:
                k8s:io.kubernetes.pod.namespace=default
                k8s:org=alliance
     ...
-    16777217   cidr:104.198.14.52/32
+    16777217   fqdn:*
                reserved:world
 
-Note that CIDR identities are allocated locally on the node and have a high-bit set so they are often in the 16-million range.
+Note that FQDN identities are allocated locally on the node and have a high-bit set so they are often in the 16-million range.
 Note that this is the identity in the monitor output for the HTTP connection.
 
 In cases where there is no matching identity for an IP in the fqdn cache it may
@@ -348,8 +348,7 @@ The L7 DNS rule has an implicit L3 allow-all because it defines only L4 and L7
 sections. This is the second selector in the list, and includes all possible L3
 identities known in the system. In contrast, the first selector, which
 corresponds to the ``toFQDNS: matchName: "*"`` rule would list all identities
-for IPs that came from the DNS Proxy. Other CIDR identities would not be
-included.
+for IPs that came from the DNS Proxy.
 
 Unintended DNS Policy Drops
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -381,10 +380,10 @@ Datapath Plumbing
 ~~~~~~~~~~~~~~~~~
 
 For a policy to be fully realized the datapath for an Endpoint must be updated.
-In the case of a new DNS-source IP, the CIDR identity associated with it must
+In the case of a new DNS-source IP, the FQDN identity associated with it must
 propagate from the selectors to the Endpoint specific policy. Unless a new
 policy is being added, this often only involves updating the Policy Map of the
-Endpoint with the new CIDR Identity of the IP. This can be verified:
+Endpoint with the new FQDN Identity of the IP. This can be verified:
 
 .. code-block:: shell-session
 
@@ -394,7 +393,7 @@ Endpoint with the new CIDR Identity of the IP. This can be verified:
     Ingress     reserved:host                 ANY          NONE         0       0
     Egress      reserved:unknown              53/TCP       36447        0       0
     Egress      reserved:unknown              53/UDP       36447        138     2
-    Egress      cidr:104.198.14.52/32         ANY          NONE         477     6
+    Egress      fqdn:*                        ANY          NONE         477     6
                 reserved:world 
 
 Note that the labels for identities are resolved here. This can be skipped, or

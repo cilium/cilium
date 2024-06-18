@@ -188,10 +188,10 @@ the state of applying FQDN policy in multiple layers of the daemon:
 
 
 #. If the traffic is allowed, then these IPs should have corresponding local identities via
-   ``cilium-dbg identity list | grep <IP>``:
+   ``cilium-dbg ip list | grep <IP>``:
 
    .. code-block:: shell-session
 
-      # cilium-dbg identity list | grep -A 1 140.82.121.6
-      16777230   cidr:140.82.121.6/32
-           reserved:world
+      # cilium-dbg ip list | grep -A 1 140.82.121.6
+      140.82.121.6/32                 fqdn:api.github.com
+                                      reserved:world
