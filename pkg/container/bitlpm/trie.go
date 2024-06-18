@@ -49,11 +49,12 @@ type Trie[K, T any] interface {
 	// prefix, it will be set to the Trie's maximum prefix.
 	Descendants(prefix uint, key K, fn func(uint, K, T) bool)
 	// Upsert updates or inserts the trie with a a prefix, key,
-	// and value.
+	// and value. The method returns true if the key is new, and
+	// false if the key already existed.
 	//
 	// Note: If the prefix argument exceeds the Trie's maximum
 	// prefix, it will be set to the Trie's maximum prefix.
-	Upsert(prefix uint, key K, value T)
+	Upsert(prefix uint, key K, value T) bool
 	// Delete removes a key with the exact given prefix and returns
 	// false if the key was not found.
 	//
@@ -291,9 +292,9 @@ func (t *trie[K, T]) traverse(prefixLen uint, k Key[K], fn func(currentNode *nod
 // Note: Upsert sets any "prefixLen" argument that exceeds the maximum
 // prefix allowed by the trie to the maximum prefix allowed by the
 // trie.
-func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
+func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) bool {
 	if k == nil {
-		return
+		return false
 	}
 	prefixLen = min(prefixLen, t.maxPrefix)
 	upsertNode := &node[K, T]{
@@ -331,7 +332,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		} else {
 			parent.children[bitVal] = upsertNode
 		}
-		return
+		return true
 	}
 	// There are three cases:
 	// 1. The current-node matches the upsert-node to the exact
@@ -370,7 +371,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		}
 		upsertNode.children[0] = currentNode.children[0]
 		upsertNode.children[1] = currentNode.children[1]
-		return
+		return false
 	}
 
 	// The upsert-node matches the current-node up to
@@ -384,7 +385,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		}
 		bitVal = currentNode.key.BitValueAt(matchLen)
 		upsertNode.children[bitVal] = currentNode
-		return
+		return true
 	}
 	// The upsert-node does not match the current-node
 	// up to the upsert-node's prefix and the current-node
@@ -408,6 +409,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		intermediateNode.children[0] = currentNode
 		intermediateNode.children[1] = upsertNode
 	}
+	return true
 }
 
 // Delete deletes only keys that match the exact values of the
