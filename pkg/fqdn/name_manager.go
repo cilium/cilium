@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
@@ -196,6 +197,9 @@ func (n *NameManager) RegisterFQDNSelector(selector api.FQDNSelector) {
 		}
 
 		n.allSelectors[selector] = regex
+		if metrics.FQDNSelectors.IsEnabled() {
+			metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
+		}
 	}
 
 	// The newly added FQDN selector could match DNS Names in the cache. If
@@ -215,6 +219,9 @@ func (n *NameManager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 
 	// Remove selector
 	delete(n.allSelectors, selector)
+	if metrics.FQDNSelectors.IsEnabled() {
+		metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
+	}
 
 	// Re-compute labels for affected names and IPs
 	selectedNamesAndIPs := n.mapSelectorsToNamesLocked(selector)
