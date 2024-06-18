@@ -23,6 +23,27 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
+type fakeRemoteCluster struct{ onRun, onStop, onRemove func(ctx context.Context) }
+
+func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations, _ types.CiliumClusterConfig, ready chan<- error) {
+	if f.onRun != nil {
+		f.onRun(ctx)
+	}
+	close(ready)
+}
+
+func (f *fakeRemoteCluster) Stop() {
+	if f.onStop != nil {
+		f.onStop(context.Background())
+	}
+}
+
+func (f *fakeRemoteCluster) Remove(ctx context.Context) {
+	if f.onRemove != nil {
+		f.onRemove(ctx)
+	}
+}
+
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
 	kvstore.SetupDummy(t, "etcd")
