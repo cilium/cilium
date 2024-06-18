@@ -25,6 +25,14 @@ const (
 	// from user space this is a limit to prevent buggy applications
 	// to fill the FQ qdisc.
 	DefaultDropHorizon = 2 * time.Second
+
+	// DefaultEcnHorizon represents threshold for ECN marking.
+	// Though single TCP connection can have TSQ limit, we can
+	// have multiple connections from same Pod, which can results
+	// in many packets queuing up in the host. With ECN marking,
+	// we can prevent queueing up and hence reduce the latency.
+	// To enable this, we need ECN marking for TCP connections.
+	DefaultEcnHorizon = 1 * time.Millisecond
 )
 
 type EdtId struct {
@@ -35,10 +43,10 @@ func (k *EdtId) String() string  { return fmt.Sprintf("%d", int(k.Id)) }
 func (k *EdtId) New() bpf.MapKey { return &EdtId{} }
 
 type EdtInfo struct {
-	Bps             uint64    `align:"bps"`
-	TimeLast        uint64    `align:"t_last"`
-	TimeHorizonDrop uint64    `align:"t_horizon_drop"`
-	Pad             [4]uint64 `align:"pad"`
+	Bps             uint64 `align:"bps"`
+	TimeLast        uint64 `align:"t_last"`
+	TimeHorizonDrop uint64 `align:"t_horizon_drop"`
+	TimeHorizonEcn  uint64 `align:"t_horizon_ecn"`
 }
 
 func (v *EdtInfo) String() string    { return fmt.Sprintf("%d", int(v.Bps)) }

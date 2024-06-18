@@ -33,6 +33,9 @@ type Edt struct {
 	// delta in future.
 	TimeHorizonDrop uint64
 
+	// TimeHorizonEcn is the threshold for ECN marking.
+	TimeHorizonEcn uint64
+
 	// Status is the BPF map reconciliation status of this throttle entry.
 	Status reconciler.Status
 }
@@ -51,6 +54,7 @@ func NewEdt(endpointID uint16, bytesPerSecond uint64) Edt {
 		EndpointID:      endpointID,
 		BytesPerSecond:  bytesPerSecond,
 		TimeHorizonDrop: uint64(DefaultDropHorizon),
+		TimeHorizonEcn:  uint64(DefaultEcnHorizon),
 		Status:          reconciler.StatusPending(),
 	}
 }
@@ -72,6 +76,7 @@ func (e Edt) BinaryValue() encoding.BinaryMarshaler {
 		Bps:             e.BytesPerSecond,
 		TimeLast:        0, // Used on the BPF-side
 		TimeHorizonDrop: e.TimeHorizonDrop,
+		TimeHorizonEcn:  e.TimeHorizonEcn,
 	}
 	return bpf.StructBinaryMarshaler{Target: &v}
 }
@@ -81,6 +86,7 @@ func (e Edt) TableHeader() []string {
 		"EndpointID",
 		"BitsPerSecond",
 		"TimeHorizonDrop",
+		"TimeHorizonEcn",
 		"Status",
 	}
 }
@@ -93,6 +99,7 @@ func (e Edt) TableRow() []string {
 		strconv.FormatUint(uint64(e.EndpointID), 10),
 		quantity.String(),
 		strconv.FormatUint(e.TimeHorizonDrop, 10),
+		strconv.FormatUint(e.TimeHorizonEcn, 10),
 		e.Status.String(),
 	}
 }

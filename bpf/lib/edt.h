@@ -80,6 +80,12 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 		return CTX_ACT_DROP;
 	WRITE_ONCE(info->t_last, t_next);
 	ctx->tstamp = t_next;
+
+	if (t_next - now >= info->t_horizon_ecn) {
+		/* This can fail if ECN is not enabled */
+		ctx_ecn_set_ce(ctx);
+	}
+
 	return CTX_ACT_OK;
 }
 #else

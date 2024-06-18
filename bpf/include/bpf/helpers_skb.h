@@ -42,6 +42,8 @@ static int BPF_FUNC(skb_change_head, struct __sk_buff *skb, __u32 head_room,
 
 static int BPF_FUNC(skb_pull_data, struct __sk_buff *skb, __u32 len);
 
+static int BPF_FUNC(skb_ecn_set_ce, struct __sk_buff *skb);
+
 /* Packet tunnel encap/decap */
 static int BPF_FUNC(skb_get_tunnel_key, struct __sk_buff *skb,
 		    struct bpf_tunnel_key *to, __u32 size, __u32 flags);
