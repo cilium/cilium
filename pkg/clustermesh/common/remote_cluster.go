@@ -105,11 +105,6 @@ type remoteCluster struct {
 	metricTotalFailures        prometheus.Gauge
 }
 
-var (
-	// skipKvstoreConnection skips the etcd connection, used for testing
-	skipKvstoreConnection bool
-)
-
 // releaseOldConnection releases the etcd connection to a remote cluster
 func (rc *remoteCluster) releaseOldConnection() {
 	rc.metricReadinessStatus.Set(metrics.BoolToFloat64(false))
@@ -350,10 +345,6 @@ func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOp
 
 func (rc *remoteCluster) onInsert() {
 	rc.logger.Info("New remote cluster configuration")
-
-	if skipKvstoreConnection {
-		return
-	}
 
 	rc.remoteConnectionControllerName = fmt.Sprintf("remote-etcd-%s", rc.name)
 	rc.restartRemoteConnection()
