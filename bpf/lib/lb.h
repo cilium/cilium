@@ -885,6 +885,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	/* See lb4_local comments re svc endpoint lookup process */
 	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, CT_SERVICE,
 			      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
+	if (ret < 0)
+		goto drop_err;
+
 	switch (ret) {
 	case CT_NEW:
 		if (unlikely(svc->count == 0))
@@ -1535,6 +1538,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 	ret = ct_lazy_lookup4(map, tuple, ctx, is_fragment, l4_off, has_l4_header,
 			      CT_SERVICE, SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
+	if (ret < 0)
+		goto drop_err;
+
 	switch (ret) {
 	case CT_NEW:
 		if (unlikely(svc->count == 0))
