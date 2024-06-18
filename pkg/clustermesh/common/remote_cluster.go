@@ -59,10 +59,6 @@ type remoteCluster struct {
 	// resolvers are the set of resolvers used to create the custom dialer.
 	resolvers []dial.Resolver
 
-	// changed receives an event when the remote cluster configuration has
-	// changed and is closed when the configuration file was removed
-	changed chan bool
-
 	controllers *controller.Manager
 
 	// wg is used to wait for the termination of the goroutines spawned by the
@@ -343,24 +339,9 @@ func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOp
 	}
 }
 
-func (rc *remoteCluster) onInsert() {
-	rc.logger.Info("New remote cluster configuration")
-
-	rc.remoteConnectionControllerName = fmt.Sprintf("remote-etcd-%s", rc.name)
+func (rc *remoteCluster) connect() {
+	rc.logger.Info("Connecting to remote cluster")
 	rc.restartRemoteConnection()
-
-	go func() {
-		for {
-			val := <-rc.changed
-			if val {
-				rc.logger.Info("etcd configuration has changed, re-creating connection")
-				rc.restartRemoteConnection()
-			} else {
-				rc.logger.Info("Closing connection to remote etcd")
-				return
-			}
-		}
-	}()
 }
 
 // onStop is executed when the clustermesh subsystem is being stopped.
@@ -368,7 +349,6 @@ func (rc *remoteCluster) onInsert() {
 // we would break existing connections when the agent gets restarted.
 func (rc *remoteCluster) onStop() {
 	_ = rc.controllers.RemoveControllerAndWait(rc.remoteConnectionControllerName)
-	close(rc.changed)
 	rc.Stop()
 }
 
