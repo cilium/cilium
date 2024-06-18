@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/renameio/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -31,7 +32,7 @@ var (
 func writeFile(t *testing.T, name, content string) {
 	t.Helper()
 
-	err := os.WriteFile(name, []byte(content), 0644)
+	err := renameio.WriteFile(name, []byte(content), 0644, renameio.WithTempDir(os.TempDir()))
 	require.NoError(t, err)
 }
 
