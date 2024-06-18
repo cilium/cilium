@@ -762,6 +762,9 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	ret = ct_lazy_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,
 			      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_DSR,
 			      NULL, &monitor);
+	if (ret < 0)
+		return ret;
+
 	switch (ret) {
 	case CT_NEW:
 create_ct:
@@ -1316,6 +1319,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		ret = ct_lazy_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
 				      &ct_state, &monitor);
+		if (ret < 0)
+			return ret;
+
 		switch (ret) {
 		case CT_NEW:
 			ct_state.src_sec_id = WORLD_IPV6_ID;
@@ -2295,6 +2301,9 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, ipv4_is_fragment(ip4),
 			      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
 			      CT_ENTRY_DSR, NULL, &monitor);
+	if (ret < 0)
+		return ret;
+
 	switch (ret) {
 	case CT_NEW:
 create_ct:
@@ -2858,6 +2867,9 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, is_fragment,
 				      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
 				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
+		if (ret < 0)
+			return ret;
+
 		switch (ret) {
 		case CT_NEW:
 			ct_state.src_sec_id = src_sec_identity;
