@@ -386,6 +386,11 @@ func (p *Proxy) restoreProxyPortsFromFile() error {
 	}
 
 	for name, pp := range portsMap {
+		if existing := p.proxyPorts[name]; existing != nil {
+			if existing.ProxyPort != 0 {
+				continue // do not overwrite explicitly set port
+			}
+		}
 		p.proxyPorts[name] = pp
 		p.allocatedPorts[pp.ProxyPort] = false
 		log.
@@ -405,6 +410,9 @@ func (p *Proxy) restoreProxyPortsFromIptables() {
 	for name, port := range portsMap {
 		pp := p.proxyPorts[name]
 		if pp != nil {
+			if pp.ProxyPort != 0 {
+				continue // do not overwrite explicitly set port
+			}
 			pp.ProxyPort = port
 		} else {
 			// Only CRD type proxy ports can be dynamically allocated. Assume a port
@@ -437,15 +445,15 @@ func (p *Proxy) RestoreProxyPorts() {
 }
 
 // GetProxyPort() returns the fixed listen port for a proxy, if any.
-func (p *Proxy) GetProxyPort(name string) (uint16, error) {
+func (p *Proxy) GetProxyPort(name string) (port uint16, isStatic bool, err error) {
 	// Accessing pp.proxyPort requires the lock
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	pp := p.proxyPorts[name]
 	if pp != nil {
-		return pp.ProxyPort, nil
+		return pp.ProxyPort, pp.isStatic, nil
 	}
-	return 0, proxyNotFoundError(name)
+	return 0, false, proxyNotFoundError(name)
 }
 
 // AllocateCRDProxyPort() allocates a new port for listener 'name', or returns the current one if

@@ -61,7 +61,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, 0, port)
 
-	port1, err := p.GetProxyPort("listener1")
+	port1, _, err := p.GetProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, port, port1)
 
@@ -84,7 +84,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
-	port1b, err := p.GetProxyPort("listener1")
+	port1b, _, err := p.GetProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, uint16(0), port1b)
 	require.Equal(t, uint16(0), pp.ProxyPort)
