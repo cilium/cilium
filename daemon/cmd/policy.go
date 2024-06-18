@@ -100,6 +100,11 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
+		identity.WellKnown.ForEach(func(i *identity.Identity) {
+			for labelSource := range i.Labels.CollectSources() {
+				metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
+			}
+		})
 	}
 
 	// policy repository: maintains list of active Rules and their subject

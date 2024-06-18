@@ -355,6 +355,11 @@ var (
 	// Identity is the number of identities currently in use on the node by type
 	Identity = NoOpGaugeVec
 
+	// IdentityLabelSources is the number of identities in use on the node with
+	// have a particular label source. Note that an identity may contain labels
+	// from multiple sources and thus might be counted in multiple buckets
+	IdentityLabelSources = NoOpGaugeVec
+
 	// Events
 
 	// EventTS is the time in seconds since epoch that we last received an
@@ -665,6 +670,7 @@ type LegacyMetrics struct {
 	CIDRGroupsReferenced             metric.Gauge
 	CIDRGroupTranslationTimeStats    metric.Histogram
 	Identity                         metric.Vec[metric.Gauge]
+	IdentityLabelSources             metric.Vec[metric.Gauge]
 	EventTS                          metric.Vec[metric.Gauge]
 	EventLagK8s                      metric.Gauge
 	ProxyRedirects                   metric.Vec[metric.Gauge]
@@ -861,6 +867,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "identity",
 			Help:      "Number of identities currently allocated",
 		}, []string{LabelType}),
+
+		IdentityLabelSources: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_identity_label_sources",
+
+			Namespace: Namespace,
+			Name:      "identity_label_sources",
+			Help:      "Number of identities which contain at least one label of the given label source",
+		}, []string{LabelSource}),
 
 		EventTS: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_event_ts",
@@ -1368,6 +1382,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	CIDRGroupsReferenced = lm.CIDRGroupsReferenced
 	CIDRGroupTranslationTimeStats = lm.CIDRGroupTranslationTimeStats
 	Identity = lm.Identity
+	IdentityLabelSources = lm.IdentityLabelSources
 	EventTS = lm.EventTS
 	EventLagK8s = lm.EventLagK8s
 	ProxyRedirects = lm.ProxyRedirects
