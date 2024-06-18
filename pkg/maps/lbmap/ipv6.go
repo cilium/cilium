@@ -497,8 +497,8 @@ func (v *SockRevNat6Value) String() string {
 
 func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
 
-// CreateSockRevNat6Map creates the reverse NAT sock map.
-func CreateSockRevNat6Map() error {
+// initSockRevNat6Map allocates the reverse NAT sock map.
+func initSockRevNat6Map() {
 	SockRevNat6Map = bpf.NewMap(SockRevNat6MapName,
 		ebpf.LRUHash,
 		&SockRevNat6Key{},
@@ -506,5 +506,4 @@ func CreateSockRevNat6Map() error {
 		MaxSockRevNat6MapEntries,
 		0,
 	).WithPressureMetric()
-	return SockRevNat6Map.OpenOrCreate()
 }

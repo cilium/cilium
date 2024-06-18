@@ -2234,27 +2234,6 @@ type DaemonConfig struct {
 	// This is only enabled for cilium-operator
 	K8sEnableLeasesFallbackDiscovery bool
 
-	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
-	LBMapEntries int
-
-	// LBServiceMapEntries is the maximum number of entries allowed in BPF lbmap for services.
-	LBServiceMapEntries int
-
-	// LBBackendMapEntries is the maximum number of entries allowed in BPF lbmap for service backends.
-	LBBackendMapEntries int
-
-	// LBRevNatEntries is the maximum number of entries allowed in BPF lbmap for reverse NAT.
-	LBRevNatEntries int
-
-	// LBAffinityMapEntries is the maximum number of entries allowed in BPF lbmap for session affinities.
-	LBAffinityMapEntries int
-
-	// LBSourceRangeMapEntries is the maximum number of entries allowed in BPF lbmap for source ranges.
-	LBSourceRangeMapEntries int
-
-	// LBMaglevMapEntries is the maximum number of entries allowed in BPF lbmap for maglev.
-	LBMaglevMapEntries int
-
 	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
 	// available.
 	CRDWaitTimeout time.Duration
@@ -3651,25 +3630,6 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 			c.FragmentsMapEntries, FragmentsMapMax)
 	}
 
-	if c.LBMapEntries <= 0 {
-		return fmt.Errorf("specified LBMap max entries %d must be a value greater than 0", c.LBMapEntries)
-	}
-
-	if c.LBServiceMapEntries < 0 ||
-		c.LBBackendMapEntries < 0 ||
-		c.LBRevNatEntries < 0 ||
-		c.LBAffinityMapEntries < 0 ||
-		c.LBSourceRangeMapEntries < 0 ||
-		c.LBMaglevMapEntries < 0 {
-		return fmt.Errorf("specified LB Service Map max entries must not be a negative value"+
-			"(Service Map: %d, Service Backend: %d, Reverse NAT: %d, Session Affinity: %d, Source Range: %d, Maglev: %d)",
-			c.LBServiceMapEntries,
-			c.LBBackendMapEntries,
-			c.LBRevNatEntries,
-			c.LBAffinityMapEntries,
-			c.LBSourceRangeMapEntries,
-			c.LBMaglevMapEntries)
-	}
 	return nil
 }
 
@@ -3757,14 +3717,6 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	c.NeighMapEntriesGlobal = vp.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapEntries = vp.GetInt(PolicyMapEntriesName)
 	c.PolicyMapFullReconciliationInterval = vp.GetDuration(PolicyMapFullReconciliationIntervalName)
-	c.SockRevNatEntries = vp.GetInt(SockRevNatEntriesName)
-	c.LBMapEntries = vp.GetInt(LBMapEntriesName)
-	c.LBServiceMapEntries = vp.GetInt(LBServiceMapMaxEntries)
-	c.LBBackendMapEntries = vp.GetInt(LBBackendMapMaxEntries)
-	c.LBRevNatEntries = vp.GetInt(LBRevNatMapMaxEntries)
-	c.LBAffinityMapEntries = vp.GetInt(LBAffinityMapMaxEntries)
-	c.LBSourceRangeMapEntries = vp.GetInt(LBSourceRangeMapMaxEntries)
-	c.LBMaglevMapEntries = vp.GetInt(LBMaglevMapMaxEntries)
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).

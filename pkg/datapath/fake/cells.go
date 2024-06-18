@@ -46,6 +46,7 @@ var Cell = cell.Module(
 			dp := fakeTypes.NewDatapathWithNodeAddressing(na)
 			return dp, dp, dp.NodeIDs()
 		},
+		func(dp *fakeTypes.FakeDatapath) types.LBMap { return dp.LBMockMap() },
 
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },

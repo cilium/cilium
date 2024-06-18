@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -62,4 +63,7 @@ var Cell = cell.Module(
 
 	// Provides access to NAT maps.
 	nat.Cell,
+
+	// Provides access to the load-balancer maps.
+	lbmap.Cell,
 )

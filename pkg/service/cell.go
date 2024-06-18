@@ -25,9 +25,10 @@ type serviceManagerParams struct {
 	cell.In
 
 	Datapath     types.Datapath
+	LBMap        types.LBMap
 	MonitorAgent monitorAgent.Agent
 }
 
 func newServiceManager(params serviceManagerParams) ServiceManager {
-	return newService(params.MonitorAgent, params.Datapath.LBMap(), params.Datapath.NodeNeighbors())
+	return newService(params.MonitorAgent, params.LBMap, params.Datapath.NodeNeighbors())
 }

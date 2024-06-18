@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node/manager"
 )
@@ -32,7 +31,6 @@ type linuxDatapath struct {
 	nodeAddressing datapath.NodeAddressing
 	loader         datapath.Loader
 	wgAgent        datapath.WireguardAgent
-	lbmap          datapath.LBMap
 	bwmgr          datapath.BandwidthManager
 	orchestrator   datapath.Orchestrator
 }
@@ -63,7 +61,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 		nodeAddressing:  p.NodeAddressing,
 		loader:          p.Loader,
 		wgAgent:         p.WGAgent,
-		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
 		nodeHandler:     p.NodeHandler,
@@ -103,10 +100,6 @@ func (l *linuxDatapath) Loader() datapath.Loader {
 
 func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {
 	return l.wgAgent
-}
-
-func (l *linuxDatapath) LBMap() datapath.LBMap {
-	return l.lbmap
 }
 
 func (l *linuxDatapath) BandwidthManager() datapath.BandwidthManager {

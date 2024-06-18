@@ -28,9 +28,6 @@ type Datapath interface {
 	// WireguardAgent returns the WireGuard agent for the local node
 	WireguardAgent() WireguardAgent
 
-	// LBMap returns the load-balancer map
-	LBMap() LBMap
-
 	BandwidthManager() BandwidthManager
 
 	Orchestrator() Orchestrator
