@@ -1453,7 +1453,7 @@ skip_host_firewall:
 			 */
 			send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity,
 					  dst_sec_identity,
-					  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+					  TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
 					  TRACE_REASON_ENCRYPT_OVERLAY, 0);
 			return ret;
 		}
@@ -1595,7 +1595,7 @@ exit:
 
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
+			  NATIVE_DEV_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 
