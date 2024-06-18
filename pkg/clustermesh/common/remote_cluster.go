@@ -41,6 +41,10 @@ type RemoteCluster interface {
 	Remove(ctx context.Context)
 }
 
+// backendFactoryFn is the type of the function to create the etcd client.
+type backendFactoryFn func(ctx context.Context, backend string, opts map[string]string,
+	options *kvstore.ExtraOptions) (kvstore.BackendOperations, chan error)
+
 // remoteCluster represents another cluster other than the cluster the agent is
 // running in
 type remoteCluster struct {
@@ -96,6 +100,13 @@ type remoteCluster struct {
 
 	logger logrus.FieldLogger
 
+	// backendFactory allows to override the function to create the etcd client
+	// for testing purposes.
+	backendFactory backendFactoryFn
+	// clusterLockFactory allows to override the function to create the clusterLock
+	// for testing purposes.
+	clusterLockFactory func() *clusterLock
+
 	metricLastFailureTimestamp prometheus.Gauge
 	metricReadinessStatus      prometheus.Gauge
 	metricTotalFailures        prometheus.Gauge
@@ -128,12 +139,9 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			DoFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
-				clusterLock := newClusterLock()
-
+				clusterLock := rc.clusterLockFactory()
 				extraOpts := rc.makeExtraOpts(clusterLock)
-
-				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
-					rc.makeEtcdOpts(), &extraOpts)
+				backend, errChan := rc.backendFactory(ctx, kvstore.EtcdBackendName, rc.makeEtcdOpts(), &extraOpts)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the
