@@ -993,9 +993,12 @@ drop_err:
  */
 static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
 						const struct ct_state *state,
-					       __u16 proxy_port)
+						__u16 proxy_port __maybe_unused)
 {
+#if defined(ENABLE_L7_LB)
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
+#endif
+
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index);
 }
 
@@ -1006,13 +1009,15 @@ static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
  */
 static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 						  struct ct_state *state,
-						 __u16 *proxy_port)
+						  __u16 *proxy_port __maybe_unused)
 {
 	state->rev_nat_index = (__u16)ctx_load_and_clear_meta(ctx, CB_CT_STATE);
 
 	/* No loopback support for IPv6, see lb6_local() above. */
 
+#if defined(ENABLE_L7_LB)
 	*proxy_port = ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16;
+#endif
 }
 
 #else
@@ -1664,9 +1669,13 @@ drop_err:
  */
 static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 						const struct ct_state *state,
-					       __u16 proxy_port, __u32 cluster_id)
+					        __u16 proxy_port __maybe_unused,
+					        __u32 cluster_id)
 {
+#if defined(ENABLE_L7_LB)
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
+#endif
+
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
 #ifndef DISABLE_LOOPBACK_LB
 		       state->loopback);
@@ -1683,7 +1692,8 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
  */
 static __always_inline void
 lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
-		       __u16 *proxy_port, __u32 *cluster_id __maybe_unused)
+		      __u16 *proxy_port __maybe_unused,
+		      __u32 *cluster_id __maybe_unused)
 {
 	__u32 meta = ctx_load_and_clear_meta(ctx, CB_CT_STATE);
 #ifndef DISABLE_LOOPBACK_LB
@@ -1692,7 +1702,9 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 #endif
 	state->rev_nat_index = meta >> 16;
 
+#if defined(ENABLE_L7_LB)
 	*proxy_port = ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16;
+#endif
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	*cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
