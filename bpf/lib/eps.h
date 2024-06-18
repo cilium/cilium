@@ -61,10 +61,10 @@ ipcache_lookup6(const void *map, const union v6addr *addr,
 	};
 
 	/* Check overflow */
-	if (cluster_id > UINT8_MAX)
+	if (cluster_id > UINT16_MAX)
 		return NULL;
 
-	key.cluster_id = (__u8)cluster_id;
+	key.cluster_id = (__u16)cluster_id;
 
 	ipv6_addr_clear_suffix(&key.ip6, prefix);
 	return map_lookup_elem(map, &key);
@@ -82,10 +82,10 @@ ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 	};
 
 	/* Check overflow */
-	if (cluster_id > UINT8_MAX)
+	if (cluster_id > UINT16_MAX)
 		return NULL;
 
-	key.cluster_id = (__u8)cluster_id;
+	key.cluster_id = (__u16)cluster_id;
 
 	key.ip4 &= GET_PREFIX(prefix);
 	return map_lookup_elem(map, &key);

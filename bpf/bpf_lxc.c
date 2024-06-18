@@ -1189,12 +1189,12 @@ skip_vtep:
 	if (!skip_tunnel) {
 		struct tunnel_key key = {};
 
-		if (cluster_id > UINT8_MAX)
+		if (cluster_id > UINT16_MAX)
 			return DROP_INVALID_CLUSTER_ID;
 
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
-		key.cluster_id = (__u8)cluster_id;
+		key.cluster_id = (__u16)cluster_id;
 
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 		/*
