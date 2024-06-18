@@ -15,6 +15,8 @@ type Unsigned interface {
 	~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
+// UintTrie uses all unsigned integer types
+// except for uintptr and uint.
 type UintTrie[K Unsigned, V any] struct {
 	trie    Trie[Key[K], V]
 	keySize uint
