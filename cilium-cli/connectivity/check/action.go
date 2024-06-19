@@ -1070,7 +1070,7 @@ func (a *Action) validateMetric(ctx context.Context, node string, result Metrics
 		select {
 		case <-ctx.Done():
 			// Context timeout is reached, let's exit.
-			a.Failf("failed to collect metrics on node %s, context timeout: %s\n", node, ctx.Err())
+			a.Failf("failed to collect metrics on node %s. context timeout: %q, last error: %s\n", node, ctx.Err(), err)
 			return
 		case <-ticker.C:
 			// Ticker is delivered, let's retry.
