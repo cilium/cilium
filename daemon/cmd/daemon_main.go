@@ -1686,6 +1686,7 @@ type daemonParams struct {
 	ServiceResolver     *dial.ServiceResolver
 	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
+	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
