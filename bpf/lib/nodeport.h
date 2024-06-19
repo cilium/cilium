@@ -773,8 +773,6 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr_internal = 1;
-		ct_state_new.proxy_redirect = false;
-		ct_state_new.from_l7lb = false;
 
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
@@ -2316,8 +2314,6 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr_internal = 1;
-		ct_state_new.proxy_redirect = 0;
-		ct_state_new.from_l7lb = 0;
 
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
