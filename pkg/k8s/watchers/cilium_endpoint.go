@@ -14,6 +14,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -284,4 +285,5 @@ func (k *K8sCiliumEndpointsWatcher) endpointDeleted(endpoint *types.CiliumEndpoi
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
 		}
 	}
+	hubblemetrics.ProcessCiliumEndpointDeletion(endpoint)
 }
