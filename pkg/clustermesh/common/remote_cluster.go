@@ -124,14 +124,9 @@ func (rc *remoteCluster) releaseOldConnection() {
 	rc.etcdClusterID = ""
 	rc.mutex.Unlock()
 
-	// Release resources asynchronously in the background. Many of these
-	// operations may time out if the connection was closed due to an error
-	// condition.
-	go func() {
-		if backend != nil {
-			backend.Close()
-		}
-	}()
+	if backend != nil {
+		backend.Close()
+	}
 }
 
 func (rc *remoteCluster) restartRemoteConnection() {
