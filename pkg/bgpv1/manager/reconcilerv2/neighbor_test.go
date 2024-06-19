@@ -68,6 +68,17 @@ var (
 		},
 	}
 
+	peer2UpdatedASN = func() PeerData {
+		peer2Copy := PeerData{
+			Peer:     peer2.Peer.DeepCopy(),
+			Config:   peer2.Config.DeepCopy(),
+			Password: peer2.Password,
+		}
+
+		peer2Copy.Peer.PeerASN = ptr.To[int64](64125)
+		return peer2Copy
+	}()
+
 	peer2UpdatedTimers = func() PeerData {
 		peer2Copy := PeerData{
 			Peer:     peer2.Peer.DeepCopy(),
@@ -170,6 +181,12 @@ func TestNeighborReconciler(t *testing.T) {
 			name:         "remove peers",
 			neighbors:    []PeerData{peer1, peer2},
 			newNeighbors: []PeerData{peer1},
+			err:          nil,
+		},
+		{
+			name:         "update config : ASN",
+			neighbors:    []PeerData{peer1, peer2},
+			newNeighbors: []PeerData{peer1, peer2UpdatedASN},
 			err:          nil,
 		},
 		{
