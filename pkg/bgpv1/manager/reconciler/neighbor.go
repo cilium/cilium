@@ -147,17 +147,13 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		}
 	}
 
-	// create new neighbors
-	for _, n := range toCreate {
-		l.Infof("Adding peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, p.DesiredConfig.LocalASN)
-		tcpPassword, err := r.fetchPeerPassword(p.CurrentServer, n)
-		if err != nil {
-			return fmt.Errorf("failed fetching password for neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
-		}
-		if err := p.CurrentServer.Server.AddNeighbor(ctx, types.NeighborRequest{Neighbor: n, Password: tcpPassword, VR: p.DesiredConfig}); err != nil {
+	// remove neighbors
+	for _, n := range toRemove {
+		l.Infof("Removing peer %v %v from local ASN %v", n.PeerAddress, n.PeerASN, p.DesiredConfig.LocalASN)
+		if err := p.CurrentServer.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: p.DesiredConfig}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
-		r.updateMetadata(p.CurrentServer, n, tcpPassword)
+		r.deleteMetadata(p.CurrentServer, n)
 	}
 
 	// update neighbors
@@ -173,13 +169,17 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		r.updateMetadata(p.CurrentServer, n, tcpPassword)
 	}
 
-	// remove neighbors
-	for _, n := range toRemove {
-		l.Infof("Removing peer %v %v from local ASN %v", n.PeerAddress, n.PeerASN, p.DesiredConfig.LocalASN)
-		if err := p.CurrentServer.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: p.DesiredConfig}); err != nil {
+	// create new neighbors
+	for _, n := range toCreate {
+		l.Infof("Adding peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, p.DesiredConfig.LocalASN)
+		tcpPassword, err := r.fetchPeerPassword(p.CurrentServer, n)
+		if err != nil {
+			return fmt.Errorf("failed fetching password for neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
+		}
+		if err := p.CurrentServer.Server.AddNeighbor(ctx, types.NeighborRequest{Neighbor: n, Password: tcpPassword, VR: p.DesiredConfig}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
-		r.deleteMetadata(p.CurrentServer, n)
+		r.updateMetadata(p.CurrentServer, n, tcpPassword)
 	}
 
 	return nil
