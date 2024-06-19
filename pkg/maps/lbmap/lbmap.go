@@ -49,20 +49,6 @@ type LBBPFMap struct {
 	maglevTableSize        uint64
 }
 
-func New() *LBBPFMap {
-	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
-	maglevTableSize := option.Config.MaglevTableSize
-
-	m := &LBBPFMap{}
-
-	if maglev {
-		m.maglevBackendIDsBuffer = make([]loadbalancer.BackendID, maglevTableSize)
-		m.maglevTableSize = uint64(maglevTableSize)
-	}
-
-	return m
-}
-
 func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
 	var svcKey ServiceKey
 	var svcVal ServiceValue
@@ -729,6 +715,9 @@ func Init(params InitParams) {
 	initSVC(params)
 	initAffinity(params)
 	initSourceRange(params)
+	initSockRevNat4Map()
+	initSockRevNat6Map()
+
 }
 
 // ExistsSockRevNat checks if the passed entry exists in the sock rev nat map.

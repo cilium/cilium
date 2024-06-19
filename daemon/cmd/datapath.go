@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -169,11 +168,6 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
-		log.WithError(err).Fatal("Unable to initialize service maps")
-	}
-
 	if err := policymap.InitCallMaps(option.Config.EnableEnvoyConfig); err != nil {
 		return fmt.Errorf("initializing policy map: %w", err)
 	}
@@ -243,41 +237,6 @@ func (d *Daemon) initMaps() error {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
 		lxcmap.LXCMap().DeleteAll()
-	}
-
-	if option.Config.EnableSessionAffinity {
-		if err := lbmap.AffinityMatchMap.OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing affinity match map: %w", err)
-		}
-		if option.Config.EnableIPv4 {
-			if err := lbmap.Affinity4Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing affinity v4 map: %w", err)
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := lbmap.Affinity6Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing affinity v6 map: %w", err)
-			}
-		}
-	}
-
-	if option.Config.EnableSVCSourceRangeCheck {
-		if option.Config.EnableIPv4 {
-			if err := lbmap.SourceRange4Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing source range v4 map: %w", err)
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := lbmap.SourceRange6Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing source range v6 map: %w", err)
-			}
-		}
-	}
-
-	if option.Config.NodePortAlg == option.NodePortAlgMaglev {
-		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(option.Config.MaglevTableSize)); err != nil {
-			return fmt.Errorf("initializing maglev maps: %w", err)
-		}
 	}
 
 	return nil

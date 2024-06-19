@@ -44,9 +44,6 @@ type ServiceManager interface {
 	// to annotate flows with service information.
 	GetServiceNameByAddr(addr lb.L3n4Addr) (string, string, bool)
 
-	// InitMaps opens or creates BPF maps used by services.
-	InitMaps(ipv6, ipv4, sockMaps, restore bool) error
-
 	// RegisterL7LBServiceRedirect makes the given service to be locally redirected to the given proxy port.
 	RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16, frontendPorts []uint16) error
 
