@@ -13,36 +13,36 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 )
 
 func TestUninitializedMetrics(t *testing.T) {
 	enabledMetrics = nil
-	podDeletionHandler = nil
+	endpointDeletionHandler = nil
 	ProcessFlow(context.TODO(), &pb.Flow{})
-	ProcessPodDeletion(&slim_corev1.Pod{})
+	ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{})
 }
 
 func TestInitializedMetrics(t *testing.T) {
 	t.Run("Should send pod removal to delayed delivery queue", func(t *testing.T) {
-		pod := &slim_corev1.Pod{
+		deletedEndpoint := &types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name: "name",
 			},
 		}
 		enabledMetrics = &api.Handlers{}
-		podDeletionHandler = &PodDeletionHandler{
+		endpointDeletionHandler = &CiliumEndpointDeletionHandler{
 			gracefulPeriod: 10 * time.Millisecond,
 			queue:          workqueue.NewDelayingQueue(),
 		}
 
-		ProcessPodDeletion(pod)
+		ProcessCiliumEndpointDeletion(deletedEndpoint)
 
-		received, _ := podDeletionHandler.queue.Get()
-		assert.Equal(t, pod, received)
+		received, _ := endpointDeletionHandler.queue.Get()
+		assert.Equal(t, deletedEndpoint, received)
 
-		podDeletionHandler.queue.ShutDown()
+		endpointDeletionHandler.queue.ShutDown()
 	})
 
 }

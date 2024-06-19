@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -226,4 +227,5 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
 		}
 	}
+	hubblemetrics.ProcessCiliumEndpointDeletion(endpoint)
 }
