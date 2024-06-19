@@ -238,12 +238,12 @@ func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, no
 
 	nodeConfigv2, descv2, errv2 := readNodeConfigs(ctx, client, nodeName, namespace, name)
 	if errv2 != nil {
-		log.WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2 not found: %s", errv2)
+		log.WithError(errv2).WithFields(logrus.Fields{logfields.Node: nodeName}).Error("CiliumNodeConfig v2 not found when reading configuration")
 	}
 
 	nodeConfigv2alpha1, descv2alpha1, errv2alpha1 := readNodeConfigsv2alpha1(ctx, client, nodeName, namespace, name)
 	if errv2alpha1 != nil {
-		log.WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2alpha1 not found: %s", errv2alpha1)
+		log.WithError(errv2alpha1).WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2alpha1 not found when reading configuration")
 		// return the errors for the two versions
 		if errv2 != nil {
 			msg := fmt.Sprintf("CiliumNodeConfig v2 and v2alpha1 not found: %s and %s\n", errv2, errv2alpha1)
