@@ -129,7 +129,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	// condition.
 	go func() {
 		if backend != nil {
-			backend.Close(context.Background())
+			backend.Close()
 		}
 	}()
 }
@@ -162,7 +162,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				if err != nil {
 					if backend != nil {
-						backend.Close(ctx)
+						backend.Close()
 					}
 					rc.logger.WithError(err).Warning("Unable to establish etcd connection to remote cluster")
 					return err
