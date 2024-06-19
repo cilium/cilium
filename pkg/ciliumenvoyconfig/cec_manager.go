@@ -91,7 +91,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 
 	name := service.L7LBResourceName{Name: cecObjectMeta.Name, Namespace: cecObjectMeta.Namespace}
 	if err := r.addK8sServiceRedirects(name, cecSpec, resources); err != nil {
-		return fmt.Errorf("failed to redirect k8s services to Envoy in CEC Add: %w", err)
+		return fmt.Errorf("failed to redirect k8s services to Envoy: %w", err)
 	}
 
 	if len(resources.Listeners) > 0 {
@@ -203,11 +203,6 @@ func (r *cecManager) getServiceNodeports(name, namespace string, servicePorts []
 	kSvc, err := r.getK8sService(name, namespace)
 	if err != nil {
 		return nodePorts, fmt.Errorf("could not retrieve service details for service %s/%s", namespace, name)
-	}
-
-	if kSvc == nil {
-		r.logger.Debugf("Retrieved nil service details for service %s/%s, ignoring Nodeports for this service in this update", namespace, name)
-		return nodePorts, nil
 	}
 
 	for _, servicePort := range servicePorts {
@@ -345,7 +340,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 	}
 
 	if err := r.addK8sServiceRedirects(name, newCECSpec, newResources); err != nil {
-		return fmt.Errorf("failed to redirect k8s services to Envoy in CEC Update: %w", err)
+		return fmt.Errorf("failed to redirect k8s services to Envoy: %w", err)
 	}
 
 	if oldResources.ListenersAddedOrDeleted(&newResources) {
