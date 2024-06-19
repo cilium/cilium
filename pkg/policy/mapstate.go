@@ -96,8 +96,8 @@ type MapState interface {
 
 // mapState is a state of a policy map.
 type mapState struct {
-	allows *mapStateMap
-	denies *mapStateMap
+	allows mapStateMap
+	denies mapStateMap
 }
 
 // Identities is a convenience interface for looking up CIDRs
@@ -352,8 +352,8 @@ func NewMapState(initMap map[Key]MapStateEntry) MapState {
 
 func newMapState(initMap map[Key]MapStateEntry) *mapState {
 	m := &mapState{
-		allows: &mapStateMap{bitlpm.NewTrie[Key, map[identity.NumericIdentity]MapStateEntry](policyTypes.MapStatePrefixLen), 0},
-		denies: &mapStateMap{bitlpm.NewTrie[Key, map[identity.NumericIdentity]MapStateEntry](policyTypes.MapStatePrefixLen), 0},
+		allows: mapStateMap{bitlpm.NewTrie[Key, map[identity.NumericIdentity]MapStateEntry](policyTypes.MapStatePrefixLen), 0},
+		denies: mapStateMap{bitlpm.NewTrie[Key, map[identity.NumericIdentity]MapStateEntry](policyTypes.MapStatePrefixLen), 0},
 	}
 	for k, v := range initMap {
 		m.Insert(k, v)
