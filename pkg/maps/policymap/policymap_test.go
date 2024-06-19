@@ -303,3 +303,84 @@ func TestPolicyMapWildcarding(t *testing.T) {
 		}
 	}
 }
+
+func TestPortProtoString(t *testing.T) {
+	type args struct {
+		key *PolicyKey
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Allow all",
+			args: args{
+				&PolicyKey{
+					Prefixlen:        StaticPrefixBits,
+					Identity:         0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+					Nexthdr:          0,
+					DestPortNetwork:  0,
+				},
+			},
+			want: "ANY",
+		},
+		{
+			name: "Fully specified port",
+			args: args{
+				&PolicyKey{
+					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits,
+					Identity:         0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+					Nexthdr:          0,
+					DestPortNetwork:  byteorder.HostToNetwork16(8080),
+				},
+			},
+			want: "8080/ANY",
+		},
+		{
+			name: "Fully specified port and proto",
+			args: args{
+				&PolicyKey{
+					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits,
+					Identity:         0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+					Nexthdr:          6,
+					DestPortNetwork:  byteorder.HostToNetwork16(8080),
+				},
+			},
+			want: "8080/TCP",
+		},
+		{
+			name: "Match TCP / wildcarded port",
+			args: args{
+				&PolicyKey{
+					Prefixlen:        StaticPrefixBits + NexthdrBits,
+					Identity:         0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+					Nexthdr:          6,
+					DestPortNetwork:  0,
+				},
+			},
+			want: "TCP",
+		},
+		{
+			name: "Wildard proto / match upper 8 bits of port",
+			args: args{
+				&PolicyKey{
+					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits/2,
+					Identity:         0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+					Nexthdr:          0,
+					DestPortNetwork:  byteorder.HostToNetwork16(0x0100), // 256 and all ports with 256 as a prefix
+				},
+			},
+			want: "256-511/ANY",
+		},
+	}
+	for _, tt := range tests {
+		got := tt.args.key.PortProtoString()
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
+	}
+}
