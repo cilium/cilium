@@ -66,7 +66,9 @@ func moveNewFilesTo(oldDir, newDir string) error {
 			}
 		}
 		if !exists {
-			os.Rename(filepath.Join(oldDir, oldFile.Name()), filepath.Join(newDir, oldFile.Name()))
+			if err := os.Link(filepath.Join(oldDir, oldFile.Name()), filepath.Join(newDir, oldFile.Name())); err != nil {
+				return fmt.Errorf("failed to move endpoint state file: %w", err)
+			}
 		}
 	}
 	return nil
