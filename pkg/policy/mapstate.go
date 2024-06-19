@@ -41,10 +41,16 @@ var (
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 	// allKey represents a key for unknown traffic, i.e., all traffic.
-	allKey = Key{
+	// We have one for each traffic direction
+	allKey = [2]Key{{
 		Identity:         identity.IdentityUnknown.Uint32(),
 		InvertedPortMask: 0xffff,
-	}
+		TrafficDirection: 0,
+	}, {
+		Identity:         identity.IdentityUnknown.Uint32(),
+		InvertedPortMask: 0xffff,
+		TrafficDirection: 1,
+	}}
 )
 
 const (
@@ -836,10 +842,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		return
 	}
 
-	allCpy := allKey
-	allCpy.TrafficDirection = newKey.TrafficDirection
 	// If we have a deny "all" we don't accept any kind of map entry.
-	if _, ok := ms.denies.Lookup(allCpy); ok {
+	if _, ok := ms.denies.Lookup(allKey[newKey.TrafficDirection]); ok {
 		return
 	}
 
@@ -1288,10 +1292,6 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 		direction = trafficdirection.Ingress
 	}
 
-	allowAllKey := Key{
-		TrafficDirection: direction.Uint8(),
-		InvertedPortMask: 0xffff, // This is a wildcard
-	}
 	var invertedPortMask uint16
 	if visMeta.Port == 0 {
 		invertedPortMask = 0xffff
@@ -1305,7 +1305,7 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 
 	entry := NewMapStateEntry(nil, visibilityDerivedFrom, redirectPort, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 
-	_, haveAllowAllKey := ms.Get(allowAllKey)
+	_, haveAllowAllKey := ms.Get(allKey[direction])
 	l4Only, haveL4OnlyKey := ms.Get(key)
 	addL4OnlyKey := false
 	if haveL4OnlyKey && !l4Only.IsDeny && l4Only.ProxyPort == 0 {
@@ -1440,34 +1440,20 @@ func (ms *mapState) determineAllowLocalhostIngress() {
 // Note that this is used when policy is not enforced, so authentication is explicitly not required.
 func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 	if ingress {
-		keyToAdd := Key{
-			Identity:         0,
-			DestPort:         0,
-			InvertedPortMask: 0xffff, // This is a wildcard
-			Nexthdr:          0,
-			TrafficDirection: trafficdirection.Ingress.Uint8(),
-		}
 		derivedFrom := labels.LabelArrayList{
 			labels.LabelArray{
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 			},
 		}
-		ms.allows.Upsert(keyToAdd, NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled))
+		ms.allows.Upsert(allKey[trafficdirection.Ingress], NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled))
 	}
 	if egress {
-		keyToAdd := Key{
-			Identity:         0,
-			DestPort:         0,
-			InvertedPortMask: 0xffff, // This is a wildcard
-			Nexthdr:          0,
-			TrafficDirection: trafficdirection.Egress.Uint8(),
-		}
 		derivedFrom := labels.LabelArrayList{
 			labels.LabelArray{
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 			},
 		}
-		ms.allows.Upsert(keyToAdd, NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled))
+		ms.allows.Upsert(allKey[trafficdirection.Egress], NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled))
 	}
 }
 
@@ -1483,29 +1469,23 @@ func (ms *mapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 		}
 	}
 
-	var dir uint8
+	var key Key
 	if l4.Ingress {
-		dir = trafficdirection.Ingress.Uint8()
+		key = allKey[trafficdirection.Ingress]
 	} else {
-		dir = trafficdirection.Egress.Uint8()
+		key = allKey[trafficdirection.Egress]
 	}
-	anyKey := Key{
-		Identity:         0,
-		DestPort:         0,
-		InvertedPortMask: 0xffff,
-		Nexthdr:          0,
-		TrafficDirection: dir,
-	}
+
 	// Are we explicitly denying all traffic?
-	v, ok := ms.Get(anyKey)
+	v, ok := ms.Get(key)
 	if ok && v.IsDeny {
 		return true
 	}
 
 	// Are we explicitly denying this L4-only traffic?
-	anyKey.DestPort = port
-	anyKey.Nexthdr = proto
-	v, ok = ms.Get(anyKey)
+	key.DestPort = port
+	key.Nexthdr = proto
+	v, ok = ms.Get(key)
 	if ok && v.IsDeny {
 		return true
 	}
