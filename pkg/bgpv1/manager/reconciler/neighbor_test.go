@@ -78,6 +78,18 @@ func TestNeighborReconciler(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "change peer ASN",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
+			},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64125, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64125, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+			},
+			err: nil,
+		},
+		{
 			name: "neighbor with peer port",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
 				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(42424)},
