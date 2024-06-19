@@ -247,9 +247,8 @@ func (g *GoBGPServer) setPeerTransport(peer, existingPeer *gobgp.Peer, peerAddr 
 		peer.Transport = &gobgp.Transport{}
 	}
 
-	if localPort > 0 {
-		peer.Transport.LocalPort = localPort
-	}
+	// update local port, 0 is fine as well. In which case, linux will assign a random port.
+	peer.Transport.LocalPort = localPort
 
 	if peerPort > 0 {
 		peer.Transport.RemotePort = peerPort
