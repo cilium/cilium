@@ -62,9 +62,30 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 		matchKeys = sets.New(denyConfigKeys...)
 	}
 
+	// Find if there are any KindNodeConfig v2 sources first and prefer that
+	// over v2alpha1 if so.
+	sourcesV2Only := make([]ConfigSource, 0, len(sources))
+	sourcesExceptV2 := make([]ConfigSource, 0, len(sources))
+	for _, source := range sources {
+		if source.Kind == KindNodeConfig {
+			_, _, v2, err := ReadConfigSource(ctx, client, nodeName, source)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read config source %s: %w", source.String(), err)
+			}
+			if v2 {
+				sourcesV2Only = append(sourcesV2Only, source)
+			}
+		} else {
+			sourcesExceptV2 = append(sourcesExceptV2, source)
+		}
+	}
+	if len(sourcesV2Only) > 0 {
+		sources = append(sourcesV2Only, sourcesExceptV2...)
+	}
+
 	first := true
 	for _, source := range sources {
-		c, descs, err := ReadConfigSource(ctx, client, nodeName, source)
+		c, descs, _, err := ReadConfigSource(ctx, client, nodeName, source)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config source %s: %w", source.String(), err)
 		}
@@ -159,7 +180,7 @@ func WriteConfigurations(ctx context.Context, destDir string, data map[string]st
 	return nil
 }
 
-func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName string, source ConfigSource) (config map[string]string, descriptions []string, err error) {
+func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName string, source ConfigSource) (config map[string]string, descriptions []string, v2 bool, err error) {
 	log.WithFields(logrus.Fields{
 		logfields.ConfigSource: source.String(),
 	}).Infof("Reading configuration from %s", source.String())
@@ -171,13 +192,13 @@ func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName str
 	case KindNodeConfig:
 		return readNodeConfigsAllVersions(ctx, client, nodeName, source.Namespace, source.Name)
 	}
-	return nil, nil, fmt.Errorf("invalid source kind %s", source.Kind)
+	return nil, nil, false, fmt.Errorf("invalid source kind %s", source.Kind)
 }
 
-func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName string) (map[string]string, []string, error) {
+func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName string) (map[string]string, []string, bool, error) {
 	node, err := client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get Node %s: %w", nodeName, err)
+		return nil, nil, false, fmt.Errorf("could not get Node %s: %w", nodeName, err)
 	}
 
 	// We allow overriding individual key-value pairs by annotating the Node object
@@ -209,47 +230,53 @@ func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName st
 	read(node.Labels)
 	read(node.Annotations)
 	if len(out) == 0 {
-		return nil, nil, nil
+		return nil, nil, false, nil
 	}
-	return out, []string{fmt.Sprintf("%s:%s", KindNode, nodeName)}, nil
+	return out, []string{fmt.Sprintf("%s:%s", KindNode, nodeName)}, false, nil
 }
 
-func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSource) (map[string]string, []string, error) {
+func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSource) (map[string]string, []string, bool, error) {
 	cm, err := client.CoreV1().ConfigMaps(source.Namespace).Get(ctx, source.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.WithFields(logrus.Fields{
 				logfields.ConfigSource: source.String(),
 			}).Errorf("Configmap not found, ignoring")
-			return nil, nil, nil
+			return nil, nil, false, nil
 		}
-		return nil, nil, fmt.Errorf("failed to retrieve ConfigMap %s/%s: %w", source.Namespace, source.Name, err)
+		return nil, nil, false, fmt.Errorf("failed to retrieve ConfigMap %s/%s: %w", source.Namespace, source.Name, err)
 	}
 	if len(cm.Data) == 0 {
-		return nil, nil, nil
+		return nil, nil, false, nil
 	}
-	return cm.Data, []string{source.String()}, nil
+	return cm.Data, []string{source.String()}, false, nil
 }
 
 // readNodeConfigsAllVersions read node configurations for versions v2 and v2alpha1 of CiliumNodeConfig CRD.
 // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
-func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []string, error) {
-	var errv2, errv2alpha1 error
+func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []string, bool, error) {
+	var (
+		errv2, errv2alpha1 error
+
+		nodeConfigv2alpha1 map[string]string
+		descv2alpha1       []string
+
+		v2 bool = true
+	)
 
 	nodeConfigv2, descv2, errv2 := readNodeConfigs(ctx, client, nodeName, namespace, name)
-	if errv2 != nil {
-		log.WithError(errv2).WithFields(logrus.Fields{logfields.Node: nodeName}).Error("CiliumNodeConfig v2 not found when reading configuration")
-	}
-
-	nodeConfigv2alpha1, descv2alpha1, errv2alpha1 := readNodeConfigsv2alpha1(ctx, client, nodeName, namespace, name)
-	if errv2alpha1 != nil {
-		log.WithError(errv2alpha1).WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2alpha1 not found when reading configuration")
-		// return the errors for the two versions
+	if errv2 != nil || (len(nodeConfigv2) == 0 && len(descv2) == 0) {
 		if errv2 != nil {
-			msg := fmt.Sprintf("CiliumNodeConfig v2 and v2alpha1 not found: %s and %s\n", errv2, errv2alpha1)
-			return nil, nil, fmt.Errorf(msg)
+			log.WithError(errv2).WithFields(logrus.Fields{logfields.Node: nodeName}).Error("CiliumNodeConfig v2 not found when reading configuration")
 		}
-		return nil, nil, errv2alpha1
+
+		v2 = false
+		nodeConfigv2alpha1, descv2alpha1, errv2alpha1 = readNodeConfigsv2alpha1(ctx, client, nodeName, namespace, name)
+		if errv2alpha1 != nil {
+			log.WithError(errv2alpha1).WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2alpha1 not found when reading configuration")
+			// return the errors for the two versions
+			return nil, nil, v2, fmt.Errorf("CiliumNodeConfig v2 and v2alpha1 not found: %w and %w", errv2, errv2alpha1)
+		}
 	}
 
 	// Copiying values from a map into a nil map results in a panic, please refer to https://github.com/golang/go/issues/64390
@@ -260,9 +287,13 @@ func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, no
 		maps.Copy(nodeConfigv2alpha1, nodeConfigv2)
 	}
 
-	descv2 = append(descv2, descv2alpha1...)
+	if descv2 == nil {
+		descv2 = descv2alpha1
+	} else if len(descv2alpha1) > 0 {
+		descv2 = append(descv2, descv2alpha1...)
+	}
 
-	return nodeConfigv2alpha1, descv2, nil
+	return nodeConfigv2alpha1, descv2, v2, nil
 }
 
 // readNodeConfigs reads all the CiliumNodeConfig in v2 objects and returns a flattened map
