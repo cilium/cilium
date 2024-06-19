@@ -136,13 +136,6 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 			return fmt.Errorf("listener %q not found in resources", svc.Listener)
 		}
 
-		// Add any relevant Nodeport values into the list of Ports to redirect.
-		nodePorts, err := r.getServiceNodeports(svc.Name, svc.Namespace, svc.Ports)
-		if err != nil {
-			return err
-		}
-		svc.Ports = append(svc.Ports, nodePorts...)
-
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
 		if err := r.serviceManager.RegisterL7LBServiceRedirect(serviceName, resourceName, proxyPort, svc.Ports); err != nil {
@@ -193,29 +186,6 @@ func (r *cecManager) syncCiliumEnvoyConfigService(name string, namespace string,
 		}
 	}
 	return nil
-}
-
-// getServiceNodeports returns any relevant Nodeport numbers for the provided
-// Service ports. If the provided servicePorts do not have any nodeports set, returns
-// an empty list.
-func (r *cecManager) getServiceNodeports(name, namespace string, servicePorts []uint16) ([]uint16, error) {
-	var nodePorts []uint16
-	kSvc, err := r.getK8sService(name, namespace)
-	if err != nil {
-		return nodePorts, fmt.Errorf("could not retrieve service details for service %s/%s", namespace, name)
-	}
-
-	for _, servicePort := range servicePorts {
-		for _, port := range kSvc.Spec.Ports {
-			if servicePort == uint16(port.Port) {
-				if port.NodePort != 0 {
-					nodePorts = append(nodePorts, uint16(port.NodePort))
-				}
-			}
-		}
-	}
-
-	return nodePorts, nil
 }
 
 // getK8sService retrieves k8s service from the store
