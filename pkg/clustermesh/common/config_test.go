@@ -222,3 +222,30 @@ func TestIsEtcdConfigFile(t *testing.T) {
 	require.False(t, isConfig)
 	require.Equal(t, fhash{}, hash)
 }
+
+func TestConfigFiles(t *testing.T) {
+	var (
+		baseDir  = t.TempDir()
+		empty    = filepath.Join(baseDir, "empty")
+		expected = make(map[string]string)
+	)
+
+	require.NoError(t, os.Mkdir(empty, 0755))
+	writeFile(t, filepath.Join(baseDir, "other"), "something else")
+	for _, name := range []string{"foo", "bar", "baz"} {
+		path := filepath.Join(baseDir, name)
+		expected[name] = path
+		writeFile(t, path, content1)
+	}
+
+	configs, err := ConfigFiles(baseDir)
+	require.NoError(t, err, "ConfigFiles should not have failed")
+	require.Equal(t, expected, configs, "ConfigFiles returned incorrect configurations")
+
+	configs, err = ConfigFiles(empty)
+	require.NoError(t, err, "ConfigFiles should not have failed for an empty directory")
+	require.Empty(t, configs, "ConfigFiles should not have returned any configuration for an empty directory")
+
+	_, err = ConfigFiles(filepath.Join(baseDir, "non-existing"))
+	require.Error(t, err, "ConfigFiles should have failed for a non-existing directory")
+}
