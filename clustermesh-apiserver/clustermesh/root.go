@@ -28,7 +28,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -76,6 +75,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 type parameters struct {
 	cell.In
 
+	CRDSyncPromise promise.Promise[resource.CRDSync]
 	ExternalWorkloadsConfig
 	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
@@ -97,7 +97,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState)
+			startServer(ctx, params.CRDSyncPromise, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState)
 			return nil
 		},
 	})
@@ -345,6 +345,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 
 func startServer(
 	startCtx cell.HookContext,
+	crdSyncPromise promise.Promise[resource.CRDSync],
 	cinfo cmtypes.ClusterInfo,
 	allServices bool,
 	clientset k8sClient.Clientset,
@@ -358,7 +359,10 @@ func startServer(
 		"cluster-id":   cinfo.ID,
 	}).Info("Starting clustermesh-apiserver...")
 
-	synced.SyncCRDs(startCtx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+	_, err := crdSyncPromise.Await(startCtx)
+	if err != nil {
+		log.WithError(err).Fatal("Wait for CRD resources failed")
+	}
 
 	config := cmtypes.CiliumClusterConfig{
 		ID: cinfo.ID,
@@ -368,7 +372,7 @@ func startServer(
 		},
 	}
 
-	_, err := cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, log)
+	_, err = cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, log)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}

@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -127,6 +128,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmapgc.Enabler { return ctmapgc.NewFake() },
+			k8sSynced.RejectedCRDSyncPromise,
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
