@@ -112,6 +112,7 @@ func (cdw *configDirectoryWatcher) handle(abspath string) {
 			// watcher (except for NotFound) to prevent an infinite loop if
 			// something wrong happened.
 			cdw.handle(abspath)
+			return
 		}
 	}
 
