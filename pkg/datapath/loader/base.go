@@ -15,6 +15,8 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
@@ -203,11 +205,16 @@ func (l *loader) reinitializeIPSec() error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
-	coll, commit, err := loadDatapath(spec, nil, nil)
+	var obj networkObjects
+	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("loading %s: %w", networkObj, err)
+		return err
 	}
-	defer coll.Close()
+	defer obj.Close()
 
 	var errs error
 	for _, iface := range interfaces {
@@ -217,7 +224,7 @@ func (l *loader) reinitializeIPSec() error {
 			continue
 		}
 
-		if err := attachSKBProgram(device, coll.Programs[symbolFromNetwork], symbolFromNetwork,
+		if err := attachSKBProgram(device, obj.FromNetwork, symbolFromNetwork,
 			bpffsDeviceLinksDir(bpf.CiliumPath(), device), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 
 			// Collect errors, keep attaching to other interfaces.
@@ -351,6 +358,11 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		// Enable IPv6 for now
 		sysSettings = append(sysSettings,
 			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+	}
+
+	// BPF file system setup.
+	if err := bpf.MkdirBPF(bpf.TCGlobalsPath()); err != nil {
+		return fmt.Errorf("failed to create bpffs directory: %w", err)
 	}
 
 	// Datapath initialization
