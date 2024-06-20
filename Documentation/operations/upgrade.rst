@@ -439,7 +439,7 @@ Removed Metrics
 
 The following deprecated metrics were removed:
 
-* TBD
+* ``cilium_ces_sync_errors_total``
 
 Changed Metrics
 ~~~~~~~~~~~~~~~

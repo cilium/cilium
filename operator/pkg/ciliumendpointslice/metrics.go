@@ -47,12 +47,6 @@ func NewMetrics() *Metrics {
 			Help:      "The number of changed CEPs in each CES update",
 		}, []string{LabelOpcode}),
 
-		CiliumEndpointSliceSyncErrors: metric.NewCounter(metric.CounterOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "ces_sync_errors_total",
-			Help:      "Number of CES sync errors",
-		}),
-
 		CiliumEndpointSliceSyncTotal: metric.NewCounterVec(metric.CounterOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Name:      "ces_sync_total",
@@ -79,11 +73,6 @@ type Metrics struct {
 
 	// CiliumEndpointSliceSyncTotal indicates the total number of completed CES syncs with k8s-apiserver by success/fail outcome.
 	CiliumEndpointSliceSyncTotal metric.Vec[metric.Counter]
-
-	// CiliumEndpointSliceSyncErrors used to track the total number of errors occurred during syncing CES with k8s-apiserver.
-	// This metric is going to be deprecated in Cilium 1.14 and removed in 1.15.
-	// It is replaced by CiliumEndpointSliceSyncTotal metric.
-	CiliumEndpointSliceSyncErrors metric.Counter
 
 	// CiliumEndpointSliceQueueDelay measures the time spent by CES's in the workqueue. This measures time difference between
 	// CES insert in the workqueue and removal from workqueue.
