@@ -359,7 +359,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.Equal(t, policy, &expectedEndpointPolicy)
@@ -466,7 +466,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.Equal(t, policy, &expectedEndpointPolicy)
@@ -569,7 +569,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.Equal(t, policy, &expectedEndpointPolicy)
@@ -750,7 +750,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
