@@ -119,6 +119,9 @@ func (k *PolicyKey) GetDestPort() uint16 {
 
 // GetPortMask returns the port mask of the key
 func (k *PolicyKey) GetPortMask() uint16 {
+	if k.DestPortNetwork == 0 {
+		return 0
+	}
 	return 0xffff
 }
 
