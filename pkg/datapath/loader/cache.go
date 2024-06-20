@@ -158,15 +158,13 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 // threads attempt to concurrently fetchOrCompile a template binary for the
 // same set of EndpointConfiguration.
 //
-// Returns a copy of the compiled and parsed ELF and whether a compilation was
-// triggered.
-func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, compiled bool, err error) {
+// Returns a copy of the compiled and parsed ELF and a hash identifying a cached entry.
+func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
 
-	var hash string
 	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
 	// Capture the time spent waiting for the template to compile.
@@ -185,7 +183,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	defer obj.Unlock()
 
 	if obj.spec != nil {
-		return obj.spec.Copy(), false, nil
+		return obj.spec.Copy(), hash, nil
 	}
 
 	if stats == nil {
@@ -197,13 +195,13 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 		if !errors.Is(err, context.Canceled) {
 			scopedLog.WithError(err).Error("BPF template object creation failed")
 		}
-		return nil, false, err
+		return nil, "", err
 	}
 
 	obj.spec, err = bpf.LoadCollectionSpec(path)
 	if err != nil {
-		return nil, false, fmt.Errorf("load eBPF ELF %s: %w", path, err)
+		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
 	}
 
-	return obj.spec.Copy(), true, nil
+	return obj.spec.Copy(), hash, nil
 }
