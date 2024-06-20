@@ -689,14 +689,22 @@ func TestLocalObserverServer_NodeLabels(t *testing.T) {
 			},
 		},
 	}
-	localNodeWatcher := NewLocalNodeWatcher(ctx, node.NewTestLocalNodeStore(localNode))
+	localNodeWatcher, err := NewLocalNodeWatcher(ctx, node.NewTestLocalNodeStore(localNode))
+	require.NoError(t, err)
+	require.NotNil(t, localNodeWatcher)
 
 	// fake hubble server setup.
 	flowsReceived := 0
 	req := &observerpb.GetFlowsRequest{Number: uint64(1)}
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
-			assert.Equal(t, localNodeWatcher.cache.labels, response.GetFlow().GetNodeLabels())
+			// NOTE: a bit hacky to directly access the localNodeWatcher cache,
+			// but we don't have any use yet for an accessor method beyond this
+			// package local test.
+			localNodeWatcher.mu.Lock()
+			expected := localNodeWatcher.cache.labels
+			localNodeWatcher.mu.Unlock()
+			assert.Equal(t, expected, response.GetFlow().GetNodeLabels())
 			flowsReceived++
 			return nil
 		},
