@@ -6,7 +6,6 @@ package observer
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -57,11 +56,10 @@ func Test_LocalNodeWatcher(t *testing.T) {
 	var watcher *LocalNodeWatcher
 
 	t.Run("NewLocalNodeWatcher", func(t *testing.T) {
-		watcher = NewLocalNodeWatcher(ctx, node.NewTestLocalNodeStore(localNode))
+		var err error
+		watcher, err = NewLocalNodeWatcher(ctx, node.NewTestLocalNodeStore(localNode))
+		require.NoError(t, err)
 		require.NotNil(t, watcher)
-		require.Eventually(t, func() bool {
-			return watcher.generation() > 0
-		}, time.Second, 10*time.Millisecond)
 	})
 
 	t.Run("OnDecodedFlow", func(t *testing.T) {
