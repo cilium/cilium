@@ -499,7 +499,8 @@ func TestCheckpointRestore(t *testing.T) {
 	modelBefore := mgr.GetIdentities()
 
 	// Explicitly checkpoint, to ensure we get the latest data
-	mgr.checkpoint(nil)
+	err := mgr.checkpoint(context.TODO())
+	require.NoError(t, err)
 
 	newMgr := NewCachingIdentityAllocator(owner)
 	defer newMgr.Close()
