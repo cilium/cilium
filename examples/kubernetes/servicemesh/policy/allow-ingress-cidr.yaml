@@ -4,7 +4,10 @@ metadata:
   name: "allow-cidr"
 spec:
   description: "Allow all the traffic originating from a specific CIDR"
-  endpointSelector: {}
+  endpointSelector:
+    matchExpressions:
+    - key: reserved:ingress
+      operator: Exists
   ingress:
   - fromCIDRSet:
     # Please update the CIDR to match your environment
