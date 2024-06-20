@@ -22,7 +22,7 @@ concurrency:
 
 env:
   cluster_name: cilium-testing
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: d146cfb36d85ad85626b7f170ba6b3bc9c023579
 
 jobs:
   kubernetes-e2e-net-conformance:
