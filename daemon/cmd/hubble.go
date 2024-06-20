@@ -133,6 +133,7 @@ func (d *Daemon) launchHubble() {
 			option.Config.HubbleDropEventsInterval,
 			option.Config.HubbleDropEventsReasons,
 			d.clientset,
+			d.k8sWatcher,
 		)
 
 		observerOpts = append(observerOpts,
