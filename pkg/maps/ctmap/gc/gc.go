@@ -187,7 +187,11 @@ func (gc *GC) Enable() {
 			triggeredBySignal = false
 			gc.signalHandler.UnmuteSignals()
 			select {
-			case x := <-gc.signalHandler.Signals():
+			case x, ok := <-gc.signalHandler.Signals():
+				if !ok {
+					gc.logger.Info("Signal handler closed. Stopping conntrack garbage collector")
+					return
+				}
 				// mute before draining so that no more wakeups are queued just
 				// after we have drained
 				gc.signalHandler.MuteSignals()
