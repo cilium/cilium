@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [ubuntu-22.04, ubuntu-22.04-arm64]
+        arch: ["${{ vars.GH_RUNNER_EXTRA_POWER }}", ubuntu-22.04-arm64]
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 45
     steps:
