@@ -19,15 +19,17 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	metaslimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type DropEventEmitter struct {
-	reasons  []string
-	recorder record.EventRecorder
+	reasons    []string
+	recorder   record.EventRecorder
+	k8sWatcher watchers.CacheAccessK8SWatcher
 }
 
-func NewDropEventEmitter(interval time.Duration, reasons []string, k8s client.Clientset) *DropEventEmitter {
+func NewDropEventEmitter(interval time.Duration, reasons []string, k8s client.Clientset, watcher watchers.CacheAccessK8SWatcher) *DropEventEmitter {
 	broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
 		BurstSize:            1,
 		QPS:                  1 / float32(interval.Seconds()),
@@ -38,8 +40,9 @@ func NewDropEventEmitter(interval time.Duration, reasons []string, k8s client.Cl
 	broadcaster.StartRecordingToSink(&typedv1.EventSinkImpl{Interface: k8s.CoreV1().Events("")})
 
 	return &DropEventEmitter{
-		reasons:  reasons,
-		recorder: broadcaster.NewRecorder(slimscheme.Scheme, v1.EventSource{Component: "cilium"}),
+		reasons:    reasons,
+		recorder:   broadcaster.NewRecorder(slimscheme.Scheme, v1.EventSource{Component: "cilium"}),
+		k8sWatcher: watcher,
 	}
 }
 
@@ -74,16 +77,25 @@ func (e *DropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 		message := "Outgoing packet dropped (" + reason + ") to " +
 			e.endpointToString(flow.IP.Destination, flow.Destination) + " " +
 			e.l4protocolToString(flow.L4)
-		e.recorder.Event(&slimv1.Pod{
+
+		objMeta := metaslimv1.ObjectMeta{
+			Name:      flow.Source.PodName,
+			Namespace: flow.Source.Namespace,
+		}
+		if e.k8sWatcher != nil {
+			pod, err := e.k8sWatcher.GetCachedPod(flow.Source.Namespace, flow.Source.PodName)
+			if err == nil {
+				objMeta.UID = pod.UID
+			}
+		}
+		podObj := slimv1.Pod{
 			TypeMeta: metaslimv1.TypeMeta{
 				Kind:       "Pod",
 				APIVersion: "v1",
 			},
-			ObjectMeta: metaslimv1.ObjectMeta{
-				Name:      flow.Source.PodName,
-				Namespace: flow.Source.Namespace,
-			},
-		}, v1.EventTypeWarning, "PacketDrop", message)
+			ObjectMeta: objMeta,
+		}
+		e.recorder.Event(&podObj, v1.EventTypeWarning, "PacketDrop", message)
 	}
 
 	return nil
