@@ -447,8 +447,8 @@ func (obtained *mapState) Diff(_ *testing.T, expected MapState) (res string) {
 		return true
 	})
 	obtained.ForEach(func(kE Key, vE MapStateEntry) bool {
-		if vO, ok := expected.Get(kE); !ok {
-			res += "+ " + kE.String() + ": " + vO.String() + "\n"
+		if _, ok := expected.Get(kE); !ok {
+			res += "+ " + kE.String() + ": " + vE.String() + "\n"
 		}
 		return true
 	})
