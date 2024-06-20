@@ -1094,6 +1094,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 			vm.WaitEndpointsReady()
 		}()
 
+		fullIdentitiesListBefore := vm.Exec("cilium-dbg identity list").OutputPrettyPrint()
 		idsBefore := vm.SelectedIdentities("cilium.test")
 		Expect(idsBefore).NotTo(HaveLen(0))
 		GinkgoPrint("cilium.test selectors before restart: " + idsBefore)
@@ -1134,9 +1135,13 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 
 		expectFQDNSareApplied("cilium.test", 0)
 
+		fullIdentitiesListAfter := vm.Exec("cilium-dbg identity list").OutputPrettyPrint()
 		idsAfter := vm.SelectedIdentities("cilium.test")
 		GinkgoPrint("cilium.test selectors after restart: " + idsAfter)
-		Expect(idsAfter).To(Equal(idsBefore))
+		Expect(idsAfter).To(Equal(idsBefore),
+			fmt.Sprintf("cilium.test selector identities changed.\n Before:\n%s\n\nAfter:\n%s",
+				fullIdentitiesListBefore,
+				fullIdentitiesListAfter))
 
 		By("Dumping IP cache after the DNS policy is imported after restart")
 		ipcacheAfterDNSPolicy, err := vm.BpfIPCacheList(true)
