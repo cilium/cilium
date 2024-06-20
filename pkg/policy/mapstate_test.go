@@ -204,6 +204,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: 0,
 				}: {
@@ -213,13 +214,16 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				},
 			}),
 			args: args{
-				key:   Key{},
+				key: Key{
+					InvertedPortMask: 0xffff,
+				},
 				entry: MapStateEntry{},
 			},
 			want: newMapState(map[Key]MapStateEntry{
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: 0,
 				}: {
@@ -250,6 +254,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -263,6 +268,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -285,6 +291,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -592,6 +599,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -612,6 +620,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         2,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -624,6 +633,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -637,6 +647,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -657,6 +668,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         2,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -669,6 +681,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -685,6 +698,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -855,6 +869,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -875,6 +890,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         2,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -887,6 +903,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Egress.Uint8(),
 				},
@@ -910,6 +927,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -920,6 +938,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Egress.Uint8(),
 				}: {
@@ -940,6 +959,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         2,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -952,6 +972,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Egress.Uint8(),
 				}: struct{}{},
@@ -1092,6 +1113,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1117,6 +1139,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1135,6 +1158,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1161,6 +1185,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1179,6 +1204,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1205,6 +1231,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1223,6 +1250,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1250,6 +1278,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1281,6 +1310,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1294,6 +1324,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1306,6 +1337,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -1352,6 +1384,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1365,6 +1398,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1377,6 +1411,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -1434,6 +1469,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1447,6 +1483,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1459,6 +1496,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -1532,6 +1570,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1545,6 +1584,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1557,6 +1597,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         1,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -1620,6 +1661,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1632,6 +1674,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         100,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1656,6 +1699,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1686,6 +1730,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1698,6 +1743,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         100,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1723,6 +1769,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1776,6 +1823,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1789,6 +1837,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1812,6 +1861,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -1899,6 +1949,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				key: Key{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				},
@@ -1912,6 +1963,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
@@ -1936,6 +1988,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				Key{
 					Identity:         0,
 					DestPort:         0,
+					InvertedPortMask: 0xffff,
 					Nexthdr:          0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
@@ -3563,9 +3616,9 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		// allow-allow insertions do not need tests as their affect on one another does not matter.
 	}
 	for _, tt := range tests {
-		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
+		aKey := key(tt.aIdentity, tt.aPort, tt.aProto, 0)
 		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
-		bKey := Key{Identity: tt.bIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto}
+		bKey := key(tt.bIdentity, tt.bPort, tt.bProto, 0)
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState(nil)
 		if tt.outcome&insertA > 0 {
