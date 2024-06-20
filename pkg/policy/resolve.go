@@ -5,9 +5,6 @@ package policy
 
 import (
 	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -236,37 +233,6 @@ func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
 	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, features, p.SelectorCache)
-}
-
-// AllowsIdentity returns whether the specified policy allows
-// ingress and egress traffic for the specified numeric security identity.
-// If the 'secID' is zero, it will check if all traffic is allowed.
-//
-// Returning true for either return value indicates all traffic is allowed.
-func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingress, egress bool) {
-	key := Key{
-		Identity: uint32(identity),
-	}
-
-	if !p.IngressPolicyEnabled {
-		ingress = true
-	} else {
-		key.TrafficDirection = trafficdirection.Ingress.Uint8()
-		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
-			ingress = true
-		}
-	}
-
-	if !p.EgressPolicyEnabled {
-		egress = true
-	} else {
-		key.TrafficDirection = trafficdirection.Egress.Uint8()
-		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
-			egress = true
-		}
-	}
-
-	return ingress, egress
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
