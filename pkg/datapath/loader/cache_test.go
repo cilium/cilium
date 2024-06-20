@@ -33,28 +33,28 @@ func TestObjectCache(t *testing.T) {
 	dir := getDirs(t)
 
 	// First run should compile and generate the object.
-	first, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	first, hash, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.True(t, isNew)
+	require.NotEmpty(t, hash)
 
 	// Same EP should not be compiled twice.
-	second, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	second, hash2, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.False(t, isNew)
+	require.Equal(t, hash, hash2)
 	require.False(t, second == first)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
-	third, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	third, hash3, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.False(t, isNew)
+	require.Equal(t, hash, hash3)
 	require.False(t, third == first)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
-	fourth, isNew, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
+	fourth, hash4, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
-	require.True(t, isNew)
+	require.NotEqual(t, hash, hash4)
 	require.False(t, fourth == first)
 }
 

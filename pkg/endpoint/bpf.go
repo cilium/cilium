@@ -661,12 +661,16 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
-		err = e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+		templateHash, err := e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")
 			}
 			return err
+		}
+
+		if err := os.WriteFile(filepath.Join(datapathRegenCtxt.nextDir, defaults.TemplateIDPath), []byte(templateHash+"\n"), 0644); err != nil {
+			return fmt.Errorf("unable to write template id: %w", err)
 		}
 
 		e.getLogger().Info("Reloaded endpoint BPF program")
@@ -916,10 +920,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
 		if err := e.writeHeaderfile(nextDir); err != nil {
 			return fmt.Errorf("unable to write header file: %w", err)
-		}
-
-		if err := os.WriteFile(filepath.Join(nextDir, defaults.TemplateIDPath), []byte(datapathRegenCtxt.bpfHeaderfilesHash+"\n"), 0644); err != nil {
-			return fmt.Errorf("unable to write template id: %w", err)
 		}
 
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(nextDir)

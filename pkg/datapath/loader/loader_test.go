@@ -90,7 +90,7 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	err := l.ReloadDatapath(ctx, ep, stats)
+	_, err := l.ReloadDatapath(ctx, ep, stats)
 	require.NoError(t, err)
 }
 
@@ -171,7 +171,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.ReloadDatapath(ctx, ep, stats)
+		_, err = l.ReloadDatapath(ctx, ep, stats)
 	}
 	require.Error(t, err)
 }
