@@ -182,10 +182,13 @@ func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily, fromK8s, 
 }
 
 // Coalesce CIDRS when allocating the DatapathIPs and healthIPs. GH #18868
-func coalesceCIDRs(rCIDRs []string) (result []string) {
+func coalesceCIDRs(rCIDRs []string) (result []string, err error) {
 	cidrs := make([]*net.IPNet, 0, len(rCIDRs))
 	for _, k := range rCIDRs {
-		ip, mask, _ := net.ParseCIDR(k)
+		ip, mask, err := net.ParseCIDR(k)
+		if err != nil {
+			return nil, err
+		}
 		cidrs = append(cidrs, &net.IPNet{IP: ip, Mask: mask.Mask})
 	}
 	ipv4cidr, ipv6cidr := iputil.CoalesceCIDRs(cidrs)
@@ -278,7 +281,10 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		option.Config.IPAM == ipamOption.IPAMENI &&
 		result != nil &&
 		len(result.CIDRs) > 0 {
-		result.CIDRs = coalesceCIDRs(result.CIDRs)
+		result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to coalesce CIDRs: %w", err)
+		}
 	}
 
 	if (option.Config.IPAM == ipamOption.IPAMENI ||
@@ -320,7 +326,10 @@ func (d *Daemon) allocateHealthIPs() error {
 				option.Config.IPAM == ipamOption.IPAMENI &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
+				result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+				if err != nil {
+					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+				}
 			}
 
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
@@ -352,7 +361,10 @@ func (d *Daemon) allocateHealthIPs() error {
 				option.Config.IPAM == ipamOption.IPAMENI &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
+				result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+				if err != nil {
+					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+				}
 			}
 
 			node.SetEndpointHealthIPv6(result.IP)
@@ -394,7 +406,10 @@ func (d *Daemon) allocateIngressIPs() error {
 				option.Config.IPAM == ipamOption.IPAMENI &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
+				result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+				if err != nil {
+					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+				}
 			}
 
 			node.SetIngressIPv4(result.IP)
@@ -452,7 +467,10 @@ func (d *Daemon) allocateIngressIPs() error {
 				option.Config.IPAM == ipamOption.IPAMENI &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
+				result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+				if err != nil {
+					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+				}
 			}
 
 			node.SetIngressIPv6(result.IP)
