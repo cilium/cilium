@@ -21,6 +21,7 @@ on:
     branches:
       - v1.14
       - ft/v1.14/**
+      - 'renovate/v1.14-**'
     paths-ignore:
       - 'Documentation/**'
 
