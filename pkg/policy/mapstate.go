@@ -8,7 +8,6 @@ import (
 	"net"
 	"slices"
 	"strconv"
-	"testing"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -65,14 +64,16 @@ type MapState interface {
 	RevertChanges(ChangeState)
 	AddVisibilityKeys(PolicyOwner, uint16, *VisibilityMetadata, ChangeState)
 	Len() int
-	Equals(MapState) bool
-	Diff(t *testing.T, expected MapState) string
 
 	allowAllIdentities(ingress, egress bool)
 	determineAllowLocalhostIngress()
 	deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool
 	denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState)
 	deleteKeyWithChanges(key Key, owner MapStateOwner, changes ChangeState)
+
+	// For testing from other packages only
+	Equals(MapState) bool
+	Diff(expected MapState) string
 }
 
 // mapState is a state of a policy map.
@@ -362,7 +363,7 @@ func (msA *mapState) Equals(msB MapState) bool {
 // Diff returns the string of differences between 'obtained' and 'expected' prefixed with
 // '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
 // For use in debugging.
-func (obtained *mapState) Diff(_ *testing.T, expected MapState) (res string) {
+func (obtained *mapState) Diff(expected MapState) (res string) {
 	expected.ForEach(func(kE Key, vE MapStateEntry) bool {
 		if vO, ok := obtained.Get(kE); ok {
 			if !(&vO).DatapathEqual(&vE) {
@@ -375,8 +376,8 @@ func (obtained *mapState) Diff(_ *testing.T, expected MapState) (res string) {
 		return true
 	})
 	obtained.ForEach(func(kE Key, vE MapStateEntry) bool {
-		if vO, ok := expected.Get(kE); !ok {
-			res += "+ " + kE.String() + ": " + vO.String() + "\n"
+		if _, ok := expected.Get(kE); !ok {
+			res += "+ " + kE.String() + ": " + vE.String() + "\n"
 		}
 		return true
 	})
