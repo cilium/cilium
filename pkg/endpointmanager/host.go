@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -31,7 +32,10 @@ func (mgr *endpointManager) HostEndpointExists() bool {
 
 func (mgr *endpointManager) startNodeLabelsObserver(old map[string]string) {
 	mgr.localNodeStore.Observe(context.Background(), func(ln node.LocalNode) {
-		if maps.Equal(old, ln.Labels) {
+		oldIdtyLabels, _ := labelsfilter.Filter(labels.Map2Labels(old, labels.LabelSourceK8s))
+		newIdtyLabels, _ := labelsfilter.Filter(labels.Map2Labels(ln.Labels, labels.LabelSourceK8s))
+		if maps.Equal(oldIdtyLabels.K8sStringMap(), newIdtyLabels.K8sStringMap()) {
+			log.Debug("Host endpoint identity labels unchanged, skipping labels update")
 			return
 		}
 
