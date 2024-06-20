@@ -686,7 +686,6 @@ Name                                           Labels                           
 ============================================== ================================ ========================================================
 ``number_of_ceps_per_ces``                                                      The number of CEPs batched in a CES
 ``number_of_cep_changes_per_ces``              ``opcode``                       The number of changed CEPs in each CES update
-``ces_sync_errors_total``                                                       Number of CES sync errors
 ``ces_sync_total``                             ``outcome``                      The number of completed CES syncs by outcome
 ``ces_queueing_delay_seconds``                                                  CiliumEndpointSlice queueing delay in seconds
 ============================================== ================================ ========================================================
