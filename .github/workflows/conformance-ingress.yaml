@@ -21,6 +21,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - 'renovate/**'
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
