@@ -62,7 +62,7 @@ const (
 	ConnectivityCheckNamespace = "cilium-test"
 
 	// renovate: datasource=docker
-	ConnectivityCheckAlpineCurlImage = "quay.io/cilium/alpine-curl:v1.9.0@sha256:e9f5bd17e6fe42f56d926674624dc915e4d3ff3d3c42f4d9c2f10c72ee9993ff"
+	ConnectivityCheckAlpineCurlImage = "quay.io/cilium/alpine-curl:v1.10.0@sha256:913e8c9f3d960dde03882defa0edd3a919d529c2eb167caa7f54194528bde364"
 	// renovate: datasource=docker
 	ConnectivityPerformanceImage = "quay.io/cilium/network-perf:a816f935930cb2b40ba43230643da4d5751a5711@sha256:679d3a370c696f63884da4557a4466f3b5569b4719bb4f86e8aac02fbe390eea"
 	// renovate: datasource=docker
