@@ -84,10 +84,10 @@ resource.
 
 The ``CiliumBGPPeerConfig`` resource contains configuration options for:
 
-- :ref:`Transport <bgp_peer_configuration_transport>`
 - :ref:`MD5 Password <bgp_peer_configuration_password>`
 - :ref:`Timers <bgp_peer_configuration_timers>`
 - :ref:`Graceful Restart <bgp_peer_configuration_graceful_restart>`
+- :ref:`Transport <bgp_peer_configuration_transport>`
 - :ref:`Address Families <bgp_peer_configuration_afi>`
 
 Here is an example configuration of the ``CiliumBGPPeerConfig`` resource. In the next
@@ -100,11 +100,7 @@ section, we will go over each configuration option.
     metadata:
       name: cilium-peer
     spec:
-      transport:
-        localPort: 179
-        peerPort: 179
       timers:
-        connectRetryTimeSeconds: 12
         holdTimeSeconds: 9
         keepAliveTimeSeconds: 3
       authSecretRef: bgp-auth-secret
@@ -117,31 +113,6 @@ section, we will go over each configuration option.
           advertisements:
             matchLabels:
               advertise: "bgp"
-
-.. _bgp_peer_configuration_transport:
-
-Transport
----------
-
-The transport section of ``CiliumBGPPeerConfig`` can be used to configure custom source and
-destination ports for the BGP session with the peer. ``LocalPort`` and ``PeerPort`` fields are used to
-configure the source and destination ports, respectively.
-
-By default, when BGP is operating in `active mode <https://datatracker.ietf.org/doc/html/rfc4271#section-8.2.1>`_
-( with the Cilium agent initiating the TCP connection), destination port is 179 and source port is dynamic.
-
-Here is an example of setting the transport configuration:
-
-.. code-block:: yaml
-
-    apiVersion: cilium.io/v2alpha1
-    kind: CiliumBGPPeerConfig
-    metadata:
-      name: cilium-peer
-    spec:
-      transport:
-        localPort: 179
-        peerPort: 179
 
 
 .. _bgp_peer_configuration_password:
@@ -275,6 +246,31 @@ Default value of ``RestartTime`` is 120 seconds. More details on graceful restar
 
 .. _RFC-4724 : https://www.rfc-editor.org/rfc/rfc4724.html
 .. _RFC-8538 : https://www.rfc-editor.org/rfc/rfc8538.html
+
+
+.. _bgp_peer_configuration_transport:
+
+Transport
+---------
+
+The transport section of ``CiliumBGPPeerConfig`` can be used to configure a custom
+destination port for a peer's BGP session.
+
+By default, when BGP is operating in `active mode <https://datatracker.ietf.org/doc/html/rfc4271#section-8.2.1>`_
+(with the Cilium agent initiating the TCP connection), the destination port is 179 and the source port is ephemeral.
+
+Here is an example of setting the transport configuration:
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumBGPPeerConfig
+    metadata:
+      name: cilium-peer
+    spec:
+      transport:
+        peerPort: 179
+
 
 .. _bgp_peer_configuration_afi:
 
