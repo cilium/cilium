@@ -11,6 +11,8 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	apiv1 "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
@@ -21,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -998,4 +1001,127 @@ func (s *EndpointManagerSuite) TestMissingNodeLabelsUpdate(c *C) {
 	c.Assert(ok, checker.Equals, true)
 	got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
 	c.Assert(map[string]string{"k2": "v2"}, checker.DeepEquals, got)
+}
+
+func TestUpdateHostEndpointLabels(t *testing.T) {
+	// Initialize label filter config.
+	labelsfilter.ParseLabelPrefixCfg([]string{"k8s:!ignore1", "k8s:!ignore2"}, "")
+
+	idAllocator := testidentity.NewMockIdentityAllocator(nil)
+	s := &EndpointManagerSuite{
+		repo: policy.NewPolicyRepository(idAllocator, nil, nil, nil),
+	}
+
+	mgr := New(&dummyEpSyncher{}, nil, nil)
+	hostEPID := uint16(17)
+	type args struct {
+		oldLabels, newLabels map[string]string
+	}
+	type want struct {
+		labels      map[string]string
+		labelsCheck assert.ComparisonAssertionFunc
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWant   func() want
+		preTestRun  func()
+		postTestRun func()
+	}{
+		{
+			name: "Add labels",
+			preTestRun: func() {
+				ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep.SetIsHost(true)
+				ep.ID = hostEPID
+				require.Nil(t, mgr.expose(ep))
+			},
+			setupArgs: func() args {
+				return args{
+					newLabels: map[string]string{"k1": "v1"},
+				}
+			},
+			setupWant: func() want {
+				return want{
+					labels:      map[string]string{"k1": "v1"},
+					labelsCheck: assert.EqualValues,
+				}
+			},
+			postTestRun: func() {
+				if hostEP, ok := mgr.endpoints[hostEPID]; ok {
+					mgr.WaitEndpointRemoved(hostEP)
+				}
+			},
+		},
+		{
+			name: "Update labels",
+			preTestRun: func() {
+				ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep.SetIsHost(true)
+				ep.ID = hostEPID
+				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
+				require.Nil(t, mgr.expose(ep))
+			},
+			setupArgs: func() args {
+				return args{
+					oldLabels: map[string]string{"k1": "v1"},
+					newLabels: map[string]string{"k2": "v2"},
+				}
+			},
+			setupWant: func() want {
+				return want{
+					labels:      map[string]string{"k2": "v2"},
+					labelsCheck: assert.EqualValues,
+				}
+			},
+			postTestRun: func() {
+				if hostEP, ok := mgr.endpoints[hostEPID]; ok {
+					mgr.WaitEndpointRemoved(hostEP)
+				}
+			},
+		},
+		{
+			name: "Ignore labels",
+			preTestRun: func() {
+				ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep.SetIsHost(true)
+				ep.ID = hostEPID
+				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
+				require.Nil(t, mgr.expose(ep))
+			},
+			setupArgs: func() args {
+				return args{
+					oldLabels: map[string]string{"k1": "v1"},
+					newLabels: map[string]string{"k1": "v1", "ignore1": "v2", "ignore2": "v2"},
+				}
+			},
+			setupWant: func() want {
+				return want{
+					labels:      map[string]string{"k1": "v1"},
+					labelsCheck: assert.EqualValues,
+				}
+			},
+			postTestRun: func() {
+				if hostEP, ok := mgr.endpoints[hostEPID]; ok {
+					mgr.WaitEndpointRemoved(hostEP)
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt.preTestRun()
+		args := tt.setupArgs()
+		want := tt.setupWant()
+		mgr.localNodeStore = node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{
+			Labels: args.oldLabels,
+		}})
+		mgr.startNodeLabelsObserver(args.oldLabels)
+		mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = args.newLabels })
+
+		hostEP, ok := mgr.endpoints[hostEPID]
+		require.EqualValues(t, ok, true)
+		got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
+		want.labelsCheck(t, want.labels, got, "Test Name: %s", tt.name)
+		tt.postTestRun()
+	}
 }
