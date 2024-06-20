@@ -199,15 +199,3 @@ jobs:
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: setup-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ github.sha }}
-          status: ${{ needs.setup-and-test.result }}
