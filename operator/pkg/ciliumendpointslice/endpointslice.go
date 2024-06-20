@@ -260,9 +260,6 @@ func (c *Controller) handleErr(err error, key CESName) {
 		return
 	}
 
-	// Increment error count for sync errors
-	c.metrics.CiliumEndpointSliceSyncErrors.Inc()
-
 	if c.queue.NumRequeues(key) < maxRetries {
 		c.queue.AddRateLimited(key)
 		return
