@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2015 The Kubernetes Authors.
 
+// Copy of client-go/tools/record/fake.go
+// Duplicated this since there's no easy way to access UID from client-go's fake recorder
+
 package dropeventemitter
 
 import (
@@ -21,12 +24,18 @@ type FakeRecorder struct {
 }
 
 func objectString(object runtime.Object, includeObject bool) string {
+	var uid string
+	uo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
+	if err != nil && uo["metadata"] != nil && uo["metadata"].(map[string]interface{})["uid"] != nil {
+		uid = uo["metadata"].(map[string]interface{})["uid"].(string)
+	}
 	if !includeObject {
 		return ""
 	}
-	return fmt.Sprintf(" involvedObject{kind=%s,apiVersion=%s}",
+	return fmt.Sprintf(" involvedObject{kind=%s,apiVersion=%s,uid=%s}",
 		object.GetObjectKind().GroupVersionKind().Kind,
 		object.GetObjectKind().GroupVersionKind().GroupVersion(),
+		uid,
 	)
 }
 
