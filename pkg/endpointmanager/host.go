@@ -4,15 +4,17 @@
 package endpointmanager
 
 import (
-	"context"
-
 	"github.com/cilium/cilium/pkg/endpoint"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 )
+
+// isFirstNodeUpdate tracks the first node update to the endpoint manager.
+// This is used to resolve a race condition during agent startup where the
+// k8s node label updates are rejected indefinitely by the host endpoint (GH-29649).
+var isFirstNodeUpdate = true
 
 // GetHostEndpoint returns the host endpoint.
 func (mgr *endpointManager) GetHostEndpoint() *endpoint.Endpoint {
@@ -36,20 +38,7 @@ func (mgr *endpointManager) HostEndpointExists() bool {
 // This adheres to the subscriber.NodeHandler interface.
 func (mgr *endpointManager) OnAddNode(newNode *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
-
-	node.SetLabels(newNode.GetLabels())
-
-	nodeEP := mgr.GetHostEndpoint()
-	if nodeEP == nil {
-		// if host endpoint does not exist yet, labels will be set when it'll be created.
-		return nil
-	}
-
-	newLabels := labels.Map2Labels(newNode.GetLabels(), labels.LabelSourceK8s)
-	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
-	nodeEP.UpdateLabels(context.TODO(), labels.LabelSourceAny, newIdtyLabels, nil, false)
-
-	return nil
+	return mgr.OnUpdateNode(nil, newNode, swg)
 }
 
 // OnUpdateNode implements the endpointManager's logic for reacting to updated
@@ -58,21 +47,31 @@ func (mgr *endpointManager) OnAddNode(newNode *slim_corev1.Node,
 func (mgr *endpointManager) OnUpdateNode(oldNode, newNode *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
-	oldNodeLabels := oldNode.GetLabels()
+	var oldNodeLabels map[string]string
+	// Endpoint's label update logic rejects a request if any of the old labels are
+	// not present in the endpoint manager's state. Overwrite the old labels to nil
+	// for the first node update to avoid node labels being outdated indefinitely (GH-29649).
+	if oldNode == nil || isFirstNodeUpdate {
+		oldNodeLabels = make(map[string]string)
+	} else {
+		oldNodeLabels = oldNode.GetLabels()
+	}
 	newNodeLabels := newNode.GetLabels()
+	// Set the labels early so host endpoint is created with latest labels.
+	node.SetLabels(newNodeLabels)
 
 	nodeEP := mgr.GetHostEndpoint()
 	if nodeEP == nil {
-		log.Error("Host endpoint not found")
+		log.Debug("Host endpoint not found")
 		return nil
 	}
 
-	node.SetLabels(newNodeLabels)
-
-	err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s)
-	if err != nil {
+	if err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s); err != nil {
+		log.WithError(err).Error("Unable to update host endpoint labels")
 		return err
 	}
+	// Set isFirstNodeUpdate to false only on successful update.
+	isFirstNodeUpdate = false
 
 	return nil
 }
