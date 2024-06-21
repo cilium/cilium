@@ -124,79 +124,67 @@ type Identities interface {
 // greatly enhances the usefuleness of the Trie and improves lookup,
 // deletion, and insertion times.
 type mapStateMap struct {
+	// entries is the map containing the MapStateEntries
+	entries map[Key]MapStateEntry
 	// trie is a Trie that indexes policy Keys without their identity
-	// and stores the identities in an associated builtin map with
-	// each identity's respective MapStateEntry.
-	trie bitlpm.Trie[bitlpm.Key[Key], map[identity.NumericIdentity]MapStateEntry]
-	// len is tracked independently from bitlpm.Trie, because
-	// the bitlpm.Trie Length method will return how many maps
-	// there are in the Trie not how many MapStateEntries there
-	// are.
-	len int
+	// and stores the identities in an associated builtin map.
+	trie bitlpm.Trie[bitlpm.Key[Key], map[identity.NumericIdentity]struct{}]
 }
 
 func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
-	idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
-	if !ok || idMap == nil {
-		return MapStateEntry{}, false
-	}
-	v, ok := idMap[identity.NumericIdentity(k.Identity)]
+	v, ok := msm.entries[k]
 	return v, ok
 }
 
 func (msm *mapStateMap) Upsert(k Key, e MapStateEntry) {
-	var exists = true
-	idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
-	if !ok || idMap == nil {
-		exists = false
-		idMap = make(map[identity.NumericIdentity]MapStateEntry)
-	}
-	if _, ok := idMap[identity.NumericIdentity(k.Identity)]; !ok {
-		msm.len++
-	}
-	idMap[identity.NumericIdentity(k.Identity)] = e
-	// There is no need to do an Upsert if the
-	// map already exists.
+	id := identity.NumericIdentity(k.Identity)
+	_, exists := msm.entries[k]
+
+	// upsert entry
+	msm.entries[k] = e
+
+	// Update indices if 'k' is a new key
 	if !exists {
-		kCpy := k
-		kCpy.Identity = 0
-		msm.trie.Upsert(k.PrefixLength(), kCpy, idMap)
-	}
-}
-
-func (msm *mapStateMap) Delete(k Key) (deleted bool) {
-	idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
-	if ok && idMap != nil {
-		if _, ok := idMap[identity.NumericIdentity(k.Identity)]; ok {
-			delete(idMap, identity.NumericIdentity(k.Identity))
-			deleted = true
-			msm.len--
+		// Update trie
+		idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
+		if !ok || idMap == nil {
+			kCpy := k
+			kCpy.Identity = 0
+			idMap = make(map[identity.NumericIdentity]struct{})
+			msm.trie.Upsert(k.PrefixLength(), kCpy, idMap)
 		}
+		idMap[id] = struct{}{}
 	}
-	if deleted && len(idMap) == 0 {
-		msm.trie.Delete(k.PrefixLength(), k)
-	}
-	return
 }
 
-func (msm *mapStateMap) ForEach(f func(Key, MapStateEntry) bool) (complete bool) {
-	complete = true
-	msm.trie.ForEach(func(_ uint, k bitlpm.Key[Key], m map[identity.NumericIdentity]MapStateEntry) bool {
-		for id, e := range m {
-			kCpy := k.Value()
-			kCpy.Identity = uint32(id)
-			if !f(kCpy, e) {
-				complete = false
-				return false
+func (msm *mapStateMap) Delete(k Key) {
+	_, exists := msm.entries[k]
+	if exists {
+		delete(msm.entries, k)
+
+		id := identity.NumericIdentity(k.Identity)
+		idMap, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
+		if ok && idMap != nil {
+			delete(idMap, id)
+			if len(idMap) == 0 {
+				msm.trie.Delete(k.PrefixLength(), k)
 			}
 		}
-		return true
-	})
+	}
 	return
+}
+
+func (msm *mapStateMap) ForEach(f func(Key, MapStateEntry) bool) bool {
+	for k, e := range msm.entries {
+		if !f(k, e) {
+			return false
+		}
+	}
+	return true
 }
 
 func (msm *mapStateMap) Len() int {
-	return msm.len
+	return len(msm.entries)
 }
 
 type MapStateOwner interface{}
@@ -352,8 +340,14 @@ func NewMapState(initMap map[Key]MapStateEntry) MapState {
 
 func newMapState(initMap map[Key]MapStateEntry) *mapState {
 	m := &mapState{
-		allows: mapStateMap{bitlpm.NewTrie[Key, map[identity.NumericIdentity]MapStateEntry](policyTypes.MapStatePrefixLen), 0},
-		denies: mapStateMap{bitlpm.NewTrie[Key, map[identity.NumericIdentity]MapStateEntry](policyTypes.MapStatePrefixLen), 0},
+		allows: mapStateMap{
+			entries: make(map[Key]MapStateEntry),
+			trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
+		},
+		denies: mapStateMap{
+			entries: make(map[Key]MapStateEntry),
+			trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
+		},
 	}
 	for k, v := range initMap {
 		m.Insert(k, v)
@@ -480,22 +474,18 @@ func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Ke
 // This is called when a dependent entry is being deleted.
 // If 'old' is not nil, then old value is added there before any modifications.
 func (ms *mapState) RemoveDependent(owner Key, dependent Key, changes ChangeState) {
-	if idMap, ok := ms.allows.trie.ExactLookup(owner.PrefixLength(), owner); ok {
-		if e, exists := idMap[identity.NumericIdentity(owner.Identity)]; exists {
-			changes.insertOldIfNotExists(owner, e)
-			e.RemoveDependent(dependent)
-			ms.denies.Delete(owner)
-			ms.allows.Upsert(owner, e)
-			return
-		}
+	if e, exists := ms.allows.Lookup(owner); exists {
+		changes.insertOldIfNotExists(owner, e)
+		e.RemoveDependent(dependent)
+		ms.denies.Delete(owner)
+		ms.allows.Upsert(owner, e)
+		return
 	}
-	if idMap, ok := ms.denies.trie.ExactLookup(owner.PrefixLength(), owner); ok {
-		if e, exists := idMap[identity.NumericIdentity(owner.Identity)]; exists {
-			changes.insertOldIfNotExists(owner, e)
-			e.RemoveDependent(dependent)
-			ms.allows.Delete(owner)
-			ms.denies.Upsert(owner, e)
-		}
+	if e, exists := ms.denies.Lookup(owner); exists {
+		changes.insertOldIfNotExists(owner, e)
+		e.RemoveDependent(dependent)
+		ms.allows.Delete(owner)
+		ms.denies.Upsert(owner, e)
 	}
 }
 
