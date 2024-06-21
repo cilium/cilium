@@ -51,6 +51,13 @@ func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
 	d.identities = map[idpool.ID]AllocatorKey{}
 }
 
+func (d *dummyBackend) DeleteID(ctx context.Context, id idpool.ID) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	delete(d.identities, id)
+	return nil
+}
+
 func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) (AllocatorKey, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -159,6 +166,13 @@ func (d *dummyBackend) Release(ctx context.Context, id idpool.ID, key AllocatorK
 		}
 	}
 	return fmt.Errorf("identity does not exist")
+}
+
+func (d *dummyBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, err error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return maps.Keys(d.identities), nil
 }
 
 func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {

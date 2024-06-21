@@ -81,10 +81,7 @@ type GC struct {
 
 	allocator *allocator.Allocator
 
-	// counters for GC failed/successful runs
-	failedRuns     int
-	successfulRuns int
-	metrics        *Metrics
+	metrics *Metrics
 }
 
 func registerGC(p params) {
