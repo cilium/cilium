@@ -171,8 +171,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, nil
 	}
 
-	if dcfg.IdentityAllocationMode == option.IdentityAllocationModeKVstore {
-		return out, errors.New("egress gateway is not supported in KV store identity allocation mode")
+	if dcfg.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
+		dcfg.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
+		dcfg.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD {
+		return out, fmt.Errorf("egress gateway is not supported in %s identity allocation mode", dcfg.IdentityAllocationMode)
 	}
 
 	if dcfg.EnableHighScaleIPcache {

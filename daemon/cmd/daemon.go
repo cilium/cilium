@@ -309,9 +309,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.daemonInit.Start()
 
 	// Validate configuration options that depend on other cells.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() &&
+	if (option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD) && !params.Clientset.IsEnabled() &&
 		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
+		return nil, nil, fmt.Errorf("%s Identity allocation mode requires k8s to be configured", option.Config.IdentityAllocationMode)
 	}
 
 	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
