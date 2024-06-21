@@ -185,6 +185,10 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 			currentNode.forEach(fn)
 			return
 		}
+		// currentNode is a leaf and has no children. Calling k.BitValueAt may overrun the key storage.
+		if currentNode.prefixLen >= t.maxPrefix {
+			return
+		}
 		currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
 	}
 }
