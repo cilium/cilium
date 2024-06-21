@@ -98,7 +98,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             key-one: 'gcm(aes)'
-            key-two: 'cbc(aes)'
+            key-two: 'gcm(aes)'
             key-type-one: '+'
             key-type-two: '+'
 
