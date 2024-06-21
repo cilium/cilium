@@ -410,6 +410,11 @@ func (e *Endpoint) IsHost() bool {
 	return e.isHost
 }
 
+// SetIsHost is a convinient method to create host endpoints for testing.
+func (ep *Endpoint) SetIsHost(isHost bool) {
+	ep.isHost = isHost
+}
+
 // closeBPFProgramChannel closes the channel that signals whether the endpoint
 // has had its BPF program compiled. If the channel is already closed, this is
 // a no-op.
