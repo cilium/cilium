@@ -547,8 +547,8 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		},
 		PolicyOwner: DummyOwner{},
 		policyMapState: newMapState(map[Key]MapStateEntry{
-			{TrafficDirection: trafficdirection.Egress.Uint8(), InvertedPortMask: 0xffff}: allowEgressMapStateEntry,
-			{DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
+			{TrafficDirection: trafficdirection.Egress.Uint8()}: allowEgressMapStateEntry,
+			{DestPort: 80, Nexthdr: 6}:                          rule1MapStateEntry,
 		}),
 	}
 

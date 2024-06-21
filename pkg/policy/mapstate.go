@@ -350,9 +350,6 @@ func newMapState(initMap map[Key]MapStateEntry) *mapState {
 
 // Get the MapStateEntry that matches the Key.
 func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
-	if k.DestPort == 0 && k.InvertedPortMask != 0xffff {
-		panic("invalid wildcard port with non-zero mask")
-	}
 	v, ok := ms.denies.Lookup(k)
 	if ok {
 		return v, ok
@@ -363,9 +360,6 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 // Insert the Key and matcthing MapStateEntry into the
 // MapState
 func (ms *mapState) Insert(k Key, v MapStateEntry) {
-	if k.DestPort == 0 && k.InvertedPortMask != 0xffff {
-		panic("invalid wildcard port with non-zero mask")
-	}
 	if v.IsDeny {
 		ms.allows.Delete(k)
 		ms.denies.Upsert(k, v)
@@ -1449,7 +1443,6 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 		keyToAdd := Key{
 			Identity:         0,
 			DestPort:         0,
-			InvertedPortMask: 0xffff, // This is a wildcard
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Egress.Uint8(),
 		}
@@ -1483,7 +1476,6 @@ func (ms *mapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	anyKey := Key{
 		Identity:         0,
 		DestPort:         0,
-		InvertedPortMask: 0xffff,
 		Nexthdr:          0,
 		TrafficDirection: dir,
 	}
