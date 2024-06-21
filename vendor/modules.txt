@@ -981,6 +981,9 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
+# github.com/google/go-github/v68 v68.0.0
+## explicit; go 1.21
+github.com/google/go-github/v68/github
 # github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
 ## explicit; go 1.19
 github.com/google/go-licenses/internal/third_party/pkgsite/derrors
@@ -988,6 +991,9 @@ github.com/google/go-licenses/internal/third_party/pkgsite/source
 github.com/google/go-licenses/internal/third_party/pkgsite/stdlib
 github.com/google/go-licenses/internal/third_party/pkgsite/version
 github.com/google/go-licenses/licenses
+# github.com/google/go-querystring v1.1.0
+## explicit; go 1.10
+github.com/google/go-querystring/query
 # github.com/google/gofuzz v1.2.0
 ## explicit; go 1.12
 github.com/google/gofuzz

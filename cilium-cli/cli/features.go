@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,36 @@ func newCmdFeatures() *cobra.Command {
 		Aliases: []string{"fs"},
 	}
 	cmd.AddCommand(newCmdFeaturesStatus())
+	cmd.AddCommand(newCmdFeaturesGH())
+	return cmd
+}
+
+func newCmdFeaturesGH() *cobra.Command {
+	params := features.Parameters{}
+	cmd := &cobra.Command{
+		Use:   "summary",
+		Short: "Stores and generates the summary for the features tested on a CI run",
+		Long: "This command will connect to GitHub to retrieve the metrics generated\n" +
+			"on a CI run and will generate a summary with the report.\n" +
+			"Requires a GitHub Token in GITHUB_TOKEN env variable with permissions to access contents. Direct Link:\n" +
+			"https://github.com/settings/tokens/new?description=CI%20Summary%20Generator&scopes=public_repo",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			s := features.NewFeatures(nil, params)
+			if params.Commit == "" {
+				return fmt.Errorf("commit flag is not set")
+			}
+			if err := s.GenSummary(context.Background()); err != nil {
+				fatalf("Unable to generate summary features status: %s", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&params.MetricsDirectory, "metrics-directory", "", "ci-features-metrics", "Directory where the metrics are saved from GitHub.")
+	cmd.Flags().StringVarP(&params.Repo, "repo", "r", "cilium/cilium", "Repository to retrieve the metrics from CI.")
+	cmd.Flags().StringVarP(&params.Commit, "commit", "c", "", "Commit SHA to retrieve the metrics.")
+	cmd.Flags().BoolVarP(&params.GHStepSummaryAnchor, "anchor", "a", false, "Add workaround HTML anchor to generated markdown (For GitHub step summary).")
+	cmd.Flags().StringVarP(&params.Output, "output", "o", "markdown", "Output format. One of: markdown")
+	cmd.Flags().StringVarP(&params.Outputfile, "output-file", "", "-", "Outputs into a file. Defaults to stdout")
 	return cmd
 }
 
