@@ -43,7 +43,10 @@ struct nat_entry {
 static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
 						     __u16 val)
 {
-	return (val % (__u16)(end - start)) + start;
+	/* Account for closed interval. */
+	__u32 n = (__u32)(end - start) + 1;
+
+	return (__u16)((__u32)(val) % n) + start;
 }
 
 static __always_inline __maybe_unused __u16
