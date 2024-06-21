@@ -344,3 +344,16 @@ func TestHaveTCX(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDetectHaveFibIfindex(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "5.10", "bpf: Always return target ifindex in bpf_fib_lookup")
+
+	//Note this should be tested in the 3 scenarios:
+	// * Kernels with support: True
+	// * Kernels with support via backport: True
+	// * Kernels without support: False
+	if err := HaveFibIfindex(); err != nil {
+		t.Fatal(err)
+	}
+}
