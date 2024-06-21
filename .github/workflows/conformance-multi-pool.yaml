@@ -71,7 +71,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
-    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -270,7 +269,7 @@ jobs:
           junit-directory: "cilium-junits"
 
   commit-status-final:
-    if: ${{ always() && github.event_name != 'push' }}
+    if: ${{ always() }}
     name: Commit Status Final
     needs: multi-pool-ipam-conformance-test
     runs-on: ubuntu-latest
