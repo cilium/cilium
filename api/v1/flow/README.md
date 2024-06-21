@@ -347,12 +347,14 @@ multiple fields are set, then all fields must match for the filter to match.
 | source_label | [string](#string) | repeated | source_labels filters on a list of source label selectors. Selectors support the full Kubernetes label selector syntax. |
 | source_service | [string](#string) | repeated | source_service filters on a list of source service names. This field supports the same syntax as the source_pod field. |
 | source_workload | [Workload](#flow-Workload) | repeated | source_workload filters by a list of source workload. |
+| source_cluster_name | [string](#string) | repeated | source_cluster_name filters by a list of source cluster names. |
 | destination_ip | [string](#string) | repeated | destination_ip filters by a list of destination ips. Each of the destination ips can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
 | destination_pod | [string](#string) | repeated | destination_pod filters by a list of destination pod names |
 | destination_fqdn | [string](#string) | repeated | destination_fqdn filters by a list of destination fully qualified domain names |
 | destination_label | [string](#string) | repeated | destination_label filters on a list of destination label selectors |
 | destination_service | [string](#string) | repeated | destination_service filters on a list of destination service names |
 | destination_workload | [Workload](#flow-Workload) | repeated | destination_workload filters by a list of destination workload. |
+| destination_cluster_name | [string](#string) | repeated | destination_cluster_name filters by a list of destination cluster names. |
 | traffic_direction | [TrafficDirection](#flow-TrafficDirection) | repeated | traffic_direction filters flow by direction of the connection, e.g. ingress or egress. |
 | verdict | [Verdict](#flow-Verdict) | repeated | only return Flows that were classified with a particular verdict. |
 | drop_reason_desc | [DropReason](#flow-DropReason) | repeated | only applicable to Verdict = DROPPED (e.g. &#34;POLICY_DENIED&#34;, &#34;UNSUPPORTED_L3_PROTOCOL&#34;) |
@@ -474,7 +476,7 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogReco
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source | [string](#string) |  |  |
-| source_xlated | [string](#string) |  | source_xlated is the post translation source IP when the flow was SNATed (and in that case source is the the original source IP). |
+| source_xlated | [string](#string) |  | source_xlated is the post-translation source IP when the flow was SNATed. When &#34;source_xlated&#34; is set, the &#34;source&#34; field is populated with the pre-translation source IP address. |
 | destination | [string](#string) |  |  |
 | ipVersion | [IPVersion](#flow-IPVersion) |  |  |
 | encrypted | [bool](#bool) |  | This field indicates whether the TraceReasonEncryptMask is set or not. https://github.com/cilium/cilium/blob/ba0ed147bd5bb342f67b1794c2ad13c6e99d5236/pkg/monitor/datapath_trace.go#L27 |
