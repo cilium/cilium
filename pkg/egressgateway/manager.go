@@ -434,6 +434,11 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 		logfields.K8sUID:          endpoint.UID,
 	})
 
+	if endpoint.Identity == nil {
+		logger.Warning("Endpoint is missing identity metadata, skipping update to egress policy.")
+		return nil
+	}
+
 	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
 		logger.WithError(err).
 			Warning("Failed to get identity labels for endpoint")
