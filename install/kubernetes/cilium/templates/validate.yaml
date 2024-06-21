@@ -109,7 +109,7 @@
 
 {{/* validate clustermesh-apiserver */}}
 {{- if .Values.clustermesh.useAPIServer }}
-  {{- if ne .Values.identityAllocationMode "crd" }}
+  {{- if and (ne .Values.identityAllocationMode "crd") (ne .Values.identityAllocationMode "doublewrite-readkvstore") (ne .Values.identityAllocationMode "doublewrite-readcrd") }}
     {{ fail (printf "The clustermesh-apiserver cannot be enabled in combination with .Values.identityAllocationMode=%s. To establish a Cluster Mesh, directly configure the parameters to access the remote kvstore through .Values.clustermesh.config" .Values.identityAllocationMode ) }}
   {{- end }}
   {{- if .Values.disableEndpointCRD }}
@@ -117,7 +117,7 @@
   {{- end }}
 {{- end }}
 {{- if .Values.externalWorkloads.enabled }}
-  {{- if ne .Values.identityAllocationMode "crd" }}
+  {{- if and (ne .Values.identityAllocationMode "crd") (ne .Values.identityAllocationMode "doublewrite-readkvstore") (ne .Values.identityAllocationMode "doublewrite-readcrd") }}
     {{ fail (printf "External workloads support cannot be enabled in combination with .Values.identityAllocationMode=%s" .Values.identityAllocationMode ) }}
   {{- end }}
   {{- if .Values.disableEndpointCRD }}
