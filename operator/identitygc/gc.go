@@ -82,8 +82,8 @@ type GC struct {
 	allocator *allocator.Allocator
 
 	// counters for GC failed/successful runs
-	failedRuns     int
-	successfulRuns int
+	failedRuns     map[string]int
+	successfulRuns map[string]int
 	metrics        *Metrics
 }
 
@@ -112,7 +112,9 @@ func registerGC(p params) {
 			p.Cfg.RateInterval,
 			p.Cfg.RateLimit,
 		),
-		metrics: p.Metrics,
+		failedRuns:     make(map[string]int),
+		successfulRuns: make(map[string]int),
+		metrics:        p.Metrics,
 	}
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {

@@ -263,6 +263,9 @@ type Backend interface {
 	// with GetIfLocked.
 	Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLocker, error)
 
+	// ListIDs returns the IDs of all identities currently stored in the backend
+	ListIDs(ctx context.Context) (identityIDs []idpool.ID, err error)
+
 	// ListAndWatch begins synchronizing the local Backend instance with its
 	// remote.
 	ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{})

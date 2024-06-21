@@ -161,6 +161,13 @@ func (d *dummyBackend) Release(ctx context.Context, id idpool.ID, key AllocatorK
 	return fmt.Errorf("identity does not exist")
 }
 
+func (d *dummyBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, err error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return maps.Keys(d.identities), nil
+}
+
 func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
 	d.mutex.Lock()
 	d.handler = handler

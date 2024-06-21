@@ -253,7 +253,7 @@ func initKVStore(ctx context.Context) (kvstoreBackend allocator.Backend) {
 	setupKvstore(ctx)
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
-	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, idPath, &cacheKey.GlobalIdentity{}, kvstore.Client())
+	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: kvstore.Client()})
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create kvstore identity backend")
 	}
