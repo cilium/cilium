@@ -87,6 +87,7 @@
     {
       "matchPackageNames": [
         "go", // golang version directive upgrade in go.mod
+        "google/cloud-sdk", // google cloud-sdk official package name
         "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
         "kindest/node", // official kindest images
         "kubernetes-sigs/kind", // official kind dependencies
@@ -95,8 +96,9 @@
       ],
       "matchPackagePrefixes": [
         "actions/", // GitHub official's GH actions
-        "cilium/", // Cilium's GH actions
-        "docker.io/library/", // official Docker images
+        "cilium/", // Cilium's GH actions,
+        "docker.io/library/", // official Docker images,
+        "docker/", // official Docker actions,
         "gcr.io/distroless", // official distroless images
         "gcr.io/etcd-development/etcd", // etcd
         "ghcr.io/spiffe/", // Spiffe's official images
