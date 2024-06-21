@@ -1052,7 +1052,7 @@ func (ct *ConnectivityTest) CurlCommandParallelWithOutput(peer TestPeer, ipFam f
 	return cmd
 }
 
-func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily) []string {
+func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily, extraArgs ...string) []string {
 	cmd := []string{"ping", "-c", "1"}
 
 	if ipFam == features.IPFamilyV6 {
@@ -1063,7 +1063,10 @@ func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily) 
 		cmd = append(cmd, "-W", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
 	}
 
+	cmd = append(cmd, extraArgs...)
+
 	cmd = append(cmd, peer.Address(ipFam))
+
 	return cmd
 }
 
