@@ -20,8 +20,12 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -814,4 +818,55 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 		}
 		tt.postTestRun()
 	}
+}
+
+func (s *EndpointManagerSuite) TestMissingNodeLabelsUpdate(c *C) {
+	node.SetTestLocalNodeStore()
+	defer node.UnsetTestLocalNodeStore()
+	// Initialize label filter config.
+	labelsfilter.ParseLabelPrefixCfg(nil, "")
+	mgr := New(&dummyEpSyncher{})
+	hostEPID := uint16(17)
+	hostEP := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+	hostEP.SetIsHost(true)
+	hostEP.ID = hostEPID
+
+	// Helper function to create test node object.
+	newTestNode := func(labels map[string]string) *slim_corev1.Node {
+		return &slim_corev1.Node{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Labels: labels,
+			},
+		}
+	}
+
+	// Validate that labels for host endpoint are correctly set.
+	validateHostEPLabels := func(wantLabels map[string]string) {
+		currHostIP, ok := mgr.endpoints[hostEPID]
+		c.Assert(ok, Equals, true)
+		c.Assert(currHostIP.OpLabels.IdentityLabels().K8sStringMap(), checker.DeepEquals, wantLabels)
+	}
+
+	oldNode := newTestNode(make(map[string]string))
+	newNode := newTestNode(map[string]string{"k1": "v1"})
+
+	// Host endpoint is not created in endpoint manager so the node update
+	// is not consumed by endpoint manager.
+	c.Assert(mgr.OnUpdateNode(oldNode, newNode, lock.NewStoppableWaitGroup()), IsNil)
+	_, ok := mgr.endpoints[hostEPID]
+	c.Assert(ok, Equals, false)
+
+	// Now expose host endpoint.
+	mgr.expose(hostEP)
+
+	// Even though endpoint manager does not have k1=v1, the request is still accepted.
+	oldNode = newTestNode(map[string]string{"k1": "v1"})
+	newNode = newTestNode(map[string]string{"k2": "v2"})
+	c.Assert(mgr.OnUpdateNode(oldNode, newNode, lock.NewStoppableWaitGroup()), IsNil)
+	validateHostEPLabels(map[string]string{"k2": "v2"})
+
+	// k3=v3 is not present in the endpoint manager so an error is not returned.
+	oldNode = newTestNode(map[string]string{"k3": "v3"})
+	newNode = newTestNode(map[string]string{"k4": "v4"})
+	c.Assert(mgr.OnUpdateNode(oldNode, newNode, lock.NewStoppableWaitGroup()), NotNil)
 }
