@@ -38,5 +38,4 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 		WithScenarios(
 			tests.PodToPodEncryption(features.RequireEnabled(features.EncryptionPod)),
 		)
-
 }
