@@ -283,8 +283,9 @@ message TCP {
 
 message IP {
     string source = 1;
-    // source_xlated is the post translation source IP when the flow was SNATed
-    // (and in that case source is the the original source IP).
+    // source_xlated is the post-translation source IP when the flow was
+    // SNATed. When "source_xlated" is set, the "source" field is populated
+    // with the pre-translation source IP address.
     string source_xlated = 5;
     string destination = 2;
     IPVersion ipVersion = 3;
@@ -534,6 +535,8 @@ message FlowFilter {
     repeated string source_service = 16;
     // source_workload filters by a list of source workload.
     repeated Workload source_workload = 26;
+    // source_cluster_name filters by a list of source cluster names.
+    repeated string source_cluster_name = 37;
 
     // destination_ip filters by a list of destination ips. Each of the
     // destination ips can be specified as an exact match (e.g. "1.1.1.1") or
@@ -549,6 +552,8 @@ message FlowFilter {
     repeated string destination_service = 17;
     // destination_workload filters by a list of destination workload.
     repeated Workload destination_workload = 27;
+    // destination_cluster_name filters by a list of destination cluster names.
+    repeated string destination_cluster_name = 38;
 
     // traffic_direction filters flow by direction of the connection, e.g.
     // ingress or egress.
