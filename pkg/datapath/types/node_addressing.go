@@ -24,10 +24,6 @@ type NodeAddressingFamily interface {
 	// AllocationCIDR is the CIDR used for IP allocation of all endpoints
 	// on the node
 	AllocationCIDR() *cidr.CIDR
-
-	// DirectRouting returns the interface index and IP address for
-	// direct routing.
-	DirectRouting() (int, net.IP, bool)
 }
 
 // NodeAddressing implements addressing of a node
