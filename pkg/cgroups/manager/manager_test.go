@@ -6,6 +6,7 @@ package manager
 import (
 	"fmt"
 	"io"
+	"net"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -53,9 +54,9 @@ var (
 	pod1Ips        = []slimcorev1.PodIP{pod1IP}
 	pod2Ips        = []slimcorev1.PodIP{pod2IP}
 	pod3Ips        = []slimcorev1.PodIP{pod3IP}
-	pod1Ipstrs     = []string{pod1IP.IP}
-	pod2Ipstrs     = []string{pod2IP.IP}
-	pod3Ipstrs     = []string{pod3IP.IP}
+	pod1NetIP      = []net.IP{net.ParseIP(pod1IP.IP)}
+	pod2NetIP      = []net.IP{net.ParseIP(pod2IP.IP)}
+	pod3NetIP      = []net.IP{net.ParseIP(pod3IP.IP)}
 	pod1           = &slimcorev1.Pod{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-p1",
@@ -170,9 +171,9 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 	// Add pods, and check for pod metadata for their containers.
 	tests := []test{
 		// Pod with Qos burstable.
-		{input: pod1, cgrpId: c1CId, want: &PodMetadata{Name: pod1.Name, Namespace: pod1.Namespace, IPs: pod1Ipstrs}},
+		{input: pod1, cgrpId: c1CId, want: &PodMetadata{Name: pod1.Name, Namespace: pod1.Namespace, IPs: pod1NetIP}},
 		// Pod with Qos guaranteed.
-		{input: pod2, cgrpId: c2CId, want: &PodMetadata{Name: pod2.Name, Namespace: pod2.Namespace, IPs: pod2Ipstrs}},
+		{input: pod2, cgrpId: c2CId, want: &PodMetadata{Name: pod2.Name, Namespace: pod2.Namespace, IPs: pod2NetIP}},
 		// Pod's container cgroup path doesn't exist.
 		{input: pod10, cgrpId: c3CId, want: nil},
 	}
@@ -226,15 +227,15 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 	mm.OnAddPod(pod3)
 
 	got = mm.GetPodMetadataForContainer(c3CId)
-	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3NetIP}, got)
 
 	// Update pod, and check for pod metadata for their containers.
 	mm.OnUpdatePod(pod1, newPod)
 
 	got1 := mm.GetPodMetadataForContainer(c3CId)
 	got2 := mm.GetPodMetadataForContainer(c1CId)
-	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got1)
-	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got2)
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3NetIP}, got1)
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3NetIP}, got2)
 
 	// Delete pod to assert no metadata is found.
 	mm.OnDeletePod(pod3)
@@ -289,6 +290,6 @@ func BenchmarkGetPodMetadataForContainer(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		got := mm.GetPodMetadataForContainer(c3CId)
-		require.Equal(b, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
+		require.Equal(b, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3NetIP}, got)
 	}
 }
