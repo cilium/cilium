@@ -1783,7 +1783,7 @@ hubble:
     reasons:
       - auth_required
       - policy_denied
-# -- Method to use for identity allocation (`crd` or `kvstore`).
+# -- Method to use for identity allocation (`crd`, `kvstore` or `doublewrite-readkvstore` / `doublewrite-readcrd` for migrating between identity backends).
 identityAllocationMode: "crd"
 # -- (string) Time to wait before using new identity on endpoint identity change.
 # @default -- `"5s"`
