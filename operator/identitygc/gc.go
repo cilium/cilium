@@ -113,19 +113,32 @@ func registerGC(p params) {
 	}
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			gc.wp = workerpool.New(1)
-
 			switch gc.allocationMode {
 			case option.IdentityAllocationModeCRD:
+				gc.wp = workerpool.New(1)
 				return gc.startCRDModeGC(ctx)
 			case option.IdentityAllocationModeKVstore:
+				gc.wp = workerpool.New(1)
 				return gc.startKVStoreModeGC(ctx)
+			case option.IdentityAllocationModeDoubleWriteReadCRD, option.IdentityAllocationModeDoubleWriteReadKVstore:
+				gc.wp = workerpool.New(2)
+				err := gc.startCRDModeGC(ctx)
+				if err != nil {
+					return err
+				}
+				err = gc.startKVStoreModeGC(ctx)
+				if err != nil {
+					return err
+				}
+				return nil
 			default:
 				return fmt.Errorf("unknown Cilium identity allocation mode: %q", gc.allocationMode)
 			}
 		},
 		OnStop: func(ctx cell.HookContext) error {
-			if gc.allocationMode == option.IdentityAllocationModeCRD {
+			if gc.allocationMode == option.IdentityAllocationModeCRD ||
+				gc.allocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
+				gc.allocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore {
 				// CRD mode GC runs in an additional goroutine
 				gc.mgr.RemoveAllAndWait()
 			}

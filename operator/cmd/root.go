@@ -467,6 +467,8 @@ func kvstoreEnabled() bool {
 	}
 
 	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
 		operatorOption.Config.SyncK8sServices ||
 		operatorOption.Config.SyncK8sNodes
 }
@@ -676,9 +678,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD {
 		if !legacy.clientset.IsEnabled() {
-			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
+			log.Fatalf("%s Identity allocation mode requires k8s to be configured.", option.Config.IdentityAllocationMode)
 		}
 		if operatorOption.Config.EndpointGCInterval == 0 {
 			log.Fatal("Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")

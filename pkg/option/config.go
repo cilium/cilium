@@ -944,6 +944,14 @@ const (
 	// identity allocation
 	IdentityAllocationModeCRD = "crd"
 
+	// IdentityAllocationModeDoubleWriteReadKVstore writes identities to the KVStore and as CRDs at the same time.
+	// Identities are then read from the KVStore.
+	IdentityAllocationModeDoubleWriteReadKVstore = "doublewrite-readkvstore"
+
+	// IdentityAllocationModeDoubleWriteReadCRD writes identities to the KVStore and as CRDs at the same time.
+	// Identities are then read from the CRDs.
+	IdentityAllocationModeDoubleWriteReadCRD = "doublewrite-readcrd"
+
 	// EnableLocalNodeRoute controls installation of the route which points
 	// the allocation prefix of the local node.
 	EnableLocalNodeRoute = "enable-local-node-route"
@@ -3417,10 +3425,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// This is here for tests. Some call Populate without the normal init
 	case "":
 		c.IdentityAllocationMode = IdentityAllocationModeKVstore
-	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD:
+	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD, IdentityAllocationModeDoubleWriteReadKVstore, IdentityAllocationModeDoubleWriteReadCRD:
 		// c.IdentityAllocationMode is set above
 	default:
-		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
+		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s, %s or %s / %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD, IdentityAllocationModeDoubleWriteReadKVstore, IdentityAllocationModeDoubleWriteReadCRD)
 	}
 	if c.KVStore == "" {
 		if c.IdentityAllocationMode != IdentityAllocationModeCRD {
