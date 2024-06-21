@@ -434,19 +434,6 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		}
 	}
 
-	for namespace, cfg := range opts.DefaultNamespaces {
-		cfg = defaultConfig(cfg, optionDefaultsToConfig(&opts))
-		if namespace == metav1.NamespaceAll {
-			cfg.FieldSelector = fields.AndSelectors(
-				appendIfNotNil(
-					namespaceAllSelector(maps.Keys(opts.DefaultNamespaces)),
-					cfg.FieldSelector,
-				)...,
-			)
-		}
-		opts.DefaultNamespaces[namespace] = cfg
-	}
-
 	for obj, byObject := range opts.ByObject {
 		isNamespaced, err := apiutil.IsObjectNamespaced(obj, opts.Scheme, opts.Mapper)
 		if err != nil {
@@ -498,6 +485,22 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		}
 
 		opts.ByObject[obj] = byObject
+	}
+
+	// Default namespaces after byObject has been defaulted, otherwise a namespace without selectors
+	// will get the `Default` selectors, then get copied to byObject and then not get defaulted from
+	// byObject, as it already has selectors.
+	for namespace, cfg := range opts.DefaultNamespaces {
+		cfg = defaultConfig(cfg, optionDefaultsToConfig(&opts))
+		if namespace == metav1.NamespaceAll {
+			cfg.FieldSelector = fields.AndSelectors(
+				appendIfNotNil(
+					namespaceAllSelector(maps.Keys(opts.DefaultNamespaces)),
+					cfg.FieldSelector,
+				)...,
+			)
+		}
+		opts.DefaultNamespaces[namespace] = cfg
 	}
 
 	// Default the resync period to 10 hours if unset

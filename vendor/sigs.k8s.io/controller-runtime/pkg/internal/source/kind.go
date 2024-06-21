@@ -103,7 +103,7 @@ func (ks *Kind[T]) Start(ctx context.Context, queue workqueue.RateLimitingInterf
 }
 
 func (ks *Kind[T]) String() string {
-	if isNil(ks.Type) {
+	if !isNil(ks.Type) {
 		return fmt.Sprintf("kind source: %T", ks.Type)
 	}
 	return "kind source: unknown type"
