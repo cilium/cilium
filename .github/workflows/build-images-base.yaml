@@ -10,6 +10,24 @@ on:
     paths:
       - images/runtime/**
       - images/builder/**
+  # This workflow can be reused so that renovate can execute this workflow_dispatch:
+  # run from a different environment than 'release-base-images'. See
+  # build-images-base-renovate.yaml
+  workflow_call:
+    secrets:
+      QUAY_BASE_RELEASE_USERNAME:
+        required: true
+      QUAY_BASE_RELEASE_PASSWORD:
+        required: true
+      AUTO_COMMITTER_PEM:
+        required: true
+      AUTO_COMMITTER_APP_ID:
+        required: true
+    inputs:
+      environment:
+        required: true
+        type: string
+        default: "release-base-images"
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -23,9 +41,11 @@ concurrency:
 
 jobs:
   build-and-push:
+    # Skip this workflow for branches that are created by renovate
+    if: "!startsWith(github.head_ref, 'renovate/')"
     name: Build and Push Images
     timeout-minutes: 45
-    environment: release-base-images
+    environment: ${{ inputs.environment || 'release-base-images' }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout default branch (trusted)
