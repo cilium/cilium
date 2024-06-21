@@ -123,7 +123,7 @@ jobs:
           else
             CONTEXT_REF="${{ github.sha }}"
             OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER/./-}"
+            OWNER="${OWNER//[.\/]/-}"
           fi
 
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
