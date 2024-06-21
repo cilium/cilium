@@ -80,7 +80,7 @@ jobs:
             SHA="${{ github.sha }}"
             CONTEXT_REF="${{ github.sha }}"
             OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER/./-}"
+            OWNER="${OWNER//[.\/]/-}"
           fi
 
           echo SHA=${SHA} >> $GITHUB_OUTPUT

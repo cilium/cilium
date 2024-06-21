@@ -179,7 +179,7 @@ jobs:
             OWNER="${{ inputs.PR-number }}"
           else
             OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER/./-}"
+            OWNER="${OWNER//[.\/]/-}"
           fi
 
           # Set ipam.mode=cluster-pool to overwrite the ipam value set by the
