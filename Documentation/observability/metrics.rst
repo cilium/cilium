@@ -692,6 +692,30 @@ Name                                           Labels                           
 ``ces_queueing_delay_seconds``                                                  CiliumEndpointSlice queueing delay in seconds
 ============================================== ================================ ========================================================
 
+Identity GC
+~~~~~~~~~~~
+
+======================================== ============================== ======== ========================================================
+Name                                     Labels                         Default  Description
+======================================== ============================== ======== ========================================================
+``identity_gc_entries``                  ``status``, ``identity_type``  Enabled  The number of alive and deleted identities at the end of a garbage collector run
+``identity_gc_runs``                     ``outcome``, ``identity_type`` Enabled  The number of times identity garbage collector has run
+======================================== ============================== ======== ========================================================
+
+"Double Write" Identity Allocation Mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When the ":ref:`Double Write <double_write_migration>`" identity allocation mode is
+enabled, the following metrics are available:
+
+============================================ ======= ========== ============================================================
+Name                                         Labels  Default    Description
+============================================ ======= ========== ============================================================
+``doublewrite_identity_crd_total_count``             Enabled    The total number of CRD identities
+``doublewrite_identity_kvstore_total_count``         Enabled    The total number of identities in the KVStore
+``doublewrite_identity_crd_only_count``              Enabled    The number of CRD identities not present in the KVStore
+``doublewrite_identity_kvstore_only_count``          Enabled    The number of identities in the KVStore not present as a CRD
+============================================ ======= ========== ============================================================
+
 
 Hubble
 ------
