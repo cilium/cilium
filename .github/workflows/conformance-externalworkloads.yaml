@@ -190,7 +190,7 @@ jobs:
           else
             SHA="${{ github.sha }}"
             OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER/./-}"
+            OWNER="${OWNER//[.\/]/-}"
           fi
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
