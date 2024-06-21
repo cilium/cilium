@@ -130,28 +130,43 @@ func ConfListFromBytes(bytes []byte) (*NetworkConfigList, error) {
 		}
 	}
 
-	disableCheck := false
-	if rawDisableCheck, ok := rawList["disableCheck"]; ok {
-		disableCheck, ok = rawDisableCheck.(bool)
+	readBool := func(key string) (bool, error) {
+		rawVal, ok := rawList[key]
 		if !ok {
-			disableCheckStr, ok := rawDisableCheck.(string)
-			if !ok {
-				return nil, fmt.Errorf("error parsing configuration list: invalid disableCheck type %T", rawDisableCheck)
-			}
-			switch {
-			case strings.ToLower(disableCheckStr) == "false":
-				disableCheck = false
-			case strings.ToLower(disableCheckStr) == "true":
-				disableCheck = true
-			default:
-				return nil, fmt.Errorf("error parsing configuration list: invalid disableCheck value %q", disableCheckStr)
-			}
+			return false, nil
 		}
+		if b, ok := rawVal.(bool); ok {
+			return b, nil
+		}
+
+		s, ok := rawVal.(string)
+		if !ok {
+			return false, fmt.Errorf("error parsing configuration list: invalid type %T for %s", rawVal, key)
+		}
+		s = strings.ToLower(s)
+		switch s {
+		case "false":
+			return false, nil
+		case "true":
+			return true, nil
+		}
+		return false, fmt.Errorf("error parsing configuration list: invalid value %q for %s", s, key)
+	}
+
+	disableCheck, err := readBool("disableCheck")
+	if err != nil {
+		return nil, err
+	}
+
+	disableGC, err := readBool("disableGC")
+	if err != nil {
+		return nil, err
 	}
 
 	list := &NetworkConfigList{
 		Name:         name,
 		DisableCheck: disableCheck,
+		DisableGC:    disableGC,
 		CNIVersion:   cniVersion,
 		Bytes:        bytes,
 	}

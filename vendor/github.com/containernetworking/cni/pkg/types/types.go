@@ -56,8 +56,8 @@ func (n *IPNet) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// NetConf describes a network.
-type NetConf struct {
+// NetConfType describes a network.
+type NetConfType struct {
 	CNIVersion string `json:"cniVersion,omitempty"`
 
 	Name         string          `json:"name,omitempty"`
@@ -73,6 +73,9 @@ type NetConf struct {
 	ValidAttachments []GCAttachment `json:"cni.dev/valid-attachments,omitempty"`
 }
 
+// NetConf is defined as different type as custom MarshalJSON() and issue #1096
+type NetConf NetConfType
+
 // GCAttachment is the parameters to a GC call -- namely,
 // the container ID and ifname pair that represents a
 // still-valid attachment.
@@ -83,11 +86,11 @@ type GCAttachment struct {
 
 // Note: DNS should be omit if DNS is empty but default Marshal function
 // will output empty structure hence need to write a Marshal function
-func (n *NetConf) MarshalJSON() ([]byte, error) {
+func (n *NetConfType) MarshalJSON() ([]byte, error) {
 	// use type alias to escape recursion for json.Marshal() to MarshalJSON()
 	type fixObjType = NetConf
 
-	bytes, err := json.Marshal(fixObjType(*n)) //nolint:all
+	bytes, err := json.Marshal(fixObjType(*n))
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +122,7 @@ type NetConfList struct {
 
 	Name         string     `json:"name,omitempty"`
 	DisableCheck bool       `json:"disableCheck,omitempty"`
+	DisableGC    bool       `json:"disableGC,omitempty"`
 	Plugins      []*NetConf `json:"plugins,omitempty"`
 }
 

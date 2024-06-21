@@ -179,6 +179,24 @@ func (cm *controllerManager) add(r Runnable) error {
 	return cm.runnables.Add(r)
 }
 
+// AddMetricsServerExtraHandler adds extra handler served on path to the http server that serves metrics.
+func (cm *controllerManager) AddMetricsServerExtraHandler(path string, handler http.Handler) error {
+	cm.Lock()
+	defer cm.Unlock()
+	if cm.started {
+		return fmt.Errorf("unable to add new metrics handler because metrics endpoint has already been created")
+	}
+	if cm.metricsServer == nil {
+		cm.GetLogger().Info("warn: metrics server is currently disabled, registering extra handler %q will be ignored", path)
+		return nil
+	}
+	if err := cm.metricsServer.AddExtraHandler(path, handler); err != nil {
+		return err
+	}
+	cm.logger.V(2).Info("Registering metrics http server extra handler", "path", path)
+	return nil
+}
+
 // AddHealthzCheck allows you to add Healthz checker.
 func (cm *controllerManager) AddHealthzCheck(name string, check healthz.Checker) error {
 	cm.Lock()
