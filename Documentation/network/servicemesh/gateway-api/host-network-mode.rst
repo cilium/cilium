@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _gs_gateway_host_network_mode:
+
 Host network mode
 #################
 
