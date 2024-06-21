@@ -60,7 +60,7 @@ hop away, may not be reflected in the logs. In such cases, using tools like
 The existing BGP session went down immediately after applying the new CiliumBGPPeeringPolicy
 --------------------------------------------------------------------------------------------
 
-A node may be selected by multiple ``CiliumBPFPeeringPolicy`` objects based on
+A node may be selected by multiple ``CiliumBGPPeeringPolicy`` objects based on
 the configured ``nodeSelector`` fields. If multiple policies are applied, the
 BGP control plane will clear all pre-existing state configured on the node.
 First, rollback the last applied ``CiliumBGPPeeringPolicy`` and check the logs
