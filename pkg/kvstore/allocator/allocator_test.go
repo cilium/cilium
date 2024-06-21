@@ -77,7 +77,7 @@ func BenchmarkAllocate(b *testing.B) {
 func benchmarkAllocate(b *testing.B) {
 	allocatorName := randomTestName()
 	maxID := idpool.ID(256 + b.N)
-	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
 	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID))
 	require.NoError(b, err)
@@ -106,7 +106,7 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 	allocatorName := randomTestName()
 	maxID := idpool.ID(256 + b.N)
 	// FIXME: Did this previously use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
-	backend1, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend1, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
 	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend1, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(b, err)
@@ -248,7 +248,7 @@ func benchmarkGC(b *testing.B) {
 	allocatorName := randomTestName()
 	maxID := idpool.ID(256 + b.N)
 	// FIXME: Did this previously use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
-	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
 	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(b, err)
@@ -305,7 +305,7 @@ func BenchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 
 func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	// Allocator1: allocator under test
-	backend, err := NewKVStoreBackend(randomTestName(), "a", TestAllocatorKey(""), kvstore.Client())
+	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{randomTestName(), "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
 
 	maxID1 := idpool.ID(4 + b.N)
@@ -327,7 +327,7 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	require.NoError(b, err)
 
 	// Alloctor2: with a non-overlapping range compared with allocator1
-	backend2, err := NewKVStoreBackend(randomTestName(), "a", TestAllocatorKey(""), kvstore.Client())
+	backend2, err := NewKVStoreBackend(KVStoreBackendConfiguration{randomTestName(), "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
 
 	minID2 := maxID1 + 1
@@ -387,7 +387,7 @@ func TestAllocateCached(t *testing.T) {
 }
 
 func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
-	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
 	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend,
 		allocator.WithMax(maxID), allocator.WithoutGC())
@@ -418,7 +418,7 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 	}
 
 	// Create a 2nd allocator, refill it
-	backend2, err := NewKVStoreBackend(allocatorName, "r", TestAllocatorKey(""), kvstore.Client())
+	backend2, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "r", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
 	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2,
 		allocator.WithMax(maxID), allocator.WithoutGC())
@@ -486,25 +486,25 @@ func TestKeyToID(t *testing.T) {
 
 func testKeyToID(t *testing.T) {
 	allocatorName := randomTestName()
-	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
 	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend)
 	require.NoError(t, err)
 	require.NotNil(t, a)
 
 	// An error is returned because the path is outside the prefix (allocatorName/id)
-	id, err := backend.keyToID(path.Join(allocatorName, "invalid"))
+	id, err := backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "invalid"))
 	require.NotNil(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// An error is returned because the path contains the prefix
 	// (allocatorName/id) but cannot be parsed ("invalid")
-	id, err = backend.keyToID(path.Join(allocatorName, "id", "invalid"))
+	id, err = backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "id", "invalid"))
 	require.NotNil(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// A valid lookup that finds an ID
-	id, err = backend.keyToID(path.Join(allocatorName, "id", "10"))
+	id, err = backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "id", "10"))
 	require.NoError(t, err)
 	require.Equal(t, idpool.ID(10), id)
 }
@@ -521,7 +521,7 @@ func TestGetNoCache(t *testing.T) {
 
 func testGetNoCache(t *testing.T, maxID idpool.ID) {
 	allocatorName := randomTestName()
-	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
 	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(t, err)
@@ -609,7 +609,7 @@ func TestRemoteCache(t *testing.T) {
 
 func testRemoteCache(t *testing.T) {
 	testName := randomTestName()
-	backend, err := NewKVStoreBackend(testName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{testName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
 	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(idpool.ID(256)))
 	require.NoError(t, err)
@@ -652,7 +652,7 @@ func testRemoteCache(t *testing.T) {
 	}
 
 	// watch the prefix in the same kvstore via a 2nd watcher
-	backend2, err := NewKVStoreBackend(testName, "a", TestAllocatorKey(""), kvstore.Client())
+	backend2, err := NewKVStoreBackend(KVStoreBackendConfiguration{testName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
 	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMax(idpool.ID(256)),
 		allocator.WithoutAutostart(), allocator.WithoutGC())
