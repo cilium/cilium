@@ -6,9 +6,17 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/utils/features"
+)
+
+const (
+	HdrSizeICMPEcho = 8
+	HdrSizeIPv4     = 20
+	HdrSizeIPv6     = 40
 )
 
 // PodToPod generates one HTTP request from each client pod
@@ -164,4 +172,86 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 			})
 		}
 	}
+}
+
+// PodToPodNoFrag is a test to check whether a correct MTU is set
+// for pods. The check is performed by sending an ICMP Echo request with DF
+// set ("do not fragment"). The ICMP payload size of the request:
+//
+// - For IPv4: $POD_MTU - 20 (IPv4 hdr) - 8 (ICMP Echo hdr)
+// - For IPv6: $POD_MTU - 40 (IPv6 hdr) - 8 (ICMP Echo hdr)
+func PodToPodNoFrag() check.Scenario {
+	return &podToPodNoFrag{}
+}
+
+type podToPodNoFrag struct{}
+
+func (s *podToPodNoFrag) Name() string {
+	return "pod-to-pod-no-frag"
+}
+
+func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	client := ct.RandomClientPod()
+	var mtu int
+
+	cmd := []string{
+		"/bin/sh", "-c",
+		"ip route show default | grep -oE 'mtu [^ ]*' | cut -d' ' -f2",
+	}
+	t.Debugf("Running %s", strings.Join(cmd, " "))
+	mtuBytes, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace,
+		client.Pod.Name, "", cmd)
+	if err != nil {
+		t.Fatalf("Failed to get route MTU in pod %s: %s", client, err)
+	}
+	mtuStr := strings.TrimSpace(mtuBytes.String())
+
+	// Derive MTU from pod iface instead
+	if mtuStr == "" {
+		cmd := []string{
+			"/bin/sh", "-c",
+			"cat /sys/class/net/eth0/mtu",
+		}
+		t.Debugf("Running %s", strings.Join(cmd, " "))
+		mtuBytes, err = client.K8sClient.ExecInPod(ctx, client.Pod.Namespace,
+			client.Pod.Name, "", cmd)
+		if err != nil {
+			t.Fatalf("Failed to get eth0 MTU in pod %s: %s", client, err)
+		}
+
+		mtuStr = strings.TrimSpace(mtuBytes.String())
+	}
+
+	mtu, err = strconv.Atoi(mtuStr)
+	if err != nil {
+		t.Fatalf("Failed to parse MTU %s: %s", mtuStr, err)
+	}
+	t.Debugf("Derived MTU: %d", mtu)
+
+	var server check.Pod
+	for _, pod := range ct.EchoPods() {
+		// Make sure that the server pod is on another node than client
+		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
+			server = pod
+			break
+		}
+	}
+
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
+			payloadSize := mtu - HdrSizeICMPEcho
+			switch ipFam {
+			case features.IPFamilyV4:
+				payloadSize -= HdrSizeIPv4
+			case features.IPFamilyV6:
+				payloadSize -= HdrSizeIPv6
+			}
+			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam,
+				"-M", "do", // DF
+				"-s", strconv.Itoa(payloadSize), // payload size
+			))
+		})
+
+	})
 }
