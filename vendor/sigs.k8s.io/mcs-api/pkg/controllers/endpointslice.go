@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +35,7 @@ type EndpointSliceReconciler struct {
 
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch;update;patch
 
-func shouldIgnoreEndpointSlice(epSlice *discoveryv1beta1.EndpointSlice) bool {
+func shouldIgnoreEndpointSlice(epSlice *discoveryv1.EndpointSlice) bool {
 	if epSlice.DeletionTimestamp != nil {
 		return true
 	}
@@ -49,7 +49,7 @@ func shouldIgnoreEndpointSlice(epSlice *discoveryv1beta1.EndpointSlice) bool {
 func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("endpointslice", req.NamespacedName)
 
-	var epSlice discoveryv1beta1.EndpointSlice
+	var epSlice discoveryv1.EndpointSlice
 	if err := r.Client.Get(ctx, req.NamespacedName, &epSlice); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -59,18 +59,18 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Ensure the EndpointSlice is labelled to match the ServiceImport's derived
 	// Service.
 	serviceName := derivedName(types.NamespacedName{Namespace: epSlice.Namespace, Name: epSlice.Labels[v1alpha1.LabelServiceName]})
-	if epSlice.Labels[discoveryv1beta1.LabelServiceName] == serviceName {
+	if epSlice.Labels[discoveryv1.LabelServiceName] == serviceName {
 		return ctrl.Result{}, nil
 	}
-	epSlice.Labels[discoveryv1beta1.LabelServiceName] = serviceName
+	epSlice.Labels[discoveryv1.LabelServiceName] = serviceName
 	if err := r.Client.Update(ctx, &epSlice); err != nil {
 		return ctrl.Result{}, err
 	}
-	log.Info("added label", discoveryv1beta1.LabelServiceName, serviceName)
+	log.Info("added label", discoveryv1.LabelServiceName, serviceName)
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager wires up the controller.
 func (r *EndpointSliceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&discoveryv1beta1.EndpointSlice{}).Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).For(&discoveryv1.EndpointSlice{}).Complete(r)
 }

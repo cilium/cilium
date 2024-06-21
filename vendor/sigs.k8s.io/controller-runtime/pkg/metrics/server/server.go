@@ -46,6 +46,9 @@ var DefaultBindAddress = ":8080"
 
 // Server is a server that serves metrics.
 type Server interface {
+	// AddExtraHandler adds extra handler served on path to the http server that serves metrics.
+	AddExtraHandler(path string, handler http.Handler) error
+
 	// NeedLeaderElection implements the LeaderElectionRunnable interface, which indicates
 	// the metrics server doesn't need leader election.
 	NeedLeaderElection() bool
@@ -180,6 +183,23 @@ func (o *Options) setDefaults() {
 // the metrics server doesn't need leader election.
 func (*defaultServer) NeedLeaderElection() bool {
 	return false
+}
+
+// AddExtraHandler adds extra handler served on path to the http server that serves metrics.
+func (s *defaultServer) AddExtraHandler(path string, handler http.Handler) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.options.ExtraHandlers == nil {
+		s.options.ExtraHandlers = make(map[string]http.Handler)
+	}
+	if path == defaultMetricsEndpoint {
+		return fmt.Errorf("overriding builtin %s endpoint is not allowed", defaultMetricsEndpoint)
+	}
+	if _, found := s.options.ExtraHandlers[path]; found {
+		return fmt.Errorf("can't register extra handler by duplicate path %q on metrics http server", path)
+	}
+	s.options.ExtraHandlers[path] = handler
+	return nil
 }
 
 // Start runs the server.

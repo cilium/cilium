@@ -52,12 +52,22 @@ func newAlreadyOwnedError(obj metav1.Object, owner metav1.OwnerReference) *Alrea
 	}
 }
 
+// OwnerReferenceOption is a function that can modify a `metav1.OwnerReference`.
+type OwnerReferenceOption func(*metav1.OwnerReference)
+
+// WithBlockOwnerDeletion allows configuring the BlockOwnerDeletion field on the `metav1.OwnerReference`.
+func WithBlockOwnerDeletion(blockOwnerDeletion bool) OwnerReferenceOption {
+	return func(ref *metav1.OwnerReference) {
+		ref.BlockOwnerDeletion = &blockOwnerDeletion
+	}
+}
+
 // SetControllerReference sets owner as a Controller OwnerReference on controlled.
 // This is used for garbage collection of the controlled object and for
 // reconciling the owner object on changes to controlled (with a Watch + EnqueueRequestForOwner).
 // Since only one OwnerReference can be a controller, it returns an error if
 // there is another OwnerReference with Controller flag set.
-func SetControllerReference(owner, controlled metav1.Object, scheme *runtime.Scheme) error {
+func SetControllerReference(owner, controlled metav1.Object, scheme *runtime.Scheme, opts ...OwnerReferenceOption) error {
 	// Validate the owner.
 	ro, ok := owner.(runtime.Object)
 	if !ok {
@@ -80,6 +90,9 @@ func SetControllerReference(owner, controlled metav1.Object, scheme *runtime.Sch
 		BlockOwnerDeletion: ptr.To(true),
 		Controller:         ptr.To(true),
 	}
+	for _, opt := range opts {
+		opt(&ref)
+	}
 
 	// Return early with an error if the object is already controlled.
 	if existing := metav1.GetControllerOf(controlled); existing != nil && !referSameObject(*existing, ref) {
@@ -94,7 +107,7 @@ func SetControllerReference(owner, controlled metav1.Object, scheme *runtime.Sch
 // SetOwnerReference is a helper method to make sure the given object contains an object reference to the object provided.
 // This allows you to declare that owner has a dependency on the object without specifying it as a controller.
 // If a reference to the same object already exists, it'll be overwritten with the newly provided version.
-func SetOwnerReference(owner, object metav1.Object, scheme *runtime.Scheme) error {
+func SetOwnerReference(owner, object metav1.Object, scheme *runtime.Scheme, opts ...OwnerReferenceOption) error {
 	// Validate the owner.
 	ro, ok := owner.(runtime.Object)
 	if !ok {
@@ -114,6 +127,9 @@ func SetOwnerReference(owner, object metav1.Object, scheme *runtime.Scheme) erro
 		Kind:       gvk.Kind,
 		UID:        owner.GetUID(),
 		Name:       owner.GetName(),
+	}
+	for _, opt := range opts {
+		opt(&ref)
 	}
 
 	// Update owner references and return.
