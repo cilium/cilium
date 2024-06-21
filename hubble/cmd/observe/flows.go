@@ -355,8 +355,14 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"node-label", ofilter,
 		`Show only flows observed on nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")`))
 	filterFlags.Var(filterVar(
+		"from-cluster", ofilter,
+		"Show all flows originating from endpoints known to be in the given cluster name"))
+	filterFlags.Var(filterVar(
 		"cluster", ofilter,
 		`Show all flows which match the cluster names (e.g. "test-cluster", "prod-*")`))
+	filterFlags.Var(filterVar(
+		"to-cluster", ofilter,
+		"Show all flows destined to endpoints known to be in the given cluster name"))
 	filterFlags.Var(filterVar(
 		"protocol", ofilter,
 		`Show only flows which match the given L4/L7 flow protocol (e.g. "udp", "http")`))
