@@ -106,7 +106,7 @@ func (p *selectorPolicy) Detach() {
 func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *EndpointPolicy {
 	calculatedPolicy := &EndpointPolicy{
 		selectorPolicy: p,
-		policyMapState: NewMapState(nil),
+		policyMapState: NewMapState(),
 		PolicyOwner:    policyOwner,
 	}
 
@@ -149,7 +149,7 @@ func (p *EndpointPolicy) GetPolicyMap() MapState {
 // will initialize a new MapState object for the caller.
 func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
 	if ms == nil {
-		p.policyMapState = NewMapState(nil)
+		p.policyMapState = NewMapState()
 		return
 	}
 	p.policyMapState = ms
@@ -163,7 +163,7 @@ func (p *EndpointPolicy) Detach() {
 }
 
 func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
-	currentMap := NewMapState(nil)
+	currentMap := NewMapState()
 
 	return currentMap, func(k Key, e MapStateEntry) {
 		currentMap.insert(k, e)
@@ -259,6 +259,6 @@ func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: NewMapState(nil),
+		policyMapState: NewMapState(),
 	}
 }
