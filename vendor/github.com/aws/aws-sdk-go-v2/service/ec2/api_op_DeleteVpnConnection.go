@@ -121,6 +121,9 @@ func (c *Client) addOperationDeleteVpnConnectionMiddlewares(stack *middleware.St
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteVpnConnectionValidationMiddleware(stack); err != nil {
 		return err
 	}

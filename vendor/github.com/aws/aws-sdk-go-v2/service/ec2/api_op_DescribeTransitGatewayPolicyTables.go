@@ -123,6 +123,9 @@ func (c *Client) addOperationDescribeTransitGatewayPolicyTablesMiddlewares(stack
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGatewayPolicyTables(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -143,14 +146,6 @@ func (c *Client) addOperationDescribeTransitGatewayPolicyTablesMiddlewares(stack
 	}
 	return nil
 }
-
-// DescribeTransitGatewayPolicyTablesAPIClient is a client that implements the
-// DescribeTransitGatewayPolicyTables operation.
-type DescribeTransitGatewayPolicyTablesAPIClient interface {
-	DescribeTransitGatewayPolicyTables(context.Context, *DescribeTransitGatewayPolicyTablesInput, ...func(*Options)) (*DescribeTransitGatewayPolicyTablesOutput, error)
-}
-
-var _ DescribeTransitGatewayPolicyTablesAPIClient = (*Client)(nil)
 
 // DescribeTransitGatewayPolicyTablesPaginatorOptions is the paginator options for
 // DescribeTransitGatewayPolicyTables
@@ -219,6 +214,9 @@ func (p *DescribeTransitGatewayPolicyTablesPaginator) NextPage(ctx context.Conte
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTransitGatewayPolicyTables(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -237,6 +235,14 @@ func (p *DescribeTransitGatewayPolicyTablesPaginator) NextPage(ctx context.Conte
 
 	return result, nil
 }
+
+// DescribeTransitGatewayPolicyTablesAPIClient is a client that implements the
+// DescribeTransitGatewayPolicyTables operation.
+type DescribeTransitGatewayPolicyTablesAPIClient interface {
+	DescribeTransitGatewayPolicyTables(context.Context, *DescribeTransitGatewayPolicyTablesInput, ...func(*Options)) (*DescribeTransitGatewayPolicyTablesOutput, error)
+}
+
+var _ DescribeTransitGatewayPolicyTablesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTransitGatewayPolicyTables(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

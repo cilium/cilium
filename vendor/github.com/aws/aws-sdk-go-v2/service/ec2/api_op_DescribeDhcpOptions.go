@@ -152,6 +152,9 @@ func (c *Client) addOperationDescribeDhcpOptionsMiddlewares(stack *middleware.St
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeDhcpOptions(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -172,14 +175,6 @@ func (c *Client) addOperationDescribeDhcpOptionsMiddlewares(stack *middleware.St
 	}
 	return nil
 }
-
-// DescribeDhcpOptionsAPIClient is a client that implements the
-// DescribeDhcpOptions operation.
-type DescribeDhcpOptionsAPIClient interface {
-	DescribeDhcpOptions(context.Context, *DescribeDhcpOptionsInput, ...func(*Options)) (*DescribeDhcpOptionsOutput, error)
-}
-
-var _ DescribeDhcpOptionsAPIClient = (*Client)(nil)
 
 // DescribeDhcpOptionsPaginatorOptions is the paginator options for
 // DescribeDhcpOptions
@@ -249,6 +244,9 @@ func (p *DescribeDhcpOptionsPaginator) NextPage(ctx context.Context, optFns ...f
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeDhcpOptions(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -267,6 +265,14 @@ func (p *DescribeDhcpOptionsPaginator) NextPage(ctx context.Context, optFns ...f
 
 	return result, nil
 }
+
+// DescribeDhcpOptionsAPIClient is a client that implements the
+// DescribeDhcpOptions operation.
+type DescribeDhcpOptionsAPIClient interface {
+	DescribeDhcpOptions(context.Context, *DescribeDhcpOptionsInput, ...func(*Options)) (*DescribeDhcpOptionsOutput, error)
+}
+
+var _ DescribeDhcpOptionsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeDhcpOptions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -144,6 +144,9 @@ func (c *Client) addOperationDescribeVpcEndpointServiceConfigurationsMiddlewares
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpointServiceConfigurations(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -164,14 +167,6 @@ func (c *Client) addOperationDescribeVpcEndpointServiceConfigurationsMiddlewares
 	}
 	return nil
 }
-
-// DescribeVpcEndpointServiceConfigurationsAPIClient is a client that implements
-// the DescribeVpcEndpointServiceConfigurations operation.
-type DescribeVpcEndpointServiceConfigurationsAPIClient interface {
-	DescribeVpcEndpointServiceConfigurations(context.Context, *DescribeVpcEndpointServiceConfigurationsInput, ...func(*Options)) (*DescribeVpcEndpointServiceConfigurationsOutput, error)
-}
-
-var _ DescribeVpcEndpointServiceConfigurationsAPIClient = (*Client)(nil)
 
 // DescribeVpcEndpointServiceConfigurationsPaginatorOptions is the paginator
 // options for DescribeVpcEndpointServiceConfigurations
@@ -242,6 +237,9 @@ func (p *DescribeVpcEndpointServiceConfigurationsPaginator) NextPage(ctx context
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVpcEndpointServiceConfigurations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -260,6 +258,14 @@ func (p *DescribeVpcEndpointServiceConfigurationsPaginator) NextPage(ctx context
 
 	return result, nil
 }
+
+// DescribeVpcEndpointServiceConfigurationsAPIClient is a client that implements
+// the DescribeVpcEndpointServiceConfigurations operation.
+type DescribeVpcEndpointServiceConfigurationsAPIClient interface {
+	DescribeVpcEndpointServiceConfigurations(context.Context, *DescribeVpcEndpointServiceConfigurationsInput, ...func(*Options)) (*DescribeVpcEndpointServiceConfigurationsOutput, error)
+}
+
+var _ DescribeVpcEndpointServiceConfigurationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpcEndpointServiceConfigurations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

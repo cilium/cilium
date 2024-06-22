@@ -119,6 +119,9 @@ func (c *Client) addOperationDisableImageBlockPublicAccessMiddlewares(stack *mid
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableImageBlockPublicAccess(options.Region), middleware.Before); err != nil {
 		return err
 	}

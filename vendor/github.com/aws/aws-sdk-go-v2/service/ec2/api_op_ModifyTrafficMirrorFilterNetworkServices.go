@@ -125,6 +125,9 @@ func (c *Client) addOperationModifyTrafficMirrorFilterNetworkServicesMiddlewares
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyTrafficMirrorFilterNetworkServicesValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -199,6 +199,9 @@ func (c *Client) addOperationDescribeVolumeStatusMiddlewares(stack *middleware.S
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVolumeStatus(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -219,14 +222,6 @@ func (c *Client) addOperationDescribeVolumeStatusMiddlewares(stack *middleware.S
 	}
 	return nil
 }
-
-// DescribeVolumeStatusAPIClient is a client that implements the
-// DescribeVolumeStatus operation.
-type DescribeVolumeStatusAPIClient interface {
-	DescribeVolumeStatus(context.Context, *DescribeVolumeStatusInput, ...func(*Options)) (*DescribeVolumeStatusOutput, error)
-}
-
-var _ DescribeVolumeStatusAPIClient = (*Client)(nil)
 
 // DescribeVolumeStatusPaginatorOptions is the paginator options for
 // DescribeVolumeStatus
@@ -296,6 +291,9 @@ func (p *DescribeVolumeStatusPaginator) NextPage(ctx context.Context, optFns ...
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVolumeStatus(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -314,6 +312,14 @@ func (p *DescribeVolumeStatusPaginator) NextPage(ctx context.Context, optFns ...
 
 	return result, nil
 }
+
+// DescribeVolumeStatusAPIClient is a client that implements the
+// DescribeVolumeStatus operation.
+type DescribeVolumeStatusAPIClient interface {
+	DescribeVolumeStatus(context.Context, *DescribeVolumeStatusInput, ...func(*Options)) (*DescribeVolumeStatusOutput, error)
+}
+
+var _ DescribeVolumeStatusAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVolumeStatus(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

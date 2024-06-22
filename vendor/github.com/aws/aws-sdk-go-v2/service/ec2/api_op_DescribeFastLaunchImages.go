@@ -135,6 +135,9 @@ func (c *Client) addOperationDescribeFastLaunchImagesMiddlewares(stack *middlewa
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFastLaunchImages(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -155,14 +158,6 @@ func (c *Client) addOperationDescribeFastLaunchImagesMiddlewares(stack *middlewa
 	}
 	return nil
 }
-
-// DescribeFastLaunchImagesAPIClient is a client that implements the
-// DescribeFastLaunchImages operation.
-type DescribeFastLaunchImagesAPIClient interface {
-	DescribeFastLaunchImages(context.Context, *DescribeFastLaunchImagesInput, ...func(*Options)) (*DescribeFastLaunchImagesOutput, error)
-}
-
-var _ DescribeFastLaunchImagesAPIClient = (*Client)(nil)
 
 // DescribeFastLaunchImagesPaginatorOptions is the paginator options for
 // DescribeFastLaunchImages
@@ -233,6 +228,9 @@ func (p *DescribeFastLaunchImagesPaginator) NextPage(ctx context.Context, optFns
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeFastLaunchImages(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -251,6 +249,14 @@ func (p *DescribeFastLaunchImagesPaginator) NextPage(ctx context.Context, optFns
 
 	return result, nil
 }
+
+// DescribeFastLaunchImagesAPIClient is a client that implements the
+// DescribeFastLaunchImages operation.
+type DescribeFastLaunchImagesAPIClient interface {
+	DescribeFastLaunchImages(context.Context, *DescribeFastLaunchImagesInput, ...func(*Options)) (*DescribeFastLaunchImagesOutput, error)
+}
+
+var _ DescribeFastLaunchImagesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeFastLaunchImages(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

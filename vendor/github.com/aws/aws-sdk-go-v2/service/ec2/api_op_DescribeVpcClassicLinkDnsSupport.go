@@ -125,6 +125,9 @@ func (c *Client) addOperationDescribeVpcClassicLinkDnsSupportMiddlewares(stack *
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcClassicLinkDnsSupport(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -145,14 +148,6 @@ func (c *Client) addOperationDescribeVpcClassicLinkDnsSupportMiddlewares(stack *
 	}
 	return nil
 }
-
-// DescribeVpcClassicLinkDnsSupportAPIClient is a client that implements the
-// DescribeVpcClassicLinkDnsSupport operation.
-type DescribeVpcClassicLinkDnsSupportAPIClient interface {
-	DescribeVpcClassicLinkDnsSupport(context.Context, *DescribeVpcClassicLinkDnsSupportInput, ...func(*Options)) (*DescribeVpcClassicLinkDnsSupportOutput, error)
-}
-
-var _ DescribeVpcClassicLinkDnsSupportAPIClient = (*Client)(nil)
 
 // DescribeVpcClassicLinkDnsSupportPaginatorOptions is the paginator options for
 // DescribeVpcClassicLinkDnsSupport
@@ -224,6 +219,9 @@ func (p *DescribeVpcClassicLinkDnsSupportPaginator) NextPage(ctx context.Context
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVpcClassicLinkDnsSupport(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -242,6 +240,14 @@ func (p *DescribeVpcClassicLinkDnsSupportPaginator) NextPage(ctx context.Context
 
 	return result, nil
 }
+
+// DescribeVpcClassicLinkDnsSupportAPIClient is a client that implements the
+// DescribeVpcClassicLinkDnsSupport operation.
+type DescribeVpcClassicLinkDnsSupportAPIClient interface {
+	DescribeVpcClassicLinkDnsSupport(context.Context, *DescribeVpcClassicLinkDnsSupportInput, ...func(*Options)) (*DescribeVpcClassicLinkDnsSupportOutput, error)
+}
+
+var _ DescribeVpcClassicLinkDnsSupportAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpcClassicLinkDnsSupport(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

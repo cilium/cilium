@@ -181,6 +181,9 @@ func (c *Client) addOperationDescribeNetworkAclsMiddlewares(stack *middleware.St
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeNetworkAcls(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -201,14 +204,6 @@ func (c *Client) addOperationDescribeNetworkAclsMiddlewares(stack *middleware.St
 	}
 	return nil
 }
-
-// DescribeNetworkAclsAPIClient is a client that implements the
-// DescribeNetworkAcls operation.
-type DescribeNetworkAclsAPIClient interface {
-	DescribeNetworkAcls(context.Context, *DescribeNetworkAclsInput, ...func(*Options)) (*DescribeNetworkAclsOutput, error)
-}
-
-var _ DescribeNetworkAclsAPIClient = (*Client)(nil)
 
 // DescribeNetworkAclsPaginatorOptions is the paginator options for
 // DescribeNetworkAcls
@@ -278,6 +273,9 @@ func (p *DescribeNetworkAclsPaginator) NextPage(ctx context.Context, optFns ...f
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeNetworkAcls(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -296,6 +294,14 @@ func (p *DescribeNetworkAclsPaginator) NextPage(ctx context.Context, optFns ...f
 
 	return result, nil
 }
+
+// DescribeNetworkAclsAPIClient is a client that implements the
+// DescribeNetworkAcls operation.
+type DescribeNetworkAclsAPIClient interface {
+	DescribeNetworkAcls(context.Context, *DescribeNetworkAclsInput, ...func(*Options)) (*DescribeNetworkAclsOutput, error)
+}
+
+var _ DescribeNetworkAclsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeNetworkAcls(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -139,6 +139,9 @@ func (c *Client) addOperationDescribeEgressOnlyInternetGatewaysMiddlewares(stack
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeEgressOnlyInternetGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -159,14 +162,6 @@ func (c *Client) addOperationDescribeEgressOnlyInternetGatewaysMiddlewares(stack
 	}
 	return nil
 }
-
-// DescribeEgressOnlyInternetGatewaysAPIClient is a client that implements the
-// DescribeEgressOnlyInternetGateways operation.
-type DescribeEgressOnlyInternetGatewaysAPIClient interface {
-	DescribeEgressOnlyInternetGateways(context.Context, *DescribeEgressOnlyInternetGatewaysInput, ...func(*Options)) (*DescribeEgressOnlyInternetGatewaysOutput, error)
-}
-
-var _ DescribeEgressOnlyInternetGatewaysAPIClient = (*Client)(nil)
 
 // DescribeEgressOnlyInternetGatewaysPaginatorOptions is the paginator options for
 // DescribeEgressOnlyInternetGateways
@@ -238,6 +233,9 @@ func (p *DescribeEgressOnlyInternetGatewaysPaginator) NextPage(ctx context.Conte
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeEgressOnlyInternetGateways(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -256,6 +254,14 @@ func (p *DescribeEgressOnlyInternetGatewaysPaginator) NextPage(ctx context.Conte
 
 	return result, nil
 }
+
+// DescribeEgressOnlyInternetGatewaysAPIClient is a client that implements the
+// DescribeEgressOnlyInternetGateways operation.
+type DescribeEgressOnlyInternetGatewaysAPIClient interface {
+	DescribeEgressOnlyInternetGateways(context.Context, *DescribeEgressOnlyInternetGatewaysInput, ...func(*Options)) (*DescribeEgressOnlyInternetGatewaysOutput, error)
+}
+
+var _ DescribeEgressOnlyInternetGatewaysAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeEgressOnlyInternetGateways(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

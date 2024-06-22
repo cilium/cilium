@@ -130,6 +130,9 @@ func (c *Client) addOperationDescribeSpotFleetRequestsMiddlewares(stack *middlew
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSpotFleetRequests(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -150,14 +153,6 @@ func (c *Client) addOperationDescribeSpotFleetRequestsMiddlewares(stack *middlew
 	}
 	return nil
 }
-
-// DescribeSpotFleetRequestsAPIClient is a client that implements the
-// DescribeSpotFleetRequests operation.
-type DescribeSpotFleetRequestsAPIClient interface {
-	DescribeSpotFleetRequests(context.Context, *DescribeSpotFleetRequestsInput, ...func(*Options)) (*DescribeSpotFleetRequestsOutput, error)
-}
-
-var _ DescribeSpotFleetRequestsAPIClient = (*Client)(nil)
 
 // DescribeSpotFleetRequestsPaginatorOptions is the paginator options for
 // DescribeSpotFleetRequests
@@ -228,6 +223,9 @@ func (p *DescribeSpotFleetRequestsPaginator) NextPage(ctx context.Context, optFn
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeSpotFleetRequests(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -246,6 +244,14 @@ func (p *DescribeSpotFleetRequestsPaginator) NextPage(ctx context.Context, optFn
 
 	return result, nil
 }
+
+// DescribeSpotFleetRequestsAPIClient is a client that implements the
+// DescribeSpotFleetRequests operation.
+type DescribeSpotFleetRequestsAPIClient interface {
+	DescribeSpotFleetRequests(context.Context, *DescribeSpotFleetRequestsInput, ...func(*Options)) (*DescribeSpotFleetRequestsOutput, error)
+}
+
+var _ DescribeSpotFleetRequestsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeSpotFleetRequests(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -203,6 +203,9 @@ func (c *Client) addOperationDescribeRouteTablesMiddlewares(stack *middleware.St
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeRouteTables(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -223,14 +226,6 @@ func (c *Client) addOperationDescribeRouteTablesMiddlewares(stack *middleware.St
 	}
 	return nil
 }
-
-// DescribeRouteTablesAPIClient is a client that implements the
-// DescribeRouteTables operation.
-type DescribeRouteTablesAPIClient interface {
-	DescribeRouteTables(context.Context, *DescribeRouteTablesInput, ...func(*Options)) (*DescribeRouteTablesOutput, error)
-}
-
-var _ DescribeRouteTablesAPIClient = (*Client)(nil)
 
 // DescribeRouteTablesPaginatorOptions is the paginator options for
 // DescribeRouteTables
@@ -300,6 +295,9 @@ func (p *DescribeRouteTablesPaginator) NextPage(ctx context.Context, optFns ...f
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeRouteTables(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -318,6 +316,14 @@ func (p *DescribeRouteTablesPaginator) NextPage(ctx context.Context, optFns ...f
 
 	return result, nil
 }
+
+// DescribeRouteTablesAPIClient is a client that implements the
+// DescribeRouteTables operation.
+type DescribeRouteTablesAPIClient interface {
+	DescribeRouteTables(context.Context, *DescribeRouteTablesInput, ...func(*Options)) (*DescribeRouteTablesOutput, error)
+}
+
+var _ DescribeRouteTablesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeRouteTables(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

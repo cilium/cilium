@@ -127,6 +127,9 @@ func (c *Client) addOperationDescribeAddressesAttributeMiddlewares(stack *middle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAddressesAttribute(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -147,14 +150,6 @@ func (c *Client) addOperationDescribeAddressesAttributeMiddlewares(stack *middle
 	}
 	return nil
 }
-
-// DescribeAddressesAttributeAPIClient is a client that implements the
-// DescribeAddressesAttribute operation.
-type DescribeAddressesAttributeAPIClient interface {
-	DescribeAddressesAttribute(context.Context, *DescribeAddressesAttributeInput, ...func(*Options)) (*DescribeAddressesAttributeOutput, error)
-}
-
-var _ DescribeAddressesAttributeAPIClient = (*Client)(nil)
 
 // DescribeAddressesAttributePaginatorOptions is the paginator options for
 // DescribeAddressesAttribute
@@ -223,6 +218,9 @@ func (p *DescribeAddressesAttributePaginator) NextPage(ctx context.Context, optF
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeAddressesAttribute(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -241,6 +239,14 @@ func (p *DescribeAddressesAttributePaginator) NextPage(ctx context.Context, optF
 
 	return result, nil
 }
+
+// DescribeAddressesAttributeAPIClient is a client that implements the
+// DescribeAddressesAttribute operation.
+type DescribeAddressesAttributeAPIClient interface {
+	DescribeAddressesAttribute(context.Context, *DescribeAddressesAttributeInput, ...func(*Options)) (*DescribeAddressesAttributeOutput, error)
+}
+
+var _ DescribeAddressesAttributeAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeAddressesAttribute(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

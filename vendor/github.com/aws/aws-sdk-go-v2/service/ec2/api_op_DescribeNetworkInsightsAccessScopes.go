@@ -124,6 +124,9 @@ func (c *Client) addOperationDescribeNetworkInsightsAccessScopesMiddlewares(stac
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeNetworkInsightsAccessScopes(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -144,14 +147,6 @@ func (c *Client) addOperationDescribeNetworkInsightsAccessScopesMiddlewares(stac
 	}
 	return nil
 }
-
-// DescribeNetworkInsightsAccessScopesAPIClient is a client that implements the
-// DescribeNetworkInsightsAccessScopes operation.
-type DescribeNetworkInsightsAccessScopesAPIClient interface {
-	DescribeNetworkInsightsAccessScopes(context.Context, *DescribeNetworkInsightsAccessScopesInput, ...func(*Options)) (*DescribeNetworkInsightsAccessScopesOutput, error)
-}
-
-var _ DescribeNetworkInsightsAccessScopesAPIClient = (*Client)(nil)
 
 // DescribeNetworkInsightsAccessScopesPaginatorOptions is the paginator options
 // for DescribeNetworkInsightsAccessScopes
@@ -220,6 +215,9 @@ func (p *DescribeNetworkInsightsAccessScopesPaginator) NextPage(ctx context.Cont
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeNetworkInsightsAccessScopes(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -238,6 +236,14 @@ func (p *DescribeNetworkInsightsAccessScopesPaginator) NextPage(ctx context.Cont
 
 	return result, nil
 }
+
+// DescribeNetworkInsightsAccessScopesAPIClient is a client that implements the
+// DescribeNetworkInsightsAccessScopes operation.
+type DescribeNetworkInsightsAccessScopesAPIClient interface {
+	DescribeNetworkInsightsAccessScopes(context.Context, *DescribeNetworkInsightsAccessScopesInput, ...func(*Options)) (*DescribeNetworkInsightsAccessScopesOutput, error)
+}
+
+var _ DescribeNetworkInsightsAccessScopesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeNetworkInsightsAccessScopes(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -157,6 +157,9 @@ func (c *Client) addOperationDescribeInternetGatewaysMiddlewares(stack *middlewa
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInternetGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -176,102 +179,6 @@ func (c *Client) addOperationDescribeInternetGatewaysMiddlewares(stack *middlewa
 		return err
 	}
 	return nil
-}
-
-// DescribeInternetGatewaysAPIClient is a client that implements the
-// DescribeInternetGateways operation.
-type DescribeInternetGatewaysAPIClient interface {
-	DescribeInternetGateways(context.Context, *DescribeInternetGatewaysInput, ...func(*Options)) (*DescribeInternetGatewaysOutput, error)
-}
-
-var _ DescribeInternetGatewaysAPIClient = (*Client)(nil)
-
-// DescribeInternetGatewaysPaginatorOptions is the paginator options for
-// DescribeInternetGateways
-type DescribeInternetGatewaysPaginatorOptions struct {
-	// The maximum number of items to return for this request. To get the next page of
-	// items, make another request with the token returned in the output. For more
-	// information, see [Pagination].
-	//
-	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
-	Limit int32
-
-	// Set to true if pagination should stop if the service returns a pagination token
-	// that matches the most recent token provided to the service.
-	StopOnDuplicateToken bool
-}
-
-// DescribeInternetGatewaysPaginator is a paginator for DescribeInternetGateways
-type DescribeInternetGatewaysPaginator struct {
-	options   DescribeInternetGatewaysPaginatorOptions
-	client    DescribeInternetGatewaysAPIClient
-	params    *DescribeInternetGatewaysInput
-	nextToken *string
-	firstPage bool
-}
-
-// NewDescribeInternetGatewaysPaginator returns a new
-// DescribeInternetGatewaysPaginator
-func NewDescribeInternetGatewaysPaginator(client DescribeInternetGatewaysAPIClient, params *DescribeInternetGatewaysInput, optFns ...func(*DescribeInternetGatewaysPaginatorOptions)) *DescribeInternetGatewaysPaginator {
-	if params == nil {
-		params = &DescribeInternetGatewaysInput{}
-	}
-
-	options := DescribeInternetGatewaysPaginatorOptions{}
-	if params.MaxResults != nil {
-		options.Limit = *params.MaxResults
-	}
-
-	for _, fn := range optFns {
-		fn(&options)
-	}
-
-	return &DescribeInternetGatewaysPaginator{
-		options:   options,
-		client:    client,
-		params:    params,
-		firstPage: true,
-		nextToken: params.NextToken,
-	}
-}
-
-// HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeInternetGatewaysPaginator) HasMorePages() bool {
-	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
-}
-
-// NextPage retrieves the next DescribeInternetGateways page.
-func (p *DescribeInternetGatewaysPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeInternetGatewaysOutput, error) {
-	if !p.HasMorePages() {
-		return nil, fmt.Errorf("no more pages available")
-	}
-
-	params := *p.params
-	params.NextToken = p.nextToken
-
-	var limit *int32
-	if p.options.Limit > 0 {
-		limit = &p.options.Limit
-	}
-	params.MaxResults = limit
-
-	result, err := p.client.DescribeInternetGateways(ctx, &params, optFns...)
-	if err != nil {
-		return nil, err
-	}
-	p.firstPage = false
-
-	prevToken := p.nextToken
-	p.nextToken = result.NextToken
-
-	if p.options.StopOnDuplicateToken &&
-		prevToken != nil &&
-		p.nextToken != nil &&
-		*prevToken == *p.nextToken {
-		p.nextToken = nil
-	}
-
-	return result, nil
 }
 
 // InternetGatewayExistsWaiterOptions are waiter options for
@@ -391,7 +298,13 @@ func (w *InternetGatewayExistsWaiter) WaitForOutput(ctx context.Context, params 
 		}
 
 		out, err := w.client.DescribeInternetGateways(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -464,6 +377,105 @@ func internetGatewayExistsStateRetryable(ctx context.Context, input *DescribeInt
 
 	return true, nil
 }
+
+// DescribeInternetGatewaysPaginatorOptions is the paginator options for
+// DescribeInternetGateways
+type DescribeInternetGatewaysPaginatorOptions struct {
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeInternetGatewaysPaginator is a paginator for DescribeInternetGateways
+type DescribeInternetGatewaysPaginator struct {
+	options   DescribeInternetGatewaysPaginatorOptions
+	client    DescribeInternetGatewaysAPIClient
+	params    *DescribeInternetGatewaysInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeInternetGatewaysPaginator returns a new
+// DescribeInternetGatewaysPaginator
+func NewDescribeInternetGatewaysPaginator(client DescribeInternetGatewaysAPIClient, params *DescribeInternetGatewaysInput, optFns ...func(*DescribeInternetGatewaysPaginatorOptions)) *DescribeInternetGatewaysPaginator {
+	if params == nil {
+		params = &DescribeInternetGatewaysInput{}
+	}
+
+	options := DescribeInternetGatewaysPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &DescribeInternetGatewaysPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.NextToken,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeInternetGatewaysPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next DescribeInternetGateways page.
+func (p *DescribeInternetGatewaysPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeInternetGatewaysOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
+	result, err := p.client.DescribeInternetGateways(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
+// DescribeInternetGatewaysAPIClient is a client that implements the
+// DescribeInternetGateways operation.
+type DescribeInternetGatewaysAPIClient interface {
+	DescribeInternetGateways(context.Context, *DescribeInternetGatewaysInput, ...func(*Options)) (*DescribeInternetGatewaysOutput, error)
+}
+
+var _ DescribeInternetGatewaysAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeInternetGateways(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -132,6 +132,9 @@ func (c *Client) addOperationReleaseIpamPoolAllocationMiddlewares(stack *middlew
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpReleaseIpamPoolAllocationValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -112,6 +112,9 @@ func (c *Client) addOperationDeleteLocalGatewayRouteTableVpcAssociationMiddlewar
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteLocalGatewayRouteTableVpcAssociationValidationMiddleware(stack); err != nil {
 		return err
 	}

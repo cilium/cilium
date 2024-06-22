@@ -158,6 +158,9 @@ func (c *Client) addOperationDescribeScheduledInstanceAvailabilityMiddlewares(st
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeScheduledInstanceAvailabilityValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -181,14 +184,6 @@ func (c *Client) addOperationDescribeScheduledInstanceAvailabilityMiddlewares(st
 	}
 	return nil
 }
-
-// DescribeScheduledInstanceAvailabilityAPIClient is a client that implements the
-// DescribeScheduledInstanceAvailability operation.
-type DescribeScheduledInstanceAvailabilityAPIClient interface {
-	DescribeScheduledInstanceAvailability(context.Context, *DescribeScheduledInstanceAvailabilityInput, ...func(*Options)) (*DescribeScheduledInstanceAvailabilityOutput, error)
-}
-
-var _ DescribeScheduledInstanceAvailabilityAPIClient = (*Client)(nil)
 
 // DescribeScheduledInstanceAvailabilityPaginatorOptions is the paginator options
 // for DescribeScheduledInstanceAvailability
@@ -258,6 +253,9 @@ func (p *DescribeScheduledInstanceAvailabilityPaginator) NextPage(ctx context.Co
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeScheduledInstanceAvailability(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -276,6 +274,14 @@ func (p *DescribeScheduledInstanceAvailabilityPaginator) NextPage(ctx context.Co
 
 	return result, nil
 }
+
+// DescribeScheduledInstanceAvailabilityAPIClient is a client that implements the
+// DescribeScheduledInstanceAvailability operation.
+type DescribeScheduledInstanceAvailabilityAPIClient interface {
+	DescribeScheduledInstanceAvailability(context.Context, *DescribeScheduledInstanceAvailabilityInput, ...func(*Options)) (*DescribeScheduledInstanceAvailabilityOutput, error)
+}
+
+var _ DescribeScheduledInstanceAvailabilityAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeScheduledInstanceAvailability(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

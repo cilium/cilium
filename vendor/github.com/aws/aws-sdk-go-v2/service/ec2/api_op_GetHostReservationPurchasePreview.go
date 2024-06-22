@@ -127,6 +127,9 @@ func (c *Client) addOperationGetHostReservationPurchasePreviewMiddlewares(stack 
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetHostReservationPurchasePreviewValidationMiddleware(stack); err != nil {
 		return err
 	}

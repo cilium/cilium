@@ -135,6 +135,9 @@ func (c *Client) addOperationDescribeSnapshotTierStatusMiddlewares(stack *middle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSnapshotTierStatus(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -155,14 +158,6 @@ func (c *Client) addOperationDescribeSnapshotTierStatusMiddlewares(stack *middle
 	}
 	return nil
 }
-
-// DescribeSnapshotTierStatusAPIClient is a client that implements the
-// DescribeSnapshotTierStatus operation.
-type DescribeSnapshotTierStatusAPIClient interface {
-	DescribeSnapshotTierStatus(context.Context, *DescribeSnapshotTierStatusInput, ...func(*Options)) (*DescribeSnapshotTierStatusOutput, error)
-}
-
-var _ DescribeSnapshotTierStatusAPIClient = (*Client)(nil)
 
 // DescribeSnapshotTierStatusPaginatorOptions is the paginator options for
 // DescribeSnapshotTierStatus
@@ -234,6 +229,9 @@ func (p *DescribeSnapshotTierStatusPaginator) NextPage(ctx context.Context, optF
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeSnapshotTierStatus(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -252,6 +250,14 @@ func (p *DescribeSnapshotTierStatusPaginator) NextPage(ctx context.Context, optF
 
 	return result, nil
 }
+
+// DescribeSnapshotTierStatusAPIClient is a client that implements the
+// DescribeSnapshotTierStatus operation.
+type DescribeSnapshotTierStatusAPIClient interface {
+	DescribeSnapshotTierStatus(context.Context, *DescribeSnapshotTierStatusInput, ...func(*Options)) (*DescribeSnapshotTierStatusOutput, error)
+}
+
+var _ DescribeSnapshotTierStatusAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeSnapshotTierStatus(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
