@@ -2297,7 +2297,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 			return true
 		})
 
-		ms.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, nil, denyRules, changes)
+		ms.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, selectorCache, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(nil, tt.want))
 		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
@@ -2305,7 +2305,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
-		ms.revertChanges(nil, changes)
+		ms.revertChanges(selectorCache, changes)
 		require.Truef(t, ms.Equals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(nil, tt.ms))
 	}
 }
@@ -3559,7 +3559,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, denyRules)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
 		changes = ChangeState{
 			Adds:    adds,
 			Deletes: deletes,
@@ -3750,4 +3750,65 @@ func TestMapState_Get_stacktrace(t *testing.T) {
 	// go/src/testing/testing.go:1689" subsys=policy
 	_, ok := ms.Get(Key{})
 	assert.False(t, ok)
+}
+
+type validator struct{}
+
+func (v *validator) isSupersetOf(ancestor, descendant Key, identities Identities) {
+	if ancestor.TrafficDirection != descendant.TrafficDirection {
+		panic("TrafficDirection mismatch")
+	}
+
+	ancestorNets := getNets(identities, ancestor.Identity)
+	descendantNets := getNets(identities, descendant.Identity)
+	if !identityIsSupersetOf(ancestor.Identity, descendant.Identity, ancestorNets, descendantNets) {
+		panic(fmt.Sprintf("superset mismatch %s !> %s",
+			identities.GetPrefix(identity.NumericIdentity(ancestor.Identity)).String(),
+			identities.GetPrefix(identity.NumericIdentity(descendant.Identity)).String()))
+	}
+}
+
+func (v *validator) isSupersetOrSame(ancestor, descendant Key, identities Identities) {
+	if ancestor.TrafficDirection != descendant.TrafficDirection {
+		panic("TrafficDirection mismatch")
+	}
+	ancestorNets := getNets(identities, ancestor.Identity)
+	descendantNets := getNets(identities, descendant.Identity)
+	if !(ancestor.Identity == descendant.Identity ||
+		identityIsSupersetOf(ancestor.Identity, descendant.Identity, ancestorNets, descendantNets)) {
+		panic(fmt.Sprintf("superset or equal mismatch %s !>= %s",
+			identities.GetPrefix(identity.NumericIdentity(ancestor.Identity)).String(),
+			identities.GetPrefix(identity.NumericIdentity(descendant.Identity)).String()))
+	}
+}
+
+func TestDenyPreferredInsertLogic(t *testing.T) {
+	td := newTestData()
+	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
+	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
+
+	mapState := newMapState()
+	mapState.validator = &validator{} // insert validator
+
+	// This is DistillPolicy, but with MapState validator injected
+	epPolicy := &EndpointPolicy{
+		selectorPolicy: p,
+		policyMapState: mapState,
+		PolicyOwner:    DummyOwner{},
+	}
+
+	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
+		epPolicy.policyMapState.allowAllIdentities(
+			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
+	}
+	p.insertUser(epPolicy)
+
+	p.SelectorCache.mutex.RLock()
+	epPolicy.toMapState()
+	epPolicy.policyMapState.determineAllowLocalhostIngress()
+	p.SelectorCache.mutex.RUnlock()
+
+	n := epPolicy.policyMapState.Len()
+	p.Detach()
+	assert.True(t, n > 0)
 }

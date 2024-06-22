@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -102,10 +101,17 @@ type MapState interface {
 	WithState(initMap map[Key]MapStateEntry, identities Identities) MapState
 }
 
+type mapStateValidator interface {
+	isSupersetOf(ancestor, descendant Key, identities Identities)
+	isSupersetOrSame(ancestor, descendant Key, identities Identities)
+}
+
 // mapState is a state of a policy map.
 type mapState struct {
 	allows mapStateMap
 	denies mapStateMap
+
+	validator mapStateValidator
 }
 
 // Identities is a convenience interface for looking up CIDRs
@@ -155,6 +161,50 @@ func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
 
 var ip4ZeroPrefix = netip.MustParsePrefix("0.0.0.0/0")
 var ip6ZeroPrefix = netip.MustParsePrefix("::/0")
+
+func (msm *mapStateMap) Ancestors(k Key, f func(Key, MapStateEntry) bool) (complete bool) {
+	complete = true
+	msm.trie.Ancestors(k.PrefixLength(), k, func(_ uint, key bitlpm.Key[policyTypes.Key], identityMap map[identity.NumericIdentity]struct{}) bool {
+		for id := range identityMap {
+			kCpy := key.Value()
+			kCpy.Identity = id.Uint32()
+			if !f(kCpy, msm.entries[k]) {
+				complete = false
+				return false
+			}
+		}
+		return true
+	})
+	return
+}
+
+func (msm *mapStateMap) Descendants(k Key, f func(Key, MapStateEntry) bool) (complete bool) {
+	complete = true
+	msm.trie.Descendants(k.PrefixLength(), k, func(_ uint, key bitlpm.Key[policyTypes.Key], identityMap map[identity.NumericIdentity]struct{}) bool {
+		for id := range identityMap {
+			kCpy := key.Value()
+			kCpy.Identity = id.Uint32()
+			if !f(kCpy, msm.entries[k]) {
+				complete = false
+				return false
+			}
+		}
+		return true
+	})
+	return
+}
+
+func (msm *mapStateMap) getCidrs(k Key) []netip.Prefix {
+	id := identity.NumericIdentity(k.Identity)
+	if id == identity.ReservedIdentityWorld {
+		return []netip.Prefix{ip4ZeroPrefix, ip6ZeroPrefix}
+	}
+	pref, ok := msm.cidrMaps[k.TrafficDirection][identity.NumericIdentity(k.Identity)]
+	if ok {
+		return []netip.Prefix{pref.Prefix}
+	}
+	return nil
+}
 
 func (msm *mapStateMap) upsert(k Key, e MapStateEntry, identities Identities) {
 	_, exists := msm.entries[k]
@@ -817,11 +867,31 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identitie
 	}
 }
 
+// prefixesContainsAny checks that any subnet in the `a` subnet group *fully*
+// contains any of the subnets in the `b` subnet group.
+func prefixesContainsAny(a, b []netip.Prefix) bool {
+	for _, an := range a {
+		aMask := an.Bits()
+		aIsIPv4 := an.Addr().Is4()
+		for _, bn := range b {
+			bIsIPv4 := bn.Addr().Is4()
+			isSameFamily := aIsIPv4 == bIsIPv4
+			if isSameFamily {
+				bMask := bn.Bits()
+				if bMask >= aMask && an.Contains(bn.Addr()) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // identityIsSupersetOf compares two entries and keys to see if the primary identity contains
 // the compared identity. This means that either that primary identity is 0 (i.e. it is a superset
 // of every other identity), or one of the subnets of the primary identity fully contains or is
 // equal to one of the subnets in the compared identity (note:this covers cases like "reserved:world").
-func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, identities Identities) bool {
+func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, primaryPrefixes, comparePrefixes []netip.Prefix) bool {
 	// If the identities are equal then neither is a superset (for the purposes of our business logic).
 	if primaryIdentity == compareIdentity {
 		return false
@@ -881,8 +951,7 @@ func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, identities Id
 	// account whether the identities may represent CIDRs that have a
 	// superset relationship.
 	return primaryIdentity == 0 && compareIdentity != 0 ||
-		ip.PrefixesContainsAny(getNets(identities, primaryIdentity),
-			getNets(identities, compareIdentity))
+		prefixesContainsAny(primaryPrefixes, comparePrefixes)
 }
 
 // protocolsMatch checks to see if two given keys match on protocol.
@@ -931,19 +1000,67 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	var (
 		updates, deletes []MapChange
 	)
+	prefixes := getNets(identities, newKey.Identity)
 	if newEntry.IsDeny {
-		ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
-			// Protocols and traffic directions that don't match ensure that the policies
-			// do not interact in anyway.
-			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
-				return true
+		// Do not insert if this is a redundant deny.
+		if !ms.denies.Ancestors(newKey, func(k Key, v MapStateEntry) bool {
+			if !v.HasDependent(newKey) && v.HasSameOwners(&newEntry) &&
+				(newKey.Identity == k.Identity ||
+					identityIsSupersetOf(k.Identity, newKey.Identity, ms.denies.getCidrs(k), prefixes)) {
+				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
+				// the iterated-deny-entry has a broader (or equal) port-protocol and
+				// the ownership between the entries is the same then we
+				// should not insert the new entry (as long as it is not one
+				// of the special L4-only denies we created to cover the special
+				// case of a superset-allow with a more specific port-protocol).
+				//
+				// NOTE: This condition could be broader to reject more deny entries,
+				// but there *may* be performance tradeoffs.
+				return false
 			}
-			if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
-				if newKey.PortProtoIsBroader(k) {
+			return true
+		}) {
+			return
+		}
+		// Delete redundant denies.
+		ms.denies.Descendants(newKey, func(k Key, v MapStateEntry) bool {
+			if !newEntry.HasDependent(k) && newEntry.HasSameOwners(&v) &&
+				(newKey.Identity == k.Identity ||
+					identityIsSupersetOf(newKey.Identity, k.Identity, prefixes, ms.denies.getCidrs(k))) {
+				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
+				// the new-entry has a broader (or equal) port-protocol and
+				// the ownership between the entries is the same then we
+				// should delete the iterated-deny-entry (as long as it is not one
+				// of the special L4-only denies we created to cover the special
+				// case of a superset-allow with a more specific port-protocol).
+				//
+				// NOTE: This condition could be broader to reject more deny entries,
+				// but there *may* be performance tradeoffs.
+				deletes = append(updates, MapChange{
+					Key: k,
+				})
+			}
+			return true
+		})
+		for _, delete := range deletes {
+			ms.deleteKeyWithChanges(delete.Key, nil, identities, changes)
+		}
+		deletes = nil
+		// Delete covered allows, which includes checking identity.
+		// Create higher precedence denies for identity superset allows with
+		// more specific port protocols.
+		ms.allows.Descendants(newKey, func(k Key, v MapStateEntry) bool {
+			// If the identity is a superset of newKey's then we need to
+			// leave the allow entry in place.
+			if identityIsSupersetOf(k.Identity, newKey.Identity, ms.allows.getCidrs(k), prefixes) {
+				// Descendants will return keys of equal port-protocol, but
+				// we only care about keys that are narrower.
+				if !newKey.PortProtoIsEqual(k) {
 					// If this iterated-allow-entry is a superset of the new-entry
 					// and it has a more specific port-protocol than the new-entry
 					// then an additional copy of the new-entry with the more
-					// specific port-protocol of the iterated-allow-entry must be inserted.
+					// specific port-protocol of the iterated-allow-entry must be inserted
+					// as a deny.
 					newKeyCpy := newKey
 					newKeyCpy.DestPort = k.DestPort
 					newKeyCpy.InvertedPortMask = k.InvertedPortMask
@@ -955,103 +1072,47 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 						Value: l3l4DenyEntry,
 					})
 				}
-			} else if (newKey.Identity == k.Identity ||
-				identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
-				(newKey.PortProtoIsBroader(k) || newKey.PortProtoIsEqual(k)) {
+			} else if newKey.Identity == k.Identity ||
+				identityIsSupersetOf(newKey.Identity, k.Identity, prefixes, ms.allows.getCidrs(k)) {
 				// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 				// the new-entry has a broader (or equal) port-protocol then we
 				// should delete the iterated-allow-entry
 				deletes = append(deletes, MapChange{
 					Key: k,
 				})
-
 			}
 			return true
 		})
+
 		for _, delete := range deletes {
-			if !delete.Add {
-				ms.deleteKeyWithChanges(delete.Key, nil, identities, changes)
-			}
+			ms.deleteKeyWithChanges(delete.Key, nil, identities, changes)
 		}
 		for _, update := range updates {
-			if update.Add {
-				ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
-				// L3-only entries can be deleted incrementally so we need to track their
-				// effects on other entries so that those effects can be reverted when the
-				// identity is removed.
-				newEntry.AddDependent(update.Key)
-			}
+			ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
+			// L3-only entries can be deleted incrementally so we need to track their
+			// effects on other entries so that those effects can be reverted when the
+			// identity is removed.
+			newEntry.AddDependent(update.Key)
 		}
 
-		updates = nil
-		bailed := false
-		ms.ForEachDeny(func(k Key, v MapStateEntry) bool {
-			// Protocols and traffic directions that don't match ensure that the policies
-			// do not interact in anyway.
-			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
-				return true
-			}
-
-			if !v.HasDependent(newKey) && v.HasSameOwners(&newEntry) &&
-				(k.PortProtoIsEqual(newKey) || k.PortProtoIsBroader(newKey)) &&
-				(newKey.Identity == k.Identity ||
-					identityIsSupersetOf(k.Identity, newKey.Identity, identities)) {
-				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
-				// the iterated-deny-entry has a broader (or equal) port-protocol and
-				// the ownership between the entries is the same then we
-				// should not insert the new entry (as long as it is not one
-				// of the special L4-only denies we created to cover the special
-				// case of a superset-allow with a more specific port-protocol).
-				//
-				// NOTE: This condition could be broader to reject more deny entries,
-				// but there *may* be performance tradeoffs.
-				bailed = true
-				return false
-			} else if !newEntry.HasDependent(k) && newEntry.HasSameOwners(&v) &&
-				(newKey.PortProtoIsEqual(k) || newKey.PortProtoIsBroader(k)) &&
-				(newKey.Identity == k.Identity ||
-					identityIsSupersetOf(newKey.Identity, k.Identity, identities)) {
-				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
-				// the new-entry has a broader (or equal) port-protocol and
-				// the ownership between the entries is the same then we
-				// should delete the iterated-deny-entry (as long as it is not one
-				// of the special L4-only denies we created to cover the special
-				// case of a superset-allow with a more specific port-protocol).
-				//
-				// NOTE: This condition could be broader to reject more deny entries,
-				// but there *may* be performance tradeoffs.
-				updates = append(updates, MapChange{
-					Key: k,
-				})
-			}
-			return true
-		})
-		for _, update := range updates {
-			if !update.Add {
-				ms.deleteKeyWithChanges(update.Key, nil, identities, changes)
-			}
-		}
-		if !bailed {
-			ms.addKeyWithChanges(newKey, newEntry, identities, changes)
-		}
+		ms.addKeyWithChanges(newKey, newEntry, identities, changes)
 	} else {
-		// NOTE: We do not delete redundant allow entries.
-		updates = nil
 		var dependents []MapChange
-		bailed := false
-		ms.ForEachDeny(func(k Key, v MapStateEntry) bool {
-			// Protocols and traffic directions that don't match ensure that the policies
-			// do not interact in anyway.
-			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
-				return true
-			}
-			if identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
-				if k.PortProtoIsBroader(newKey) {
+		// Do not insert allows that are completely covered by
+		// a deny entry.
+		// Create specific deny exceptions for allow entries
+		// that are identity superset of the deny, but have more
+		// specific port-protocol
+		if !ms.denies.Ancestors(newKey, func(k Key, v MapStateEntry) bool {
+			if identityIsSupersetOf(newKey.Identity, k.Identity, prefixes, ms.denies.getCidrs(k)) {
+				// Ancestors will iterate over equal port-protocols,
+				// we only care about broader ones.
+				if !k.PortProtoIsEqual(newKey) {
 					// If the new-entry is *only* superset of the iterated-deny-entry
 					// and the new-entry has a more specific port-protocol than the
 					// iterated-deny-entry then an additional copy of the iterated-deny-entry
 					// with the more specific port-porotocol of the new-entry must
-					// be added.
+					// be added as a deny.
 					denyKeyCpy := k
 					denyKeyCpy.DestPort = newKey.DestPort
 					denyKeyCpy.InvertedPortMask = newKey.InvertedPortMask
@@ -1071,27 +1132,23 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					})
 				}
 			} else if (k.Identity == newKey.Identity ||
-				identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
-				(k.PortProtoIsBroader(newKey) || k.PortProtoIsEqual(newKey)) &&
+				identityIsSupersetOf(k.Identity, newKey.Identity, ms.denies.getCidrs(k), prefixes)) &&
 				!v.HasDependent(newKey) {
 				// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
 				// broader (or equal) port-protocol than the new-entry then the new
 				// entry should not be inserted.
-				bailed = true
 				return false
 			}
 			return true
-		})
+		}) {
+			return
+		}
 		for i, update := range updates {
-			if update.Add {
-				ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
-				dep := dependents[i]
-				ms.addDependentOnEntry(dep.Key, dep.Value, update.Key, identities, changes)
-			}
+			ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
+			dep := dependents[i]
+			ms.addDependentOnEntry(dep.Key, dep.Value, update.Key, identities, changes)
 		}
-		if !bailed {
-			ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
-		}
+		ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
 	}
 }
 
