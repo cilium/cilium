@@ -42,68 +42,6 @@ func GenerateL3IngressDenyRules(numRules int) api.Rules {
 	return rules
 }
 
-func GenerateL3EgressDenyRules(numRules int) api.Rules {
-	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
-	fooSelector := api.NewESFromLabels(parseFooLabel)
-	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
-
-	// Change ingRule and rule in the for-loop below to change what type of rules
-	// are added into the policy repository.
-	egDenyRule := api.EgressDenyRule{
-		EgressCommonRule: api.EgressCommonRule{
-			ToEndpoints: []api.EndpointSelector{barSelector},
-		},
-	}
-
-	rules := make(api.Rules, 0, numRules)
-	for i := 1; i <= numRules; i++ {
-		rule := api.Rule{
-			EndpointSelector: fooSelector,
-			EgressDeny:       []api.EgressDenyRule{egDenyRule},
-		}
-		rule.Sanitize()
-		rules = append(rules, &rule)
-	}
-	return rules
-}
-
-func GenerateCIDRDenyRules(numRules int) api.Rules {
-	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
-	fooSelector := api.NewESFromLabels(parseFooLabel)
-	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
-
-	// Change ingRule and rule in the for-loop below to change what type of rules
-	// are added into the policy repository.
-	egDenyRule := api.EgressDenyRule{
-		EgressCommonRule: api.EgressCommonRule{
-			ToCIDR: []api.CIDR{api.CIDR("10.2.3.0/24"), api.CIDR("ff02::/64")},
-		},
-		/*ToRequires:  []api.EndpointSelector{barSelector},
-		ToPorts: []api.PortRule{
-			{
-				Ports: []api.PortProtocol{
-					{
-						Port:     "8080",
-						Protocol: api.ProtoTCP,
-					},
-				},
-			},
-		},*/
-	}
-
-	var rules api.Rules
-	for i := 1; i <= numRules; i++ {
-
-		rule := api.Rule{
-			EndpointSelector: fooSelector,
-			EgressDeny:       []api.EgressDenyRule{egDenyRule},
-		}
-		rule.Sanitize()
-		rules = append(rules, &rule)
-	}
-	return rules
-}
-
 func TestL3WithIngressDenyWildcard(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
