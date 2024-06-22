@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -30,6 +31,7 @@ const (
 	FrameworkMetadata
 	AdditionalMetadata
 	ApplicationIdentifier
+	FeatureMetadata2
 )
 
 func (k SDKAgentKeyType) string() string {
@@ -50,6 +52,8 @@ func (k SDKAgentKeyType) string() string {
 		return "lib"
 	case ApplicationIdentifier:
 		return "app"
+	case FeatureMetadata2:
+		return "m"
 	case AdditionalMetadata:
 		fallthrough
 	default:
@@ -64,9 +68,29 @@ var validChars = map[rune]bool{
 	'-': true, '.': true, '^': true, '_': true, '`': true, '|': true, '~': true,
 }
 
+// UserAgentFeature enumerates tracked SDK features.
+type UserAgentFeature string
+
+// Enumerates UserAgentFeature.
+const (
+	UserAgentFeatureResourceModel          UserAgentFeature = "A" // n/a (we don't generate separate resource types)
+	UserAgentFeatureWaiter                                  = "B"
+	UserAgentFeaturePaginator                               = "C"
+	UserAgentFeatureRetryModeLegacy                         = "D" // n/a (equivalent to standard)
+	UserAgentFeatureRetryModeStandard                       = "E"
+	UserAgentFeatureRetryModeAdaptive                       = "F"
+	UserAgentFeatureS3Transfer                              = "G"
+	UserAgentFeatureS3CryptoV1N                             = "H" // n/a (crypto client is external)
+	UserAgentFeatureS3CryptoV2                              = "I" // n/a
+	UserAgentFeatureS3ExpressBucket                         = "J"
+	UserAgentFeatureS3AccessGrants                          = "K" // not yet implemented
+	UserAgentFeatureGZIPRequestCompression                  = "L"
+)
+
 // RequestUserAgent is a build middleware that set the User-Agent for the request.
 type RequestUserAgent struct {
 	sdkAgent, userAgent *smithyhttp.UserAgentBuilder
+	features            map[UserAgentFeature]struct{}
 }
 
 // NewRequestUserAgent returns a new requestUserAgent which will set the User-Agent and X-Amz-User-Agent for the
@@ -87,6 +111,7 @@ func NewRequestUserAgent() *RequestUserAgent {
 	r := &RequestUserAgent{
 		sdkAgent:  sdkAgent,
 		userAgent: userAgent,
+		features:  map[UserAgentFeature]struct{}{},
 	}
 
 	addSDKMetadata(r)
@@ -191,6 +216,12 @@ func (u *RequestUserAgent) AddUserAgentKeyValue(key, value string) {
 	u.userAgent.AddKeyValue(strings.Map(rules, key), strings.Map(rules, value))
 }
 
+// AddUserAgentFeature adds the feature ID to the tracking list to be emitted
+// in the final User-Agent string.
+func (u *RequestUserAgent) AddUserAgentFeature(feature UserAgentFeature) {
+	u.features[feature] = struct{}{}
+}
+
 // AddSDKAgentKey adds the component identified by name to the User-Agent string.
 func (u *RequestUserAgent) AddSDKAgentKey(keyType SDKAgentKeyType, key string) {
 	// TODO: should target sdkAgent
@@ -227,6 +258,9 @@ func (u *RequestUserAgent) HandleBuild(ctx context.Context, in middleware.BuildI
 func (u *RequestUserAgent) addHTTPUserAgent(request *smithyhttp.Request) {
 	const userAgent = "User-Agent"
 	updateHTTPHeader(request, userAgent, u.userAgent.Build())
+	if len(u.features) > 0 {
+		updateHTTPHeader(request, userAgent, buildFeatureMetrics(u.features))
+	}
 }
 
 func (u *RequestUserAgent) addHTTPSDKAgent(request *smithyhttp.Request) {
@@ -258,4 +292,14 @@ func rules(r rune) rune {
 	default:
 		return '-'
 	}
+}
+
+func buildFeatureMetrics(features map[UserAgentFeature]struct{}) string {
+	fs := make([]string, 0, len(features))
+	for f := range features {
+		fs = append(fs, string(f))
+	}
+
+	sort.Strings(fs)
+	return fmt.Sprintf("%s/%s", FeatureMetadata2.string(), strings.Join(fs, ","))
 }

@@ -150,6 +150,9 @@ func (c *Client) addOperationDescribeBundleTasksMiddlewares(stack *middleware.St
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeBundleTasks(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -170,14 +173,6 @@ func (c *Client) addOperationDescribeBundleTasksMiddlewares(stack *middleware.St
 	}
 	return nil
 }
-
-// DescribeBundleTasksAPIClient is a client that implements the
-// DescribeBundleTasks operation.
-type DescribeBundleTasksAPIClient interface {
-	DescribeBundleTasks(context.Context, *DescribeBundleTasksInput, ...func(*Options)) (*DescribeBundleTasksOutput, error)
-}
-
-var _ DescribeBundleTasksAPIClient = (*Client)(nil)
 
 // BundleTaskCompleteWaiterOptions are waiter options for BundleTaskCompleteWaiter
 type BundleTaskCompleteWaiterOptions struct {
@@ -294,7 +289,13 @@ func (w *BundleTaskCompleteWaiter) WaitForOutput(ctx context.Context, params *De
 		}
 
 		out, err := w.client.DescribeBundleTasks(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -390,6 +391,14 @@ func bundleTaskCompleteStateRetryable(ctx context.Context, input *DescribeBundle
 
 	return true, nil
 }
+
+// DescribeBundleTasksAPIClient is a client that implements the
+// DescribeBundleTasks operation.
+type DescribeBundleTasksAPIClient interface {
+	DescribeBundleTasks(context.Context, *DescribeBundleTasksInput, ...func(*Options)) (*DescribeBundleTasksOutput, error)
+}
+
+var _ DescribeBundleTasksAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeBundleTasks(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -116,6 +116,9 @@ func (c *Client) addOperationDeleteIpamScopeMiddlewares(stack *middleware.Stack,
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteIpamScopeValidationMiddleware(stack); err != nil {
 		return err
 	}

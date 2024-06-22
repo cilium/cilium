@@ -133,6 +133,9 @@ func (c *Client) addOperationDescribeSpotFleetInstancesMiddlewares(stack *middle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeSpotFleetInstancesValidationMiddleware(stack); err != nil {
 		return err
 	}

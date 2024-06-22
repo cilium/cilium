@@ -138,6 +138,9 @@ func (c *Client) addOperationDescribeCapacityReservationFleetsMiddlewares(stack 
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCapacityReservationFleets(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -158,14 +161,6 @@ func (c *Client) addOperationDescribeCapacityReservationFleetsMiddlewares(stack 
 	}
 	return nil
 }
-
-// DescribeCapacityReservationFleetsAPIClient is a client that implements the
-// DescribeCapacityReservationFleets operation.
-type DescribeCapacityReservationFleetsAPIClient interface {
-	DescribeCapacityReservationFleets(context.Context, *DescribeCapacityReservationFleetsInput, ...func(*Options)) (*DescribeCapacityReservationFleetsOutput, error)
-}
-
-var _ DescribeCapacityReservationFleetsAPIClient = (*Client)(nil)
 
 // DescribeCapacityReservationFleetsPaginatorOptions is the paginator options for
 // DescribeCapacityReservationFleets
@@ -237,6 +232,9 @@ func (p *DescribeCapacityReservationFleetsPaginator) NextPage(ctx context.Contex
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeCapacityReservationFleets(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -255,6 +253,14 @@ func (p *DescribeCapacityReservationFleetsPaginator) NextPage(ctx context.Contex
 
 	return result, nil
 }
+
+// DescribeCapacityReservationFleetsAPIClient is a client that implements the
+// DescribeCapacityReservationFleets operation.
+type DescribeCapacityReservationFleetsAPIClient interface {
+	DescribeCapacityReservationFleets(context.Context, *DescribeCapacityReservationFleetsInput, ...func(*Options)) (*DescribeCapacityReservationFleetsOutput, error)
+}
+
+var _ DescribeCapacityReservationFleetsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeCapacityReservationFleets(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

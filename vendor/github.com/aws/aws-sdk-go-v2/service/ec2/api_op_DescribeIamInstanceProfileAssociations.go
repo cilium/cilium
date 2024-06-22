@@ -127,6 +127,9 @@ func (c *Client) addOperationDescribeIamInstanceProfileAssociationsMiddlewares(s
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeIamInstanceProfileAssociations(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -147,14 +150,6 @@ func (c *Client) addOperationDescribeIamInstanceProfileAssociationsMiddlewares(s
 	}
 	return nil
 }
-
-// DescribeIamInstanceProfileAssociationsAPIClient is a client that implements the
-// DescribeIamInstanceProfileAssociations operation.
-type DescribeIamInstanceProfileAssociationsAPIClient interface {
-	DescribeIamInstanceProfileAssociations(context.Context, *DescribeIamInstanceProfileAssociationsInput, ...func(*Options)) (*DescribeIamInstanceProfileAssociationsOutput, error)
-}
-
-var _ DescribeIamInstanceProfileAssociationsAPIClient = (*Client)(nil)
 
 // DescribeIamInstanceProfileAssociationsPaginatorOptions is the paginator options
 // for DescribeIamInstanceProfileAssociations
@@ -226,6 +221,9 @@ func (p *DescribeIamInstanceProfileAssociationsPaginator) NextPage(ctx context.C
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeIamInstanceProfileAssociations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -244,6 +242,14 @@ func (p *DescribeIamInstanceProfileAssociationsPaginator) NextPage(ctx context.C
 
 	return result, nil
 }
+
+// DescribeIamInstanceProfileAssociationsAPIClient is a client that implements the
+// DescribeIamInstanceProfileAssociations operation.
+type DescribeIamInstanceProfileAssociationsAPIClient interface {
+	DescribeIamInstanceProfileAssociations(context.Context, *DescribeIamInstanceProfileAssociationsInput, ...func(*Options)) (*DescribeIamInstanceProfileAssociationsOutput, error)
+}
+
+var _ DescribeIamInstanceProfileAssociationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeIamInstanceProfileAssociations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

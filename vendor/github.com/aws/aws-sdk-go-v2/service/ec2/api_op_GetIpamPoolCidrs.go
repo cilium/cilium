@@ -127,6 +127,9 @@ func (c *Client) addOperationGetIpamPoolCidrsMiddlewares(stack *middleware.Stack
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetIpamPoolCidrsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -150,14 +153,6 @@ func (c *Client) addOperationGetIpamPoolCidrsMiddlewares(stack *middleware.Stack
 	}
 	return nil
 }
-
-// GetIpamPoolCidrsAPIClient is a client that implements the GetIpamPoolCidrs
-// operation.
-type GetIpamPoolCidrsAPIClient interface {
-	GetIpamPoolCidrs(context.Context, *GetIpamPoolCidrsInput, ...func(*Options)) (*GetIpamPoolCidrsOutput, error)
-}
-
-var _ GetIpamPoolCidrsAPIClient = (*Client)(nil)
 
 // GetIpamPoolCidrsPaginatorOptions is the paginator options for GetIpamPoolCidrs
 type GetIpamPoolCidrsPaginatorOptions struct {
@@ -222,6 +217,9 @@ func (p *GetIpamPoolCidrsPaginator) NextPage(ctx context.Context, optFns ...func
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetIpamPoolCidrs(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -240,6 +238,14 @@ func (p *GetIpamPoolCidrsPaginator) NextPage(ctx context.Context, optFns ...func
 
 	return result, nil
 }
+
+// GetIpamPoolCidrsAPIClient is a client that implements the GetIpamPoolCidrs
+// operation.
+type GetIpamPoolCidrsAPIClient interface {
+	GetIpamPoolCidrs(context.Context, *GetIpamPoolCidrsInput, ...func(*Options)) (*GetIpamPoolCidrsOutput, error)
+}
+
+var _ GetIpamPoolCidrsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetIpamPoolCidrs(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

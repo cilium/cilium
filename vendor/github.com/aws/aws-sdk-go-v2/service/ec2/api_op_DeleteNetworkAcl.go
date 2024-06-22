@@ -108,6 +108,9 @@ func (c *Client) addOperationDeleteNetworkAclMiddlewares(stack *middleware.Stack
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteNetworkAclValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -122,6 +122,9 @@ func (c *Client) addOperationListAccountRolesMiddlewares(stack *middleware.Stack
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpListAccountRolesValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -145,14 +148,6 @@ func (c *Client) addOperationListAccountRolesMiddlewares(stack *middleware.Stack
 	}
 	return nil
 }
-
-// ListAccountRolesAPIClient is a client that implements the ListAccountRoles
-// operation.
-type ListAccountRolesAPIClient interface {
-	ListAccountRoles(context.Context, *ListAccountRolesInput, ...func(*Options)) (*ListAccountRolesOutput, error)
-}
-
-var _ ListAccountRolesAPIClient = (*Client)(nil)
 
 // ListAccountRolesPaginatorOptions is the paginator options for ListAccountRoles
 type ListAccountRolesPaginatorOptions struct {
@@ -217,6 +212,9 @@ func (p *ListAccountRolesPaginator) NextPage(ctx context.Context, optFns ...func
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.ListAccountRoles(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -235,6 +233,14 @@ func (p *ListAccountRolesPaginator) NextPage(ctx context.Context, optFns ...func
 
 	return result, nil
 }
+
+// ListAccountRolesAPIClient is a client that implements the ListAccountRoles
+// operation.
+type ListAccountRolesAPIClient interface {
+	ListAccountRoles(context.Context, *ListAccountRolesInput, ...func(*Options)) (*ListAccountRolesOutput, error)
+}
+
+var _ ListAccountRolesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opListAccountRoles(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

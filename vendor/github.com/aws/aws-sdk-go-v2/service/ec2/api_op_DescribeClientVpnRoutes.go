@@ -134,6 +134,9 @@ func (c *Client) addOperationDescribeClientVpnRoutesMiddlewares(stack *middlewar
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeClientVpnRoutesValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -157,14 +160,6 @@ func (c *Client) addOperationDescribeClientVpnRoutesMiddlewares(stack *middlewar
 	}
 	return nil
 }
-
-// DescribeClientVpnRoutesAPIClient is a client that implements the
-// DescribeClientVpnRoutes operation.
-type DescribeClientVpnRoutesAPIClient interface {
-	DescribeClientVpnRoutes(context.Context, *DescribeClientVpnRoutesInput, ...func(*Options)) (*DescribeClientVpnRoutesOutput, error)
-}
-
-var _ DescribeClientVpnRoutesAPIClient = (*Client)(nil)
 
 // DescribeClientVpnRoutesPaginatorOptions is the paginator options for
 // DescribeClientVpnRoutes
@@ -233,6 +228,9 @@ func (p *DescribeClientVpnRoutesPaginator) NextPage(ctx context.Context, optFns 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeClientVpnRoutes(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -251,6 +249,14 @@ func (p *DescribeClientVpnRoutesPaginator) NextPage(ctx context.Context, optFns 
 
 	return result, nil
 }
+
+// DescribeClientVpnRoutesAPIClient is a client that implements the
+// DescribeClientVpnRoutes operation.
+type DescribeClientVpnRoutesAPIClient interface {
+	DescribeClientVpnRoutes(context.Context, *DescribeClientVpnRoutesInput, ...func(*Options)) (*DescribeClientVpnRoutesOutput, error)
+}
+
+var _ DescribeClientVpnRoutesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeClientVpnRoutes(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

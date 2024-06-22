@@ -142,6 +142,9 @@ func (c *Client) addOperationGetCoipPoolUsageMiddlewares(stack *middleware.Stack
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetCoipPoolUsageValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -114,6 +114,9 @@ func (c *Client) addOperationDisassociateIpamResourceDiscoveryMiddlewares(stack 
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDisassociateIpamResourceDiscoveryValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -132,6 +132,9 @@ func (c *Client) addOperationDescribeIpv6PoolsMiddlewares(stack *middleware.Stac
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeIpv6Pools(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -152,14 +155,6 @@ func (c *Client) addOperationDescribeIpv6PoolsMiddlewares(stack *middleware.Stac
 	}
 	return nil
 }
-
-// DescribeIpv6PoolsAPIClient is a client that implements the DescribeIpv6Pools
-// operation.
-type DescribeIpv6PoolsAPIClient interface {
-	DescribeIpv6Pools(context.Context, *DescribeIpv6PoolsInput, ...func(*Options)) (*DescribeIpv6PoolsOutput, error)
-}
-
-var _ DescribeIpv6PoolsAPIClient = (*Client)(nil)
 
 // DescribeIpv6PoolsPaginatorOptions is the paginator options for DescribeIpv6Pools
 type DescribeIpv6PoolsPaginatorOptions struct {
@@ -225,6 +220,9 @@ func (p *DescribeIpv6PoolsPaginator) NextPage(ctx context.Context, optFns ...fun
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeIpv6Pools(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -243,6 +241,14 @@ func (p *DescribeIpv6PoolsPaginator) NextPage(ctx context.Context, optFns ...fun
 
 	return result, nil
 }
+
+// DescribeIpv6PoolsAPIClient is a client that implements the DescribeIpv6Pools
+// operation.
+type DescribeIpv6PoolsAPIClient interface {
+	DescribeIpv6Pools(context.Context, *DescribeIpv6PoolsInput, ...func(*Options)) (*DescribeIpv6PoolsOutput, error)
+}
+
+var _ DescribeIpv6PoolsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeIpv6Pools(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

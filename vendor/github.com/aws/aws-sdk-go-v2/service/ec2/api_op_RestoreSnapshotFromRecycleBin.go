@@ -149,6 +149,9 @@ func (c *Client) addOperationRestoreSnapshotFromRecycleBinMiddlewares(stack *mid
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpRestoreSnapshotFromRecycleBinValidationMiddleware(stack); err != nil {
 		return err
 	}

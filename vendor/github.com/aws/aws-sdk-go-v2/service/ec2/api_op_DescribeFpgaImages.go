@@ -157,6 +157,9 @@ func (c *Client) addOperationDescribeFpgaImagesMiddlewares(stack *middleware.Sta
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFpgaImages(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -177,14 +180,6 @@ func (c *Client) addOperationDescribeFpgaImagesMiddlewares(stack *middleware.Sta
 	}
 	return nil
 }
-
-// DescribeFpgaImagesAPIClient is a client that implements the DescribeFpgaImages
-// operation.
-type DescribeFpgaImagesAPIClient interface {
-	DescribeFpgaImages(context.Context, *DescribeFpgaImagesInput, ...func(*Options)) (*DescribeFpgaImagesOutput, error)
-}
-
-var _ DescribeFpgaImagesAPIClient = (*Client)(nil)
 
 // DescribeFpgaImagesPaginatorOptions is the paginator options for
 // DescribeFpgaImages
@@ -250,6 +245,9 @@ func (p *DescribeFpgaImagesPaginator) NextPage(ctx context.Context, optFns ...fu
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeFpgaImages(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -268,6 +266,14 @@ func (p *DescribeFpgaImagesPaginator) NextPage(ctx context.Context, optFns ...fu
 
 	return result, nil
 }
+
+// DescribeFpgaImagesAPIClient is a client that implements the DescribeFpgaImages
+// operation.
+type DescribeFpgaImagesAPIClient interface {
+	DescribeFpgaImages(context.Context, *DescribeFpgaImagesInput, ...func(*Options)) (*DescribeFpgaImagesOutput, error)
+}
+
+var _ DescribeFpgaImagesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeFpgaImages(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

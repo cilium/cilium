@@ -161,6 +161,9 @@ func (c *Client) addOperationDescribeInstanceCreditSpecificationsMiddlewares(sta
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceCreditSpecifications(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -181,14 +184,6 @@ func (c *Client) addOperationDescribeInstanceCreditSpecificationsMiddlewares(sta
 	}
 	return nil
 }
-
-// DescribeInstanceCreditSpecificationsAPIClient is a client that implements the
-// DescribeInstanceCreditSpecifications operation.
-type DescribeInstanceCreditSpecificationsAPIClient interface {
-	DescribeInstanceCreditSpecifications(context.Context, *DescribeInstanceCreditSpecificationsInput, ...func(*Options)) (*DescribeInstanceCreditSpecificationsOutput, error)
-}
-
-var _ DescribeInstanceCreditSpecificationsAPIClient = (*Client)(nil)
 
 // DescribeInstanceCreditSpecificationsPaginatorOptions is the paginator options
 // for DescribeInstanceCreditSpecifications
@@ -263,6 +258,9 @@ func (p *DescribeInstanceCreditSpecificationsPaginator) NextPage(ctx context.Con
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeInstanceCreditSpecifications(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -281,6 +279,14 @@ func (p *DescribeInstanceCreditSpecificationsPaginator) NextPage(ctx context.Con
 
 	return result, nil
 }
+
+// DescribeInstanceCreditSpecificationsAPIClient is a client that implements the
+// DescribeInstanceCreditSpecifications operation.
+type DescribeInstanceCreditSpecificationsAPIClient interface {
+	DescribeInstanceCreditSpecifications(context.Context, *DescribeInstanceCreditSpecificationsInput, ...func(*Options)) (*DescribeInstanceCreditSpecificationsOutput, error)
+}
+
+var _ DescribeInstanceCreditSpecificationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeInstanceCreditSpecifications(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

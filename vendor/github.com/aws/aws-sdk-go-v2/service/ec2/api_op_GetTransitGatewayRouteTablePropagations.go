@@ -134,6 +134,9 @@ func (c *Client) addOperationGetTransitGatewayRouteTablePropagationsMiddlewares(
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetTransitGatewayRouteTablePropagationsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -157,14 +160,6 @@ func (c *Client) addOperationGetTransitGatewayRouteTablePropagationsMiddlewares(
 	}
 	return nil
 }
-
-// GetTransitGatewayRouteTablePropagationsAPIClient is a client that implements
-// the GetTransitGatewayRouteTablePropagations operation.
-type GetTransitGatewayRouteTablePropagationsAPIClient interface {
-	GetTransitGatewayRouteTablePropagations(context.Context, *GetTransitGatewayRouteTablePropagationsInput, ...func(*Options)) (*GetTransitGatewayRouteTablePropagationsOutput, error)
-}
-
-var _ GetTransitGatewayRouteTablePropagationsAPIClient = (*Client)(nil)
 
 // GetTransitGatewayRouteTablePropagationsPaginatorOptions is the paginator
 // options for GetTransitGatewayRouteTablePropagations
@@ -233,6 +228,9 @@ func (p *GetTransitGatewayRouteTablePropagationsPaginator) NextPage(ctx context.
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetTransitGatewayRouteTablePropagations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -251,6 +249,14 @@ func (p *GetTransitGatewayRouteTablePropagationsPaginator) NextPage(ctx context.
 
 	return result, nil
 }
+
+// GetTransitGatewayRouteTablePropagationsAPIClient is a client that implements
+// the GetTransitGatewayRouteTablePropagations operation.
+type GetTransitGatewayRouteTablePropagationsAPIClient interface {
+	GetTransitGatewayRouteTablePropagations(context.Context, *GetTransitGatewayRouteTablePropagationsInput, ...func(*Options)) (*GetTransitGatewayRouteTablePropagationsOutput, error)
+}
+
+var _ GetTransitGatewayRouteTablePropagationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetTransitGatewayRouteTablePropagations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

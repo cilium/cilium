@@ -163,6 +163,9 @@ func (c *Client) addOperationDescribeVpnConnectionsMiddlewares(stack *middleware
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpnConnections(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -183,14 +186,6 @@ func (c *Client) addOperationDescribeVpnConnectionsMiddlewares(stack *middleware
 	}
 	return nil
 }
-
-// DescribeVpnConnectionsAPIClient is a client that implements the
-// DescribeVpnConnections operation.
-type DescribeVpnConnectionsAPIClient interface {
-	DescribeVpnConnections(context.Context, *DescribeVpnConnectionsInput, ...func(*Options)) (*DescribeVpnConnectionsOutput, error)
-}
-
-var _ DescribeVpnConnectionsAPIClient = (*Client)(nil)
 
 // VpnConnectionAvailableWaiterOptions are waiter options for
 // VpnConnectionAvailableWaiter
@@ -309,7 +304,13 @@ func (w *VpnConnectionAvailableWaiter) WaitForOutput(ctx context.Context, params
 		}
 
 		out, err := w.client.DescribeVpnConnections(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -547,7 +548,13 @@ func (w *VpnConnectionDeletedWaiter) WaitForOutput(ctx context.Context, params *
 		}
 
 		out, err := w.client.DescribeVpnConnections(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -643,6 +650,14 @@ func vpnConnectionDeletedStateRetryable(ctx context.Context, input *DescribeVpnC
 
 	return true, nil
 }
+
+// DescribeVpnConnectionsAPIClient is a client that implements the
+// DescribeVpnConnections operation.
+type DescribeVpnConnectionsAPIClient interface {
+	DescribeVpnConnections(context.Context, *DescribeVpnConnectionsInput, ...func(*Options)) (*DescribeVpnConnectionsOutput, error)
+}
+
+var _ DescribeVpnConnectionsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpnConnections(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

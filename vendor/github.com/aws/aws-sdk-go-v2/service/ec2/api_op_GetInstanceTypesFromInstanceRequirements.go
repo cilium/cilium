@@ -152,6 +152,9 @@ func (c *Client) addOperationGetInstanceTypesFromInstanceRequirementsMiddlewares
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetInstanceTypesFromInstanceRequirementsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -175,14 +178,6 @@ func (c *Client) addOperationGetInstanceTypesFromInstanceRequirementsMiddlewares
 	}
 	return nil
 }
-
-// GetInstanceTypesFromInstanceRequirementsAPIClient is a client that implements
-// the GetInstanceTypesFromInstanceRequirements operation.
-type GetInstanceTypesFromInstanceRequirementsAPIClient interface {
-	GetInstanceTypesFromInstanceRequirements(context.Context, *GetInstanceTypesFromInstanceRequirementsInput, ...func(*Options)) (*GetInstanceTypesFromInstanceRequirementsOutput, error)
-}
-
-var _ GetInstanceTypesFromInstanceRequirementsAPIClient = (*Client)(nil)
 
 // GetInstanceTypesFromInstanceRequirementsPaginatorOptions is the paginator
 // options for GetInstanceTypesFromInstanceRequirements
@@ -254,6 +249,9 @@ func (p *GetInstanceTypesFromInstanceRequirementsPaginator) NextPage(ctx context
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetInstanceTypesFromInstanceRequirements(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -272,6 +270,14 @@ func (p *GetInstanceTypesFromInstanceRequirementsPaginator) NextPage(ctx context
 
 	return result, nil
 }
+
+// GetInstanceTypesFromInstanceRequirementsAPIClient is a client that implements
+// the GetInstanceTypesFromInstanceRequirements operation.
+type GetInstanceTypesFromInstanceRequirementsAPIClient interface {
+	GetInstanceTypesFromInstanceRequirements(context.Context, *GetInstanceTypesFromInstanceRequirementsInput, ...func(*Options)) (*GetInstanceTypesFromInstanceRequirementsOutput, error)
+}
+
+var _ GetInstanceTypesFromInstanceRequirementsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetInstanceTypesFromInstanceRequirements(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

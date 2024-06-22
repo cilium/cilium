@@ -123,6 +123,9 @@ func (c *Client) addOperationDescribeTransitGatewayRouteTableAnnouncementsMiddle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGatewayRouteTableAnnouncements(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -143,14 +146,6 @@ func (c *Client) addOperationDescribeTransitGatewayRouteTableAnnouncementsMiddle
 	}
 	return nil
 }
-
-// DescribeTransitGatewayRouteTableAnnouncementsAPIClient is a client that
-// implements the DescribeTransitGatewayRouteTableAnnouncements operation.
-type DescribeTransitGatewayRouteTableAnnouncementsAPIClient interface {
-	DescribeTransitGatewayRouteTableAnnouncements(context.Context, *DescribeTransitGatewayRouteTableAnnouncementsInput, ...func(*Options)) (*DescribeTransitGatewayRouteTableAnnouncementsOutput, error)
-}
-
-var _ DescribeTransitGatewayRouteTableAnnouncementsAPIClient = (*Client)(nil)
 
 // DescribeTransitGatewayRouteTableAnnouncementsPaginatorOptions is the paginator
 // options for DescribeTransitGatewayRouteTableAnnouncements
@@ -219,6 +214,9 @@ func (p *DescribeTransitGatewayRouteTableAnnouncementsPaginator) NextPage(ctx co
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTransitGatewayRouteTableAnnouncements(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -237,6 +235,14 @@ func (p *DescribeTransitGatewayRouteTableAnnouncementsPaginator) NextPage(ctx co
 
 	return result, nil
 }
+
+// DescribeTransitGatewayRouteTableAnnouncementsAPIClient is a client that
+// implements the DescribeTransitGatewayRouteTableAnnouncements operation.
+type DescribeTransitGatewayRouteTableAnnouncementsAPIClient interface {
+	DescribeTransitGatewayRouteTableAnnouncements(context.Context, *DescribeTransitGatewayRouteTableAnnouncementsInput, ...func(*Options)) (*DescribeTransitGatewayRouteTableAnnouncementsOutput, error)
+}
+
+var _ DescribeTransitGatewayRouteTableAnnouncementsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTransitGatewayRouteTableAnnouncements(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

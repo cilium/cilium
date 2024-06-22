@@ -130,6 +130,9 @@ func (c *Client) addOperationDescribeStaleSecurityGroupsMiddlewares(stack *middl
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeStaleSecurityGroupsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -153,14 +156,6 @@ func (c *Client) addOperationDescribeStaleSecurityGroupsMiddlewares(stack *middl
 	}
 	return nil
 }
-
-// DescribeStaleSecurityGroupsAPIClient is a client that implements the
-// DescribeStaleSecurityGroups operation.
-type DescribeStaleSecurityGroupsAPIClient interface {
-	DescribeStaleSecurityGroups(context.Context, *DescribeStaleSecurityGroupsInput, ...func(*Options)) (*DescribeStaleSecurityGroupsOutput, error)
-}
-
-var _ DescribeStaleSecurityGroupsAPIClient = (*Client)(nil)
 
 // DescribeStaleSecurityGroupsPaginatorOptions is the paginator options for
 // DescribeStaleSecurityGroups
@@ -232,6 +227,9 @@ func (p *DescribeStaleSecurityGroupsPaginator) NextPage(ctx context.Context, opt
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeStaleSecurityGroups(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -250,6 +248,14 @@ func (p *DescribeStaleSecurityGroupsPaginator) NextPage(ctx context.Context, opt
 
 	return result, nil
 }
+
+// DescribeStaleSecurityGroupsAPIClient is a client that implements the
+// DescribeStaleSecurityGroups operation.
+type DescribeStaleSecurityGroupsAPIClient interface {
+	DescribeStaleSecurityGroups(context.Context, *DescribeStaleSecurityGroupsInput, ...func(*Options)) (*DescribeStaleSecurityGroupsOutput, error)
+}
+
+var _ DescribeStaleSecurityGroupsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeStaleSecurityGroups(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

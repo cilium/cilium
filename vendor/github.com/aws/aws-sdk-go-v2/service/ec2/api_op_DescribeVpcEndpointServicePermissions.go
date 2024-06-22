@@ -134,6 +134,9 @@ func (c *Client) addOperationDescribeVpcEndpointServicePermissionsMiddlewares(st
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeVpcEndpointServicePermissionsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -157,14 +160,6 @@ func (c *Client) addOperationDescribeVpcEndpointServicePermissionsMiddlewares(st
 	}
 	return nil
 }
-
-// DescribeVpcEndpointServicePermissionsAPIClient is a client that implements the
-// DescribeVpcEndpointServicePermissions operation.
-type DescribeVpcEndpointServicePermissionsAPIClient interface {
-	DescribeVpcEndpointServicePermissions(context.Context, *DescribeVpcEndpointServicePermissionsInput, ...func(*Options)) (*DescribeVpcEndpointServicePermissionsOutput, error)
-}
-
-var _ DescribeVpcEndpointServicePermissionsAPIClient = (*Client)(nil)
 
 // DescribeVpcEndpointServicePermissionsPaginatorOptions is the paginator options
 // for DescribeVpcEndpointServicePermissions
@@ -235,6 +230,9 @@ func (p *DescribeVpcEndpointServicePermissionsPaginator) NextPage(ctx context.Co
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVpcEndpointServicePermissions(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -253,6 +251,14 @@ func (p *DescribeVpcEndpointServicePermissionsPaginator) NextPage(ctx context.Co
 
 	return result, nil
 }
+
+// DescribeVpcEndpointServicePermissionsAPIClient is a client that implements the
+// DescribeVpcEndpointServicePermissions operation.
+type DescribeVpcEndpointServicePermissionsAPIClient interface {
+	DescribeVpcEndpointServicePermissions(context.Context, *DescribeVpcEndpointServicePermissionsInput, ...func(*Options)) (*DescribeVpcEndpointServicePermissionsOutput, error)
+}
+
+var _ DescribeVpcEndpointServicePermissionsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpcEndpointServicePermissions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

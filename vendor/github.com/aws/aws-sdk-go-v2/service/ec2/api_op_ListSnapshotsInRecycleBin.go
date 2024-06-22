@@ -126,6 +126,9 @@ func (c *Client) addOperationListSnapshotsInRecycleBinMiddlewares(stack *middlew
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opListSnapshotsInRecycleBin(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -146,14 +149,6 @@ func (c *Client) addOperationListSnapshotsInRecycleBinMiddlewares(stack *middlew
 	}
 	return nil
 }
-
-// ListSnapshotsInRecycleBinAPIClient is a client that implements the
-// ListSnapshotsInRecycleBin operation.
-type ListSnapshotsInRecycleBinAPIClient interface {
-	ListSnapshotsInRecycleBin(context.Context, *ListSnapshotsInRecycleBinInput, ...func(*Options)) (*ListSnapshotsInRecycleBinOutput, error)
-}
-
-var _ ListSnapshotsInRecycleBinAPIClient = (*Client)(nil)
 
 // ListSnapshotsInRecycleBinPaginatorOptions is the paginator options for
 // ListSnapshotsInRecycleBin
@@ -224,6 +219,9 @@ func (p *ListSnapshotsInRecycleBinPaginator) NextPage(ctx context.Context, optFn
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.ListSnapshotsInRecycleBin(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -242,6 +240,14 @@ func (p *ListSnapshotsInRecycleBinPaginator) NextPage(ctx context.Context, optFn
 
 	return result, nil
 }
+
+// ListSnapshotsInRecycleBinAPIClient is a client that implements the
+// ListSnapshotsInRecycleBin operation.
+type ListSnapshotsInRecycleBinAPIClient interface {
+	ListSnapshotsInRecycleBin(context.Context, *ListSnapshotsInRecycleBinInput, ...func(*Options)) (*ListSnapshotsInRecycleBinOutput, error)
+}
+
+var _ ListSnapshotsInRecycleBinAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opListSnapshotsInRecycleBin(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

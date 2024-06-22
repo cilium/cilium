@@ -124,6 +124,9 @@ func (c *Client) addOperationGetAssociatedIpv6PoolCidrsMiddlewares(stack *middle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetAssociatedIpv6PoolCidrsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -147,14 +150,6 @@ func (c *Client) addOperationGetAssociatedIpv6PoolCidrsMiddlewares(stack *middle
 	}
 	return nil
 }
-
-// GetAssociatedIpv6PoolCidrsAPIClient is a client that implements the
-// GetAssociatedIpv6PoolCidrs operation.
-type GetAssociatedIpv6PoolCidrsAPIClient interface {
-	GetAssociatedIpv6PoolCidrs(context.Context, *GetAssociatedIpv6PoolCidrsInput, ...func(*Options)) (*GetAssociatedIpv6PoolCidrsOutput, error)
-}
-
-var _ GetAssociatedIpv6PoolCidrsAPIClient = (*Client)(nil)
 
 // GetAssociatedIpv6PoolCidrsPaginatorOptions is the paginator options for
 // GetAssociatedIpv6PoolCidrs
@@ -223,6 +218,9 @@ func (p *GetAssociatedIpv6PoolCidrsPaginator) NextPage(ctx context.Context, optF
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetAssociatedIpv6PoolCidrs(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -241,6 +239,14 @@ func (p *GetAssociatedIpv6PoolCidrsPaginator) NextPage(ctx context.Context, optF
 
 	return result, nil
 }
+
+// GetAssociatedIpv6PoolCidrsAPIClient is a client that implements the
+// GetAssociatedIpv6PoolCidrs operation.
+type GetAssociatedIpv6PoolCidrsAPIClient interface {
+	GetAssociatedIpv6PoolCidrs(context.Context, *GetAssociatedIpv6PoolCidrsInput, ...func(*Options)) (*GetAssociatedIpv6PoolCidrsOutput, error)
+}
+
+var _ GetAssociatedIpv6PoolCidrsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetAssociatedIpv6PoolCidrs(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

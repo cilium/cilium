@@ -143,6 +143,9 @@ func (c *Client) addOperationCreateFpgaImageMiddlewares(stack *middleware.Stack,
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateFpgaImageValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -178,6 +178,9 @@ func (c *Client) addOperationDescribeInstanceTopologyMiddlewares(stack *middlewa
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceTopology(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -198,14 +201,6 @@ func (c *Client) addOperationDescribeInstanceTopologyMiddlewares(stack *middlewa
 	}
 	return nil
 }
-
-// DescribeInstanceTopologyAPIClient is a client that implements the
-// DescribeInstanceTopology operation.
-type DescribeInstanceTopologyAPIClient interface {
-	DescribeInstanceTopology(context.Context, *DescribeInstanceTopologyInput, ...func(*Options)) (*DescribeInstanceTopologyOutput, error)
-}
-
-var _ DescribeInstanceTopologyAPIClient = (*Client)(nil)
 
 // DescribeInstanceTopologyPaginatorOptions is the paginator options for
 // DescribeInstanceTopology
@@ -281,6 +276,9 @@ func (p *DescribeInstanceTopologyPaginator) NextPage(ctx context.Context, optFns
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeInstanceTopology(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -299,6 +297,14 @@ func (p *DescribeInstanceTopologyPaginator) NextPage(ctx context.Context, optFns
 
 	return result, nil
 }
+
+// DescribeInstanceTopologyAPIClient is a client that implements the
+// DescribeInstanceTopology operation.
+type DescribeInstanceTopologyAPIClient interface {
+	DescribeInstanceTopology(context.Context, *DescribeInstanceTopologyInput, ...func(*Options)) (*DescribeInstanceTopologyOutput, error)
+}
+
+var _ DescribeInstanceTopologyAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeInstanceTopology(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -136,6 +136,9 @@ func (c *Client) addOperationDescribeClientVpnTargetNetworksMiddlewares(stack *m
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeClientVpnTargetNetworksValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -159,14 +162,6 @@ func (c *Client) addOperationDescribeClientVpnTargetNetworksMiddlewares(stack *m
 	}
 	return nil
 }
-
-// DescribeClientVpnTargetNetworksAPIClient is a client that implements the
-// DescribeClientVpnTargetNetworks operation.
-type DescribeClientVpnTargetNetworksAPIClient interface {
-	DescribeClientVpnTargetNetworks(context.Context, *DescribeClientVpnTargetNetworksInput, ...func(*Options)) (*DescribeClientVpnTargetNetworksOutput, error)
-}
-
-var _ DescribeClientVpnTargetNetworksAPIClient = (*Client)(nil)
 
 // DescribeClientVpnTargetNetworksPaginatorOptions is the paginator options for
 // DescribeClientVpnTargetNetworks
@@ -236,6 +231,9 @@ func (p *DescribeClientVpnTargetNetworksPaginator) NextPage(ctx context.Context,
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeClientVpnTargetNetworks(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -254,6 +252,14 @@ func (p *DescribeClientVpnTargetNetworksPaginator) NextPage(ctx context.Context,
 
 	return result, nil
 }
+
+// DescribeClientVpnTargetNetworksAPIClient is a client that implements the
+// DescribeClientVpnTargetNetworks operation.
+type DescribeClientVpnTargetNetworksAPIClient interface {
+	DescribeClientVpnTargetNetworks(context.Context, *DescribeClientVpnTargetNetworksInput, ...func(*Options)) (*DescribeClientVpnTargetNetworksOutput, error)
+}
+
+var _ DescribeClientVpnTargetNetworksAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeClientVpnTargetNetworks(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

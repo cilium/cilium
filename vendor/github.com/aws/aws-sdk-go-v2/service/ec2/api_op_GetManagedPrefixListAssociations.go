@@ -124,6 +124,9 @@ func (c *Client) addOperationGetManagedPrefixListAssociationsMiddlewares(stack *
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetManagedPrefixListAssociationsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -147,14 +150,6 @@ func (c *Client) addOperationGetManagedPrefixListAssociationsMiddlewares(stack *
 	}
 	return nil
 }
-
-// GetManagedPrefixListAssociationsAPIClient is a client that implements the
-// GetManagedPrefixListAssociations operation.
-type GetManagedPrefixListAssociationsAPIClient interface {
-	GetManagedPrefixListAssociations(context.Context, *GetManagedPrefixListAssociationsInput, ...func(*Options)) (*GetManagedPrefixListAssociationsOutput, error)
-}
-
-var _ GetManagedPrefixListAssociationsAPIClient = (*Client)(nil)
 
 // GetManagedPrefixListAssociationsPaginatorOptions is the paginator options for
 // GetManagedPrefixListAssociations
@@ -223,6 +218,9 @@ func (p *GetManagedPrefixListAssociationsPaginator) NextPage(ctx context.Context
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetManagedPrefixListAssociations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -241,6 +239,14 @@ func (p *GetManagedPrefixListAssociationsPaginator) NextPage(ctx context.Context
 
 	return result, nil
 }
+
+// GetManagedPrefixListAssociationsAPIClient is a client that implements the
+// GetManagedPrefixListAssociations operation.
+type GetManagedPrefixListAssociationsAPIClient interface {
+	GetManagedPrefixListAssociations(context.Context, *GetManagedPrefixListAssociationsInput, ...func(*Options)) (*GetManagedPrefixListAssociationsOutput, error)
+}
+
+var _ GetManagedPrefixListAssociationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetManagedPrefixListAssociations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

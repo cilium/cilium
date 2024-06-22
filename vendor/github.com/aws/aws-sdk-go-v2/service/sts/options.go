@@ -24,6 +24,9 @@ type Options struct {
 	// modify this list for per operation behavior.
 	APIOptions []func(*middleware.Stack) error
 
+	// Indicates how aws account ID is applied in endpoint2.0 routing
+	AccountIDEndpointMode aws.AccountIDEndpointMode
+
 	// The optional application specific identifier appended to the User-Agent header.
 	AppID string
 

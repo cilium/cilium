@@ -142,6 +142,9 @@ func (c *Client) addOperationGetPasswordDataMiddlewares(stack *middleware.Stack,
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetPasswordDataValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -165,14 +168,6 @@ func (c *Client) addOperationGetPasswordDataMiddlewares(stack *middleware.Stack,
 	}
 	return nil
 }
-
-// GetPasswordDataAPIClient is a client that implements the GetPasswordData
-// operation.
-type GetPasswordDataAPIClient interface {
-	GetPasswordData(context.Context, *GetPasswordDataInput, ...func(*Options)) (*GetPasswordDataOutput, error)
-}
-
-var _ GetPasswordDataAPIClient = (*Client)(nil)
 
 // PasswordDataAvailableWaiterOptions are waiter options for
 // PasswordDataAvailableWaiter
@@ -291,7 +286,13 @@ func (w *PasswordDataAvailableWaiter) WaitForOutput(ctx context.Context, params 
 		}
 
 		out, err := w.client.GetPasswordData(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -352,6 +353,14 @@ func passwordDataAvailableStateRetryable(ctx context.Context, input *GetPassword
 
 	return true, nil
 }
+
+// GetPasswordDataAPIClient is a client that implements the GetPasswordData
+// operation.
+type GetPasswordDataAPIClient interface {
+	GetPasswordData(context.Context, *GetPasswordDataInput, ...func(*Options)) (*GetPasswordDataOutput, error)
+}
+
+var _ GetPasswordDataAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetPasswordData(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

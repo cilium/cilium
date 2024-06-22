@@ -145,6 +145,9 @@ func (c *Client) addOperationDescribeHostsMiddlewares(stack *middleware.Stack, o
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeHosts(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -165,13 +168,6 @@ func (c *Client) addOperationDescribeHostsMiddlewares(stack *middleware.Stack, o
 	}
 	return nil
 }
-
-// DescribeHostsAPIClient is a client that implements the DescribeHosts operation.
-type DescribeHostsAPIClient interface {
-	DescribeHosts(context.Context, *DescribeHostsInput, ...func(*Options)) (*DescribeHostsOutput, error)
-}
-
-var _ DescribeHostsAPIClient = (*Client)(nil)
 
 // DescribeHostsPaginatorOptions is the paginator options for DescribeHosts
 type DescribeHostsPaginatorOptions struct {
@@ -242,6 +238,9 @@ func (p *DescribeHostsPaginator) NextPage(ctx context.Context, optFns ...func(*O
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeHosts(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -260,6 +259,13 @@ func (p *DescribeHostsPaginator) NextPage(ctx context.Context, optFns ...func(*O
 
 	return result, nil
 }
+
+// DescribeHostsAPIClient is a client that implements the DescribeHosts operation.
+type DescribeHostsAPIClient interface {
+	DescribeHosts(context.Context, *DescribeHostsInput, ...func(*Options)) (*DescribeHostsOutput, error)
+}
+
+var _ DescribeHostsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeHosts(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

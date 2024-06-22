@@ -126,6 +126,9 @@ func (c *Client) addOperationDescribePublicIpv4PoolsMiddlewares(stack *middlewar
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribePublicIpv4Pools(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -146,14 +149,6 @@ func (c *Client) addOperationDescribePublicIpv4PoolsMiddlewares(stack *middlewar
 	}
 	return nil
 }
-
-// DescribePublicIpv4PoolsAPIClient is a client that implements the
-// DescribePublicIpv4Pools operation.
-type DescribePublicIpv4PoolsAPIClient interface {
-	DescribePublicIpv4Pools(context.Context, *DescribePublicIpv4PoolsInput, ...func(*Options)) (*DescribePublicIpv4PoolsOutput, error)
-}
-
-var _ DescribePublicIpv4PoolsAPIClient = (*Client)(nil)
 
 // DescribePublicIpv4PoolsPaginatorOptions is the paginator options for
 // DescribePublicIpv4Pools
@@ -221,6 +216,9 @@ func (p *DescribePublicIpv4PoolsPaginator) NextPage(ctx context.Context, optFns 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribePublicIpv4Pools(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -239,6 +237,14 @@ func (p *DescribePublicIpv4PoolsPaginator) NextPage(ctx context.Context, optFns 
 
 	return result, nil
 }
+
+// DescribePublicIpv4PoolsAPIClient is a client that implements the
+// DescribePublicIpv4Pools operation.
+type DescribePublicIpv4PoolsAPIClient interface {
+	DescribePublicIpv4Pools(context.Context, *DescribePublicIpv4PoolsInput, ...func(*Options)) (*DescribePublicIpv4PoolsOutput, error)
+}
+
+var _ DescribePublicIpv4PoolsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribePublicIpv4Pools(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

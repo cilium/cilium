@@ -153,6 +153,9 @@ func (c *Client) addOperationCreateReservedInstancesListingMiddlewares(stack *mi
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateReservedInstancesListingValidationMiddleware(stack); err != nil {
 		return err
 	}

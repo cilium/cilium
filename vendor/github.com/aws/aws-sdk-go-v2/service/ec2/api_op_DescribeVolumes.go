@@ -194,6 +194,9 @@ func (c *Client) addOperationDescribeVolumesMiddlewares(stack *middleware.Stack,
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVolumes(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -213,100 +216,6 @@ func (c *Client) addOperationDescribeVolumesMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	return nil
-}
-
-// DescribeVolumesAPIClient is a client that implements the DescribeVolumes
-// operation.
-type DescribeVolumesAPIClient interface {
-	DescribeVolumes(context.Context, *DescribeVolumesInput, ...func(*Options)) (*DescribeVolumesOutput, error)
-}
-
-var _ DescribeVolumesAPIClient = (*Client)(nil)
-
-// DescribeVolumesPaginatorOptions is the paginator options for DescribeVolumes
-type DescribeVolumesPaginatorOptions struct {
-	// The maximum number of items to return for this request. To get the next page of
-	// items, make another request with the token returned in the output. For more
-	// information, see [Pagination].
-	//
-	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
-	Limit int32
-
-	// Set to true if pagination should stop if the service returns a pagination token
-	// that matches the most recent token provided to the service.
-	StopOnDuplicateToken bool
-}
-
-// DescribeVolumesPaginator is a paginator for DescribeVolumes
-type DescribeVolumesPaginator struct {
-	options   DescribeVolumesPaginatorOptions
-	client    DescribeVolumesAPIClient
-	params    *DescribeVolumesInput
-	nextToken *string
-	firstPage bool
-}
-
-// NewDescribeVolumesPaginator returns a new DescribeVolumesPaginator
-func NewDescribeVolumesPaginator(client DescribeVolumesAPIClient, params *DescribeVolumesInput, optFns ...func(*DescribeVolumesPaginatorOptions)) *DescribeVolumesPaginator {
-	if params == nil {
-		params = &DescribeVolumesInput{}
-	}
-
-	options := DescribeVolumesPaginatorOptions{}
-	if params.MaxResults != nil {
-		options.Limit = *params.MaxResults
-	}
-
-	for _, fn := range optFns {
-		fn(&options)
-	}
-
-	return &DescribeVolumesPaginator{
-		options:   options,
-		client:    client,
-		params:    params,
-		firstPage: true,
-		nextToken: params.NextToken,
-	}
-}
-
-// HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeVolumesPaginator) HasMorePages() bool {
-	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
-}
-
-// NextPage retrieves the next DescribeVolumes page.
-func (p *DescribeVolumesPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeVolumesOutput, error) {
-	if !p.HasMorePages() {
-		return nil, fmt.Errorf("no more pages available")
-	}
-
-	params := *p.params
-	params.NextToken = p.nextToken
-
-	var limit *int32
-	if p.options.Limit > 0 {
-		limit = &p.options.Limit
-	}
-	params.MaxResults = limit
-
-	result, err := p.client.DescribeVolumes(ctx, &params, optFns...)
-	if err != nil {
-		return nil, err
-	}
-	p.firstPage = false
-
-	prevToken := p.nextToken
-	p.nextToken = result.NextToken
-
-	if p.options.StopOnDuplicateToken &&
-		prevToken != nil &&
-		p.nextToken != nil &&
-		*prevToken == *p.nextToken {
-		p.nextToken = nil
-	}
-
-	return result, nil
 }
 
 // VolumeAvailableWaiterOptions are waiter options for VolumeAvailableWaiter
@@ -424,7 +333,13 @@ func (w *VolumeAvailableWaiter) WaitForOutput(ctx context.Context, params *Descr
 		}
 
 		out, err := w.client.DescribeVolumes(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -636,7 +551,13 @@ func (w *VolumeDeletedWaiter) WaitForOutput(ctx context.Context, params *Describ
 		}
 
 		out, err := w.client.DescribeVolumes(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -835,7 +756,13 @@ func (w *VolumeInUseWaiter) WaitForOutput(ctx context.Context, params *DescribeV
 		}
 
 		out, err := w.client.DescribeVolumes(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -931,6 +858,103 @@ func volumeInUseStateRetryable(ctx context.Context, input *DescribeVolumesInput,
 
 	return true, nil
 }
+
+// DescribeVolumesPaginatorOptions is the paginator options for DescribeVolumes
+type DescribeVolumesPaginatorOptions struct {
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeVolumesPaginator is a paginator for DescribeVolumes
+type DescribeVolumesPaginator struct {
+	options   DescribeVolumesPaginatorOptions
+	client    DescribeVolumesAPIClient
+	params    *DescribeVolumesInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeVolumesPaginator returns a new DescribeVolumesPaginator
+func NewDescribeVolumesPaginator(client DescribeVolumesAPIClient, params *DescribeVolumesInput, optFns ...func(*DescribeVolumesPaginatorOptions)) *DescribeVolumesPaginator {
+	if params == nil {
+		params = &DescribeVolumesInput{}
+	}
+
+	options := DescribeVolumesPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &DescribeVolumesPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.NextToken,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeVolumesPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next DescribeVolumes page.
+func (p *DescribeVolumesPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeVolumesOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
+	result, err := p.client.DescribeVolumes(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
+// DescribeVolumesAPIClient is a client that implements the DescribeVolumes
+// operation.
+type DescribeVolumesAPIClient interface {
+	DescribeVolumes(context.Context, *DescribeVolumesInput, ...func(*Options)) (*DescribeVolumesOutput, error)
+}
+
+var _ DescribeVolumesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVolumes(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

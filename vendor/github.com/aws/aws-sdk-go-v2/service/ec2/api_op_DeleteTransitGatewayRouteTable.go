@@ -115,6 +115,9 @@ func (c *Client) addOperationDeleteTransitGatewayRouteTableMiddlewares(stack *mi
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteTransitGatewayRouteTableValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -143,6 +143,9 @@ func (c *Client) addOperationRestoreSnapshotTierMiddlewares(stack *middleware.St
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpRestoreSnapshotTierValidationMiddleware(stack); err != nil {
 		return err
 	}

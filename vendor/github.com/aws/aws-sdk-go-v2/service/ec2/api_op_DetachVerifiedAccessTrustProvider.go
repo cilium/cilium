@@ -127,6 +127,9 @@ func (c *Client) addOperationDetachVerifiedAccessTrustProviderMiddlewares(stack 
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opDetachVerifiedAccessTrustProviderMiddleware(stack, options); err != nil {
 		return err
 	}

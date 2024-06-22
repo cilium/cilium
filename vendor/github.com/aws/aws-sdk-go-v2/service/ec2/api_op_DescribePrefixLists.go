@@ -132,6 +132,9 @@ func (c *Client) addOperationDescribePrefixListsMiddlewares(stack *middleware.St
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribePrefixLists(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -152,14 +155,6 @@ func (c *Client) addOperationDescribePrefixListsMiddlewares(stack *middleware.St
 	}
 	return nil
 }
-
-// DescribePrefixListsAPIClient is a client that implements the
-// DescribePrefixLists operation.
-type DescribePrefixListsAPIClient interface {
-	DescribePrefixLists(context.Context, *DescribePrefixListsInput, ...func(*Options)) (*DescribePrefixListsOutput, error)
-}
-
-var _ DescribePrefixListsAPIClient = (*Client)(nil)
 
 // DescribePrefixListsPaginatorOptions is the paginator options for
 // DescribePrefixLists
@@ -226,6 +221,9 @@ func (p *DescribePrefixListsPaginator) NextPage(ctx context.Context, optFns ...f
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribePrefixLists(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -244,6 +242,14 @@ func (p *DescribePrefixListsPaginator) NextPage(ctx context.Context, optFns ...f
 
 	return result, nil
 }
+
+// DescribePrefixListsAPIClient is a client that implements the
+// DescribePrefixLists operation.
+type DescribePrefixListsAPIClient interface {
+	DescribePrefixLists(context.Context, *DescribePrefixListsInput, ...func(*Options)) (*DescribePrefixListsOutput, error)
+}
+
+var _ DescribePrefixListsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribePrefixLists(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

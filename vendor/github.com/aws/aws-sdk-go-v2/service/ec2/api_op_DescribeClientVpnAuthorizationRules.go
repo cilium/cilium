@@ -135,6 +135,9 @@ func (c *Client) addOperationDescribeClientVpnAuthorizationRulesMiddlewares(stac
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeClientVpnAuthorizationRulesValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -158,14 +161,6 @@ func (c *Client) addOperationDescribeClientVpnAuthorizationRulesMiddlewares(stac
 	}
 	return nil
 }
-
-// DescribeClientVpnAuthorizationRulesAPIClient is a client that implements the
-// DescribeClientVpnAuthorizationRules operation.
-type DescribeClientVpnAuthorizationRulesAPIClient interface {
-	DescribeClientVpnAuthorizationRules(context.Context, *DescribeClientVpnAuthorizationRulesInput, ...func(*Options)) (*DescribeClientVpnAuthorizationRulesOutput, error)
-}
-
-var _ DescribeClientVpnAuthorizationRulesAPIClient = (*Client)(nil)
 
 // DescribeClientVpnAuthorizationRulesPaginatorOptions is the paginator options
 // for DescribeClientVpnAuthorizationRules
@@ -235,6 +230,9 @@ func (p *DescribeClientVpnAuthorizationRulesPaginator) NextPage(ctx context.Cont
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeClientVpnAuthorizationRules(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -253,6 +251,14 @@ func (p *DescribeClientVpnAuthorizationRulesPaginator) NextPage(ctx context.Cont
 
 	return result, nil
 }
+
+// DescribeClientVpnAuthorizationRulesAPIClient is a client that implements the
+// DescribeClientVpnAuthorizationRules operation.
+type DescribeClientVpnAuthorizationRulesAPIClient interface {
+	DescribeClientVpnAuthorizationRules(context.Context, *DescribeClientVpnAuthorizationRulesInput, ...func(*Options)) (*DescribeClientVpnAuthorizationRulesOutput, error)
+}
+
+var _ DescribeClientVpnAuthorizationRulesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeClientVpnAuthorizationRules(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -212,6 +212,9 @@ func (c *Client) addOperationDescribeInstanceStatusMiddlewares(stack *middleware
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceStatus(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -231,104 +234,6 @@ func (c *Client) addOperationDescribeInstanceStatusMiddlewares(stack *middleware
 		return err
 	}
 	return nil
-}
-
-// DescribeInstanceStatusAPIClient is a client that implements the
-// DescribeInstanceStatus operation.
-type DescribeInstanceStatusAPIClient interface {
-	DescribeInstanceStatus(context.Context, *DescribeInstanceStatusInput, ...func(*Options)) (*DescribeInstanceStatusOutput, error)
-}
-
-var _ DescribeInstanceStatusAPIClient = (*Client)(nil)
-
-// DescribeInstanceStatusPaginatorOptions is the paginator options for
-// DescribeInstanceStatus
-type DescribeInstanceStatusPaginatorOptions struct {
-	// The maximum number of items to return for this request. To get the next page of
-	// items, make another request with the token returned in the output. For more
-	// information, see [Pagination].
-	//
-	// You cannot specify this parameter and the instance IDs parameter in the same
-	// request.
-	//
-	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
-	Limit int32
-
-	// Set to true if pagination should stop if the service returns a pagination token
-	// that matches the most recent token provided to the service.
-	StopOnDuplicateToken bool
-}
-
-// DescribeInstanceStatusPaginator is a paginator for DescribeInstanceStatus
-type DescribeInstanceStatusPaginator struct {
-	options   DescribeInstanceStatusPaginatorOptions
-	client    DescribeInstanceStatusAPIClient
-	params    *DescribeInstanceStatusInput
-	nextToken *string
-	firstPage bool
-}
-
-// NewDescribeInstanceStatusPaginator returns a new DescribeInstanceStatusPaginator
-func NewDescribeInstanceStatusPaginator(client DescribeInstanceStatusAPIClient, params *DescribeInstanceStatusInput, optFns ...func(*DescribeInstanceStatusPaginatorOptions)) *DescribeInstanceStatusPaginator {
-	if params == nil {
-		params = &DescribeInstanceStatusInput{}
-	}
-
-	options := DescribeInstanceStatusPaginatorOptions{}
-	if params.MaxResults != nil {
-		options.Limit = *params.MaxResults
-	}
-
-	for _, fn := range optFns {
-		fn(&options)
-	}
-
-	return &DescribeInstanceStatusPaginator{
-		options:   options,
-		client:    client,
-		params:    params,
-		firstPage: true,
-		nextToken: params.NextToken,
-	}
-}
-
-// HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeInstanceStatusPaginator) HasMorePages() bool {
-	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
-}
-
-// NextPage retrieves the next DescribeInstanceStatus page.
-func (p *DescribeInstanceStatusPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeInstanceStatusOutput, error) {
-	if !p.HasMorePages() {
-		return nil, fmt.Errorf("no more pages available")
-	}
-
-	params := *p.params
-	params.NextToken = p.nextToken
-
-	var limit *int32
-	if p.options.Limit > 0 {
-		limit = &p.options.Limit
-	}
-	params.MaxResults = limit
-
-	result, err := p.client.DescribeInstanceStatus(ctx, &params, optFns...)
-	if err != nil {
-		return nil, err
-	}
-	p.firstPage = false
-
-	prevToken := p.nextToken
-	p.nextToken = result.NextToken
-
-	if p.options.StopOnDuplicateToken &&
-		prevToken != nil &&
-		p.nextToken != nil &&
-		*prevToken == *p.nextToken {
-		p.nextToken = nil
-	}
-
-	return result, nil
 }
 
 // InstanceStatusOkWaiterOptions are waiter options for InstanceStatusOkWaiter
@@ -446,7 +351,13 @@ func (w *InstanceStatusOkWaiter) WaitForOutput(ctx context.Context, params *Desc
 		}
 
 		out, err := w.client.DescribeInstanceStatus(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -646,7 +557,13 @@ func (w *SystemStatusOkWaiter) WaitForOutput(ctx context.Context, params *Descri
 		}
 
 		out, err := w.client.DescribeInstanceStatus(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -718,6 +635,107 @@ func systemStatusOkStateRetryable(ctx context.Context, input *DescribeInstanceSt
 
 	return true, nil
 }
+
+// DescribeInstanceStatusPaginatorOptions is the paginator options for
+// DescribeInstanceStatus
+type DescribeInstanceStatusPaginatorOptions struct {
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
+	//
+	// You cannot specify this parameter and the instance IDs parameter in the same
+	// request.
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeInstanceStatusPaginator is a paginator for DescribeInstanceStatus
+type DescribeInstanceStatusPaginator struct {
+	options   DescribeInstanceStatusPaginatorOptions
+	client    DescribeInstanceStatusAPIClient
+	params    *DescribeInstanceStatusInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeInstanceStatusPaginator returns a new DescribeInstanceStatusPaginator
+func NewDescribeInstanceStatusPaginator(client DescribeInstanceStatusAPIClient, params *DescribeInstanceStatusInput, optFns ...func(*DescribeInstanceStatusPaginatorOptions)) *DescribeInstanceStatusPaginator {
+	if params == nil {
+		params = &DescribeInstanceStatusInput{}
+	}
+
+	options := DescribeInstanceStatusPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &DescribeInstanceStatusPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.NextToken,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeInstanceStatusPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next DescribeInstanceStatus page.
+func (p *DescribeInstanceStatusPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeInstanceStatusOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
+	result, err := p.client.DescribeInstanceStatus(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
+// DescribeInstanceStatusAPIClient is a client that implements the
+// DescribeInstanceStatus operation.
+type DescribeInstanceStatusAPIClient interface {
+	DescribeInstanceStatus(context.Context, *DescribeInstanceStatusInput, ...func(*Options)) (*DescribeInstanceStatusOutput, error)
+}
+
+var _ DescribeInstanceStatusAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeInstanceStatus(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

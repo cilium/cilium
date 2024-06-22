@@ -148,6 +148,9 @@ func (c *Client) addOperationSearchTransitGatewayMulticastGroupsMiddlewares(stac
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpSearchTransitGatewayMulticastGroupsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -171,14 +174,6 @@ func (c *Client) addOperationSearchTransitGatewayMulticastGroupsMiddlewares(stac
 	}
 	return nil
 }
-
-// SearchTransitGatewayMulticastGroupsAPIClient is a client that implements the
-// SearchTransitGatewayMulticastGroups operation.
-type SearchTransitGatewayMulticastGroupsAPIClient interface {
-	SearchTransitGatewayMulticastGroups(context.Context, *SearchTransitGatewayMulticastGroupsInput, ...func(*Options)) (*SearchTransitGatewayMulticastGroupsOutput, error)
-}
-
-var _ SearchTransitGatewayMulticastGroupsAPIClient = (*Client)(nil)
 
 // SearchTransitGatewayMulticastGroupsPaginatorOptions is the paginator options
 // for SearchTransitGatewayMulticastGroups
@@ -247,6 +242,9 @@ func (p *SearchTransitGatewayMulticastGroupsPaginator) NextPage(ctx context.Cont
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.SearchTransitGatewayMulticastGroups(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -265,6 +263,14 @@ func (p *SearchTransitGatewayMulticastGroupsPaginator) NextPage(ctx context.Cont
 
 	return result, nil
 }
+
+// SearchTransitGatewayMulticastGroupsAPIClient is a client that implements the
+// SearchTransitGatewayMulticastGroups operation.
+type SearchTransitGatewayMulticastGroupsAPIClient interface {
+	SearchTransitGatewayMulticastGroups(context.Context, *SearchTransitGatewayMulticastGroupsInput, ...func(*Options)) (*SearchTransitGatewayMulticastGroupsOutput, error)
+}
+
+var _ SearchTransitGatewayMulticastGroupsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opSearchTransitGatewayMulticastGroups(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

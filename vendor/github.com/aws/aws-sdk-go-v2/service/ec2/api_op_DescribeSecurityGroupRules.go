@@ -138,6 +138,9 @@ func (c *Client) addOperationDescribeSecurityGroupRulesMiddlewares(stack *middle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSecurityGroupRules(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -158,14 +161,6 @@ func (c *Client) addOperationDescribeSecurityGroupRulesMiddlewares(stack *middle
 	}
 	return nil
 }
-
-// DescribeSecurityGroupRulesAPIClient is a client that implements the
-// DescribeSecurityGroupRules operation.
-type DescribeSecurityGroupRulesAPIClient interface {
-	DescribeSecurityGroupRules(context.Context, *DescribeSecurityGroupRulesInput, ...func(*Options)) (*DescribeSecurityGroupRulesOutput, error)
-}
-
-var _ DescribeSecurityGroupRulesAPIClient = (*Client)(nil)
 
 // DescribeSecurityGroupRulesPaginatorOptions is the paginator options for
 // DescribeSecurityGroupRules
@@ -238,6 +233,9 @@ func (p *DescribeSecurityGroupRulesPaginator) NextPage(ctx context.Context, optF
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeSecurityGroupRules(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -256,6 +254,14 @@ func (p *DescribeSecurityGroupRulesPaginator) NextPage(ctx context.Context, optF
 
 	return result, nil
 }
+
+// DescribeSecurityGroupRulesAPIClient is a client that implements the
+// DescribeSecurityGroupRules operation.
+type DescribeSecurityGroupRulesAPIClient interface {
+	DescribeSecurityGroupRules(context.Context, *DescribeSecurityGroupRulesInput, ...func(*Options)) (*DescribeSecurityGroupRulesOutput, error)
+}
+
+var _ DescribeSecurityGroupRulesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeSecurityGroupRules(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

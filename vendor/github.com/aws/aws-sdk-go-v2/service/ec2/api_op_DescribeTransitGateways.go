@@ -165,6 +165,9 @@ func (c *Client) addOperationDescribeTransitGatewaysMiddlewares(stack *middlewar
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -185,14 +188,6 @@ func (c *Client) addOperationDescribeTransitGatewaysMiddlewares(stack *middlewar
 	}
 	return nil
 }
-
-// DescribeTransitGatewaysAPIClient is a client that implements the
-// DescribeTransitGateways operation.
-type DescribeTransitGatewaysAPIClient interface {
-	DescribeTransitGateways(context.Context, *DescribeTransitGatewaysInput, ...func(*Options)) (*DescribeTransitGatewaysOutput, error)
-}
-
-var _ DescribeTransitGatewaysAPIClient = (*Client)(nil)
 
 // DescribeTransitGatewaysPaginatorOptions is the paginator options for
 // DescribeTransitGateways
@@ -260,6 +255,9 @@ func (p *DescribeTransitGatewaysPaginator) NextPage(ctx context.Context, optFns 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTransitGateways(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -278,6 +276,14 @@ func (p *DescribeTransitGatewaysPaginator) NextPage(ctx context.Context, optFns 
 
 	return result, nil
 }
+
+// DescribeTransitGatewaysAPIClient is a client that implements the
+// DescribeTransitGateways operation.
+type DescribeTransitGatewaysAPIClient interface {
+	DescribeTransitGateways(context.Context, *DescribeTransitGatewaysInput, ...func(*Options)) (*DescribeTransitGatewaysOutput, error)
+}
+
+var _ DescribeTransitGatewaysAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTransitGateways(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

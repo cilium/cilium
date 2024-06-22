@@ -152,6 +152,9 @@ func (c *Client) addOperationExportTransitGatewayRoutesMiddlewares(stack *middle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpExportTransitGatewayRoutesValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -135,6 +135,9 @@ func (c *Client) addOperationGetVpnConnectionDeviceTypesMiddlewares(stack *middl
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetVpnConnectionDeviceTypes(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -155,14 +158,6 @@ func (c *Client) addOperationGetVpnConnectionDeviceTypesMiddlewares(stack *middl
 	}
 	return nil
 }
-
-// GetVpnConnectionDeviceTypesAPIClient is a client that implements the
-// GetVpnConnectionDeviceTypes operation.
-type GetVpnConnectionDeviceTypesAPIClient interface {
-	GetVpnConnectionDeviceTypes(context.Context, *GetVpnConnectionDeviceTypesInput, ...func(*Options)) (*GetVpnConnectionDeviceTypesOutput, error)
-}
-
-var _ GetVpnConnectionDeviceTypesAPIClient = (*Client)(nil)
 
 // GetVpnConnectionDeviceTypesPaginatorOptions is the paginator options for
 // GetVpnConnectionDeviceTypes
@@ -236,6 +231,9 @@ func (p *GetVpnConnectionDeviceTypesPaginator) NextPage(ctx context.Context, opt
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetVpnConnectionDeviceTypes(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -254,6 +252,14 @@ func (p *GetVpnConnectionDeviceTypesPaginator) NextPage(ctx context.Context, opt
 
 	return result, nil
 }
+
+// GetVpnConnectionDeviceTypesAPIClient is a client that implements the
+// GetVpnConnectionDeviceTypes operation.
+type GetVpnConnectionDeviceTypesAPIClient interface {
+	GetVpnConnectionDeviceTypes(context.Context, *GetVpnConnectionDeviceTypesInput, ...func(*Options)) (*GetVpnConnectionDeviceTypesOutput, error)
+}
+
+var _ GetVpnConnectionDeviceTypesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetVpnConnectionDeviceTypes(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

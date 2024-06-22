@@ -129,6 +129,9 @@ func (c *Client) addOperationDescribeImportSnapshotTasksMiddlewares(stack *middl
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeImportSnapshotTasks(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -148,100 +151,6 @@ func (c *Client) addOperationDescribeImportSnapshotTasksMiddlewares(stack *middl
 		return err
 	}
 	return nil
-}
-
-// DescribeImportSnapshotTasksAPIClient is a client that implements the
-// DescribeImportSnapshotTasks operation.
-type DescribeImportSnapshotTasksAPIClient interface {
-	DescribeImportSnapshotTasks(context.Context, *DescribeImportSnapshotTasksInput, ...func(*Options)) (*DescribeImportSnapshotTasksOutput, error)
-}
-
-var _ DescribeImportSnapshotTasksAPIClient = (*Client)(nil)
-
-// DescribeImportSnapshotTasksPaginatorOptions is the paginator options for
-// DescribeImportSnapshotTasks
-type DescribeImportSnapshotTasksPaginatorOptions struct {
-	// The maximum number of results to return in a single call. To retrieve the
-	// remaining results, make another call with the returned NextToken value.
-	Limit int32
-
-	// Set to true if pagination should stop if the service returns a pagination token
-	// that matches the most recent token provided to the service.
-	StopOnDuplicateToken bool
-}
-
-// DescribeImportSnapshotTasksPaginator is a paginator for
-// DescribeImportSnapshotTasks
-type DescribeImportSnapshotTasksPaginator struct {
-	options   DescribeImportSnapshotTasksPaginatorOptions
-	client    DescribeImportSnapshotTasksAPIClient
-	params    *DescribeImportSnapshotTasksInput
-	nextToken *string
-	firstPage bool
-}
-
-// NewDescribeImportSnapshotTasksPaginator returns a new
-// DescribeImportSnapshotTasksPaginator
-func NewDescribeImportSnapshotTasksPaginator(client DescribeImportSnapshotTasksAPIClient, params *DescribeImportSnapshotTasksInput, optFns ...func(*DescribeImportSnapshotTasksPaginatorOptions)) *DescribeImportSnapshotTasksPaginator {
-	if params == nil {
-		params = &DescribeImportSnapshotTasksInput{}
-	}
-
-	options := DescribeImportSnapshotTasksPaginatorOptions{}
-	if params.MaxResults != nil {
-		options.Limit = *params.MaxResults
-	}
-
-	for _, fn := range optFns {
-		fn(&options)
-	}
-
-	return &DescribeImportSnapshotTasksPaginator{
-		options:   options,
-		client:    client,
-		params:    params,
-		firstPage: true,
-		nextToken: params.NextToken,
-	}
-}
-
-// HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeImportSnapshotTasksPaginator) HasMorePages() bool {
-	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
-}
-
-// NextPage retrieves the next DescribeImportSnapshotTasks page.
-func (p *DescribeImportSnapshotTasksPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeImportSnapshotTasksOutput, error) {
-	if !p.HasMorePages() {
-		return nil, fmt.Errorf("no more pages available")
-	}
-
-	params := *p.params
-	params.NextToken = p.nextToken
-
-	var limit *int32
-	if p.options.Limit > 0 {
-		limit = &p.options.Limit
-	}
-	params.MaxResults = limit
-
-	result, err := p.client.DescribeImportSnapshotTasks(ctx, &params, optFns...)
-	if err != nil {
-		return nil, err
-	}
-	p.firstPage = false
-
-	prevToken := p.nextToken
-	p.nextToken = result.NextToken
-
-	if p.options.StopOnDuplicateToken &&
-		prevToken != nil &&
-		p.nextToken != nil &&
-		*prevToken == *p.nextToken {
-		p.nextToken = nil
-	}
-
-	return result, nil
 }
 
 // SnapshotImportedWaiterOptions are waiter options for SnapshotImportedWaiter
@@ -359,7 +268,13 @@ func (w *SnapshotImportedWaiter) WaitForOutput(ctx context.Context, params *Desc
 		}
 
 		out, err := w.client.DescribeImportSnapshotTasks(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -455,6 +370,103 @@ func snapshotImportedStateRetryable(ctx context.Context, input *DescribeImportSn
 
 	return true, nil
 }
+
+// DescribeImportSnapshotTasksPaginatorOptions is the paginator options for
+// DescribeImportSnapshotTasks
+type DescribeImportSnapshotTasksPaginatorOptions struct {
+	// The maximum number of results to return in a single call. To retrieve the
+	// remaining results, make another call with the returned NextToken value.
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeImportSnapshotTasksPaginator is a paginator for
+// DescribeImportSnapshotTasks
+type DescribeImportSnapshotTasksPaginator struct {
+	options   DescribeImportSnapshotTasksPaginatorOptions
+	client    DescribeImportSnapshotTasksAPIClient
+	params    *DescribeImportSnapshotTasksInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeImportSnapshotTasksPaginator returns a new
+// DescribeImportSnapshotTasksPaginator
+func NewDescribeImportSnapshotTasksPaginator(client DescribeImportSnapshotTasksAPIClient, params *DescribeImportSnapshotTasksInput, optFns ...func(*DescribeImportSnapshotTasksPaginatorOptions)) *DescribeImportSnapshotTasksPaginator {
+	if params == nil {
+		params = &DescribeImportSnapshotTasksInput{}
+	}
+
+	options := DescribeImportSnapshotTasksPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &DescribeImportSnapshotTasksPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.NextToken,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeImportSnapshotTasksPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next DescribeImportSnapshotTasks page.
+func (p *DescribeImportSnapshotTasksPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeImportSnapshotTasksOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
+	result, err := p.client.DescribeImportSnapshotTasks(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
+// DescribeImportSnapshotTasksAPIClient is a client that implements the
+// DescribeImportSnapshotTasks operation.
+type DescribeImportSnapshotTasksAPIClient interface {
+	DescribeImportSnapshotTasks(context.Context, *DescribeImportSnapshotTasksInput, ...func(*Options)) (*DescribeImportSnapshotTasksOutput, error)
+}
+
+var _ DescribeImportSnapshotTasksAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeImportSnapshotTasks(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
