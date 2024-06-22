@@ -804,6 +804,65 @@ func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.
 // for the cluster mesh setup in case of connectivity test concurrency > 1
 var multiClusterClientLock = sync.Mutex{}
 
+// determine if only single node tests can be ran.
+// if the user specified SingleNode on the CLI this is taken as the truth and
+// we simply return.
+//
+// otherwise, list nodes and check for NoSchedule taints, as long as we have > 1
+// schedulable nodes we will run multi-node tests.
+func (ct *ConnectivityTest) detectSingleNode(ctx context.Context) error {
+
+	if ct.params.MultiCluster != "" && ct.params.SingleNode {
+		return fmt.Errorf("single-node test can not be enabled with multi-cluster test")
+	}
+
+	// single node explicitly defined by user.
+	if ct.params.SingleNode {
+		return nil
+	}
+
+	// only detect single node for single cluster environments
+	if ct.params.MultiCluster != "" {
+		return nil
+	}
+
+	daemonSet, err := ct.client.GetDaemonSet(ctx, ct.params.CiliumNamespace, ct.params.AgentDaemonSetName, metav1.GetOptions{})
+	if err != nil {
+		ct.Fatal("Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
+		return fmt.Errorf("unable to determine status of Cilium DaemonSet: %w", err)
+	}
+
+	if daemonSet.Status.DesiredNumberScheduled == 1 {
+		ct.params.SingleNode = true
+		return nil
+	}
+
+	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
+	if err != nil {
+		ct.Fatal("Unable to list nodes.")
+		return fmt.Errorf("unable to list nodes: %w", err)
+	}
+
+	numWorkerNodes := len(nodes.Items)
+	for _, n := range nodes.Items {
+		for _, t := range n.Spec.Taints {
+			switch {
+			case (t.Key == "node-role.kubernetes.io/master" && t.Effect == "NoSchedule"):
+				numWorkerNodes--
+			case (t.Key == "node-role.kubernetes.io/control-plane" && t.Effect == "NoSchedule"):
+				numWorkerNodes--
+			}
+		}
+	}
+
+	ct.params.SingleNode = numWorkerNodes == 1
+	if ct.params.SingleNode {
+		ct.Info("Single-node environment detected, enabling single-node connectivity test")
+	}
+
+	return nil
+}
+
 // initClients checks if Cilium is installed on the cluster, whether the cluster
 // has multiple nodes, and whether or not monitor aggregation is enabled.
 // TODO(timo): Split this up, it does a lot.
